@@ -879,7 +879,7 @@ endprotoent :: () -> void #foreign libc;
 
 endservent :: () -> void #foreign libc;
 
-freeaddrinfo :: (__ai: *addrinfo) -> void #foreign libc;
+freeaddrinfo :: (__ai: *addrinfo) -> void #foreign libc; @FreesArgument
 
 freeifaddrs :: (__ifa: *ifaddrs) -> void #foreign libc;
 

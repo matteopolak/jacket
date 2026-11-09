@@ -75,7 +75,7 @@ P :: #import "internal/bindings/posix-api";
 Native :: #import "internal/bindings/native";
 
 libc :: #library,system "c"; @native(external)
-abort :: () #foreign libc;
+abort :: () #foreign libc; @Exits
 
 require :: (status: s32) {
     if status != 0 abort();

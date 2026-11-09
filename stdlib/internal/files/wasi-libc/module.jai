@@ -9,8 +9,8 @@ SEEK_CUR :: 1;
 SEEK_END :: 2;
 
 fopen :: (name: *u8, mode: *u8) -> *FILE #foreign libc;
-close :: (fd: s32) -> s32 #foreign libc;
-fclose :: (file: *FILE) -> s32 #foreign libc;
+close :: (fd: s32) -> s32 #foreign libc; @MaybeFreesArgument
+fclose :: (file: *FILE) -> s32 #foreign libc; @FreesArgument
 fread :: (data: *void, size: u64, count: u64, file: *FILE) -> u64 #foreign libc;
 fwrite :: (data: *void, size: u64, count: u64, file: *FILE) -> u64 #foreign libc;
 fflush :: (file: *FILE) -> s32 #foreign libc;
@@ -121,7 +121,7 @@ clock_gettime :: (clock: clockid_t, result: *timespec) -> s32 #foreign libc;
 nanosleep :: (requested: *timespec, remaining: *timespec) -> s32 #foreign libc;
 gmtime_r :: (time: *time_t, result: *tm) -> *tm #foreign libc;
 localtime_r :: (time: *time_t, result: *tm) -> *tm #foreign libc;
-exit :: (status: s32) #foreign libc;
+exit :: (status: s32) #foreign libc; @Exits
 
 // Neither host has time zones, so local time is UTC and `mktime` is `timegm`. Out-of-range
 // fields carry into the larger ones, as in C.

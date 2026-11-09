@@ -461,7 +461,7 @@ endprotoent :: () -> void #foreign libc;
 
 endservent :: () -> void #foreign libc;
 
-freeaddrinfo :: (__ptr: *addrinfo) -> void #foreign libc;
+freeaddrinfo :: (__ptr: *addrinfo) -> void #foreign libc; @FreesArgument
 
 freeifaddrs :: (__ptr: *ifaddrs) -> void #foreign libc;
 

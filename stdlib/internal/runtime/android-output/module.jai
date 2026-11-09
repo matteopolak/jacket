@@ -54,7 +54,7 @@ standard_output: Queue;
 standard_error: Queue;
 libc :: #system_library "libc"; @native(external)
 write :: (fd: s32, data: *u8, count: u64) -> s64 #foreign libc "write";
-abort :: () #foreign libc "abort";
+abort :: () #foreign libc "abort"; @Exits
 
 unlock :: () #no_context {
     released := Lock.release();

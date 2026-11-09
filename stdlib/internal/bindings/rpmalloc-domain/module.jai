@@ -53,4 +53,4 @@ destroy :: () {
 Bridge :: #import "internal/bindings/rpmalloc-heaps"(STATISTICS = STATISTICS, RAW = RAW, PUBLIC_HEAPS = PUBLIC_HEAPS, GLOBAL_CACHE = GLOBAL_CACHE, THREAD_CACHE = THREAD_CACHE, ASSERTS = ASSERTS, VALIDATE_ARGS = VALIDATE_ARGS, ADAPTIVE = ADAPTIVE);
 
 libc :: #library,system "c"; @native(external)
-abort :: () #foreign libc;
+abort :: () #foreign libc; @Exits

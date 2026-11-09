@@ -386,7 +386,7 @@ ClipboardOwned :: #import "internal/bindings/clipboard-owned-data";
 Native :: #import "internal/bindings/native";
 
 libc :: #library,system "c"; @native(external)
-binding_abort :: () #foreign libc "abort";
+binding_abort :: () #foreign libc "abort"; @Exits
 
 Binding_Message_Choices :: struct {
     labels: [3] string;

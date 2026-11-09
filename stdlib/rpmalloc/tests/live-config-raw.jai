@@ -8,7 +8,7 @@ Context :: #import "internal/bindings/callback-context";
 probe :: #library,system "rpmalloc_live_config_probe";
 native_error_raw :: () -> s32 #foreign probe "raw_native_error";
 libc :: #library,system "c";
-abort :: () #foreign libc;
+abort :: () #foreign libc; @Exits
 
 check :: (condition: bool) {
     if !condition abort();

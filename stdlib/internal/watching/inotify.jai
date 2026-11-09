@@ -7,7 +7,7 @@ R :: #import "internal/watching/event-records";
 Strings :: #import "String";
 
 inotify_libc :: #library,system "c"; @native(external)
-system_free :: (memory: *void) #foreign inotify_libc "free";
+system_free :: (memory: *void) #foreign inotify_libc "free"; @FreesArgument
 
 Pending_Move :: struct {
     cookie: u32;

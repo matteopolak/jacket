@@ -52,4 +52,4 @@ shell32 :: #system_library "shell32"; @native(external)
 GetCommandLineW :: () -> *u16 #foreign kernel32;
 CommandLineToArgvW :: (command: *u16, count: *s32) -> **u16 #foreign shell32;
 WideCharToMultiByte :: (code_page: u32, flags: u32, source: *u16, source_count: s32, destination: *u8, capacity: s32, default_character: *u8, used_default: *s32) -> s32 #foreign kernel32;
-LocalFree :: (memory: *void) -> *void #foreign kernel32;
+LocalFree :: (memory: *void) -> *void #foreign kernel32; @MaybeFreesArgument

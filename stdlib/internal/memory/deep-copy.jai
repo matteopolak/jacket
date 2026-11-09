@@ -207,7 +207,7 @@ timer_failure :: () {
 }
 
 Timer_Libc :: #system_library "libc"; @native(external)
-abort_timer_failure :: () #foreign Timer_Libc "abort";
+abort_timer_failure :: () #foreign Timer_Libc "abort"; @Exits
 
 monotonic_seconds :: () -> float64 {
     seconds, ok := to_float64_seconds(current_time_monotonic());

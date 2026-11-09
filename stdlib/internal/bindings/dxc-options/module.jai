@@ -54,7 +54,7 @@ release :: (arguments: [..] string) {
 Basic :: #import "Basic";
 
 libc :: #library,system "c"; @native(external)
-abort :: () #foreign libc;
+abort :: () #foreign libc; @Exits
 
 add :: (arguments: *[..] string, text: string) {
     Basic.array_add(arguments, Basic.copy_string(text));

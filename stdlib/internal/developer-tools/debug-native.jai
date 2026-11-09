@@ -81,7 +81,7 @@ native :: #library "debug-native/developer_tools_debug"; @native(developer)
 
 native_backtrace :: (trace: **void, maxcount: s64, skip: s64) -> s64 #foreign native "developer_debug_backtrace";
 native_symbols :: (trace: **void, count: s64) -> *string #foreign native "developer_debug_symbols";
-native_free_symbols :: (symbols: *string) #foreign native "developer_debug_free_symbols";
+native_free_symbols :: (symbols: *string) #foreign native "developer_debug_free_symbols"; @FreesArgument
 native_debugger_present :: () -> s32 #foreign native "developer_debug_debugger_present";
 native_readable :: (pointer: *void) -> s32 #foreign native "developer_debug_readable";
 native_output :: (text: *u8, count: s64) -> s32 #foreign native "developer_debug_output";

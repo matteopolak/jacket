@@ -82,4 +82,4 @@ P :: #import "internal/bindings/posix-api";
 Native_Path :: #import "internal/native-path";
 
 libc :: #system_library "libc"; @native(external)
-c_exit :: (status: s32) #foreign libc "exit";
+c_exit :: (status: s32) #foreign libc "exit"; @Exits

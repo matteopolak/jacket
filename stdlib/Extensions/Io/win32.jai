@@ -19,7 +19,7 @@
     win_create_file :: (name: *u16, access: u32, share: u32, security: *void, creation: u32, flags: u32, template: s64) -> s64 #foreign kernel32 "CreateFileW";
     win_read_file :: (handle: s64, buffer: *void, count: u32, transferred: *u32, overlapped: *Overlapped) -> s32 #foreign kernel32 "ReadFile";
     win_write_file :: (handle: s64, buffer: *void, count: u32, transferred: *u32, overlapped: *Overlapped) -> s32 #foreign kernel32 "WriteFile";
-    win_close_handle :: (handle: s64) -> s32 #foreign kernel32 "CloseHandle";
+    win_close_handle :: (handle: s64) -> s32 #foreign kernel32 "CloseHandle"; @MaybeFreesArgument
     win_file_size :: (handle: s64, size: *s64) -> s32 #foreign kernel32 "GetFileSizeEx";
     win_last_error :: () -> u32 #foreign kernel32 "GetLastError";
     win_utf8_to_wide :: (code_page: u32, flags: u32, text: *u8, bytes: s32, wide: *u16, wide_count: s32) -> s32 #foreign kernel32 "MultiByteToWideChar";
@@ -42,7 +42,7 @@
     win_wsa_cleanup :: () -> s32 #foreign ws2_32 "WSACleanup";
     win_wsa_error :: () -> s32 #foreign ws2_32 "WSAGetLastError";
     win_socket :: (family: s32, kind: s32, protocol: s32, info: *void, group: u32, flags: u32) -> s64 #foreign ws2_32 "WSASocketW";
-    win_close_socket :: (socket: s64) -> s32 #foreign ws2_32 "closesocket";
+    win_close_socket :: (socket: s64) -> s32 #foreign ws2_32 "closesocket"; @MaybeFreesArgument
     win_bind :: (socket: s64, address: *void, length: s32) -> s32 #foreign ws2_32 "bind";
     win_listen :: (socket: s64, backlog: s32) -> s32 #foreign ws2_32 "listen";
     win_socket_name :: (socket: s64, address: *void, length: *s32) -> s32 #foreign ws2_32 "getsockname";
@@ -53,7 +53,7 @@
     win_receive :: (socket: s64, buffers: *Wsa_Buffer, count: u32, received: *u32, flags: *u32, overlapped: *Overlapped, completion: *void) -> s32 #foreign ws2_32 "WSARecv";
     win_send :: (socket: s64, buffers: *Wsa_Buffer, count: u32, sent: *u32, flags: u32, overlapped: *Overlapped, completion: *void) -> s32 #foreign ws2_32 "WSASend";
     win_get_address_info :: (node: *u8, service: *u8, hints: *Addrinfo, result: **Addrinfo) -> s32 #foreign ws2_32 "getaddrinfo";
-    win_free_address_info :: (result: *Addrinfo) #foreign ws2_32 "freeaddrinfo";
+    win_free_address_info :: (result: *Addrinfo) #foreign ws2_32 "freeaddrinfo"; @FreesArgument
 
     // Types and numbers
 

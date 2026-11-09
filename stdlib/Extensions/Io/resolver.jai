@@ -479,7 +479,7 @@ helper_main :: (thread: *Thread.Thread) -> s64 {
 
 #if OS != .WINDOWS {
     c_getaddrinfo :: (node: *u8, service: *u8, hints: *Addrinfo, result: **Addrinfo) -> s32 #foreign libc "getaddrinfo";
-    c_freeaddrinfo :: (result: *Addrinfo) #foreign libc "freeaddrinfo";
+    c_freeaddrinfo :: (result: *Addrinfo) #foreign libc "freeaddrinfo"; @FreesArgument
 
     address_info :: (host: *u8, hints: *Addrinfo, found: **Addrinfo) -> s32 {
         return c_getaddrinfo(host, null, hints, found);

@@ -22,7 +22,7 @@ Io :: #import "Extensions/Io";
     c_write :: (fd: s32, buffer: *void, length: u64) -> s64 #foreign libc "write";
     c_kill :: (pid: s32, signal: s32) -> s32 #foreign libc "kill";
     c_waitpid :: (pid: s32, status: *s32, options: s32) -> s32 #foreign libc "waitpid";
-    c_exit :: (status: s32) #foreign libc "_exit";
+    c_exit :: (status: s32) #foreign libc "_exit"; @Exits
     proc_pidinfo :: (pid: s32, flavor: s32, argument: u64, buffer: *void, size: s32) -> s32 #foreign libc;
 }
 

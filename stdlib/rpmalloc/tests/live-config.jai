@@ -14,7 +14,7 @@ native_error_raw :: () -> s32 #foreign probe "native_error";
 native_size_raw :: (index: u32) -> u64 #foreign probe "native_size";
 native_error_mode :: () -> s32 #foreign probe;
 libc :: #library,system "c";
-abort :: () #foreign libc;
+abort :: () #foreign libc; @Exits
 
 check :: (condition: bool) {
     if !condition abort();

@@ -5,7 +5,7 @@ P :: #import "Extensions/Meow_Portable";
 #if CPU == .X64 {
     libc :: #system_library "libc"; @native(external)
     c_malloc :: (size: u64) -> *void #foreign libc "malloc";
-    c_free :: (memory: *void) #foreign libc "free";
+    c_free :: (memory: *void) #foreign libc "free"; @FreesArgument
 
     // Basic's allocator may reserve alignment slack; malloc makes ASan see the
     // requested end for every size, including large and unaligned inputs.
@@ -105,7 +105,7 @@ P :: #import "Extensions/Meow_Portable";
         getpagesize :: () -> s32 #foreign libc;
         mmap :: (address: *void, length: u64, protection: s32, flags: s32, fd: s32, offset: s64) -> *void #foreign libc;
         mprotect :: (address: *void, length: u64, protection: s32) -> s32 #foreign libc;
-        munmap :: (address: *void, length: u64) -> s32 #foreign libc;
+        munmap :: (address: *void, length: u64) -> s32 #foreign libc; @MaybeFreesArgument
 
         guards :: () {
             page := cast(int) getpagesize();

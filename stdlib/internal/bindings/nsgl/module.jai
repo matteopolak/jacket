@@ -116,9 +116,9 @@ O :: #import "internal/bindings/objc-api";
 libobjc :: #library,system "objc"; @native(external)
 message :: () #foreign libobjc "objc_msgSend";
 libc :: #library,system "c"; @native(external)
-native_printf :: (fmt: *u8, args: ..Any) -> s32 #foreign libc "printf";
+native_printf :: (fmt: *u8, args: ..Any) -> s32 #foreign libc "printf"; @WritesOutput
 native_fflush :: (stream: *void) -> s32 #foreign libc "fflush";
-native_abort :: () #foreign libc "abort";
+native_abort :: () #foreign libc "abort"; @Exits
 
 // Complete native attribute values/signatures come from pinned NSOpenGL.h.
 PFA_DOUBLE_BUFFER :: 5;

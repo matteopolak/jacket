@@ -27,7 +27,7 @@ uid :: (str: string) -> GUID {
 
 #scope_file
 libc :: #library,system "c"; @native(external)
-guid_invalid :: () #foreign libc "abort";
+guid_invalid :: () #foreign libc "abort"; @Exits
 
 guid_nibble :: (c: u8) -> u8 {
     if c >= #char "0" && c <= #char "9" return c - #char "0";

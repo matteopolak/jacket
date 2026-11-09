@@ -142,10 +142,10 @@ Options :: #import "internal/bindings/dxc-options";
 Wide :: #import "internal/bindings/dxc-wide";
 
 libc :: #library,system "c"; @native(external)
-binding_dxc_printf :: (format: *u8, args: ..Any) -> s32 #foreign libc "printf";
+binding_dxc_printf :: (format: *u8, args: ..Any) -> s32 #foreign libc "printf"; @WritesOutput
 binding_dxc_flush :: (stream: *void) -> s32 #foreign libc "fflush";
 binding_dxc_write :: (fd: s32, bytes: *void, count: u32) -> s32 #foreign libc "_write";
-binding_dxc_abort :: () #foreign libc "abort";
+binding_dxc_abort :: () #foreign libc "abort"; @Exits
 binding_dxc_copy :: (destination: *void, source: *void, count: u64) -> *void #foreign libc "memcpy";
 
 binding_dxc_message :: (text: *u8) {

@@ -8,7 +8,7 @@ SameOutput :: #import "internal/runtime/android-output";
 
 libc :: #library,system "c";
 native_write :: (fd: s32, data: *u8, count: u64) -> s64 #foreign libc "write";
-abort :: () #foreign libc;
+abort :: () #foreign libc; @Exits
 
 emit :: (text: string) #no_context {
     offset: s64;

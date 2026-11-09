@@ -13,7 +13,7 @@ Stack :: struct {
     kernel32 :: #system_library "kernel32"; @native(external)
     VirtualAlloc :: (address: *void, size: u64, allocation_type: u32, protect: u32) -> *void #foreign kernel32;
     VirtualProtect :: (address: *void, size: u64, new_protect: u32, old_protect: *u32) -> s32 #foreign kernel32;
-    VirtualFree :: (address: *void, size: u64, free_type: u32) -> s32 #foreign kernel32;
+    VirtualFree :: (address: *void, size: u64, free_type: u32) -> s32 #foreign kernel32; @MaybeFreesArgument
     DiscardVirtualMemory :: (address: *void, size: u64) -> u32 #foreign kernel32;
 
     MEM_COMMIT :: 0x1000;
@@ -52,7 +52,7 @@ Stack :: struct {
     getpagesize :: () -> s32 #foreign libc;
     mmap :: (address: *void, length: u64, protection: s32, flags: s32, descriptor: s32, offset: s64) -> *void #foreign libc;
     mprotect :: (address: *void, length: u64, protection: s32) -> s32 #foreign libc;
-    munmap :: (address: *void, length: u64) -> s32 #foreign libc;
+    munmap :: (address: *void, length: u64) -> s32 #foreign libc; @MaybeFreesArgument
     madvise :: (address: *void, length: u64, advice: s32) -> s32 #foreign libc;
 
     page_bytes :: () -> s64 {

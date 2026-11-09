@@ -181,7 +181,7 @@ MAX_TRANSFER :: 0x4000_0000;
     c_pwrite :: (fd: s32, buffer: *void, length: u64, offset: s64) -> s64 #foreign libc "pwrite";
     // open and fcntl are variadic in C, which matters on Apple arm64 (variadic arguments go on the stack).
     c_open :: (path: *u8, flags: s32, args: ..Any) -> s32 #foreign libc "open";
-    c_close :: (fd: s32) -> s32 #foreign libc "close";
+    c_close :: (fd: s32) -> s32 #foreign libc "close"; @MaybeFreesArgument
     c_unlink :: (path: *u8) -> s32 #foreign libc "unlink";
     c_fcntl :: (fd: s32, command: s32, args: ..Any) -> s32 #foreign libc "fcntl";
     c_pipe :: (fds: *s32) -> s32 #foreign libc "pipe";

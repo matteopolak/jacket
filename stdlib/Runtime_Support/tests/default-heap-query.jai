@@ -1,7 +1,7 @@
 #import "Basic";
 
 libc :: #system_library "libc";
-finish :: (status: s32) #foreign libc "exit";
+finish :: (status: s32) #foreign libc "exit"; @Exits
 
 main :: () {
     base := context.allocator;

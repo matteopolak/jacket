@@ -888,7 +888,7 @@ endrpcent :: () -> void #foreign libc;
 
 endservent :: () -> void #foreign libc;
 
-freeaddrinfo :: (unknown0: *addrinfo) -> void #foreign libc;
+freeaddrinfo :: (unknown0: *addrinfo) -> void #foreign libc; @FreesArgument
 
 freehostent :: (unknown0: *hostent) -> void #foreign libc;
 

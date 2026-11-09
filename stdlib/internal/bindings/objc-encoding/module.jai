@@ -147,4 +147,4 @@ require :: (condition: bool, message: string) {
 Basic :: #import "Basic";
 
 libc :: #library,system "c"; @native(external)
-abort :: () #foreign libc;
+abort :: () #foreign libc; @Exits

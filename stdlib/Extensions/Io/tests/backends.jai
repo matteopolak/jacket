@@ -20,7 +20,7 @@
     c_readlink :: (path: *u8, buffer: *u8, size: u64) -> s64 #foreign libc "readlink";
     c_open :: (path: *u8, flags: s32) -> s32 #foreign libc "open";
     c_dup2 :: (from: s32, to: s32) -> s32 #foreign libc "dup2";
-    c_close :: (fd: s32) -> s32 #foreign libc "close";
+    c_close :: (fd: s32) -> s32 #foreign libc "close"; @MaybeFreesArgument
 
     // The scheduler's epoll descriptor, or -1.
     find_epoll_descriptor :: () -> s32 {

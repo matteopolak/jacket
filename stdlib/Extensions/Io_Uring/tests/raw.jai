@@ -24,7 +24,7 @@ main :: () {
 #if OS == .LINUX {
     libc :: #system_library "libc";
     open :: (path: *u8, flags: s32, mode: u32) -> s32 #foreign libc;
-    close :: (descriptor: s32) -> s32 #foreign libc;
+    close :: (descriptor: s32) -> s32 #foreign libc; @MaybeFreesArgument
     unlink :: (path: *u8) -> s32 #foreign libc;
 
     O_RDWR :: 2;

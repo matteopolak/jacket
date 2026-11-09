@@ -22,5 +22,5 @@ allocate :: (bytes: s64) -> *void #no_context {
 #scope_file
 libc :: #library,system "c"; @native(external)
 malloc :: (bytes: u64) -> *void #foreign libc;
-free :: (memory: *void) #foreign libc;
-abort :: () #foreign libc;
+free :: (memory: *void) #foreign libc; @FreesArgument
+abort :: () #foreign libc; @Exits

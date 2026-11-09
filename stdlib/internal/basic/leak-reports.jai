@@ -338,7 +338,7 @@ RT :: #import "Hash_Table";
 LC :: #import "Compiler";
 
 leak_libc :: #system_library "libc"; @native(external)
-terminate_debug_misuse :: (status: s32) #foreign leak_libc "exit";
+terminate_debug_misuse :: (status: s32) #foreign leak_libc "exit"; @Exits
 
 Report_Allocation :: struct {
     allocation: *Allocation;

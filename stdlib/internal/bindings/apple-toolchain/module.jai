@@ -24,7 +24,7 @@ sdk_pclose :: (stream: *void) -> s32 #foreign libc "pclose";
 sdk_fread :: (ptr: *void, size: u64, count: u64, stream: *void) -> u64 #foreign libc "fread";
 sdk_ferror :: (stream: *void) -> s32 #foreign libc "ferror";
 sdk_write :: (fd: s32, ptr: *u8, count: u64) -> s64 #foreign libc "write";
-sdk_abort :: () #foreign libc "abort";
+sdk_abort :: () #foreign libc "abort"; @Exits
 
 sdk_log_failure :: (message: string) {
     written: s64;

@@ -6,7 +6,7 @@ P :: #import "Process";
 N :: #import "POSIX";
 
 libc :: #system_library "libc";
-c_free :: (pointer: *void) #foreign libc "free";
+c_free :: (pointer: *void) #foreign libc "free"; @FreesArgument
 
 observed: W.File_Change_Event;
 callbacks: s64;
