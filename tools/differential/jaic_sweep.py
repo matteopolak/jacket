@@ -172,7 +172,7 @@ def cases(name):
             )
     elif name == "examples":
         cases = json.loads((ROOT / "tests/corpus/examples.json").read_text())["cases"]
-        folders = {d.name for d in (ROOT / "examples").iterdir() if d.is_dir()}
+        folders = {d.name for d in (ROOT / "examples").iterdir() if d.is_dir() and not d.name.startswith(".")}
         missing = folders - {Path(c["directory"]).name for c in cases}
         if missing:
             sys.exit(f"jaic_sweep: examples/{sorted(missing)[0]} has no case in tests/corpus/examples.json")
