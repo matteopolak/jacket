@@ -626,7 +626,9 @@ impl Interp {
                     Err(message) => return Some(self.trap(message)),
                 }
             }
-            Win32Fn::WaitForSingleObject | Win32Fn::WaitForSingleObjectEx if self.owns(arg(0)) => {
+            Win32Fn::WaitForSingleObject | Win32Fn::WaitForSingleObjectEx
+                if self.owns(arg(0)) || self.was_closed(arg(0)) =>
+            {
                 self.wait_objects(&[arg(0)], false, arg(1) as u32)
             }
             Win32Fn::WaitForMultipleObjects | Win32Fn::WaitForMultipleObjectsEx => {
@@ -640,7 +642,7 @@ impl Interp {
                     Ok(handles) => handles,
                     Err(trap) => return Some(Err(trap)),
                 };
-                if !handles.iter().all(|&h| self.owns(h)) {
+                if !handles.iter().all(|&h| self.owns(h) || self.was_closed(h)) {
                     return None;
                 }
                 self.wait_objects(&handles, arg(2) as u32 != 0, arg(3) as u32)
@@ -902,6 +904,18 @@ impl Interp {
                 .shared
                 .as_ref()
                 .is_some_and(|s| s.lock().objects.contains_key(&handle))
+    }
+
+    /// A handle the scheduler made and has since closed. It names nothing, so a wait on it
+    /// fails (`WAIT_FAILED`) instead of going to a native call that cannot know it. Kernel
+    /// handles (Windows threads, events) are not tracked: the kernel reports those itself.
+    fn was_closed(&self, handle: u64) -> bool {
+        let Some(shared) = &self.shared else {
+            return false;
+        };
+        let s = shared.lock();
+        let issued = HANDLE_BASE..HANDLE_BASE + s.next_object * 4;
+        issued.contains(&handle) && handle.is_multiple_of(4) && !s.objects.contains_key(&handle)
     }
 
     #[cfg(windows)]

@@ -3,6 +3,35 @@ use crate::interp::NativeHost;
 #[cfg(windows)]
 use crate::interp::native;
 
+#[test]
+fn waiting_on_a_closed_scheduler_handle_fails_instead_of_reaching_native() {
+    let mut interp = Interp::default();
+    let program = Program::default();
+    let closed = interp.new_object(Object::Semaphore {
+        count: 0,
+        max: 1,
+    });
+    let live = interp.new_object(Object::Semaphore {
+        count: 1,
+        max: 1,
+    });
+    let result = interp.win32_foreign(&program, "CloseHandle", &[closed]);
+    assert_eq!(result.unwrap().unwrap(), vec![1]);
+    for symbol in ["WaitForSingleObject", "WaitForSingleObjectEx"] {
+        let result = interp.win32_foreign(&program, symbol, &[closed, INFINITE.into(), 0]);
+        assert_eq!(
+            result
+                .expect("a closed scheduler handle is not a native one")
+                .unwrap(),
+            vec![WAIT_FAILED],
+            "{symbol}"
+        );
+    }
+    // Live handles are unaffected.
+    let result = interp.win32_foreign(&program, "WaitForSingleObject", &[live, 0]);
+    assert_eq!(result.unwrap().unwrap(), vec![WAIT_OBJECT_0]);
+}
+
 #[cfg(windows)]
 #[test]
 fn emulated_errors_survive_the_next_native_foreign_call() {
