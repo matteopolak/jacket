@@ -2,34 +2,35 @@
 
 ## Unreleased
 
+Faster leak reports, Csv, Json trees and language server, plus fixes to here-strings, `#run` constants and overloads.
+
+### Breaking changes
+
+| Was | Now |
+|---|---|
+| Text after a `#string` terminator name on its line was dropped | An error (`lex-text-after-string-terminator`) |
+| `x: u64 = #run cast(s64) 16` compiled | An error, as for a typed constant |
+
 ### Improved
 
-- `jailint`'s `union_read` help names the field a union's members all begin with (`e.type` for a C-style event union) as the tag.
-- `Extensions/Csv` typed rows decode integers and short decimals straight from the field bytes, about 10% faster.
-- `Extensions/Csv` reads records longer than 8 KB from a chunked source about 1.8x faster, and one-byte chunks several times faster in the interpreter.
-- `Extensions/Csv` frees the memory a long record needed once later records fit in the usual 8 KB window.
-- `Extensions/Json` `to_json_value` allocates no frame stack for documents up to 16 levels deep.
-- `jailsp` compiles a build metaprogram once for polymorph code lenses, and no longer compiles the programs it builds on their own.
-- `jailsp` reads each stdlib file once for the first auto-import completion; files of the open program were read twice.
-- `Memory.copy` is a memory move rather than a byte loop, so large copies run at the speed of `memcpy`.
-- Memory-debugger leak reports no longer take quadratic time with many allocations, many allocation sites, long ownership chains or many `this_allocation_is_not_a_leak` marks.
+- Memory-debugger leak reports no longer take quadratic time with many allocations, allocation sites, ownership links or `this_allocation_is_not_a_leak` marks.
+- `Extensions/Csv`: typed rows decode numbers straight from the field bytes (about 10% faster); long records from a chunked source read about 1.8x faster, and the window shrinks back afterwards.
+- `Extensions/Json`: `to_json_value` allocates no frame stack for documents up to 16 levels deep.
+- `Memory.copy` runs at `memcpy` speed.
+- `jailsp`: a build metaprogram compiles once for polymorph code lenses, and the first auto-import completion reads each stdlib file once.
+- `jailint`'s `union_read` help names the shared first field (`e.type`) as the tag.
 
 ### Fixed
 
-- `jacket test --coverage` no longer counts files under `benches` folders, which tests never run, as code under test.
-- `Extensions/Postgres` typed queries count a spread fixed array (`..values` with `values: [2] Any`) as its elements when checking placeholders, instead of as one argument.
-- `jaifmt` drops the blanks that end a here-string's header line (`print(#string ` then a newline).
-- The VS Code grammar scopes `#string,cr` with its name on a later line (the body shows as code there, since TextMate reads one line at a time), and no longer splits a terminator named `cr` into a flag and a name. Neovim's syntax file highlights a here-string whose name is on a later line.
-- `Jai_Lexer` reads a here-string header like the compiler: line ends, `//` and `/* */` comments and the `,\%` flag may separate `#string`, its flags and the terminator name, and text after the name on the closing line is lexed as the next tokens.
-- A `#string` terminator name may follow on a later line, after blank lines or comments, as in `#string // SQL` then `QUERY` on the next line. Text after the name on its line is now an error (`lex-text-after-string-terminator`) instead of being dropped from the program. `jaifmt` and `Extensions/String_Literal` read these headers too.
-- The memory debugger records the blocks a `Pool` takes, so leak reports show a pool that was never released. Each memory debugger keeps its own hooks, so several started with different `internal/basic` parameters all see a pool reset.
-- The memory debugger records the pages a `Flat_Pool` has committed as one block, so leak reports show a flat pool that was never finalized. A custom allocator that calls `Preamble` under a `Pool` or `Flat_Pool` now starts the debugger like any other.
-- A `#run` of a typed integer expression keeps its type where another integer type is expected, so `x: u64 = #run cast(s64) 16` is an error, as it is for a typed constant.
-- An integer that `#run` computes by running code is an untyped integer constant, like a literal: it takes the type of the other operand or the target when its value fits, so `u64_value * SIZE` compiles when `SIZE :: #run size()` returns `s64`.
-- An overload whose parameter cannot hold an untyped struct literal no longer takes arithmetic on one, so `scale(m, .{1, 1, 1} * f(2.0))` picks the `Vector3` overload instead of being ambiguous or picking the `float` one.
-- `#library,no_dll` libraries are no longer loaded by compile-time code, so a program importing `Extensions/SDL3` on Windows no longer fails with `uuid.dll could not be loaded`; SDL3 declares `uuid` as `,no_dll`.
-- `jailint` warns (`lint-test-note`) about an `only(...)` or `skip_on(...)` note in a file's `// test:` header that does not parse, as `jacket test` does, instead of ignoring it. Both now share one reading of these notes.
-- `jailint` also warns (`lint-test-note`) about such notes in the files a program `#load`s, once per file, not only in files it compiles as programs.
+- A `#string` terminator name may follow on a later line, after blank lines or comments. `Jai_Lexer`, `jaifmt`, `Extensions/String_Literal` and the VS Code and Neovim grammars read these headers too.
+- `jaifmt` drops trailing blanks on a here-string's header line.
+- An integer computed by `#run` is untyped, like a literal, so `u64_value * SIZE` compiles when `SIZE :: #run size()` returns `s64`.
+- Arithmetic on an untyped struct literal picks the overload whose parameter can hold the literal: `scale(m, .{1, 1, 1} * f(2.0))` takes the `Vector3` one.
+- `Extensions/SDL3` loads on Windows: `#library,no_dll` libraries are no longer loaded by compile-time code.
+- The memory debugger records `Pool` and `Flat_Pool` blocks, so leak reports show pools that were never released.
+- `Extensions/Postgres` typed queries count `..values` of a fixed `[N] Any` as N arguments.
+- `jailint` warns (`lint-test-note`) about a `// test:` note that does not parse, including in `#load`ed files.
+- `jacket test --coverage` leaves out `benches` folders.
 
 ## [0.34.0] - 2026-11-09
 
