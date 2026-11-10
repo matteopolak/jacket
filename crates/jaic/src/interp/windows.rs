@@ -5,6 +5,7 @@ use super::sandbox::guest::{fill, read_bytes, read_u8, write_u32, write_u64, wri
 use super::sandbox::symbols::WinFn;
 use super::sandbox::{O_CREAT, O_EXCL, O_RDWR, O_TRUNC, O_WRONLY};
 use super::sandbox::{absolute, join};
+use super::windows_memory::VirtualMemory;
 use crate::fxhash::HashMap;
 use crate::interp::word_or_zero;
 
@@ -55,6 +56,7 @@ pub(super) struct WindowsCalls {
     next_find: u64,
     mappings: HashMap<u64, Vec<u8>>,
     views: HashMap<u64, ZeroedBlock>,
+    memory: VirtualMemory,
 }
 
 const HANDLE_BASE: u64 = 0x1_0000;
@@ -238,6 +240,7 @@ impl WindowsCalls {
             .or_else(|| self.windows_paths(backend, fun, args))
             .or_else(|| self.windows_handles(backend, fun, args))
             .or_else(|| self.windows_mappings(backend, fun, args))
+            .or_else(|| self.windows_memory(fun, args))
     }
 
     /// Error codes, code page conversion and the clocks.
@@ -669,5 +672,22 @@ impl WindowsCalls {
             }
             _ => return None,
         })
+    }
+
+    /// Address space: reservations, committed pages and their protection.
+    fn windows_memory(&mut self, fun: WinFn, args: &[u64]) -> Option<u64> {
+        let arg = |i: usize| word_or_zero(args, i);
+        let dword = |i: usize| arg(i) as u32 as u64;
+        let result = match fun {
+            WinFn::GetSystemInfo => {
+                VirtualMemory::system_info(arg(0));
+                return Some(0);
+            }
+            WinFn::VirtualAlloc => self.memory.alloc(arg(0), arg(1), dword(2), dword(3)),
+            WinFn::VirtualProtect => self.memory.protect(arg(0), arg(1), dword(2), arg(3)),
+            WinFn::VirtualFree => self.memory.free(arg(0), arg(1), dword(2)),
+            _ => return None,
+        };
+        Some(result.unwrap_or_else(|error| self.fail(error)))
     }
 }

@@ -963,3 +963,76 @@ fn darwin_file_records_match_stat_and_dirent_layouts() {
         S_IFDIR
     );
 }
+
+#[test]
+fn windows_virtual_memory_reserves_commits_protects_and_frees() {
+    use super::guest::write_u32;
+    let mut h = host();
+    let mut info = [0u8; 48];
+    call(&mut h, "GetSystemInfo", &[info.as_mut_ptr() as u64]);
+    let page = u64::from(u32::from_le_bytes(info[4..8].try_into().unwrap()));
+    assert_eq!(page, crate::interp::host_pages::page_size() as u64);
+    assert_eq!(u32::from_le_bytes(info[32..36].try_into().unwrap()), 1);
+
+    let (reserve, commit, release) = (0x2000, 0x1000, 0x8000);
+    let (no_access, read_only, read_write) = (1, 2, 4);
+    let base = call(&mut h, "VirtualAlloc", &[0, 16 * page, reserve, no_access]);
+    assert_ne!(base, 0);
+    let mut old = 0u32;
+    let old_at = &raw mut old as u64;
+
+    // Reserved pages have no protection to change until they are committed.
+    assert_eq!(
+        call(&mut h, "VirtualProtect", &[base, page, read_only, old_at]),
+        0
+    );
+    assert_eq!(call(&mut h, "GetLastError", &[]), 487);
+
+    let second = base + page;
+    assert_eq!(
+        call(&mut h, "VirtualAlloc", &[second, 8, commit, read_write]),
+        second
+    );
+    assert_eq!(read_u32(second + 4), 0);
+    write_u32(second + 4, 7);
+    assert_eq!(
+        call(&mut h, "VirtualProtect", &[second, page, read_only, old_at]),
+        1
+    );
+    assert_eq!(u64::from(old), read_write);
+    assert_eq!(read_u32(second + 4), 7);
+
+    // Past the reservation, a range inside it, and executable pages are refused.
+    assert_eq!(
+        call(
+            &mut h,
+            "VirtualAlloc",
+            &[base + 16 * page, page, commit, read_write]
+        ),
+        0
+    );
+    assert_eq!(call(&mut h, "GetLastError", &[]), 487);
+    assert_eq!(call(&mut h, "VirtualFree", &[second, 0, release]), 0);
+    assert_eq!(
+        call(&mut h, "VirtualAlloc", &[0, page, reserve | commit, 0x40]),
+        0
+    );
+    assert_eq!(call(&mut h, "GetLastError", &[]), 87);
+
+    assert_eq!(call(&mut h, "VirtualFree", &[base, 0, release]), 1);
+    assert_eq!(call(&mut h, "VirtualFree", &[base, 0, release]), 0);
+}
+
+#[test]
+fn windows_reservations_share_one_total_cap() {
+    let mut h = host();
+    let half = crate::interp::windows_memory::MAX_RESERVED_BYTES / 2;
+    let first = call(&mut h, "VirtualAlloc", &[0, half, 0x2000, 1]);
+    let second = call(&mut h, "VirtualAlloc", &[0, half, 0x2000, 1]);
+    assert_ne!(first, 0);
+    assert_ne!(second, 0);
+    assert_eq!(call(&mut h, "VirtualAlloc", &[0, 1, 0x2000, 1]), 0);
+    assert_eq!(call(&mut h, "GetLastError", &[]), 8);
+    assert_eq!(call(&mut h, "VirtualFree", &[first, 0, 0x8000]), 1);
+    assert_ne!(call(&mut h, "VirtualAlloc", &[0, 1, 0x2000, 1]), 0);
+}

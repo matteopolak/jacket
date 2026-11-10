@@ -186,6 +186,10 @@ raw_enum! {
         CreateFileMappingA = "CreateFileMappingA",
         OpenFileMappingW = "OpenFileMappingW",
         OpenFileMappingA = "OpenFileMappingA",
+        GetSystemInfo = "GetSystemInfo",
+        VirtualAlloc = "VirtualAlloc",
+        VirtualProtect = "VirtualProtect",
+        VirtualFree = "VirtualFree",
     }
 }
 

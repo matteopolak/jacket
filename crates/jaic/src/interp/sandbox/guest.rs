@@ -49,7 +49,7 @@ pub(super) fn write_u8(addr: u64, value: u8) {
 }
 
 /// Stores the unaligned `u16` `value` at `addr`.
-pub(super) fn write_u16(addr: u64, value: u16) {
+pub(in crate::interp) fn write_u16(addr: u64, value: u16) {
     // SAFETY: see the module documentation.
     unsafe { std::ptr::write_unaligned(addr as *mut u16, value) }
 }
