@@ -43,6 +43,9 @@ class BuildContract(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "unbound transitive"):
             sdl.check_dependencies("$<LINK_ONLY:PkgConfig::UNEXPECTED>", "linux-x64")
 
+    def test_static_only_system_libraries_count_as_bound(self):
+        sdl.check_dependencies("$<LINK_ONLY:uuid>;$<LINK_ONLY:user32>", "windows-x64")
+
     def test_bad_cached_archive_is_rejected_offline(self):
         with temporary_directory() as d:
             p = Path(d)

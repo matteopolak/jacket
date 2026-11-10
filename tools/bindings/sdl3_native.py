@@ -412,7 +412,11 @@ def check_dependencies(text, plat):
     module = (
         ROOT / f"stdlib/Extensions/SDL3/link-{plat.split('-')[0]}.jai"
     ).read_text()
-    allowed = set(re.findall(r'#library,system,link_always "([^"]+)"', module))
+    allowed = {
+        name
+        for flags, name in re.findall(r'#library,([\w,]+) "([^"]+)"', module)
+        if {"system", "link_always"} <= set(flags.split(","))
+    }
     if plat.startswith("macos"):
         allowed |= {"CoreHaptics", "UniformTypeIdentifiers", "m", "pthread"}
     for item in text.strip().replace("\n", ";").split(";"):
