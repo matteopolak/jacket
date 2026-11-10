@@ -4732,6 +4732,8 @@ Off by default; the repository turns it on for `stdlib/**` outside tests. A unio
 - after the procedure assigns `v` or a place inside one of its union members, declares `v` with a value, or takes `*v` (`XNextEvent(display, *event)` fills it): a pun such as `b.f = x; return b.u;` is deliberate;
 - of the union's common initial sequence: fields every struct member begins with, as in C event unions (`event.type`, `event.xany.window`). Such a member also serves as the tag. Fixed arrays (padding) are not compared, and two plain members of one type share nothing.
 
+The help names the likely tag: the field the union's members all begin with when there is one (`e.type`, or `p.pong.id` when only struct members share it), else the holder's first enum or integer field outside the union.
+
 Tagged unions are not reported. The check is by shape, so testing the wrong tag value still counts. A helper whose caller checks the tag states it with an `assert` on its first line; a binary-format view that is read as more than one member at once takes an `allow` with the reason.
 
 ### unreadable_literal
