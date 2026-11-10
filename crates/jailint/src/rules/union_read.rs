@@ -133,8 +133,46 @@ fn union_member<'a>(cx: &Cx, base: &'a Expr, name: Sym) -> Option<Read<'a>> {
     })
 }
 
-/// The likely tag beside the union: the holder's first enum or integer member outside it.
-fn tag_of(cx: &Cx, read: &Read) -> Option<Sym> {
+/// The likely tag, as a path from the read's base: the union's common initial sequence when
+/// it has one (`type`, or `key.type` where only structs share it), else the holder's first
+/// enum or integer member outside the union.
+fn tag_of(cx: &Cx, read: &Read) -> Option<String> {
+    let types = &cx.compiler.ty.types;
+    common_tag(types, read).or_else(|| beside_tag(cx, read).map(|t| t.as_str().to_string()))
+}
+
+/// The first field every member of the union begins with, named through a plain member that
+/// covers it (`type`) or else through the read's own member (`key.type`).
+fn common_tag(types: &Types, read: &Read) -> Option<String> {
+    if common_prefix(types, read.union, read.name) == 0 {
+        return None;
+    }
+    let info = types.struct_info(read.union);
+    let member = info.fields.iter().find(|f| f.name == Some(read.name))?;
+    let (lead, _) = leading_fields(types, member.ty)?;
+    let first = lead.first()?;
+    let plain = info.fields.iter().find_map(|f| {
+        let (other, is_struct) = leading_fields(types, f.ty)?;
+        if is_struct || other.first() != Some(first) {
+            return None;
+        }
+        f.name
+    });
+    if let Some(plain) = plain {
+        return Some(plain.as_str().to_string());
+    }
+    let s = types.as_struct(types.repr_struct(member.ty))?;
+    let field = types
+        .struct_info(s)
+        .fields
+        .iter()
+        .find(|f| !f.overlay)?
+        .name?;
+    Some(format!("{}.{}", read.name.as_str(), field.as_str()))
+}
+
+/// The holder's first enum or integer member outside the union.
+fn beside_tag(cx: &Cx, read: &Read) -> Option<Sym> {
     let types = &cx.compiler.ty.types;
     let info = types.struct_info(read.holder);
     if info.is_union {

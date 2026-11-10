@@ -67,6 +67,26 @@ held_text :: (h: Holder) -> string {
     return h.value.text;
 }
 
+// Only structs share the leading field, so it is named through a member.
+Ping :: struct {
+    id: s32;
+    seq: u32;
+}
+
+Pong :: struct {
+    id: s32;
+    rtt: float;
+}
+
+Packet :: union {
+    ping: Ping;
+    pong: Pong;
+}
+
+rtt_of :: (p: *Packet) -> float {
+    return p.pong.rtt;
+}
+
 main :: () {
     v: Value;
     v.kind = .TEXT;

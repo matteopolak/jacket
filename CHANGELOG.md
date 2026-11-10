@@ -4,6 +4,7 @@
 
 ### Improved
 
+- `jailint`'s `union_read` help names the field a union's members all begin with (`e.type` for a C-style event union) as the tag.
 - `Extensions/Csv` typed rows decode integers and short decimals straight from the field bytes, about 10% faster.
 - `Extensions/Csv` reads records longer than 8 KB from a chunked source about 1.8x faster, and one-byte chunks several times faster in the interpreter.
 - `Memory.copy` is a memory move rather than a byte loop, so large copies run at the speed of `memcpy`.

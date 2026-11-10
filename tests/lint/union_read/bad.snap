@@ -34,7 +34,7 @@ warning[union_read]: `e.key` reads a union member, but nothing here says it is t
 58 |     return e.key.key;
    |            ^^^^^
    |
-   = help: keep the union in a struct beside a tag and check it, or write `e.key` here before reading it
+   = help: check `e.type` first, or write `e.key` here before reading it
    = note: see https://jacket.matteopolak.com/lint-rules/union_read
 
 warning[union_read]: `h.value.text` reads a union member, but nothing here says it is the live one
@@ -44,4 +44,13 @@ warning[union_read]: `h.value.text` reads a union member, but nothing here says 
    |            ^^^^^^^^^^^^
    |
    = help: check `h.value.kind` first, or write `h.value.text` here before reading it
+   = note: see https://jacket.matteopolak.com/lint-rules/union_read
+
+warning[union_read]: `p.pong` reads a union member, but nothing here says it is the live one
+  --> tests/lint/union_read/bad.jai:87:12
+   |
+87 |     return p.pong.rtt;
+   |            ^^^^^^
+   |
+   = help: check `p.pong.id` first, or write `p.pong` here before reading it
    = note: see https://jacket.matteopolak.com/lint-rules/union_read
