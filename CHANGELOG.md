@@ -9,7 +9,7 @@
 - `Extensions/Csv` reads records longer than 8 KB from a chunked source about 1.8x faster, and one-byte chunks several times faster in the interpreter.
 - `Extensions/Csv` frees the memory a long record needed once later records fit in the usual 8 KB window.
 - `Memory.copy` is a memory move rather than a byte loop, so large copies run at the speed of `memcpy`.
-- Memory-debugger leak reports look up pointers in an address index instead of scanning every allocation, so large reports no longer take quadratic time.
+- Memory-debugger leak reports no longer take quadratic time with many allocations, many allocation sites, long ownership chains or many `this_allocation_is_not_a_leak` marks.
 
 ### Fixed
 

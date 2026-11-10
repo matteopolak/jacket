@@ -159,19 +159,12 @@ build_leak_report_locked :: (options: Leak_Report_Options, for_visualizer: bool)
                 if !child || child.allocation == a || child.entry.owner continue;
                 if child.entry.exempt && !for_visualizer continue;
 
-                parent := item.entry;
-                cycle := false;
+                // The child has no owner, so it is the root of its own chain; owning it would close a cycle only if it
+                // is also the root of this item's chain.
+                if chain_root(item.entry) == child.entry continue;
 
-                while parent.owner {
-                    if parent.owner == report_key(child.allocation) {
-                        cycle = true;
-                        break;
-                    }
-
-                    parent = RT.table_find_pointer(*report.leak_combiner_table, parent.owner);
-                }
-
-                if !cycle child.entry.owner = report_key(a);
+                child.entry.owner = report_key(a);
+                child.entry.parent = item.entry;
             }
         }
     }
@@ -183,6 +176,13 @@ build_leak_report_locked :: (options: Leak_Report_Options, for_visualizer: bool)
 
     memset(groups, 0, options.group_by_these_calls.count * size_of(*Group_Info));
 
+    // Summaries by the hash of their trace: the newest summary with each hash, and the one before it.
+    newest_with_hash: RT.Table(u64, s64);
+
+    newest_with_hash.allocator = .{ RP.pool_allocator_proc, *scratch };
+    RT.table_ensure_space(*newest_with_hash, count);
+    earlier_with_hash := ([] s64).{ count, cast(*s64) pool_memory(*scratch, count * size_of(s64)) };
+
     for item: work {
         if (item.entry.reachable && !for_visualizer) || item.entry.owner continue;
 
@@ -190,12 +190,24 @@ build_leak_report_locked :: (options: Leak_Report_Options, for_visualizer: bool)
         display_trace := pool_trace_copy(*report, a.trace, options);
         summary: *Leak_Summary;
 
-        for existing: report.sorted_summaries if traces_equal(existing.alloc_site_trace, display_trace) {
-            summary = existing;
-            break;
+        hash := trace_hash(display_trace);
+        newest := RT.table_find_pointer(*newest_with_hash, hash);
+        candidate := ifx newest then newest.* else -1;
+
+        while candidate >= 0 {
+            if traces_equal(report.sorted_summaries[candidate].alloc_site_trace, display_trace) {
+                summary = report.sorted_summaries[candidate];
+                break;
+            }
+
+            candidate = earlier_with_hash[candidate];
         }
 
         if !summary {
+            earlier_with_hash[report.sorted_summaries.count] = ifx newest then newest.* else -1;
+            if newest newest.* = report.sorted_summaries.count;
+            else RT.table_add(*newest_with_hash, hash, report.sorted_summaries.count);
+
             summary = cast(*Leak_Summary) report_memory(*report, size_of(Leak_Summary));
             summary.* = .{};
             summary.alloc_site_trace = display_trace;
@@ -231,8 +243,7 @@ build_leak_report_locked :: (options: Leak_Report_Options, for_visualizer: bool)
     for item: work {
         if !item.entry.owner continue;
 
-        parent := item.entry;
-        while parent.owner parent = RT.table_find_pointer(*report.leak_combiner_table, parent.owner);
+        parent := chain_root(item.entry);
 
         item.entry.summary = parent.summary;
         parent.summary.child_count += 1;
@@ -241,18 +252,7 @@ build_leak_report_locked :: (options: Leak_Report_Options, for_visualizer: bool)
 
     build_groups(*report, groups, options.group_by_these_calls.count);
 
-    for i: 1..report.sorted_summaries.count - 1 {
-        value := report.sorted_summaries[i];
-        weight := value.bytes + value.child_bytes;
-        j := i;
-
-        while j > 0 && report.sorted_summaries[j - 1].bytes + report.sorted_summaries[j - 1].child_bytes < weight {
-            report.sorted_summaries[j] = report.sorted_summaries[j - 1];
-            j -= 1;
-        }
-
-        report.sorted_summaries[j] = value;
-    }
+    sort_summaries(report.sorted_summaries, *scratch);
 
     return report;
 }
@@ -313,11 +313,7 @@ mark_debug_allocation :: (memory: *void, stop_ownership: bool) {
     if !memory return;
 
     debug_acquire();
-    record := debug_records;
-    while record {
-        if !record.heap && !record.block && record.memory == memory break;
-        record = record.next;
-    }
+    record := find_debug_allocation_locked(memory, false);
 
     if record {
         if stop_ownership record.stops_ownership = true;
@@ -439,6 +435,33 @@ traces_equal :: (a: *Packed_Stack_Trace, b: *Packed_Stack_Trace) -> bool {
     return true;
 }
 
+// The top of the ownership chain the entry is in, with the links on the way pointed straight at it so that a walk
+// over many entries costs little more than one step each.
+chain_root :: (entry: *Leak_Combiner_Record) -> *Leak_Combiner_Record {
+    root := entry;
+    while root.parent root = root.parent;
+
+    while entry != root {
+        next := entry.parent;
+        entry.parent = root;
+        entry = next;
+    }
+
+    return root;
+}
+
+trace_hash :: (trace: *Packed_Stack_Trace) -> u64 {
+    hash: u64 = 0xcbf29ce484222325;
+    if !trace return hash;
+
+    for node: trace.nodes {
+        hash = (hash ^ cast(u64) node.info) * 0x100000001b3;
+        hash = (hash ^ cast(u64) node.line_number) * 0x100000001b3;
+    }
+
+    return hash;
+}
+
 // What identifies an allocation in the report's table. A block can start where a range does, so it is told apart by
 // its record.
 report_key :: (a: *Allocation) -> *void {
@@ -531,6 +554,22 @@ sort_by_ordinal :: (work: [] Report_Allocation, pool: *RP.Pool) {
 
     sort_items(items, spare);
     for item, i: items work[i] = copy[item.position];
+}
+
+// Heaviest first; summaries of the same weight stay in the order they were found.
+sort_summaries :: (summaries: [] *Leak_Summary, pool: *RP.Pool) {
+    items := ([] Sort_Item).{ summaries.count, cast(*Sort_Item) pool_memory(pool, summaries.count * size_of(Sort_Item)) };
+    spare := ([] Sort_Item).{ summaries.count, cast(*Sort_Item) pool_memory(pool, summaries.count * size_of(Sort_Item)) };
+    copy := ([] *Leak_Summary).{ summaries.count, cast(**Leak_Summary) pool_memory(pool, summaries.count * size_of(*Leak_Summary)) };
+
+    for summary, i: summaries {
+        // Weights are not negative, so the larger the weight the smaller the key.
+        items[i] = .{ ~cast(u64) (summary.bytes + summary.child_bytes), i };
+        copy[i] = summary;
+    }
+
+    sort_items(items, spare);
+    for item, i: items summaries[i] = copy[item.position];
 }
 
 build_address_set :: (work: [] Report_Allocation, blocks: bool, pool: *RP.Pool) -> Address_Set {

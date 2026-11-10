@@ -46,6 +46,8 @@ Packed_Stack_Trace :: struct {
 Leak_Combiner_Record :: struct {
     summary: *Leak_Summary;
     owner: *void;
+    // The record of `owner`, or a link further up its chain once the report has shortened the path.
+    parent: *Leak_Combiner_Record;
     reachable: bool;
     exempt: bool;
 }
