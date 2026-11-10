@@ -222,30 +222,28 @@ SETS = ("corpus", "negative", "regressions", "examples", "upstream")
 
 
 def use_native_libs():
-    """Point jaic at the third-party C libraries (rpmalloc, stb_*) that some cases call or link,
-    building any that are missing. Worktrees share the main checkout's target/."""
-    if os.environ.get("JAIC_NATIVE_LIBS") or sys.platform not in ("darwin", "linux"):
+    """Point jaic at the third-party C libraries (rpmalloc, stb_*, mbedTLS) that some cases call or
+    link, building any that are missing. Worktrees share the main checkout's target/."""
+    if os.environ.get("JAIC_NATIVE_LIBS"):
         return
-    from native import build_native_libs
+    from repo_output import host_platform, shared_output_dir
+    from stdlib import stdlib_runtime
 
-    if build_native_libs.missing():
-        subprocess.run(
-            [sys.executable, str(ROOT / "tools/native/build_native_libs.py")], check=True
-        )
+    stdlib_runtime.use_native_libs(host_platform())
+    if not os.environ.get("JAIC_NATIVE_LIBS"):
+        return
     # The Debug module's native helper is built into the stdlib tree of this checkout.
-    suffix = "dylib" if sys.platform == "darwin" else "so"
-    helper = ROOT / f"stdlib/internal/developer-tools/debug-native/libdeveloper_tools_debug.{suffix}"
+    helper = ROOT / "stdlib/internal/developer-tools/debug-native" / {
+        "darwin": "libdeveloper_tools_debug.dylib",
+        "win32": "developer_tools_debug.dll",
+    }.get(sys.platform, "libdeveloper_tools_debug.so")
     if not helper.exists():
         subprocess.run([sys.executable, str(ROOT / "tools/developer_checks/build_developer_debug.py")], check=True)
-    libs = [str(build_native_libs.output_dir())]
     # The source-built SDK providers (tools/native/build_ci_native_bindings.py): the stdlib's rpmalloc
     # allocator and the other bound SDKs load them when they exist.
-    from repo_output import shared_output_dir
-
     providers = shared_output_dir("production-bindings", "native")
     if providers.is_dir():
-        libs.insert(0, str(providers))
-    os.environ["JAIC_NATIVE_LIBS"] = os.pathsep.join(libs)
+        os.environ["JAIC_NATIVE_LIBS"] = os.pathsep.join([str(providers), os.environ["JAIC_NATIVE_LIBS"]])
 
 
 def physical_memory_gib():

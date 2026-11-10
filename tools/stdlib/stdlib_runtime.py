@@ -89,7 +89,7 @@ def contract_result(case, code, output, error="", native=False):
 
 def use_native_libs(plat):
     """Point jaic at the third-party C libraries some tests link (stb_vorbis, rpmalloc, FreeType
-    on Windows...), building any that are missing for `plat`, as tools/differential/jaic_sweep.py does."""
+    on Windows...), building any that are missing for `plat`. tools/differential/jaic_sweep.py uses it too."""
     if os.environ.get("JAIC_NATIVE_LIBS") or sys.platform not in (
         "darwin",
         "linux",
