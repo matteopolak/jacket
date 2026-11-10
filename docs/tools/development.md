@@ -46,7 +46,7 @@ To add a recipe, give it a doc comment and a `[group(...)]`, keep the body to on
 | `Cargo.toml`, `Cargo.lock` | `cargo metadata --locked --offline` for the workspace and `fuzz/` |
 | `crates/**`, `editors/vscode/**` | the VS Code grammar and schema checks (needs node 24) |
 
-Tools are built from this checkout (`jailint` through cargo, `jaifmt` rebuilt when `jaic` or its sources are newer), since a shared target directory can hold another checkout's binaries. It checks an export of the staged files, with every tracked `jacket.toml` beside them, so a folder's own `[format]` (the doc theme's) applies. When the hook can't get a `jaifmt` built from this checkout, it warns and skips the format check. It never uses an installed `jaifmt`, whose rules may be older.
+Tools are built from this checkout (`jailint` through cargo, `jaifmt` rebuilt when `jaic` or its sources are newer), since a shared target directory can hold another checkout's binaries. It checks an export of the staged files, with every tracked `jacket.toml` beside them, so a folder's own `[format]` (the doc theme's) applies. `jaic` runs with this checkout's `JAIC_STDLIB`, since a `jaic` left in a shared target directory by a deleted worktree has that worktree's stdlib path built in. If the rebuild fails the hook fails and prints the compiler's output; it never falls back to the stale `jaifmt`. When there is no `jaifmt` built from this checkout at all (or `JAI_HOOK_NO_BUILD` is set), it warns and skips the format check. It never uses an installed `jaifmt`, whose rules may be older.
 
 | Variable | Effect |
 | --- | --- |

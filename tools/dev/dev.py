@@ -50,8 +50,8 @@ REPO_CHECKS = {"style": "check_source_style", "paths": "check_repo_paths", "ci-s
 BUILT_REPO_CHECKS = {"stdlib-docs"}
 
 
-def run(cmd: list[str], cwd: Path = ROOT) -> int:
-    return toolkit_run(cmd, cwd=cwd, check=False).returncode
+def run(cmd: list[str], cwd: Path = ROOT, env: dict[str, str] | None = None) -> int:
+    return toolkit_run(cmd, cwd=cwd, env=env, check=False).returncode
 
 
 def cargo_build(args: list[str], jobs: str) -> int:
@@ -137,10 +137,14 @@ def rebuild_jaifmt(jaic: Path, quiet: bool = False) -> bool:
     if not stale_jaifmt(out, jaic):
         return True
     cmd = [str(jaic), "jaifmt/main.jai", "-O2", "-exe", str(out)]
+    # Use this checkout's stdlib: a jaic built from another worktree has that path built in.
     if quiet:
-        built = subprocess.run(cmd, cwd=ROOT, capture_output=True).returncode == 0 and out.exists()
+        done = subprocess.run(cmd, cwd=ROOT, env=stdlib_env(), capture_output=True, text=True)
+        built = done.returncode == 0 and out.exists()
+        if not built:
+            sys.stderr.write(done.stdout + done.stderr)
     else:
-        built = run(cmd) == 0
+        built = run(cmd, env=stdlib_env()) == 0
     if built:
         jaifmt_stamp(out).write_text(str(ROOT))
     return built
@@ -692,7 +696,9 @@ def hook_jaifmt(hook: Hook) -> str | None:
     if jaic is not None and stale_jaifmt(out, jaic):
         hook.say("rebuilding jaifmt")
         if not rebuild_jaifmt(jaic, quiet=True):
-            hook_warn(f"could not rebuild {out} with {jaic}")
+            hook.fail(f"build jaifmt: `python3 tools/dev/dev.py build`; the hook will not use the stale {out}",
+                      f"pre-commit: could not rebuild {out} with {jaic}")
+            return None
     if not out.is_file():
         return None
     if built_elsewhere(out):
