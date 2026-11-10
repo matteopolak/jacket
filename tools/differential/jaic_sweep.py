@@ -213,7 +213,12 @@ def cases(name):
             )
     else:
         p = Path(name)
+        if p.suffix != ".jai":
+            sys.exit(f"jaic_sweep: unknown set `{name}`; pass a .jai file or one of: {', '.join(SETS)}")
         yield p.stem, p, "run", None, []
+
+
+SETS = ("corpus", "negative", "regressions", "examples", "upstream")
 
 
 def use_native_libs():

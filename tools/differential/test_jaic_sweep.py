@@ -13,5 +13,11 @@ class ExampleCaseTests(unittest.TestCase):
                 self.assertIn("contains", expect, cid)
 
 
+class SetNameTests(unittest.TestCase):
+    def test_an_unknown_set_name_lists_the_sets(self):
+        with self.assertRaisesRegex(SystemExit, "unknown set `modules`.*corpus.*upstream"):
+            list(jaic_sweep.cases("modules"))
+
+
 if __name__ == "__main__":
     unittest.main()
