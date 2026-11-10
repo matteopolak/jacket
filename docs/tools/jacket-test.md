@@ -161,7 +161,7 @@ Native libraries are searched in `<stdlib>/../target/native-libs/<os>-<cpu>`, th
 
 ### Coverage
 
-`jacket test --coverage` reports which lines of the code under test ran and writes lcov (`--coverage-out FILE`, default `target/lcov.info`), or with `--coverage-format html` one self-contained page. `--coverage-by file|module` groups the table; `--coverage-include DIR` (repeatable) adds folders to report (`--coverage-include stdlib` for the whole standard library).
+`jacket test --coverage` reports which lines of the code under test ran and writes lcov (`--coverage-out FILE`, default `target/lcov.info`), or with `--coverage-format html` one self-contained page. `--coverage-by file|module` groups the table; `--coverage-include DIR` (repeatable) adds folders to report (`--coverage-include stdlib` for the whole standard library). Files under a `tests` or `benches` folder are not reported: they are not the code under test.
 
 ```
 File                     Lines   Cover    Functions   Cover

@@ -390,11 +390,16 @@ impl Coverage {
     fn reported(&self, path: &str) -> Option<PathBuf> {
         let file = Path::new(path).canonicalize().ok()?;
         let inside = |folders: &[PathBuf]| folders.iter().any(|f| file.starts_with(f));
+        // Tests and benchmarks are not the code under test.
         let in_tests = self
             .include
             .iter()
             .filter_map(|f| file.strip_prefix(f).ok())
-            .any(|below| below.components().any(|c| c.as_os_str() == "tests"));
+            .any(|below| {
+                below
+                    .components()
+                    .any(|c| c.as_os_str() == "tests" || c.as_os_str() == "benches")
+            });
         (inside(&self.include) && !inside(&self.exclude) && !in_tests).then_some(file)
     }
 }
@@ -595,12 +600,13 @@ mod tests {
     }
 
     #[test]
-    fn files_in_tests_folders_are_not_reported() {
+    fn files_in_tests_and_benches_folders_are_not_reported() {
         let coverage = bare();
         let dir = std::env::temp_dir().join(format!("jacket-cov-reported-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("tests")).unwrap();
-        for name in ["module.jai", "tests/t.jai"] {
+        std::fs::create_dir_all(dir.join("benches")).unwrap();
+        for name in ["module.jai", "tests/t.jai", "benches/b.jai"] {
             std::fs::write(dir.join(name), "").unwrap();
         }
         let include = dir.canonicalize().unwrap();
@@ -616,6 +622,11 @@ mod tests {
         assert!(
             coverage
                 .reported(&dir.join("tests/t.jai").to_string_lossy())
+                .is_none()
+        );
+        assert!(
+            coverage
+                .reported(&dir.join("benches/b.jai").to_string_lossy())
                 .is_none()
         );
         assert!(coverage.reported("/nowhere/at/all.jai").is_none());

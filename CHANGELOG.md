@@ -15,6 +15,7 @@
 
 ### Fixed
 
+- `jacket test --coverage` no longer counts files under `benches` folders, which tests never run, as code under test.
 - `Extensions/Postgres` typed queries count a spread fixed array (`..values` with `values: [2] Any`) as its elements when checking placeholders, instead of as one argument.
 - `jaifmt` drops the blanks that end a here-string's header line (`print(#string ` then a newline).
 - The VS Code grammar scopes `#string,cr` with its name on a later line (the body shows as code there, since TextMate reads one line at a time), and no longer splits a terminator named `cr` into a flag and a name. Neovim's syntax file highlights a here-string whose name is on a later line.
