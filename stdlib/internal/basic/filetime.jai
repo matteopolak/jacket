@@ -2,9 +2,12 @@
     // Converts a Windows `FILETIME` (100 ns ticks since 1601) to an `Apollo_Time`. Windows only. Every `FILETIME` is
     // representable.
     filetime_to_apollo :: (ft: Filetime_Native.FILETIME) -> Apollo_Time {
+        // jailint: allow(union_read): both members are views of the same 64-bit tick count.
         low := cast(u64) ft.dwLowDateTime;
+        // jailint: allow(union_read): as above.
         high := cast(u64) ft.dwHighDateTime;
         result_low, result_high := Filetime_Kernel.ticks_to_words(low | (high << 32));
+
         return .{ result_low, result_high };
     }
 
