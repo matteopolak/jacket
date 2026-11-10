@@ -504,6 +504,47 @@ spans_windows :: () {
     expect_same_everywhere(text, .{ max_record_bytes = 9000 });
 } @test
 
+// The window grown for a long record goes back to 8192 bytes once the short records after it
+// need a refill (pieces smaller than the records left, so the source is read again).
+long_record_window_shrinks :: () {
+    push_allocator(temp);
+
+    text: String_Builder;
+
+    for 0..99999 append(*text, "x");
+
+    append(*text, "\n");
+    for 0..49999 append(*text, "a,b\n");
+
+    document := builder_to_string(*text);
+
+    for size: int.[7, 4096, 8192] {
+        feed := Feed.{ text = document, size = size };
+        reader := csv_reader(Csv_Source.{ *feed, feed_fill });
+
+        defer csv_reader_free(*reader);
+
+        fields, present, error := csv_next(*reader);
+
+        expect(present && error.kind == .NONE);
+        expect_equal(fields[0].count, 100000);
+        expect(reader.window.count > 8192);
+
+        rows := 0;
+
+        while true {
+            fields, present, error = csv_next(*reader);
+            if !present break;
+
+            expect(error.kind == .NONE && fields.count == 2);
+            rows += 1;
+        }
+
+        expect_equal(rows, 50000);
+        expect_equal(reader.window.count, 8192);
+    }
+} @test
+
 // A record far longer than the reader's initial 8192-byte window, unquoted and quoted, is read by
 // the block scanner (`record_scanned`) from a chunk source of any piece size: the window grows to
 // hold it. The fields are those of a slice, and a source that fails inside the record reports the

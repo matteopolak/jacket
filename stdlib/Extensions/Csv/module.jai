@@ -625,11 +625,13 @@ SOURCE_FAILED :: "source read failed or returned an invalid count";
 WINDOW_BYTES :: 8192;
 
 // Moves the window's unread bytes to its start, in a window of at least `capacity` bytes: a new one,
-// made with the reader's allocator, when the current one is smaller.
+// made with the reader's allocator, when the current one is smaller. A window grown for a long
+// record goes back to `WINDOW_BYTES` once a small refill finds its unread bytes fit in half of that.
 settle_window :: (r: *Csv_Core, capacity: int) {
     left := r.input.count - r.position;
+    shrink := capacity <= WINDOW_BYTES && r.window.count > WINDOW_BYTES && left <= WINDOW_BYTES / 2;
 
-    if capacity > r.window.count {
+    if capacity > r.window.count || shrink {
         fresh := cast(*u8) alloc(capacity);
 
         if left memcpy(fresh, r.input.data + r.position, left);
