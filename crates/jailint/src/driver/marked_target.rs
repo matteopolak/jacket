@@ -57,9 +57,11 @@ pub(super) fn marked_target(source: &str, host_os: TargetOs, host_cpu: TargetCpu
                 cpu: cpu_name(cpu).into(),
                 interp,
             };
-            !(interp && native_only)
-                && !(!interp && interp_only)
-                && only.iter().all(|filter| filter.allows(&target, mode))
+            (if interp {
+                !native_only
+            } else {
+                !interp_only
+            }) && only.iter().all(|filter| filter.allows(&target, mode))
                 && !skip_on.iter().any(|filter| filter.matches(&target, mode))
         })
     };
