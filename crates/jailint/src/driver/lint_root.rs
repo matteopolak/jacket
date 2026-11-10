@@ -3,14 +3,13 @@ use super::asserts::{AssertFailure, failures_of};
 use super::claims::{Claims, Release};
 use super::compile::{Compiled, compile_root};
 use super::marked_target::{Marked, marked_target};
-use super::plan::canonical;
+use super::plan::{Notes, canonical};
 use super::{CheckedContext, Options};
 use crate::config::Configs;
 use crate::{Lint, lint_files_with_entry};
 use jaic::paths::CanonCache;
 use jaic::project::Program;
 use jaic::sema::Compiler;
-use jaic::test_notes::header_target_notes;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
@@ -22,21 +21,30 @@ pub(super) struct RootResult {
     pub(super) error: Option<String>,
     pub(super) contexts: Vec<CheckedContext>,
     pub(super) failures: Vec<AssertFailure>,
-    /// Target notes in the root's header that did not parse, each with the file's path.
-    pub(super) note_problems: Vec<(PathBuf, String)>,
+}
+
+/// What every root of a run shares.
+pub(super) struct Shared<'a> {
+    pub(super) options: &'a Options,
+    pub(super) configs: &'a Configs,
+    /// The files to report on.
+    pub(super) report: &'a BTreeSet<PathBuf>,
+    pub(super) notes: &'a Notes,
+    pub(super) canon: &'a CanonCache,
+    pub(super) claims: &'a Claims,
 }
 
 /// Compile `root` with lint facts and lint the files in `report` it compiled, following the
 /// workspaces its metaprogram creates (`build.jai` compiling the real program).
-pub(super) fn lint_root(
-    root: &Program,
-    index: usize,
-    options: &Options,
-    configs: &Configs,
-    report: &BTreeSet<PathBuf>,
-    canon: &CanonCache,
-    claims: &Claims,
-) -> RootResult {
+pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootResult {
+    let Shared {
+        options,
+        configs,
+        report,
+        notes,
+        canon,
+        claims,
+    } = *shared;
     let _release = Release {
         claims,
         index,
@@ -44,14 +52,8 @@ pub(super) fn lint_root(
     let limits = options.limits;
     // A file that says it is for another system (`// test: only(.WINDOWS)`) is compiled for it,
     // as a program or, when it sits in an import folder, as the module it counts as.
-    let source = std::fs::read_to_string(root.path());
-    let (notes, problems) = header_target_notes(source.as_deref().unwrap_or_default());
-    let note_problems = problems
-        .into_iter()
-        .map(|problem| (root.path().to_path_buf(), problem))
-        .collect();
     let (os, cpu) = match marked_target(
-        &notes,
+        &notes[root.path()].target,
         options.compiler_options.os,
         options.compiler_options.cpu,
     ) {
@@ -205,6 +207,5 @@ pub(super) fn lint_root(
         error,
         contexts,
         failures,
-        note_problems,
     }
 }

@@ -42,7 +42,7 @@ use crate::config::{Config, Configs};
 use claims::Claims;
 use jaic::paths::CanonCache;
 use jaic::sema::Options as CompilerOptions;
-use lint_root::{RootResult, lint_root};
+use lint_root::{RootResult, Shared, lint_root};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -129,7 +129,7 @@ pub fn run_project(options: &Options, entries: &[PathBuf]) -> Outcome {
 
 fn run_planned(options: &Options, entries: Option<&[PathBuf]>) -> Outcome {
     let configs = Configs::new(&options.config);
-    let (roots, report) = plan::plan(options, &configs, entries);
+    let (roots, report, notes) = plan::plan(options, &configs, entries);
     let mut results: Vec<Option<RootResult>> = (0..roots.len()).map(|_| None).collect();
     let next = std::sync::atomic::AtomicUsize::new(0);
     let collected = std::sync::Mutex::new(Vec::new());
@@ -142,8 +142,15 @@ fn run_planned(options: &Options, entries: Option<&[PathBuf]>) -> Outcome {
     jaic::pool::configure(wanted);
     jaic::pool::get().scope(|s| {
         for _ in 0..jobs {
-            let (roots, report, next, collected) = (&roots, &report, &next, &collected);
-            let (canon, claims, configs) = (&canon, &claims, &configs);
+            let (roots, next, collected) = (&roots, &next, &collected);
+            let shared = Shared {
+                options,
+                configs: &configs,
+                report: &report,
+                notes: &notes,
+                canon: &canon,
+                claims: &claims,
+            };
             s.spawn(move |_| {
                 loop {
                     let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -153,7 +160,7 @@ fn run_planned(options: &Options, entries: Option<&[PathBuf]>) -> Outcome {
                     if options.verbose {
                         eprintln!("jailint: checking {}", root.path().display());
                     }
-                    let result = lint_root(root, i, options, configs, report, canon, claims);
+                    let result = lint_root(root, i, &shared);
                     collected
                         .lock()
                         .expect("no thread panicked holding the lock")
@@ -182,14 +189,17 @@ fn run_planned(options: &Options, entries: Option<&[PathBuf]>) -> Outcome {
     }
     let mut contexts = Vec::new();
     let mut failed_asserts = Vec::new();
-    let mut test_note_problems = Vec::new();
+    // Each file once, wherever it was loaded from.
+    let test_note_problems = notes
+        .iter()
+        .flat_map(|(path, notes)| notes.problems.iter().map(|p| (path.clone(), p.clone())))
+        .collect();
     for (i, r) in results.into_iter().enumerate() {
         let Some(r) = r else {
             continue;
         };
         contexts.extend(r.contexts);
         failed_asserts.extend(r.failures);
-        test_note_problems.extend(r.note_problems);
         for l in r.lints {
             if owner.get(&l.path) == Some(&i) {
                 lints.push(l);

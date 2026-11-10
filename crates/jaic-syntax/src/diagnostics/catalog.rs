@@ -270,7 +270,7 @@ catalog! {
             "something `jailint` noticed in the configuration it read, such as an unknown setting";
         LintTestNote = "lint-test-note", Warning,
             "a `// test:` note that says where a file runs and that `jailint` could not read, so it was ignored";
-        LintIncomplete ="lint-incomplete", Warning,
+        LintIncomplete = "lint-incomplete", Warning,
             "a program `jailint` could not compile completely, so the bodies that failed were not linted";
         InternalError = "internal-error", Error,
             "a bug in the compiler itself";

@@ -7,8 +7,8 @@ use jaic::project::{
     resolve_program,
 };
 use jaic::target::{TargetCpu, TargetOs};
-use jaic::test_notes::{header_notes, header_target_notes};
-use std::collections::BTreeSet;
+use jaic::test_notes::{TargetNotes, header_notes, header_target_notes};
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 /// The identity of a file in a run: its real path, as `jaic::paths::file_identity` gives it.
@@ -16,36 +16,70 @@ pub(super) fn canonical(path: &Path) -> PathBuf {
     DiskFs.key(path)
 }
 
+/// What the `// test:` header of a file says, read once per run.
+pub(super) struct FileNotes {
+    /// Where the file runs.
+    pub(super) target: TargetNotes,
+    /// Target notes that did not parse; they were ignored.
+    pub(super) problems: Vec<String>,
+    /// Marked `compile_fail`, `should_fail` or `xfail`: a negative fixture.
+    negative: bool,
+}
+
+impl FileNotes {
+    fn read(path: &Path) -> Self {
+        let source = std::fs::read_to_string(path).unwrap_or_default();
+        let (target, problems) = header_target_notes(&source);
+        let negative = header_notes(&source).iter().any(|note| {
+            matches!(
+                note.split('(').next().unwrap_or(""),
+                "compile_fail" | "should_fail" | "xfail"
+            )
+        });
+        FileNotes {
+            target,
+            problems,
+            negative,
+        }
+    }
+
+    /// Whether a directory scan leaves the file out: negative and fault fixtures intentionally
+    /// violate the rules it checks, and a file whose notes name no system the compiler can target
+    /// (`only(.ANDROID)`) compiles nowhere it would run. Explicit file arguments remain available
+    /// for investigating either.
+    fn left_out(&self, host: (TargetOs, TargetCpu)) -> bool {
+        self.negative || marked_target(&self.target, host.0, host.1) == Marked::Nowhere
+    }
+}
+
+/// The notes of the files of a run, by canonical path.
+pub(super) type Notes = BTreeMap<PathBuf, FileNotes>;
+
 /// The `.jai` files under `path`, sorted, excluding what the configuration excludes.
-fn expand(path: &Path, config: &Configs, host: (TargetOs, TargetCpu), out: &mut BTreeSet<PathBuf>) {
+fn expand(
+    path: &Path,
+    config: &Configs,
+    host: (TargetOs, TargetCpu),
+    notes: &mut Notes,
+    out: &mut BTreeSet<PathBuf>,
+) {
     if config.excluded(&canonical(path)) {
         return;
     }
     if path.is_dir() {
         let files = jaic::paths::jai_files_under(path, &mut |p| config.excluded(&canonical(p)));
-        out.extend(
-            files
-                .iter()
-                .filter(|f| !left_out(f, host))
-                .map(|f| canonical(f)),
-        );
+        for file in &files {
+            let file = canonical(file);
+            let read = notes
+                .entry(file.clone())
+                .or_insert_with(|| FileNotes::read(&file));
+            if !read.left_out(host) {
+                out.insert(file);
+            }
+        }
     } else if path.is_file() {
         out.insert(canonical(path));
     }
-}
-
-/// Files a directory scan leaves out: negative and fault fixtures intentionally violate the rules
-/// it checks, and a file whose notes name no system the compiler can target (`only(.ANDROID)`)
-/// compiles nowhere it would run. Explicit file arguments remain available for investigating
-/// either.
-fn left_out(path: &Path, host: (TargetOs, TargetCpu)) -> bool {
-    let source = std::fs::read_to_string(path).unwrap_or_default();
-    header_notes(&source).iter().any(|note| {
-        matches!(
-            note.split('(').next().unwrap_or(""),
-            "compile_fail" | "should_fail" | "xfail"
-        )
-    }) || marked_target(&header_target_notes(&source).0, host.0, host.1) == Marked::Nowhere
 }
 
 /// What the import folders of a program rooted at `path` are made of: the `import_path` of the
@@ -104,13 +138,15 @@ pub(super) fn plan(
     options: &Options,
     configs: &Configs,
     entries: Option<&[PathBuf]>,
-) -> (Vec<Program>, BTreeSet<PathBuf>) {
+) -> (Vec<Program>, BTreeSet<PathBuf>, Notes) {
     let mut listed = BTreeSet::new();
+    let mut notes = Notes::new();
     for p in &options.paths {
         expand(
             p,
             configs,
             (options.compiler_options.os, options.compiler_options.cpu),
+            &mut notes,
             &mut listed,
         );
     }
@@ -152,5 +188,13 @@ pub(super) fn plan(
     let mut report = listed;
     report.extend(loaded_by_listed);
     report.retain(|f| !configs.excluded(f));
-    (roots, report)
+    let root_files = roots.iter().map(Program::path);
+    for file in report.iter().map(PathBuf::as_path).chain(root_files) {
+        notes
+            .entry(file.to_path_buf())
+            .or_insert_with(|| FileNotes::read(file));
+    }
+    // A file the scan left out is not reported, so its notes are not either.
+    notes.retain(|file, _| report.contains(file) || roots.iter().any(|r| r.path() == file));
+    (roots, report, notes)
 }

@@ -313,3 +313,30 @@ fn test_notes_that_do_not_parse_are_warned_about_once() {
     let (err, _) = jailint(&dir, &["."]);
     assert_eq!(err.matches("lint-test-note").count(), 1, "{err}");
 }
+
+#[test]
+fn test_notes_that_do_not_parse_are_warned_about_in_loaded_files() {
+    let dir = scratch("bad-test-note-loaded");
+    std::fs::write(
+        dir.join("game.jai"),
+        "#load \"part.jai\";\n#load \"other.jai\";\nmain :: () { part(); other(); }\n",
+    )
+    .unwrap();
+    for name in ["part", "other"] {
+        std::fs::write(
+            dir.join(format!("{name}.jai")),
+            format!("// test: only(.NOWHERE)\n{name} :: () {{}}\n"),
+        )
+        .unwrap();
+    }
+    for args in [&["game.jai"][..], &["."][..]] {
+        let (err, _) = jailint(&dir, args);
+        for name in ["part", "other"] {
+            let line = format!(
+                "warning[lint-test-note]: {name}.jai: `@only` does not know the target `nowhere`"
+            );
+            assert_eq!(err.matches(&line).count(), 1, "{args:?}: {err}");
+        }
+        assert_eq!(err.matches("lint-test-note").count(), 2, "{args:?}: {err}");
+    }
+}
