@@ -3,6 +3,25 @@
 //! run; `jailint` reads them to decide what to compile a file as.
 
 use std::fmt;
+use std::path::Path;
+
+/// The folder below `tests/` whose `.jai` files must fail to compile, notes or not.
+pub const COMPILE_FAIL_DIR: &str = "compile_fail";
+
+/// Whether `path` is a `tests/compile_fail/*.jai` fixture, which `jacket test` expects to fail to
+/// compile without a `compile_fail` note.
+///
+/// ```
+/// use jaic::test_notes::in_compile_fail_folder;
+/// use std::path::Path;
+/// assert!(in_compile_fail_folder(Path::new("Csv/tests/compile_fail/bad.jai")));
+/// assert!(!in_compile_fail_folder(Path::new("Csv/tests/bad.jai")));
+/// ```
+pub fn in_compile_fail_folder(path: &Path) -> bool {
+    let folder = path.parent();
+    folder.and_then(Path::file_name) == Some(COMPILE_FAIL_DIR.as_ref())
+        && folder.and_then(Path::parent).and_then(Path::file_name) == Some("tests".as_ref())
+}
 
 
 /// Where tests run: the target and how.

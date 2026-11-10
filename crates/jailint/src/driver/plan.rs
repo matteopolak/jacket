@@ -7,7 +7,7 @@ use jaic::project::{
     resolve_program,
 };
 use jaic::target::{TargetCpu, TargetOs};
-use jaic::test_notes::{TargetNotes, header_notes, header_target_notes};
+use jaic::test_notes::{TargetNotes, header_notes, header_target_notes, in_compile_fail_folder};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
@@ -22,7 +22,8 @@ pub(super) struct FileNotes {
     pub(super) target: TargetNotes,
     /// Target notes that did not parse; they were ignored.
     pub(super) problems: Vec<String>,
-    /// Marked `compile_fail`, `should_fail` or `xfail`: a negative fixture.
+    /// Marked `compile_fail`, `should_fail` or `xfail`, or in `tests/compile_fail/`: a negative
+    /// fixture.
     negative: bool,
 }
 
@@ -30,12 +31,13 @@ impl FileNotes {
     fn read(path: &Path) -> Self {
         let source = std::fs::read_to_string(path).unwrap_or_default();
         let (target, problems) = header_target_notes(&source);
-        let negative = header_notes(&source).iter().any(|note| {
-            matches!(
-                note.split('(').next().unwrap_or(""),
-                "compile_fail" | "should_fail" | "xfail"
-            )
-        });
+        let negative = in_compile_fail_folder(path)
+            || header_notes(&source).iter().any(|note| {
+                matches!(
+                    note.split('(').next().unwrap_or(""),
+                    "compile_fail" | "should_fail" | "xfail"
+                )
+            });
         FileNotes {
             target,
             problems,

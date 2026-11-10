@@ -340,3 +340,23 @@ fn test_notes_that_do_not_parse_are_warned_about_in_loaded_files() {
         assert_eq!(err.matches("lint-test-note").count(), 2, "{args:?}: {err}");
     }
 }
+
+#[test]
+fn a_directory_scan_leaves_out_tests_compile_fail_fixtures() {
+    let dir = scratch("compile-fail-folder");
+    std::fs::create_dir_all(dir.join("tests/compile_fail")).unwrap();
+    std::fs::write(dir.join("tests/ok.jai"), "main :: () {}\n").unwrap();
+    // No `// test: compile_fail` note: jacket test knows it from the folder.
+    std::fs::write(
+        dir.join("tests/compile_fail/bad.jai"),
+        "main :: () { missing_procedure(); }\n",
+    )
+    .unwrap();
+    let (err, code) = jailint(&dir, &["."]);
+    assert!(!err.contains("lint-incomplete"), "{err}");
+    assert_eq!(code, Some(0), "{err}");
+    // Named on its own, the fixture is still linted.
+    let (err, code) = jailint(&dir, &["tests/compile_fail/bad.jai"]);
+    assert!(err.contains("lint-incomplete"), "{err}");
+    assert_eq!(code, Some(1), "{err}");
+}

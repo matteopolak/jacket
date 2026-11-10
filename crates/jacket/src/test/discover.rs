@@ -141,7 +141,7 @@ impl Root {
         doc_tests: bool,
     ) -> Result<Root, String> {
         let tests = dir.join("tests");
-        let compile_dir = tests.join("compile_fail");
+        let compile_dir = tests.join(jaic::test_notes::COMPILE_FAIL_DIR);
         let (mut unit, mut golden) = (Vec::new(), Vec::new());
         let mut compile_fail = jai_files(&compile_dir);
         for file in jai_files_below(&tests) {
