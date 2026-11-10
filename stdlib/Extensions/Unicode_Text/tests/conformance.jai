@@ -4,6 +4,7 @@
 #import "Unicode";
 #import "Extensions/Environment";
 #import "Extensions/Unicode_Text";
+#import "Extensions/Testing";
 
 hex :: (s: string) -> u32 {
     n: u32;
@@ -38,7 +39,7 @@ suite :: (name: string) -> string {
 
     text, ok := read_entire_file(tprint("%/unicode-text-conformance/%", base, name));
 
-    assert(ok, "run `PYTHONPATH=tools python3 tools/portable/build_portable.py data` first");
+    expect(ok, "run `PYTHONPATH=tools python3 tools/portable/build_portable.py data` first");
 
     return text;
 }
@@ -80,24 +81,24 @@ normalization_conformance :: () {
                 defer free_buffers(*b);
                 error := normalize(columns[c], form, *b);
 
-                assert(error.kind == .NONE);
+                require(error.kind == .NONE);
                 actual := builder_to_string(*b);
 
                 defer free(actual);
                 if actual != columns[expected] print("normalization line %, form %, col %\n", line, f, c);
 
-                assert(actual == columns[expected]);
+                require(actual == columns[expected]);
                 yes, qc_error := is_normalized(columns[c], form);
                 if yes != (columns[c] == columns[expected]) print("QC line %, form %, col %, yes %\n", line, f, c, yes);
 
-                assert(qc_error.kind == .NONE && yes == (columns[c] == columns[expected]));
+                require(qc_error.kind == .NONE && yes == (columns[c] == columns[expected]));
             }
         }
 
         cases += 1;
     }
 
-    assert(cases == 20034);
+    require(cases == 20034);
 } @test
 
 break_conformance :: (name: string, kind: Segmentation, expected_cases: int) {
@@ -139,24 +140,24 @@ break_conformance :: (name: string, kind: Segmentation, expected_cases: int) {
             start, end, more := next_segment(*iterator);
             if !more break;
 
-            assert(found < expected.count);
+            require(found < expected.count);
             if start != expected[found - 1] || end != expected[found] print("%: % at % got %..% expected %..%\n", name, line, found, start, end, expected[found - 1], expected[found]);
 
-            assert(start == expected[found - 1] && end == expected[found]);
+            require(start == expected[found - 1] && end == expected[found]);
 
             if kind == .GRAPHEME {
                 reverse, reverse_error := previous_grapheme(input, end);
-                assert(reverse_error.kind == .NONE && reverse == start);
+                require(reverse_error.kind == .NONE && reverse == start);
             }
 
             found += 1;
         }
 
-        assert(iterator.error.kind == .NONE && found == expected.count);
+        require(iterator.error.kind == .NONE && found == expected.count);
         cases += 1;
     }
 
-    assert(cases == expected_cases);
+    require(cases == expected_cases);
 }
 
 grapheme_conformance :: () {
@@ -215,14 +216,14 @@ normalization_unlisted_scalars :: () {
             form := cast(Normalization_Form) f;
             error := normalize(input, form, *b);
 
-            assert(error.kind == .NONE);
+            require(error.kind == .NONE);
             output := builder_to_string(*b);
 
             defer free(output);
-            assert(output == input);
+            require(output == input);
             yes, qc_error := is_normalized(input, form);
 
-            assert(yes && qc_error.kind == .NONE);
+            require(yes && qc_error.kind == .NONE);
         }
     }
 } @test
