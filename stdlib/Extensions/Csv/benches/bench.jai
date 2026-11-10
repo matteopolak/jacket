@@ -204,3 +204,47 @@ read_records_plain_trim_chunked :: (b: *Bench) {
 
     for 0..b.iterations - 1 black_box(count_fields(data, .{ header = true, trim = true }, 4096));
 } @bench @samples(10)
+
+// The first 2 MB of `read_records`' input from a source that gives one byte at a time: every block
+// the scanner loads is a short window.
+read_records_byte_chunked :: (b: *Bench) {
+    data := benchmark_input();
+
+    defer free(data);
+
+    end := 2_000_000;
+
+    while data[end - 1] != #char "\n" end -= 1;
+
+    head := slice(data, 0, end);
+
+    set_bytes(b, head.count);
+    reset_timer(b);
+
+    for 0..b.iterations - 1 black_box(count_fields(head, .{ header = true }, 1));
+} @bench @samples(10)
+
+// Records of about 20 KB, longer than the reader's first 8192-byte window, plain and quoted, from a
+// chunk source.
+read_long_records_chunked :: (b: *Bench) {
+    builder: String_Builder;
+
+    for 0..199 {
+        for field: 0..999 {
+            if field append(*builder, ",");
+
+            if it % 2 print_to_builder(*builder, "\"field, number %\"", field);
+            else print_to_builder(*builder, "field %", field);
+        }
+
+        append(*builder, "\n");
+    }
+
+    data := builder_to_string(*builder);
+
+    defer free(data);
+    set_bytes(b, data.count);
+    reset_timer(b);
+
+    for 0..b.iterations - 1 black_box(count_fields(data, .{}, 4096));
+} @bench @samples(10)

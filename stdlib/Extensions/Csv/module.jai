@@ -94,7 +94,7 @@ Csv_Source :: Pieces.Byte_Source;
 // mapping. [Csv_Reader] wraps it; the fields are internal.
 Csv_Core :: struct {
     source: Csv_Source;
-    chunk: [8192] u8;
+    window: [] u8; // where a chunk source's bytes go: made at the first refill, grown for a record that does not fit
     eof: bool;
     options: Csv_Options;
     input: [] u8;
@@ -358,6 +358,9 @@ csv_reader_free :: (r: *Csv_Reader($Row)) {
     array_free(r.decoded);
     array_free(r.columns);
     array_free(r.fields);
+    if r.window.data free(r.window.data);
+
+    r.window = .[];
     Hash_Map.deinit(*r.header_index);
     csv_record_free(r.header);
     r.header = .[];
@@ -429,6 +432,7 @@ csv_write_record :: (out: *String_Builder, fields: [] string, options := Csv_Opt
 Pieces :: #import "internal/byte-source";
 Simd :: #import "Extensions/SIMD";
 Hash_Map :: #import "Extensions/Hash_Map";
+Memory :: #import "Memory";
 #load "../../internal/derive-notes/notes.jai";
 #load "typed.jai";
 #load "generate.jai";
@@ -617,45 +621,60 @@ fill_to :: (r: *Csv_Core, ahead: int) -> int {
 
 SOURCE_FAILED :: "source read failed or returned an invalid count";
 
-// Asks the source once for more bytes, after moving the window's unread bytes to its start. Returns
-// why the source failed, or an empty string. The window's end of input is `r.eof`.
-read_more :: (r: *Csv_Core) -> string {
+// The window's size when a chunk source is first read, and the least a refill asks for.
+WINDOW_BYTES :: 8192;
+
+// Moves the window's unread bytes to its start, in a window of at least `capacity` bytes: a new one,
+// made with the reader's allocator, when the current one is smaller.
+settle_window :: (r: *Csv_Core, capacity: int) {
     left := r.input.count - r.position;
 
-    if r.position > 0 {
-        i := 0;
+    if capacity > r.window.count {
+        fresh := cast(*u8) alloc(capacity);
 
-        while i < left {
-            r.chunk[i] = r.input[r.position + i];
-            i += 1;
-        }
+        if left memcpy(fresh, r.input.data + r.position, left);
+        if r.window.data free(r.window.data);
+
+        r.window = .{ capacity, fresh };
+    } else if r.position > 0 && left {
+        Memory.copy(r.window.data, r.input.data + r.position, left);
     }
 
     r.position = 0;
     r.block_base = -1;
-    r.input = .{ left, r.chunk.data };
-    target: [] u8 = .{ r.chunk.count - left, r.chunk.data + left };
+    r.input = .{ left, r.window.data };
+}
+
+// Asks the source once for more bytes, after moving the window's unread bytes to its start. Returns
+// why the source failed, or an empty string. The window's end of input is `r.eof`.
+read_more :: (r: *Csv_Core) -> string {
+    settle_window(r, WINDOW_BYTES);
+
+    left := r.input.count;
+    target: [] u8 = .{ r.window.count - left, r.window.data + left };
     count, error := r.source.fill(r.source.data, target);
 
     if error.count || count < 0 || count > target.count return SOURCE_FAILED;
 
-    r.input = .{ left + count, r.chunk.data };
+    r.input = .{ left + count, r.window.data };
     if !count r.eof = true;
 
     return "";
 }
 
 // Gives the block scanner more of a record that runs past the window: refills it until the record's
-// part of the window has doubled (so a source of tiny pieces costs a few scans, not one per piece)
-// and returns true, or returns false when it cannot grow (a slice, the end of the input, a record
-// that fills the window or exceeds the record limit) or the source failed. A failure is left for
-// `fill_to` to report: the byte-by-byte path reads the record again and reaches the end of the
-// window, or the next record does.
+// part of the window has doubled (so a source of tiny pieces costs a few scans, not one per piece),
+// making the window larger when the record fills it, and returns true, or returns false when it
+// cannot grow (a slice, the end of the input, a record over the record limit) or the source failed.
+// A failure is left for `fill_to` to report: the byte-by-byte path reads the record again and
+// reaches the end of the window, or the next record does.
 grow_window :: (r: *Csv_Core) -> bool {
     start := r.input.count - r.position;
-    goal := clamp(2 * start, 64, r.chunk.count);
+    goal := max(2 * start, 64);
 
-    if !r.source.fill || r.eof || r.source_failed || start >= r.chunk.count || start > r.options.max_record_bytes return false;
+    if !r.source.fill || r.eof || r.source_failed || start > r.options.max_record_bytes return false;
+
+    settle_window(r, max(goal, WINDOW_BYTES));
 
     while !r.eof && r.input.count - r.position < goal {
         if read_more(r).count {
@@ -721,11 +740,36 @@ scan_from :: inline (r: *Csv_Core, from: int, mask: u8) -> int {
     return count;
 }
 
+// A block with fewer bytes than this left in the window gets its masks from the `stops` table.
+SHORT_BLOCK :: 16;
+
 // Builds the stop masks of the 64 bytes at `base`; the bytes past the window's end are zero, which
 // stops nothing.
 load_block :: (r: *Csv_Core, base: int) {
     data := r.input.data + base;
     left := r.input.count - base;
+
+    r.block_base = base;
+
+    // A window that ends within the block (one-byte chunks, the tail of a slice) is cheaper to
+    // look up byte by byte than to load and compare across all 64 lanes.
+    if left < SHORT_BLOCK {
+        quoted: u64;
+        unquoted: u64;
+
+        for i: 0..left - 1 {
+            stop := cast(u64) r.stops[data[i]];
+
+            quoted |= ((stop >> 1) & 1) << cast(u64) i;
+            unquoted |= (stop & 1) << cast(u64) i;
+        }
+
+        r.block_quoted = quoted;
+        r.block_unquoted = unquoted;
+
+        return;
+    }
+
     bytes: Simd.u8x64 = ---;
 
     if left >= 64 bytes = Simd.load(Simd.u8x64, data);
@@ -736,7 +780,6 @@ load_block :: (r: *Csv_Core, base: int) {
     delimiters := Simd.to_bits(Simd.eq(bytes, marks.delimiter));
     quotes := Simd.to_bits(Simd.eq(bytes, marks.quote));
 
-    r.block_base = base;
     r.block_quoted = breaks | quotes;
     r.block_unquoted = breaks | delimiters;
     if !r.options.lax_quotes r.block_unquoted |= quotes;

@@ -35,11 +35,12 @@ introducing a second callback convention.
 r := csv_reader(Csv_Source.{*state, fill}, .{header = true});
 ```
 
-The reader requests at most 8192 bytes at once and handles tokens split at any
-byte boundary. Keep its address stable after reading starts: its input can point
-into its own chunk buffer. It neither closes nor frees the source. Memory is
-bounded by one record, field metadata, the optional header and one chunk;
-the complete input is never gathered.
+The reader handles tokens split at any byte boundary. It requests bytes into its
+own window, 8192 bytes at first and larger once a record needs more room (see
+below), and it neither closes nor frees the source. Memory is bounded by one
+record, field metadata, the optional header and one window; the complete input is
+never gathered. The window is allocated at the first read and released by
+`csv_reader_free`.
 
 ## Options and errors
 
@@ -137,6 +138,11 @@ range-checked, floats retain round-trip precision when written, booleans use
 are optional: an empty cell becomes null. An empty nonoptional number fails.
 Declared initializers are preserved when failure occurs before a field is read;
 `csv_row_free` leaves default storage alone and resets decoded members.
+`read_cell` decodes each member from its field's bytes: plain integers (up to 18
+digits) and short plain decimals (up to 15 digits for `float64`, 7 for `float32`,
+no exponent) are parsed in place, and anything else (white space, a value near
+the type's limits, an exponent, `inf`) goes to `string_to_int` or `string_to_float`,
+so both give the same result. `numbers_read_like_the_general_readers` checks it.
 
 `csv_write_rows(*builder, rows, options)` always emits a header, then structs.
 It appends records individually, so failure may leave earlier records in the
@@ -188,15 +194,19 @@ reused buffer when it holds doubled quotes. With `trim` the scan skips spaces an
 tabs before an unquoted field and after a closing quote, and cuts them off the end
 of an unquoted one, exactly as the byte path does. The fast path leaves the reader
 untouched until the whole record is read and within its limits; anything else (a
-quote error, a limit, EOF inside quotes, a record longer than the 8192-byte
-window) makes `read_record` read the record again byte by byte, which also
-reports the error.
+quote error, a limit, EOF inside quotes) makes `read_record` read the record
+again byte by byte, which also reports the error.
 
 A chunked source gives the fast path a window that holds the whole record. When
 the scan reaches the window's end before the record's, `grow_window` moves the
-record to the window's start and asks the source for more until the record's
-part has doubled (a source of one-byte pieces costs a few scans, not one per
-byte), and the record is scanned again. The fields of a chunked record are views
+record to the window's start (`Memory.copy`, which handles overlap) and asks the
+source for more until the record's part has doubled (a source of one-byte pieces
+costs a few scans, not one per byte), and the record is scanned again. A record
+that fills the window gets a larger one, at least twice its size so far, so a
+record of any length up to `max_record_bytes` is read by the fast path; the window
+keeps the larger size afterwards and stays within about twice the record limit.
+A window that ends inside a block (fewer than `SHORT_BLOCK` bytes left) gets its
+masks from the `stops` table byte by byte instead of 64 lanes of compares. The fields of a chunked record are views
 of the window, valid until the next call like any record. A source that fails
 during that refill is not reported at once: the byte path reads the record again
 and `fill_to` reports the failure where it reaches the window's end, so the

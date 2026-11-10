@@ -504,6 +504,70 @@ spans_windows :: () {
     expect_same_everywhere(text, .{ max_record_bytes = 9000 });
 } @test
 
+// A record far longer than the reader's initial 8192-byte window, unquoted and quoted, is read by
+// the block scanner (`record_scanned`) from a chunk source of any piece size: the window grows to
+// hold it. The fields are those of a slice, and a source that fails inside the record reports the
+// same outcome as byte-by-byte reading.
+long_records_grow_the_window :: () {
+    push_allocator(temp);
+
+    wide: String_Builder;
+
+    for 0..4999 {
+        if it append(*wide, ",");
+
+        print_to_builder(*wide, "f%", it);
+    }
+
+    append(*wide, "\nnext,row\n");
+
+    quoted: String_Builder;
+
+    append(*quoted, "head,\"");
+    for 0..799 append(*quoted, "line of text\r\n with \"\"quotes\"\" and, commas ");
+
+    append(*quoted, "\",\"tail\"\"\"\r\nnext,row\n");
+
+    for text: string.[builder_to_string(*wide), builder_to_string(*quoted)] {
+        expect(text.count > 3 * 8192);
+
+        want := slice_outcome(text, .{});
+
+        for size: int.[1, 7, 64, 4096, 8192, 8193, 100000] {
+            feed := Feed.{ text = text, size = size };
+            reader := csv_reader(Csv_Source.{ *feed, feed_fill });
+
+            defer csv_reader_free(*reader);
+
+            fields, present, error := csv_next(*reader);
+
+            expect(present && error.kind == .NONE);
+            expect(reader.record_scanned);
+            expect_equal(fields.count, ifx text[0] == #char "h" then 3 else 5000);
+
+            feed2 := Feed.{ text = text, size = size };
+            second := csv_reader(Csv_Source.{ *feed2, feed_fill });
+
+            defer csv_reader_free(*second);
+
+            expect_equal(outcome(*second), want);
+        }
+
+        for fail_after: int.[100, 8191, 8192, 8193, 9000, 20000, text.count - 12] {
+            for size: int.[7, 4096] {
+                want_failure := failing_outcome(text, .{}, size, fail_after, true);
+                got := failing_outcome(text, .{}, size, fail_after, false);
+
+                if got != want_failure {
+                    print("failing after % in pieces of %\n--- bytewise\n%\n--- blocks\n%\n", fail_after, size, want_failure, got);
+                    expect(false);
+                    return;
+                }
+            }
+        }
+    }
+} @test
+
 Triple :: struct {
     a: int;
     b: string;
@@ -629,8 +693,8 @@ typed_error_positions :: () {
     expect_typed_error("1,a,2,z\n5,\"q\r\n\"\n", .{}, "1 rows, HEADER at 8 line 2 column 1 (c)");
 } @test
 
-// A record that fits the reader's own 8192-byte window is read by the block scanner and a longer
-// one byte by byte; the error is placed the same way.
+// A record shorter or longer than the reader's first 8192-byte window is read by the block scanner;
+// the error is placed the same way as when it is read byte by byte.
 typed_error_positions_in_long_records :: () {
     push_allocator(temp);
 
