@@ -152,6 +152,7 @@ mod tests {
             name: name.into(),
             system: true,
             link_always: false,
+            no_dll: false,
             base_dir: String::new(),
         };
         let msvc = BuildTarget::windows(TargetCpu::X64, true).toolchain();
