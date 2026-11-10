@@ -126,7 +126,7 @@
       "patterns": [
         {
           "name": "meta.here-string.wgsl.jai",
-          "begin": "(?=#string(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*\\s*((?i:WGSL))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
+          "begin": "(?=#string(?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*((?i:WGSL))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
           "end": "^[ \\t]*(\\1)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
           "endCaptures": {
             "1": {
@@ -135,7 +135,7 @@
           },
           "patterns": [
             {
-              "begin": "\\G(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
+              "begin": "\\G(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
               "beginCaptures": {
                 "1": {
                   "name": "keyword.other.directive.here-string.jai"
@@ -165,7 +165,7 @@
         },
         {
           "name": "meta.here-string.glsl.jai",
-          "begin": "(?=#string(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*\\s*((?i:GLSL|VERT|FRAG|COMP|GEOM|TESC|TESE))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
+          "begin": "(?=#string(?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*((?i:GLSL|VERT|FRAG|COMP|GEOM|TESC|TESE))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
           "end": "^[ \\t]*(\\1)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
           "endCaptures": {
             "1": {
@@ -174,7 +174,7 @@
           },
           "patterns": [
             {
-              "begin": "\\G(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
+              "begin": "\\G(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
               "beginCaptures": {
                 "1": {
                   "name": "keyword.other.directive.here-string.jai"
@@ -201,7 +201,7 @@
         },
         {
           "name": "meta.here-string.hlsl.jai",
-          "begin": "(?=#string(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*\\s*((?i:HLSL))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
+          "begin": "(?=#string(?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*((?i:HLSL))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
           "end": "^[ \\t]*(\\1)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
           "endCaptures": {
             "1": {
@@ -210,7 +210,7 @@
           },
           "patterns": [
             {
-              "begin": "\\G(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
+              "begin": "\\G(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
               "beginCaptures": {
                 "1": {
                   "name": "keyword.other.directive.here-string.jai"
@@ -237,7 +237,7 @@
         },
         {
           "name": "meta.here-string.metal.jai",
-          "begin": "(?=#string(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*\\s*((?i:MSL|METAL))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
+          "begin": "(?=#string(?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*((?i:MSL|METAL))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
           "end": "^[ \\t]*(\\1)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
           "endCaptures": {
             "1": {
@@ -246,7 +246,7 @@
           },
           "patterns": [
             {
-              "begin": "\\G(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
+              "begin": "\\G(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
               "beginCaptures": {
                 "1": {
                   "name": "keyword.other.directive.here-string.jai"
@@ -273,7 +273,7 @@
         },
         {
           "name": "meta.here-string.sql.jai",
-          "begin": "(?=#string(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*\\s*((?i:SQL))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
+          "begin": "(?=#string(?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*((?i:SQL))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
           "end": "^[ \\t]*(\\1)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
           "endCaptures": {
             "1": {
@@ -282,7 +282,7 @@
           },
           "patterns": [
             {
-              "begin": "\\G(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
+              "begin": "\\G(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
               "beginCaptures": {
                 "1": {
                   "name": "keyword.other.directive.here-string.jai"
@@ -309,7 +309,7 @@
         },
         {
           "name": "meta.here-string.json.jai",
-          "begin": "(?=#string(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*\\s*((?i:JSON))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
+          "begin": "(?=#string(?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*((?i:JSON))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
           "end": "^[ \\t]*(\\1)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
           "endCaptures": {
             "1": {
@@ -318,7 +318,7 @@
           },
           "patterns": [
             {
-              "begin": "\\G(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
+              "begin": "\\G(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
               "beginCaptures": {
                 "1": {
                   "name": "keyword.other.directive.here-string.jai"
@@ -345,7 +345,7 @@
         },
         {
           "name": "meta.here-string.html.jai",
-          "begin": "(?=#string(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*\\s*((?i:HTML))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
+          "begin": "(?=#string(?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*((?i:HTML))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
           "end": "^[ \\t]*(\\1)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
           "endCaptures": {
             "1": {
@@ -354,7 +354,7 @@
           },
           "patterns": [
             {
-              "begin": "\\G(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
+              "begin": "\\G(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
               "beginCaptures": {
                 "1": {
                   "name": "keyword.other.directive.here-string.jai"
@@ -381,7 +381,7 @@
         },
         {
           "name": "meta.here-string.css.jai",
-          "begin": "(?=#string(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*\\s*((?i:CSS))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
+          "begin": "(?=#string(?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*((?i:CSS))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
           "end": "^[ \\t]*(\\1)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
           "endCaptures": {
             "1": {
@@ -390,7 +390,7 @@
           },
           "patterns": [
             {
-              "begin": "\\G(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
+              "begin": "\\G(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
               "beginCaptures": {
                 "1": {
                   "name": "keyword.other.directive.here-string.jai"
@@ -417,7 +417,7 @@
         },
         {
           "name": "meta.here-string.javascript.jai",
-          "begin": "(?=#string(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*\\s*((?i:JS|JAVASCRIPT))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
+          "begin": "(?=#string(?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*((?i:JS|JAVASCRIPT))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
           "end": "^[ \\t]*(\\1)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
           "endCaptures": {
             "1": {
@@ -426,7 +426,7 @@
           },
           "patterns": [
             {
-              "begin": "\\G(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
+              "begin": "\\G(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
               "beginCaptures": {
                 "1": {
                   "name": "keyword.other.directive.here-string.jai"
@@ -453,7 +453,7 @@
         },
         {
           "name": "meta.here-string.typescript.jai",
-          "begin": "(?=#string(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*\\s*((?i:TS|TYPESCRIPT))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
+          "begin": "(?=#string(?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*((?i:TS|TYPESCRIPT))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
           "end": "^[ \\t]*(\\1)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
           "endCaptures": {
             "1": {
@@ -462,7 +462,7 @@
           },
           "patterns": [
             {
-              "begin": "\\G(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
+              "begin": "\\G(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
               "beginCaptures": {
                 "1": {
                   "name": "keyword.other.directive.here-string.jai"
@@ -489,7 +489,7 @@
         },
         {
           "name": "meta.here-string.python.jai",
-          "begin": "(?=#string(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*\\s*((?i:PY|PYTHON))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
+          "begin": "(?=#string(?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*((?i:PY|PYTHON))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
           "end": "^[ \\t]*(\\1)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
           "endCaptures": {
             "1": {
@@ -498,7 +498,7 @@
           },
           "patterns": [
             {
-              "begin": "\\G(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
+              "begin": "\\G(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
               "beginCaptures": {
                 "1": {
                   "name": "keyword.other.directive.here-string.jai"
@@ -525,7 +525,7 @@
         },
         {
           "name": "meta.here-string.shellscript.jai",
-          "begin": "(?=#string(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*\\s*((?i:SH|BASH|SHELL))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
+          "begin": "(?=#string(?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*((?i:SH|BASH|SHELL))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
           "end": "^[ \\t]*(\\1)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
           "endCaptures": {
             "1": {
@@ -534,7 +534,7 @@
           },
           "patterns": [
             {
-              "begin": "\\G(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
+              "begin": "\\G(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
               "beginCaptures": {
                 "1": {
                   "name": "keyword.other.directive.here-string.jai"
@@ -561,7 +561,7 @@
         },
         {
           "name": "meta.here-string.c.jai",
-          "begin": "(?=#string(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*\\s*((?i:C))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
+          "begin": "(?=#string(?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*((?i:C))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
           "end": "^[ \\t]*(\\1)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
           "endCaptures": {
             "1": {
@@ -570,7 +570,7 @@
           },
           "patterns": [
             {
-              "begin": "\\G(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
+              "begin": "\\G(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
               "beginCaptures": {
                 "1": {
                   "name": "keyword.other.directive.here-string.jai"
@@ -597,7 +597,7 @@
         },
         {
           "name": "meta.here-string.cpp.jai",
-          "begin": "(?=#string(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*\\s*((?i:CPP))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
+          "begin": "(?=#string(?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*((?i:CPP))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
           "end": "^[ \\t]*(\\1)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
           "endCaptures": {
             "1": {
@@ -606,7 +606,7 @@
           },
           "patterns": [
             {
-              "begin": "\\G(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
+              "begin": "\\G(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
               "beginCaptures": {
                 "1": {
                   "name": "keyword.other.directive.here-string.jai"
@@ -633,7 +633,7 @@
         },
         {
           "name": "meta.here-string.objc.jai",
-          "begin": "(?=#string(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*\\s*((?i:OBJC))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
+          "begin": "(?=#string(?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*((?i:OBJC))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
           "end": "^[ \\t]*(\\1)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
           "endCaptures": {
             "1": {
@@ -642,7 +642,7 @@
           },
           "patterns": [
             {
-              "begin": "\\G(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
+              "begin": "\\G(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
               "beginCaptures": {
                 "1": {
                   "name": "keyword.other.directive.here-string.jai"
@@ -669,7 +669,7 @@
         },
         {
           "name": "meta.here-string.rust.jai",
-          "begin": "(?=#string(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*\\s*((?i:RS|RUST))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
+          "begin": "(?=#string(?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*((?i:RS|RUST))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
           "end": "^[ \\t]*(\\1)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
           "endCaptures": {
             "1": {
@@ -678,7 +678,7 @@
           },
           "patterns": [
             {
-              "begin": "\\G(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
+              "begin": "\\G(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
               "beginCaptures": {
                 "1": {
                   "name": "keyword.other.directive.here-string.jai"
@@ -705,7 +705,7 @@
         },
         {
           "name": "meta.here-string.xml.jai",
-          "begin": "(?=#string(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*\\s*((?i:XML))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
+          "begin": "(?=#string(?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*((?i:XML))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
           "end": "^[ \\t]*(\\1)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
           "endCaptures": {
             "1": {
@@ -714,7 +714,7 @@
           },
           "patterns": [
             {
-              "begin": "\\G(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
+              "begin": "\\G(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
               "beginCaptures": {
                 "1": {
                   "name": "keyword.other.directive.here-string.jai"
@@ -741,7 +741,7 @@
         },
         {
           "name": "meta.here-string.yaml.jai",
-          "begin": "(?=#string(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*\\s*((?i:YAML|YML))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
+          "begin": "(?=#string(?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*((?i:YAML|YML))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
           "end": "^[ \\t]*(\\1)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
           "endCaptures": {
             "1": {
@@ -750,7 +750,7 @@
           },
           "patterns": [
             {
-              "begin": "\\G(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
+              "begin": "\\G(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
               "beginCaptures": {
                 "1": {
                   "name": "keyword.other.directive.here-string.jai"
@@ -777,7 +777,7 @@
         },
         {
           "name": "meta.here-string.toml.jai",
-          "begin": "(?=#string(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*\\s*((?i:TOML))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
+          "begin": "(?=#string(?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*((?i:TOML))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
           "end": "^[ \\t]*(\\1)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
           "endCaptures": {
             "1": {
@@ -786,7 +786,7 @@
           },
           "patterns": [
             {
-              "begin": "\\G(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
+              "begin": "\\G(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
               "beginCaptures": {
                 "1": {
                   "name": "keyword.other.directive.here-string.jai"
@@ -816,7 +816,7 @@
         },
         {
           "name": "meta.here-string.markdown.jai",
-          "begin": "(?=#string(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*\\s*((?i:MD|MARKDOWN))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
+          "begin": "(?=#string(?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*((?i:MD|MARKDOWN))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
           "end": "^[ \\t]*(\\1)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
           "endCaptures": {
             "1": {
@@ -825,7 +825,7 @@
           },
           "patterns": [
             {
-              "begin": "\\G(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
+              "begin": "\\G(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
               "beginCaptures": {
                 "1": {
                   "name": "keyword.other.directive.here-string.jai"
@@ -852,7 +852,7 @@
         },
         {
           "name": "meta.here-string.lua.jai",
-          "begin": "(?=#string(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*\\s*((?i:LUA))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
+          "begin": "(?=#string(?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*((?i:LUA))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
           "end": "^[ \\t]*(\\1)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
           "endCaptures": {
             "1": {
@@ -861,7 +861,7 @@
           },
           "patterns": [
             {
-              "begin": "\\G(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
+              "begin": "\\G(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
               "beginCaptures": {
                 "1": {
                   "name": "keyword.other.directive.here-string.jai"
@@ -888,7 +888,7 @@
         },
         {
           "name": "meta.here-string.jai.jai",
-          "begin": "(?=#string(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*\\s*((?i:JAI))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
+          "begin": "(?=#string(?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*((?i:JAI))(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))",
           "end": "^[ \\t]*(\\1)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
           "endCaptures": {
             "1": {
@@ -897,7 +897,7 @@
           },
           "patterns": [
             {
-              "begin": "\\G(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
+              "begin": "\\G(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)(.*)",
               "beginCaptures": {
                 "1": {
                   "name": "keyword.other.directive.here-string.jai"
@@ -924,12 +924,26 @@
         },
         {
           "include": "#plain-here-string"
+        },
+        {
+          "include": "#here-string-header"
         }
       ]
     },
+    "here-string-header": {
+      "match": "(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))(?=\\s*(?:$|//|/\\*))",
+      "captures": {
+        "1": {
+          "name": "keyword.other.directive.here-string.jai"
+        },
+        "2": {
+          "name": "storage.modifier.here-string.jai"
+        }
+      }
+    },
     "plain-here-string": {
       "name": "string.unquoted.here-string.jai",
-      "begin": "(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)",
+      "begin": "(#string)((?>(?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*))\\s*([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)",
       "beginCaptures": {
         "1": {
           "name": "keyword.other.directive.here-string.jai"

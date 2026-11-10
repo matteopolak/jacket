@@ -40,11 +40,13 @@ syn match jaiNote +@\%(\h\w*\|"\%([^"\\]\|\\.\)*"\)+
 " Polymorphic names: $T, $$x.
 syn match jaiPolymorph +\$\$\?\h\w*+
 
-" Strings. A here-string runs from `#string TAG` to a line starting with TAG.
+" Strings. A here-string runs from `#string TAG` to a line starting with TAG. Blanks, line ends and
+" comments may separate `#string`, its flags and the name, so the name may be on a later line; a
+" nested `/* */` comment in the header is not followed past its first `*/`.
 syn match jaiEscape contained +\\\%([nrt0eabfv%\\"'"]\|x\x\{2}\|d\d\{3}\|u\x\{4}\|U\x\{8}\)+
 syn match jaiFormat contained +%\%(\d\+\)\?\%(%\|\.\d\+\)\?+
 syn region jaiString start=+"+ skip=+\\.+ end=+"+ contains=jaiEscape,jaiFormat,@Spell
-syn region jaiHereString matchgroup=jaiDirective start=+#string\%(\s*,\s*\%(\\.\|\h\w*\)\)*\s*\z(\h\w*\)+ matchgroup=Label end=+^\s*\z1\>+ contains=jaiFormat
+syn region jaiHereString matchgroup=jaiDirective start=+#string\%(\%(\_s\|//.\{-}\n\|/\*\_.\{-}\*/\)*,\%(\_s\|//.\{-}\n\|/\*\_.\{-}\*/\)*\%(\\.\|\h\w*\)\)*\%(\_s\|//.\{-}\n\|/\*\_.\{-}\*/\)*\z(\h\w*\)+ matchgroup=Label end=+^\s*\z1\>+ contains=jaiFormat
 syn match jaiChar +#char\s*"\%([^"\\]\|\\.\)*"+ contains=jaiDirective,jaiEscape
 
 " Numbers: 0x, 0b, 0h, separators, floats and exponents.

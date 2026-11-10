@@ -14,6 +14,9 @@ const output = join(root, "syntaxes", "jai.tmLanguage.json");
 const ID_START = "A-Za-z_\\x{80}-\\x{10FFFF}";
 const ID_CHAR = "A-Za-z0-9_\\x{80}-\\x{10FFFF}";
 const ID = `[${ID_START}][${ID_CHAR}]*`;
+// The flags of a here-string header (`,cr`, `,\%`). Atomic, so a terminator named `cr` is never
+// split into the flag `,c` and the name `r`.
+const HERE_FLAGS = `(?>(?:\\s*,\\s*(?:\\\\.|${ID}))*)`;
 // Not inside a longer identifier: `\b` does not know about non-ASCII letters or `$`.
 const B = `(?<![${ID_CHAR}$])`;
 const E = `(?![${ID_CHAR}])`;
@@ -96,7 +99,7 @@ const EMBEDDED_LANGUAGES = [
 // start with the tag, so an embedded construct left open (an unclosed `/*`) cannot run past the
 // terminator. The rest of the header line is not part of the body, as in the lexer.
 function embeddedHereString({ tags, name, scopes }: { tags: string[]; name: string; scopes: string[] }) {
-  const flags = `(?:\\s*,\\s*(?:\\\\.|${ID}))*`;
+  const flags = HERE_FLAGS;
   return {
     name: `meta.here-string.${name}.jai`,
     begin: `(?=#string${flags}\\s*((?i:${tags.join("|")}))(?![${ID_CHAR}]))`,
@@ -201,13 +204,27 @@ const grammar = {
     },
 
     "here-string": {
-      patterns: [...EMBEDDED_LANGUAGES.map(embeddedHereString), { include: "#plain-here-string" }],
+      patterns: [
+        ...EMBEDDED_LANGUAGES.map(embeddedHereString),
+        { include: "#plain-here-string" },
+        { include: "#here-string-header" },
+      ],
+    },
+    // `#string` and its flags with the terminator on a later line (the line ends, or a comment
+    // follows). TextMate matches one line at a time, so it cannot read the name from a later line:
+    // only the header is scoped here and the body is left as ordinary code.
+    "here-string-header": {
+      match: `(#string)(${HERE_FLAGS})(?=\\s*(?:$|//|/\\*))`,
+      captures: {
+        1: { name: "keyword.other.directive.here-string.jai" },
+        2: { name: "storage.modifier.here-string.jai" },
+      },
     },
     // `#string TAG` (flags such as `,cr` or `,\%` allowed) up to a line that starts with TAG.
     // The rest of the opening line is not code: the body starts on the next line.
     "plain-here-string": {
       name: "string.unquoted.here-string.jai",
-      begin: `(#string)((?:\\s*,\\s*(?:\\\\.|${ID}))*)\\s*(${ID})`,
+      begin: `(#string)(${HERE_FLAGS})\\s*(${ID})`,
       beginCaptures: {
         1: { name: "keyword.other.directive.here-string.jai" },
         2: { name: "storage.modifier.here-string.jai" },

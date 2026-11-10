@@ -59,4 +59,31 @@ T['the syntax file highlights the Jai lexical classes'] = function()
   vim.cmd('bwipeout!')
 end
 
+T['a here-string terminator may follow line ends and comments'] = function()
+  local lines = {
+    'TEXT :: #string /* the name */ // is below', -- 1
+    '',
+    '  END', -- 3
+    'in the here-string if 5', -- 4
+    'END, 1.5;', -- 5
+    'next :: #string,cr', -- 6
+    ' // flags and name',
+    ' ,\\%',
+    'SQL', -- 9
+    'if body', -- 10
+    'SQL', -- 11
+    'after := 2.5;', -- 12
+  }
+  local dir = h.tmpdir()
+  vim.fn.writefile(lines, dir .. '/later.jai')
+  vim.cmd.edit(dir .. '/later.jai')
+  vim.cmd('syntax sync fromstart')
+  assert(group_at(4, 10) == 'jaiHereString', 'body: ' .. group_at(4, 10))
+  assert(group_at(4, 17) ~= 'jaiConditional', 'keyword inside the body')
+  assert(group_at(5, 6) ~= 'jaiHereString', 'text after the name: ' .. group_at(5, 6))
+  assert(group_at(10, 2) == 'jaiHereString', 'body after flags: ' .. group_at(10, 2))
+  assert(group_at(12, 12) == 'jaiFloat', 'after the second here-string: ' .. group_at(12, 12))
+  vim.cmd('bwipeout!')
+end
+
 return T

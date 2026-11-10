@@ -75,3 +75,14 @@ WGSL_SOURCE
 
 last := 3;
 // <---- variable.other.declaration.jai
+
+// The terminator may sit on a later line, after comments. A TextMate rule cannot read a name from
+// another line, so only the header is scoped there and the body stays ordinary code.
+LATER :: #string,cr // the name is below
+// <----- variable.other.constant.declaration.jai
+//       ^^^^^^^ keyword.other.directive.here-string.jai
+//              ^^^ storage.modifier.here-string.jai
+//                  ^^^^^^^^^^^^^^^^^^^^ comment.line.double-slash.jai
+LATE
+later_body := 1;
+LATE
