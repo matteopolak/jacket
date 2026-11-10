@@ -94,7 +94,7 @@ impl TestOptions {
             "needs" => self.needs = list(),
             "should_fail" => {
                 self.should_fail = Some(match args {
-                    Some(args) if args.contains('"') => quoted_list(args),
+                    Some(args) if args.trim_start().starts_with('"') => quoted_list(args),
                     _ => Some(text(args))
                         .filter(|t| !t.is_empty())
                         .into_iter()
@@ -537,6 +537,11 @@ mod tests {
         assert_eq!(
             parse(r#"should_fail("a, b", "AddressSanitizer")"#),
             Some(vec!["a, b".to_string(), "AddressSanitizer".to_string()])
+        );
+        // Quotes inside an unquoted text are part of it.
+        assert_eq!(
+            parse(r#"should_fail(holds("Q"))"#),
+            Some(vec![r#"holds("Q")"#.to_string()])
         );
     }
 
