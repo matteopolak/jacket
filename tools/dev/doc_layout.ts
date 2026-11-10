@@ -105,6 +105,7 @@ interface DrawerState {
   onCurrent: boolean;
   height: number;
   vh: number;
+  vw: number;
   scrollWidth: number;
 }
 
@@ -642,7 +643,7 @@ async function runCombo(tab: Tab, page: string, width: number, theme: string): P
       return { open: d.open, modal: d.matches(':modal'), expanded: b && b.getAttribute('aria-expanded'),
         locked: getComputedStyle(document.documentElement).overflow === 'hidden',
         onButton: a === b, inDrawer: d.contains(a), onCurrent: !!a && a.getAttribute('aria-current') === 'page',
-        height: Math.round(d.getBoundingClientRect().height), vh: innerHeight,
+        height: Math.round(d.getBoundingClientRect().height), vh: innerHeight, vw: innerWidth,
         scrollWidth: document.documentElement.scrollWidth };
     })()`);
       const closed = await state();
