@@ -33,6 +33,13 @@ fn config_note(note: &str) {
     eprint!("{}", Report::from_text(Code::LintConfig, text).render());
 }
 
+/// A `// test:` note of `path` that did not parse, as a diagnostic on standard error.
+fn test_note_problem(path: &std::path::Path, problem: &str, cwd: &std::path::Path) {
+    let shown = path.strip_prefix(cwd).unwrap_or(path).display();
+    let text = format!("{shown}: {problem}");
+    eprint!("{}", Report::from_text(Code::LintTestNote, &text).render());
+}
+
 /// Passes `--fix` makes at most: lint, apply what can go together, lint again.
 const MAX_FIX_PASSES: usize = 5;
 
@@ -184,6 +191,9 @@ fn run() -> Result<ExitCode, String> {
     let outcome = lint();
     for note in &outcome.config_notes {
         config_note(note);
+    }
+    for (path, problem) in &outcome.test_note_problems {
+        test_note_problem(path, problem, &cwd);
     }
     if let Some(error) = outcome.config_errors.first() {
         return Err(error.clone());

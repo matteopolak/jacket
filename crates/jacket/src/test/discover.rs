@@ -320,7 +320,7 @@ mod tests {
         apply_module_notes(&dir, &mut docs);
         std::fs::remove_dir_all(&dir).ok();
         for doc in &docs {
-            assert_eq!(doc.options.skip_on.len(), 1, "{}", doc.name);
+            assert_eq!(doc.options.target.skip_on.len(), 1, "{}", doc.name);
             assert_eq!(doc.problems.len(), 1, "{:?}", doc.problems);
         }
     }

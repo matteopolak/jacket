@@ -2,7 +2,7 @@
 //! same options in a `// test: timeout(5) only(.LINUX)` comment at the top of a file, which sets
 //! them for every test the file holds.
 
-pub use jaic::test_notes::{Target, TargetFilter, header_notes, text};
+pub use jaic::test_notes::{Target, TargetNotes, header_notes, text};
 
 /// What a test asks for. `None` and empty lists leave the run-wide setting in charge.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -14,14 +14,10 @@ pub struct TestOptions {
     /// Runs while no other test does.
     pub serial: bool,
     pub retries: Option<u32>,
-    /// One filter per `only(...)` call; the test runs on a target that passes every one.
-    pub only: Vec<TargetFilter>,
-    /// One filter per `skip_on(...)` call; the test is skipped on a target that matches any.
-    pub skip_on: Vec<TargetFilter>,
+    /// Where the test runs: `only`, `skip_on`, `interp_only` and `native_only`.
+    pub target: TargetNotes,
     /// Capabilities (`network`, `gpu`) the test is skipped without.
     pub needs: Vec<String>,
-    pub interp_only: bool,
-    pub native_only: bool,
     /// The program is expected to exit with this status, without a failed check.
     pub exit: Option<i32>,
     /// The test must fail; with texts, a failure message or its standard error must contain one.
@@ -80,16 +76,9 @@ impl TestOptions {
             }
             "slow" => self.slow = true,
             "serial" => self.serial = true,
-            "interp_only" => self.interp_only = true,
-            "native_only" => self.native_only = true,
             "allow_leaks" => self.allow_leaks = true,
-            "only" | "skip_on" => {
-                let filter = TargetFilter::parse(name, args.unwrap_or(""))?;
-                if name == "only" {
-                    self.only.push(filter);
-                } else {
-                    self.skip_on.push(filter);
-                }
+            "only" | "skip_on" | "interp_only" | "native_only" => {
+                self.target.apply(note)?;
             }
             "needs" => self.needs = list(),
             "should_fail" => {
@@ -165,9 +154,9 @@ impl TestOptions {
             .filter_map(|n| {
                 let call = n.split('(').next().unwrap_or("");
                 if call == "only" && !std::mem::replace(&mut only, true) {
-                    options.only.clear();
+                    options.target.only.clear();
                 } else if call == "skip_on" && !std::mem::replace(&mut skip_on, true) {
-                    options.skip_on.clear();
+                    options.target.skip_on.clear();
                 }
                 options.apply(n).err()
             })
@@ -180,32 +169,8 @@ impl TestOptions {
         if self.ignore {
             return Some("ignored (`jai,ignore`)".into());
         }
-        if self.interp_only && !target.interp {
-            return Some("interp only".into());
-        }
-        if self.native_only && target.interp {
-            return Some("native only".into());
-        }
-        let mode = if target.interp {
-            "interp"
-        } else {
-            "native"
-        };
-        if let Some(filter) = self.only.iter().find(|f| !f.allows(target, mode)) {
-            return Some(format!("only on {filter}{}", filter.reason_suffix()));
-        }
-        if let Some(filter) = self.skip_on.iter().find(|f| f.matches(target, mode)) {
-            // Name the targets that matched, not every one the call lists.
-            let matched = TargetFilter {
-                names: filter
-                    .names
-                    .iter()
-                    .filter(|n| TargetFilter::named(target, mode, n))
-                    .cloned()
-                    .collect(),
-                ..filter.clone()
-            };
-            return Some(format!("skipped on {matched}{}", filter.reason_suffix()));
+        if let Some(reason) = self.target.skip_reason(target) {
+            return Some(reason);
         }
         let missing: Vec<&String> = self.needs.iter().filter(|n| !have.contains(n)).collect();
         if !missing.is_empty() {
@@ -290,8 +255,8 @@ mod tests {
         let (options, warnings) = TestOptions::default().with_notes(&notes);
         assert!(warnings.is_empty(), "{warnings:?}");
         assert_eq!(options.timeout, Some(5));
-        assert_eq!(options.only.len(), 1);
-        assert_eq!(options.only[0].names, ["linux", "macos"]);
+        assert_eq!(options.target.only.len(), 1);
+        assert_eq!(options.target.only[0].names, ["linux", "macos"]);
         assert_eq!(options.should_fail, Some(vec!["bounds".to_string()]));
         assert!(options.serial);
         assert_eq!(options.exit, Some(3));
@@ -352,12 +317,12 @@ mod tests {
         ];
         let (options, warnings) = TestOptions::default().with_notes(&notes);
         assert!(warnings.is_empty(), "{warnings:?}");
-        assert_eq!(options.skip_on.len(), 1);
+        assert_eq!(options.target.skip_on.len(), 1);
         assert_eq!(
-            options.skip_on[0].reason.as_deref(),
+            options.target.skip_on[0].reason.as_deref(),
             Some("needs a real display")
         );
-        assert_eq!(options.only[0].names, ["linux", "macos"]);
+        assert_eq!(options.target.only[0].names, ["linux", "macos"]);
     }
 
     #[test]
@@ -489,7 +454,7 @@ mod tests {
         assert_eq!(options.skip_reason(&on("windows", "x64"), &[]), None);
         // A later batch of notes replaces them.
         let (later, _) = options.with_notes(&["skip_on(.LINUX)".to_string()]);
-        assert_eq!(later.skip_on.len(), 1);
+        assert_eq!(later.target.skip_on.len(), 1);
     }
 
     #[test]

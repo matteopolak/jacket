@@ -6,6 +6,7 @@
 
 - A `#string` terminator name may follow on a later line, after blank lines or comments, as in `#string // SQL` then `QUERY` on the next line. Text after the name on its line is now an error (`lex-text-after-string-terminator`) instead of being dropped from the program. `jaifmt` and `Extensions/String_Literal` read these headers too.
 - The memory debugger records the blocks a `Pool` takes, so leak reports show a pool that was never released. Each memory debugger keeps its own hooks, so several started with different `internal/basic` parameters all see a pool reset.
+- `jailint` warns (`lint-test-note`) about an `only(...)` or `skip_on(...)` note in a file's `// test:` header that does not parse, as `jacket test` does, instead of ignoring it. Both now share one reading of these notes.
 
 ## [0.34.0] - 2026-11-09
 

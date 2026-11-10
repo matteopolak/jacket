@@ -10,6 +10,7 @@ use crate::{Lint, lint_files_with_entry};
 use jaic::paths::CanonCache;
 use jaic::project::Program;
 use jaic::sema::Compiler;
+use jaic::test_notes::header_target_notes;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
@@ -21,6 +22,8 @@ pub(super) struct RootResult {
     pub(super) error: Option<String>,
     pub(super) contexts: Vec<CheckedContext>,
     pub(super) failures: Vec<AssertFailure>,
+    /// Target notes in the root's header that did not parse, each with the file's path.
+    pub(super) note_problems: Vec<(PathBuf, String)>,
 }
 
 /// Compile `root` with lint facts and lint the files in `report` it compiled, following the
@@ -41,14 +44,18 @@ pub(super) fn lint_root(
     let limits = options.limits;
     // A file that says it is for another system (`// test: only(.WINDOWS)`) is compiled for it,
     // as a program or, when it sits in an import folder, as the module it counts as.
-    let (os, cpu) = match std::fs::read_to_string(root.path()).map(|source| {
-        marked_target(
-            &source,
-            options.compiler_options.os,
-            options.compiler_options.cpu,
-        )
-    }) {
-        Ok(Marked::Other(os, cpu)) => (Some(os), Some(cpu)),
+    let source = std::fs::read_to_string(root.path());
+    let (notes, problems) = header_target_notes(source.as_deref().unwrap_or_default());
+    let note_problems = problems
+        .into_iter()
+        .map(|problem| (root.path().to_path_buf(), problem))
+        .collect();
+    let (os, cpu) = match marked_target(
+        &notes,
+        options.compiler_options.os,
+        options.compiler_options.cpu,
+    ) {
+        Marked::Other(os, cpu) => (Some(os), Some(cpu)),
         // A file named on the command line that no target runs is still compiled on the host.
         _ => (None, None),
     };
@@ -198,5 +205,6 @@ pub(super) fn lint_root(
         error,
         contexts,
         failures,
+        note_problems,
     }
 }

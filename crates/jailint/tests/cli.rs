@@ -292,3 +292,24 @@ fn configuration_notes_are_styled_diagnostics() {
     );
     assert_eq!(code, Some(0), "{err}");
 }
+
+#[test]
+fn test_notes_that_do_not_parse_are_warned_about_once() {
+    let dir = scratch("bad-test-note");
+    std::fs::write(
+        dir.join("game.jai"),
+        "// test: only(.NOWHERE) skip_on(.WASM)\nmain :: () {}\n",
+    )
+    .unwrap();
+    let (err, code) = jailint(&dir, &["game.jai"]);
+    assert!(
+        err.contains(
+            "warning[lint-test-note]: game.jai: `@only` does not know the target `nowhere`"
+        ),
+        "{err}"
+    );
+    assert_eq!(err.matches("lint-test-note").count(), 1, "{err}");
+    assert_eq!(code, Some(0), "{err}");
+    let (err, _) = jailint(&dir, &["."]);
+    assert_eq!(err.matches("lint-test-note").count(), 1, "{err}");
+}

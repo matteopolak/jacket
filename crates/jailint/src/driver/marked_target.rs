@@ -5,7 +5,7 @@
 //! `only(...)`, `skip_on(...)`, `mode =` and `interp_only`/`native_only` notes allow, the way
 //! `jacket test` picks where to run it.
 use jaic::target::{TargetCpu, TargetOs, cpu_name, os_name, parse_os};
-use jaic::test_notes::{Target, TargetFilter, header_notes};
+use jaic::test_notes::TargetNotes;
 
 /// Where the notes of a file say it is compiled.
 #[derive(Debug, PartialEq)]
@@ -19,52 +19,14 @@ pub(super) enum Marked {
     Nowhere,
 }
 
-/// Where to compile the program in `source` given the notes in its header: the host's OS before
-/// others, the host's CPU before others.
-pub(super) fn marked_target(source: &str, host_os: TargetOs, host_cpu: TargetCpu) -> Marked {
-    let (mut only, mut skip_on) = (Vec::new(), Vec::new());
-    let (mut interp_only, mut native_only) = (false, false);
-    for note in header_notes(source) {
-        let (call, args) = match note.split_once('(') {
-            Some((call, args)) => (call, args.strip_suffix(')').unwrap_or(args)),
-            None => (note.as_str(), ""),
-        };
-        match call {
-            "only" | "skip_on" => {
-                if let Ok(filter) = TargetFilter::parse(call, args) {
-                    if call == "only" {
-                        &mut only
-                    } else {
-                        &mut skip_on
-                    }
-                    .push(filter);
-                }
-            }
-            "interp_only" => interp_only = true,
-            "native_only" => native_only = true,
-            _ => {}
-        }
-    }
-    if only.is_empty() && skip_on.is_empty() && !interp_only && !native_only {
+/// Where to compile a program given the notes in its header: the host's OS before others, the
+/// host's CPU before others.
+pub(super) fn marked_target(notes: &TargetNotes, host_os: TargetOs, host_cpu: TargetCpu) -> Marked {
+    if !notes.restricts() {
         return Marked::Host;
     }
     // Linting has no run mode, so a file passes when it would run in either.
-    let passes = |os: TargetOs, cpu: TargetCpu| {
-        ["interp", "native"].iter().any(|mode| {
-            let interp = *mode == "interp";
-            let target = Target {
-                os: os_name(os).into(),
-                cpu: cpu_name(cpu).into(),
-                interp,
-            };
-            (if interp {
-                !native_only
-            } else {
-                !interp_only
-            }) && only.iter().all(|filter| filter.allows(&target, mode))
-                && !skip_on.iter().any(|filter| filter.matches(&target, mode))
-        })
-    };
+    let passes = |os: TargetOs, cpu: TargetCpu| notes.runs_on(os_name(os), cpu_name(cpu));
     if passes(host_os, host_cpu) {
         return Marked::Host;
     }
@@ -94,8 +56,9 @@ mod tests {
     use super::*;
 
     fn marked(header: &str) -> Marked {
+        let source = format!("{header}\nmain :: () {{}}\n");
         marked_target(
-            &format!("{header}\nmain :: () {{}}\n"),
+            &jaic::test_notes::header_target_notes(&source).0,
             TargetOs::MacOS,
             TargetCpu::Arm64,
         )

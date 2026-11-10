@@ -89,6 +89,9 @@ pub struct Outcome {
     pub config_notes: Vec<String>,
     /// Nested `jacket.toml` files that could not be read; their files used the first root's settings.
     pub config_errors: Vec<String>,
+    /// `// test:` notes about where a file runs that did not parse, each with its file's path;
+    /// they were ignored.
+    pub test_note_problems: Vec<(PathBuf, String)>,
 }
 
 #[derive(Clone, Debug)]
@@ -179,12 +182,14 @@ fn run_planned(options: &Options, entries: Option<&[PathBuf]>) -> Outcome {
     }
     let mut contexts = Vec::new();
     let mut failed_asserts = Vec::new();
+    let mut test_note_problems = Vec::new();
     for (i, r) in results.into_iter().enumerate() {
         let Some(r) = r else {
             continue;
         };
         contexts.extend(r.contexts);
         failed_asserts.extend(r.failures);
+        test_note_problems.extend(r.note_problems);
         for l in r.lints {
             if owner.get(&l.path) == Some(&i) {
                 lints.push(l);
@@ -238,5 +243,6 @@ fn run_planned(options: &Options, entries: Option<&[PathBuf]>) -> Outcome {
         failed_asserts,
         config_notes: configs.take_notes(),
         config_errors: configs.take_errors(),
+        test_note_problems,
     }
 }

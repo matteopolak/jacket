@@ -807,7 +807,7 @@ mod tests {
             ["jai", "only(linux, macos)", "no_run"]
         );
         let blocks = fenced(&["```jai,skip_on(wasm),timeout(3)", "x := 1;", "```"]);
-        assert_eq!(blocks[0].1.options.skip_on[0].names, ["wasm"]);
+        assert_eq!(blocks[0].1.options.target.skip_on[0].names, ["wasm"]);
         assert_eq!(blocks[0].1.options.timeout, Some(3));
     }
 

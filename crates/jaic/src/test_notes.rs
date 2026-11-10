@@ -125,6 +125,111 @@ impl TargetFilter {
     }
 }
 
+/// What a file's notes say about where it runs: `only(...)`, `skip_on(...)`, `interp_only` and
+/// `native_only`. `jacket test` decides per test with it, `jailint` per file.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct TargetNotes {
+    /// One filter per `only(...)` call; a target must pass every one.
+    pub only: Vec<TargetFilter>,
+    /// One filter per `skip_on(...)` call; a target matching any is skipped.
+    pub skip_on: Vec<TargetFilter>,
+    pub interp_only: bool,
+    pub native_only: bool,
+}
+
+impl TargetNotes {
+    /// Takes in one note (`only(.LINUX)`, `native_only`). `Ok(false)` if it is not a note about
+    /// targets; `Err` if it is one and does not parse (the note is then ignored).
+    ///
+    /// ```
+    /// # use jaic::test_notes::TargetNotes;
+    /// let mut notes = TargetNotes::default();
+    /// assert_eq!(notes.apply("skip_on(.WASM)"), Ok(true));
+    /// assert_eq!(notes.apply("timeout(5)"), Ok(false));
+    /// assert!(notes.apply("only(.NOWHERE)").is_err());
+    /// ```
+    pub fn apply(&mut self, note: &str) -> Result<bool, String> {
+        let (call, args) = match note.split_once('(') {
+            Some((call, rest)) => match rest.strip_suffix(')') {
+                Some(args) => (call, args),
+                None if matches!(call, "only" | "skip_on") => {
+                    return Err(format!("`@{note}` has no closing `)`"));
+                }
+                None => (call, rest),
+            },
+            None => (note, ""),
+        };
+        match call {
+            "only" => self.only.push(TargetFilter::parse(call, args)?),
+            "skip_on" => self.skip_on.push(TargetFilter::parse(call, args)?),
+            "interp_only" => self.interp_only = true,
+            "native_only" => self.native_only = true,
+            _ => return Ok(false),
+        }
+        Ok(true)
+    }
+
+    /// Whether any note restricts where the file runs.
+    pub fn restricts(&self) -> bool {
+        !self.only.is_empty() || !self.skip_on.is_empty() || self.interp_only || self.native_only
+    }
+
+    /// Why a file with these notes does not run on `target`, if it does not.
+    pub fn skip_reason(&self, target: &Target) -> Option<String> {
+        if self.interp_only && !target.interp {
+            return Some("interp only".into());
+        }
+        if self.native_only && target.interp {
+            return Some("native only".into());
+        }
+        let mode = if target.interp {
+            "interp"
+        } else {
+            "native"
+        };
+        if let Some(filter) = self.only.iter().find(|f| !f.allows(target, mode)) {
+            return Some(format!("only on {filter}{}", filter.reason_suffix()));
+        }
+        if let Some(filter) = self.skip_on.iter().find(|f| f.matches(target, mode)) {
+            // Name the targets that matched, not every one the call lists.
+            let matched = TargetFilter {
+                names: filter
+                    .names
+                    .iter()
+                    .filter(|n| TargetFilter::named(target, mode, n))
+                    .cloned()
+                    .collect(),
+                ..filter.clone()
+            };
+            return Some(format!("skipped on {matched}{}", filter.reason_suffix()));
+        }
+        None
+    }
+
+    /// Whether a file with these notes runs on `os` and `cpu` in either run mode, for callers
+    /// that have no run mode (linting).
+    pub fn runs_on(&self, os: &str, cpu: &str) -> bool {
+        [true, false].into_iter().any(|interp| {
+            let target = Target {
+                os: os.into(),
+                cpu: cpu.into(),
+                interp,
+            };
+            self.skip_reason(&target).is_none()
+        })
+    }
+}
+
+/// The target notes in the header of `source`, and a problem for each that does not parse.
+pub fn header_target_notes(source: &str) -> (TargetNotes, Vec<String>) {
+    let mut notes = TargetNotes::default();
+    let problems = header_notes(source)
+        .iter()
+        .filter_map(|note| notes.apply(note).err())
+        .collect();
+    (notes, problems)
+}
+
 impl fmt::Display for TargetFilter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut parts = self.names.clone();

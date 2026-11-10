@@ -7,7 +7,7 @@ use jaic::project::{
     resolve_program,
 };
 use jaic::target::{TargetCpu, TargetOs};
-use jaic::test_notes::header_notes;
+use jaic::test_notes::{header_notes, header_target_notes};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
@@ -45,7 +45,7 @@ fn left_out(path: &Path, host: (TargetOs, TargetCpu)) -> bool {
             note.split('(').next().unwrap_or(""),
             "compile_fail" | "should_fail" | "xfail"
         )
-    }) || marked_target(&source, host.0, host.1) == Marked::Nowhere
+    }) || marked_target(&header_target_notes(&source).0, host.0, host.1) == Marked::Nowhere
 }
 
 /// What the import folders of a program rooted at `path` are made of: the `import_path` of the
