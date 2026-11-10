@@ -54,8 +54,9 @@ demo_files :: () {
     if found {
         print("README.md's headings:");
 
+        // Lines end with "\r\n" in a file written on Windows: trim_right drops the "\r".
         for line: split(guide, "\n") {
-            if begins_with(line, "#") print(" \"%\"", trim_left(line, "# "));
+            if begins_with(line, "#") print(" \"%\"", trim_right(trim_left(line, "# ")));
         }
 
         print("\n");
