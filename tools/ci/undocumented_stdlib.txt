@@ -1533,7 +1533,6 @@ ImGui
 Input.get_key_code
 Input.get_vk
 Iprof.Automatic_Zone
-Jai_Lexer.cached_make_atom
 Jai_Lexer.check_for_equals
 Jai_Lexer.compose_new_token
 Jai_Lexer.continues_identifier
