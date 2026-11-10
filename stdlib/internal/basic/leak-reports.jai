@@ -100,18 +100,13 @@ build_leak_report_locked :: (options: Leak_Report_Options, for_visualizer: bool)
         record = record.next;
     }
 
+    scratch: RP.Pool;
+
+    RP.set_allocators(*scratch, context.allocator);
+    defer RP.release(*scratch);
+
     // Stable ordinal order makes multiple candidate owners deterministic.
-    for i: 1..count - 1 {
-        value := work[i];
-        j := i;
-
-        while j > 0 && work[j - 1].allocation.ordinal > value.allocation.ordinal {
-            work[j] = work[j - 1];
-            j -= 1;
-        }
-
-        work[j] = value;
-    }
+    sort_by_ordinal(work, *scratch);
 
     for *item: work {
         item.entry = RT.table_find_pointer(*report.leak_combiner_table, report_key(item.allocation));
@@ -120,10 +115,12 @@ build_leak_report_locked :: (options: Leak_Report_Options, for_visualizer: bool)
         item.entry.reachable = item.entry.exempt;
     }
 
+    addresses := build_address_index(work, *scratch);
+
     if !for_visualizer && options.scan_global_memory_to_remove_leaks {
         runtime := LC.get_runtime_info();
         assert(runtime.global_data_info != null, "compiler runtime global-data metadata is required for leak scanning");
-        for segment: runtime.global_data_info.segment_info mark_range(segment.data.data, segment.data.count, work, root = true);
+        for segment: runtime.global_data_info.segment_info mark_range(segment.data.data, segment.data.count, *addresses, root = true);
     }
 
     changed := !for_visualizer;
@@ -137,7 +134,7 @@ build_leak_report_locked :: (options: Leak_Report_Options, for_visualizer: bool)
             changed = true;
             if item.allocation.stops_ownership continue;
 
-            mark_range(cast(*u8) item.allocation.memory, item.allocation.size, work);
+            mark_range(cast(*u8) item.allocation.memory, item.allocation.size, *addresses);
         }
     }
 
@@ -158,7 +155,7 @@ build_leak_report_locked :: (options: Leak_Report_Options, for_visualizer: bool)
                 pointer: *void;
 
                 memcpy(*pointer, cast(*u8) a.memory + offset, size_of(*void));
-                child := containing_allocation(pointer, work);
+                child := containing_allocation(pointer, *addresses);
                 if !child || child.allocation == a || child.entry.owner continue;
                 if child.entry.exempt && !for_visualizer continue;
 
@@ -350,9 +347,13 @@ Report_Allocation :: struct {
 }
 
 report_memory :: (report: *Leak_Report, size: s64) -> *void {
+    return pool_memory(*report.pool, size);
+}
+
+pool_memory :: (pool: *RP.Pool, size: s64) -> *void {
     if size == 0 return null;
 
-    memory := RP.get(*report.pool, size);
+    memory := RP.get(pool, size);
     if !memory {
         context.assertion_failed(#caller_location, "memory debugger: report allocation failed");
         debug_break();
@@ -444,37 +445,202 @@ report_key :: (a: *Allocation) -> *void {
     return ifx a.block then cast(*void) a else a.memory;
 }
 
-containing_allocation :: (pointer: *void, work: [] Report_Allocation) -> *Report_Allocation {
+// A sort key with the position of the thing it came from.
+Sort_Item :: struct {
+    key: u64;
+    position: s64;
+}
+
+// Allocations ordered by start address. `reach[i]` is the greatest end among the first `i + 1` items, so a search can
+// stop as soon as nothing earlier still covers the address.
+Address_Set :: struct {
+    items: [] Sort_Item;
+    reach: [] u64;
+}
+
+// Lookup by address over the report's allocations, built once per report. Ranges and blocks are kept apart because a
+// block covers the ranges inside it.
+Address_Index :: struct {
+    work: [] Report_Allocation;
+    ranges: Address_Set;
+    blocks: Address_Set;
+}
+
+// Stable bottom-up merge sort by key. `scratch` must be as long as `items`.
+sort_items :: (items: [] Sort_Item, scratch: [] Sort_Item) {
+    source := items;
+    target := scratch;
+    width := 1;
+
+    while width < items.count {
+        low := 0;
+
+        while low < items.count {
+            middle := min(low + width, items.count);
+            high := min(low + 2 * width, items.count);
+            left := low;
+            right := middle;
+            out := low;
+
+            while left < middle && right < high {
+                if source[right].key < source[left].key {
+                    target[out] = source[right];
+                    right += 1;
+                } else {
+                    target[out] = source[left];
+                    left += 1;
+                }
+
+                out += 1;
+            }
+
+            while left < middle {
+                target[out] = source[left];
+                left += 1;
+                out += 1;
+            }
+
+            while right < high {
+                target[out] = source[right];
+                right += 1;
+                out += 1;
+            }
+
+            low += 2 * width;
+        }
+
+        swapped := source;
+
+        source = target;
+        target = swapped;
+        width *= 2;
+    }
+
+    if source.data != items.data for item, i: source items[i] = item;
+}
+
+sort_by_ordinal :: (work: [] Report_Allocation, pool: *RP.Pool) {
+    items := ([] Sort_Item).{ work.count, cast(*Sort_Item) pool_memory(pool, work.count * size_of(Sort_Item)) };
+    spare := ([] Sort_Item).{ work.count, cast(*Sort_Item) pool_memory(pool, work.count * size_of(Sort_Item)) };
+    copy := ([] Report_Allocation).{ work.count, cast(*Report_Allocation) pool_memory(pool, work.count * size_of(Report_Allocation)) };
+
+    for item, i: work {
+        items[i] = .{ cast(u64) item.allocation.ordinal, i };
+        copy[i] = item;
+    }
+
+    sort_items(items, spare);
+    for item, i: items work[i] = copy[item.position];
+}
+
+build_address_set :: (work: [] Report_Allocation, blocks: bool, pool: *RP.Pool) -> Address_Set {
+    count: s64;
+    for item: work if item.allocation.block == blocks count += 1;
+
+    set: Address_Set;
+    set.items = .{ count, cast(*Sort_Item) pool_memory(pool, count * size_of(Sort_Item)) };
+    set.reach = .{ count, cast(*u64) pool_memory(pool, count * size_of(u64)) };
+    spare := ([] Sort_Item).{ count, cast(*Sort_Item) pool_memory(pool, count * size_of(Sort_Item)) };
+    cursor: s64;
+
+    for item, position: work if item.allocation.block == blocks {
+        set.items[cursor] = .{ cast(u64) item.allocation.memory, position };
+        cursor += 1;
+    }
+
+    sort_items(set.items, spare);
+
+    furthest: u64;
+
+    for item, i: set.items {
+        furthest = max(furthest, item.key + cast(u64) work[item.position].allocation.size);
+        set.reach[i] = furthest;
+    }
+
+    return set;
+}
+
+build_address_index :: (work: [] Report_Allocation, pool: *RP.Pool) -> Address_Index {
+    index: Address_Index;
+
+    index.work = work;
+    index.ranges = build_address_set(work, false, pool);
+    index.blocks = build_address_set(work, true, pool);
+
+    return index;
+}
+
+// How many items start at or below the address.
+upper_bound :: (set: *Address_Set, address: u64) -> s64 {
+    low := 0;
+    high := set.items.count;
+
+    while low < high {
+        middle := low + (high - low) / 2;
+        if set.items[middle].key <= address low = middle + 1;
+        else high = middle;
+    }
+
+    return low;
+}
+
+// The earliest report position in the set whose allocation holds the address, or -1.
+first_containing :: (index: *Address_Index, set: *Address_Set, address: u64) -> s64 {
+    best := -1;
+    i := upper_bound(set, address) - 1;
+
+    while i >= 0 && set.reach[i] > address {
+        item := set.items[i];
+        inside := address - item.key < cast(u64) index.work[item.position].allocation.size;
+        if inside && (best < 0 || item.position < best) best = item.position;
+        i -= 1;
+    }
+
+    return best;
+}
+
+mark_containing :: (index: *Address_Index, set: *Address_Set, address: u64, root: bool) {
+    i := upper_bound(set, address) - 1;
+
+    while i >= 0 && set.reach[i] > address {
+        item := set.items[i];
+
+        if address - item.key < cast(u64) index.work[item.position].allocation.size {
+            target := *index.work[item.position];
+            target.entry.reachable = true;
+            if root target.entry.exempt = true;
+        }
+
+        i -= 1;
+    }
+}
+
+containing_allocation :: (pointer: *void, index: *Address_Index) -> *Report_Allocation {
     if !pointer return null;
 
     address := cast(u64) pointer;
-    block: *Report_Allocation;
 
     // A range lies inside the block it came from, so the range is the closer owner.
-    for *item: work {
-        start := cast(u64) item.allocation.memory;
-        if address < start || address - start >= cast(u64) item.allocation.size continue;
-        if !item.allocation.block return item;
-        if !block block = item;
-    }
+    position := first_containing(index, *index.ranges, address);
 
-    return block;
+    if position < 0 position = first_containing(index, *index.blocks, address);
+    if position < 0 return null;
+
+    return *index.work[position];
 }
 
-mark_range :: (data: *u8, size: s64, work: [] Report_Allocation, root := false) {
+mark_range :: (data: *u8, size: s64, index: *Address_Index, root := false) {
     for offset: 0..size - size_of(*void) {
         pointer: *void;
 
         memcpy(*pointer, data + offset, size_of(*void));
-        address := cast(u64) pointer;
 
         // A pointer reaches the block it lies in and the range it lies in.
-        if pointer for *target: work {
-            start := cast(u64) target.allocation.memory;
-            if address < start || address - start >= cast(u64) target.allocation.size continue;
+        if pointer {
+            address := cast(u64) pointer;
 
-            target.entry.reachable = true;
-            if root target.entry.exempt = true;
+            mark_containing(index, *index.ranges, address, root);
+            mark_containing(index, *index.blocks, address, root);
         }
     }
 }

@@ -16,6 +16,8 @@ A `Flat_Pool` reports its committed pages as one block, under the pool's own all
 
 Blocks have their own record kind and index, separate from ranges, because a block can start at the address of the first range inside it. Blocks are not on an owner's list, so `release_all_allocations` never clears them. The leak report counts both, tells them apart by record, and a pointer into a block marks the block and any range there as reachable.
 
+A leak report sorts its allocations once by ordinal and once by address, in separate lists for ranges and blocks (`internal/basic/leak-reports.jai`). Each pointer found while scanning is binary-searched in both lists, so a report costs about N log N rather than N squared. A lookup that needs one owner takes the range over the block that contains it; marking reachability marks every range and block that holds the pointer. Blocks can nest and overlap ranges, so each list also keeps the greatest end seen so far and the search walks back only while an earlier item can still cover the address.
+
 `Preamble` treats `Pool` and `Flat_Pool` allocators like any other, since the debugger sees them; only temporary storage is skipped. `create_heap` needs no `start_debugger` call: recording the heap starts the debugger.
 
 Zero-byte ranges are not recorded: a bump allocator can return one address for several empty ranges and the next nonempty one, which would look like a duplicate live allocation. Heap handles stay tracked even though their records have size zero.
