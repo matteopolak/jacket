@@ -59,6 +59,9 @@ pub struct Library {
     pub system: bool,
     /// Linked even when no foreign procedure names it (`#library,link_always`).
     pub link_always: bool,
+    /// Has no dynamic form (`#library,no_dll`), like Windows' `uuid.lib`: the linker takes it
+    /// statically and the interpreter never loads it.
+    pub no_dll: bool,
     /// Directory of the declaring source file (for relative library paths).
     pub base_dir: String,
 }

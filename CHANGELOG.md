@@ -11,6 +11,7 @@
 - The memory debugger records the blocks a `Pool` takes, so leak reports show a pool that was never released. Each memory debugger keeps its own hooks, so several started with different `internal/basic` parameters all see a pool reset.
 - The memory debugger records the pages a `Flat_Pool` has committed as one block, so leak reports show a flat pool that was never finalized. A custom allocator that calls `Preamble` under a `Pool` or `Flat_Pool` now starts the debugger like any other.
 - An integer that `#run` computes by running code is an untyped integer constant, like a literal: it takes the type of the other operand or the target when its value fits, so `u64_value * SIZE` compiles when `SIZE :: #run size()` returns `s64`.
+- `#library,no_dll` libraries are no longer loaded by compile-time code, so a program importing `Extensions/SDL3` on Windows no longer fails with `uuid.dll could not be loaded`; SDL3 declares `uuid` as `,no_dll`.
 - `jailint` warns (`lint-test-note`) about an `only(...)` or `skip_on(...)` note in a file's `// test:` header that does not parse, as `jacket test` does, instead of ignoring it. Both now share one reading of these notes.
 - `jailint` also warns (`lint-test-note`) about such notes in the files a program `#load`s, once per file, not only in files it compiles as programs.
 

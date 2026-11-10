@@ -129,3 +129,34 @@ fn explicit_unavailable_target_foreign_is_still_rejected() {
     );
     assert_eq!(calls.get(), 0);
 }
+
+const STATIC_REQUIREMENT: &str =
+    "static_only :: #library,link_always,no_dll \"independent_static_only_requirement_64\";";
+
+#[test]
+fn static_only_requirement_is_not_loaded_at_compile_time() {
+    let (mut c, calls) = compiler(false, false);
+    if let Err(error) = c.compile_sources(&[ProgramSource::String(format!(
+        "{STATIC_REQUIREMENT}{HOST_CALL}"
+    ))]) {
+        panic!("{}", error.render(&c.src.sources));
+    }
+    assert_eq!(calls.get(), 1);
+    assert!(c.out.program.libraries[0].no_dll);
+}
+
+#[test]
+fn compile_time_call_into_static_only_library_names_the_library() {
+    let (mut c, _) = compiler(false, false);
+    let source = format!(
+        "{STATIC_REQUIREMENT}static_call :: () -> int #foreign static_only \"independent_static_symbol_64\"; #assert static_call()==1; main :: () {{}}"
+    );
+    let error = c
+        .compile_sources(&[ProgramSource::String(source)])
+        .expect_err("a static-only library cannot be called while compiling");
+    assert!(
+        error.message.contains("has no dynamic library (`,no_dll`)"),
+        "{}",
+        error.render(&c.src.sources)
+    );
+}

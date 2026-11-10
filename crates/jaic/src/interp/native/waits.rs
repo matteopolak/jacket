@@ -105,6 +105,7 @@ mod tests {
             name: name.into(),
             system,
             link_always: false,
+            no_dll: false,
             base_dir: String::new(),
         }
     }

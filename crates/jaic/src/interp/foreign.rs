@@ -125,7 +125,7 @@ impl Interp {
             return Ok(());
         }
         for (index, info) in program.libraries.iter().enumerate() {
-            if !info.link_always {
+            if !info.link_always || info.no_dll {
                 continue;
             }
             let mut failure = None;
@@ -174,6 +174,12 @@ impl Interp {
             let lib = match foreign.library {
                 Some(l) => {
                     let lib_info = &program.libraries[l];
+                    if lib_info.no_dll {
+                        return self.trap(format!(
+                            "`{}` cannot be called while compiling: library `{}` has no dynamic library (`,no_dll`)",
+                            foreign.symbol, lib_info.name
+                        ));
+                    }
                     #[cfg(windows)]
                     let mut failure = None;
                     let library = self

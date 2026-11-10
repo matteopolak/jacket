@@ -1049,12 +1049,14 @@ impl Compiler {
         let flag = |f: &str| flags.iter().any(|x| x.name.as_str() == f);
         let system = system_directive || flag("system");
         let link_always = flag("link_always");
+        let no_dll = flag("no_dll");
         let base_dir = self.file_dir(self.scope_file(scope)).display().to_string();
         let ir = self.out.program.libraries.len();
         self.out.program.libraries.push(ir::Library {
             name: lib_name.clone(),
             system,
             link_always,
+            no_dll,
             base_dir,
         });
         self.ns.libraries.push(LibraryInfo {

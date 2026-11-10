@@ -6,7 +6,7 @@
 #library,system,link_always "ole32"; @native(external)
 #library,system,link_always "oleaut32"; @native(external)
 #library,system,link_always "version"; @native(external)
-#library,system,link_always "uuid"; @native(external)
+#library,system,link_always,no_dll "uuid"; @native(external)
 #library,system,link_always "advapi32"; @native(external)
 #library,system,link_always "setupapi"; @native(external)
 #library,system,link_always "shell32"; @native(external)
