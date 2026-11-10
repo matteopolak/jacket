@@ -38,25 +38,30 @@ Chain :: struct {
 POINT_BLOCKS :: 5;
 SHAPE_BLOCKS :: 28;
 
-// Encodes `source` into a tree under the tracking allocator and returns how many blocks it took.
-encode_counted :: (source: $T, tree: *Json_Value) -> s64 {
+// Encodes `source` into a tree under the tracking allocator, compares it with the text encoding
+// and frees it there, since free_json releases through context.allocator.
+encode_counted :: (source: $T) -> blocks: s64, same: bool, outstanding: s64 {
     tally: Tally;
+    same: bool;
 
     {
         push_allocator(tally_proc, *tally);
 
-        tree.* = to_json_value(source);
+        tree := to_json_value(source);
+
+        same = to_json(tree,, temp) == to_json(source,, temp);
+        free_json(*tree);
     }
 
-    return tally.allocations;
+    return tally.allocations, same, tally.outstanding;
 }
 
 shallow :: () {
-    point_tree: Json_Value;
-    point_blocks := encode_counted(Point.{ 3, 4 }, *point_tree);
+    point_blocks, point_same, point_left := encode_counted(Point.{ 3, 4 });
 
     check(point_blocks == POINT_BLOCKS, tprint("a point allocated % blocks, not %", point_blocks, POINT_BLOCKS));
-    free_json(*point_tree);
+    check(point_same, "the point's tree has the text's content");
+    check(point_left == 0, tprint("a point's tree left % blocks allocated", point_left));
 
     shape: Shape;
 
@@ -64,12 +69,11 @@ shallow :: () {
     array_add(*shape.heights, 2);
     defer array_free(shape.heights);
 
-    shape_tree: Json_Value;
-    shape_blocks := encode_counted(shape, *shape_tree);
+    shape_blocks, shape_same, shape_left := encode_counted(shape);
 
     check(shape_blocks == SHAPE_BLOCKS, tprint("a shape allocated % blocks, not %", shape_blocks, SHAPE_BLOCKS));
-    check(to_json(shape_tree,, temp) == to_json(shape,, temp), "the shape's tree has the text's content");
-    free_json(*shape_tree);
+    check(shape_same, "the shape's tree has the text's content");
+    check(shape_left == 0, tprint("a shape's tree left % blocks allocated", shape_left));
 }
 
 deep :: () {
