@@ -74,7 +74,7 @@ def main():
     out.parent.mkdir(parents=True, exist_ok=True)
     emit_generated(out, "\n\n".join(chunks) + "\n", args.formatter, args.check)
     keyword_names = re.findall(r"^- `(KEYWORD_[A-Z_]+)\s*::", source, re.M)
-    lines = ["// Sets an identifier token's type to the keyword it spells, if any, and returns the type.", "//", "// ```jai", "// lexer: Lexer;", '// set_input_from_string(*lexer, "struct");', "// token := peek_next_token(*lexer);", "// assert(check_for_keyword(token) == .KEYWORD_STRUCT);", "// ```", "check_for_keyword :: (token: *J.Token) -> J.Token_Type {"]
+    lines = ["// Sets an identifier token's type to the keyword it spells, if any, and returns the type. Other", "// tokens are returned unchanged.", "//", "// ```jai", "// lexer: Lexer;", '// set_input_from_string(*lexer, "struct");', "// token := peek_next_token(*lexer);", "// assert(check_for_keyword(token) == .KEYWORD_STRUCT);", "// ```", "check_for_keyword :: (token: *J.Token) -> J.Token_Type {", "    if token.type != .IDENT return token.type;", ""]
     for name in sorted(keyword_names):
         lines.append('    if token.ident_value.name == "' + name.removeprefix("KEYWORD_").lower() + '" { token.type = .' + name + '; return token.type; }')
     lines += ["    return token.type;", "}", "#scope_module", "punctuation :: (lexer: *J.Lexer) -> (type: J.Token_Type, width: s64) {"]
