@@ -74,3 +74,12 @@ fn a_float_run_result_keeps_its_type() {
     .unwrap_err();
     assert!(error.contains("error["), "{error}");
 }
+
+#[test]
+fn a_typed_run_written_where_an_integer_is_expected_keeps_its_type() {
+    for body in ["x: u64 = #run cast(s64) 16;", "x: s32 = #run cast(s64) 5;"] {
+        let error = plain("", body).expect_err(body);
+        assert!(error.contains("error["), "{body}: {error}");
+    }
+    plain("f :: () -> s64 { return 16; }", "x: u32 = #run f();").unwrap();
+}
