@@ -10,6 +10,7 @@ use crate::ast::{
 };
 use crate::diagnostics::Diagnostic;
 use crate::lexer::{P, Tok};
+use crate::lexicon::is_using_filter;
 
 /// A word that starts a statement of its own kind (`parse_keyword_stmt`).
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -911,7 +912,7 @@ impl Parser<'_> {
     }
 
     pub(super) fn parse_using_filter(&mut self) -> PResult<UsingFilter> {
-        if !(self.at(P::Comma) && matches!(self.kw_at(1), Some("only" | "except" | "map"))) {
+        if !(self.at(P::Comma) && self.kw_at(1).is_some_and(is_using_filter)) {
             return Ok(UsingFilter::None);
         }
         self.bump();

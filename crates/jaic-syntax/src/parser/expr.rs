@@ -5,6 +5,7 @@ use crate::ast::{
 };
 use crate::intern::Sym;
 use crate::lexer::{P, Tok};
+use crate::lexicon::is_cast_flag;
 use crate::source::Span;
 
 pub(super) fn mk(kind: ExprKind, span: Span) -> Expr {
@@ -242,10 +243,7 @@ impl Parser<'_> {
             Tok::Punct(
                 P::Comma | P::Semi | P::RParen | P::Eq | P::Colon | P::ColonEq | P::ColonColon
             )
-        ) || matches!(
-            self.kw_at(2),
-            Some("no_check" | "trunc" | "truncate" | "force")
-        )
+        ) || self.kw_at(2).is_some_and(is_cast_flag)
     }
 
     fn parse_xx(&mut self) -> PResult<Expr> {
@@ -265,12 +263,7 @@ impl Parser<'_> {
 
     fn parse_cast_flags(&mut self) -> CastFlags {
         let mut flags = CastFlags::default();
-        while self.at(P::Comma)
-            && matches!(
-                self.kw_at(1),
-                Some("no_check" | "trunc" | "truncate" | "force")
-            )
-        {
+        while self.at(P::Comma) && self.kw_at(1).is_some_and(is_cast_flag) {
             self.bump();
             match self.kw() {
                 Some("no_check") => flags.no_check = true,

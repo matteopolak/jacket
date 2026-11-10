@@ -183,16 +183,12 @@ impl Session {
             .find(|c: char| !word(c))
             .map_or(text.len(), |i| byte + i);
         let flag = &text[start..end];
-        let about = match flag {
-            "trunc" | "truncate" => "keeps the low bits of a value too large for the target type",
-            "no_check" => "skips the check that the value fits the target type",
-            "force" => "reinterprets the bits as the target type, which has the same size",
-            _ => return None,
-        };
+        let about = jaic::lexicon::cast_flag_about(flag)?;
         let before = text[..start].trim_end().strip_suffix(',')?.trim_end();
         let after = text[end..].trim_start();
-        let chained = ["cast", "xx", "trunc", "truncate", "no_check", "force"]
-            .iter()
+        let chained = ["cast", "xx"]
+            .into_iter()
+            .chain(jaic::lexicon::CAST_FLAGS.iter().map(|(name, _)| *name))
             .any(|w| before.ends_with(w) && !before[..before.len() - w.len()].ends_with(word));
         let line = jaic::source::line_start(text, start);
         let in_dot_cast = after.starts_with([')', ',']) && text[line..start].contains(".(");
@@ -227,12 +223,7 @@ impl Session {
             return None;
         }
         let name = token.spelling(&doc.text);
-        let about = match name {
-            "only" => "exposes only the selected names",
-            "except" => "exposes all names except the selected names",
-            "map" => "exposes selected members under new names",
-            _ => return None,
-        };
+        let about = jaic::lexicon::using_filter_about(name)?;
         Some((
             token.span.start,
             token.span.end,

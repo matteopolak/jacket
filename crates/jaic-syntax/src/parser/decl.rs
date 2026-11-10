@@ -9,6 +9,7 @@ use crate::diagnostics::Code;
 use crate::diagnostics::Diagnostic;
 use crate::intern::Sym;
 use crate::lexer::{P, Tok};
+use crate::lexicon::is_using_filter;
 use std::sync::Arc;
 
 /// Directives that may trail a declaration (`x: int #align 16;`).
@@ -112,8 +113,7 @@ impl Parser<'_> {
 
     /// Offset after an optional `,only(..)` / `,except(..)` / `,map(..)` starting at offset `n`.
     fn using_filter_end(&self, n: usize) -> usize {
-        if !(self.at_n(n, P::Comma) && matches!(self.kw_at(n + 1), Some("only" | "except" | "map")))
-        {
+        if !(self.at_n(n, P::Comma) && self.kw_at(n + 1).is_some_and(is_using_filter)) {
             return n;
         }
         if self.at_n(n + 2, P::DotBracket) {

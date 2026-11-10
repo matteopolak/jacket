@@ -296,8 +296,58 @@ pub const TYPES: &[&str] = &[
     "s128", "u8", "u16", "u32", "u64", "u128", "Type", "Any", "Code",
 ];
 
-/// The flags `cast` and `xx` take after a comma: `cast,no_check(T) x`.
-pub const CAST_FLAGS: &[&str] = &["no_check", "trunc", "truncate", "force"];
+/// The flags `cast` and `xx` take after a comma (`cast,no_check(T) x`), each with what it does.
+pub const CAST_FLAGS: &[(&str, &str)] = &[
+    (
+        "no_check",
+        "skips the check that the value fits the target type",
+    ),
+    (
+        "trunc",
+        "keeps the low bits of a value too large for the target type",
+    ),
+    (
+        "truncate",
+        "keeps the low bits of a value too large for the target type",
+    ),
+    (
+        "force",
+        "reinterprets the bits as the target type, which has the same size",
+    ),
+];
+
+/// Whether `word` is a cast flag: `is_cast_flag("trunc")` is true.
+pub fn is_cast_flag(word: &str) -> bool {
+    cast_flag_about(word).is_some()
+}
+
+/// What cast flag `word` does, or `None` when it is not one.
+pub fn cast_flag_about(word: &str) -> Option<&'static str> {
+    CAST_FLAGS
+        .iter()
+        .find(|(name, _)| *name == word)
+        .map(|(_, about)| *about)
+}
+
+/// The filters `using` takes after a comma (`using,only(a, b) x`), each with what it does.
+pub const USING_FILTERS: &[(&str, &str)] = &[
+    ("only", "exposes only the selected names"),
+    ("except", "exposes all names except the selected names"),
+    ("map", "exposes selected members under new names"),
+];
+
+/// Whether `word` is a `using` filter: `is_using_filter("except")` is true.
+pub fn is_using_filter(word: &str) -> bool {
+    using_filter_about(word).is_some()
+}
+
+/// What `using` filter `word` does, or `None` when it is not one.
+pub fn using_filter_about(word: &str) -> Option<&'static str> {
+    USING_FILTERS
+        .iter()
+        .find(|(name, _)| *name == word)
+        .map(|(_, about)| *about)
+}
 
 /// What a directive does, for highlighting.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -820,7 +870,7 @@ pub fn to_json() -> String {
     let _ = writeln!(
         out,
         "  \"cast_flags\": {},",
-        list(&mut CAST_FLAGS.iter().copied())
+        list(&mut CAST_FLAGS.iter().map(|(name, _)| *name))
     );
     out.push_str("  \"directives\": {\n");
     for role in DirectiveRole::ALL {

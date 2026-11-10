@@ -8,6 +8,7 @@ use crate::ast::{
 use crate::diagnostics::Code;
 use crate::diagnostics::Diagnostic;
 use crate::lexer::{P, Tok};
+use crate::lexicon::{is_cast_flag, is_using_filter};
 use crate::macros::raw_enum;
 use std::sync::Arc;
 
@@ -154,14 +155,8 @@ impl Parser<'_> {
             };
             i > 0
                 && i + 1 < self.toks.len()
-                && matches!(
-                    word(i - 1),
-                    Some("cast" | "xx" | "no_check" | "trunc" | "truncate" | "force")
-                )
-                && matches!(
-                    word(i + 1),
-                    Some("no_check" | "trunc" | "truncate" | "force")
-                )
+                && word(i - 1).is_some_and(|w| w == "cast" || w == "xx" || is_cast_flag(w))
+                && word(i + 1).is_some_and(is_cast_flag)
         };
         for (i, token) in self.toks[from..close].iter().enumerate() {
             match &token.tok {
@@ -439,7 +434,7 @@ impl Parser<'_> {
     fn using_modifier_follows(&self) -> bool {
         match self.tok_at(1) {
             Tok::Punct(P::Colon | P::ColonEq) => false,
-            Tok::Punct(P::Comma) => matches!(self.kw_at(2), Some("only" | "except" | "map")),
+            Tok::Punct(P::Comma) => self.kw_at(2).is_some_and(is_using_filter),
             _ => true,
         }
     }
