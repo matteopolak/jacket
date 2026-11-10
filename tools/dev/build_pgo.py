@@ -605,6 +605,12 @@ def main():
         help="seconds one training step may take",
     )
     ap.add_argument(
+        "--no-pgo",
+        action="store_true",
+        help="plain release build into the same output folder, for a target whose build time "
+        "matters more than its speed (macOS Intel in releases)",
+    )
+    ap.add_argument(
         "--strict", action="store_true", help="fail when a training step fails"
     )
     ap.add_argument(
@@ -628,10 +634,9 @@ def main():
     env = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
     problems = []
 
-    if not pgo_works(args.target):
-        log(
-            f"profile-guided optimization is not available for {args.target}; building without it"
-        )
+    if args.no_pgo or not pgo_works(args.target):
+        reason = "--no-pgo" if args.no_pgo else f"not available for {args.target}"
+        log(f"profile-guided optimization {reason}; building without it")
         bins = cargo_build(args, work / "optimized", [])
         out.mkdir(parents=True, exist_ok=True)
         for tool, path in bins.items():

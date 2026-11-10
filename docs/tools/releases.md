@@ -55,7 +55,7 @@ A packaged binary finds its stdlib through `jaic::stdlib_dir`: `JAIC_STDLIB`, el
 
 ### PGO and BOLT
 
-Our Rust code is built with profile-guided optimisation (`tools/dev/build_pgo.py`): an instrumented build, a training run (corpus sweeps, short `benchmarks/*.jai` programs, a `jaifmt` build, `jailint` over the stdlib, a scripted `jailsp` session), a merge, and an optimised rebuild. Only our code is profiled. It gains 6 to 9% on front-end work and 2 to 5% on the interpreter. On Linux x86-64, BOLT then reorders code (`--bolt`). Linux arm64, macOS and Windows get PGO only; Windows arm64 gets a plain build because the profile runtime crashes there (`pgo_works()`).
+Our Rust code is built with profile-guided optimisation (`tools/dev/build_pgo.py`): an instrumented build, a training run (corpus sweeps, short `benchmarks/*.jai` programs, a `jaifmt` build, `jailint` over the stdlib, a scripted `jailsp` session), a merge, and an optimised rebuild. Only our code is profiled. It gains 6 to 9% on front-end work and 2 to 5% on the interpreter. On Linux x86-64, BOLT then reorders code (`--bolt`). Linux arm64, macOS arm64 and Windows x64 get PGO only. Windows arm64 gets a plain build because the profile runtime crashes there (`pgo_works()`), and macOS Intel gets one (`--no-pgo`, `pgo: false` in the matrix) because training on the slow Intel runner pushed the job past its timeout and few people use that build.
 
 - Profiles must be merged by the `llvm-profdata` of rustc's LLVM (rustup `llvm-tools`), not the LLVM `jaic` links.
 - Change the training in `train()` and `lsp_session()`; heavier training slows the release.

@@ -1,6 +1,6 @@
 name: release
 # Builds jacket, jaic, jailsp, jailint and jaifmt for macOS (Apple silicon and Intel), Linux (x86-64 and arm64) and
-# Windows (x86-64 and arm64), optimized with PGO (except Windows arm64) and BOLT on Linux x86-64
+# Windows (x86-64 and arm64), optimized with PGO (except macOS Intel and Windows arm64) and BOLT on Linux x86-64
 # (tools/dev/build_pgo.py, docs/tools/releases.md).
 # A `v*` tag push builds and publishes the matching compiler version. Manual runs from the default
 # branch also require a tag matching that workflow revision's Cargo version. Historical releases
@@ -106,10 +106,12 @@ jobs:
             runner: macos-15
             llvm: LLVM-{version}-macOS-ARM64.tar.xz
           # LLVM publishes no Intel macOS build: conda-forge's static libraries instead
-          # (tools/ci/install_ci_llvm_macos.sh --static).
+          # (tools/ci/install_ci_llvm_macos.sh --static). No PGO: the Intel runner is slow enough
+          # that training pushed the job past its timeout, and few people use this build.
           - name: macos-x64
             runner: macos-15-intel
             llvm: conda-forge
+            pgo: false
           - name: linux-x64
             runner: ubuntu-24.04
             llvm: LLVM-{version}-Linux-X64.tar.xz
@@ -201,9 +203,10 @@ jobs:
         run: |
           llvm=none
           if [ -n "${{ matrix.llvm }}" ]; then llvm=lazy; fi
-          bolt=()
-          if [ "${{ matrix.bolt }}" = true ]; then bolt=(--bolt --llvm-bin "$RUNNER_TEMP/llvm/bin"); fi
-          python3 tools/dev/build_pgo.py --llvm "$llvm" --jobs 4 "${bolt[@]}"
+          flags=()
+          if [ "${{ matrix.bolt }}" = true ]; then flags=(--bolt --llvm-bin "$RUNNER_TEMP/llvm/bin"); fi
+          if [ "${{ matrix.pgo }}" = false ]; then flags=(--no-pgo); fi
+          python3 tools/dev/build_pgo.py --llvm "$llvm" --jobs 4 "${flags[@]}"
       - name: Retain PGO training evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
