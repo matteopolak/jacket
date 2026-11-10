@@ -772,7 +772,7 @@ def check_rust(hook: Hook, rust: list[str]) -> None:
             env = dict(os.environ, PYTHONPATH=str(ROOT / "tools"))
             status, output = run_captured([sys.executable, str(spacing), "--check", *rust], cwd=hook.tmp, env=env)
             if status:
-                hook.fail("python3 tools/dev/rust_item_spacing.py <files>", output.replace(f"{hook.tmp}/", ""))
+                hook.fail("PYTHONPATH=tools python3 tools/dev/rust_item_spacing.py <files>", output.replace(f"{hook.tmp}/", ""))
 
 
 def check_shell(hook: Hook, shell: list[str]) -> None:
@@ -867,7 +867,7 @@ def cmd_precommit(args) -> int:
         if not hook.skipped("repo"):
             hook.say("repo checks")
             for script, output in repo_check_failures([n for n in REPO_CHECKS if n not in BUILT_REPO_CHECKS], skip_missing=True).items():
-                hook.fail(f"python3 {script}", output)
+                hook.fail(f"PYTHONPATH=tools python3 {script}", output)
         staged_text = "\n".join(everything)
         if (not hook.skipped("locks") and re.search(r"Cargo\.(toml|lock)$", staged_text, re.M)
                 and hook.need_cargo("check the lock files")):

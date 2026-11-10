@@ -23,7 +23,7 @@ require('jai').setup({
 - Syntax words in `syntax/jai.vim` copy `editors/vscode/scripts/build-grammar.ts`; nothing checks them against each other.
 - Gotchas: `vim.lsp.enable()` doesn't attach to buffers already open, so `restart` re-triggers `FileType`; use `vim.uv`, never `vim.loop`.
 
-Tests are [mini.test](https://github.com/echasnovski/mini.test) specs in `editors/nvim/tests/*_spec.lua` (helpers in `tests/harness.lua`). `tools/dev/fetch_mini_test.py` fetches mini.test at the commit pinned as `mini_test_commit` in `.github/pins.json`.
+Tests are [mini.test](https://github.com/echasnovski/mini.test) specs in `editors/nvim/tests/*_spec.lua` (helpers in `tests/harness.lua`). `PYTHONPATH=tools python3 tools/dev/fetch_mini_test.py` fetches mini.test at the commit pinned as `mini_test_commit` in `.github/pins.json`.
 
 ```sh
 just nvim-test            # builds a debug jailsp, runs everything
