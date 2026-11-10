@@ -94,28 +94,55 @@ make_string_constant :: (lexer: *J.Lexer) -> *J.Token {
     return result;
 }
 
+// Skips what may sit between `#string`, its flags and the terminator name: blanks, line ends, `//`
+// comments and nested `/* */` comments.
+skip_header_gap :: (lexer: *J.Lexer) {
+    while true {
+        c := look(lexer, 0);
+
+        if c == #char " " || c == #char "\t" || c == #char "\r" || c == 10 {
+            eat_character(lexer);
+        } else if c == #char "/" && look(lexer, 1) == #char "/" {
+            eat_until_newline(lexer);
+        } else if c == #char "/" && look(lexer, 1) == #char "*" {
+            eat_character(lexer);
+            eat_character(lexer);
+            eat_input_due_to_block_comment(lexer);
+        } else {
+            break;
+        }
+    }
+}
+
+// Reads the flags (`,cr`, `,\%`) and the terminator name, which may sit on later lines after
+// comments, then the body up to the first line that starts with the name. Text may follow the name
+// on that line; it is left for the next token.
 parse_here_string :: (lexer: *J.Lexer) -> *J.Token {
     Basic.assert(lexer.num_incoming_tokens == 0, "here-string parsing requires empty buffered lookahead");
     line := lexer.current_line_number;
     column := lexer.current_character_index;
 
-    while look(lexer, 0) == #char " " || look(lexer, 0) == #char "\t" eat_character(lexer);
+    cr, escape_percent := false, false;
 
-    cr := false;
+    while true {
+        skip_header_gap(lexer);
+        if look(lexer, 0) != #char "," break;
 
-    if look(lexer, 0) == #char "," {
         eat_character(lexer);
-        while look(lexer, 0) == #char " " || look(lexer, 0) == #char "\t" eat_character(lexer);
+        skip_header_gap(lexer);
 
-        if !matches_text(lexer, "cr") || continues_identifier(look(lexer, 2)) {
+        if look(lexer, 0) == #char "\\" {
+            eat_character(lexer);
+            if look(lexer, 0) == #char "%" escape_percent = true;
+            if look(lexer, 0) >= 0 eat_character(lexer);
+        } else if matches_text(lexer, "cr") && !continues_identifier(look(lexer, 2)) {
+            eat_character(lexer);
+            eat_character(lexer);
+            cr = true;
+        } else {
             report_parse_error(lexer, "unknown here-string modifier");
             return null;
         }
-
-        eat_character(lexer);
-        eat_character(lexer);
-        cr = true;
-        while look(lexer, 0) == #char " " || look(lexer, 0) == #char "\t" eat_character(lexer);
     }
 
     if look(lexer, 0) < 0 || !starts_identifier(cast(u8) look(lexer, 0)) {
@@ -147,16 +174,29 @@ parse_here_string :: (lexer: *J.Lexer) -> *J.Token {
         if matches_text(lexer, delimiter) && !continues_identifier(look(lexer, delimiter.count)) {
             content := string.{ line_start - start, lexer.input.data + start };
 
-            eat_until_newline(lexer);
-            if look(lexer, 0) == 10 eat_character(lexer);
+            for 1..delimiter.count eat_character(lexer);
 
             builder: Basic.String_Builder;
 
             Basic.init_string_builder(*builder);
 
+            skip := false;
+
             for c, i: content {
+                if skip {
+                    skip = false;
+                    continue;
+                }
+
+                if escape_percent && c == #char "\\" && i + 1 < content.count && content[i + 1] == #char "%" {
+                    Basic.append(*builder, cast(u8) 0x1f);
+                    skip = true;
+                    continue;
+                }
+
                 if c == #char "\r" && !cr && i + 1 < content.count && content[i + 1] == 10 continue;
                 if c == 10 && cr && (i == 0 || content[i - 1] != #char "\r") Basic.append(*builder, cast(u8) 13);
+
                 Basic.append(*builder, c);
             }
 
