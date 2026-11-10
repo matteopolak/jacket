@@ -300,22 +300,11 @@ impl Sources<'_> {
         {
             return found.modules.clone();
         }
-        // A resumed scan reuses this session's completed reads. Only a fresh read can be
-        // shared with other sessions using the recorded filesystem stamps.
-        let resumed = index.resume_warm;
-        if !resumed {
-            index.files.retain(|path, _| !path.starts_with(dir));
-        }
-        let outer = self.recording.replace(Some(Recorded {
-            own: resumed,
-            ..Recorded::default()
-        }));
+        // Scans this session already holds are reused: each carries the stamp from when it was
+        // read, so the list is shared with the stamps of what it was really made from.
+        let outer = self.recording.replace(Some(Recorded::default()));
         let modules = self.read_stdlib(index, dir);
         let recorded = self.recording.replace(outer).unwrap_or_default();
-        // Keep completed file scans if input interrupted a module partway through.
-        if !self.stopped() {
-            index.files.retain(|path, _| !path.starts_with(dir));
-        }
         if !self.stopped()
             && let Some(shared) = SharedStdlib::new(modules.clone(), recorded)
             && let Ok(mut kept) = KEPT_STDLIBS.lock()

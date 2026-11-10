@@ -106,8 +106,6 @@ pub(crate) struct Index {
     stdlib: Option<(PathBuf, ModuleCache)>,
     /// Complete modules retained across interrupted warm-ups. Partial lists never escape.
     warming: BTreeMap<(PathBuf, String), Arc<Module>>,
-    /// Scans left by a stopped warm-up belong to this session, not the shared stdlib cache.
-    resume_warm: bool,
     /// How the stdlib modules rank for suggestion, for the module list it was worked out from.
     ranking: Option<(Modules, ModuleRanking)>,
     module_dirs: BTreeMap<PathBuf, ModuleCache>,
@@ -121,8 +119,9 @@ pub(crate) struct Index {
     loads_dirty: BTreeSet<PathBuf>,
     /// The `#load` paths each file had when it was last scanned.
     loads_seen: BTreeMap<PathBuf, Vec<String>>,
-    /// Scans of files read from the environment.
-    files: BTreeMap<PathBuf, Rc<FileScan>>,
+    /// Scans of files read from the environment, with the file's stamp from before the read
+    /// (what a shared module list is checked against).
+    files: BTreeMap<PathBuf, (Option<u64>, Rc<FileScan>)>,
     /// Scans of open documents, with the hash of the text scanned.
     open: BTreeMap<PathBuf, (u64, Rc<FileScan>)>,
     /// The `.jai` files on disk under each walked folder.
@@ -244,7 +243,6 @@ impl Index {
     pub(crate) fn created_or_deleted(&mut self, path: &Path) {
         self.changed(path);
         self.warming.clear();
-        self.resume_warm = false;
         // A folder of modules may have appeared or gone.
         self.import_dirs.clear();
         self.walked.retain(|dir, _| !path.starts_with(dir));
@@ -395,6 +393,13 @@ impl Sources<'_> {
         }
     }
 
+    /// While recording, `key` was read as of `stamp`.
+    fn note_stamp(&self, key: &Path, stamp: Option<u64>) {
+        if let Some(recorded) = self.recording.borrow_mut().as_mut() {
+            recorded.stamps.entry(key.to_path_buf()).or_insert(stamp);
+        }
+    }
+
     /// While recording, something besides files and options went in.
     fn note_own(&self) {
         if let Some(recorded) = self.recording.borrow_mut().as_mut() {
@@ -479,7 +484,10 @@ impl Sources<'_> {
         if self.stopped() {
             return Rc::default();
         }
-        self.note(path, self.open.contains_key(path));
+        let open = self.open.contains_key(path);
+        if open {
+            self.note(path, true);
+        }
         if let Some(text) = self.open.get(path) {
             let h = hash(text);
             if let Some((seen, scan)) = index.open.get(path)
@@ -492,16 +500,23 @@ impl Sources<'_> {
             index.open.insert(path.to_path_buf(), (h, scan.clone()));
             return scan;
         }
-        if let Some(scan) = index.files.get(path) {
+        if let Some((stamp, scan)) = index.files.get(path) {
+            // The scan is as old as its stamp, whatever the file is now.
+            self.note_stamp(path, *stamp);
             return scan.clone();
         }
+        // Stamped before the read, so a change in between shows as a different stamp later.
+        let stamp = self.env.fs.stamp(path);
+        self.note_stamp(path, stamp);
         let text = self.read(path);
         if self.stopped() {
             return Rc::default();
         }
         let scan = Rc::new(text.map(|text| exports::scan(&text)).unwrap_or_default());
         index.note_loads(path, &scan);
-        index.files.insert(path.to_path_buf(), scan.clone());
+        index
+            .files
+            .insert(path.to_path_buf(), (stamp, scan.clone()));
         scan
     }
 }

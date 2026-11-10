@@ -978,3 +978,61 @@ fn prefixed_alias_completion_keeps_forwarded_docs_and_case_insensitive_matching(
     );
     assert!(!list.items.iter().any(|i| i.label == "print"));
 }
+
+/// Every stdlib file is read once for the first completion, also the ones the program loads.
+#[test]
+fn first_completion_scans_each_stdlib_file_once() {
+    use jaic::sema::{FileSystem, NativeFs};
+    use std::cell::RefCell;
+    use std::collections::BTreeMap;
+    use std::rc::Rc;
+    #[derive(Default)]
+    struct Counting(RefCell<BTreeMap<PathBuf, usize>>);
+    impl FileSystem for Counting {
+        fn read(&self, path: &Path) -> Option<Vec<u8>> {
+            *self.0.borrow_mut().entry(path.to_path_buf()).or_default() += 1;
+            NativeFs.read(path)
+        }
+        fn is_file(&self, path: &Path) -> bool {
+            NativeFs.is_file(path)
+        }
+        fn is_dir(&self, path: &Path) -> bool {
+            NativeFs.is_dir(path)
+        }
+        fn canonical(&self, path: &Path) -> PathBuf {
+            NativeFs.canonical(path)
+        }
+        fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
+            NativeFs.list_dir(path)
+        }
+        fn stamp(&self, path: &Path) -> Option<u64> {
+            NativeFs.stamp(path)
+        }
+    }
+    let dir = project(
+        "scan-once",
+        &[
+            ("main.jai", "#import \"Used\";\nmain :: () { alp }"),
+            ("stdlib/Used/module.jai", "#load \"more.jai\";"),
+            ("stdlib/Used/more.jai", "used_symbol :: 1;"),
+            ("stdlib/Other/module.jai", "alpha_symbol :: 2;"),
+        ],
+    );
+    let fs = Rc::new(Counting::default());
+    let mut environment = environment_at(dir.join("stdlib"), None);
+    environment.fs = fs.clone();
+    let mut s = Session::with_environment(Limits::default(), environment);
+    let text = "#import \"Used\";\nmain :: () { alp }";
+    let list = complete_at(&mut s, &dir.join("main.jai"), text, "alp");
+    assert!(!auto(&list, "alpha_symbol").is_empty());
+    let reads = fs.0.borrow();
+    for (path, count) in reads.iter() {
+        if path.starts_with(dir.join("stdlib")) && path.extension().is_some_and(|e| e == "jai") {
+            assert_eq!(*count, 1, "{} read {count} times", path.display());
+        }
+    }
+    assert!(
+        reads.keys().any(|p| p.ends_with("Used/more.jai")),
+        "{reads:?}"
+    );
+}

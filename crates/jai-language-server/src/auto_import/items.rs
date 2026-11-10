@@ -63,9 +63,7 @@ impl Session {
             kept.graph_epoch = index.graph_epoch;
             kept.graphs.clear();
             kept.warming = index.warming;
-            kept.resume_warm = true;
         } else {
-            index.resume_warm = false;
             index.warming.clear();
             *self.index.borrow_mut() = index;
         }
