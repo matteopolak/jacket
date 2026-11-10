@@ -31,7 +31,7 @@ add_allocation_to_table :: (memory: *void, size: s64, allocator: Allocator, trac
 
 do_free_bookkeeping :: (allocation: *Allocation) {
     assert(allocation != null);
-    debug_release(allocation.owner, allocation.memory, allocation.heap);
+    debug_release(allocation.owner, allocation.memory, allocation.heap, allocation.block);
 }
 
 add_allocation_this_frame :: (a: *Allocation, size: s64) {
@@ -93,7 +93,7 @@ build_leak_report_locked :: (options: Leak_Report_Options, for_visualizer: bool)
     while record {
         if !record.heap {
             work[index].allocation = record;
-            RT.table_add(*report.leak_combiner_table, record.memory, .{});
+            RT.table_add(*report.leak_combiner_table, report_key(record), .{});
             index += 1;
         }
 
@@ -114,7 +114,7 @@ build_leak_report_locked :: (options: Leak_Report_Options, for_visualizer: bool)
     }
 
     for *item: work {
-        item.entry = RT.table_find_pointer(*report.leak_combiner_table, item.allocation.memory);
+        item.entry = RT.table_find_pointer(*report.leak_combiner_table, report_key(item.allocation));
         a := item.allocation;
         item.entry.exempt = a.exempt || (!for_visualizer && a.ordinal <= debug_baseline);
         item.entry.reachable = item.entry.exempt;
@@ -166,7 +166,7 @@ build_leak_report_locked :: (options: Leak_Report_Options, for_visualizer: bool)
                 cycle := false;
 
                 while parent.owner {
-                    if parent.owner == child.allocation.memory {
+                    if parent.owner == report_key(child.allocation) {
                         cycle = true;
                         break;
                     }
@@ -174,7 +174,7 @@ build_leak_report_locked :: (options: Leak_Report_Options, for_visualizer: bool)
                     parent = RT.table_find_pointer(*report.leak_combiner_table, parent.owner);
                 }
 
-                if !cycle child.entry.owner = a.memory;
+                if !cycle child.entry.owner = report_key(a);
             }
         }
     }
@@ -318,7 +318,7 @@ mark_debug_allocation :: (memory: *void, stop_ownership: bool) {
     debug_acquire();
     record := debug_records;
     while record {
-        if !record.heap && record.memory == memory break;
+        if !record.heap && !record.block && record.memory == memory break;
         record = record.next;
     }
 
@@ -438,17 +438,27 @@ traces_equal :: (a: *Packed_Stack_Trace, b: *Packed_Stack_Trace) -> bool {
     return true;
 }
 
+// What identifies an allocation in the report's table. A block can start where a range does, so it is told apart by
+// its record.
+report_key :: (a: *Allocation) -> *void {
+    return ifx a.block then cast(*void) a else a.memory;
+}
+
 containing_allocation :: (pointer: *void, work: [] Report_Allocation) -> *Report_Allocation {
     if !pointer return null;
 
     address := cast(u64) pointer;
+    block: *Report_Allocation;
 
+    // A range lies inside the block it came from, so the range is the closer owner.
     for *item: work {
         start := cast(u64) item.allocation.memory;
-        if address >= start && address - start < cast(u64) item.allocation.size return item;
+        if address < start || address - start >= cast(u64) item.allocation.size continue;
+        if !item.allocation.block return item;
+        if !block block = item;
     }
 
-    return null;
+    return block;
 }
 
 mark_range :: (data: *u8, size: s64, work: [] Report_Allocation, root := false) {
@@ -456,11 +466,16 @@ mark_range :: (data: *u8, size: s64, work: [] Report_Allocation, root := false) 
         pointer: *void;
 
         memcpy(*pointer, data + offset, size_of(*void));
-        target := containing_allocation(pointer, work);
-        if !target continue;
+        address := cast(u64) pointer;
 
-        target.entry.reachable = true;
-        if root target.entry.exempt = true;
+        // A pointer reaches the block it lies in and the range it lies in.
+        if pointer for *target: work {
+            start := cast(u64) target.allocation.memory;
+            if address < start || address - start >= cast(u64) target.allocation.size continue;
+
+            target.entry.reachable = true;
+            if root target.entry.exempt = true;
+        }
     }
 }
 

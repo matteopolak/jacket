@@ -44,6 +44,8 @@ main :: () {
         B.assert(nested_calls == 0 && !context.inside_memory_debugger && context.logger == capture);
         report := D.make_leak_report(.{ scan_global_memory_to_remove_leaks = false });
 
+        first_calls := calls;
+
         B.assert(report.sorted_summaries.count == 0);
         D.deinit(*report);
         if bookkeeping_memory D.free(bookkeeping_memory);
@@ -51,17 +53,23 @@ main :: () {
         early(context.allocator);
         B.assert(!context.inside_memory_debugger && context.logger == capture);
         before := calls;
+        calls_per_bookkeep := first_calls;
 
+        // Temporary storage is skipped; pools are tracked like any other allocator.
         bookkeep(B.temp);
+        B.assert(calls == before);
         bookkeep(.{ Pools.pool_allocator_proc, null });
+        B.assert(calls == before + calls_per_bookkeep);
 
         #if OS == .MACOS || OS == .LINUX || OS == .ANDROID || OS == .WINDOWS {
             caps, name := B.get_capabilities(.{ Flat_Pools.flat_pool_allocator_proc, null });
             B.assert((caps & .HINT_I_AM_A_FAST_BUMP_ALLOCATOR) != 0 && name == Flat_Pools.CAPS_VERSION_STRING);
             bookkeep(.{ Flat_Pools.flat_pool_allocator_proc, null });
+            B.assert(calls == before + 2 * calls_per_bookkeep);
         }
 
-        B.assert(calls == before && context.logger == capture);
+        before = calls;
+        B.assert(context.logger == capture);
 
         push_context {
             context.inside_memory_debugger = true;

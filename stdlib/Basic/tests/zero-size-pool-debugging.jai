@@ -2,6 +2,7 @@
 #import "Basic";
 D :: #import "Basic"()(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = false);
 F :: #import "Flat_Pool";
+V :: #import "internal/allocation/virtual-memory";
 
 exercise :: () {
     pool: F.Flat_Pool;
@@ -31,7 +32,8 @@ exercise :: () {
         bytes += summary.bytes;
     }
 
-    assert(count == 2 && bytes == 11);
+    // The two nonempty ranges and the page the pool committed for them.
+    assert(count == 3 && bytes == 11 + cast(s64) V.page_size());
     D.deinit(*report);
 }
 

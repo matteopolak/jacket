@@ -100,6 +100,8 @@ Allocation :: struct {
     memory: *void;
     size: s64;
     heap: bool;
+    // Memory an allocator took for itself, such as a pool's block; kept apart from the ranges it handed out.
+    block: bool;
     ordinal: u64;
     exempt: bool;
     stops_ownership: bool;
@@ -114,6 +116,8 @@ Debug_Index :: #import "Hash_Table";
 
 debug_allocations: Debug_Index.Table(*void, *Allocation);
 debug_heaps: Debug_Index.Table(*void, *Allocation);
+// Blocks have their own index: one can start at the same address as a range inside it.
+debug_blocks: Debug_Index.Table(*void, *Allocation);
 // Each owner's live ranges, as a list threaded through `owner_next`, keyed by the owner's data pointer.
 debug_owners: Debug_Index.Table(*void, *Allocation);
 debug_initialized: bool;
@@ -129,11 +133,11 @@ frame_freed_bytes: u64;
 debug_hooks: Debug_Context.Debug_Hooks;
 
 debug_record_block :: (owner: Allocator, memory: *void, size: s64) {
-    debug_record(owner, memory, size, false, context.stack_trace);
+    debug_record(owner, memory, size, false, context.stack_trace, true);
 }
 
 debug_release_block :: (owner: Allocator, memory: *void) {
-    debug_release(owner, memory, false);
+    debug_release(owner, memory, false, true);
 }
 
 debug_acquire :: () {
@@ -155,16 +159,25 @@ initialize_debugger_locked :: () {
 
     debug_allocations.allocator = context.default_allocator;
     debug_heaps.allocator = context.default_allocator;
+    debug_blocks.allocator = context.default_allocator;
     debug_hooks = .{ acquired = debug_record_block, released = debug_release_block, released_everything = debug_release_owned };
     Debug_Context.register_hooks(*debug_hooks);
     debug_owners.allocator = context.default_allocator;
     Debug_Index.table_ensure_space(*debug_allocations, 1);
     Debug_Index.table_ensure_space(*debug_heaps, 1);
+    Debug_Index.table_ensure_space(*debug_blocks, 1);
     debug_initialized = true;
 }
 
-find_debug_allocation_locked :: (memory: *void, heap: bool) -> *Allocation {
-    table := ifx heap then *debug_heaps else *debug_allocations;
+debug_index_for :: (heap: bool, block: bool) -> *Debug_Index.Table(*void, *Allocation) {
+    if heap return *debug_heaps;
+    if block return *debug_blocks;
+
+    return *debug_allocations;
+}
+
+find_debug_allocation_locked :: (memory: *void, heap: bool, block := false) -> *Allocation {
+    table := debug_index_for(heap, block);
     value := Debug_Index.table_find_pointer(table, memory);
     if !value return null;
     return value.*;
@@ -175,9 +188,9 @@ unlink_debug_allocation_locked :: (record: *Allocation) {
     else debug_records = record.next;
     if record.next record.next.previous = record.previous;
 
-    if !record.heap unlink_owned_locked(record);
+    if !record.heap && !record.block unlink_owned_locked(record);
 
-    table := ifx record.heap then *debug_heaps else *debug_allocations;
+    table := debug_index_for(record.heap, record.block);
     removed := Debug_Index.table_remove(table, record.memory);
 
     assert(removed, "memory debugger index and allocation list disagree");
@@ -206,7 +219,7 @@ unlink_owned_locked :: (record: *Allocation) {
     record.owner_previous = null;
 }
 
-debug_record :: (owner: Allocator, memory: *void, size: s64, heap: bool, trace: *Stack_Trace_Node) {
+debug_record :: (owner: Allocator, memory: *void, size: s64, heap: bool, trace: *Stack_Trace_Node, block := false) {
     // Empty ranges need not have distinct addresses, even from a later nonempty allocation.
     // Heap records use size zero too, but their handles still have identity.
     if !heap && size == 0 return;
@@ -228,7 +241,7 @@ debug_record :: (owner: Allocator, memory: *void, size: s64, heap: bool, trace: 
 
     debug_acquire();
     initialize_debugger_locked();
-    record := find_debug_allocation_locked(memory, heap);
+    record := find_debug_allocation_locked(memory, heap, block);
 
     if record {
         debug_unlock();
@@ -254,7 +267,7 @@ debug_record :: (owner: Allocator, memory: *void, size: s64, heap: bool, trace: 
         if debug_records debug_records.previous = record;
 
         debug_records = record;
-        table := ifx heap then *debug_heaps else *debug_allocations;
+        table := debug_index_for(heap, block);
 
         Debug_Index.table_add(table, memory, record);
     }
@@ -263,7 +276,8 @@ debug_record :: (owner: Allocator, memory: *void, size: s64, heap: bool, trace: 
     record.memory = memory;
     record.size = size;
     record.heap = heap;
-    if !heap link_owned_locked(record);
+    record.block = block;
+    if !heap && !block link_owned_locked(record);
 
     debug_ordinal += 1;
     record.ordinal = debug_ordinal;
@@ -283,18 +297,19 @@ debug_record :: (owner: Allocator, memory: *void, size: s64, heap: bool, trace: 
     debug_unlock();
 }
 
-debug_release :: (owner: Allocator, memory: *void, heap: bool) {
+debug_release :: (owner: Allocator, memory: *void, heap: bool, block := false) {
     push_context, defer_pop;
     context.inside_memory_debugger = true;
     context.logger = runtime_support_default_logger;
 
-    if !heap {
+    // An allocator that ignores `.FREE` still takes its blocks back when it says so.
+    if !heap && !block {
         caps := cast(Allocator_Caps) cast(u64) owner.proc(.CAPS, 0, 0, null, owner.data);
         if (caps & .FREE) == 0 return;
     }
 
     debug_acquire();
-    record := find_debug_allocation_locked(memory, heap);
+    record := find_debug_allocation_locked(memory, heap, block);
 
     // External/raw allocations are outside this registry's instrumentation.
     if !record {

@@ -17,7 +17,9 @@ CAPS_VERSION_STRING :: "modules/Flat_Pool";
 // the allocator interface ignores free, and a resize copies.
 //
 // `reset` rewinds to the start and keeps the committed pages for reuse; `fini` releases the whole range back
-// to the OS. Both tell the memory debugger that everything allocated through `flat_pool_allocator_proc` is gone. A zeroed `Flat_Pool` is initialized by the first `get`. Not thread safe. Only available where the
+// to the OS. Both tell the memory debugger that everything allocated through `flat_pool_allocator_proc` is gone.
+// The debugger also lists the committed pages as one block of the pool, which grows with `get`, survives `reset`
+// and goes with `fini`. A zeroed `Flat_Pool` is initialized by the first `get`. Not thread safe. Only available where the
 // platform has virtual memory (macOS, Linux, Android and Windows).
 //
 // ```jai,skip_on(wasm)
@@ -112,7 +114,10 @@ Flat_Pool :: struct {
             assert(commit_end <= limit, "flat-pool reservation must end on a page boundary");
             if !Native.commit(first_uncommitted_page, commit_end - committed) return null;
 
+            if first_uncommitted_page > memory_base Debug_Context.allocator_released(Allocator.{ flat_pool_allocator_proc, pool }, memory_base);
+
             first_uncommitted_page = cast(*u8) commit_end;
+            Debug_Context.allocator_acquired(Allocator.{ flat_pool_allocator_proc, pool }, memory_base, first_uncommitted_page - memory_base);
         }
 
         current_point = cast(*u8) end;
@@ -145,6 +150,8 @@ Flat_Pool :: struct {
 
         assert(address_limit > memory_base, "invalid flat-pool reservation extent");
         release_all_allocations(Allocator.{ flat_pool_allocator_proc, pool });
+        if first_uncommitted_page > memory_base Debug_Context.allocator_released(Allocator.{ flat_pool_allocator_proc, pool }, memory_base);
+
         released := Native.release(memory_base, cast(u64) (address_limit - memory_base));
         if !released {
             context.logger("flat-pool reservation release failed\n", context.logger_data, Log_Info.{ common_flags = .ERROR });
@@ -229,4 +236,6 @@ Flat_Pool :: struct {
 
 #scope_file
 #import "Basic";
+Debug_Context :: #import "internal/basic-context";
+
 #if OS == .MACOS || OS == .LINUX || OS == .ANDROID || OS == .WINDOWS Native :: #import "internal/allocation/virtual-memory";

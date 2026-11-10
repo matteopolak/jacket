@@ -2,6 +2,7 @@
 #import "Basic";
 D :: #import "Basic"()(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = false);
 F :: #import "Flat_Pool";
+V :: #import "internal/allocation/virtual-memory";
 
 live :: () -> count: s64, bytes: s64 {
     report := D.make_leak_report(for_visualizer = true);
@@ -17,7 +18,11 @@ live :: () -> count: s64, bytes: s64 {
     return count, bytes;
 }
 
+// Each pool shows as one block: the memory it has committed, which stays through a reset and goes on fini. The pools in
+// this test commit a single page unless said otherwise.
 main :: () {
+    page := cast(s64) V.page_size();
+
     pool: F.Flat_Pool;
     other: F.Flat_Pool;
 
@@ -40,12 +45,12 @@ main :: () {
 
     count, bytes := live();
 
-    assert(count == 4 && bytes == 38);
+    assert(count == 6 && bytes == 38 + 2 * page);
 
-    // Reset drops what the pool handed out and nothing else.
+    // Reset drops what the pool handed out, not its block or anything else.
     F.reset(*pool);
     count, bytes = live();
-    assert(count == 1 && bytes == 5);
+    assert(count == 3 && bytes == 5 + 2 * page);
 
     // The same addresses come back and are tracked as new allocations.
     {
@@ -55,13 +60,13 @@ main :: () {
     }
 
     count, bytes = live();
-    assert(count == 3 && bytes == 21);
+    assert(count == 5 && bytes == 21 + 2 * page);
 
     // A second reset, with nothing new in between, is harmless.
     F.reset(*pool);
     F.reset(*pool);
     count, bytes = live();
-    assert(count == 1 && bytes == 5);
+    assert(count == 3 && bytes == 5 + 2 * page);
 
     {
         push_allocator(Allocator.{ F.flat_pool_allocator_proc, *pool });
@@ -70,7 +75,7 @@ main :: () {
 
     F.fini(*pool);
     count, bytes = live();
-    assert(count == 1 && bytes == 5);
+    assert(count == 2 && bytes == 5 + page);
 
     // A pool that was finalized can be set up again and tracked afresh.
     F.init(*pool, 1024 * 1024);
@@ -81,9 +86,18 @@ main :: () {
     }
 
     count, bytes = live();
-    assert(count == 2 && bytes == 16);
+    assert(count == 4 && bytes == 16 + 2 * page);
+
+    // The block grows with the pages the pool commits.
+    {
+        push_allocator(Allocator.{ F.flat_pool_allocator_proc, *pool });
+        assert(D.alloc(3 * page) != null);
+    }
+
+    count, bytes = live();
+    assert(count == 5 && bytes == 16 + 8 * page);
     F.fini(*pool);
     count, bytes = live();
-    assert(count == 1 && bytes == 5);
+    assert(count == 2 && bytes == 5 + page);
     print("ok\n");
 }
