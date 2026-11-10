@@ -192,7 +192,10 @@ class TrainingEvidenceTests(unittest.TestCase):
     def test_lint_steps_expect_a_clean_exit_and_only_the_stdlib_subset(self):
         with tempfile.TemporaryDirectory() as tmp:
             args = mock.Mock(jobs=2, step_timeout=30, verbose=False)
-            step = lambda name, cmd, env, path, timeout, **kwargs: {"name": name, "command": list(map(str, cmd)), "status": "completed"}
+
+            def step(name, cmd, env, path, timeout, **kwargs):
+                return {"name": name, "command": list(map(str, cmd)), "status": "completed"}
+
             with mock.patch.object(build_pgo, "training_step", side_effect=step) as run, mock.patch.object(build_pgo, "lsp_session", return_value=(0, "session")):
                 build_pgo.train({"jaic": "jaic", "jailint": "jailint", "jailsp": "jailsp"}, args, {}, False, Path(tmp))
             report = json.loads((Path(tmp) / "summary.json").read_text())
