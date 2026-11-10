@@ -902,9 +902,18 @@ impl<'a> Lexer<'a> {
         let (escape_percent, cr) = (header.escape_percent, header.cr);
         let src = self.src;
         let tag = &src[header.tag];
-        // Body starts on the next line.
-        while self.at < self.src.len() && self.src[self.at] != b'\n' {
+        // Body starts on the next line; only whitespace may follow the name.
+        while matches!(self.src.get(self.at), Some(b' ' | b'\t' | b'\r')) {
             self.at += 1;
+        }
+        if self.at < self.src.len() && self.src[self.at] != b'\n' {
+            let junk = self.at;
+            self.at += 1;
+            return Err(self.err(
+                Code::LexTextAfterStringTerminator,
+                junk,
+                "a here-string's terminator name must end its line",
+            ));
         }
         self.at += 1;
         let body_start = self.at.min(self.src.len());

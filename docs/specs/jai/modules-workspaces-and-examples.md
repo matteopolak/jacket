@@ -32,7 +32,7 @@ A workspace is a compilation unit with build options, target OS and CPU, output 
 
 ## Source and build inputs
 
-`#string` embeds non-Jai source, including end-delimited blocks. `#file`, `#filepath`, and `#location` give source location and path values. These are compile-time inputs; paths are not runtime working-directory paths. `#compile_time` is a compile-time context query usable in conditions. Encoding and escaping rules beyond the delimiter forms are unspecified.
+`#string` embeds non-Jai source, including end-delimited blocks. Blanks, line ends, `//` comments and nested `/* */` comments may separate `#string`, its flags and the terminator name, so the name may sit on a later line. The rest of the name's line must be blank (a comment there is an error). The block ends at the first line whose first word, after leading blanks, is the name; source text may follow it on that line, as in `print(#string END` … `END, x);`. `#file`, `#filepath`, and `#location` give source location and path values. These are compile-time inputs; paths are not runtime working-directory paths. `#compile_time` is a compile-time context query usable in conditions. Encoding and escaping rules beyond the delimiter forms are unspecified.
 
 Arguments after the command-line separator go to the metaprogram, so command-line parsing is a build concern, not a language feature. Build options also set output kind and target properties; target-specific libraries and linkers are external build dependencies.
 

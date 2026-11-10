@@ -175,6 +175,47 @@ mod tests {
     }
 
     #[test]
+    fn here_string_names_may_follow_blank_lines_and_comments() {
+        for src in [
+            "s :: #string\n        END\nbody\nEND;",
+            "s :: #string\n\n\tEND\nbody\nEND;",
+            "s :: #string // note\n    // more\n    END\nbody\nEND;",
+            "s :: #string /* a /* nested */ b */\n END\nbody\nEND;",
+            "s :: #string,cr\n END\nbody\nEND;",
+        ] {
+            let t = kinds(src);
+            let body: &[u8] = if src.contains(",cr") {
+                b"body\r\n"
+            } else {
+                b"body\n"
+            };
+            assert_eq!(t[2], Tok::Str(body.into()), "{src:?}");
+            assert_eq!(t[3], Tok::Punct(P::Semi), "{src:?}");
+        }
+    }
+
+    #[test]
+    fn here_string_names_end_their_line() {
+        for src in [
+            "s :: #string END junk\nbody\nEND;",
+            "s :: #string END // note\nbody\nEND;",
+            "s :: #string\n    END junk\nbody\nEND;",
+        ] {
+            let e = lex(FileId(0), src).unwrap_err();
+            assert_eq!(
+                e.code,
+                crate::diagnostics::Code::LexTextAfterStringTerminator,
+                "{src:?}"
+            );
+        }
+        // Whitespace after the name is fine.
+        assert_eq!(
+            kinds("s :: #string END \t\nx\nEND;")[2],
+            Tok::Str(b"x\n".as_slice().into())
+        );
+    }
+
+    #[test]
     fn here_string_flags_cut_off_by_the_end_of_file() {
         // Found by the `lexer` fuzz target: a trailing `\` flag stepped past the end.
         for src in ["#string,\t\t\\", "#string,\\", "#string, \\%"] {

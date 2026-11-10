@@ -393,16 +393,16 @@ lex_number :: (src: string, at: *s64) {
 }
 
 // After `#string`: optional `,cr` / `,\%` flags, the tag, then the body from the next line up
-// to a line whose first non-blank text is the tag. Leaves `at` after the closing tag.
+// to a line whose first non-blank text is the tag. The tag may start a later line: blanks,
+// line breaks and comments before it are skipped. Leaves `at` after the closing tag.
 lex_here_string :: (src: string, at: *s64) -> bool {
     i := at.*;
 
     while true {
-        while i < src.count && (src[i] == #char " " || src[i] == #char "\t") i += 1;
+        i = skip_header_gap(src, i);
         if i >= src.count || src[i] != #char "," break;
 
-        i += 1;
-        while i < src.count && (src[i] == #char " " || src[i] == #char "\t") i += 1;
+        i = skip_header_gap(src, i + 1);
 
         if i < src.count && src[i] == #char "\\" {
             i += 2;
@@ -437,4 +437,37 @@ lex_here_string :: (src: string, at: *s64) -> bool {
     }
 
     return false;
+}
+
+// Skips whitespace, line breaks and comments (`/* */` nests) from `i`, returning where the
+// next other character is.
+skip_header_gap :: (src: string, start: s64) -> s64 {
+    i := start;
+    while i < src.count {
+        c := src[i];
+        if c == #char " " || c == #char "\t" || c == #char "\r" || c == #char "\n" {
+            i += 1;
+        } else if c == #char "/" && i + 1 < src.count && src[i + 1] == #char "/" {
+            while i < src.count && src[i] != #char "\n" i += 1;
+        } else if c == #char "/" && i + 1 < src.count && src[i + 1] == #char "*" {
+            depth := 0;
+
+            while i < src.count {
+                if i + 1 < src.count && src[i] == #char "/" && src[i + 1] == #char "*" {
+                    depth += 1;
+                    i += 2;
+                } else if i + 1 < src.count && src[i] == #char "*" && src[i + 1] == #char "/" {
+                    depth -= 1;
+                    i += 2;
+                    if depth == 0 break;
+                } else {
+                    i += 1;
+                }
+            }
+        } else {
+            break;
+        }
+    }
+
+    return i;
 }

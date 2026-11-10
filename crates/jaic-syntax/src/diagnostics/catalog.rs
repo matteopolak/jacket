@@ -315,6 +315,8 @@ catalog! {
             "expected hex digits in escape";
         LexExpectedStringTerminator = "lex-expected-string-terminator", Error,
             "expected here-string terminator";
+        LexTextAfterStringTerminator = "lex-text-after-string-terminator", Error,
+            "a here-string's terminator name must end its line";
         LexUnterminatedString = "lex-unterminated-string", Error,
             "unterminated here-string";
     }

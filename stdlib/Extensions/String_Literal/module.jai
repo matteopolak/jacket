@@ -232,7 +232,40 @@ is_word :: (c: u8) -> bool {
     return c == #char "_" || (c >= #char "a" && c <= #char "z") || (c >= #char "A" && c <= #char "Z") || (c >= #char "0" && c <= #char "9") || c >= 0x80;
 }
 
-// `#string,cr,\% TAG` then a body up to a line whose first word is TAG. `at` is just past `#`.
+// Skips what may sit between `#string`, its flags and the terminator name: blanks, line ends,
+// `//` comments and nested `/* */` comments.
+skip_header_gap :: (text: string, at: int) -> int {
+    i := at;
+    while i < text.count {
+        if is_blank(text[i]) || text[i] == #char "\r" || text[i] == #char "\n" {
+            i += 1;
+        } else if begins_with(advance(text, i), "//") {
+            while i < text.count && text[i] != #char "\n" i += 1;
+        } else if begins_with(advance(text, i), "/*") {
+            depth := 0;
+
+            while i < text.count {
+                if begins_with(advance(text, i), "/*") {
+                    depth += 1;
+                    i += 2;
+                } else if begins_with(advance(text, i), "*/") {
+                    depth -= 1;
+                    i += 2;
+                    if depth == 0 break;
+                } else {
+                    i += 1;
+                }
+            }
+        } else {
+            break;
+        }
+    }
+
+    return i;
+}
+
+// `#string,cr,\% TAG` then a body up to a line whose first word is TAG. `at` is just past `#`. The
+// flags and the name may follow on later lines, after comments.
 decode_here :: (text: string, at: int) -> value: string, sources: [] int, ok: bool {
     i := at;
     while i < text.count && is_blank(text[i]) i += 1;
@@ -242,11 +275,10 @@ decode_here :: (text: string, at: int) -> value: string, sources: [] int, ok: bo
     cr, escape_percent := false, false;
 
     while true {
-        while i < text.count && is_blank(text[i]) i += 1;
+        i = skip_header_gap(text, i);
         if i >= text.count || text[i] != #char "," break;
 
-        i += 1;
-        while i < text.count && is_blank(text[i]) i += 1;
+        i = skip_header_gap(text, i + 1);
 
         if i < text.count && text[i] == #char "\\" {
             escape_percent ||= i + 1 < text.count && text[i + 1] == #char "%";

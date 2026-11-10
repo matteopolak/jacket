@@ -26,12 +26,18 @@ PERCENT_CODE :: #code #string,\% END
 a\%b
 END;
 
+NEXT_CODE :: #code #string /* the name */ // is on the next line
+    TAG
+ab
+TAG;
+
 PLAIN :: #run where(PLAIN_CODE, 7);
 ESCAPED :: #run where(ESCAPED_CODE, 11);
 EIGHT :: #run where(EIGHT_CODE, 4);
 END_AT :: #run where(PLAIN_CODE, 20);
 HERE :: #run where(HERE_CODE, 12);
 PERCENT :: #run where(PERCENT_CODE, 2);
+NEXT :: #run where(NEXT_CODE, 1);
 OUTSIDE :: #run where(PLAIN_CODE, 99);
 
 main :: () {
@@ -42,6 +48,7 @@ main :: () {
     expect("end", END_AT, "true:15:42");
     expect("here", HERE, "true:22:4");
     expect("percent", PERCENT, "true:26:4");
+    expect("next line", NEXT, "true:31:2");
     expect("outside", OUTSIDE, "false:15:21");
     if failures exit(1);
 

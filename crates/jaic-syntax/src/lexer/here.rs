@@ -54,7 +54,8 @@ pub(super) struct Header {
     pub cr: bool,
     /// The terminator's byte range in the source; empty when there is none.
     pub tag: Range<usize>,
-    /// Where the header ends: just after the terminator word.
+    /// Where the header ends: just after the terminator word. The name may be on a later
+    /// line than `#string`; the rest of its own line must be blank.
     pub end: usize,
 }
 
@@ -63,6 +64,39 @@ fn blanks(src: &[u8], mut at: usize) -> usize {
         at += 1;
     }
     at
+}
+
+/// Skips what may sit between `#string`, its flags and its terminator name: whitespace,
+/// line breaks and comments (`/* */` nests), so the name may start a later line.
+fn gap(src: &[u8], mut at: usize) -> usize {
+    loop {
+        match (src.get(at), src.get(at + 1)) {
+            (Some(b' ' | b'\t' | b'\r' | b'\n'), _) => at += 1,
+            (Some(b'/'), Some(b'/')) => {
+                while src.get(at).is_some_and(|&c| c != b'\n') {
+                    at += 1;
+                }
+            }
+            (Some(b'/'), Some(b'*')) => {
+                let mut depth = 0usize;
+                while at < src.len() {
+                    if src[at..].starts_with(b"/*") {
+                        depth += 1;
+                        at += 2;
+                    } else if src[at..].starts_with(b"*/") {
+                        at += 2;
+                        depth -= 1;
+                        if depth == 0 {
+                            break;
+                        }
+                    } else {
+                        at += 1;
+                    }
+                }
+            }
+            _ => return at,
+        }
+    }
 }
 
 fn word(src: &[u8], mut at: usize) -> usize {
@@ -76,11 +110,11 @@ fn word(src: &[u8], mut at: usize) -> usize {
 pub(super) fn header(src: &[u8], mut at: usize) -> Header {
     let (mut escape_percent, mut cr) = (false, false);
     loop {
-        at = blanks(src, at);
+        at = gap(src, at);
         if src.get(at) != Some(&b',') {
             break;
         }
-        at = blanks(src, at + 1);
+        at = gap(src, at + 1);
         if src.get(at) == Some(&b'\\') {
             at += 1;
             escape_percent |= src.get(at) == Some(&b'%');
