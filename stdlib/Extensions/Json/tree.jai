@@ -64,7 +64,7 @@ from_json :: ($T: Type, value: *Json_Value, options := Json_Options.{}) -> T, Js
 to_json_value :: (value: $T) -> Json_Value {
     w: Json_Writer;
 
-    frames: Build_Stack;
+    frames: Inline_Stack(Build_Frame, BUILD_INLINE_FRAMES);
 
     w.tree = true;
     w.frames = *frames;

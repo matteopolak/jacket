@@ -294,7 +294,7 @@ Json_Writer :: struct {
     depth: int;
     tree: bool; // building a `Json_Value` instead of text (see `to_json_value`)
     root: Json_Value; // in a tree, the finished value
-    frames: *Build_Stack; // in a tree, the arrays and objects being built (kept by `to_json_value`, so a text writer stays small)
+    frames: *Inline_Stack(Build_Frame, BUILD_INLINE_FRAMES); // in a tree, the arrays and objects being built (kept by `to_json_value`, so a text writer stays small)
 }
 
 // An array or object being built in a tree, and the key of the member whose value comes next.
@@ -307,23 +307,7 @@ Build_Frame :: struct {
 // allocates no frames; deeper ones spill to the heap.
 BUILD_INLINE_FRAMES :: 16;
 
-// The frames of the arrays and objects being built in a tree, innermost last. The first
-// `BUILD_INLINE_FRAMES` live in the stack itself; `spill` holds the rest and stays empty until a
-// document nests that deep. Free `spill` with `array_free` when the writer is done.
-Build_Stack :: struct {
-    count: int;
-    base: [BUILD_INLINE_FRAMES] Build_Frame;
-    spill: [..] Build_Frame;
-}
-
 #scope_module
-
-// The innermost frame being built.
-build_top :: (stack: *Build_Stack) -> *Build_Frame {
-    if stack.count <= BUILD_INLINE_FRAMES return *stack.base[stack.count - 1];
-
-    return *stack.spill[stack.count - BUILD_INLINE_FRAMES - 1];
-}
 
 // The tree builder's half of the writer: each value the encoder writes becomes a `Json_Value`
 // that is added to the array or object being built, or is the root.
@@ -334,7 +318,7 @@ tree_put :: (w: *Json_Writer, value: Json_Value) {
         return;
     }
 
-    frame := build_top(w.frames);
+    frame := stack_top(w.frames);
 
     if frame.value.kind == .ARRAY {
         array_add(*frame.value.items, value);
@@ -355,29 +339,20 @@ tree_begin :: (w: *Json_Writer, kind: Json_Kind) {
 
     frame.value.kind = kind;
 
-    if w.frames.count < BUILD_INLINE_FRAMES {
-        w.frames.base[w.frames.count] = frame;
-    } else {
-        array_add(*w.frames.spill, frame);
-    }
-
-    w.frames.count += 1;
+    stack_push(w.frames, frame);
     w.depth += 1;
 }
 
 tree_end :: (w: *Json_Writer) {
     w.depth -= 1;
 
-    frame := build_top(w.frames).*;
+    frame := stack_pop(w.frames);
 
-    if w.frames.count > BUILD_INLINE_FRAMES w.frames.spill.count -= 1;
-
-    w.frames.count -= 1;
     tree_put(w, frame.value);
 }
 
 tree_set_key :: (w: *Json_Writer, key: string) {
-    build_top(w.frames).key = key;
+    stack_top(w.frames).key = key;
 }
 
 // An owned copy of `text` as the encoder writes it: bytes that are not valid UTF-8 become U+FFFD.
