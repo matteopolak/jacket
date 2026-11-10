@@ -29,7 +29,7 @@ Arguments between `-` and `--` go to a metaprogram. The program runs in the main
 
 ### Hosts
 
-`Host::foreign` can implement a foreign symbol itself. `SandboxHost` (`interp/sandbox.rs`) is the browser's operating system: a virtual clock, an in-memory file system over a read-only base, one CPU and the heap. `jaic -interp -os wasm file.jai` runs a program on it natively.
+`Host::foreign` can implement a foreign symbol itself. `SandboxHost` (`interp/sandbox.rs`) is the browser's operating system: a virtual clock, an in-memory file system over a read-only base, one CPU and the heap. `jaic -interp -os wasm file.jai` runs a program on it natively. Its paths start at `/`; on a Windows host it names a drive's files `/C:/...`, so `C:/a` and `/C:/a` are one file, and `host_path` turns a sandbox path back into the host's.
 
 The editor compiles one program for every target, so the sandbox also stands in for Windows and Objective-C calls a metaprogram makes. Process creation and shared memory fail with `EPERM` instead of trapping. An unknown call traps with "unavailable".
 
