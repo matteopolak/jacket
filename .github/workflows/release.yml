@@ -125,10 +125,12 @@ jobs:
             runner: windows-2025
             llvm: clang+llvm-{version}-x86_64-pc-windows-msvc.tar.xz
             rust_target: x86_64-pc-windows-msvc
+            cpu: x64
           - name: windows-arm64
             runner: windows-11-arm
             llvm: clang+llvm-{version}-aarch64-pc-windows-msvc.tar.xz
             rust_target: aarch64-pc-windows-msvc
+            cpu: arm64
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     defaults:
@@ -189,6 +191,12 @@ jobs:
           echo "CARGO_BUILD_TARGET=$target" >> "$GITHUB_ENV"
           echo "CARGO_TARGET_$(echo "$target" | tr 'a-z-' 'A-Z_')_RUSTFLAGS=-C target-feature=+crt-static" >> "$GITHUB_ENV"
           cygpath -w "$llvm/bin" >> "$GITHUB_PATH"
+      # The PGO training sweep runs native programs, which load the crash runtime's DLL.
+      - uses: ./.github/actions/windows-provider
+        if: runner.os == 'Windows'
+        with:
+          cpu: ${{ matrix.cpu }}
+          triple: ${{ matrix.rust_target }}
       - name: Install static zlib and zstd (Linux)
         if: runner.os == 'Linux'
         # X11 and GL: Window_Creation, which the smoke test's WebGPU triangle links.
