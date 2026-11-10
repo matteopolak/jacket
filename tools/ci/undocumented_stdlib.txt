@@ -1550,7 +1550,6 @@ Jai_Lexer.make_note
 Jai_Lexer.make_number
 Jai_Lexer.make_one_character_token
 Jai_Lexer.make_string_constant
-Jai_Lexer.parse_here_string
 Jai_Lexer.parse_ident
 Jai_Lexer.parse_note
 Jai_Lexer.peek_next_character
