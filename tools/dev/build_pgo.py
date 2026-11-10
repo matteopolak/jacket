@@ -59,6 +59,8 @@ LLVM_FEATURES = {
 def file_name(tool):
     """The file a tool's build is installed as."""
     return BACKEND_FILE if tool == BACKEND else f"{tool}{EXE}"
+
+
 # Files the scripted jailsp session opens: a program with imports, a generic module and tests.
 LSP_FILES = [
     "examples/metaprogramming/main.jai",
@@ -357,9 +359,17 @@ def lsp_session(jailsp, env, output=None):
         for body in (json.dumps(m).encode() for m in messages)
     )
     # A file destination keeps partial responses and stderr even if training is interrupted.
-    with (Path(output).open("w+b") if output is not None else tempfile.TemporaryFile()) as stream:
-        result = run_measured([str(jailsp)], stdin_bytes=data, output=stream,
-                              env=env, cwd=ROOT, timeout=900)
+    with (
+        Path(output).open("w+b") if output is not None else tempfile.TemporaryFile()
+    ) as stream:
+        result = run_measured(
+            [str(jailsp)],
+            stdin_bytes=data,
+            output=stream,
+            env=env,
+            cwd=ROOT,
+            timeout=900,
+        )
         stream.flush()
         size = stream.seek(0, 2)
     code = "timeout" if result.timed_out else result.returncode
@@ -375,7 +385,9 @@ def profile_input(path, training):
     try:
         resolved = Path(path).resolve(strict=True)
         if resolved.is_relative_to(Path(training).resolve()):
-            sys.exit(f"build_pgo: --profile must be outside the training evidence directory `{training}`")
+            sys.exit(
+                f"build_pgo: --profile must be outside the training evidence directory `{training}`"
+            )
         if not resolved.is_file():
             sys.exit(f"build_pgo: --profile must name a file: `{path}`")
         with resolved.open("rb") as stream:
@@ -415,17 +427,29 @@ def training_step(name, cmd, env, output, timeout, *, expected=(0,), verbose=Fal
     start = time.monotonic()
     log("$ " + " ".join(map(str, cmd)))
     with Path(output).open("wb") as stream:
-        result = run_measured(list(map(str, cmd)), env=env, cwd=ROOT, output=stream, timeout=timeout)
+        result = run_measured(
+            list(map(str, cmd)), env=env, cwd=ROOT, output=stream, timeout=timeout
+        )
     code = "timeout" if result.timed_out else result.returncode
     elapsed = time.monotonic() - start
     status = "completed" if code in expected else "failed"
     log(f"{name}: exit {code} in {elapsed:.0f}s; output: {output}")
     if verbose or status == "failed":
         training_output(output, verbose=verbose)
-    return {"name": name, "command": list(map(str, cmd)), "exit_code": code,
-            "expected_exit_codes": list(expected), "status": status,
-            "elapsed_seconds": elapsed, "output": str(output)}
+    return {
+        "name": name,
+        "command": list(map(str, cmd)),
+        "exit_code": code,
+        "expected_exit_codes": list(expected),
+        "status": status,
+        "elapsed_seconds": elapsed,
+        "output": str(output),
+    }
 
+
+# Training binaries are instrumented and several times slower, so a wall-clock check limit
+# would stop checks that pass in CI (which also sets no limit) and fail the step.
+LINT_TRAINING_FLAGS = ("--color", "never", "--check-time-limit", "0")
 
 # The stdlib slice `jailint` trains on. The whole stdlib is 650k lines, about ten times the work of
 # this slice, and the profile does not need it: the instrumented linter took 5 minutes over it on
@@ -502,17 +526,25 @@ def train(bins, args, env, native, report_dir):
     else:
         steps.append(("check jaifmt", [bins["jaic"], jaifmt, "-check"]))
     steps += [
-        ("check examples", [bins["jaic"], ROOT / "examples/metaprogramming/main.jai", "-check"]),
+        (
+            "check examples",
+            [bins["jaic"], ROOT / "examples/metaprogramming/main.jai", "-check"],
+        ),
         (
             "jailint stdlib subset",
-            [bins["jailint"], "--color", "never", "-j", str(args.jobs), *LINT_TRAINING_PATHS],
+            [
+                bins["jailint"],
+                *LINT_TRAINING_FLAGS,
+                "-j",
+                str(args.jobs),
+                *LINT_TRAINING_PATHS,
+            ],
         ),
         (
             "jailint examples and tests",
             [
                 bins["jailint"],
-                "--color",
-                "never",
+                *LINT_TRAINING_FLAGS,
                 # Some regression programs only compile on another target or on purpose fail to
                 # compile; those are reported as incomplete, which is not a lint finding.
                 "--allow-incomplete",
@@ -522,18 +554,34 @@ def train(bins, args, env, native, report_dir):
         ),
     ]
     problems = []
-    records = [{"name": name, "command": list(map(str, cmd)), "status": "not_started",
-                "expected_exit_codes": [0],
-                "output": str(report_dir / f"{i:02d}.log")}
-               for i, (name, cmd) in enumerate(steps)]
-    records.append({"name": "jailsp session", "command": [str(bins["jailsp"])],
-                    "status": "not_started", "expected_exit_codes": [0],
-                    "output": str(report_dir / "jailsp.log")})
+    records = [
+        {
+            "name": name,
+            "command": list(map(str, cmd)),
+            "status": "not_started",
+            "expected_exit_codes": [0],
+            "output": str(report_dir / f"{i:02d}.log"),
+        }
+        for i, (name, cmd) in enumerate(steps)
+    ]
+    records.append(
+        {
+            "name": "jailsp session",
+            "command": [str(bins["jailsp"])],
+            "status": "not_started",
+            "expected_exit_codes": [0],
+            "output": str(report_dir / "jailsp.log"),
+        }
+    )
 
     def save_inventory():
         temporary = report_dir / "summary.json.tmp"
         temporary.write_text(
-            json.dumps({"native_requested": native, "steps": records, "problems": problems}, indent=2) + "\n"
+            json.dumps(
+                {"native_requested": native, "steps": records, "problems": problems},
+                indent=2,
+            )
+            + "\n"
         )
         temporary.replace(report_dir / "summary.json")
 
@@ -544,9 +592,14 @@ def train(bins, args, env, native, report_dir):
             active = i
             records[i]["status"] = "running"
             save_inventory()
-            record = training_step(name, cmd, env, report_dir / f"{i:02d}.log",
-                                   args.step_timeout,
-                                   verbose=args.verbose)
+            record = training_step(
+                name,
+                cmd,
+                env,
+                report_dir / f"{i:02d}.log",
+                args.step_timeout,
+                verbose=args.verbose,
+            )
             records[i] = record
             if record["status"] == "failed":
                 problems.append(f"{name} (exit {record['exit_code']})")
@@ -558,11 +611,19 @@ def train(bins, args, env, native, report_dir):
         output = report_dir / "jailsp.log"
         code, summary = lsp_session(bins["jailsp"], env, output)
         elapsed = time.monotonic() - start
-        log(f"jailsp session: exit {code}, {summary} in {elapsed:.0f}s; output: {output}")
-        records[active] = {"name": "jailsp session", "command": [str(bins["jailsp"])],
-                           "exit_code": code, "expected_exit_codes": [0],
-                           "status": "completed" if code == 0 else "failed",
-                           "elapsed_seconds": elapsed, "summary": summary, "output": str(output)}
+        log(
+            f"jailsp session: exit {code}, {summary} in {elapsed:.0f}s; output: {output}"
+        )
+        records[active] = {
+            "name": "jailsp session",
+            "command": [str(bins["jailsp"])],
+            "exit_code": code,
+            "expected_exit_codes": [0],
+            "status": "completed" if code == 0 else "failed",
+            "elapsed_seconds": elapsed,
+            "summary": summary,
+            "output": str(output),
+        }
         if code != 0:
             problems.append(f"jailsp session (exit {code})")
             training_output(output, verbose=args.verbose)
