@@ -7,7 +7,7 @@
 #   JAI_VERSION      release to install, e.g. 0.4.0 or v0.4.0 (default: the latest release)
 #   JAI_INSTALL_DIR  where releases are unpacked (default: %LOCALAPPDATA%\Programs\jai)
 #   JAI_BASE_URL     where release assets are fetched from, as <base>/v<version>/<asset> (default:
-#                    https://github.com/matteopolak/jai/releases/download). For mirrors and for
+#                    https://github.com/matteopolak/jacket/releases/download). For mirrors and for
 #                    testing against local archives with a file:// URL; needs JAI_VERSION.
 #
 # Each version is unpacked into <dir>\<version>; <dir>\current is a directory junction to the

@@ -9,7 +9,7 @@
 #   JAI_INSTALL_DIR  where releases are unpacked, one folder per version (default: ~/.local/share/jai)
 #   JAI_BIN_DIR      where the command symlinks go (default: ~/.local/bin)
 #   JAI_BASE_URL     where release assets are fetched from, as <base>/v<version>/<asset> (default:
-#                    https://github.com/matteopolak/jai/releases/download). For mirrors and for
+#                    https://github.com/matteopolak/jacket/releases/download). For mirrors and for
 #                    testing against local archives with a file:// URL; needs JAI_VERSION.
 #
 # Running it again installs the requested (or latest) version, points the symlinks at it and
