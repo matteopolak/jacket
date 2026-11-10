@@ -13,8 +13,9 @@ HEADER_SIZE :: size_of(Memblock);
 // (8 by default, a power of two).
 //
 // `reset` gives every block back to the pool for reuse and frees the oversized ones; `release` also hands the
-// blocks back to the underlying allocator. A pool must be released, or it leaks. Blocks come from
-// `block_allocator`, which `set_allocators` fills in (or the first `get`) with `context.allocator`.
+// blocks back to the underlying allocator. A pool must be released, or it leaks; the memory debugger reports the
+// blocks of a pool that never was. Blocks come from `block_allocator`, which `set_allocators` fills in (or the
+// first `get`) with `context.allocator`.
 // With the module parameter `USE_UNMAPPING_ALLOCATOR` it is the Unmapping_Allocator, whose blocks are returned
 // to the OS on reset. A `Pool` must not be copied while it holds memory, and it is not thread safe.
 //
@@ -344,6 +345,7 @@ example_usage :: () {
 
 #scope_file
 #import "Basic";
+Debug_Context :: #import "internal/basic-context";
 #if USE_UNMAPPING_ALLOCATOR U :: #import "Unmapping_Allocator";
 
 Memblock :: struct {
@@ -358,6 +360,7 @@ allocate_block :: (pool: *Pool, bytes: s64) -> *Memblock {
     if !raw return null;
 
     (cast(*s64) raw).* = bytes + 8;
+    Debug_Context.allocator_acquired(pool.block_allocator, raw, bytes + 8);
 
     return cast(*Memblock) (cast(*u8) raw + 8);
 }
@@ -365,5 +368,6 @@ allocate_block :: (pool: *Pool, bytes: s64) -> *Memblock {
 free_block :: (pool: *Pool, block: *Memblock) {
     raw := cast(*u8) block - 8;
     size := (cast(*s64) raw).*;
+    Debug_Context.allocator_released(pool.block_allocator, raw);
     pool.block_allocator.proc(.FREE, 0, size, raw, pool.block_allocator.data);
 }

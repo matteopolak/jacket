@@ -63,6 +63,9 @@ make_leak_report :: (options: Leak_Report_Options = .{}, for_visualizer := false
 
 #scope_module
 build_leak_report_locked :: (options: Leak_Report_Options, for_visualizer: bool) -> Leak_Report { // jailint: allow(cognitive_complexity)
+    // The debugger's lock is held and the report's pool takes blocks: they are not for the debugger to record.
+    push_context, defer_pop;
+    context.inside_memory_debugger = true;
     report: Leak_Report;
 
     RP.set_allocators(*report.pool, context.allocator);

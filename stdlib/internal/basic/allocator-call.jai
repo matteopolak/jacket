@@ -1,6 +1,7 @@
 #scope_module
 allocator_call :: inline (allocator: Allocator, mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void) -> *void {
     #if MEMORY_DEBUGGER {
+        start_debugger();
         if mode == .FREE && old_memory Memory_Debugger.check_free(allocator, old_memory);
     }
 

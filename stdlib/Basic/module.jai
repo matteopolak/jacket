@@ -269,6 +269,7 @@ using,only(.["==", "!", "+", "-", "<", "<=", ">", ">="]) #import "internal/basic
 
 #scope_module
 initialize_elements :: Impl.initialize_elements;
+start_debugger :: Impl.start_debugger;
 
 #scope_file
 Impl :: #import "internal/basic"(MEMORY_DEBUGGER = MEMORY_DEBUGGER, ENABLE_ASSERT = ENABLE_ASSERT, REPLACEMENT_INTERFACE = REPLACEMENT_INTERFACE, VISUALIZE_MEMORY_DEBUGGER = VISUALIZE_MEMORY_DEBUGGER, TEMP_ALLOCATOR_OVERWRITE_MEMORY = TEMP_ALLOCATOR_OVERWRITE_MEMORY);

@@ -26,18 +26,30 @@ main :: () {
         assert(D.copy_string("abc") == "abc");
     }
 
-    // The pool's blocks go straight to its block allocator, so only the three ranges it handed out show.
-    assert(live() == base + 3);
+    // The three ranges it handed out, and the block they sit in.
+    assert(live() == base + 4);
+
+    // Reset forgets the ranges and keeps the block for reuse.
     P.reset(*pool);
-    assert(live() == base);
+    assert(live() == base + 1);
 
     {
         push_allocator(Allocator.{ P.pool_allocator_proc, *pool });
         assert(D.alloc(7) != null);
     }
 
-    assert(live() == base + 1);
+    assert(live() == base + 2);
     P.release(*pool);
+    assert(live() == base);
+
+    // An oversized request has a block of its own, and a pool that is never released leaks its blocks.
+    leaked: P.Pool;
+
+    P.set_allocators(*leaked, context.allocator);
+    P.get(*leaked, 100000);
+    P.get(*leaked, 8);
+    assert(live() == base + 2);
+    P.release(*leaked);
     assert(live() == base);
     print("ok\n");
 }

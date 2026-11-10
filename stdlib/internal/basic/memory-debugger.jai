@@ -69,6 +69,17 @@ release_all_allocations :: (a: Allocator) {
     Debug_Context.allocator_released_everything(a);
 }
 
+// Starts the debugger if it is not running yet, so it already hears of what an allocator does on its own, such as a pool
+// taking its first block, while the call that led to it is still going. Does nothing when called from the debugger.
+start_debugger :: () {
+    if debug_initialized || Debug_Context.is_active() return;
+
+    push_context, defer_pop;
+    context.inside_memory_debugger = true;
+    context.logger = runtime_support_default_logger;
+    initialize_debugger();
+}
+
 destroy_heap :: (b: Allocator) {
     #if MEMORY_DEBUGGER Memory_Debugger.check_destroy_heap(b);
     b.proc(.DESTROY_HEAP, 0, 0, null, b.data);
@@ -114,6 +125,17 @@ frame_allocated_bytes: u64;
 frame_frees: u64;
 frame_freed_bytes: u64;
 
+// This debugger's entry in the registry of `internal/basic-context`, which tells it what allocators do on their own.
+debug_hooks: Debug_Context.Debug_Hooks;
+
+debug_record_block :: (owner: Allocator, memory: *void, size: s64) {
+    debug_record(owner, memory, size, false, context.stack_trace);
+}
+
+debug_release_block :: (owner: Allocator, memory: *void) {
+    debug_release(owner, memory, false);
+}
+
 debug_acquire :: () {
     while atomic_exchange(*debug_lock, cast(u32) 1) != 0 {}
 }
@@ -133,7 +155,8 @@ initialize_debugger_locked :: () {
 
     debug_allocations.allocator = context.default_allocator;
     debug_heaps.allocator = context.default_allocator;
-    Debug_Context.release_hook = debug_release_owned;
+    debug_hooks = .{ acquired = debug_record_block, released = debug_release_block, released_everything = debug_release_owned };
+    Debug_Context.register_hooks(*debug_hooks);
     debug_owners.allocator = context.default_allocator;
     Debug_Index.table_ensure_space(*debug_allocations, 1);
     Debug_Index.table_ensure_space(*debug_heaps, 1);
