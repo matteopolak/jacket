@@ -4,6 +4,7 @@
 
 ### Improved
 
+- `Extensions/Csv` typed rows decode integers and short decimals straight from the field bytes, about 10% faster.
 - `Memory.copy` is a memory move rather than a byte loop, so large copies run at the speed of `memcpy`.
 
 ### Fixed

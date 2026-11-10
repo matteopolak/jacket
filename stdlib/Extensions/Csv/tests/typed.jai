@@ -482,3 +482,83 @@ narrow_integers :: () {
     expect_equal(row.wide, -5);
     expect_equal(row.big, 7);
 } @test
+
+Cell :: struct(T: Type) {
+    value: T;
+}
+
+// A one-column typed row of `T` reads `text` as `string_to_int` or `string_to_float` does, down to
+// the bits of the result, and rejects it when that reader leaves text over or finds no number.
+expect_cell :: (text: string, $T: Type) {
+    reader := csv_reader(Cell(T), cast([] u8) tprint("\"%\"", text));
+
+    defer csv_reader_free(*reader);
+    row, ok, error := csv_next(*reader);
+
+    want: T;
+    want_ok: bool;
+    rest: string;
+
+    #if type_info(T).type == .INTEGER want, want_ok, rest = string_to_int(text, 10, T);
+    else #if T == float32 want, want_ok, rest = string_to_float(text);
+    else want, want_ok, rest = string_to_float64(text);
+
+    if rest.count want_ok = false;
+
+    if ok != want_ok {
+        print("% as %: read %, want %\n", text, T, ok, want_ok);
+        expect(false);
+        return;
+    }
+
+    if !ok {
+        expect(error.kind == .TYPE);
+        return;
+    }
+
+    #if type_info(T).type == .FLOAT {
+        #if T == float32 {
+            got_bits := (cast(*u32) *row.value).*;
+            want_bits := (cast(*u32) *want).*;
+        } else {
+            got_bits := (cast(*u64) *row.value).*;
+            want_bits := (cast(*u64) *want).*;
+        }
+
+        if got_bits != want_bits {
+            print("% as %: got %, want %\n", text, T, row.value, want);
+            expect(false);
+        }
+    } else if row.value != want {
+        print("% as %: got %, want %\n", text, T, row.value, want);
+        expect(false);
+    }
+}
+
+// The plain-digit readers and the general ones agree on every shape of number text: signs, white
+// space, limits of each width, leading zeros, long mantissas, fractions, exponents and non-numbers.
+numbers_read_like_the_general_readers :: () {
+    push_allocator(temp);
+
+    whole := string.["0", "-0", "+5", "12", "-12", "  7", " 7 ", "7a", "", "-", "+", "+-3", "007", "0x10", "1_0", "255", "256", "-1", "127", "128", "-128", "-129",
+        "999999999999999999", "9999999999999999999", "9223372036854775807", "9223372036854775808", "-9223372036854775808", "-9223372036854775809",
+        "18446744073709551615", "18446744073709551616", "000000000000000000001"];
+
+    for whole {
+        expect_cell(it, s8);
+        expect_cell(it, u8);
+        expect_cell(it, s16);
+        expect_cell(it, u32);
+        expect_cell(it, s64);
+        expect_cell(it, u64);
+    }
+
+    fractional := string.["0", "-0", "-0.0", "+0.5", "3.14159", "0.1", "1.5e3", "1e22", "1E-5", "123456789012345", "1234567890123456", "123456.789012345", "1234567.5", "12345678.5", "16777217",
+        "8388609.5", "0.1234567", "1.1754944", "3.4028235e38", ".5", "5.", "-.5", "5.5.", "5.5x", ".", "-", "inf", "-inf", "nan", "0x1p3", "  2.5", "2.5 ", "100000000000000000000000.5",
+        "0.30000000000000004", "123456789.123456789", "0.000000000000000000000001", "0.0000000000000000000001", "9007199254740993", "00000000000000000000.5"];
+
+    for fractional {
+        expect_cell(it, float32);
+        expect_cell(it, float64);
+    }
+} @test
