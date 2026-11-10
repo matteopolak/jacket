@@ -31,6 +31,8 @@ Faster leak reports, Csv, Json trees and language server, plus fixes to here-str
 - `Extensions/Postgres` typed queries count `..values` of a fixed `[N] Any` as N arguments.
 - `jailint` warns (`lint-test-note`) about a `// test:` note that does not parse, including in `#load`ed files.
 - `jacket test --coverage` leaves out `benches` folders.
+- On Windows, interpreted programs read the `GetLastError` their last foreign call left: `visit_files` no longer reports failure after a complete walk.
+- `jailint` on a folder leaves out `tests/compile_fail/` fixtures, as `jacket test` does.
 
 ## [0.34.0] - 2026-11-09
 
