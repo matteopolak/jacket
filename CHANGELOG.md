@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- `jaifmt` drops the blanks that end a here-string's header line (`print(#string ` then a newline).
 - The VS Code grammar scopes `#string,cr` with its name on a later line (the body shows as code there, since TextMate reads one line at a time), and no longer splits a terminator named `cr` into a flag and a name. Neovim's syntax file highlights a here-string whose name is on a later line.
 - `Jai_Lexer` reads a here-string header like the compiler: line ends, `//` and `/* */` comments and the `,\%` flag may separate `#string`, its flags and the terminator name, and text after the name on the closing line is lexed as the next tokens.
 - A `#string` terminator name may follow on a later line, after blank lines or comments, as in `#string // SQL` then `QUERY` on the next line. Text after the name on its line is now an error (`lex-text-after-string-terminator`) instead of being dropped from the program. `jaifmt` and `Extensions/String_Literal` read these headers too.

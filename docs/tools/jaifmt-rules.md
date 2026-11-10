@@ -143,7 +143,7 @@ main :: () {
 
 ## Comments and strings
 
-Comments keep their place and text. Strings, here-strings, `#asm` bodies and everything between `// jaifmt: off` and `// jaifmt: on` are left exactly as written. The one exception is the Jai in fenced blocks inside `//` comments, which is formatted too (see [format_doc_examples](#format_doc_examples)).
+Comments keep their place and text. Strings, here-strings, `#asm` bodies and everything between `// jaifmt: off` and `// jaifmt: on` are left exactly as written, except that blanks ending a here-string's header lines are dropped (they are outside the literal). The one exception is the Jai in fenced blocks inside `//` comments, which is formatted too (see [format_doc_examples](#format_doc_examples)).
 
 ```jai before
 main :: () {

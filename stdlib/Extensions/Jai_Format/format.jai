@@ -252,8 +252,63 @@ line_and_column :: (src: string, offset: s64) -> line: int, column: int {
     return line, column;
 }
 
-token_text :: inline (src: string, tok: Tok) -> string {
+token_text :: (src: string, tok: Tok) -> string {
+    if tok.kind == .HERE_STRING return here_string_text(src, tok);
     return slice(src, tok.start, tok.end - tok.start);
+}
+
+// A here-string as written out: the blanks that end a header line are outside the literal, so
+// they are dropped (comments in the header keep their inner text). The body is unchanged.
+here_string_text :: (src: string, tok: Tok) -> string {
+    whole := slice(src, tok.start, tok.end - tok.start);
+    out: [..] u8;
+
+    out.allocator = temp;
+    i := tok.start;
+
+    while i < tok.body {
+        c := src[i];
+
+        if c == #char "/" && i + 1 < tok.body && src[i + 1] == #char "/" {
+            // A line comment: copied to its last non-blank character, so `/*` inside it is text.
+            end := i;
+            while end < tok.body && src[end] != #char "\n" && src[end] != #char "\r" end += 1;
+
+            while end > i + 2 && (src[end - 1] == #char " " || src[end - 1] == #char "\t") end -= 1;
+
+            while i < end {
+                array_add(*out, src[i]);
+                i += 1;
+            }
+        } else if c == #char "/" && i + 1 < tok.body && src[i + 1] == #char "*" {
+            end := block_comment_end(src, i);
+            while i < end {
+                array_add(*out, src[i]);
+                i += 1;
+            }
+        } else if c == #char " " || c == #char "\t" {
+            run := i;
+            while run < tok.body && (src[run] == #char " " || src[run] == #char "\t") run += 1;
+
+            if run < tok.body && src[run] != #char "\n" && src[run] != #char "\r" {
+                while i < run {
+                    array_add(*out, src[i]);
+                    i += 1;
+                }
+            } else {
+                i = run;
+            }
+        } else {
+            array_add(*out, c);
+            i += 1;
+        }
+    }
+
+    if out.count == tok.body - tok.start return whole;
+
+    for slice(src, tok.body, tok.end - tok.body) array_add(*out, it);
+
+    return string.{ out.count, out.data };
 }
 
 Frame :: struct {
@@ -337,8 +392,7 @@ BINARY_OPERATORS :: string.["/", "%", "|", "^", ">>", "<<<", ">>>"];
 AMBIGUOUS_OPERATORS :: string.["-", "+", "*", "&", "<<", "<", ">"];
 
 text_of :: inline (f: *Formatter, i: int) -> string {
-    t := f.tokens[i];
-    return slice(f.src, t.start, t.end - t.start);
+    return token_text(f.src, f.tokens[i]);
 }
 
 is_punct :: inline (f: *Formatter, i: int, text: string) -> bool {

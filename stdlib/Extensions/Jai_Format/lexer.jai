@@ -29,6 +29,7 @@ Tok :: struct {
     kind: Tok_Kind;
     start: s64; // byte range in the source
     end: s64;
+    body: s64; // for a here-string: where its body starts, after the header
     newlines: s32; // line breaks in the trivia before this token
     column: s32; // original column when the token starts a line (tabs count 4)
     ws_start: s64; // where the trivia before this token starts (end of the previous token)
@@ -211,9 +212,10 @@ lex :: (src: string) -> Lex_Result { // jailint: allow(cognitive_complexity)
             lex_ident(src, *at);
             name := slice(src, name_start, at - name_start);
             if name == "string" {
-                ok := lex_here_string(src, *at);
+                ok, body := lex_here_string(src, *at);
                 if !ok fail("unterminated here-string", tok.start);
                 tok.kind = .HERE_STRING;
+                tok.body = body;
             } else {
                 tok.kind = .DIRECTIVE;
             }
@@ -296,6 +298,28 @@ lex :: (src: string) -> Lex_Result { // jailint: allow(cognitive_complexity)
     }
 
     return result;
+}
+
+// Where the block comment that starts at `start` (`/*`) ends, after its closing `*/`; nested
+// comments count. The end of the source if it is never closed.
+block_comment_end :: (src: string, start: s64) -> s64 {
+    i := start;
+    depth := 0;
+
+    while i < src.count {
+        if i + 1 < src.count && src[i] == #char "/" && src[i + 1] == #char "*" {
+            depth += 1;
+            i += 2;
+        } else if i + 1 < src.count && src[i] == #char "*" && src[i + 1] == #char "/" {
+            depth -= 1;
+            i += 2;
+            if depth == 0 break;
+        } else {
+            i += 1;
+        }
+    }
+
+    return i;
 }
 
 #scope_file
@@ -394,8 +418,9 @@ lex_number :: (src: string, at: *s64) {
 
 // After `#string`: optional `,cr` / `,\%` flags, the tag, then the body from the next line up
 // to a line whose first non-blank text is the tag. The tag may start a later line: blanks,
-// line breaks and comments before it are skipped. Leaves `at` after the closing tag.
-lex_here_string :: (src: string, at: *s64) -> bool {
+// line breaks and comments before it are skipped. Leaves `at` after the closing tag and returns
+// where the body starts.
+lex_here_string :: (src: string, at: *s64) -> ok: bool, body: s64 {
     i := at.*;
 
     while true {
@@ -416,10 +441,12 @@ lex_here_string :: (src: string, at: *s64) -> bool {
     while i < src.count && is_ident_char(src[i]) i += 1;
 
     tag := slice(src, tag_start, i - tag_start);
-    if !tag.count return false;
+    if !tag.count return false, 0;
     while i < src.count && src[i] != #char "\n" i += 1;
 
     i += 1;
+    body := i;
+
     while i < src.count {
         line_end := i;
         while line_end < src.count && src[line_end] != #char "\n" line_end += 1;
@@ -430,13 +457,13 @@ lex_here_string :: (src: string, at: *s64) -> bool {
         rest := slice(src, indent, line_end - indent);
         if begins_with(rest, tag) && (rest.count == tag.count || !is_ident_char(rest[tag.count])) {
             at.* = indent + tag.count;
-            return true;
+            return true, body;
         }
 
         i = line_end + 1;
     }
 
-    return false;
+    return false, 0;
 }
 
 // Skips whitespace, line breaks and comments (`/* */` nests) from `i`, returning where the
@@ -450,20 +477,7 @@ skip_header_gap :: (src: string, start: s64) -> s64 {
         } else if c == #char "/" && i + 1 < src.count && src[i + 1] == #char "/" {
             while i < src.count && src[i] != #char "\n" i += 1;
         } else if c == #char "/" && i + 1 < src.count && src[i + 1] == #char "*" {
-            depth := 0;
-
-            while i < src.count {
-                if i + 1 < src.count && src[i] == #char "/" && src[i + 1] == #char "*" {
-                    depth += 1;
-                    i += 2;
-                } else if i + 1 < src.count && src[i] == #char "*" && src[i + 1] == #char "/" {
-                    depth -= 1;
-                    i += 2;
-                    if depth == 0 break;
-                } else {
-                    i += 1;
-                }
-            }
+            i = block_comment_end(src, i);
         } else {
             break;
         }
