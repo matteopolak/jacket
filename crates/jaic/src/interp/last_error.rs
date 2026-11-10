@@ -20,6 +20,31 @@ fn preserving<T>(work: impl FnOnce() -> T) -> T {
 
 struct Saved(u32);
 
+// Windows only: there the value is reachable only through `SetLastError`/`GetLastError`, which
+// are native calls, so what the last call left is the program's value. A POSIX program writes
+// `errno` through its address (`set_errno`), so a saved copy would undo its own writes.
+#[cfg(windows)]
+thread_local! {
+    /// What the program's last native call on this OS thread left, once it has made one.
+    static PROGRAM: std::cell::Cell<Option<u32>> = const { std::cell::Cell::new(None) };
+}
+
+/// Records the value a native call of the program just left. Call it right after the call returns.
+pub(super) fn save_program() {
+    #[cfg(windows)]
+    PROGRAM.with(|program| program.set(Some(get())));
+}
+
+/// Puts back the value the program's last native call left, hiding the interpreter's own system
+/// calls since then (a symbol lookup, a page probe, taking the baton). Call it right before the
+/// next native call and when control returns to the program.
+pub(super) fn restore_program() {
+    #[cfg(windows)]
+    if let Some(code) = PROGRAM.with(std::cell::Cell::get) {
+        set(code);
+    }
+}
+
 impl Drop for Saved {
     fn drop(&mut self) {
         set(self.0);

@@ -81,7 +81,7 @@ fn keeps_memory_syscall(symbol: &str, args: &[u64]) -> bool {
 
 /// Whether native code keeps the interpreter exclusive, lends its baton after the short-call
 /// grace, or hands runnable work on before a known host wait.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum NativeScheduling {
     Exclusive,
     Short,
@@ -477,19 +477,30 @@ impl Interp {
         sig: &ir::Sig,
         scheduling: NativeScheduling,
     ) -> Result<Rets, String> {
+        // The program reads the error its last native call left, whatever the interpreter did
+        // in between: on Windows its first `GetLastError` is looked up lazily, which resets it.
+        let call = || {
+            super::last_error::restore_program();
+            let result = native::call(addr, argv, sig);
+            super::last_error::save_program();
+            result
+        };
         let Some(shared) = self
             .shared
             .clone()
             .filter(|_| scheduling != NativeScheduling::Exclusive)
         else {
-            return native::call(addr, argv, sig);
+            let result = call();
+            super::last_error::restore_program();
+            return result;
         };
         let me = shared.enter_native(
             std::ptr::from_mut::<Interp>(self) as usize,
             scheduling == NativeScheduling::Blocking,
         );
-        let result = native::calling_out((shared.key(), me), || native::call(addr, argv, sig));
+        let result = native::calling_out((shared.key(), me), call);
         shared.leave_native(me);
+        super::last_error::restore_program();
         result
     }
 
@@ -689,6 +700,101 @@ mod native_handoff_tests {
         // SAFETY: the host SDK returns this calling OS thread's live errno slot.
         unsafe { *errno_location() = error };
         -1
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    extern "C" fn read_errno() -> i32 {
+        // SAFETY: as in `failed_wait`.
+        unsafe { *errno_location() }
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[test]
+    fn a_native_call_sees_errno_the_program_wrote_since_the_last_one() {
+        let mut interp = Interp::default();
+        let failed = &signature(vec![ir::Ty::I32], vec![ir::Ty::I32]);
+        let read = &signature(vec![], vec![ir::Ty::I32]);
+        for scheduling in [NativeScheduling::Short, NativeScheduling::Exclusive] {
+            interp
+                .call_native(
+                    &Program::default(),
+                    failed_wait as *const () as usize as u64,
+                    &[33],
+                    failed,
+                    Some("failed_wait_test"),
+                    scheduling,
+                )
+                .unwrap();
+            // The program's `set_errno(0)` before a `readdir`: a store through errno's address.
+            // SAFETY: as in `failed_wait`.
+            unsafe { *errno_location() = 0 };
+            let seen = interp
+                .call_native(
+                    &Program::default(),
+                    read_errno as *const () as usize as u64,
+                    &[],
+                    read,
+                    Some("read_errno_test"),
+                    scheduling,
+                )
+                .unwrap();
+            assert_eq!(seen.first().copied().unwrap() as i32, 0, "{scheduling:?}");
+        }
+    }
+
+    #[cfg(windows)]
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn SetLastError(code: u32);
+        fn GetLastError() -> u32;
+    }
+
+    #[cfg(windows)]
+    extern "C" fn fail_with(code: u32) -> i32 {
+        // SAFETY: SetLastError only writes the calling thread's error slot.
+        unsafe { SetLastError(code) };
+        -1
+    }
+
+    #[cfg(windows)]
+    extern "C" fn read_last_error() -> u32 {
+        // SAFETY: GetLastError only reads the calling thread's error slot.
+        unsafe { GetLastError() }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn the_next_native_call_sees_the_last_error_the_last_one_left() {
+        let mut interp = Interp::default();
+        let failed = &signature(vec![ir::Ty::I32], vec![ir::Ty::I32]);
+        let read = &signature(vec![], vec![ir::Ty::I32]);
+        for scheduling in [NativeScheduling::Short, NativeScheduling::Exclusive] {
+            interp
+                .call_native(
+                    &Program::default(),
+                    fail_with as *const () as usize as u64,
+                    &[18],
+                    failed,
+                    Some("fail_with_test"),
+                    scheduling,
+                )
+                .unwrap();
+            // The interpreter's own work between the two calls, such as looking up
+            // `GetLastError` on its first use.
+            // SAFETY: as in `fail_with`.
+            unsafe { SetLastError(0) };
+            let seen = interp
+                .call_native(
+                    &Program::default(),
+                    read_last_error as *const () as usize as u64,
+                    &[],
+                    read,
+                    Some("read_last_error_test"),
+                    scheduling,
+                )
+                .unwrap();
+            assert_eq!(seen.first().copied().unwrap(), 18, "{scheduling:?}");
+        }
     }
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]
