@@ -183,6 +183,28 @@ class TrainingEvidenceTests(unittest.TestCase):
         self.assertEqual(result["status"], "completed")
         self.assertEqual(result["exit_code"], 1)
 
+    def test_training_failures_stop_the_build(self):
+        build_pgo.fail_on([])
+        with self.assertRaises(SystemExit) as stop:
+            build_pgo.fail_on(["sweep (check and run) (exit 1)"])
+        self.assertIn("sweep (check and run) (exit 1)", str(stop.exception))
+
+    def test_lint_steps_expect_a_clean_exit_and_only_the_stdlib_subset(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            args = mock.Mock(jobs=2, step_timeout=30, verbose=False)
+            step = lambda name, cmd, env, path, timeout, **kwargs: {"name": name, "command": list(map(str, cmd)), "status": "completed"}
+            with mock.patch.object(build_pgo, "training_step", side_effect=step) as run, mock.patch.object(build_pgo, "lsp_session", return_value=(0, "session")):
+                build_pgo.train({"jaic": "jaic", "jailint": "jailint", "jailsp": "jailsp"}, args, {}, False, Path(tmp))
+            report = json.loads((Path(tmp) / "summary.json").read_text())
+        for call in run.call_args_list:
+            self.assertNotIn("expected", call.kwargs)
+        lint = [r for r in report["steps"] if r["name"].startswith("jailint")]
+        self.assertEqual(len(lint), 2)
+        self.assertNotIn("stdlib", lint[0]["command"])
+        for path in build_pgo.LINT_TRAINING_PATHS:
+            self.assertTrue((build_pgo.ROOT / path).is_dir(), path)
+        self.assertIn("--allow-incomplete", lint[1]["command"])
+
     def test_timeout_keeps_partial_output(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "timeout.log"

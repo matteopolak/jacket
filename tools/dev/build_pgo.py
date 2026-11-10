@@ -4,7 +4,7 @@
 Steps (docs/tools/releases.md):
   1. build instrumented binaries (`-Cprofile-generate`) into <target-dir>/pgo/instrumented;
   2. run the training workload in this repository with them (sweep sets, native builds,
-     benchmarks, jailint over the stdlib, a scripted jailsp session);
+     benchmarks, jailint over a stdlib subset, a scripted jailsp session);
   3. merge the raw profiles with the toolchain's own llvm-profdata (rustup's `llvm-tools`);
   4. rebuild with `-Cprofile-use` into <target-dir>/pgo/optimized;
   5. with --bolt (Linux ELF only): instrument those binaries with llvm-bolt, run the training
@@ -427,11 +427,35 @@ def training_step(name, cmd, env, output, timeout, *, expected=(0,), verbose=Fal
             "elapsed_seconds": elapsed, "output": str(output)}
 
 
+# The stdlib slice `jailint` trains on. The whole stdlib is 650k lines, about ten times the work of
+# this slice, and the profile does not need it: the instrumented linter took 5 minutes over it on
+# arm64 runners and 15 to 25 on Intel. These
+# are the modules the linter's hot paths run on: generic containers and macros (`Basic`, `Math`,
+# `Hash_Table`), metaprogramming-heavy format code (`Json`, `Toml`, `Csv`, `Args`, `Regex`,
+# `Jai_Format`) and time and compression code with heavy arithmetic and bit twiddling (`Time`,
+# `Deflate`). Bindings and generated code (`Postgres`, `SDL3`, `Vulkan`, `POSIX`) add volume, not
+# coverage. Paths are relative to the repository root.
+LINT_TRAINING_PATHS = (
+    "stdlib/Basic",
+    "stdlib/Math",
+    "stdlib/Hash_Table",
+    "stdlib/Extensions/Args",
+    "stdlib/Extensions/Csv",
+    "stdlib/Extensions/Deflate",
+    "stdlib/Extensions/Jai_Format",
+    "stdlib/Extensions/Json",
+    "stdlib/Extensions/Regex",
+    "stdlib/Extensions/Time",
+    "stdlib/Extensions/Toml",
+)
+
+
 def train(bins, args, env, native, report_dir):
     """Run representative training and retain its command inventory and diagnostics.
 
     A completed step is not a correctness or coverage proof. Unexpected failures are
-    returned to the driver, which applies `--strict`; lint exit 1 is expected.
+    returned to the driver, which stops the build. `jailint` exits 1 on a denied finding, so the
+    steps lint code that is clean at its default levels.
     """
     report_dir = Path(report_dir)
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -451,7 +475,7 @@ def train(bins, args, env, native, report_dir):
     steps = [
         (
             "sweep (check and run)",
-            sweep + ["corpus", "negative", "regressions", "modules", "examples"],
+            sweep + ["corpus", "negative", "regressions", "examples"],
         )
     ]
     if native:
@@ -480,8 +504,8 @@ def train(bins, args, env, native, report_dir):
     steps += [
         ("check examples", [bins["jaic"], ROOT / "examples/metaprogramming/main.jai", "-check"]),
         (
-            "jailint stdlib",
-            [bins["jailint"], "--color", "never", "-j", str(args.jobs), "stdlib"],
+            "jailint stdlib subset",
+            [bins["jailint"], "--color", "never", "-j", str(args.jobs), *LINT_TRAINING_PATHS],
         ),
         (
             "jailint examples and tests",
@@ -489,6 +513,9 @@ def train(bins, args, env, native, report_dir):
                 bins["jailint"],
                 "--color",
                 "never",
+                # Some regression programs only compile on another target or on purpose fail to
+                # compile; those are reported as incomplete, which is not a lint finding.
+                "--allow-incomplete",
                 "examples",
                 "tests/compiler/regressions",
             ],
@@ -496,7 +523,7 @@ def train(bins, args, env, native, report_dir):
     ]
     problems = []
     records = [{"name": name, "command": list(map(str, cmd)), "status": "not_started",
-                "expected_exit_codes": [0, 1] if name.startswith("jailint") else [0],
+                "expected_exit_codes": [0],
                 "output": str(report_dir / f"{i:02d}.log")}
                for i, (name, cmd) in enumerate(steps)]
     records.append({"name": "jailsp session", "command": [str(bins["jailsp"])],
@@ -519,7 +546,6 @@ def train(bins, args, env, native, report_dir):
             save_inventory()
             record = training_step(name, cmd, env, report_dir / f"{i:02d}.log",
                                    args.step_timeout,
-                                   expected=(0, 1) if name.startswith("jailint") else (0,),
                                    verbose=args.verbose)
             records[i] = record
             if record["status"] == "failed":
@@ -555,6 +581,13 @@ def train(bins, args, env, native, report_dir):
 
 
 # --- driver ------------------------------------------------------------------------------------
+
+
+def fail_on(problems):
+    """Stop the build when training had failures: a profile from a broken workload misleads the
+    optimized build, and a warning in a long log is how a step stays broken for releases."""
+    if problems:
+        sys.exit("build_pgo: training steps failed: " + ", ".join(problems))
 
 
 def main():
@@ -611,9 +644,6 @@ def main():
         "matters more than its speed (macOS Intel in releases)",
     )
     ap.add_argument(
-        "--strict", action="store_true", help="fail when a training step fails"
-    )
-    ap.add_argument(
         "--verbose", "-v", action="store_true", help="show the training steps' output"
     )
     args = ap.parse_args()
@@ -632,7 +662,6 @@ def main():
     reset_training_evidence(work)
     native = args.llvm != "none"
     env = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
-    problems = []
 
     if args.no_pgo or not pgo_works(args.target):
         reason = "--no-pgo" if args.no_pgo else f"not available for {args.target}"
@@ -654,7 +683,7 @@ def main():
         # `%4m`: up to four files per binary, merged as processes exit, instead of one
         # file per process (hundreds of jaic runs at several MB each).
         train_env = dict(env, LLVM_PROFILE_FILE=str(raw / "%4m.profraw"))
-        problems += train(bins, args, train_env, native, work / "training" / "pgo")
+        fail_on(train(bins, args, train_env, native, work / "training" / "pgo"))
         profile = work / "merged.profdata"
         # A process that dies while merging into a `%4m` pool file leaves it truncated; skip such
         # files (llvm-profdata warns about each) rather than losing the whole profile.
@@ -705,7 +734,7 @@ def main():
         bolt_env = dict(env)
         if BACKEND in instrumented:
             bolt_env["JAIC_BACKEND"] = str(instrumented[BACKEND])
-        problems += train(instrumented, args, bolt_env, native, work / "training" / "bolt")
+        fail_on(train(instrumented, args, bolt_env, native, work / "training" / "bolt"))
         for tool, path in bins.items():
             fdata = bolt / f"{tool}.fdata"
             parts = sorted(
@@ -740,8 +769,6 @@ def main():
         shutil.copy2(path, out / file_name(tool))
     build_jacket(args, work, out)
     log(f"optimized binaries in {out}")
-    if problems and args.strict:
-        sys.exit("build_pgo: training steps failed: " + ", ".join(problems))
 
 
 if __name__ == "__main__":
