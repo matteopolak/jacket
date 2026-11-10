@@ -1,16 +1,5 @@
 # Changelog
 
-## Unreleased
-
-- `@should_fail("a", "b")` passes when any one of the texts is in the failure; the `Default_Allocator` misuse tests accept AddressSanitizer's report, which comes first under `-sanitize address`.
-- The `Android` (adb, asn1, digests, zip-wire) and `Bindings_Generator` driven tests read and write their scratch and fixture files through `output_path`, so `JACKET_OUTPUT_DIR` relocates them.
-- A relative `JACKET_OUTPUT_DIR` is below the checkout everywhere, not the working directory: `jacket test`, the Python and TypeScript tools, `jaic`'s `native-libs/` lookup and `Extensions/Environment` (`output_directory`; new `resolve_output_directory`) agree.
-- `jacket test` no longer builds the fixture data for a suite whose source only names a fixture path in a comment, such as the `Extensions/Environment` doc examples.
-
-### New
-
-- `jailint`: `union_read` (pedantic, off by default) reports a read of a union member that no nearby check of the tag beside it, write, or common initial sequence shows is the live one. The standard library is linted with it: `Extensions/Toml`'s table helpers, the lexer and the X11 event handlers now assert the tag they need, COFF optional headers record their `magic`, and the lexer's `check_for_keyword` and `count_herestring_lines` no longer read the identifier or string of a token that is not one.
-
 ## [0.34.0] - 2026-11-09
 
 ### New
@@ -42,6 +31,8 @@
 - `jacket doc` publishes the files in `[doc] files` at the site root. Search opens in a dialog with an icon for each kind of result, on phones the module list slides up from a header button, and lint rule pages show each example with its finding and fix.
 - The language server reports indexing progress and registers file watchers with clients that allow it.
 - The stdlib benchmarks run with `jacket bench`.
+- `@should_fail("a", "b")` passes when any one of the texts is in the failure; the `Default_Allocator` misuse tests accept AddressSanitizer's report, which comes first under `-sanitize address`.
+- `jailint`: `union_read` (pedantic, off by default) reports a read of a union member that no nearby check of the tag beside it, write, or common initial sequence shows is the live one. The standard library is linted with it: `Extensions/Toml`'s table helpers, the lexer and the X11 event handlers now assert the tag they need, COFF optional headers record their `magic`, and the lexer's `check_for_keyword` and `count_herestring_lines` no longer read the identifier or string of a token that is not one.
 
 ### Improved
 
@@ -56,10 +47,12 @@
 - Fix previews show only the lines a fix changes.
 - Fewer false lifetime findings on members of freed structs, cast struct pointers and fields stored in other blocks.
 - `Postgres` `fetch_all` and `copy_in`, `Variant` `==` and `free_variant`, and enum names in `Protobuf` JSON run code written for each type when the program compiles, not a walk over type information per value. `Variant ==` is about 5 times faster on structs and `copy_in` allocates far less. A struct with an unnamed member that owns strings, arrays or pointers is now a compile error in `fetch_all`, `copy_in` and `Variant`'s `free_variant` and `==`.
+- The `Android` (adb, asn1, digests, zip-wire) and `Bindings_Generator` driven tests read and write their scratch and fixture files through `output_path`, so `JACKET_OUTPUT_DIR` relocates them.
 
 ### Changed
 
 - Comparing an integer variable with a float variable (`n < x`) is an error with a `cast` suggestion; an integer the float represents entirely (`s16` with `float32`, `s32` with `float64`) and untyped literals still compare. The standard library's audio mixer and profiler overlay compared mixed types and now cast.
+- A relative `JACKET_OUTPUT_DIR` is below the checkout everywhere, not the working directory: `jacket test`, the Python and TypeScript tools, `jaic`'s `native-libs/` lookup and `Extensions/Environment` (`output_directory`; new `resolve_output_directory`) agree.
 
 ### Fixed
 
@@ -114,6 +107,8 @@
 - `Hash_Map` rebuild threshold, glTF skin validation and `jaifmt` setting migration.
 - `Archive` rejects ZIP files with repeated central ZIP64 records, and treats an empty pax value in a TAR header as deleting the field.
 - `Toml` writes empty tables as headers and `float32` values in their shortest form, names array-of-tables elements in error paths, and no longer slows down quadratically on wide unknown tables.
+- `jacket test` no longer builds the fixture data for a suite whose source only names a fixture path in a comment, such as the `Extensions/Environment` doc examples.
+
 
 ## [0.33.0] - 2026-11-04
 
