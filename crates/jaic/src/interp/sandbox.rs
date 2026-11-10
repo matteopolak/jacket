@@ -120,7 +120,7 @@ impl SandboxFs {
             && self
                 .base
                 .as_ref()
-                .is_some_and(|b| b.is_file(Path::new(path)))
+                .is_some_and(|b| b.is_file(host_path(path)))
     }
 
     fn is_dir(&self, path: &str) -> bool {
@@ -135,7 +135,7 @@ impl SandboxFs {
             && self
                 .base
                 .as_ref()
-                .is_some_and(|b| b.is_dir(Path::new(path)))
+                .is_some_and(|b| b.is_dir(host_path(path)))
     }
 
     /// Bring a base file into the overlay so it can be read and written in place.
@@ -146,7 +146,7 @@ impl SandboxFs {
         if self.removed.contains(path) {
             return false;
         }
-        match self.base.as_ref().and_then(|b| b.read(Path::new(path))) {
+        match self.base.as_ref().and_then(|b| b.read(host_path(path))) {
             Some(bytes) => {
                 self.files.insert(path.to_string(), bytes);
                 true
@@ -162,7 +162,7 @@ impl SandboxFs {
             None => self
                 .base
                 .as_ref()
-                .and_then(|b| b.read(Path::new(path)))
+                .and_then(|b| b.read(host_path(path)))
                 .map_or(0, |d| d.len()),
         }
     }
@@ -170,7 +170,7 @@ impl SandboxFs {
     fn list(&self, path: &str) -> Vec<(String, bool)> {
         let mut out: BTreeMap<String, bool> = BTreeMap::new();
         if let Some(base) = &self.base {
-            for (name, dir) in base.list_dir(Path::new(path)) {
+            for (name, dir) in base.list_dir(host_path(path)) {
                 if !self.removed.contains(&join(path, &name)) {
                     out.insert(name, dir);
                 }
@@ -205,10 +205,40 @@ pub(super) fn join(dir: &str, name: &str) -> String {
     format!("{}/{}", dir.trim_end_matches('/'), name)
 }
 
-/// Resolve `path` against `cwd` and drop `.`/`..` components.
+/// Whether `path` starts with a drive (`C:`, then a separator or nothing).
+#[cfg(windows)]
+fn drive_path(path: &str) -> bool {
+    match path.as_bytes() {
+        [letter, b':', rest @ ..] => {
+            letter.is_ascii_alphabetic() && matches!(rest.first(), None | Some(b'/' | b'\\'))
+        }
+        _ => false,
+    }
+}
+
+/// The host's name for the sandbox path `path`. The sandbox's paths start at `/`, so on a
+/// Windows host it names a drive's files `/C:/...`; elsewhere the two names are the same.
+pub(super) fn host_path(path: &str) -> &Path {
+    #[cfg(windows)]
+    if let Some(rest) = path.strip_prefix('/')
+        && drive_path(rest)
+    {
+        return Path::new(rest);
+    }
+    Path::new(path)
+}
+
+/// Resolve `path` against `cwd` and drop `.`/`..` components. On a Windows host a path that
+/// starts with a drive is absolute too (see `host_path`).
 pub(super) fn absolute(cwd: &str, path: &str) -> String {
+    #[cfg(windows)]
+    let drive = drive_path(path);
+    #[cfg(not(windows))]
+    let drive = false;
     let full = if path.starts_with('/') {
         path.to_string()
+    } else if drive {
+        format!("/{}", path.replace('\\', "/"))
     } else {
         format!("{cwd}/{path}")
     };
@@ -350,7 +380,10 @@ impl SandboxHost {
     pub fn with_files(base: Rc<dyn FileSystem>, cwd: &str) -> Self {
         let mut host = SandboxHost::default();
         host.fs.base = Some(base);
-        host.cwd = cwd.to_string();
+        // A Windows host's directory (`D:\a\b`) is named as its other paths are: `/D:/a/b`.
+        if !cwd.is_empty() {
+            host.cwd = absolute("/", cwd);
+        }
         // Programs expect a scratch directory.
         host.fs.dirs.insert("/tmp".to_string());
         host
@@ -666,7 +699,7 @@ impl Host for SandboxHost {
     }
 
     fn working_directory(&self) -> Option<String> {
-        (!self.cwd.is_empty()).then(|| self.cwd.clone())
+        (!self.cwd.is_empty()).then(|| host_path(&self.cwd).to_string_lossy().into_owned())
     }
 
     fn service(&mut self, service: &str, request: &[u8]) -> crate::service::ServiceReply {
@@ -675,7 +708,7 @@ impl Host for SandboxHost {
                 "compile-time services are not available here",
             );
         };
-        let base = (!self.cwd.is_empty()).then(|| std::path::Path::new(&self.cwd));
+        let base = (!self.cwd.is_empty()).then(|| host_path(&self.cwd));
         services.ask(&crate::service::resolve(service, base), request)
     }
 }

@@ -1036,3 +1036,37 @@ fn windows_reservations_share_one_total_cap() {
     assert_eq!(call(&mut h, "VirtualFree", &[first, 0, 0x8000]), 1);
     assert_ne!(call(&mut h, "VirtualAlloc", &[0, 1, 0x2000, 1]), 0);
 }
+
+#[test]
+fn a_host_folder_is_listed_by_its_full_name_and_from_inside_it() {
+    // On Windows the full name starts with a drive (`D:/a/b`), which the sandbox's own paths
+    // (`/D:/a/b`) must resolve to the same folder.
+    let dir = test_support::TempDir::new("sandbox-host-folder");
+    dir.write("a.jai", "x");
+    let cwd = dir.path().to_string_lossy().into_owned();
+    let mut h = SandboxHost::with_files(Rc::new(crate::sema::NativeFs), &cwd);
+    let names = |h: &mut SandboxHost, path: &str| {
+        let path = cstring(path);
+        let stream = call(h, "opendir", &[path.as_ptr() as u64]);
+        assert_ne!(stream, 0, "{}", String::from_utf8_lossy(&path));
+        let mut seen = Vec::new();
+        loop {
+            let entry = call(h, "readdir", &[stream]);
+            if entry == 0 {
+                break;
+            }
+            seen.push(cstr(entry + 19));
+        }
+        call(h, "closedir", &[stream]);
+        seen
+    };
+    let full = crate::paths::to_slash(&cwd);
+    for path in [full.clone(), format!("{full}/."), ".".to_string()] {
+        assert!(
+            names(&mut h, &path).contains(&"a.jai".to_string()),
+            "{path}"
+        );
+    }
+    let file = cstring(&format!("{full}/a.jai"));
+    assert_eq!(call(&mut h, "access", &[file.as_ptr() as u64, 0]), 0);
+}

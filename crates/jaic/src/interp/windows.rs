@@ -142,8 +142,10 @@ fn wide_string(ptr: u64) -> String {
 }
 
 /// Write `text` and a terminator to `out` (room for `room` units) the way
-/// `GetCurrentDirectoryW` does: the length without the terminator, or the room it needs.
+/// `GetCurrentDirectoryW` does: the length without the terminator, or the room it needs. A
+/// sandbox path is written the way the host names it (`super::sandbox::host_path`).
 fn put_wide_path(text: &str, out: u64, room: u64) -> u64 {
+    let text = super::sandbox::host_path(text).to_string_lossy();
     let mut wide: Vec<u16> = text.encode_utf16().collect();
     if out == 0 || room as usize <= wide.len() {
         return (wide.len() + 1) as u64;
