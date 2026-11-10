@@ -20,111 +20,90 @@
 
 ### New
 
-- `Extensions/Environment`: `output_directory` and `output_path` give the directory the repository's tools write generated test data to (`JACKET_OUTPUT_DIR`, else `target/`). The `File_Watcher`, `pl_mpeg`, `Zip_File_Directory`, `executable_formats` and `Machine_X64` tests read it there instead of always in `target/`.
-- `Extensions/Gltf`: `gltf_remove_extension` removes an extension from an object and, once nothing uses it, from `extensionsUsed` and `extensionsRequired`.
-- `Extensions/Json`: `json_remove` takes the members of an object named by a key out of a `Json_Value`.
-- `jacket doc` takes compiler flags after `--`, as `jacket test` does: `jacket doc lib -- -import_dir vendor` lets the library import modules from `vendor`.
-- `Toml` typed decoding takes `Table(string, V)` fields (inline tables, dotted keys and `[a.key]` headers), `Toml_Value` fields (any value, or tables built from headers, as an untyped tree the target owns) and `[N] T` fields from `[[x]]` headers. The typed encoder writes them back.
-- `Extensions/Gltf` unpacks a whole accessor into floats (`gltf_unpack_floats`), gives local and world node matrices (`gltf_node_local`, `gltf_node_world`) and decodes KHR_materials_emissive_strength, ior, transmission, clearcoat, KHR_texture_transform and KHR_lights_punctual into typed structs (`gltf_extension`).
-- The editor's and `jailint`'s check time limit now also stops the compiler's own work (bodies and each of their statements, macro expansion, polymorphic instances, lexing and parsing of `#insert`ed text), not only compile-time code that is running.
-- `Extensions/Toml`: `toml_encode` now counts scalars and arrays of tables toward `max_depth`, with the root at depth 0, so it refuses the same documents as `write_toml`. Its output limit errors for a value's line break now name the table, like `write_toml`.
-- `Extensions/Time`: `first_of_year` and `last_of_year` join `first_of_month` and `last_of_month`. A period's end is its last day, inclusive, because a `Date` is a whole day; add one day for an exclusive bound.
-- `jacket doc --check` on one module no longer fails on types it names from modules it imports; they have no page in that site and show as plain text.
-- `Extensions/Json`: `from_json(T, *tree)` decodes a `Json_Value` directly, and `to_json_value(value)` encodes into one.
-- `Extensions/Gltf`: typed structs for KHR_materials_sheen, specular, volume, iridescence, anisotropy and unlit, and `gltf_set_extension` / `gltf_use_extension` to write an edited typed extension back with `gltf_write`.
-- `Extensions/Gltf`: `gltf_write` rejects extension objects that `extensionsUsed` does not list, since the output would not load.
-- `jacket doc` documents what a module's public top-level `#insert` declares, from the text it produces with the module's default parameters. Those items carry a "generated" tag on pages, module rows and in search, and `--check` fails when one has no docs. An `#insert` inside generated text is followed too, and a long expansion is read in full.
-- `Extensions/Csv`: streaming CSV reader and writer with limits, error positions and typed rows from structs (`@csv(name=...)`). The row type belongs to the reader (`csv_reader(User, input, options)`, `csv_next(*r)` returns `User, bool, Csv_Error`, `for row: r` iterates and leaves the outcome in `r.error`), and the header is matched to the struct once per reader. `borrow = true` makes typed rows' strings slices of the input when the field needed no unquoting.
-- `Extensions/Time`: dates, clock readings and exact instants, IANA zones from TZif and POSIX rules with DST gap and fold handling, calendar-aware spans with rounding, ISO and pattern text, and Json and `Basic` interop.
-- `Extensions/Toml` reads and writes TOML 1.1, including table and array-of-table headers, and decodes structs directly (fixed-size arrays and `[[x]]` tables into slices too); `jaifmt` uses it to parse configuration.
-- `Extensions/Grpc` adds clients and servers over HTTP/2, with generated Protobuf service types.
-- `Extensions/Gltf` loads, validates and writes glTF and GLB assets.
-- `Extensions/Archive` (ZIP and TAR), `Unicode_Text` (normalization and segmentation), `Uuid` (RFC 9562) and `Vt` (terminal sequence parsing) are new. `WebSocket` runs connections on fibers, `Deflate` handles sync-flushed messages and `Http` routes protocol upgrades.
-- `Image` reads a PNG or JPEG header's format, size and channels without decoding.
-- `jailint`'s lifetime checks infer more from bodies: a callee that releases an argument's contents, keeps one parameter in another's field, or stores a stack address, string or slice where it outlives the call. Findings point at the allocation behind the pointer.
-- Foreign procedures say they release, exit or write output with notes, which `jailint` reads instead of matching names. Generated bindings turn header documentation into Markdown doc comments.
-- A new hand-drawn logo and icon for the docs site, the VS Code extension and `.jai` files. The docs site takes its accent from the logo. `jacket doc` takes `[doc] icon` (or `--icon`) for a browser-tab icon that differs from the logo, and reads `oklch()` category colours.
-- `jacket doc` publishes the files in `[doc] files` at the site root. Search opens in a dialog with an icon for each kind of result, on phones the module list slides up from a header button, and lint rule pages show each example with its finding and fix.
-- The language server reports indexing progress and registers file watchers with clients that allow it.
-- The stdlib benchmarks run with `jacket bench`.
-- `@should_fail("a", "b")` passes when any one of the texts is in the failure; the `Default_Allocator` misuse tests accept AddressSanitizer's report, which comes first under `-sanitize address`.
-- `jailint`: `union_read` (pedantic, off by default) reports a read of a union member that no nearby check of the tag beside it, write, or common initial sequence shows is the live one. The standard library is linted with it: `Extensions/Toml`'s table helpers, the lexer and the X11 event handlers now assert the tag they need, COFF optional headers record their `magic`, and the lexer's `check_for_keyword` and `count_herestring_lines` no longer read the identifier or string of a token that is not one.
+- `Extensions/Csv`: streaming CSV reader and writer with typed rows from structs (`@csv(name=...)`), limits and error positions.
+- `Extensions/Time`: dates, clock times and instants, IANA time zones with DST handling, calendar spans, ISO and pattern formatting.
+- `Extensions/Toml`: TOML 1.1 reading and writing, with typed decoding into structs, `Table(string, V)`, `Toml_Value` and arrays of tables.
+- `Extensions/Grpc`: gRPC clients and servers over HTTP/2, with generated Protobuf service types.
+- `Extensions/Gltf`: load, validate and write glTF and GLB; unpack accessors, compute node matrices, and read and write typed material and light extensions.
+- `Extensions/Archive` (ZIP and TAR), `Unicode_Text` (normalization and segmentation), `Uuid` (RFC 9562) and `Vt` (terminal sequences).
+- `Extensions/Json`: `from_json` decodes a `Json_Value` tree, `to_json_value` encodes into one, and `json_remove` removes keys.
+- `Extensions/Time`: `first_of_year` and `last_of_year`.
+- `Extensions/Environment`: `output_directory` and `output_path` for generated test data (`JACKET_OUTPUT_DIR`, else `target/`).
+- `WebSocket` runs on fibers, `Deflate` handles sync-flushed messages and `Http` routes protocol upgrades.
+- `Image` reads a PNG or JPEG's size and format without decoding it.
+- `jailint` infers more lifetime facts from procedure bodies, and points findings at the allocation.
+- `jailint`: new `union_read` check (pedantic, off by default) for reading a union member without checking its tag.
+- Foreign procedures declare that they free, exit or write output with notes; generated bindings turn header comments into doc comments.
+- `jacket doc` documents declarations that a module's `#insert` generates, tagged "generated".
+- `jacket doc` takes compiler flags after `--`, publishes `[doc] files` at the site root, and takes a separate tab icon (`[doc] icon`).
+- New logo and icon for the docs site, VS Code extension and `.jai` files.
+- Docs site: search opens in a dialog, the module list works on phones, and lint rule pages show each example's finding and fix.
+- The language server reports indexing progress and watches files.
+- Stdlib benchmarks run with `jacket bench`.
+- `@should_fail("a", "b")` passes if any one of the texts is in the failure.
+- Editor and `jailint` time limits also stop slow compiler work, not just compile-time code.
 
 ### Improved
 
-- `jacket test` builds the data that the `Extensions/Time`, `Csv`, `Unicode_Text`, `Archive` and `Gltf` conformance tests and the machine fixture tests read on a fresh checkout, instead of failing them, and looks for it in `JACKET_OUTPUT_DIR` when set, so a relocated output directory is not rebuilt on every run; offline, it stops with the command to run.
-- `Postgres` query arguments (integers, floats, strings, bools, uuids, dates and times, numerics, json and arrays of them) and `copy_in` array and json members are encoded by code written for each type when the program compiles, not a walk over type information per value. Array arguments and array members encode about 1.8 times faster. Types outside that set (enums, `Json(T)`, arrays of them) behave as before.
-- The typed `Postgres` macros (`query`, `query_one`, `query_opt`, `execute`, `query_scalar`, `query_as`, `queue`, `queue_execute`, `stream`) read each argument's type at the call and encode plain, `Nullable` and array arguments with the encoder for that type, with no test of the type at run time. Other types and spread argument lists behave as before.
-- `jaifmt` and `Jai_Format` set a `[format]` setting by name with code written from `Format_Config` when the program compiles.
-- `gltf_extension` decodes the Json tree directly instead of writing it out and parsing it again, about 2.5 times faster; its error offset is now 0.
-- `Extensions/Csv` reads chunked sources about 2.2 times faster and `trim` input about 1.7 times faster: both now go through the 64-byte block scanner that slices use, and a record that crosses a chunk boundary is scanned once it is whole. A reader no longer keeps a position per field; a typed error finds its line and column again from the start of the record, with the same results.
-- Decoding a parsed `Json_Value` with `from_json` keeps its nesting frames inline for the first 16 levels and allocates for them only in deeper documents.
-- Native builds on Linux give each `module.jai` its own debug line entry, so `jacket test --coverage` counts the lines of modules whose code is in `module.jai` (`Uuid` and `Vt` read 0%), and debuggers show the right file for them.
-- Fix previews show only the lines a fix changes.
-- Fewer false lifetime findings on members of freed structs, cast struct pointers and fields stored in other blocks.
-- `Postgres` `fetch_all` and `copy_in`, `Variant` `==` and `free_variant`, and enum names in `Protobuf` JSON run code written for each type when the program compiles, not a walk over type information per value. `Variant ==` is about 5 times faster on structs and `copy_in` allocates far less. A struct with an unnamed member that owns strings, arrays or pointers is now a compile error in `fetch_all`, `copy_in` and `Variant`'s `free_variant` and `==`.
-- The `Android` (adb, asn1, digests, zip-wire) and `Bindings_Generator` driven tests read and write their scratch and fixture files through `output_path`, so `JACKET_OUTPUT_DIR` relocates them.
+- `Postgres`, `Variant`, `Protobuf` JSON enums, `jaifmt` settings and the typed Postgres macros generate their code at compile time instead of walking type info at run time. `Variant ==` is about 5x faster, Postgres array arguments about 1.8x, and `copy_in` allocates far less.
+- `Csv` reads chunked input about 2.2x faster and trimmed input about 1.7x faster.
+- `gltf_extension` is about 2.5x faster.
+- `from_json` allocates nesting frames only past 16 levels.
+- `jacket test` builds missing conformance test data on a fresh checkout instead of failing, and says what to run when offline.
+- `jacket test --coverage` counts lines in `module.jai` on Linux, and debuggers show the right file.
+- Fix previews show only the changed lines.
+- Fewer false lifetime findings for freed structs, cast pointers and fields stored elsewhere.
+- More tests write scratch files under `JACKET_OUTPUT_DIR`.
 
-### Changed
+### Breaking changes
 
-- Comparing an integer variable with a float variable (`n < x`) is an error with a `cast` suggestion; an integer the float represents entirely (`s16` with `float32`, `s32` with `float64`) and untyped literals still compare. The standard library's audio mixer and profiler overlay compared mixed types and now cast.
-- A relative `JACKET_OUTPUT_DIR` is below the checkout everywhere, not the working directory: `jacket test`, the Python and TypeScript tools, `jaic`'s `native-libs/` lookup and `Extensions/Environment` (`output_directory`; new `resolve_output_directory`) agree.
+| Was | Now |
+| --- | --- |
+| Comparing an integer variable with a float variable (`n < x`) compiled | Error with a `cast` suggestion, unless the float type holds every value of the integer type |
+| A relative `JACKET_OUTPUT_DIR` was relative to the working directory | Relative to the checkout, in every tool |
+| `write_archive` and `copy_entry` took an `Io.Writer` | They take an `Archive_Writer` |
+| `fetch_all`, `copy_in` and `Variant` accepted a struct with an unnamed member that owns memory | Compile error |
+| `deflate_sync(...)` | `deflate_sync(..., window_bits)` |
+| `toml_encode` counted depth differently from `write_toml` | Both count scalars and arrays of tables, with the root at 0 |
 
 ### Fixed
 
-- In the browser engine, a union in a compile-time constant keeps its bytes as written; a number stored in a union was zeroed when it equalled an address inside the engine's memory.
-- The body of a `#modify` block shows in debug info and `jacket test --coverage` under the file it is written in, not under `prelude/module.jai`.
-- The `Autorun`, `BuildCpp`, `MacOS_Bundler`, `Rewrite` and `Bindings_Generator` tests write their scratch files to `JACKET_OUTPUT_DIR` when it is set, instead of always to `target/`.
-- `Default_Allocator` on arm64 macOS and Linux (and other targets without its heap backend) now reports a free or resize of a pointer that is not one of its live blocks, such as the address of a local or a block freed twice, instead of corrupting the heap or crashing later.
-- `Extensions/Gltf`: `gltf_use_extension` no longer frees a literal `extensions_used` list on an asset built by hand, and `gltf_free` frees such an asset. `Gltf_Asset` has an `owns_extension_lists` flag that says whether the lists are borrowed.
-- A body whose `#insert` or other compile-time code failed is no longer lowered again, re-running that code, on every later lenient lowering round (a metaprogram that keeps asking for more lowering); it is retried only once something it could be waiting for changed.
-- A constant read from `#run` memory no longer embeds host addresses: a `*void` or a union member pointing at compile-time heap memory is now null, so identical builds produce identical output.
-- A default value of the wrong type in a struct nothing uses is reported.
-- `jailsp` checks an open file that several program entries reach under each of them, so what only one program finds wrong still shows after an edit; hover and navigation keep answering from the first entry.
-- `jailsp` says a project file that no entry loads or imports is in no program (an information diagnostic, `not-in-program`) and reports only its syntax errors, instead of leaving it silently unchecked.
-- A long `#run` that starts many short threads no longer grows the interpreter's thread table: a thread's slot is reused once it has ended and its handle is joined, detached or closed, and a handle kept past that point is rejected instead of naming a later thread. The same holds in the browser playground's scheduler, where `pthread_detach` now frees a thread's slot too, and a handle already joined or detached can no longer be joined or detached again.
-- `WaitForSingleObject` on a thread, semaphore or event handle that was already closed returns `WAIT_FAILED` instead of failing with "not available here".
-- `CloseHandle` on a thread, semaphore or event handle that was already closed returns `FALSE` with `ERROR_INVALID_HANDLE` instead of reaching the host.
-- `pthread_detach` of a thread another thread is already joining makes that `pthread_join` return `EINVAL` at once instead of waiting for the thread to end.
-- The memory debugger no longer keeps ranges from a `Flat_Pool` or `Pool` live after `reset`, `release` or `fini`, so leak reports stay right and a later allocation at the same address is no longer reported as a duplicate. Allocators of your own that free everything at once can call the new `release_all_allocations(allocator)` from `Basic`.
-- `jacket doc` finds the modules a library imports through its own folder and `[project] import_path`, as the compiler does, so a type from another of the library's modules links on the pages instead of failing `--check` as unlinked.
-- `jacket test` doc examples and `jaic -doc_comments` and `-doc_gaps` follow an alias into a module found through `-import_dir`, so it takes that module's docs instead of showing none; both flags accept `-import_dir`.
-- `jailint` lints a test file inside a library folder that imports a module with program parameters (`#import "Basic"()(MEMORY_DEBUGGER = true)`) as a program, like `jacket test`, instead of failing with "PROGRAM parameters may only be supplied by the main program".
-- `jailint` finds the modules beside a module that lives in a `modules` folder inside a library, as the compiler does for a program next to that folder, instead of reporting `module not found`.
-- `jailint` compiles a file whose `// test:` header says `only(.WINDOWS)`, `only(.X64)` or another system for that system, so a directory scan on another host no longer reports it as incomplete.
-- `jailint` reads `skip_on(...)`, `mode =`, `interp_only` and `native_only` in a test header as `jacket test` does when choosing the system to compile a file for, and a directory scan leaves out a file such as `only(.ANDROID)` that no target the compiler supports can run.
-- Doc site search lists a module first when the query is its name (`time` finds the Time module before `Postgres.Time`), and ranks a whole word of a name (`time_of_day`) above names that only share its letters (`timeval32`).
-- Doc site sidebar rows no longer jump when you move to another page with a long sidebar open. The outline on the right marks its guide line in the accent colour beside the items on screen, and the mark grows and shrinks as you scroll; the left sidebar marks the open page's row the same way.
-- The language server no longer reports an error on a macro whose `#insert #run` body is called with `#caller_code`, and no longer reports a returned local address in a procedure only `#run` calls.
-- `jacket test --coverage` fails, and records and compares no baseline, when a test process ends without leaving its coverage (or leaves a file that is cut short), naming the processes. Before, their lines silently counted as never run and a module could read far below what its tests cover.
-- `Extensions/Gltf`: `gltf_local_resolve` loads files on Windows. Its containment check compared a `\\?\`-prefixed path with a `/` one and rejected every file.
-- `jacket test --path stdlib/Extensions/Protobuf` compiles in seconds again. A `json_name` with a control character made the generated Json note unreadable, so compiling reported an error for every message, and each report slowed the compiler further. Quoted note values in Args, Csv, Json and Toml accept `\uXXXX`.
-- A metaprogram that reads typechecked procedures no longer rescans every procedure for each message it receives, and reports from compile-time code no longer search all loaded files or lex the whole file each time.
-- `Extensions/Archive` and `Extensions/Gltf` compile and work on wasm for in-memory data. `write_archive` and `copy_entry` take an `Archive_Writer` instead of an `Io.Writer`; `gltf_local_resolve` and `extract` need a native file system.
-- A macro or metaprogram reading the code of a call sees the type of an argument passed to an `Any` parameter as the argument's own type, not `Any`. This made the Postgres typed query checks reject `Pg.queue_execute` and similar calls.
-- `WebSocket` compresses with the negotiated `permessage-deflate` window below 15 bits instead of sending stored blocks, and `deflate_sync` takes a `window_bits` argument.
-- `Http` no longer gives a TLS config the pooled connections of an earlier config that was freed with `Tls.tls_config_free` and set up again at the same address. `Tls.tls_config_generation` tells setups apart.
-- `jacket test` fails when it cannot read a library's doc comments, instead of warning and running no examples.
-- `jacket test` stops with an install hint when `python3` is missing or a fixture build script fails, and tests that need `JAIC_TEST_FONT_PATH` fail without it locally as in CI unless they declare `optional(JAIC_TEST_FONT_PATH)`.
-- `jacket test --interp` keeps no more compilers waiting for their first run than it has workers, and a waiting compiler blocks on its input instead of polling every 2 ms.
-- `jacket test` reads `-I` and `-import_dir` as the compiler does, so a plugin or program argument that looks like one is no longer taken for an import folder by `--watch` and coverage.
-- `jailint` reports a program it could not compile completely as a `warning[lint-incomplete]` diagnostic in the style of its other output, not a plain `jailint:` line.
-- `@toml(...)` note values resolve `\n`, `\t` and `\r` escapes instead of dropping the backslash.
-- ICO creation from image filenames works on WASI, and transparent icons render correctly on Windows.
-- JPEG color handling, invalid JPEG scans and incomplete QOI files.
-- Struct default overrides, declaration order in struct scopes and contextual expression types.
-- HTTP bounds `CONTINUATION` frames per header block and closes pooled TLS connections with their config.
-- The language server merges diagnostics for a file shared by several programs, cancels unfinished pulls and notices files changed on disk.
-- `jacket doc` no longer links a name in `#run`, `#place` or another value directive's operand in a declaration to a same-named type.
-- `jacket doc` search results show every overload's signature, not only the first.
-- `jacket doc` warns, with file, line and reason, about a public top-level `#insert` it could not expand. One that expands to nothing is silent.
-- `jacket doc` keeps comments in a struct, union or enum declaration that are not a field's docs, such as one on a nested type alias or a closing note.
-- `jacket doc` shows every `#if` variant of a declaration on module pages and in search, uses the right import path for a module documented by its folder, leaves `benches/` out of a module's docs, keeps the sidebar open when the window widens, and says when git is missing or the library isn't in a checkout.
+- `Default_Allocator` on arm64 reports a bad free or resize instead of corrupting the heap.
+- The memory debugger forgets `Pool` and `Flat_Pool` allocations after a reset; call `release_all_allocations` for your own allocators.
+- `#run` constants no longer embed host addresses, so identical builds match.
+- A union in a browser compile-time constant keeps its bytes.
+- Failed `#insert` code is not re-run on every lowering round.
+- An unused struct with a wrongly typed default value is reported.
+- `#modify` bodies show under their own file in debug info and coverage.
+- Many short threads in `#run` no longer grow the interpreter's thread table; reused thread handles are rejected.
+- `WaitForSingleObject` and `CloseHandle` on closed handles fail cleanly; `pthread_detach` during a join makes the join return `EINVAL`.
+- A macro reading a call's code sees an `Any` argument's real type.
+- Metaprograms no longer rescan every procedure for each message.
+- `jailsp` checks a file under every program that reaches it, and flags files that no program loads.
+- The language server no longer reports false errors with `#caller_code` or in `#run`-only procedures, merges diagnostics across programs and notices files changed on disk.
+- `jailint` lints test files with program parameters as programs, finds sibling modules in `modules` folders, and honours `only(...)`, `skip_on(...)` and other test header notes.
+- `jailint` reports incomplete programs as `warning[lint-incomplete]`.
+- `jacket test --coverage` fails when a test leaves no coverage data instead of under-counting.
+- `jacket test` fails when it can't read doc comments, and gives install hints for missing `python3` or a failed fixture build.
+- `jacket test --interp` keeps fewer idle compilers waiting, and they no longer poll.
+- `jacket test` reads `-I` and `-import_dir` like the compiler does.
+- `jacket test` no longer builds fixture data just because a comment names a fixture path.
+- `jacket doc` finds a library's own imports, follows aliases into `-import_dir` modules, and passes `--check` on types from imported modules.
+- `jacket doc` shows every overload and `#if` variant, keeps non-field comments in types, and warns about `#insert`s it can't expand.
+- `jacket doc` no longer links names inside `#run` or `#place` operands, leaves `benches/` out, and says when git is missing.
+- Docs site: better search ranking, steady sidebar rows, and an outline that tracks your scroll position.
+- `Extensions/Protobuf` tests compile in seconds again; quoted note values accept `\uXXXX`.
+- `@toml(...)` notes resolve `\n`, `\t` and `\r`.
+- `Archive` and `Gltf` work on wasm for in-memory data.
+- `Gltf`: local files load on Windows, and hand-built extension lists are no longer freed.
+- `gltf_write` rejects extensions missing from `extensionsUsed`.
+- `WebSocket` compresses with small negotiated windows instead of sending stored blocks.
+- `Http` no longer reuses pooled TLS connections from a freed config, and limits `CONTINUATION` frames.
+- `Toml` writes empty tables as headers and `float32` in shortest form, names array elements in errors, and is no longer quadratic on wide tables.
+- `Archive` rejects repeated ZIP64 records and handles empty pax values.
+- JPEG colours, invalid JPEG scans, incomplete QOI files, and ICO on WASI and Windows.
 - `Hash_Map` rebuild threshold, glTF skin validation and `jaifmt` setting migration.
-- `Archive` rejects ZIP files with repeated central ZIP64 records, and treats an empty pax value in a TAR header as deleting the field.
-- `Toml` writes empty tables as headers and `float32` values in their shortest form, names array-of-tables elements in error paths, and no longer slows down quadratically on wide unknown tables.
-- `jacket test` no longer builds the fixture data for a suite whose source only names a fixture path in a comment, such as the `Extensions/Environment` doc examples.
-
+- Struct default overrides, declaration order in struct scopes and contextual expression types.
 
 ## [0.33.0] - 2026-11-04
 
