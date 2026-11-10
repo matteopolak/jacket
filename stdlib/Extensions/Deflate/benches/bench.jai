@@ -6,14 +6,11 @@
 #import "stb_image";
 #import "stb_image_write";
 
-// stb_image frees its own buffers. stb_image_write exports no free, and on Windows its static C
-// runtime keeps a heap of its own, so there its compressed streams are left allocated.
-libc :: #system_library "libc"; @native(external)
-c_free :: (memory: *void) #foreign libc "free"; @FreesArgument
-
-free_compressed :: (memory: *void) {
-    #if OS != .WINDOWS c_free(memory);
-}
+// A buffer goes back to the stb library that made it, since on Windows each has a static C runtime
+// with its own heap: stb_image_write's through the jai_stbiw_free that tools/native/native-libs.json
+// adds to the library.
+write_library :: #library,system "stb_image_write";
+jai_stbiw_free :: (memory: *void) #foreign write_library;
 
 WORDS :: string.["the", "of", "and", "compiler", "stream", "window", "literal", "length", "distance", "huffman", "block", "match", "symbol", "table", "inflate", "deflate", "a", "to", "in", "is", "bytes", "output", "Jai", "code"];
 
@@ -159,7 +156,7 @@ stb_compress_case :: (b: *Bench, input: [] u8) {
 
         assert(out != null);
         black_box(out[length / 2]);
-        free_compressed(out);
+        jai_stbiw_free(out);
     }
 }
 
