@@ -99,7 +99,7 @@ impl TestOptions {
                         .filter(|t| !t.is_empty())
                         .into_iter()
                         .collect(),
-                })
+                });
             }
             "xfail" => self.xfail = Some(text(args)),
             "warns" => {
