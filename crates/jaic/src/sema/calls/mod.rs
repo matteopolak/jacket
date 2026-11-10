@@ -141,17 +141,22 @@ pub(in crate::sema) fn is_deferred(expr: &ast::Expr) -> bool {
 /// `.{300, -1} * scale`: arithmetic whose left operand is an untyped struct literal builds
 /// that literal as the parameter's type, so the operator is looked up on it (`ui_builder`).
 fn literal_arithmetic(expr: &ast::Expr) -> bool {
+    arithmetic_literal(expr).is_some()
+}
+
+/// The untyped struct literal that arithmetic like `.{1, 1, 1} * s * t` builds as its
+/// parameter's type, if `expr` is such arithmetic.
+pub(super) fn arithmetic_literal(expr: &ast::Expr) -> Option<&ast::Expr> {
     match &expr.kind {
         E::Binary(ast::BinOp::Add | ast::BinOp::Sub | ast::BinOp::Mul | ast::BinOp::Div, a, _) => {
-            matches!(
-                a.kind,
+            match a.kind {
                 E::StructLit {
-                    ty: None,
-                    ..
-                }
-            ) || literal_arithmetic(a)
+                    ty: None, ..
+                } => Some(a),
+                _ => arithmetic_literal(a),
+            }
         }
-        _ => false,
+        _ => None,
     }
 }
 

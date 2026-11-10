@@ -1,6 +1,6 @@
 //! The conversion cost of an argument against a parameter.
 use super::poly_hints::CANNOT_INFER;
-use super::{CallArg, inferred_flags, is_deferred};
+use super::{CallArg, arithmetic_literal, inferred_flags, is_deferred};
 use crate::ast::ExprKind as E;
 use crate::diagnostics::Code;
 use crate::sema::convert;
@@ -333,7 +333,12 @@ impl Compiler {
                 | TypeKind::Type
         );
         let mut misfit = None;
-        let fits = match arg.expr.as_ref().map(|e| &e.kind) {
+        // `.{...} * s` builds its literal as the parameter's type, so the literal must fit it.
+        let built = arg
+            .expr
+            .as_ref()
+            .map(|e| arithmetic_literal(e).unwrap_or(e));
+        let fits = match built.map(|e| &e.kind) {
             // `.{...}` and `.[...]` build aggregates, `.NAME` picks an enum member.
             Some(E::StructLit {
                 fields: lit_args, ..

@@ -230,3 +230,22 @@ fn concrete_elements_rank_above_binders_in_implicit_generic_headers() {
         #assert check();",
     );
 }
+
+const SCALED: &str = "
+V3 :: struct { x, y, z: float; }
+operator * :: (a: V3, s: float) -> V3 { return .{a.x * s, a.y * s, a.z * s}; }
+twice :: (x: float) -> float { return x * 2; }
+take :: (m: int, s: float) -> s32 { return 1; }
+take :: (m: int, v: V3) -> s32 { return 2; }
+";
+
+#[test]
+fn arithmetic_on_an_untyped_literal_only_fits_where_the_literal_does() {
+    accepts(&format!(
+        "{SCALED}
+        by_literal :: #run take(0, .{{1, 1, 1}} * 2.0);
+        by_call :: #run take(0, .{{1, 1, 1}} * twice(1));
+        nested :: #run take(0, .{{1, 1, 1}} * 2.0 * twice(1));
+        #assert(by_literal == 2 && by_call == 2 && nested == 2);"
+    ));
+}
