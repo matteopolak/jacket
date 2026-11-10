@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.35.0] - 2026-11-10
 
 Faster leak reports, Csv, Json trees and language server, plus fixes to here-strings, `#run` constants and overloads.
 
