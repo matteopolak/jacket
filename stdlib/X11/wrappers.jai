@@ -396,6 +396,7 @@ Binding_Message_Choices :: struct {
 }
 
 binding_message_event :: (#discard display: *Display, event: *XEvent, arg: XPointer) -> Bool #c_call {
+    // jailint: allow(union_read): Xlib fills `xany` for every event the queue holds.
     return cast(s32) ifx event.xany.window == <<cast(*Window) arg then 1 else 0;
 }
 

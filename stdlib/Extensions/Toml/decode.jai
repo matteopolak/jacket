@@ -851,6 +851,8 @@ toml_read_value :: (r: *Toml_Reader, out: *Toml_Value) -> bool {
 // `[a.b]`, `[[a.b]]` and dotted keys below a `Toml_Value` table. `frame` holds a record per key,
 // whose `member` is where the key's value sits in `node.members`.
 toml_descend_value :: (r: *Toml_Reader, node: *Toml_Value, frame: *Toml_Frame, keys: [] string, index: int, op: Toml_Op, nav: int) -> bool {
+    assert(node.kind == .TABLE);
+
     key := keys[index];
     step := toml_step(op, index, keys.count, nav);
     path_mark := r.path.count;

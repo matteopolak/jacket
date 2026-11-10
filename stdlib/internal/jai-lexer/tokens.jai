@@ -99,10 +99,11 @@ parse_ident :: (lexer: *J.Lexer, result: *J.Token) -> string {
     text := string.{ lexer.input_cursor - start, lexer.input.data + start };
     if text.count > J.MAX_IDENTIFIER_LENGTH report_parse_error(lexer, "identifier exceeds maximum length");
 
-    cached_make_atom(lexer, text, result);
+    name := cached_make_atom(lexer, text, result);
+
     set_end_of_token(lexer, result);
 
-    return result.ident_value.name;
+    return name;
 }
 
 make_ident_or_keyword :: (lexer: *J.Lexer) -> *J.Token {

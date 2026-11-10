@@ -40,14 +40,15 @@ leaked_allocation = "warn"
 cognitive_complexity = "warn"
 platform_leak = "warn"
 
-# Exact float comparisons in library code are checked; tests compare exact results on purpose.
+# Exact float comparisons and unchecked union reads in library code are checked; tests compare
+# exact results on purpose and read back the union members their own inputs set.
 [[lint.overrides]]
 paths = ["stdlib/**"]
-rules = { float_equality = "warn" }
+rules = { float_equality = "warn", union_read = "warn" }
 
 [[lint.overrides]]
 paths = ["stdlib/**/tests/**"]
-rules = { float_equality = "allow" }
+rules = { float_equality = "allow", union_read = "allow" }
 
 # Corpus fixtures are pinned by hash, so a case that is one `case` and a default stays as written.
 [[lint.overrides]]

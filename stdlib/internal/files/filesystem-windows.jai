@@ -436,6 +436,7 @@ copy_tree :: (source: string, dest: string, ancestors: *[..] ABI.File_Identity) 
 }
 
 filetime_to_apollo :: (time: W.FILETIME) -> Apollo_Time #no_aoc {
+    // jailint: allow(union_read): both members are views of the same 64-bit tick count.
     ticks := ((cast(u64) time.dwHighDateTime) << 32) | cast(u64) time.dwLowDateTime;
     seconds := seconds_to_apollo(cast(s64) (ticks / FILETIME_TICKS_PER_SECOND) - FILETIME_EPOCH_TO_UNIX_SECONDS);
     fraction := nanoseconds_to_apollo(cast(s64) (ticks % FILETIME_TICKS_PER_SECOND) * NANOSECONDS_PER_FILETIME_TICK);

@@ -273,6 +273,8 @@ toml_member :: (table: *Toml_Value, key: string) -> *Toml_Member {
 // A deterministic balanced index avoids hash-collision attacks. Its node number is the
 // insertion-order member number, so growing either array never invalidates value pointers.
 toml_index_capacity :: (table: *Toml_Value) -> int {
+    assert(table.kind == .TABLE);
+
     if table.members.count == 0x7fffffffffffffff return -1;
 
     desired := table.members.count + 1;
@@ -304,6 +306,8 @@ toml_index_growth :: (table: *Toml_Value) -> int {
 }
 
 toml_prepare_index :: (doc: *Toml_Document, table: *Toml_Value) -> bool {
+    assert(table.kind == .TABLE);
+
     growth := toml_index_growth(table);
     if !toml_admit(doc, growth) return false;
     if !growth return true;

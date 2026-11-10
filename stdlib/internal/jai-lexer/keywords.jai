@@ -1,4 +1,5 @@
-// Sets an identifier token's type to the keyword it spells, if any, and returns the type.
+// Sets an identifier token's type to the keyword it spells, if any, and returns the type. Other
+// tokens are returned unchanged.
 //
 // ```jai
 // lexer: Lexer;
@@ -7,6 +8,8 @@
 // assert(check_for_keyword(token) == .KEYWORD_STRUCT);
 // ```
 check_for_keyword :: (token: *J.Token) -> J.Token_Type {
+    if token.type != .IDENT return token.type;
+
     if token.ident_value.name == "auto_cast" {
         token.type = .KEYWORD_AUTO_CAST;
         return token.type;

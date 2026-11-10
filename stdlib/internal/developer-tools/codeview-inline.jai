@@ -30,6 +30,7 @@ decode_inline_site_line_info :: (info: Codeview_Debug_Info, procedure: Codeview_
     pending_state: Cv_Inline_State;
 
     for annotation: site.binary_annotations {
+        // jailint: allow(union_read): the opcode below decides how these raw bits are read.
         first := cast(u64) annotation.operand1.unsigned;
         move := false;
         finish := false;

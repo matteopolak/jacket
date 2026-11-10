@@ -22,6 +22,8 @@ toml_hint_key_matches :: inline (a: string, b: string) -> bool {
 
 // Captures both a complete index and a writer's prefix index without conflating their counts.
 toml_probe_index :: (table: *Toml_Value, index: *Toml_Index, key: string, hint: *Toml_Insert_Hint) -> int {
+    assert(table.kind == .TABLE);
+
     hint.table = table;
     hint.index = index;
     hint.key = key;
@@ -61,6 +63,8 @@ toml_probe_index :: (table: *Toml_Value, index: *Toml_Index, key: string, hint: 
 }
 
 toml_hint_before_matches :: inline (table: *Toml_Value, index: *Toml_Index, key: string, hint: *Toml_Insert_Hint) -> bool {
+    assert(table.kind == .TABLE);
+
     if !hint.absent || hint.table != table || hint.index != index || hint.member_count != table.members.count || !toml_hint_key_matches(hint.key, key) return false;
     return !index || (hint.index_count == index.nodes.count && hint.root == index.root);
 }
@@ -72,8 +76,11 @@ toml_prepare_insertion :: inline (table: *Toml_Value, index: *Toml_Index, key: s
 }
 
 toml_hint_after_matches :: inline (table: *Toml_Value, index: *Toml_Index, slot: int, hint: *Toml_Insert_Hint, added_member: bool) -> bool {
+    assert(table.kind == .TABLE);
+
     if !hint.absent || hint.table != table || table.members.count != hint.member_count + (ifx added_member then 1 else 0) || !toml_hint_key_matches(hint.key, table.members[slot].key) return false;
     if hint.index == index return hint.index_count == index.nodes.count && hint.root == index.root;
+
     // The only representation change allowed after preparation is building the first index.
     return added_member && !hint.index && !hint.complete && index.nodes.count == hint.member_count;
 }
@@ -107,6 +114,8 @@ toml_key_compare :: (a: string, b: string) -> int {
 }
 
 toml_tree_find :: (table: *Toml_Value, index: *Toml_Index, key: string) -> int {
+    assert(table.kind == .TABLE);
+
     current := index.root;
     while current >= 0 {
         comparison := toml_key_compare(key, table.members[current].key);
@@ -170,6 +179,8 @@ toml_tree_balance :: inline (index: *Toml_Index, root: int) -> int {
 }
 
 toml_tree_insert :: (table: *Toml_Value, index: *Toml_Index, root: int, slot: int) -> int {
+    assert(table.kind == .TABLE);
+
     if root < 0 return slot;
 
     comparison := toml_key_compare(table.members[slot].key, table.members[root].key);
@@ -184,6 +195,8 @@ toml_tree_insert :: (table: *Toml_Value, index: *Toml_Index, root: int, slot: in
 // A prepared absent-key hint may survive capacity relocation, never semantic mutation.
 // Unexpected snapshot changes re-probe before touching index nodes; duplicates are returned.
 toml_tree_add :: (table: *Toml_Value, index: *Toml_Index, slot: int, hint: *Toml_Insert_Hint = null, added_member: bool = false) -> int {
+    assert(table.kind == .TABLE);
+
     assert(slot == index.nodes.count);
 
     if hint && !toml_hint_after_matches(table, index, slot, hint, added_member) {

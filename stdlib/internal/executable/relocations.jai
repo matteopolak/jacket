@@ -178,14 +178,12 @@ apply_coff :: (coff: Coff, section_index: s64, data: [] u8) -> bool {
         if kind == 11 address = symbol.value;
 
         if kind == 1 || kind == 2 {
-            if coff.optional_header.pe32plus.base {
-                image_base: u64;
-                if coff.optional_header.pe32plus.base.magic == .PE32_PLUS image_base = coff.optional_header.pe32plus.windows.image_base;
-                else image_base = coff.optional_header.pe32.windows.image_base;
-                if address > 0xffffffffffffffff - image_base return false;
+            image_base: u64;
+            if coff.optional_header.magic == .PE32_PLUS image_base = coff.optional_header.pe32plus.windows.image_base;
+            else if coff.optional_header.magic == .PE32 image_base = coff.optional_header.pe32.windows.image_base;
+            if address > 0xffffffffffffffff - image_base return false;
 
-                address += image_base;
-            }
+            address += image_base;
         }
 
         if address > 0x7fffffffffffffff return false;

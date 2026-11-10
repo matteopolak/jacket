@@ -159,6 +159,7 @@ get_stream_size :: (msf: Msf, stream_index: UNSN) -> s64 {
 
 is_valid_page_number :: (msf: Msf, pn: UPN) -> bool {
     if !msf.header return false;
+    // jailint: allow(union_read): the header page is both raw bytes and these fields.
     return pn < msf.header.data.page_count;
 }
 

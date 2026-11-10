@@ -182,7 +182,7 @@ parse_here_string :: (lexer: *J.Lexer) -> *J.Token {
 }
 
 count_herestring_lines :: (lexer: *J.Lexer, token: *J.Token) -> s64 {
-    if !token return 0;
+    if !token || token.type != .STRING return 0;
     lines: s64;
     for c: token.string_value if c == 10 lines += 1;
     return lines;

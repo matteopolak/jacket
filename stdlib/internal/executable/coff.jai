@@ -9,6 +9,8 @@ Coff :: struct {
 }
 
 Coff_Optional_Header :: struct {
+    // Which member of the union is set; zero when the file has no optional header.
+    magic: Coff_Optional_Header_Pe32_Plus.Magic;
     union {
         pe32: struct {
             base: *Coff_Optional_Header_Pe32;
@@ -79,6 +81,7 @@ parse_coff :: (file_content: string, path := "(unspecified file)", verbose := fa
         if magic == 0x20b {
             if header.optional_header_size < PE32_PLUS_HEADERS_SIZE || cast(u64) (file_content.data + optional) % 8 != 0 return false, .{};
 
+            result.optional_header.magic = .PE32_PLUS;
             result.optional_header.pe32plus.base = cast(*Coff_Optional_Header_Pe32_Plus) (file_content.data + optional);
             result.optional_header.pe32plus.windows = cast(*Coff_Optional_Header_Windows_Specific_Pe32_Plus) (file_content.data + optional + size_of(Coff_Optional_Header_Pe32_Plus));
             directory_count = result.optional_header.pe32plus.windows.number_of_rva_and_sizes;
@@ -86,6 +89,7 @@ parse_coff :: (file_content: string, path := "(unspecified file)", verbose := fa
         } else if magic == 0x10b {
             if header.optional_header_size < PE32_HEADERS_SIZE return false, .{};
 
+            result.optional_header.magic = .PE32;
             result.optional_header.pe32.base = cast(*Coff_Optional_Header_Pe32) (file_content.data + optional);
             result.optional_header.pe32.windows = cast(*Coff_Optional_Header_Windows_Specific_Pe32) (file_content.data + optional + size_of(Coff_Optional_Header_Pe32));
             directory_count = result.optional_header.pe32.windows.number_of_rva_and_sizes;

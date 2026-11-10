@@ -53,21 +53,27 @@ set_end_of_token :: (lexer: *J.Lexer, token: *J.Token) {
     token.c1 = lexer.current_character_index;
 }
 
-cached_make_atom :: (lexer: *J.Lexer, name: string, token_to_fill: *J.Token) {
+// Copies `name` into the lexer's atom pool and makes it the token's identifier. Returns the copy,
+// or "" with the token marked `.ERROR` when the pool is out of memory.
+cached_make_atom :: (lexer: *J.Lexer, name: string, token_to_fill: *J.Token) -> J.Table_String {
     if !lexer.atom_pool.block_allocator.proc P.set_allocators(*lexer.atom_pool, context.allocator);
 
     data := cast(*u8) P.get(*lexer.atom_pool, name.count + 1);
     if !data {
         report_parse_error(lexer, "out of memory while copying an identifier");
         token_to_fill.type = .ERROR;
-        return;
+        return "";
     }
 
     for c, i: name data[i] = c;
 
     data[name.count] = 0;
-    token_to_fill.ident_value.name = cast(J.Table_String) string.{ name.count, data };
+    atom := cast(J.Table_String) string.{ name.count, data };
+
+    token_to_fill.ident_value.name = atom;
     token_to_fill.ident_value.hash = 0; // The public contract leaves this hash unspecified.
+
+    return atom;
 }
 
 get_hex_digit :: (lexer: *J.Lexer, type: J.Hex_Digit_Type) -> (value: u8, success: bool) {

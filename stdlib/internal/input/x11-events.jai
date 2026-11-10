@@ -77,6 +77,8 @@ x11_text_input :: (window: Window, bytes: *u8, count: s32, flags: Event.Modifier
 }
 
 x11_handle_mouse_button :: (window: Window, native: *XEvent) {
+    Basic.assert(native.type == ButtonPress || native.type == ButtonRelease);
+
     button := native.xbutton.button;
     flags := x11_modifiers(native.xbutton.state);
 
@@ -113,9 +115,12 @@ x11_wheel :: (window: Window, button: u32, flags: Event.Modifier_Flags) {
 }
 
 x11_handle_motion :: (display: *Display, window: Window, native: *XEvent) {
+    Basic.assert(native.type == MotionNotify);
+
     if !custom_cursor XUndefineCursor(display, window);
 
     dx, dy := Connection.pointer_motion(window, native.xmotion.x, native.xmotion.y);
+
     mouse_delta_x += dx;
     mouse_delta_y += dy;
 }
@@ -136,6 +141,8 @@ x11_handle_focus :: (window: Window, gained: bool) {
 }
 
 x11_handle_client_message :: (display: *Display, window: Window, native: *XEvent) {
+    Basic.assert(native.type == ClientMessage);
+
     protocols := XInternAtom(display, "WM_PROTOCOLS", 0);
     close_atom := XInternAtom(display, "WM_DELETE_WINDOW", 0);
 

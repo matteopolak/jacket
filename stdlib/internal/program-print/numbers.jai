@@ -6,6 +6,8 @@ hex_bits :: (builder: *Basic.String_Builder, bits: u64, count: int) {
 }
 
 floating :: (builder: *Basic.String_Builder, literal: *C.Code_Literal) -> bool {
+    Basic.assert(literal.value_type == .NUMBER);
+
     value := literal._float64;
 
     if literal.value_flags & .HEX {

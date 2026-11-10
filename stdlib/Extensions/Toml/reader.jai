@@ -232,6 +232,8 @@ toml_release_keys :: (r: *Toml_Reader, keys: *[..] string, slot: int) {
 // Parsed keys use the retained source or an owned, charged decoded copy. Transfer only after capacity admission;
 // on failure the caller still owns *key and its deferred cleanup remains valid.
 toml_take_member :: (r: *Toml_Reader, table: *Toml_Value, key: *string, value: *Toml_Value, span: Toml_Span, hint: *Toml_Insert_Hint) {
+    assert(table.kind == .TABLE);
+
     depth := r.declarations[table.internal_index].depth;
     if depth >= r.options.max_depth {
         toml_fail(r, .LIMIT, "table depth limit exceeded");

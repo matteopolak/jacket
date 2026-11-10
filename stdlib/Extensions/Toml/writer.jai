@@ -534,6 +534,8 @@ toml_put_decimal :: inline (bytes: [] u8, offset: int, value: int, width: int) {
 // every slot exactly once. Bounded pushes and a fixed stack make corrupt graphs fail closed.
 // The caller falls back to ordinary validation when any part of this proof fails.
 toml_index_proves_unique :: (table: *Toml_Value) -> bool {
+    assert(table.kind == .TABLE);
+
     index := table.internal_lookup;
     count := table.members.count;
 
@@ -695,6 +697,8 @@ toml_is_table_array :: (node: *Toml_Value) -> bool {
 // are the body of the table named by `w.path`: `key = value` lines first, then the headers of
 // its tables and arrays of tables in member order (TOML needs that order).
 toml_write_table :: (w: *Toml_Writer, node: *Toml_Value, depth: int, inline_table: bool) {
+    assert(node.kind == .TABLE);
+
     // A cached index that proves uniqueness (parsed and builder tables) needs no key set.
     // Do not pre-walk more immediate members than the remaining node quota permits.
     // Incremental checks preserve the existing first-error path for smaller limits.
