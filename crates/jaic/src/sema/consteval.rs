@@ -107,9 +107,12 @@ impl Compiler {
                 (match self.read_value(addr, ty, span)? {
                     Value::Type(t) => Operand::Type(t),
                     value => Operand::Const {
+                        // An integer computed by running code is an integer constant like a
+                        // literal: it takes the type of the operand or target it meets.
+                        untyped: matches!(value, Value::Int(_))
+                            && matches!(self.ty.types.kind(ty), TypeKind::Int { .. }),
                         ty,
                         value,
-                        untyped: false,
                         origin: Origin::Computed,
                     },
                 })

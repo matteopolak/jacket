@@ -933,6 +933,8 @@ impl TypeState {
             Value::Float(_, _) if ty == TypeId::F64 => ty,
             Value::Float(_, _) => TypeId::F32,
             Value::Int(_) if self.types.is_float(ty) => ty,
+            // An integer a `#run` computed stays the type it had until context gives another.
+            Value::Int(_) if matches!(self.types.kind(ty), TypeKind::Int { .. }) => ty,
             Value::Int(_) => TypeId::S64,
             _ => ty,
         }

@@ -4,7 +4,7 @@ Compile-time values, polymorphic declarations, macros, reflection, and workspace
 
 ## Compile-time constants and `#run`
 
-`::` creates a constant binding. Compile-time type values, literal values, and results of compile-time evaluation can be used in type positions and static conditions. `#run expression` evaluates a procedure or block during compilation and exposes its result as a constant. This is distinct from runtime execution: it may create declarations, compute type information, and prepare generated code before the program runs.
+`::` creates a constant binding. Compile-time type values, literal values, and results of compile-time evaluation can be used in type positions and static conditions. `#run expression` evaluates a procedure or block during compilation and exposes its result as a constant. An integer result of executing code is an untyped integer constant, like a literal: it takes the integer type of the operand or target it meets when its value fits, and is an error otherwise; a `#run` of a constant expression keeps that expression's constant type, and floats keep their type. This is distinct from runtime execution: it may create declarations, compute type information, and prepare generated code before the program runs.
 
 ```jai
 capacity :: 6;
