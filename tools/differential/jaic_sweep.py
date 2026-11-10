@@ -178,16 +178,21 @@ def cases(name):
             sys.exit(f"jaic_sweep: examples/{sorted(missing)[0]} has no case in tests/corpus/examples.json")
         for c in cases:
             mode = c.get("mode", "run")
-            expect = {
-                "contains": c["stdout_contains"],
-                "excludes": c.get("stdout_excludes", []),
-                "exit_code": c.get("exit_code", 0),
-            }
+            # Only run cases have output to match; check cases just have to compile.
+            expect = (
+                {
+                    "contains": c["stdout_contains"],
+                    "excludes": c.get("stdout_excludes", []),
+                    "exit_code": c.get("exit_code", 0),
+                }
+                if mode == "run"
+                else None
+            )
             yield (
                 c["id"],
                 ROOT / c["directory"] / c["main"],
                 mode,
-                expect if mode == "run" else None,
+                expect,
                 c.get("args", []),
             )
     elif name == "upstream":
