@@ -173,6 +173,7 @@ rules! {
     unchecked_directive,
     unclosed_resource,
     uninit_read,
+    union_read,
     unnecessary_force_cast,
     unknown_allow,
     unnecessary_semicolon,

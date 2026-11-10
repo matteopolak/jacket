@@ -447,6 +447,16 @@ A local that an `@Opens` call acquired something for, and that nothing closes.
 ### uninit_read
 The first mention after the declaration, in the same block, decides; a write anywhere (even inside an `if`) ends the check, so only straight-line reads are reported.
 
+### union_read
+Off by default; the repository turns it on for `stdlib/**` outside tests. A union records nothing about which member was written last, so a read is only as safe as the code around it. A read of `v.m` counts as checked when it is:
+
+- inside an `if`, `while`, `ifx` or `switch` whose condition reads another member of `v` (the tag) or passes `v` to a call (`if is_table(v)`), or after an `&&` or `||` whose left side does;
+- after an earlier `if` or `assert(...)` on the tag in an enclosing block (`if v.kind != .TEXT return "";`);
+- after the procedure assigns `v` or a place inside one of its union members, declares `v` with a value, or takes `*v` (`XNextEvent(display, *event)` fills it): a pun such as `b.f = x; return b.u;` is deliberate;
+- of the union's common initial sequence: fields every struct member begins with, as in C event unions (`event.type`, `event.xany.window`). Such a member also serves as the tag. Fixed arrays (padding) are not compared, and two plain members of one type share nothing.
+
+Tagged unions are not reported. The check is by shape, so testing the wrong tag value still counts. A helper whose caller checks the tag states it with an `assert` on its first line; a binary-format view that is read as more than one member at once takes an `allow` with the reason.
+
 ### unknown_allow
 A name in a line comment's `allow(...)` or `allow-file(...)` list that is not a rule, a category or `all`.
 

@@ -1,0 +1,11 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[union_read]: `s.radius` reads a union member, but nothing here says it is the live one
+  --> tests/lint/union_read/example.jai:15:10
+   |
+15 |     r := s.radius;
+   |          ^^^^^^^^
+   |
+   = help: check `s.kind` first, or write `s.radius` here before reading it
+   = note: see https://jacket.matteopolak.com/lint-rules/union_read

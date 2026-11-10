@@ -1,6 +1,6 @@
 # Lint rules
 
-The 105 rules `jailint` checks, by category. [jailint](../tools/jailint.md) says how to run it, configure rules and silence a finding.
+The 106 rules `jailint` checks, by category. [jailint](../tools/jailint.md) says how to run it, configure rules and silence a finding.
 
 A rule's category sets its default level. Name a category wherever a rule name works (`[lint.rules]`, `-W`, `// jailint: allow(...)`).
 
@@ -4657,6 +4657,82 @@ main :: () {
 ```
 
 Off by default: handing back a temporary string from a helper is a common, documented convention. Fires when temporary memory is kept past a reset or a restored mark (`auto_release_temp`) that frees it. Values baked at compile time are copied out, so a `tprint` in a constant is fine.
+
+### union_read
+
+Finds a union member read without checking which one is live.
+
+Category `pedantic`, `allow` by default.
+
+Off by default; the example is shown with the rule enabled.
+
+```jai example
+#import "Basic";
+
+Shape :: struct {
+    kind: enum {
+        CIRCLE;
+        SQUARE;
+    };
+    union {
+        radius: float;
+        side: float;
+    }
+}
+
+circle_area :: (s: Shape) -> float {
+    r := s.radius;
+    return 3.14159 * r * r;
+}
+
+main :: () {
+    print("%\n", circle_area(.{ kind = .CIRCLE, radius = 2 }));
+}
+```
+
+```diagnostic
+warning[union_read]: `s.radius` reads a union member, but nothing here says it is the live one
+  --> example.jai:15:10
+   |
+15 |     r := s.radius;
+   |          ^^^^^^^^
+   |
+   = help: check `s.kind` first, or write `s.radius` here before reading it
+```
+
+```jai fixed
+#import "Basic";
+
+Shape :: struct {
+    kind: enum {
+        CIRCLE;
+        SQUARE;
+    };
+    union {
+        radius: float;
+        side: float;
+    }
+}
+
+circle_area :: (s: Shape) -> float {
+    if s.kind != .CIRCLE return 0;
+    r := s.radius;
+    return 3.14159 * r * r;
+}
+
+main :: () {
+    print("%\n", circle_area(.{ kind = .CIRCLE, radius = 2 }));
+}
+```
+
+Off by default; the repository turns it on for `stdlib/**` outside tests. A union records nothing about which member was written last, so a read is only as safe as the code around it. A read of `v.m` counts as checked when it is:
+
+- inside an `if`, `while`, `ifx` or `switch` whose condition reads another member of `v` (the tag) or passes `v` to a call (`if is_table(v)`), or after an `&&` or `||` whose left side does;
+- after an earlier `if` or `assert(...)` on the tag in an enclosing block (`if v.kind != .TEXT return "";`);
+- after the procedure assigns `v` or a place inside one of its union members, declares `v` with a value, or takes `*v` (`XNextEvent(display, *event)` fills it): a pun such as `b.f = x; return b.u;` is deliberate;
+- of the union's common initial sequence: fields every struct member begins with, as in C event unions (`event.type`, `event.xany.window`). Such a member also serves as the tag. Fixed arrays (padding) are not compared, and two plain members of one type share nothing.
+
+Tagged unions are not reported. The check is by shape, so testing the wrong tag value still counts. A helper whose caller checks the tag states it with an `assert` on its first line; a binary-format view that is read as more than one member at once takes an `allow` with the reason.
 
 ### unreadable_literal
 

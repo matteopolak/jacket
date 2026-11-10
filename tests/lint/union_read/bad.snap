@@ -1,0 +1,47 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[union_read]: `v.text` reads a union member, but nothing here says it is the live one
+  --> tests/lint/union_read/bad.jai:23:12
+   |
+23 |     return v.text;
+   |            ^^^^^^
+   |
+   = help: check `v.kind` first, or write `v.text` here before reading it
+   = note: see https://jacket.matteopolak.com/lint-rules/union_read
+
+warning[union_read]: `b.integer` reads a union member, but nothing here says it is the live one
+  --> tests/lint/union_read/bad.jai:28:34
+   |
+28 |     if a.kind == .INTEGER return b.integer;
+   |                                  ^^^^^^^^^
+   |
+   = help: check `b.kind` first, or write `b.integer` here before reading it
+   = note: see https://jacket.matteopolak.com/lint-rules/union_read
+
+warning[union_read]: `b.f` reads a union member, but nothing here says it is the live one
+  --> tests/lint/union_read/bad.jai:34:12
+   |
+34 |     return b.f;
+   |            ^^^
+   |
+   = help: keep the union in a struct beside a tag and check it, or write `b.f` here before reading it
+   = note: see https://jacket.matteopolak.com/lint-rules/union_read
+
+warning[union_read]: `e.key` reads a union member, but nothing here says it is the live one
+  --> tests/lint/union_read/bad.jai:58:12
+   |
+58 |     return e.key.key;
+   |            ^^^^^
+   |
+   = help: keep the union in a struct beside a tag and check it, or write `e.key` here before reading it
+   = note: see https://jacket.matteopolak.com/lint-rules/union_read
+
+warning[union_read]: `h.value.text` reads a union member, but nothing here says it is the live one
+  --> tests/lint/union_read/bad.jai:67:12
+   |
+67 |     return h.value.text;
+   |            ^^^^^^^^^^^^
+   |
+   = help: check `h.value.kind` first, or write `h.value.text` here before reading it
+   = note: see https://jacket.matteopolak.com/lint-rules/union_read

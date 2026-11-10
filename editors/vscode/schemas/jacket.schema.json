@@ -995,6 +995,16 @@
               "default": "deny",
               "markdownDescription": "a variable declared `= ---` read before anything is written to it (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#uninit_read)"
             },
+            "union_read": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "a union member read without checking which one is live (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#union_read)"
+            },
             "unnecessary_force_cast": {
               "type": "string",
               "enum": [

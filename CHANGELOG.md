@@ -7,6 +7,10 @@
 - A relative `JACKET_OUTPUT_DIR` is below the checkout everywhere, not the working directory: `jacket test`, the Python and TypeScript tools, `jaic`'s `native-libs/` lookup and `Extensions/Environment` (`output_directory`; new `resolve_output_directory`) agree.
 - `jacket test` no longer builds the fixture data for a suite whose source only names a fixture path in a comment, such as the `Extensions/Environment` doc examples.
 
+### New
+
+- `jailint`: `union_read` (pedantic, off by default) reports a read of a union member that no nearby check of the tag beside it, write, or common initial sequence shows is the live one. The standard library is linted with it: `Extensions/Toml`'s table helpers, the lexer and the X11 event handlers now assert the tag they need, COFF optional headers record their `magic`, and the lexer's `check_for_keyword` and `count_herestring_lines` no longer read the identifier or string of a token that is not one.
+
 ## [0.34.0] - 2026-11-09
 
 ### New
