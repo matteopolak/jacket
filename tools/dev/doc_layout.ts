@@ -103,8 +103,8 @@ interface DrawerState {
   onButton: boolean;
   inDrawer: boolean;
   onCurrent: boolean;
-  width: number;
-  vw: number;
+  height: number;
+  vh: number;
   scrollWidth: number;
 }
 
@@ -642,7 +642,7 @@ async function runCombo(tab: Tab, page: string, width: number, theme: string): P
       return { open: d.open, modal: d.matches(':modal'), expanded: b && b.getAttribute('aria-expanded'),
         locked: getComputedStyle(document.documentElement).overflow === 'hidden',
         onButton: a === b, inDrawer: d.contains(a), onCurrent: !!a && a.getAttribute('aria-current') === 'page',
-        width: Math.round(d.getBoundingClientRect().width), vw: innerWidth,
+        height: Math.round(d.getBoundingClientRect().height), vh: innerHeight,
         scrollWidth: document.documentElement.scrollWidth };
     })()`);
       const closed = await state();
@@ -661,8 +661,9 @@ async function runCombo(tab: Tab, page: string, width: number, theme: string): P
           problems.push(`${how}: aria-expanded is ${s.expanded} while open`);
         if (!s.locked) problems.push(`${how}: the page can still scroll while the drawer is open`);
         if (!s.inDrawer) problems.push(`${how}: focus is outside the drawer`);
-        if (s.width > s.vw * 0.9)
-          problems.push(`${how}: the drawer covers the whole screen (${s.width} of ${s.vw}px)`);
+        // The drawer is a bottom sheet: it leaves part of the page showing above it.
+        if (s.height > s.vh * 0.9)
+          problems.push(`${how}: the drawer covers the whole screen (${s.height} of ${s.vh}px tall)`);
         return s;
       };
       const shut = async (how: string, action: () => Promise<unknown>) => {
