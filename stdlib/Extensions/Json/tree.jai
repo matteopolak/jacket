@@ -64,8 +64,11 @@ from_json :: ($T: Type, value: *Json_Value, options := Json_Options.{}) -> T, Js
 to_json_value :: (value: $T) -> Json_Value {
     w: Json_Writer;
 
+    frames: Build_Stack;
+
     w.tree = true;
-    defer array_free(w.frames);
+    w.frames = *frames;
+    defer array_free(frames.spill);
 
     json_encode(*w, *value);
 
