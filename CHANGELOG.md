@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved
+
+- `Memory.copy` is a memory move rather than a byte loop, so large copies run at the speed of `memcpy`.
+
 ### Fixed
 
 - `jaifmt` drops the blanks that end a here-string's header line (`print(#string ` then a newline).

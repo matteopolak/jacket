@@ -1,20 +1,7 @@
+// The `memcpy` intrinsic is a move on every backend (LLVM `memmove`, the interpreter's `ptr::copy`),
+// so overlapping ranges are safe and a copy runs at the machine's speed rather than byte by byte.
 move_bytes :: (destination: *void, source: *void, count: s64) {
-    dest := cast(*u8) destination;
-    src := cast(*u8) source;
+    if destination == source || count == 0 return;
 
-    if dest == src || count == 0 return;
-
-    if cast(u64) dest > cast(u64) src {
-        i := count;
-        while i > 0 {
-            i -= 1;
-            dest[i] = src[i];
-        }
-    } else {
-        i: s64 = 0;
-        while i < count {
-            dest[i] = src[i];
-            i += 1;
-        }
-    }
+    memcpy(destination, source, count);
 }
