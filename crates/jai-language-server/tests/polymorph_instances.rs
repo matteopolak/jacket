@@ -271,6 +271,10 @@ fn all_child_workspaces_of_a_build_contribute() {
         "{lenses:?}"
     );
     let before = s.compile_counts();
+    assert_eq!(
+        before.0, 1,
+        "only the build is compiled: the programs it builds are not compiled on their own"
+    );
     s.code_lenses(&uri).unwrap();
     assert_eq!(s.compile_counts(), before);
 }

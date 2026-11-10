@@ -9,6 +9,7 @@
 - `Extensions/Csv` reads records longer than 8 KB from a chunked source about 1.8x faster, and one-byte chunks several times faster in the interpreter.
 - `Extensions/Csv` frees the memory a long record needed once later records fit in the usual 8 KB window.
 - `Extensions/Json` `to_json_value` allocates no frame stack for documents up to 16 levels deep.
+- `jailsp` compiles a build metaprogram once for polymorph code lenses, and no longer compiles the programs it builds on their own.
 - `Memory.copy` is a memory move rather than a byte loop, so large copies run at the speed of `memcpy`.
 - Memory-debugger leak reports no longer take quadratic time with many allocations, many allocation sites, long ownership chains or many `this_allocation_is_not_a_leak` marks.
 

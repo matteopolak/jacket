@@ -143,9 +143,17 @@ impl Session {
         let env = self.environment.as_ref().expect("checked by callers");
         let sources = self.sources(env);
         let trusted = self.trusted();
+        // A build metaprogram's compile is also the one the editor's requests for the files it
+        // builds use, so it is kept instead of made twice.
+        let kept = self.is_build_metaprogram(root);
         let mut cache = self.semantic.borrow_mut();
         let detached;
-        let analysis: &Analysis = if let Some(analysis) = cache.cached(env, root, &dirs, buffers) {
+        let analysis: &Analysis = if kept {
+            let Some(analysis) = cache.analyze(env, root, &dirs, Rc::clone(buffers)) else {
+                return;
+            };
+            analysis
+        } else if let Some(analysis) = cache.cached(env, root, &dirs, buffers) {
             analysis
         } else {
             let Some(compiled) = cache.compile_detached(env, root, &dirs, Rc::clone(buffers))
@@ -253,7 +261,11 @@ impl Session {
         };
         let mut complete = true;
         let mut used = BTreeSet::new();
-        for root in &roots {
+        // Build metaprograms go first: once one has run, the programs it builds are known and
+        // are not compiled on their own.
+        let mut ordered: Vec<&PathBuf> = roots.iter().collect();
+        ordered.sort_by_key(|root| !self.is_build_metaprogram(root));
+        for root in ordered {
             if built_child(root) {
                 continue;
             }
