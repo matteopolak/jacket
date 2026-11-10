@@ -664,7 +664,9 @@ async function runCombo(tab: Tab, page: string, width: number, theme: string): P
         if (!s.inDrawer) problems.push(`${how}: focus is outside the drawer`);
         // The drawer is a bottom sheet: it leaves part of the page showing above it.
         if (s.height > s.vh * 0.9)
-          problems.push(`${how}: the drawer covers the whole screen (${s.height} of ${s.vh}px tall)`);
+          problems.push(
+            `${how}: the drawer covers the whole screen (${s.height} of ${s.vh}px tall)`,
+          );
         return s;
       };
       const shut = async (how: string, action: () => Promise<unknown>) => {
