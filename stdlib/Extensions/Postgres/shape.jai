@@ -284,9 +284,9 @@ arguments_code :: (call: Code, sql_index: s64) -> string {
 check_arguments :: (prepared: *Prepared, first: s64) {
     call_node := prepared.call_node;
     values := value_arguments(call_node, first);
-    count := values.count;
+    count, counted := argument_count(call_node, first);
 
-    if has_spread(call_node, first) return;
+    if !counted return;
 
     params := prepared.entry.params;
 
@@ -294,6 +294,9 @@ check_arguments :: (prepared: *Prepared, first: s64) {
         report_at(prepared.sql_node, tprint("the statement takes % parameter% but % argument% given", params.count, ifx params.count == 1 then "" else "s", count, ifx count == 1 then " was" else "s were"));
         return;
     }
+
+    // A spread's values are `Any`s, checked when they are sent.
+    if has_spread(call_node, first) return;
 
     for 0..count - 1 {
         node := values[it];

@@ -548,9 +548,9 @@ prepare_query :: (sql: string, call: Code, sql_index: s64, project_file := "") -
         return prepared;
     }
 
-    arguments := value_arguments(call_node, sql_index + 1).count;
+    arguments, counted := argument_count(call_node, sql_index + 1);
 
-    if arguments != prepared.rewrite.holes && !has_spread(call_node, sql_index + 1) {
+    if counted && arguments != prepared.rewrite.holes {
         got := ifx arguments == 1 then "1 argument was" else tprint("% arguments were", arguments);
         message := tprint("the statement has % placeholder% but % given", prepared.rewrite.holes, ifx prepared.rewrite.holes == 1 then "" else "s", got);
         report_at(sql_node, message);
@@ -641,13 +641,40 @@ prepare_query :: (sql: string, call: Code, sql_index: s64, project_file := "") -
     return prepared;
 }
 
-// `..values` passed as an argument: the number of values is only known at run time.
+// Does `node` stand for a list of arguments, `..values`? `length` is how many, when the type says:
+// a fixed `[N] Any` has N, any other array of `Any` is only as long as it is at run time (-1).
+spread_length :: (node: *Code_Node) -> (spread: bool, length: s64) {
+    if node.kind == .UNARY_OPERATOR return true, -1;
+    if !node.type || node.type.type != .ARRAY return false, 0;
+
+    array := cast(*Type_Info_Array) node.type;
+    if array.element_type != type_info(Any) return false, 0;
+    if array.array_type == .FIXED return true, array.array_count;
+
+    return true, -1;
+}
+
+// `..values` passed as an argument.
 has_spread :: (call_node: *Code_Procedure_Call, first: s64) -> bool {
     for first..call_node.arguments_sorted.count - 1 {
-        node := call_node.arguments_sorted[it];
-        if node.kind == .UNARY_OPERATOR return true;
-        if node.type && node.type.type == .ARRAY && node.type == type_info([] Any) return true;
+        if spread_length(call_node.arguments_sorted[it]) return true;
     }
 
     return false;
+}
+
+// How many values the arguments from `first` on fill placeholders with, and whether that is known
+// at compile time: a spread counts for its elements when its length is in its type.
+argument_count :: (call_node: *Code_Procedure_Call, first: s64) -> count: s64, known: bool {
+    count := 0;
+
+    for value_arguments(call_node, first) {
+        spread, length := spread_length(it);
+
+        if !spread count += 1;
+        else if length < 0 return 0, false;
+        else count += length;
+    }
+
+    return count, true;
 }
