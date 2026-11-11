@@ -194,10 +194,21 @@ impl Compiler {
                 }
                 continue;
             }
-            // An aggregate arrives as the address of the caller's value. Parameters are
-            // values, so the procedure works on its own copy: `advance(*s, 1)` on a `string`
-            // parameter must not move the caller's string.
-            let addr = self.spill(&mut f, param.ty, incoming, param.span)?;
+            // An aggregate arrives as the address of the caller's value, which the procedure
+            // reads in place unless it takes an address inside it (see `Builder::param_copy`).
+            // `#compile_time` procedures may assign to their parameters, so they always copy.
+            let compile_time = header
+                .flags
+                .other
+                .iter()
+                .any(|flag| flag.name.as_str() == "compile_time");
+            let addr = if self.is_memory_type(param.ty) && !compile_time {
+                let size = self.size_of(param.ty, param.span)?;
+                let align = self.align_of(param.ty, param.span)?;
+                f.b.param_copy(incoming, size, align)
+            } else {
+                self.spill(&mut f, param.ty, incoming, param.span)?
+            };
             if !f.type_only
                 && let Some(record) = &mut f.lifetimes
             {
@@ -240,13 +251,7 @@ impl Compiler {
                 );
                 // `#compile_time` procedures run in the compiler, whose arguments are plain
                 // locals.
-                if self.is_memory_type(param.ty)
-                    && !header
-                        .flags
-                        .other
-                        .iter()
-                        .any(|flag| flag.name.as_str() == "compile_time")
-                {
+                if self.is_memory_type(param.ty) && !compile_time {
                     f.immutable.push((addr, Immutable::Argument));
                 }
                 if let Some(info) = &param.callable {

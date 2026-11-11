@@ -15,6 +15,16 @@ pub struct Builder {
     /// Bytes remaining in a known live stack allocation. Loads, casts and raw
     /// arithmetic deliberately do not propagate this proof.
     object_bytes: crate::fxhash::HashMap<Val, u64>,
+    /// Entry copies of aggregate parameters, made by `param_copy`.
+    param_copies: Vec<ParamCopy>,
+}
+
+/// The procedure's own copy of an aggregate parameter, kept only if the body takes the
+/// parameter's address.
+struct ParamCopy {
+    addr: Val,
+    incoming: Val,
+    address_taken: bool,
 }
 
 impl Builder {
@@ -47,6 +57,75 @@ impl Builder {
             terminated: crate::fxhash::HashSet::default(),
             last_loc: None,
             object_bytes: crate::fxhash::HashMap::default(),
+            param_copies: Vec::new(),
+        }
+    }
+
+    /// The place of an aggregate parameter that arrives as the address `incoming` of the
+    /// caller's value. The procedure reads the caller's value in place, so a pointer to a
+    /// member (`*p.field`, `p.items.data`) points into it, unless the body takes the address of
+    /// the parameter itself (`*p`, see `note_address_taken`). Then it works on its own copy, so
+    /// `advance(*s, 1)` does not move the caller's string. Which one is settled in `finish`.
+    pub fn param_copy(&mut self, incoming: Val, size: u64, align: u64) -> Val {
+        let addr = self.alloca(size.max(1), align);
+        self.copy(addr, incoming, size);
+        self.param_copies.push(ParamCopy {
+            addr,
+            incoming,
+            address_taken: false,
+        });
+        addr
+    }
+
+    /// The program takes `addr`, the address of a whole variable, as a pointer value: if it is
+    /// a parameter's place, that parameter needs its own copy.
+    pub fn note_address_taken(&mut self, addr: Val) {
+        if let Some(copy) = self.param_copies.iter_mut().find(|copy| copy.addr == addr) {
+            copy.address_taken = true;
+        }
+    }
+
+    /// Drop the copy of each parameter whose address the body never took: its place becomes
+    /// the caller's value.
+    fn elide_param_copies(&mut self) {
+        let elided: crate::fxhash::HashMap<Val, Val> = std::mem::take(&mut self.param_copies)
+            .into_iter()
+            .filter(|copy| !copy.address_taken)
+            .map(|copy| (copy.addr, copy.incoming))
+            .collect();
+        if elided.is_empty() {
+            return;
+        }
+        let zeros: Vec<Val> = (0..elided.len()).map(|_| self.new_val(Ty::I64)).collect();
+        let mut zeros = zeros.into_iter();
+        let old = std::mem::take(&mut self.func.blocks[0].insts);
+        let insts = &mut self.func.blocks[0].insts;
+        insts.reserve(old.len() + elided.len());
+        for inst in old {
+            match inst {
+                Inst::Copy {
+                    dst,
+                    src,
+                    ..
+                } if elided.get(&dst) == Some(&src) => {}
+                Inst::SlotAddr {
+                    dst, ..
+                } if elided.contains_key(&dst) => {
+                    let zero = zeros.next().expect("one zero per elided copy");
+                    insts.push(Inst::IConst {
+                        dst: zero,
+                        ty: Ty::I64,
+                        value: 0,
+                    });
+                    insts.push(Inst::PtrAdd {
+                        dst,
+                        base: elided[&dst],
+                        offset: zero,
+                        inbounds: true,
+                    });
+                }
+                inst => insts.push(inst),
+            }
         }
     }
 
@@ -398,6 +477,7 @@ impl Builder {
     }
 
     pub fn finish(mut self) -> Func {
+        self.elide_param_copies();
         // Blocks that were never terminated fall off the end: void return.
         for (i, block) in self.func.blocks.iter_mut().enumerate() {
             if !self.terminated.contains(&BlockId(i as u32)) && self.func.sig.returns.is_empty() {

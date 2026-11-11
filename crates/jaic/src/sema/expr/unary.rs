@@ -96,6 +96,15 @@ impl Compiler {
             f.constant_only = constant_only;
             inner?
         };
+        // `*p` on an aggregate parameter gives the procedure its own copy of it; `*p.field`
+        // points into the caller's value (see `Builder::param_copy`).
+        if let E::Ident(_) = &a.kind
+            && let Operand::Place {
+                addr, ..
+            } = inner.clone().without_callable()
+        {
+            f.b.note_address_taken(addr);
+        }
         self.address_of_operand(f, inner, span)
     }
 
