@@ -248,7 +248,10 @@ def step_published(args, shell):
 # publish
 
 def step_publish(args, shell):
-    """Publish archives, VSIX, manifest and checksums from dist/; never deployment/diagnostic artifacts."""
+    """Publish archives, VSIX, manifest and checksums from dist/; never deployment/diagnostic artifacts.
+
+    Writes `created=true` to $GITHUB_OUTPUT when this run created the release, so it is announced once.
+    """
     tag, repo = args.tag, args.repo
     title = f"Jacket {tag.removeprefix('v')}"
     current = tag == f"v{args.current_version}"
@@ -277,8 +280,10 @@ def step_publish(args, shell):
             raise SystemExit(1)
         subprocess.run(upload, check=True)
         subprocess.run(edit + (["--latest"] if current else []), check=True)
+        write_outputs(["created=false"])
     elif "release not found" in result.stderr.lower():
         subprocess.run(create, check=True)
+        write_outputs(["created=true"])
     else:
         sys.stderr.write(result.stderr)
         raise SystemExit(1)

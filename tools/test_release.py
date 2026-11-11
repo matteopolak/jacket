@@ -223,6 +223,10 @@ class Publish(unittest.TestCase):
         self.publish(done(0, '{"isImmutable": false}'), tag="v1.0.0")
         self.assertNotIn("--latest", self.calls[-1])
 
+    def test_publish_reports_whether_it_created_the_release(self):
+        self.assertEqual(self.publish(done(1, "", "release not found"))[1], "created=true\n")
+        self.assertEqual(self.publish(done(0, '{"isImmutable": false}'))[1], "created=false\n")
+
     def test_deployment_only_artifact_is_not_a_distribution(self):
         (self.dist / "artifact.tar").write_text("pages only")
         (self.dist / "training.json").write_text("diagnostic only")

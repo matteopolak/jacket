@@ -1,10 +1,21 @@
 name: announce release on Zulip
-# One message per stable release. `released` fires once when a non-prerelease goes out; the
-# repository webhook would also send created, published and edited. A manual run previews a
-# past release in another channel (default `test`).
+# Posts a release's notes to Zulip. release.yml calls this once, right after its `publish` job
+# creates the GitHub release: a release made with the workflow token fires no `release` event for
+# other workflows. A manual run previews a past release in another channel (default `test`).
 on:
-  release:
-    types: [released]
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+      channel:
+        type: string
+        default: announcements
+    secrets:
+      ZULIP_BOT_EMAIL:
+        required: true
+      ZULIP_BOT_KEY:
+        required: true
   workflow_dispatch:
     inputs:
       tag:
@@ -31,6 +42,6 @@ jobs:
           ZULIP_SITE: https://jacket.zulipchat.com
           ZULIP_BOT_EMAIL: ${{ secrets.ZULIP_BOT_EMAIL }}
           ZULIP_BOT_KEY: ${{ secrets.ZULIP_BOT_KEY }}
-          TAG: ${{ github.event.release.tag_name || inputs.tag }}
-          CHANNEL: ${{ inputs.channel || 'announcements' }}
+          TAG: ${{ inputs.tag }}
+          CHANNEL: ${{ inputs.channel }}
         run: python3 tools/ci/announce_release.py --tag "$TAG" --channel "$CHANNEL"

@@ -323,6 +323,8 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+    outputs:
+      created: ${{ steps.publish.outputs.created }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -344,10 +346,24 @@ jobs:
           (cd dist && sha256sum -- * > SHA256SUMS)
           echo "TAG=$tag" >> "$GITHUB_ENV"
       - name: Publish
+        id: publish
         env:
           GH_TOKEN: ${{ github.token }}
           CURRENT_VERSION: ${{ needs.release-meta.outputs.version }}
         run: python3 tools/release.py publish
+
+  # One Zulip post per release, when this run created it (a resumed or re-run publish edits instead).
+  announce:
+    needs: [release-meta, publish]
+    if: needs.publish.outputs.created == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/zulip-release.yml
+    with:
+      tag: ${{ needs.release-meta.outputs.tag }}
+    secrets:
+      ZULIP_BOT_EMAIL: ${{ secrets.ZULIP_BOT_EMAIL }}
+      ZULIP_BOT_KEY: ${{ secrets.ZULIP_BOT_KEY }}
 
   # The docs site at https://jacket.matteopolak.com, for the current release only.
   pages:
