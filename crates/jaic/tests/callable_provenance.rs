@@ -75,7 +75,7 @@ fn duplicate_named_arguments_reject_instead_of_overwriting() {
     ",
     )
     .expect_err("duplicate named arguments must reject");
-    assert!(error.contains("supplied more than once"), "{error}");
+    assert!(error.contains("parameter `first` given twice"), "{error}");
 }
 
 #[test]

@@ -638,8 +638,6 @@ catalog! {
             "cannot call `<…>` without a context (use push_context in #c_call code)";
         CallNoParameterNamed = "call-no-parameter-named", Error,
             "no parameter named `<name>`";
-        CallArgument = "call-argument", Error,
-            "argument <…> supplied more than once";
         CallCannotValueType = "call-cannot-value-type", Error,
             "cannot call a value of type <…>";
         CallNamedArguments = "call-named-arguments", Error,

@@ -1,6 +1,6 @@
 //! Matching arguments against a candidate and baking automatic variants.
 use super::poly_hints::CANNOT_INFER;
-use super::slots::{assign_slots, header_poly_names, pattern_specificity};
+use super::slots::{SlotParam, assign_slots, header_poly_names, pattern_specificity};
 use super::{AutoBake, CallArg, Candidate, Slot, const_marker};
 use crate::ast::ExprKind as E;
 use crate::diagnostics::Code;
@@ -74,7 +74,7 @@ impl Compiler {
         } else {
             Vec::new()
         };
-        let slots = assign_slots(&header.params, args, &poly_vars, span)?;
+        let slots = assign_slots(&SlotParam::of(&header.params), args, &poly_vars, span)?;
         // `$$x` parameters receiving a constant argument: match a variant with them baked.
         if header.params.iter().any(|p| p.auto_bake) {
             let mut mask = vec![AutoBake::Runtime; header.params.len()];

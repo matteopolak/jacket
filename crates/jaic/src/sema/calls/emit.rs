@@ -1,6 +1,6 @@
 //! Emitting a resolved call: argument operands, variadics, defaults and indirect calls.
 
-use super::count_hints::remove_extra_arguments;
+use super::slots::{SlotParam, assign_slots};
 use super::{
     Arc, ArrayKind, CallArg, Candidate, Compiler, Diagnostic, E, FnCtx, Operand, ProcTarget,
     ProcTypeParams, Result, ScopeId, Signature, Slot, Span, Ty, TypeId, TypeKind, Value, ast,
@@ -298,15 +298,15 @@ impl Compiler {
 
     /// Join scalar and spread segments in their original argument order. The
     /// resulting storage belongs to the caller's frame, just as a fixed pack.
-    pub(super) fn mixed_variadic_value(
+    fn mixed_variadic_value(
         &mut self,
         f: &mut FnCtx,
-        param: &procs::ParamInfo,
+        param_ty: TypeId,
         args: &[CallArg],
         list: &[usize],
         span: Span,
     ) -> Result<ir::Val> {
-        let elem = self.ty.jai_variadic_element(param.ty, span)?;
+        let elem = self.ty.jai_variadic_element(param_ty, span)?;
         let size = self.size_of(elem, span)?;
         let align = self.align_of(elem, span)?;
         let limit = f.b.iconst(Ty::I64, crate::types::MAX_SIZE / size.max(1));
@@ -315,7 +315,7 @@ impl Compiler {
         let mut segments = Vec::new();
         for &a in list {
             let target = if args[a].spread {
-                param.ty
+                param_ty
             } else {
                 elem
             };
@@ -479,35 +479,7 @@ impl Compiler {
                 };
                 self.convert(f, op, param.ty, &d)?
             }
-            Slot::Variadic(list) => {
-                if let Some(&a) = list.iter().find(|&&a| args[a].spread) {
-                    self.warn_spread_with_other_arguments(args[a].scope, args[a].span);
-                    return self.mixed_variadic_value(f, param, args, list, span);
-                }
-                let elem = self.ty.jai_variadic_element(param.ty, span)?;
-                let size = self.size_of(elem, span)?;
-                let align = self.align_of(elem, span)?;
-                let n = list.len() as u64;
-                let base = f.b.alloca((size * n).max(1), align);
-                for (i, &a) in list.iter().enumerate() {
-                    let op = self.arg_operand(f, &args[a], Some(elem))?;
-                    let op = self.convert(f, op, elem, args[a].site())?;
-                    let (_, v) = self.rvalue(f, op, span)?;
-                    let at = f.b.ptr_offset(base, size * i as u64);
-                    if !f.type_only
-                        && let Some(record) = &mut f.lifetimes
-                    {
-                        record.stack_subplaces.push(at);
-                    }
-                    self.store_value(f, elem, at, v, span)?;
-                }
-                let view = f.b.alloca(16, 8);
-                let count = f.b.iconst(Ty::I64, n);
-                f.b.store(Ty::I64, view, count);
-                let dp = f.b.ptr_offset(view, 8);
-                f.b.store(Ty::Ptr, dp, base);
-                return Ok(view);
-            }
+            Slot::Variadic(list) => return self.variadic_pack(f, param.ty, args, list, span),
         };
         if self.is_memory_type(param.ty) {
             let (_, addr) = self.address_of(f, op, span)?;
@@ -516,6 +488,45 @@ impl Compiler {
             let (_, v) = self.rvalue(f, op, span)?;
             Ok(v)
         }
+    }
+
+    /// The view a Jai variadic parameter of type `param_ty` (`[] T`) receives for the
+    /// arguments `list`, stored in the caller's frame.
+    fn variadic_pack(
+        &mut self,
+        f: &mut FnCtx,
+        param_ty: TypeId,
+        args: &[CallArg],
+        list: &[usize],
+        span: Span,
+    ) -> Result<ir::Val> {
+        if let Some(&a) = list.iter().find(|&&a| args[a].spread) {
+            self.warn_spread_with_other_arguments(args[a].scope, args[a].span);
+            return self.mixed_variadic_value(f, param_ty, args, list, span);
+        }
+        let elem = self.ty.jai_variadic_element(param_ty, span)?;
+        let size = self.size_of(elem, span)?;
+        let align = self.align_of(elem, span)?;
+        let n = list.len() as u64;
+        let base = f.b.alloca((size * n).max(1), align);
+        for (i, &a) in list.iter().enumerate() {
+            let op = self.arg_operand(f, &args[a], Some(elem))?;
+            let op = self.convert(f, op, elem, args[a].site())?;
+            let (_, v) = self.rvalue(f, op, span)?;
+            let at = f.b.ptr_offset(base, size * i as u64);
+            if !f.type_only
+                && let Some(record) = &mut f.lifetimes
+            {
+                record.stack_subplaces.push(at);
+            }
+            self.store_value(f, elem, at, v, span)?;
+        }
+        let view = f.b.alloca(16, 8);
+        let count = f.b.iconst(Ty::I64, n);
+        f.b.store(Ty::I64, view, count);
+        let dp = f.b.ptr_offset(view, 8);
+        f.b.store(Ty::Ptr, dp, base);
+        Ok(view)
     }
 
     /// An all-zero value of a parameter type, passed where an argument is discarded.
@@ -537,94 +548,53 @@ impl Compiler {
         })
     }
 
-    /// Place named arguments of a call through a procedure value and fill in the defaults its
-    /// type was written with.
-    pub(super) fn order_indirect_args(
-        &mut self,
-        info: &ProcTypeParams,
-        args: Vec<CallArg>,
-        c_varargs: bool,
+    /// Assign the arguments of a call through a procedure value of type `pt` to its parameters.
+    /// Names and defaults come from the header the value was written with (`info`); without one
+    /// only positional arguments are possible. The arguments for a C ellipsis come back as one
+    /// more slot after the parameters.
+    ///
+    /// ```text
+    /// g := (a: int, rest: ..int) {};   g(1, 2, 3)  ->  [Arg(0), Variadic([1, 2])]
+    /// ```
+    fn indirect_slots(
+        pt: &crate::types::ProcType,
+        info: Option<&ProcTypeParams>,
+        args: &[CallArg],
         span: Span,
-    ) -> Result<Vec<CallArg>> {
-        let n = info.names.len();
-        let mut slots: Vec<Option<CallArg>> = vec![None; n];
-        let mut extra = Vec::new();
-        let mut next = 0;
-        let all_args = args.clone();
-        for (position, arg) in args.into_iter().enumerate() {
-            let i = if let Some(name) = arg.name {
-                info.names
-                    .iter()
-                    .position(|&p| p == Some(name))
-                    .ok_or_else(|| {
-                        Box::new(Diagnostic::new(
-                            Code::CallNoParameterNamed,
-                            arg.span,
-                            format!("no parameter named `{name}`"),
-                        ))
-                    })?
-            } else {
-                while next < n && slots[next].is_some() {
-                    next += 1;
-                }
-                next
-            };
-            if i >= n {
-                if c_varargs && arg.name.is_none() {
-                    extra.push(arg);
-                    continue;
-                }
-                let mut d = Diagnostic::new(
-                    Code::ArgumentCount,
-                    arg.span,
-                    format!("too many arguments: it takes at most {n}"),
-                )
-                .with_label("this argument has no parameter");
-                if let Some(remove) = remove_extra_arguments(&all_args, position) {
-                    d = d.with_suggestion(remove);
-                }
-                return Err(Box::new(d));
-            }
-            if slots[i].is_some() {
-                return err(
-                    Code::CallArgument,
-                    arg.span,
-                    format!("argument {} supplied more than once", i + 1),
-                );
-            }
-            slots[i] = Some(CallArg {
+    ) -> Result<Vec<Slot>> {
+        let last = pt.params.len().checked_sub(1);
+        let mut params: Vec<SlotParam> = (0..pt.params.len())
+            .map(|i| SlotParam {
+                name: info.and_then(|info| info.names.get(i).copied().flatten()),
+                variadic: pt.variadic && Some(i) == last,
+                span: None,
+            })
+            .collect();
+        if pt.c_varargs {
+            params.push(SlotParam {
                 name: None,
-                ..arg
+                variadic: true,
+                span: None,
             });
         }
-        let mut ordered = slots
-            .into_iter()
-            .enumerate()
-            .map(|(i, slot)| match (slot, &info.defaults[i]) {
-                (Some(arg), _) => Ok(arg),
-                (None, Some(default)) => Ok(CallArg {
-                    name: None,
-                    spread: false,
-                    expr: Some(default.clone()),
-                    op: None,
-                    span: default.span,
-                    scope: info.scope,
-                }),
-                (None, None) => {
-                    let mut d = Diagnostic::new(
-                        Code::ArgumentCount,
-                        span,
-                        format!("missing argument {}", i + 1),
-                    );
-                    if let Some(name) = info.names[i] {
-                        d = d.with_label(format!("no value for parameter `{name}`"));
-                    }
-                    Err(Box::new(d))
-                }
-            })
-            .collect::<Result<Vec<_>>>()?;
-        ordered.extend(extra);
-        Ok(ordered)
+        assign_slots(&params, args, &[], span)
+    }
+
+    /// One argument of a call through a procedure value, converted to its parameter type.
+    fn indirect_value(
+        &mut self,
+        f: &mut FnCtx,
+        arg: &CallArg,
+        param_ty: TypeId,
+        span: Span,
+    ) -> Result<ir::Val> {
+        let op = self.arg_operand(f, arg, Some(param_ty))?;
+        let op = self.convert(f, op, param_ty, arg.site())?;
+        Ok(if self.is_memory_type(param_ty) {
+            self.address_of(f, op, span)?.1
+        } else {
+            self.rvalue(f, op, span)?.1
+        })
     }
 
     pub(super) fn call_indirect(
@@ -633,7 +603,7 @@ impl Compiler {
         ty: TypeId,
         callee: ir::Val,
         parameters: Option<Arc<ProcTypeParams>>,
-        mut args: Vec<CallArg>,
+        args: Vec<CallArg>,
         span: Span,
     ) -> Result<Operand> {
         let TypeKind::Proc(pt) = self.ty.types.kind(ty).clone() else {
@@ -648,31 +618,15 @@ impl Compiler {
             .as_ref()
             .map(|info| info.returns.clone())
             .unwrap_or_default();
-        if let Some(info) = parameters {
-            args = self
-                .order_indirect_args(&info, args, pt.c_varargs, span)
-                .map_err(|d| self.with_type_note(*d, ty))?;
-        } else if args.iter().any(|arg| arg.name.is_some()) {
+        if parameters.is_none() && args.iter().any(|arg| arg.name.is_some()) {
             return err(
                 Code::CallNamedArguments,
                 span,
                 "named arguments require a known callable declaration",
             );
         }
-        if args.len() < pt.params.len()
-            || (!pt.c_varargs && !pt.variadic && args.len() > pt.params.len())
-        {
-            let d = Diagnostic::new(
-                Code::ArgumentCount,
-                span,
-                format!(
-                    "expected {} arguments, found {}",
-                    pt.params.len(),
-                    args.len()
-                ),
-            );
-            return Err(self.with_type_note(d, ty));
-        }
+        let slots = Self::indirect_slots(&pt, parameters.as_deref(), &args, span)
+            .map_err(|d| self.with_type_note(*d, ty))?;
         let mut mapped = Vec::new();
         let allocator = if f.lifetimes.is_some() && !f.type_only {
             self.preload_type(crate::sema::PreludeType::Allocator, span)
@@ -695,15 +649,53 @@ impl Compiler {
             };
             values.push(ctx);
         }
+        let last = pt.params.len().checked_sub(1);
         for (i, &param_ty) in pt.params.iter().enumerate() {
-            let op = self.arg_operand(f, &args[i], Some(param_ty))?;
-            let op = self.convert(f, op, param_ty, args[i].site())?;
-            let value = if self.is_memory_type(param_ty) {
-                let (_, a) = self.address_of(f, op, span)?;
-                a
-            } else {
-                let (_, v) = self.rvalue(f, op, span)?;
-                v
+            let pack = pt.variadic && Some(i) == last;
+            let (value, anchor) = match &slots[i] {
+                Slot::Variadic(list) => (
+                    self.variadic_pack(f, param_ty, &args, list, span)?,
+                    Some(&args[list[0]]),
+                ),
+                Slot::Arg(a) | Slot::Spread(a) => (
+                    self.indirect_value(f, &args[*a], param_ty, span)?,
+                    Some(&args[*a]),
+                ),
+                Slot::Default => {
+                    match parameters
+                        .as_ref()
+                        .and_then(|info| info.defaults[i].as_ref().map(|d| (d.clone(), info.scope)))
+                    {
+                        Some((default, scope)) => {
+                            let arg = CallArg {
+                                name: None,
+                                spread: false,
+                                span: default.span,
+                                expr: Some(default),
+                                op: None,
+                                scope,
+                            };
+                            (self.indirect_value(f, &arg, param_ty, span)?, None)
+                        }
+                        None if pack => {
+                            // Empty variadic: a zero view.
+                            let view = f.b.alloca(16, 8);
+                            f.b.zero(view, 16);
+                            (view, None)
+                        }
+                        None => {
+                            let mut d = Diagnostic::new(
+                                Code::ArgumentCount,
+                                span,
+                                format!("missing argument {}", i + 1),
+                            );
+                            if let Some(name) = parameters.as_ref().and_then(|info| info.names[i]) {
+                                d = d.with_label(format!("no value for parameter `{name}`"));
+                            }
+                            return Err(self.with_type_note(d, ty));
+                        }
+                    }
+                }
             };
             values.push(value);
             if f.lifetimes.is_some() && !f.type_only {
@@ -711,15 +703,20 @@ impl Compiler {
                     formal: i,
                     ty: param_ty,
                     constant: None,
-                    span: args[i].span,
+                    span: anchor.map_or(span, |arg| arg.span),
                     operand: crate::ide::lifetimes::LifetimeOperand::Value(value),
-                    named: args[i].name.is_some(),
-                    spread: args[i].spread,
+                    named: anchor.is_some_and(|arg| arg.name.is_some()),
+                    spread: anchor.is_some_and(|arg| arg.spread),
                 });
             }
         }
         let mut sig = self.ir_sig(ty, span)?;
-        for arg in &args[pt.params.len()..] {
+        let ellipsis = match slots.get(pt.params.len()) {
+            Some(Slot::Variadic(list)) => list.clone(),
+            Some(Slot::Arg(a) | Slot::Spread(a)) => vec![*a],
+            _ => Vec::new(),
+        };
+        for arg in ellipsis.iter().map(|&a| &args[a]) {
             let op = self.arg_operand(f, arg, None)?;
             let op = self.settle_untyped(op, None);
             let op = c_vararg_promote(self, f, op, span)?;

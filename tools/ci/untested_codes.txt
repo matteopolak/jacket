@@ -47,7 +47,6 @@ build-no-main-module
 build-string-scope-invalid
 builtin-procedure
 builtin-procedure-without
-call-argument
 call-argument-must-compile
 call-argument-no-value
 call-argument-type

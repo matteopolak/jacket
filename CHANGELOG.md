@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- A call through a procedure value (`callback := report; callback(3, "%", "ERR")`) packs variadic arguments, as a direct call does.
+
 ## [0.35.0] - 2026-11-10
 
 Faster leak reports, Csv, Json trees and language server, plus fixes to here-strings, `#run` constants and overloads.

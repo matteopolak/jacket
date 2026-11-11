@@ -130,13 +130,54 @@ pub(in crate::sema) fn header_poly_names(header: &ast::ProcHeader) -> Vec<Sym> {
 
 /// A named argument binding a polymorphic variable (`f(x, T = float64)`).
 pub(super) fn is_poly_var_arg(params: &[ast::Param], arg: &CallArg, poly_vars: &[Sym]) -> bool {
-    arg.name.is_some_and(|name| {
-        poly_vars.contains(&name) && !params.iter().any(|p| p.name.map(|n| n.name) == Some(name))
-    })
+    names_poly_var(
+        params.iter().map(|p| p.name.map(|n| n.name)),
+        arg,
+        poly_vars,
+    )
 }
 
+fn names_poly_var(
+    mut names: impl Iterator<Item = Option<Sym>>,
+    arg: &CallArg,
+    poly_vars: &[Sym],
+) -> bool {
+    arg.name
+        .is_some_and(|name| poly_vars.contains(&name) && !names.any(|n| n == Some(name)))
+}
+
+/// What slot assignment needs to know about one parameter, from a declaration or from a
+/// procedure type (a call through a procedure value).
+#[derive(Clone, Copy)]
+pub(super) struct SlotParam {
+    pub name: Option<Sym>,
+    /// A Jai variadic (`..T`), or the C ellipsis of a procedure value's type.
+    pub variadic: bool,
+    /// Where the parameter is declared, when there is a declaration to point at.
+    pub span: Option<Span>,
+}
+
+impl SlotParam {
+    pub(super) fn of(params: &[ast::Param]) -> Vec<SlotParam> {
+        params
+            .iter()
+            .map(|p| SlotParam {
+                name: p.name.map(|n| n.name),
+                variadic: p.variadic,
+                span: Some(p.span),
+            })
+            .collect()
+    }
+}
+
+/// Assign each argument to a parameter. Positional arguments from the variadic parameter on,
+/// and those after a named variadic argument (`v = a, b, c`), all go into its pack.
+///
+/// ```text
+/// f :: (a: int, rest: ..int);   f(1, 2, 3)  ->  [Arg(0), Variadic([1, 2])]
+/// ```
 pub(super) fn assign_slots(
-    params: &[ast::Param],
+    params: &[SlotParam],
     args: &[CallArg],
     poly_vars: &[Sym],
     span: Span,
@@ -145,17 +186,14 @@ pub(super) fn assign_slots(
     let variadic_index = params.iter().position(|p| p.variadic);
     let mut positional = 0usize;
     for (i, arg) in args.iter().enumerate() {
-        if is_poly_var_arg(params, arg, poly_vars) {
+        if names_poly_var(params.iter().map(|p| p.name), arg, poly_vars) {
             continue;
         }
         if let Some(name) = arg.name {
-            let Some(p) = params
-                .iter()
-                .position(|p| p.name.map(|n| n.name) == Some(name))
-            else {
+            let Some(p) = params.iter().position(|p| p.name == Some(name)) else {
                 let names: Vec<&str> = params
                     .iter()
-                    .filter_map(|p| p.name.map(|n| n.name.as_str()))
+                    .filter_map(|p| p.name.map(Sym::as_str))
                     .collect();
                 let mut d = Diagnostic::new(
                     Code::CallNoParameterNamed,
@@ -175,12 +213,13 @@ pub(super) fn assign_slots(
                             ),
                             None => d.with_help(format!("did you mean `{near}`?")),
                         };
-                        if let Some(param) = params
+                        if let Some(declared) = params
                             .iter()
-                            .find(|p| p.name.map(|n| n.name.as_str()) == Some(near))
+                            .find(|p| p.name.map(Sym::as_str) == Some(near))
+                            .and_then(|p| p.span)
                         {
                             d = d.with_note(
-                                param.span,
+                                declared,
                                 format!("parameter `{near}` is declared here"),
                             );
                         }
