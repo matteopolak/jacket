@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased]
+## [0.35.1] - 2026-11-11
+
+Fixes to calls through procedure values, `using` parameters in `#run` and aggregate parameters.
 
 ### Fixed
 
