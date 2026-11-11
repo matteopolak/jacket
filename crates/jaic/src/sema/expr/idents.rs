@@ -196,7 +196,7 @@ impl Compiler {
                         return Err(self.ambiguous_using_member(member, span, &providers));
                     }
                 }
-                let op = self.using_member(f, entry, member, span)?;
+                let op = self.using_member(f, scope, entry, member, span)?;
                 // `name` stands for `value.name`: hover and go to definition treat it as the field.
                 if let Some(ty) = place {
                     self.ide_note_member_use(span, ty, member);
@@ -377,7 +377,7 @@ impl Compiler {
         self.entity_operand(f, scope, ids[0], span)
     }
 
-    fn entity_operand(
+    pub(in crate::sema) fn entity_operand(
         &mut self,
         f: &mut FnCtx,
         scope: ScopeId,
@@ -647,6 +647,20 @@ impl Compiler {
         let [id] = ids[..] else {
             return Ok(None);
         };
+        self.outer_local_constant(f, scope, id, member.name, member.span)
+    }
+
+    /// A constant member (`N` of `Box(N: int)`, a `::` declaration) of the struct type of
+    /// local `id`, when `id` belongs to an enclosing procedure. Code nested in a procedure
+    /// (`#run`, `#insert`) has its own frame, so it can read only what the type holds.
+    pub(in crate::sema) fn outer_local_constant(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        id: EntityId,
+        member: Sym,
+        span: Span,
+    ) -> Result<Option<Operand>> {
         let EntityKind::Local {
             ty,
             depth,
@@ -659,11 +673,11 @@ impl Compiler {
             return Ok(None);
         }
         let ty = self.ty.types.pointee(ty).unwrap_or(ty);
-        if self.ty.types.as_struct(ty).is_none() || self.names_field(ty, member.name)? {
+        if self.ty.types.as_struct(ty).is_none() || self.names_field(ty, member)? {
             return Ok(None);
         }
         Ok(self
-            .member_access(f, scope, Operand::Type(ty), member.name, member.span)
+            .member_access(f, scope, Operand::Type(ty), member, span)
             .ok()
             .filter(|op| {
                 matches!(

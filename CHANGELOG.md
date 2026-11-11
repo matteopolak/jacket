@@ -5,6 +5,7 @@
 ### Fixed
 
 - A call through a procedure value (`callback := report; callback(3, "%", "ERR")`) packs variadic arguments, as a direct call does.
+- A `#run` inside a procedure can read the struct parameters of a `using` parameter (`for value_types` in `Tagged_Union` code).
 
 ## [0.35.0] - 2026-11-10
 

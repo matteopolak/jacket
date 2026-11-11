@@ -76,7 +76,7 @@ impl Compiler {
             Operand::Type(t) => return self.type_member(f, scope, t, name, span),
             Operand::Module(m) => {
                 return match self.module_member_lookup(m, name)? {
-                    Found::Using(entry, member) => self.using_member(f, entry, member, span),
+                    Found::Using(entry, member) => self.using_member(f, scope, entry, member, span),
                     Found::Entities(ids) if ids.is_empty() => {
                         Err(Box::new(self.no_module_member(m, name, span)))
                     }

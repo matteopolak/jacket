@@ -34,7 +34,7 @@ The calls give the commented results: defaults and named arguments {#proc.1}, mu
 - A scalar parameter is a mutable local. An aggregate parameter (struct, string, fixed array, view) is read-only: `p.x = 1`, `s = "zz"`, `a[0] = 5` on a fixed array are errors, `Can't assign to an immutable argument.` Writing through a pointer inside it, taking its address, and writing an element of a view or string stay legal. Copy first to change it: `s := s;`. A member brought in by `using o: Outer` counts as part of `o`. A `#compile_time` procedure is exempt {#proc.12}.
 - A bare builtin type name followed by a comma in a parameter list is a nameless parameter: in `(sep: string, string, reversed := false)` the second is an unnamed `string` {#proc.15}. Followed by `:` it is a parameter named like a builtin type, which is rejected (decl.25).
 - A procedure value keeps the names, defaults and variadic `..` of the procedure or procedure type it comes from, so `g := f; g(1, 2, 3)` packs `2, 3` as a direct call would. A variable declared `(a: int, rest: ..int)` makes a procedure taking `[] int` callable that way {#proc.17}.
-- A block nested in a procedure (such as `#insert -> string { ... }`) may take the `.count` of an enclosing procedure's fixed array via `result.words.count`: the count is part of the type. Any other use of an enclosing local is an error {#proc.16}.
+- A block nested in a procedure (such as `#insert -> string { ... }`) may take the `.count` of an enclosing procedure's fixed array via `result.words.count`: the count is part of the type. Any other use of an enclosing local is an error {#proc.16}. Constants of an enclosing local's struct type, its struct parameters among them, are readable as `b.N` or, through `using b`, as `N` {#proc.18}.
 
 ## Headers
 

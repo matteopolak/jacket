@@ -7,9 +7,11 @@ use crate::sema::{Compiler, Result, ScopeId, Span, Sym, TypeId, ast, err};
 use crate::types::StructId;
 
 impl Compiler {
+    /// `member` named on its own in `scope`, found through the `using` that `entry` records.
     pub fn using_member(
         &mut self,
         f: &mut FnCtx,
+        scope: ScopeId,
         entry: UsingEntry,
         member: Sym,
         span: Span,
@@ -23,26 +25,29 @@ impl Compiler {
                         format!("using filter excludes `{member}`"),
                     );
                 };
-                self.using_member(f, *base, target, span)
+                self.using_member(f, scope, *base, target, span)
             }
             UsingEntry::Type(t) => self.type_member(f, ScopeId(0), t, member, span),
             UsingEntry::Module(m, _) => match self.module_lookup(m, member)? {
-                Found::Using(entry, member) => self.using_member(f, entry, member, span),
+                Found::Using(entry, member) => self.using_member(f, scope, entry, member, span),
                 Found::Entities(ids) => self.entities_operand(f, ScopeId(0), &ids, span),
             },
             UsingEntry::Place {
-                ty,
-                entity,
+                entity, ..
             } => {
-                let base = match self.entity(entity).kind.clone() {
+                let base = match self.entity(entity).kind {
+                    // A local reads like its name would, so `using` of an enclosing procedure's
+                    // local in a nested `#run` gives its type's constants and nothing else.
                     EntityKind::Local {
-                        ty,
-                        addr,
                         ..
-                    } => Operand::Place {
-                        ty,
-                        addr,
-                    },
+                    } => {
+                        if let Some(op) =
+                            self.outer_local_constant(f, scope, entity, member, span)?
+                        {
+                            return Ok(op);
+                        }
+                        self.entity_operand(f, scope, entity, span)?
+                    }
                     _ => match self.resolve_entity(entity)? {
                         Resolved::Global {
                             storage,
@@ -60,7 +65,6 @@ impl Compiler {
                         }
                     },
                 };
-                let _ = ty;
                 self.member_access(f, ScopeId(0), base, member, span)
             }
         }
