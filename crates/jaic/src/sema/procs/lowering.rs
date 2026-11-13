@@ -202,13 +202,7 @@ impl Compiler {
                 .other
                 .iter()
                 .any(|flag| flag.name.as_str() == "compile_time");
-            let addr = if self.is_memory_type(param.ty) && !compile_time {
-                let size = self.size_of(param.ty, param.span)?;
-                let align = self.align_of(param.ty, param.span)?;
-                f.b.param_copy(incoming, size, align)
-            } else {
-                self.spill(&mut f, param.ty, incoming, param.span)?
-            };
+            let addr = self.param_storage(&mut f, compile_time, param.ty, incoming, param.span)?;
             if !f.type_only
                 && let Some(record) = &mut f.lifetimes
             {
@@ -386,6 +380,27 @@ impl Compiler {
     }
 
     /// Falling off the end of a body: return named results, or nothing.
+    /// Where a parameter lives in the body: aggregates may be read in place
+    /// (`Builder::param_copy`), anything else is spilled to a slot.
+    fn param_storage(
+        &mut self,
+        f: &mut FnCtx,
+        compile_time: bool,
+        ty: TypeId,
+        incoming: ir::Val,
+        span: Span,
+    ) -> Result<ir::Val> {
+        if !self.is_memory_type(ty) || compile_time {
+            return self.spill(f, ty, incoming, span);
+        }
+        let size = self.size_of(ty, span)?;
+        let align = self.align_of(ty, span)?;
+        let addr = f.b.param_copy(incoming, size, align);
+        // The lifetime record sees the copy `spill` would make, elided or not.
+        f.lifetime_store(addr, incoming, ty, span);
+        Ok(addr)
+    }
+
     pub fn emit_fallthrough_return(&mut self, f: &mut FnCtx, span: Span) -> Result<()> {
         self.emit_defers(f, 0, span)?;
         if f.return_types.is_empty() {
