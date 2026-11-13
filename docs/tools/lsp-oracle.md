@@ -25,6 +25,9 @@ The session is set up as an editor has it: the nearest `jacket.toml` above the f
 | c | hover, definition or diagnostics change beyond shifted positions after inserting blank lines or running `jaifmt`, or editing a session into that text differs from opening it fresh |
 | d | completion after `value.` misses a member the code uses, or a struct literal misses a field |
 
+- The sessions have no wall-clock check limit (`set_check_time_limit(0.0)`): on a busy machine a limit would cut a check short in different places for each session and show up as differences. The evaluation budget still bounds runaway compile-time code.
+- A file that a neighbouring `#load` (beside it or one folder up) reaches, where that loader fails `jaic -check`, is left out: the server checks a loaded file inside the program that loads it, so a negative fixture's support file or the member of a module that is broken on purpose is wrong wherever it is opened.
+- A struct literal's type is the one recorded for the expression that ends at its closing brace, so `(Outer.{}).first` does not stand for `Outer.{}`.
 - A crashing chunk is rerun file by file. Upstream files run inside the corpus sandbox; cases needing special setup or still pending review are skipped.
 - Findings are keyed `path|kind|name` and compared with `tools/lsp/oracle-known.json`. A new key fails the run (exit 1); a known key no longer found is printed so it can be removed.
 
