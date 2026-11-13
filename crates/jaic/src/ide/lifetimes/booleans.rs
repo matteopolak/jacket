@@ -7,14 +7,18 @@ pub(super) fn immutable_boolean_branches(
     constants: &HashMap<Val, u64>,
 ) -> Vec<(Val, Val, bool)> {
     let mut flags = private_byte_flags(func);
-    flags.retain(|flag| {
-        func.blocks
-            .iter()
-            .flat_map(|b| &b.insts)
-            .filter(|i| matches!(i, ir::Inst::Store { addr, .. } if addr == flag))
-            .count()
-            == 1
-    });
+    // Keep the flags stored exactly once, counting every flag's stores in one pass.
+    let mut stores: HashMap<Val, u32> = flags.iter().map(|&f| (f, 0)).collect();
+    for inst in func.blocks.iter().flat_map(|b| &b.insts) {
+        if let ir::Inst::Store {
+            addr, ..
+        } = inst
+            && let Some(n) = stores.get_mut(addr)
+        {
+            *n += 1;
+        }
+    }
+    flags.retain(|flag| stores[flag] == 1);
     let slots: HashMap<_, _> = flags
         .iter()
         .copied()
