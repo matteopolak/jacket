@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- `jailint --fix` and the language server's fix-all no longer delete a statement that is the whole body of a `for`, `if`, `while` or `defer` written without braces, which left the file unparsable; the `;` stays as an empty body.
+- The lifetime lints follow values passed in aggregate parameters again (broken in 0.35.1).
+- Hovers in the language server keep working after a check that took longer than the check time limit.
+- The language server's hover cuts a long declaration at the same point however it is laid out.
+- On Linux, compile-time code that aborts no longer leaves the compiler waiting on a core dump handler.
+
 ## [0.35.2] - 2026-11-12
 
 `print` keeps working in programs without a console.
