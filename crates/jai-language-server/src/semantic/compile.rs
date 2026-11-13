@@ -310,6 +310,10 @@ pub(super) fn compile(
     if stopped {
         let notice = limits.stopped_notice(first_line(&compiler, root));
         compiler.diag.warnings.push(notice);
+    } else {
+        // The limit bounds the check; hovers over its result evaluate what it left lazily,
+        // however long after.
+        host.borrow_mut().end_time_limit();
     }
     let base_paths = (env.options)(root).import_paths;
     let mut recorded: Vec<(i64, BuiltProgram)> = Vec::new();

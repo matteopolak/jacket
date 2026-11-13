@@ -342,6 +342,14 @@ impl SandboxHost {
         }
     }
 
+    /// Ends the wall-clock limit of `stop_after` without stopping anything: the check it bounded
+    /// is over, and what runs on this host later (a hover finishing an entity the check left
+    /// unevaluated) must not fail for the time that has passed since. A host that already
+    /// stopped stays stopped.
+    pub fn end_time_limit(&mut self) {
+        self.time_limit = None;
+    }
+
     /// Stop all code running on this host once it was asked `polls` times whether to stop.
     /// Replaces the clock with a count, so a test of where the compiler asks can say exactly
     /// when the answer turns to yes.

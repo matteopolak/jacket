@@ -126,6 +126,34 @@ fn the_wall_clock_limit_stops_the_check_with_one_notice() {
     assert_eq!(errors(found), []);
 }
 
+/// A module's alias is finished when hovered, not when the check ran: the limit that bounded the
+/// check must not fail that.
+#[test]
+fn a_hover_after_the_time_limit_passed_still_describes_a_module_alias() {
+    use std::time::{Duration, Instant};
+    let text = "#import \"Basic\";\nB :: #import \"Basic\";\nmain :: () { B.print(\"x\"); }\n";
+    let started = Instant::now();
+    let mut unlimited = test_support::lsp::open(text);
+    unlimited.set_check_time_limit(0.0);
+    let _ = unlimited.diagnostics(&test_support::lsp::uri());
+    // A limit the check meets however slow the machine is.
+    let limit = (started.elapsed().as_secs_f64() * 5.0).max(1.0);
+
+    let mut s = test_support::lsp::open(text);
+    s.set_check_time_limit(limit);
+    let found = s.diagnostics(&test_support::lsp::uri()).unwrap();
+    assert!(
+        found
+            .iter()
+            .all(|d| !d.message.contains("checking stopped")),
+        "{found:#?}"
+    );
+    std::thread::sleep(Duration::from_secs_f64(limit + 0.2));
+    let at = test_support::lsp::at(text, "B ::");
+    let hover = s.hover(&test_support::lsp::uri(), at).unwrap().unwrap();
+    assert_eq!(hover.contents.value, "B :: #import \"Basic\"");
+}
+
 #[test]
 fn costly_evaluations_get_a_lens_and_a_ranked_list() {
     let dir = test_support::lsp::project("cost-lens", &[("main.jai", HEAVY)]);
