@@ -191,6 +191,12 @@ fn rules_match_their_cases(part: usize) {
         let refs: Vec<&Lint> = lints.iter().collect();
         let (fixed, applied) = jailint::fix::apply(&text, &refs);
         let fixed_path = case.join("bad.fixed.jai");
+        // The linter skips text that does not parse, so `fixed_cases_are_clean` would pass it.
+        assert!(
+            jaic::parser::parse_file(jaic::source::FileId(0), &fixed).is_ok(),
+            "{}: the fixed bad case does not parse:\n{fixed}",
+            r.name
+        );
         if applied > 0 {
             expect_file(&fixed_path, &fixed);
         } else {

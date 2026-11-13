@@ -12,4 +12,5 @@ main :: () {
     flush;
     x;
     print("%\n", x);
+    if x > 0 x;
 }

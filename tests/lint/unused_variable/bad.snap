@@ -65,3 +65,29 @@ help: remove it from the declaration
    |
    = note: `unused_variable` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/unused_variable
+
+warning[unused_variable]: unused variable `inside`
+  --> tests/lint/unused_variable/bad.jai:20:14
+   |
+20 |     for 0..2 inside: int;
+   |              ^^^^^^
+   |
+help: remove it
+   |
+20 ~     for 0..2;
+   |
+   = note: `unused_variable` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_variable
+
+warning[unused_variable]: unused variable `commented`
+  --> tests/lint/unused_variable/bad.jai:22:9
+   |
+22 |         commented: int;
+   |         ^^^^^^^^^
+   |
+help: remove it
+   |
+22 ~         ;
+   |
+   = note: `unused_variable` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_variable

@@ -27,7 +27,7 @@ Exit status: 0 clean, 1 a denied finding or a program that did not compile fully
 - **Compile** (`driver/compile.rs`): the same lint compile the language server uses, with lint facts on (`IdeFacts::lint`): expression types, constness, cast types and what each name resolved to. Compile-time code runs sandboxed ([limits](../compiler/compile-time-limits.md)).
 - **Lint** (`lib.rs`, `driver/lint_root.rs`): re-parse, build suppressions, run each enabled rule. Where the compiler did not look (an `#if` branch left out, a failed body) rules fall back to text and stay quiet.
 - **Leak pass** (`driver/leak.rs`, only with `platform_leak`): portable roots are compiled again for every target system and the imports and failed asserts are traced.
-- **Fix** (`fix.rs`): `--fix` applies non-overlapping machine-applicable fixes and re-lints, up to 5 passes.
+- **Fix** (`fix.rs`): `--fix` applies non-overlapping machine-applicable fixes and re-lints, up to 5 passes. A fix that removes a statement goes through `Cx::statement_removal`, which keeps the `;` of a statement that is the whole brace-less body of a loop, `if`, `defer` or `#if` arm (`for 0..2 x: int;` becomes `for 0..2 ;`), so the file still parses.
 
 In editors, diagnostics carry the rule as `code` and link to its `### <rule>` section below; `deny` rules are errors. Settings come from the `[lint]` table of the nearest `jacket.toml` ([language server](../compiler/language-server.md#lints-and-quick-fixes)).
 

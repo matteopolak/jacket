@@ -52,3 +52,16 @@ help: remove it, or use its value
    |
    = note: `no_effect` is `warn` by default
    = note: see https://jacket.matteopolak.com/lint-rules/no_effect
+
+warning[no_effect]: this statement has no effect
+  --> tests/lint/no_effect/bad.jai:15:14
+   |
+15 |     if x > 0 x;
+   |              ^
+   |
+help: remove it, or use its value
+   |
+15 ~     if x > 0;
+   |
+   = note: `no_effect` is `warn` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/no_effect

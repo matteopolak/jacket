@@ -16,4 +16,8 @@ main :: () {
     first, second: string;
     first = "x";
     print("%\n", first);
+
+    for 0..2 inside: int;
+    for 0..2 // the comment stays
+        commented: int;
 }

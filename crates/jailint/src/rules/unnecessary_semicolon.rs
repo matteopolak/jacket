@@ -16,8 +16,8 @@
 use super::replacing;
 use crate::Finding;
 use crate::syntax::Cx;
+use jaic::ast::StmtKind as S;
 use jaic::ast::walk::Node;
-use jaic::ast::{Stmt, StmtKind as S};
 
 /// The rule's name, group and one-line summary, and its check.
 pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
@@ -28,23 +28,13 @@ pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
 };
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
-    super::walk_code(cx, &mut |n, up| {
+    super::walk_code(cx, &mut |n, _| {
         let Node::Stmt(s) = n else {
             return;
         };
-        if !matches!(s.kind, S::Empty) {
-            return;
-        }
-        // An empty statement that is the body of a loop, an `if` or a `defer` is deliberate.
-        let in_list = match up.last() {
-            None => true,
-            Some(Node::Stmt(parent)) => matches!(
-                parent.kind,
-                S::Block(_) | S::Switch(_) | S::StaticSwitch(_) | S::StaticIf(_) | S::Case(_)
-            ),
-            Some(Node::Expr(_)) => true,
-        };
-        if !in_list || cx.src(s.span) != ";" || is_static_if_body(cx, s, up.last()) {
+        // An empty statement that is the body of a loop, an `if`, a `defer` or an `#if` arm is
+        // deliberate: removing it would leave its parent without a body.
+        if !matches!(s.kind, S::Empty) || cx.src(s.span) != ";" || cx.is_bare_body(s.span) {
             return;
         }
         let (start, end) = cx.tidy_removal(s.span);
@@ -57,30 +47,4 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             true,
         ));
     });
-}
-
-/// The `;` is the whole of an `#if`'s then or else arm, written without braces. Removing it
-/// would leave the `#if` without a body, so the file would no longer parse. (An arm written
-/// with braces ends at its `}`, and an empty statement inside it is removable.)
-fn is_static_if_body(cx: &Cx, empty: &Stmt, parent: Option<&Node<'_>>) -> bool {
-    let Some(Node::Stmt(Stmt {
-        kind: S::StaticIf(branch),
-        ..
-    })) = parent
-    else {
-        return false;
-    };
-    let arm = if let [only] = branch.then_branch.as_slice()
-        && only.span == empty.span
-    {
-        branch.then_arm
-    } else if let [only] = branch.else_branch.as_slice()
-        && only.span == empty.span
-        && let Some(arm) = branch.else_arm
-    {
-        arm
-    } else {
-        return false;
-    };
-    cx.src(arm).trim_end().ends_with(';')
 }

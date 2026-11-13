@@ -15,4 +15,8 @@ main :: () {
     first: string;
     first = "x";
     print("%\n", first);
+
+    for 0..2;
+    for 0..2 // the comment stays
+        ;
 }

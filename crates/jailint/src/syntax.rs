@@ -4,7 +4,7 @@ use jaic::ast::walk::{Node, walk_node};
 use jaic::ast::{Block, Decl, Expr, ExprKind as E, File, ProcHeader, Stmt, StmtKind as S};
 use jaic::ide::{Found, IdeCast, IdeExprFact};
 use jaic::intern::Sym;
-use jaic::lexer::{Comment, P, Tok, Token};
+use jaic::lexer::{Comment, CommentKind, P, Tok, Token};
 use jaic::sema::{Compiler, EntityId, ProcId};
 use jaic::source::{FileId, LineIndex, Span};
 use jaic::types::TypeId;
@@ -24,6 +24,9 @@ pub(crate) struct Cx<'a> {
     pub procs: Vec<ProcSite<'a>>,
     /// Full-source ownership ranges, retained when procedure collection starts a new walk.
     code_operands: SpanIndex,
+    /// Statements that are the whole body of a loop, an `if`, a `defer` or an `#if` arm,
+    /// written without braces, sorted by start.
+    bare_bodies: Vec<Span>,
     pub imports: Vec<crate::rules::unused_import::Unused>,
     /// Links in doc comments that name nothing (`broken_doc_link`).
     pub doc_links: Vec<crate::rules::broken_doc_link::Broken>,
@@ -83,6 +86,13 @@ impl<'a> Cx<'a> {
         let mut code_operands = Vec::new();
         collect_code_operands(&ast.stmts, &mut code_operands);
         let code_operands = SpanIndex::new(code_operands);
+        let mut bare_bodies = Vec::new();
+        collect_bare_bodies(text, &ast.stmts, &mut bare_bodies);
+        for p in &procs {
+            collect_bare_bodies(text, &p.body.stmts, &mut bare_bodies);
+        }
+        bare_bodies.sort_by_key(|s| s.start);
+        bare_bodies.dedup();
         Self {
             compiler,
             file: ast.file,
@@ -93,6 +103,7 @@ impl<'a> Cx<'a> {
             stmts: &ast.stmts,
             procs,
             code_operands,
+            bare_bodies,
             imports,
             doc_links: Vec::new(),
             complete: true,
@@ -329,10 +340,39 @@ impl<'a> Cx<'a> {
         end
     }
 
+    /// The statement at `span` is the whole body of a loop, an `if`, a `defer` or an `#if` arm,
+    /// written without braces (`while poll() ;`, `#if debug log();`).
+    pub fn is_bare_body(&self, span: Span) -> bool {
+        self.bare_bodies
+            .binary_search_by_key(&span.start, |s| s.start)
+            .is_ok_and(|i| self.bare_bodies[i] == span)
+    }
+
     /// The byte range of a whole statement line (with its newline) when the statement is alone
     /// on its lines, else just the statement (and the space before a trailing `//` comment,
     /// which stays).
+    ///
+    /// A statement that is the whole body of a loop, an `if`, a `defer` or an `#if` arm, written
+    /// without braces, keeps its `;`: `for 0..2 x: int;` becomes `for 0..2 ;`, an empty body,
+    /// where removing the line would leave the loop without one.
     pub fn statement_removal(&self, span: Span) -> (usize, usize) {
+        if self.is_bare_body(span) {
+            let src = self.src(span);
+            let end = span.start as usize + src.strip_suffix(';').unwrap_or(src).len();
+            // Take the space before it too, so the `;` closes up on its parent (`for 0..2;`),
+            // unless that space ends a line comment the `;` would then fall into.
+            let before = self.text[..span.start as usize].trim_end().len();
+            let after_line_comment = self
+                .comments
+                .iter()
+                .any(|c| c.span.end as usize == before && matches!(c.kind, CommentKind::Line));
+            let start = if after_line_comment {
+                span.start as usize
+            } else {
+                before
+            };
+            return (start, end);
+        }
         let (line, _) = self.line_start(span.start as usize);
         let before = &self.text[line..span.start as usize];
         let mut end = span.end as usize;
@@ -436,6 +476,41 @@ impl SpanIndex {
             .map(|i| &self.spans[i])
             .is_some_and(|(s, reach)| s.file == span.file && span.end <= *reach)
     }
+}
+
+/// The statements under `stmts` (not inside nested procedures, which are walked on their own)
+/// that are the whole body of their parent, written without braces. A statement in a block, a
+/// `switch`, a `case` or at the top of a list is not one; neither is the only statement of an
+/// `#if` arm written with braces.
+fn collect_bare_bodies(text: &str, stmts: &[Stmt], out: &mut Vec<Span>) {
+    jaic::ast::walk::walk(stmts, &mut |node, up| {
+        let Node::Stmt(s) = node else {
+            return true;
+        };
+        let bare = match up.last() {
+            None | Some(Node::Expr(_)) => false,
+            Some(Node::Stmt(parent)) => match &parent.kind {
+                S::Block(_) | S::Switch(_) | S::StaticSwitch(_) | S::Case(_) => false,
+                S::StaticIf(branch) => [
+                    (&branch.then_branch, Some(branch.then_arm)),
+                    (&branch.else_branch, branch.else_arm),
+                ]
+                .into_iter()
+                .any(|(list, arm)| {
+                    matches!(list.as_slice(), [only] if only.span == s.span)
+                        && arm.is_some_and(|arm| {
+                            text.get(arm.start as usize..arm.end as usize)
+                                .is_some_and(|t| t.trim_end().ends_with(';'))
+                        })
+                }),
+                _ => true,
+            },
+        };
+        if bare {
+            out.push(s.span);
+        }
+        true
+    });
 }
 
 /// Index opaque source before independent procedure walks discard its ancestors.
