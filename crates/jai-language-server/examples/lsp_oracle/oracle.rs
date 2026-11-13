@@ -166,6 +166,26 @@ pub fn compile(options: Options, path: &Path, text: &str) -> Result<Oracle, Stri
     })
 }
 
+/// Where the literal opened by the `.{` at `open` ends: the end of its closing brace.
+fn closing_brace(tokens: &[jaic::lexer::Token], open: usize) -> Option<u32> {
+    let mut depth = 0usize;
+    for t in &tokens[open + 1..] {
+        match t.tok {
+            Tok::Punct(P::LBrace | P::DotBrace | P::LParen | P::LBracket | P::DotBracket) => {
+                depth += 1;
+            }
+            Tok::Punct(P::RBrace | P::RParen | P::RBracket) => {
+                if depth == 0 {
+                    return matches!(t.tok, Tok::Punct(P::RBrace)).then_some(t.span.end);
+                }
+                depth -= 1;
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
 /// Struct literals of the file whose type the compile recorded.
 fn literals(compiler: &Compiler, file: FileId, text: &str) -> Vec<Literal> {
     let Some(ide) = compiler.ed.facts() else {
@@ -188,17 +208,19 @@ fn literals(compiler: &Compiler, file: FileId, text: &str) -> Vec<Literal> {
             }
             _ => token.span.start,
         };
+        // The fact for the literal itself: what ends at its closing brace. A longer expression
+        // can start at the same place (`(Name.{}).field` starts at `Name`) and has another type.
+        let Some(end) = closing_brace(&tokens, i) else {
+            continue;
+        };
         let built = ide
             .exprs
             .iter()
             .filter(|(span, fact)| {
-                span.file == file
-                    && span.start == start
-                    && span.end > token.span.end
-                    && !fact.conflicting
+                span.file == file && span.start == start && span.end == end && !fact.conflicting
             })
-            .max_by_key(|(span, _)| span.end)
-            .map(|(_, fact)| fact.ty);
+            .map(|(_, fact)| fact.ty)
+            .next();
         let Some(ty) = built else {
             continue;
         };
