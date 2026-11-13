@@ -1,10 +1,10 @@
 //! The rig: a session, the checker's copy of every document and the journal of edits.
 
 use super::{
-    Choices, Clock, Config, Diagnostic, DocumentUri, History, Hover, Input, Limits, Location,
-    Position, Probe, Query, Range, Report, SemanticToken, Session, Snapshot, Step, TextChange,
-    answer, any_omits_literal, balanced, byte_of, identifier_starts, omits_literal, open_session,
-    pos_of, probe_at, sanity, snapshot_difference, sorted_debug, stale_damage, usage_lint,
+    Choices, Clock, Config, Diagnostic, DocumentUri, History, Hover, Input, Location, Position,
+    Probe, Query, Range, Report, SemanticToken, Session, Snapshot, Step, TextChange, answer,
+    any_omits_literal, balanced, byte_of, identifier_starts, omits_literal, open_session, pos_of,
+    probe_at, sanity, snapshot_difference, sorted_debug, stale_damage, usage_lint,
 };
 
 /// A byte range of the document that edits stay inside: `start` and `orig_end` in the original

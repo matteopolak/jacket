@@ -1,6 +1,6 @@
 //! Opening the sessions the checker asks questions of.
 
-use super::{DocumentUri, Input, Limits, Session};
+use super::{Input, Limits, Session};
 
 /// A session over the input's environment with its setup files and `texts` open, as an editor
 /// opening those documents has it. The checker's own and every fresh one it compares with are
