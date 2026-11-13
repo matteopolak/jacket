@@ -82,11 +82,11 @@ conformance_cases :: () {
 
     expect_equal(cases.count, 34);
 
-    for case: cases {
-        for split: 0..case .input.count {
-            actual := trace(case .input, split, case .options);
+    for entry: cases {
+        for split: 0..entry.input.count {
+            actual := trace(entry.input, split, entry.options);
             defer free(actual);
-            expect_equal(actual, case .expected, case .name);
+            expect_equal(actual, entry.expected, entry.name);
         }
     }
 } @test
