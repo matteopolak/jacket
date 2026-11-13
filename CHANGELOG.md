@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased]
+## [0.35.2] - 2026-11-12
+
+`print` keeps working in programs without a console.
 
 ### Fixed
 
