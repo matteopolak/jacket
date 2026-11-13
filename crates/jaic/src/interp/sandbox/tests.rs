@@ -1041,9 +1041,14 @@ fn windows_reservations_share_one_total_cap() {
 fn a_host_folder_is_listed_by_its_full_name_and_from_inside_it() {
     // On Windows the full name starts with a drive (`D:/a/b`), which the sandbox's own paths
     // (`/D:/a/b`) must resolve to the same folder.
-    let dir = test_support::TempDir::new("sandbox-host-folder");
-    dir.write("a.jai", "x");
-    let cwd = dir.path().to_string_lossy().into_owned();
+    // Not test_support::TempDir: a test in jaic's own src/ must not link test_support (see its docs).
+    let dir = std::env::temp_dir().join(format!("jaic-sandbox-host-folder-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("a.jai"), "x").unwrap();
+    let cwd = std::fs::canonicalize(&dir)
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
     let mut h = SandboxHost::with_files(Rc::new(crate::sema::NativeFs), &cwd);
     let names = |h: &mut SandboxHost, path: &str| {
         let path = cstring(path);
@@ -1069,4 +1074,5 @@ fn a_host_folder_is_listed_by_its_full_name_and_from_inside_it() {
     }
     let file = cstring(&format!("{full}/a.jai"));
     assert_eq!(call(&mut h, "access", &[file.as_ptr() as u64, 0]), 0);
+    std::fs::remove_dir_all(&dir).unwrap();
 }
