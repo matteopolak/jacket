@@ -26,6 +26,8 @@ Run one process at a time; a session compiles the document many times. A failure
 | g | text that lexes has no literal left out of the analysis |
 | h | asking the baseline's requests twice gives the same answers |
 
+Every session, the fresh ones too, runs without a wall-clock check limit: a limit hit in one session and not in the other (slow runners, an instrumented fuzz build) would make a check partial in different places and read as a difference. A runaway `#run` is bounded by the evaluation budget and `Config::budget`.
+
 Traffic includes typing one character at a time (with auto-closed brackets), backspacing, retyping, pastes, unclosed brackets closed later, undo to the original, and the same edits in a second open document. The libFuzzer target runs oracles a, c, d and e; saved crashes go in `fuzz/regressions/lsp_typing/` and replay in `cargo test`.
 
 ## How to change it

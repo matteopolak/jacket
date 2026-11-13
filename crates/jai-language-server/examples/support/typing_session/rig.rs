@@ -3,8 +3,8 @@
 use super::{
     Choices, Clock, Config, Diagnostic, DocumentUri, History, Hover, Input, Limits, Location,
     Position, Probe, Query, Range, Report, SemanticToken, Session, Snapshot, Step, TextChange,
-    answer, any_omits_literal, balanced, byte_of, identifier_starts, omits_literal, pos_of,
-    probe_at, sanity, snapshot_difference, sorted_debug, stale_damage, usage_lint,
+    answer, any_omits_literal, balanced, byte_of, identifier_starts, omits_literal, open_session,
+    pos_of, probe_at, sanity, snapshot_difference, sorted_debug, stale_damage, usage_lint,
 };
 
 /// A byte range of the document that edits stay inside: `start` and `orig_end` in the original
@@ -112,25 +112,9 @@ pub(super) fn procedure_bodies(text: &str) -> Vec<Region> {
 }
 
 impl<'a, C: Choices> Rig<'a, C> {
-    pub(super) fn open_session(input: &Input<'_>, texts: &[String]) -> Result<Session, String> {
-        let mut session = Session::with_environment(Limits::default(), (input.environment)());
-        for (uri, text) in &input.setup {
-            session
-                .open(uri.clone(), 1, text.clone())
-                .map_err(|e| format!("{e:?}"))?;
-        }
-        session.set_auto_import(false);
-        for ((uri, _), text) in input.docs.iter().zip(texts) {
-            session
-                .open(uri.clone(), 1, text.clone())
-                .map_err(|e| format!("{e:?}"))?;
-        }
-        Ok(session)
-    }
-
     pub(super) fn new(input: &'a Input<'a>, config: Config, choices: C) -> Result<Self, String> {
         let texts: Vec<String> = input.docs.iter().map(|(_, t)| t.clone()).collect();
-        let session = Self::open_session(input, &texts)?;
+        let session = open_session(input, &texts)?;
         let mut clock = Clock::new(config.budget, config.hang);
         clock.recording = true;
         let docs = input
@@ -717,7 +701,7 @@ impl<'a, C: Choices> Rig<'a, C> {
     /// the only call of a polymorph leaves only its sketch to describe it).
     fn fresh_probe_agrees(&self, doc: usize, byte: usize, now: &Probe) -> bool {
         let texts: Vec<String> = self.docs.iter().map(|d| d.text.clone()).collect();
-        let Ok(fresh) = Self::open_session(self.input, &texts) else {
+        let Ok(fresh) = open_session(self.input, &texts) else {
             return false;
         };
         for query in &self.clock.log {
@@ -732,7 +716,7 @@ impl<'a, C: Choices> Rig<'a, C> {
     /// Whether a session opened on the current texts reports `actual` outside the region.
     fn fresh_agrees(&self, doc: usize, actual: &[Diagnostic]) -> bool {
         let texts: Vec<String> = self.docs.iter().map(|d| d.text.clone()).collect();
-        let Ok(fresh) = Self::open_session(self.input, &texts) else {
+        let Ok(fresh) = open_session(self.input, &texts) else {
             return false;
         };
         let Ok(list) = fresh.diagnostics(&self.docs[doc].uri) else {
@@ -787,7 +771,7 @@ impl<'a, C: Choices> Rig<'a, C> {
     pub(super) fn check_fresh(&mut self) {
         self.report.fresh_comparisons += 1;
         let texts: Vec<String> = self.docs.iter().map(|d| d.text.clone()).collect();
-        let fresh = match Self::open_session(self.input, &texts) {
+        let fresh = match open_session(self.input, &texts) {
             Ok(s) => s,
             Err(e) => {
                 self.fail("d", 0, format!("fresh session failed to open: {e}"));

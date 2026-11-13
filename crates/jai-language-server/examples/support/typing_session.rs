@@ -38,6 +38,8 @@ use std::{
 
 #[path = "typing_session/clock.rs"]
 mod clock;
+#[path = "typing_session/open.rs"]
+mod open;
 #[path = "typing_session/rig.rs"]
 mod rig;
 #[path = "typing_session/snapshot.rs"]
@@ -46,6 +48,7 @@ mod snapshot;
 mod text;
 
 use clock::Clock;
+use open::open_session;
 use rig::{Rig, here_strings};
 pub use snapshot::Query;
 use snapshot::{
@@ -170,7 +173,7 @@ pub fn run(input: &Input<'_>, config: Config, choices: impl Choices) -> Report {
     };
     let texts: Vec<String> = input.docs.iter().map(|(_, t)| t.clone()).collect();
     let mut report = Report::default();
-    if let Ok(fresh) = Rig::<Seeded>::open_session(input, &texts) {
+    if let Ok(fresh) = open_session(input, &texts) {
         let mut clock = Clock::new(rig.config.budget, None);
         for d in &rig.docs {
             let cap = rig.config.full_probes;
@@ -198,7 +201,7 @@ pub fn replay_difference(
     config: &Config,
 ) -> Option<String> {
     let texts: Vec<String> = input.docs.iter().map(|(_, t)| t.clone()).collect();
-    let mut session = Rig::<Seeded>::open_session(input, &texts).ok()?;
+    let mut session = open_session(input, &texts).ok()?;
     let mut clock = Clock::new(config.budget, None);
     let uri = input.docs[doc].0.clone();
     let mut current = texts[doc].clone();
@@ -239,7 +242,7 @@ pub fn replay_difference(
         }
     }
     texts[doc].clone_from(&current);
-    let fresh = Rig::<Seeded>::open_session(input, &texts).ok()?;
+    let fresh = open_session(input, &texts).ok()?;
     for q in history.steps.last().map_or(&[][..], |s| &s.queries) {
         q.execute(&fresh);
     }
