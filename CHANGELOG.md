@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- `print` no longer stops a program that has no standard output, such as a Windows program linked with `/SUBSYSTEM:WINDOWS`; the text is dropped.
+
 ## [0.35.1] - 2026-11-11
 
 Fixes to calls through procedure values, `using` parameters in `#run` and aggregate parameters.

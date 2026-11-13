@@ -73,10 +73,8 @@ emit :: (queue: *Queue, fd: s32, amount: s64) #no_context {
     cursor: s64;
     while cursor < amount {
         written := write(fd, queue.bytes.data + cursor, cast(u64) (amount - cursor));
-        if written <= 0 {
-            c_abort();
-            return;
-        }
+        // Text the stream won't take is dropped, as on other targets.
+        if written <= 0 break;
 
         cursor += written;
     }

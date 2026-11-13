@@ -85,13 +85,12 @@ write_string_unsynchronized :: (s: string, to_standard_error := false) #no_conte
     fd: s32 = 1;
     if to_standard_error fd = 2;
 
+    // A stream that can't be written drops the text: a GUI program has no console, and a closed
+    // pipe is no reason to stop the program.
     cursor: s64 = 0;
     while cursor < s.count {
         written := c_write(fd, s.data + cursor, cast(u64) (s.count - cursor));
-        if written <= 0 {
-            c_abort();
-            return;
-        }
+        if written <= 0 return;
 
         cursor += written;
     }

@@ -27,7 +27,7 @@ GCC's MinGW-w64 only targets x64. For arm64 use [llvm-mingw](https://github.com/
 - `#system_library "kernel32"` becomes `-lkernel32`/`kernel32.lib`; CRT and POSIX names (`libc`, `msvcrt`, `m`, `pthread`, ...) are dropped. `#library "foo"` beside the source is `foo.lib`/`libfoo.lib`, and for MinGW also `foo.a`, `libfoo.a`, `foo.dll.a`, `foo.dll`. A DLL must be next to the executable or on `PATH`.
 - A member's `#align N` sets alignment even below natural, like `#pragma pack`.
 
-**Runtime** (`stdlib/Runtime_Support/module.jai`): `__jai_runtime_init` replaces ANSI `argv` with UTF-8 copies. Output uses `GetStdHandle` and `WriteFile`. `Runtime_Support_Crash_Handler` installs an unhandled exception filter. `debug_break` is `llvm.debugtrap`, so a failed assertion ends with `0x80000003`.
+**Runtime** (`stdlib/Runtime_Support/module.jai`): `__jai_runtime_init` replaces ANSI `argv` with UTF-8 copies. Output uses `GetStdHandle` and `WriteFile`. A program with no console (linked with `/SUBSYSTEM:WINDOWS`) has null standard handles: `print` drops its text, as it does on any stream that can't be written, instead of stopping the program. `Runtime_Support_Crash_Handler` installs an unhandled exception filter. `debug_break` is `llvm.debugtrap`, so a failed assertion ends with `0x80000003`.
 
 **Interpreter on Windows** (`interp/native/windows.rs`): loads DLLs with `LoadLibraryW`; symbols with no library resolve in `msvcrt.dll`, `ucrtbase.dll`, `kernel32.dll` and `ntdll.dll`. The `printf` family is inline in UCRT headers, so `lookup` returns stand-ins over `__stdio_common_vsprintf`/`vfprintf`; native builds link `legacy_stdio_definitions`. `Bindings_Generator` loads `libclang.dll` (`JAI_LIBCLANG`, then `C:\Program Files\LLVM\bin`).
 
