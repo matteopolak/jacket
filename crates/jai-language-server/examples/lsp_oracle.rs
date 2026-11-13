@@ -180,6 +180,8 @@ fn open(args: &Args, path: &Path, uri: &DocumentUri, text: &str) -> Option<Sessi
         Limits::default(),
         typing_files::native_environment(args.stdlib.clone()),
     );
+    // A wall-clock limit on a check would make answers depend on how busy the machine is.
+    session.set_check_time_limit(0.0);
     let (location, settings) = project_settings(path)?;
     let config = DocumentUri::from_path(&location).ok()?;
     session.open(config, 1, settings).ok()?;
