@@ -580,7 +580,7 @@ class SanitizerModes(unittest.TestCase):
         for full in (False, True):
             for selected in (False, True):
                 legs = ci_changes.sanitizer_matrix(full, selected)
-                count = 2 if full else 3
+                count = 4 if full else 3
                 self.assertEqual(
                     [leg for leg in legs if leg["runner"] == "ubuntu-24.04"],
                     [{"runner": "ubuntu-24.04", "shard": f"{index}/{count}"} for index in range(1, count + 1)],

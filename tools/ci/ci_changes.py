@@ -233,8 +233,9 @@ def stdlib_matrix(full):
 
 
 def sanitizer_matrix(full, macos):
-    """The legs of `sanitizers`: the fast tier runs -O0 only, so Linux takes three shards there."""
-    linux = shards(2 if full else 3)
+    """The legs of `sanitizers`: Linux takes three shards for the fast tier's -O0 run and four
+    for the full tier's -O0 and -O2 runs, so each fits the job's time limit."""
+    linux = shards(4 if full else 3)
     legs = [dict(runner="ubuntu-24.04", shard=s) for s in linux]
     if full:
         # Each complete mode keeps its own job budget; no cases or per-test limits change.
@@ -258,9 +259,9 @@ WINDOWS = {
 
 def windows_stdlib_matrix(full):
     """The legs of `windows-stdlib`: the fast tier skips the -O2 rerun and arm64, and splits x64
-    more finely."""
+    more finely. Full-tier x64 runs both passes, so it takes four shards to fit its time limit."""
     timeouts = {"x64": 40, "arm64": 80}
-    counts = {"x64": 2, "arm64": 2} if full else {"x64": 5}
+    counts = {"x64": 4, "arm64": 2} if full else {"x64": 5}
     return [
         dict(cpu=cpu, shard=s, o2=full, timeout=timeouts[cpu], **WINDOWS[cpu])
         for cpu in windows_cpus(full)
