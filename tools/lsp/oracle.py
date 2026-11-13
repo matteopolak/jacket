@@ -17,6 +17,7 @@ import sys
 import concurrent.futures
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -109,6 +110,31 @@ def accepted(runner: Runner, path: Path) -> bool:
     return code == 0
 
 
+LOAD = re.compile(r'#load\s+"([^"]+)"')
+
+
+def loaders(path: Path) -> list[Path]:
+    """The files beside `path`, or one folder up (`tests/compile_fail/support/x.jai` is loaded by
+    `tests/compile_fail/y.jai`), that `#load` it."""
+    found = []
+    for folder in (path.parent, path.parent.parent):
+        for other in sorted(folder.glob("*.jai")):
+            if other == path:
+                continue
+            text = other.read_text(errors="replace")
+            if any((other.parent / name).resolve() == path.resolve() for name in LOAD.findall(text)):
+                found.append(other)
+    return found
+
+
+def only_in_rejected_programs(runner: Runner, path: Path) -> bool:
+    """Whether a file that loads `path` fails `jaic -check`. The language server checks a loaded
+    file inside the program that loads it, so a file only its rejected loaders reach (a negative
+    fixture's support file, the member of a module that is broken on purpose) is wrong wherever it
+    is opened, and says nothing about the server."""
+    return any(not accepted(runner, loader) for loader in loaders(path))
+
+
 def oracle_chunk(runner: Runner, paths: list[Path]) -> list[dict]:
     """The oracle's reports for `paths`; a chunk that crashes or hangs is retried file by file."""
     a = runner.args
@@ -196,6 +222,9 @@ def main() -> int:
         with concurrent.futures.ThreadPoolExecutor(a.jobs) as pool:
             ok = [p for p, good in zip(paths, pool.map(lambda p: accepted(runner, p), paths)) if good]
             print(f"{name}: {len(ok)} of {len(paths)} files pass jaic -check", flush=True)
+            alone = [p for p, only in zip(ok, pool.map(lambda p: only_in_rejected_programs(runner, p), ok)) if only]
+            ok = [p for p in ok if p not in alone]
+            print(f"{name}: left out {len(alone)} loaded by programs that fail jaic -check", flush=True)
             chunks = [ok[i:i + a.chunk] for i in range(0, len(ok), a.chunk)]
             for chunk_reports in pool.map(lambda c: oracle_chunk(runner, c), chunks):
                 for r in chunk_reports:
