@@ -11,8 +11,8 @@
  "stdlib/Icon/tests/phase.jai|c-edit|C",
  "tests/compiler/language/json-numeric-progress/main.jai|d-member|bits",
  "tests/compiler/language/json-numeric-progress/main.jai|d-member|text",
- "tests/compiler/regressions/baked-dependent-type-and-member.jai|d-literal|Inner",
  "tests/compiler/regressions/for-expansion-pointer-among-poly-overloads.jai|c-blank|count",
  "tests/compiler/regressions/for-expansion-pointer-among-poly-overloads.jai|c-edit|count",
- "tests/compiler/regressions/rules-modules-and-imports.jai|b-definition|str_twice"
+ "tests/compiler/regressions/rules-modules-and-imports.jai|b-definition|str_twice",
+ "tests/compiler/regressions/rules-type-values-and-info.jai|c-blank|T"
 ]
