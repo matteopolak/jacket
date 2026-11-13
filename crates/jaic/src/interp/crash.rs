@@ -328,7 +328,13 @@ mod sys {
         fn pause() -> c_int;
         fn getrlimit(resource: c_int, limit: *mut [u64; 2]) -> c_int;
         fn setrlimit(resource: c_int, limit: *const [u64; 2]) -> c_int;
+
+        #[cfg(target_os = "linux")]
+        fn prctl(option: c_int, arg: u64, a3: u64, a4: u64, a5: u64) -> c_int;
     }
+
+    #[cfg(target_os = "linux")]
+    const PR_SET_DUMPABLE: c_int = 4;
 
     const RLIMIT_CORE: c_int = 4;
 
@@ -428,6 +434,14 @@ mod sys {
     }
 
     pub fn skip_core_dump() {
+        // A core pattern that pipes to a handler (systemd-coredump, apport) ignores the size limit and
+        // still stops every thread to stream the whole image, which on a process with many threads
+        // outlasts the caller's patience. A process that is not dumpable is never dumped.
+        #[cfg(target_os = "linux")]
+        // SAFETY: plain C call; clears the dumpable flag of this process.
+        unsafe {
+            prctl(PR_SET_DUMPABLE, 0, 0, 0, 0);
+        }
         let mut limit = [0u64; 2];
         // SAFETY: plain C calls on a `struct rlimit` (two 64-bit fields on both platforms).
         unsafe {
@@ -677,6 +691,26 @@ mod tests {
         let text = report_for(&state, &program, "puts");
         assert!(text.starts_with("error: native code crashed"), "{text}");
         assert!(text.contains("\n    `main`\n"), "{text}");
+    }
+
+    /// The Linux kernel hands a core dump to a piped handler whatever the size limit says, so the
+    /// process must also stop being dumpable.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn skipping_the_core_dump_makes_the_process_undumpable() {
+        unsafe extern "C" {
+            fn prctl(option: i32, arg: u64, a3: u64, a4: u64, a5: u64) -> i32;
+        }
+        const PR_GET_DUMPABLE: i32 = 3;
+        const PR_SET_DUMPABLE: i32 = 4;
+        // SAFETY: plain C calls reading and restoring this process's dumpable flag.
+        unsafe {
+            let before = prctl(PR_GET_DUMPABLE, 0, 0, 0, 0);
+            skip_core_dump();
+            let after = prctl(PR_GET_DUMPABLE, 0, 0, 0, 0);
+            prctl(PR_SET_DUMPABLE, before as u64, 0, 0, 0);
+            assert_eq!(after, 0);
+        }
     }
 
     #[test]
