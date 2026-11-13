@@ -739,5 +739,15 @@
   {
     "name": "checked-operand-types",
     "interpreter_only": true
+  },
+  {
+    "name": "print-without-standard-output",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native POSIX close or Windows SetStdHandle to remove standard output"
+    ]
   }
 ]
