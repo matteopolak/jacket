@@ -5,15 +5,34 @@ use crate::{DocumentSymbol, DocumentUri, Error, Position, analysis::SymbolRow};
 use jaic::intern::Sym;
 use std::collections::BTreeSet;
 
+/// How much of a declaration its detail and its source-only hover quote, in written bytes
+/// (whitespace not counted).
+const MAX_DETAIL: usize = 256;
+
 impl Session {
+    /// The start of the declaration a row stands for, as its outline detail and its hover when
+    /// the type checker has nothing to say: `answer :: () -> int {return 42;}`.
     pub(crate) fn source_detail<'a>(doc: &'a Document, row: &SymbolRow) -> &'a str {
         let text = &doc.text;
         let span = row.location;
         // Rows of an older parse may point past the current text.
         let start = text.floor_char_boundary(span.start.min(text.len()));
-        let end =
-            text.floor_char_boundary(span.end.min(span.start.saturating_add(256)).min(text.len()));
-        text[start..end.max(start)].trim()
+        let end = text
+            .floor_char_boundary(span.end.min(text.len()))
+            .max(start);
+        let declaration = &text[start..end];
+        // A cut by length counts only what is written: blank lines and indentation would
+        // otherwise move it, and the same declaration would be quoted to different lengths.
+        let mut written = 0;
+        for (at, c) in declaration.char_indices() {
+            if !c.is_whitespace() {
+                written += c.len_utf8();
+                if written > MAX_DETAIL {
+                    return declaration[..at].trim();
+                }
+            }
+        }
+        declaration.trim()
     }
 
     /// The outline: declarations nested under the scope sections, `#if`/`#else` blocks and
