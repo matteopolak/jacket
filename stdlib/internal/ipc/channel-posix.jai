@@ -25,15 +25,29 @@ reader_create_channel_os_specific :: (name: string, bytes: s64) -> (success: boo
     }
 
     fd = P.shm_open(registration.name.data, P.O_RDWR | P.O_CREAT | P.O_EXCL, cast(P.mode_t) 384);
-    if fd < 0 return false, .{ os_specific = .{ shm = -1 } };
-    if P.ftruncate(fd, bytes) != 0 return false, .{ os_specific = .{ shm = -1 } };
+    if fd < 0 {
+        // A taken name is the caller's to handle; anything else is the system refusing.
+        if cast(s32) P.errno() != P.EEXIST log_create_failure("shm_open");
+        return false, .{ os_specific = .{ shm = -1 } };
+    }
+
+    if P.ftruncate(fd, bytes) != 0 {
+        log_create_failure("ftruncate");
+        return false, .{ os_specific = .{ shm = -1 } };
+    }
 
     stat: P.stat_t;
-    if P.fstat(fd, *stat) != 0 || stat.st_size < bytes return false, .{ os_specific = .{ shm = -1 } };
+    if P.fstat(fd, *stat) != 0 {
+        log_create_failure("fstat");
+        return false, .{ os_specific = .{ shm = -1 } };
+    }
+
+    if stat.st_size < bytes return false, .{ os_specific = .{ shm = -1 } };
 
     extent = stat.st_size;
     mapping = P.mmap(null, cast(u64) extent, P.PROT_READ | P.PROT_WRITE, P.MAP_SHARED, fd, 0);
     if mapping == P.MAP_FAILED {
+        log_create_failure("mmap");
         mapping = null;
         return false, .{ os_specific = .{ shm = -1 } };
     }
@@ -191,3 +205,9 @@ reader_release_channel :: (channel: *Read_Channel) -> bool {
 #scope_file
 #import "Basic";
 P :: #import "internal/bindings/posix-api";
+
+// Logs, through `context.logger`, which system call refused to create a channel and its `errno`.
+log_create_failure :: (call: string) {
+    code := P.errno();
+    context.logger(tprint("shared-memory channel create failed: % (errno %)\n", call, code), context.logger_data, Log_Info.{ common_flags = .ERROR });
+}

@@ -10,7 +10,7 @@
 //
 // An overlong macOS name is rejected before allocation and logged through `context.logger`, including for a quiet writer.
 // It fails if the name is taken (only one reader per name), the size is too small, or the system refuses; nothing is left behind
-// then. Uses `context.allocator` for a small record that `reader_release_channel` frees.
+// then. A refusal is logged through `context.logger` with the call that failed and its `errno`. Uses `context.allocator` for a small record that `reader_release_channel` frees.
 //
 // ```jai,skip_on(wasm)
 // name := tprint("jai-doc-%", to_nanoseconds(current_time_monotonic()));
