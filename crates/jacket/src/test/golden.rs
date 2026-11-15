@@ -478,8 +478,8 @@ pub fn normalize_paths(text: &str, dir: &Path, stdlib: &Path) -> String {
                 return jacket_config::to_slash(line);
             }
             // A relative location such as `..\..\layout.jai:67:13:` gets `/` in its path only.
-            match line.find(".jai:") {
-                Some(end) if !line[..end].contains(' ') && line[..end].contains('\\') => {
+            match location_end(line) {
+                Some(end) if line[..end].contains('\\') => {
                     format!("{}{}", jacket_config::to_slash(&line[..end]), &line[end..])
                 }
                 _ => line.to_string(),
@@ -492,6 +492,16 @@ pub fn normalize_paths(text: &str, dir: &Path, stdlib: &Path) -> String {
         } else {
             ""
         }
+}
+
+/// Where the path of the location starting `line` ends (`path:line:`): the first `:` followed by a
+/// digit, with no space before it. `None` when the line does not start with a location.
+fn location_end(line: &str) -> Option<usize> {
+    let end = line
+        .char_indices()
+        .find(|&(i, c)| c == ':' && line[i + 1..].starts_with(|d: char| d.is_ascii_digit()))?
+        .0;
+    (end > 0 && !line[..end].contains(' ')).then_some(end)
 }
 
 /// Type-checks the compile-fail test `source`: it must fail, printing its `.stderr` (or, with
@@ -584,6 +594,15 @@ mod tests {
                 Path::new("C:\\s")
             ),
             "../../layout.jai:67:13: error: a\\b\n"
+        );
+        // Any file a location names, not only Jai sources (a metaprogram reports on its inputs).
+        assert_eq!(
+            normalize_paths(
+                "..\\fixtures/clash.proto:3:15: error: a\\b\nnote: C:\\x 1:2\n",
+                Path::new("C:\\r\\t"),
+                Path::new("C:\\s")
+            ),
+            "../fixtures/clash.proto:3:15: error: a\\b\nnote: C:\\x 1:2\n"
         );
     }
 
