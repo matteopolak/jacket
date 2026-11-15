@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.35.3] - 2026-11-15
 
 ### Changed
 
@@ -8,7 +8,7 @@
 
 ### Fixed
 
-- An error a metaprogram reports with `compiler_report` at a location in a file of a workspace it created now points at that location, not at the `compiler_report` call, and the underline leaves out a comment at the end of the line.
+- An error a metaprogram reports with `compiler_report` at a location in a file this compile never loaded (a file of a workspace it created, or an input such as a `.proto` schema) now points at that location, not at the `compiler_report` call, and the underline leaves out a comment at the end of the line.
 - A build file with no `main` that creates its own workspace is told to add `set_build_options_dc(.{do_output = false});`.
 - `Shared_Memory_Channel.reader_create_channel` logs which system call refused to create the channel, and its `errno`, on Linux and macOS.
 - `#asm` SSE4.2 string compares (`pcmpistri` and the rest) compile to one shared helper per control byte instead of an expansion at each use, so a function with many of them no longer takes minutes to build at `-O2` on Apple silicon; they also run faster in the interpreter.
