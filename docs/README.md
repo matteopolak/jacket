@@ -72,4 +72,4 @@ Generated from the code by `tools/generators/generate_reference_docs.py`: [tools
 
 ## Specifications
 
-[specs/jai/](specs/jai/) and [specs/stdlib/](specs/stdlib/) are what the compiler and standard library are implemented from.
+[specs/jai/](specs/jai/) and [specs/stdlib/](specs/stdlib/) are what the compiler and standard library are implemented from. They are public domain ([license](specs/LICENSE.md)).

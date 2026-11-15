@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- The standard library is also licensed under MIT OR Apache-2.0, so modules can be copied into other projects, and the specifications in `docs/specs/` are dedicated to the public domain (CC0 1.0).
+
 ### Fixed
 
 - `jailint --fix` and the language server's fix-all no longer delete a statement that is the whole body of a `for`, `if`, `while` or `defer` written without braces, which left the file unparsable; the `;` stays as an empty body.

@@ -71,4 +71,4 @@ Jacket is a clean-room implementation: contributors must not read the official J
 
 ## License
 
-[AGPL-3.0-or-later](LICENSE), with a [runtime library exception](LICENSE-EXCEPTION): programs you compile with Jacket can use any license you choose.
+[AGPL-3.0-or-later](LICENSE), with a [runtime library exception](LICENSE-EXCEPTION): programs you compile with Jacket can use any license you choose. The standard library ([`stdlib/`](stdlib/LICENSE.md)) is also available under MIT OR Apache-2.0, so you can copy modules into your own projects, and the specifications ([`docs/specs/`](docs/specs/LICENSE.md)) are public domain (CC0).
