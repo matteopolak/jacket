@@ -418,6 +418,29 @@ impl SourceState {
         }
     }
 
+    /// Loads the file a metaprogram's report names when this compile never loaded it, so the
+    /// report can point there: a build file reports on the files of a workspace it created, and
+    /// that workspace's own compiler loaded them.
+    pub(crate) fn load_reported_file(&mut self, trap: &Trap) {
+        let Some((path, ..)) = trap.reported.as_deref() else {
+            return;
+        };
+        if path.is_empty() || self.file_by_path(path).is_some() {
+            return;
+        }
+        let Some(text) = self
+            .fs
+            .read(std::path::Path::new(path))
+            .and_then(|bytes| String::from_utf8(bytes).ok())
+        else {
+            return;
+        };
+        let file = self
+            .sources
+            .add(std::path::PathBuf::from(path), text.into());
+        self.reported_files.borrow_mut().insert(path.clone(), file);
+    }
+
     /// The loaded file at `path`, compared as given and as an absolute path.
     fn file_by_path(&self, path: &str) -> Option<FileId> {
         if let Some(&known) = self.reported_files.borrow().get(path) {
@@ -485,12 +508,23 @@ impl SourceState {
         let start = source.offset_of(line, col) as usize;
         let text = source.line_text(line);
         let rest = text.get(col.saturating_sub(1) as usize..).unwrap_or("");
-        let len = rest
-            .trim_end()
-            .trim_end_matches(';')
-            .trim_end()
-            .len()
-            .max(1);
+        // The tokens on the rest of the line, less a closing `;`, so a trailing comment is not
+        // underlined. A line the lexer can't read alone (one inside a string, say) falls back to
+        // the trimmed text.
+        let len = match crate::lexer::lex(FileId(file), rest) {
+            Ok(tokens) => tokens
+                .iter()
+                .rev()
+                .find(|t| {
+                    !matches!(
+                        t.tok,
+                        crate::lexer::Tok::Eof | crate::lexer::Tok::Punct(crate::lexer::P::Semi)
+                    )
+                })
+                .map_or(0, |t| t.span.end as usize),
+            Err(_) => rest.trim_end().trim_end_matches(';').trim_end().len(),
+        }
+        .max(1);
         Span::new(FileId(file), start, start + len)
     }
 }

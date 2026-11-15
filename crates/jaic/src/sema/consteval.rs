@@ -290,6 +290,7 @@ impl Compiler {
             }
             Err(trap) => {
                 self.ct.traps += 1;
+                self.src.load_reported_file(&trap);
                 let d =
                     self.trap_diagnostic(&trap, "error during compile-time execution", Some(span));
                 self.note_unknown(&d, span);

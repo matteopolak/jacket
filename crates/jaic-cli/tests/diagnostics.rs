@@ -215,6 +215,68 @@ fn a_failed_initializer_reports_its_own_error_and_nothing_after_it() {
     );
 }
 
+/// A build file that reports a declaration of a file it added to another workspace points the
+/// error at that declaration, though the build file's own compile never loaded the file.
+#[test]
+fn report_on_a_file_of_another_workspace_points_at_it() {
+    let dir = TempDir::new("report-other-workspace");
+    let build = r#"#import "Basic";
+#import "Compiler";
+#run build();
+build :: () {
+    w := compiler_create_workspace("checked");
+    options := get_build_options(w);
+    options.output_type = .NO_OUTPUT;
+    set_build_options(options, w);
+    compiler_begin_intercept(w);
+    add_build_file("checked.jai", w);
+    while true {
+        message := compiler_wait_for_message();
+        if message.kind == .TYPECHECKED {
+            typechecked := cast(*Message_Typechecked) message;
+            for typechecked.declarations {
+                if it.expression.name == "deep" {
+                    compiler_report("too many levels of pointer indirection", make_location(it.expression));
+                }
+            }
+        }
+        if message.kind == .COMPLETE break;
+    }
+    compiler_end_intercept(w);
+    set_build_options_dc(.{do_output = false});
+}
+"#;
+    std::fs::write(
+        dir.join("checked.jai"),
+        "deep: ***int; // three levels\nmain :: () {}\n",
+    )
+    .unwrap();
+    let output = jaic_on(&dir, "build.jai", build, "-check", &[]);
+    let text = stderr(&output);
+    assert!(!output.status.success(), "{text}");
+    let lines: Vec<&str> = text.lines().collect();
+    let at = lines
+        .iter()
+        .position(|l| {
+            l.contains("error[metaprogram-report]: too many levels of pointer indirection")
+        })
+        .unwrap_or_else(|| panic!("{text}"));
+    assert!(lines[at].contains("checked.jai:1:1"), "{text}");
+    assert_eq!(
+        lines[at + 1].trim(),
+        "deep: ***int; // three levels",
+        "{text}"
+    );
+    // The underline stops before the comment.
+    assert_eq!(
+        lines[at + 2].trim(),
+        "^".repeat("deep: ***int".len()),
+        "{text}"
+    );
+    assert!(text.contains("reported by the metaprogram here"), "{text}");
+    assert!(!text.contains("reported for "), "{text}");
+}
+
 /// A metaprogram's report at a byte inside a string literal (a word of SQL, say) underlines
 /// that word, not the rest of the line.
 #[test]
