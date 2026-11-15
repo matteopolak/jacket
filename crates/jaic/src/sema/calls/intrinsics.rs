@@ -474,6 +474,11 @@ fn intrinsic_memory_effects(
             writes: 0b1,
             count: Some(3),
         }),
+        ir::Intrinsic::StringCompare(..) => Some(Memory {
+            reads: 0b11,
+            writes: 0,
+            count: None,
+        }),
         ir::Intrinsic::SignMask(_) => Some(Memory {
             reads: 0b1,
             writes: 0,

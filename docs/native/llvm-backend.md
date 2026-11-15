@@ -67,6 +67,8 @@ A bounded game2d FunctionAttrs-only control compared one whole module with 30 de
 
 Turns `ByteLookup` and `SignMask` ([intrinsics](../language/intrinsics.md#native-lowering-of-the-simd-intrinsics)) into the best instruction the target has, with the same result everywhere. `x86.rs` uses `pshufb` (SSSE3/AVX2/AVX-512BW), `aarch64.rs` uses NEON `tbl1`, `wasm.rs` swizzle, and `generic.rs` is the fallback and reference. Each dispatch tries backends in order; a backend returns `Ok(false)` if it does not apply. `Target::resolve` reads the real CPU name and feature string, so `+x`/`-x` features work. SVE has no backend yet.
 
+`StringCompare` (the SSE4.2 string compares of `#asm`) lowers to a call to `jaic.string_compare.<ctl>.<i|e>`, an internal helper made once per module and control byte from lane-wide vector compares. `ir::string_compare` is the reference both the helper and the interpreter follow. Keep it a call: expanded at each use, the element compares made blocks so long that LLVM's AArch64 code layout and copy propagation passes, which grow with the square of a block's length, took minutes on a few hundred uses.
+
 ## How to change it
 
 - New IR instruction or intrinsic: `Backend::inst`/`Backend::intrinsic` in `lower.rs`, with semantics identical to `interp/mod.rs`.

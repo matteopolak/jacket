@@ -586,3 +586,80 @@ mod x86_machine {
         }
     }
 }
+
+mod string_compare {
+    //! The SSE4.2 string compares lower to one shared helper per control byte, not to a
+    //! per-element expansion at each use: LLVM's machine passes grow quadratically with the
+    //! length of a block, and 174 expanded uses took minutes to compile at -O2.
+    use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+    use jaic_llvm::{OptLevel, emit_object};
+    use std::rc::Rc;
+    use test_support::TempDir;
+
+    const USES: usize = 8;
+
+    fn source() -> String {
+        let mut s = String::from(
+            "main :: () {\n    data: [32] u8;\n    for 0..31 data[it] = cast(u8) (it % 5);\n    total: u32;\n",
+        );
+        for _ in 0..USES {
+            s.push_str(
+                "    {\n        pa := data.data;\n        pb := data.data + 16;\n        idx: u32;\n        #asm SSE4_2 {\n            a_: vec;\n            b_: vec;\n            movdqu a_, [pa];\n            movdqu b_, [pb];\n            pcmpistri ecx:, a_, b_, 0;\n            mov idx, ecx;\n        }\n        total += idx;\n    }\n",
+            );
+        }
+        s.push_str("}\n");
+        s
+    }
+
+    /// The text of `name`'s definition in `ir`.
+    fn function<'a>(ir: &'a str, name: &str) -> &'a str {
+        let start = ir
+            .find(&format!("@{name}"))
+            .and_then(|at| ir[..at].rfind("define "))
+            .unwrap_or_else(|| panic!("no definition of {name}: {ir}"));
+        let end = start + ir[start..].find("\n}\n").unwrap();
+        &ir[start..end]
+    }
+
+    #[test]
+    fn each_use_is_a_call_to_one_helper() {
+        let mut options = Options::host();
+        options.runtime_support = false;
+        let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+        if let Err(e) = c.compile_sources(&[ProgramSource::String(source())]) {
+            panic!("{}", e.render(&c.src.sources));
+        }
+        let dir = TempDir::new("string-compare");
+        for target in ["aarch64-apple-macosx11.0", "x86_64-unknown-linux-gnu"] {
+            let ir_path = dir.join(format!("{target}.ll"));
+            emit_object(
+                &c.out.program,
+                &jaic_llvm::Options {
+                    target: Some(target.parse().unwrap()),
+                    opt_level: OptLevel::O0,
+                    emit_ir: Some(ir_path.clone()),
+                    ..Default::default()
+                },
+                &dir.join(format!("{target}.o")),
+            )
+            .unwrap();
+            let ir = std::fs::read_to_string(&ir_path).unwrap();
+            let definitions = ir
+                .lines()
+                .filter(|l| l.starts_with("define") && l.contains("@jaic.string_compare"))
+                .count();
+            assert_eq!(
+                definitions, 1,
+                "{target}: one helper for one control byte\n{ir}"
+            );
+            let main = function(&ir, "main");
+            let calls = main.matches("@jaic.string_compare").count();
+            assert_eq!(calls, USES, "{target}: {main}");
+            let compares = main.matches(" icmp ").count();
+            assert!(
+                compares <= 4 * USES,
+                "{target}: {compares} compares in main for {USES} uses\n{main}"
+            );
+        }
+    }
+}

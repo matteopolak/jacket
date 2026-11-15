@@ -10,6 +10,7 @@
 
 - An error a metaprogram reports with `compiler_report` at a location in a file of a workspace it created now points at that location, not at the `compiler_report` call, and the underline leaves out a comment at the end of the line.
 - A build file with no `main` that creates its own workspace is told to add `set_build_options_dc(.{do_output = false});`.
+- `#asm` SSE4.2 string compares (`pcmpistri` and the rest) compile to one shared helper per control byte instead of an expansion at each use, so a function with many of them no longer takes minutes to build at `-O2` on Apple silicon; they also run faster in the interpreter.
 - `jailint --fix` and the language server's fix-all no longer delete a statement that is the whole body of a `for`, `if`, `while` or `defer` written without braces, which left the file unparsable; the `;` stays as an empty body.
 - The lifetime lints follow values passed in aggregate parameters again (broken in 0.35.1).
 - Hovers in the language server keep working after a check that took longer than the check time limit.

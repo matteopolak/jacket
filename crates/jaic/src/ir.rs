@@ -14,6 +14,7 @@ mod checks;
 mod func;
 mod insts;
 mod program;
+mod string_compare;
 
 pub use self::analysis::{inst_vals, term_uses};
 pub use self::builder::Builder;
@@ -34,6 +35,7 @@ pub use self::program::{
     Foreign, Global, Library, Program, Reloc, RelocTarget, Storage, TraceInfoLayout, TraceLayout,
     TraceNodeLayout,
 };
+pub use self::string_compare::{StringCompare, string_compare};
 pub use crate::wide_float::{Arith as WideArith, WideFloat};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]

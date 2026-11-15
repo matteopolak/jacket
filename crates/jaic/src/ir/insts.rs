@@ -141,6 +141,11 @@ pub enum Intrinsic {
     /// `(src) -> I64`; the payload is the width in bytes (16, 32 or 64). Bit i of the result is the
     /// top bit of byte i (`pmovmskb`).
     SignMask(u8),
+    /// `(a, b, len_a: I32, len_b: I32) -> (result: I32, b_ends: I8, a_ends: I8)`: the SSE4.2
+    /// string compare with control byte `.0` of the 16 bytes at `a` and `b`, with the explicit
+    /// lengths when `.1` (otherwise each string ends at its first zero element and the lengths are
+    /// ignored). See `ir::string_compare` for the results.
+    StringCompare(u8, bool),
     /// `(fiber, stack: *u8, size: s64, entry, data)`: prepare the `Fiber_Context` at `fiber` so
     /// that the first `FiberSwitch` to it calls the `#c_call` procedure `entry(data)` on the
     /// `size` bytes of memory at `stack`. `entry` must never return.

@@ -252,6 +252,14 @@ impl Interp {
                 self.put(a[0], &out)?;
                 Rets::default()
             }
+            I::StringCompare(ctl, explicit) => {
+                let mut x = [0u8; 16];
+                let mut y = [0u8; 16];
+                x.copy_from_slice(&self.fetch(a[0], 16)?);
+                y.copy_from_slice(&self.fetch(a[1], 16)?);
+                let r = ir::string_compare(ctl, explicit, &x, &y, a[2] as i32, a[3] as i32);
+                Rets::from(vec![r.result as u64, r.b_ends as u64, r.a_ends as u64])
+            }
             I::SignMask(width) => {
                 let bytes = self.fetch(a[0], width as usize)?;
                 let mut mask = 0u64;

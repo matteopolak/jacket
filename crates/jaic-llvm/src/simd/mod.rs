@@ -153,3 +153,15 @@ pub fn sign_mask<'ctx>(cx: &Cx<'_, 'ctx>, width: u8, src: PointerValue<'ctx>) ->
     // and a short shift/add sequence elsewhere; a target-specific backend goes first here.
     generic::sign_mask(cx, width, src)
 }
+
+/// `StringCompare` with control byte `ctl` (and explicit lengths when `explicit`) of the 16 bytes
+/// at `a` and `b`: `(result, b_ends, a_ends)`, as `jaic::ir::string_compare` defines them.
+pub fn string_compare<'ctx>(
+    cx: &Cx<'_, 'ctx>,
+    kind: (u8, bool),
+    operands: (PointerValue<'ctx>, PointerValue<'ctx>),
+    lengths: (IntValue<'ctx>, IntValue<'ctx>),
+) -> R<[IntValue<'ctx>; 3]> {
+    // The portable vector form only. A target backend (SSE4.2's own instructions) would go first.
+    generic::string_compare(cx, kind, operands, lengths)
+}

@@ -176,6 +176,16 @@ impl<'ctx> Backend<'ctx, '_> {
                 crate::simd::byte_lookup(&self.simd_cx(), width, dst, table, idx)?;
                 Ok(vec![])
             }
+            Intrinsic::StringCompare(ctl, explicit) => {
+                let length = |i: usize| self.coerce(args[i], Ty::I32).map(|v| v.into_int_value());
+                let r = crate::simd::string_compare(
+                    &self.simd_cx(),
+                    (ctl, explicit),
+                    (ptr_arg(0)?, ptr_arg(1)?),
+                    (length(2)?, length(3)?),
+                )?;
+                Ok(r.into_iter().map(Into::into).collect())
+            }
             Intrinsic::SignMask(width) => {
                 let mask = crate::simd::sign_mask(&self.simd_cx(), width, ptr_arg(0)?)?;
                 Ok(vec![mask.into()])
