@@ -87,6 +87,22 @@ fn build_problems_say_what_to_change() {
         assert_eq!(output.status.code(), *code, "{args:?}: {text}");
         assert_in_order(&text, expected);
     }
+    // A build file that made its own workspace but left its own output on.
+    std::fs::write(
+        dir.join("first.jai"),
+        "#run {\n    w := compiler_create_workspace(\"app\");\n    add_build_file(\"ok.jai\", w);\n}\n#import \"Compiler\";\n",
+    )
+    .unwrap();
+    let output = jaic(&dir, &["first.jai"], &[]);
+    let text = stderr(&output);
+    assert_eq!(output.status.code(), Some(3), "{text}");
+    assert_in_order(
+        &text,
+        &[
+            "error[cli-failure]: `first.jai` has no `main` procedure, so there is no program to write",
+            "help: `first.jai` built another workspace, so it is a build file: add `set_build_options_dc(.{do_output = false});` to its `#run` so it writes no program of its own",
+        ],
+    );
     // A linker that is not installed: how to get one, and that `-interp` needs none.
     let output = Command::new(JAIC)
         .args(["ok.jai", "-exe", "prog"])

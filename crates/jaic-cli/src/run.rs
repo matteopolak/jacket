@@ -172,7 +172,8 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
                 BitcodeOptimization::Unset | BitcodeOptimization::O0
             );
             jaic::progress::set_optimized(optimized);
-            let code = write_program(&mut compiler, &cli, &path, settings);
+            let created = workspaces.borrow().created_workspaces();
+            let code = write_program(&mut compiler, &cli, &path, settings, created);
             if code == ExitCode::SUCCESS {
                 jaic::progress::finish(if optimized {
                     "optimized"
@@ -549,11 +550,14 @@ fn interpret(
 }
 
 /// A build: write the top-level program unless the metaprogram turned its output off.
+/// `created` is how many workspaces the file's compile-time code made: a file with no `main` that
+/// made one is a build file that forgot to turn its own output off.
 fn write_program(
     compiler: &mut Compiler,
     cli: &Cli,
     path: &Path,
     settings: BuildSettings,
+    created: usize,
 ) -> ExitCode {
     // A metaprogram that turned its own output off has nothing to write.
     if !settings.do_output || settings.output_type == OutputType::NoOutput {
@@ -561,9 +565,18 @@ fn write_program(
     }
     if settings.output_type == OutputType::Executable && compiler.exported_func("main").is_none() {
         let file = shown(path);
+        let help = if created > 0 {
+            format!(
+                "`{file}` built another workspace, so it is a build file: add \
+                 `set_build_options_dc(.{{do_output = false}});` to its `#run` so it writes no program of its own"
+            )
+        } else {
+            format!(
+                "add `main :: () {{ ... }}` as the program's starting point, or use `jaic {file} -check` to only check the code"
+            )
+        };
         print_error(&format!(
-            "`{file}` has no `main` procedure, so there is no program to write\n\
-             help: add `main :: () {{ ... }}` as the program's starting point, or use `jaic {file} -check` to only check the code"
+            "`{file}` has no `main` procedure, so there is no program to write\nhelp: {help}"
         ));
         return ExitCode::from(NO_MAIN_STATUS);
     }
