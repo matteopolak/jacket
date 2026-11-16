@@ -157,7 +157,7 @@ bench_note_problem :: (notes: [] *Code_Note) -> string {
             count, ok := string_to_int(digits);
 
             if !ends_with(it.text, ")") || !ok || count < 1 {
-                return tprint("@% takes a positive whole number, as in `@%100)`, not `%`", string.{ prefix.count - 1, prefix.data }, prefix, digits);
+                return tprint("@% takes a positive whole number, as in `@%%)`, not `%`", string.{ prefix.count - 1, prefix.data }, prefix, "100", digits);
             }
         }
     }

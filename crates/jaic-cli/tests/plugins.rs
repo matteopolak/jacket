@@ -114,3 +114,26 @@ fn module_scope_factories_support_default_and_explicit_parameters() {
         );
     }
 }
+
+#[test]
+fn test_discovery_names_the_example_of_a_bad_bench_note() {
+    let dir = TempDir::new("cli-plugins-bench-note");
+    let source = dir.join("bench.jai");
+    std::fs::write(
+        &source,
+        "#import \"Extensions/Testing\";\nslow :: (b: *Bench) {} @bench @samples(lots)\n",
+    )
+    .unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
+        .arg(&source)
+        .args(["-check", "+Extensions/Testing/Discovery"])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(!output.status.success(), "{stderr}");
+    assert!(
+        stderr
+            .contains("@samples takes a positive whole number, as in `@samples(100)`, not `lots`"),
+        "{stderr}"
+    );
+}
