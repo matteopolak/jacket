@@ -224,6 +224,7 @@ sphere_in_view :: (planes: [6] Vector4, center: Vector3, radius: float) -> bool 
 // `pos += vel * dt` for `count` entities starting at `first`, four at a time, reversing the
 // velocity of any lane that went past `low` or `high`.
 bounce :: (position: *float, velocity: *float, first: s64, count: s64, dt: float, low: float, high: float) {
+    using SIMD; // its vector operators
     step := SIMD.splat(SIMD.f32x4, dt);
     floor := SIMD.splat(SIMD.f32x4, low);
     ceiling := SIMD.splat(SIMD.f32x4, high);
