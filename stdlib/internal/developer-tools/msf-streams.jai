@@ -85,7 +85,7 @@ parse_msf :: (file_content: string, path := "", verbose := false) -> success: bo
         position := bitmap_page * 4096 + (page % 32768) / 8;
         bits: u64;
 
-        for byte: 0..7 bits |= cast(u64) file_content[position + byte] << (byte * 8);
+        for byte: 0..7 bits |= (cast(u64) file_content[position + byte]) << (byte * 8);
 
         result.fpm.rgw[word] = cast,no_check(s64) bits;
     }

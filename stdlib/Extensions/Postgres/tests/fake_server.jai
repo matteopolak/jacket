@@ -482,5 +482,5 @@ put_cstring :: (out: *[..] u8, text: string) {
 }
 
 read32 :: (bytes: [] u8) -> s64 {
-    return (cast(s64) bytes[0] << 24) | (cast(s64) bytes[1] << 16) | (cast(s64) bytes[2] << 8) | bytes[3];
+    return ((cast(s64) bytes[0]) << 24) | ((cast(s64) bytes[1]) << 16) | ((cast(s64) bytes[2]) << 8) | bytes[3];
 }

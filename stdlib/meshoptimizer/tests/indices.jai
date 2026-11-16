@@ -58,7 +58,7 @@ triangle_keys :: (indices: [] u32) -> [] u64 {
             a, b, c = c, a, b;
         }
 
-        array_add(*keys, (cast(u64) a << 40) | (cast(u64) b << 20) | cast(u64) c);
+        array_add(*keys, ((cast(u64) a) << 40) | ((cast(u64) b) << 20) | cast(u64) c);
     }
 
     quick_sort(keys, (x: u64, y: u64) => (cast(s64) x - cast(s64) y));
