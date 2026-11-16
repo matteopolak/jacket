@@ -362,7 +362,7 @@ trimmed_fields :: () {
         run := repeat(#char " ", pad);
 
         for text: string.[
-            tprint("%a%,\t%b\t,%\"c d\"%,%\n  \n%,%\r\n", run, run, run, run, run, run, run),
+            tprint("%a%,\t%b\t,%\"c d\"%,%\n  \n%,%\r\n", run, run, run, run, run, run, run, run),
             tprint("\"x\"%\t,%y\"z\"\n", run, run),
             tprint("%\"q\"%x\n", run, run),
             tprint("a%\t%\tb\t%\n", run, run, run),
@@ -743,7 +743,7 @@ typed_error_positions_in_long_records :: () {
         run := repeat(#char "k", pad);
 
         for breaks: string.["\n", "\r\n", "\r"] {
-            text := tprint("1,\"%%%\"\"%\",x,z\n7,s,8,t\n", run, breaks, run, breaks, run);
+            text := tprint("1,\"%%%\"\"%%\",x,z\n7,s,8,t\n", run, breaks, run, breaks, run);
 
             for options: Csv_Options.[.{}, .{ trim = true }] {
                 expect_typed_error(text, options, typed_outcome(text, options, 0, true));
