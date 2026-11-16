@@ -123,8 +123,8 @@ main :: () {
     // A separate schema describes the actual C adapter ABI. Ordinary bindings
     // retain C++ symbols and the original aggregate-by-value return contract.
     bridge_schema := #string END
-Custom_Record :: struct #align 4 {
-    number: s32;
+Custom_Record :: struct {
+    number: s32 #align 4;
 }
 custom_integer :: (a: s32, b: s32) -> s32 #c_call #foreign native;
 custom_floating :: (a: float64, b: float64) -> float64 #c_call #foreign native;
