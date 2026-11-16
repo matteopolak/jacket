@@ -1,10 +1,18 @@
 # Changelog
 
-## [Unreleased]
+## [0.36.0] - 2026-11-16
 
-### Added
+`jacket lint` reports the compiler's warnings alongside its own findings.
 
-- `jacket lint` reports the compiler's warnings in the files it lints, as `jacket check` does, with the compiler's suggestions (`--fix` applies the safe ones). `-A`, `-W`, `-D`, `[lint.rules]` and `[[lint.overrides]]` take their codes, `leniencies` or `compiler` (all of them), and `-D warnings` fails on them.
+### Breaking changes
+
+| Was | Now |
+|---|---|
+| `jacket lint -D warnings` passed on a file with compiler warnings | It fails on them, as `jacket check -D warnings` does; allow them by code, `leniencies` or `compiler` in `[lint.rules]`, `[[lint.overrides]]` or `-A` |
+
+### New
+
+- `jacket lint` reports the compiler's warnings in the files it lints, as `jacket check` does, with the compiler's suggestions (`--fix` applies the safe ones). `-A`, `-W`, `-D`, `[lint.rules]` and `[[lint.overrides]]` take their codes, `leniencies` or `compiler` (all of them).
 
 ### Fixed
 
