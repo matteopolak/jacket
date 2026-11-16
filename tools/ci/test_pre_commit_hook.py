@@ -61,7 +61,7 @@ class PreCommitHookTests(unittest.TestCase):
         self.env["PYTHONPATH"] = str(self.repo / "tools")
         # Keep any real jaifmt/jailint on the developer's PATH out of the tests.
         # A directory that holds one of them (Homebrew's bin) also holds tools cargo needs, such as
-        # the `sccache` a rustc-wrapper names, so its other entries stay reachable through links.
+        # a compiler cache a rustc-wrapper names (`kache`), so its other entries stay reachable through links.
         kept, dropped = [], []
         for p in self.env["PATH"].split(os.pathsep):
             has_ours = (Path(p) / "jaifmt").exists() or (Path(p) / "jailint").exists()

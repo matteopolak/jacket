@@ -18,7 +18,7 @@ from pathlib import Path
 # Process names (basename of the command) that compete for CPU, memory or disk with a compiler: other
 # compilers and build tools count whenever they run.
 NOISY_NAMES = {
-    'cargo', 'rustc', 'rustdoc', 'sccache', 'rust-analyzer', 'clang', 'clang++', 'cc', 'gcc', 'g++', 'cc1',
+    'cargo', 'rustc', 'rustdoc', 'kache', 'rust-analyzer', 'clang', 'clang++', 'cc', 'gcc', 'g++', 'cc1',
     'ld', 'lld', 'ld64', 'swiftc', 'swift-frontend', 'jaic', 'jailsp', 'tmutil',
 }
 # The indexer and the backup: macOS keeps these alive, so they count only while busy.
