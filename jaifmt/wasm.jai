@@ -4,27 +4,25 @@
 // exits 2. On a config or format error it prints `jaifmt: ...` to stderr, prints nothing to
 // stdout and exits 1, like the playground driver (playground.jai).
 
-main :: () -> s32 {
+main :: () {
     options, set := Args.parse(Options, HELP);
 
     config: Format_Config;
 
     if set.config_text {
         parsed, ok, error := parse_config(options.config_text);
-        if !ok return fail("%: %", JACKET_CONFIG_FILE_NAME, error);
+        if !ok fail("%: %", JACKET_CONFIG_FILE_NAME, error);
 
         config = parsed;
     }
 
     source, read_ok := read_standard_input();
-    if !read_ok return fail("%: cannot read standard input", options.name);
+    if !read_ok fail("%: cannot read standard input", options.name);
 
     formatted, ok, error := format_source(source, config);
-    if !ok return fail("%:%", options.name, error);
+    if !ok fail("%:%", options.name, error);
 
     write_string(formatted);
-
-    return 0;
 }
 
 #scope_file
@@ -61,7 +59,8 @@ read_standard_input :: () -> string, bool {
     return builder_to_string(*builder), true;
 }
 
-fail :: (format: string, args: ..Any) -> s32 {
+// Prints `jaifmt: ` and the message to stderr and exits 1.
+fail :: (format: string, args: ..Any) {
     print("jaifmt: %\n", tprint(format, ..args), to_standard_error = true);
-    return 1;
+    exit(1);
 }
