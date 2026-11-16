@@ -63,9 +63,13 @@ fn lint_target(
             vec![jaic::target::TargetOs::Linux, jaic::target::TargetOs::MacOS],
         )],
     };
+    // Only the rules asked for: the others, and the compiler's warnings, stay out.
     for r in RULES {
         config.levels.insert(r.name.to_string(), Level::Allow);
     }
+    config
+        .levels
+        .insert(jailint::config::COMPILER.to_string(), Level::Allow);
     for (rule, level) in levels {
         config.levels.insert(rule.to_string(), *level);
     }

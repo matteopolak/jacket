@@ -60,6 +60,12 @@ rules = { single_case_switch = "allow" }
 paths = ["tests/corpus/positive/source-code-capture.jai"]
 rules = { shadowed_local = "allow" }
 
+# The compiler's own tests and fixtures write what it warns about on purpose: leniencies, format
+# mismatches and narrow shifts are the inputs under test.
+[[lint.overrides]]
+paths = ["tests/compiler/**", "tests/corpus/**", "tests/fixtures/**", "tests/lsp/**"]
+rules = { compiler = "allow" }
+
 # Tests, regressions and benchmarks write the flagged shapes on purpose: hand-written copy loops,
 # one-element arrays, wide shifts and unsigned bounds are the inputs under test.
 [[lint.overrides]]

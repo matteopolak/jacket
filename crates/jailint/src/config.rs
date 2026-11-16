@@ -24,6 +24,7 @@
 //! Anything the schema does not know under `[lint]` is an error, so a typo does not silently
 //! keep a rule on.
 use jacket_config::{Disk, Files, Lint, PathPattern};
+use jaic::diagnostics::{Code, Severity};
 use jaic::fxhash::HashMap;
 use jaic::target::TargetOs;
 use std::path::{Path, PathBuf};
@@ -379,13 +380,33 @@ impl Config {
         self.resolve(rule, Some(path))
     }
 
-    fn resolve(&self, rule: &crate::RuleInfo, path: Option<&Path>) -> Level {
-        let named = |levels: &HashMap<String, Level>| {
-            levels
-                .get(rule.name)
-                .or_else(|| levels.get(rule.category.as_str()))
-                .copied()
+    /// The level of the compiler's warning `code` in the file at `path`: set by its name, by
+    /// `leniencies` for a leniency, or by `compiler` for any, in the same places and order as a
+    /// rule's level.
+    pub fn compiler_level(&self, code: Code, path: &Path) -> Level {
+        let leniencies = if code.is_leniency() {
+            "leniencies"
+        } else {
+            COMPILER
         };
+        self.level_of(
+            &[code.name(), leniencies, COMPILER],
+            Some(path),
+            Level::Warn,
+        )
+    }
+
+    fn resolve(&self, rule: &crate::RuleInfo, path: Option<&Path>) -> Level {
+        self.level_of(&[rule.name, rule.category.as_str()], path, rule.default())
+    }
+
+    /// The level of what `names` name, the most specific first: a flag naming the first (the
+    /// command line sets each member of a group), else the last override matching `path` that
+    /// names any, else the settings, else `default`. `-D warnings` makes a warning an error.
+    fn level_of(&self, names: &[&str], path: Option<&Path>, default: Level) -> Level {
+        let name = names[0];
+        let named =
+            |levels: &HashMap<String, Level>| names.iter().find_map(|n| levels.get(*n)).copied();
         let overridden = path.and_then(|path| {
             let text = self.relative(path);
             self.overrides
@@ -396,11 +417,11 @@ impl Config {
         });
         let level = self
             .flags
-            .get(rule.name)
+            .get(name)
             .copied()
             .or(overridden)
             .or_else(|| named(&self.levels))
-            .unwrap_or_else(|| rule.default());
+            .unwrap_or(default);
         if self.deny_warnings && level == Level::Warn {
             Level::Deny
         } else {
@@ -592,12 +613,27 @@ fn portability(settings: &jacket_config::Portability) -> Result<Portability, Str
     Ok(out)
 }
 
-/// Rule and category names, for suggestions.
+/// The names a level can be set for: rules, categories, compiler warnings, `leniencies` and
+/// `compiler`.
 pub fn rule_names() -> impl Iterator<Item = &'static str> {
     crate::RULES
         .iter()
         .map(|r| r.name)
         .chain(Category::ALL.map(Category::as_str))
+        .chain(compiler_warnings().map(Code::name))
+        .chain(["leniencies", COMPILER])
+}
+
+/// The name that sets every compiler warning at once.
+pub const COMPILER: &str = "compiler";
+
+/// The compiler's warnings, which settings and flags name as they name rules. The linter's own
+/// diagnostics (`lint-incomplete`) are not among them.
+pub fn compiler_warnings() -> impl Iterator<Item = Code> {
+    Code::ALL
+        .iter()
+        .copied()
+        .filter(|c| c.severity() == Severity::Warning && c.area() != "tools")
 }
 
 /// Checked levels of a `rules` table.
@@ -615,7 +651,7 @@ fn levels(
     Ok(out)
 }
 
-/// Whether `rule` is a rule or category and `value` a level for it.
+/// Whether `rule` names something a level can be set for and `value` is a level.
 fn check_rule(rule: &str, value: &str) -> Result<(), String> {
     if !rule_names().any(|r| r == rule) {
         let help = match jaic::suggest::closest(rule, rule_names()) {
@@ -672,6 +708,36 @@ mod tests {
         let defaults = parse("").unwrap();
         assert_eq!(defaults.level(rule("double_free")), Level::Deny);
         assert!(parse("[lint.rules]\npedantc = \"warn\"").is_err_and(|e| e.contains("pedantic")));
+    }
+
+    #[test]
+    fn compiler_warnings_take_levels_like_rules() {
+        let text = "[lint.rules]\ncompiler = \"allow\"\nleniencies = \"deny\"\n\n[[lint.overrides]]\npaths = [\"tests/**\"]\nrules = { leniencies = \"allow\", format-extra-argument = \"allow\" }\n\n[[lint.overrides]]\npaths = [\"tests/strict\"]\nrules = { struct-literal-as-dynamic-array = \"warn\" }\n";
+        let mut config = parse(text).unwrap();
+        let at = |c: &Config, code: Code, p: &str| c.compiler_level(code, Path::new(p));
+        let lenient = Code::ArrayFromStructLiteral;
+        assert!(lenient.is_leniency());
+        assert_eq!(at(&config, lenient, "/r/src/a.jai"), Level::Deny);
+        assert_eq!(at(&config, lenient, "/r/tests/a.jai"), Level::Allow);
+        assert_eq!(at(&config, lenient, "/r/tests/strict/a.jai"), Level::Warn);
+        assert_eq!(
+            at(&config, Code::FormatExtraArgument, "/r/src/a.jai"),
+            Level::Allow
+        );
+        assert_eq!(
+            at(&config, Code::FormatExtraArgument, "/r/tests/a.jai"),
+            Level::Allow
+        );
+        config
+            .flags
+            .insert("format-extra-argument".into(), Level::Warn);
+        config.deny_warnings = true;
+        assert_eq!(
+            at(&config, Code::FormatExtraArgument, "/r/src/a.jai"),
+            Level::Deny
+        );
+        // The linter's own diagnostics are not settings.
+        assert!(parse("[lint.rules]\nlint-incomplete = \"allow\"\n").is_err());
     }
 
     #[test]

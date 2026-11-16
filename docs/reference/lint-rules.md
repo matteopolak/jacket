@@ -2,7 +2,7 @@
 
 The 106 rules `jailint` checks, by category. [jailint](../tools/jailint.md) says how to run it, configure rules and silence a finding.
 
-A rule's category sets its default level. Name a category wherever a rule name works (`[lint.rules]`, `-W`, `// jailint: allow(...)`).
+A rule's category sets its default level. Name a category wherever a rule name works (`[lint.rules]`, `-W`, `// jailint: allow(...)`). The compiler's warnings are reported too and take levels the same way, by code (`struct-literal-as-dynamic-array`), as `leniencies`, or all at once as `compiler`; `// jailint: allow(...)` does not cover them.
 
 | Category | Default | What |
 | --- | --- | --- |

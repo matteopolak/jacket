@@ -75,7 +75,7 @@ unused_variable = "deny"        # allow | warn | deny
 
 [[lint.overrides]]              # levels for some paths; a later entry wins
 paths = ["tests/**"]
-rules = { unused_variable = "warn" }
+rules = { unused_variable = "warn", leniencies = "allow" }   # compiler warnings too: a code, `leniencies` or `compiler`
 
 [format]                        # every jaifmt key, see jaifmt.md
 indent_width = 4

@@ -6,10 +6,12 @@ use super::marked_target::{Marked, marked_target};
 use super::plan::{Notes, canonical};
 use super::{CheckedContext, Options};
 use crate::config::Configs;
-use crate::{Lint, lint_files_with_entry};
+use crate::{Edit, Fix, Level, Lint, SecondaryLabel, lint_files_with_entry};
 use jaic::paths::CanonCache;
 use jaic::project::Program;
 use jaic::sema::Compiler;
+use jaic::source::Applicability;
+use jaic::source::Span;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
@@ -194,6 +196,7 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
                     .into_owned();
             }
             lints.extend(found);
+            lints.extend(compiler_warnings(&compiler, &own, configs, canon));
         }
         if options.jobs == 1 {
             crate::facts::profile_retained(&mut compiler, root.path(), complete);
@@ -208,4 +211,99 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
         contexts,
         failures,
     }
+}
+
+/// The compiler's warnings in `files`, at the levels the settings give them, as findings named
+/// by their code. Only the command line reports them: the language server already shows
+/// the compiler's diagnostics.
+fn compiler_warnings(
+    compiler: &Compiler,
+    files: &[jaic::source::FileId],
+    configs: &Configs,
+    canon: &CanonCache,
+) -> Vec<Lint> {
+    let path_of = |file| {
+        let path = compiler.src.sources.get(file).path.as_file()?;
+        Some(
+            canon
+                .get_or_insert_with(path, canonical)
+                .to_string_lossy()
+                .into_owned(),
+        )
+    };
+    let mut lints = Vec::new();
+    for warning in &*compiler.diag.warnings {
+        if !files.contains(&warning.span.file) {
+            continue;
+        }
+        let Some(path) = path_of(warning.span.file) else {
+            continue;
+        };
+        let level = configs
+            .at(Path::new(&path))
+            .compiler_level(warning.code, Path::new(&path));
+        if level == Level::Allow {
+            continue;
+        }
+        let warning = warning.clone();
+        let mut notes = Vec::new();
+        let mut secondary = Vec::new();
+        for (span, message) in warning.notes.iter().chain(warning.secondary_labels()) {
+            if let Some(path) = (*span != Span::NONE).then(|| path_of(span.file)).flatten() {
+                secondary.push(SecondaryLabel {
+                    path,
+                    text: compiler.src.sources.get(span.file).text.clone(),
+                    start: span.start as usize,
+                    end: span.end as usize,
+                    message: message.clone(),
+                });
+            } else {
+                notes.push(message.clone());
+            }
+        }
+        // The suggestions come first, as the compiler prints them; the first one's edits are the
+        // fix when they all stay in this file.
+        let suggestions: Vec<_> = warning.suggestions().iter().filter(|s| s.listed).collect();
+        let fix = suggestions.first().and_then(|s| {
+            let edits = s
+                .edits
+                .iter()
+                .map(|edit| match edit {
+                    jaic::source::Edit::Replace {
+                        span,
+                        text,
+                    } if span.file == warning.span.file => Some(Edit {
+                        start: span.start as usize,
+                        end: span.end as usize,
+                        text: text.clone(),
+                    }),
+                    _ => None,
+                })
+                .collect::<Option<Vec<_>>>()?;
+            Some(Fix {
+                title: s.title.clone(),
+                edits,
+                machine_applicable: s.applicability == Applicability::MachineApplicable,
+            })
+        });
+        let help: Vec<String> = suggestions
+            .iter()
+            .map(|s| s.title.clone())
+            .chain(warning.help.iter().cloned())
+            .collect();
+        lints.push(Lint {
+            rule: warning.code.name(),
+            level,
+            path,
+            start: warning.span.start as usize,
+            end: warning.span.end as usize,
+            message: warning.message,
+            label: warning.label.map(String::from),
+            help: (!help.is_empty()).then(|| help.join("\n")),
+            notes,
+            secondary,
+            fix,
+        });
+    }
+    lints
 }

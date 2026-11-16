@@ -35,8 +35,14 @@ pub fn render(
     style: &Style,
 ) -> String {
     let path = SourcePath::from(path);
-    let mut report = Report::new(Code::LintFinding, lint.message.clone());
-    report.name = Some(lint.rule);
+    // A compiler warning is named by its code, and the notes about rule levels and pages are
+    // not about it.
+    let compiler =
+        Code::parse(lint.rule).filter(|_| crate::RULES.iter().all(|r| r.name != lint.rule));
+    let mut report = Report::new(compiler.unwrap_or(Code::LintFinding), lint.message.clone());
+    if compiler.is_none() {
+        report.name = Some(lint.rule);
+    }
     report.severity = match lint.level {
         Level::Deny => Severity::Error,
         _ => Severity::Warning,
@@ -71,10 +77,11 @@ pub fn render(
             lines: None,
         });
     }
-    if let Some(help) = &lint.help {
+    // One `help:` per line; the fix is shown under the first.
+    for (i, help) in lint.help.iter().flat_map(|h| h.lines()).enumerate() {
         report.help.push(Help {
-            message: help.clone(),
-            fix: lint.fix.as_ref().map(|fix| Fix {
+            message: help.to_string(),
+            fix: lint.fix.as_ref().filter(|_| i == 0).map(|fix| Fix {
                 text,
                 edits: fix
                     .edits
@@ -86,6 +93,9 @@ pub fn render(
         });
     }
     report.notes.extend(lint.notes.iter().cloned());
+    if compiler.is_some() {
+        return report.render_with(*style);
+    }
     if lint.level == default {
         report.notes.push(format!(
             "`{}` is `{}` by default",

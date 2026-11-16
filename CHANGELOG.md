@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- `jacket lint` reports the compiler's warnings in the files it lints, as `jacket check` does, with the compiler's suggestions (`--fix` applies the safe ones). `-A`, `-W`, `-D`, `[lint.rules]` and `[[lint.overrides]]` take their codes, `leniencies` or `compiler` (all of them), and `-D warnings` fails on them.
+
+### Fixed
+
+- The message for a bench with a bad `@samples(...)` or `@min_time(...)` note shows the example, `@samples(100)`, that it left out.
+
 ## [0.35.3] - 2026-11-15
 
 ### Changed

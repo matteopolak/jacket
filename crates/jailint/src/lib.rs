@@ -71,7 +71,7 @@ pub struct Lint {
     pub message: String,
     /// Text shown under the highlighted range.
     pub label: Option<String>,
-    /// Advice; with a fix, the changed code is shown after it.
+    /// Advice, one `help:` line per line; with a fix, the changed code is shown after the first.
     pub help: Option<String>,
     /// Further facts, printed as `note:` lines after the advice.
     pub notes: Vec<String>,

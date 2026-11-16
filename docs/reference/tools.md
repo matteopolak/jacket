@@ -187,8 +187,8 @@ jailint [OPTIONS] [paths]...
 | --- | --- |
 | `--fix` | Apply the fixes that are safe to apply automatically |
 | `--config <file>` | Settings file (default: the nearest jacket.toml) |
-| `-A <rule>` | Allow a rule (repeatable; `all` for every rule) |
-| `-W <rule>` | Warn on a rule |
+| `-A <rule>` | Allow a rule or a compiler warning (repeatable; `all` for every rule) |
+| `-W <rule>` | Warn on a rule or a compiler warning |
 | `-D <rule>` | Deny a rule; `-D warnings` makes every warning an error |
 | `--max-nesting <n>` | Blocks `excessive_nesting` allows (default: `[lint] max_nesting` in `jacket.toml`, else 6) |
 | `--lifetime-mode <must\|strict>` | Lifetime proof mode (default: [lint.lifetimes] mode, else must) |

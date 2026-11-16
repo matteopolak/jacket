@@ -297,12 +297,12 @@ labelled_continue :: (flag: bool) {
 }
 
 // Type-only probes do not contribute runtime invalidation.
-exists_does_not_grow :: () {
+type_of_does_not_grow :: () {
     xs: [..] int;
 
     array_add(*xs, 1);
     p := *xs[0];
-    exists := #exists(grow(*xs));
+    grown :: type_of(grow(*xs));
 
     sink(p);
 }

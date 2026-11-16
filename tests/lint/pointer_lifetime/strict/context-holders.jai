@@ -20,7 +20,7 @@ safe_cleared_global_container :: () {
     local := 1;
     array_add(*retired, *local);
     array_free(retired);
-    retired = .{};
+    retired = [..] *int.{};
 }
 
 bad_retained_global_container :: () {
@@ -37,7 +37,7 @@ safe_qualified_global_container :: () {
     array_add(*A.retired, *local);
     assert(B.retired.count == 1);
     array_free(A.retired);
-    A.retired = .{};
+    A.retired = [..] *int.{};
 }
 
 bad_qualified_global_container :: () {

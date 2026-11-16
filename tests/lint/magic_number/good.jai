@@ -42,7 +42,7 @@ lookup :: (values: [] int, n: int = 37) -> int {
         #asm { add register, 37; }
     }
 
-    print("%\n", 13, 99);
+    print("% %\n", 13, 99);
 
     return mask + shifted + hex + total + cast(int) half + seed + case_value + computed + STEP + buffer.count + register;
 }

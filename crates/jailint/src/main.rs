@@ -130,28 +130,7 @@ fn run() -> Result<ExitCode, String> {
         config.max_nesting = args.max_nesting;
         config.flag_max_nesting = args.max_nesting;
     }
-    for (rule, level) in &args.levels {
-        if rule == "warnings" && *level == Level::Deny {
-            config.deny_warnings = true;
-        } else if rule == "all" {
-            for r in RULES {
-                config.flags.insert(r.name.to_string(), *level);
-            }
-        } else if let Some(category) = Category::parse(rule) {
-            // Later flags win, so set each rule rather than the category under them.
-            for r in RULES.iter().filter(|r| r.category == category) {
-                config.flags.insert(r.name.to_string(), *level);
-            }
-        } else if RULES.iter().any(|r| r.name == rule) {
-            config.flags.insert(rule.clone(), *level);
-        } else {
-            let help = match jaic::suggest::closest(rule, jailint::config::rule_names()) {
-                Some(near) => format!("did you mean `{near}`? `jailint --list` lists the rules"),
-                None => "`jailint --list` lists the rules".to_string(),
-            };
-            return Err(format!("unknown rule `{rule}`\nhelp: {help}"));
-        }
-    }
+    set_levels(&mut config, &args.levels)?;
     let stdlib = jaic::default_stdlib_dir();
     if let Some(message) = jaic::missing_stdlib(&stdlib) {
         return Err(message);
@@ -374,4 +353,42 @@ fn count(n: usize, word: &str) -> String {
     } else {
         format!("{n} {word}s")
     }
+}
+
+/// Apply the `-A`, `-W` and `-D` flags to `config`: each names a rule, a category, a compiler
+/// warning, `leniencies` or `compiler` (every compiler warning), and a later flag wins.
+fn set_levels(config: &mut Config, levels: &[(String, Level)]) -> Result<(), String> {
+    for (rule, level) in levels {
+        if rule == "warnings" && *level == Level::Deny {
+            config.deny_warnings = true;
+        } else if rule == "all" {
+            for r in RULES {
+                config.flags.insert(r.name.to_string(), *level);
+            }
+        } else if let Some(category) = Category::parse(rule) {
+            // Later flags win, so set each rule rather than the category under them.
+            for r in RULES.iter().filter(|r| r.category == category) {
+                config.flags.insert(r.name.to_string(), *level);
+            }
+        } else if RULES.iter().any(|r| r.name == rule) {
+            config.flags.insert(rule.clone(), *level);
+        } else if rule == "leniencies" {
+            for code in Code::LENIENCIES {
+                config.flags.insert(code.name().to_string(), *level);
+            }
+        } else if rule == jailint::config::COMPILER {
+            for code in jailint::config::compiler_warnings() {
+                config.flags.insert(code.name().to_string(), *level);
+            }
+        } else if jailint::config::compiler_warnings().any(|c| c.name() == rule) {
+            config.flags.insert(rule.clone(), *level);
+        } else {
+            let help = match jaic::suggest::closest(rule, jailint::config::rule_names()) {
+                Some(near) => format!("did you mean `{near}`? `jailint --list` lists the rules"),
+                None => "`jailint --list` lists the rules".to_string(),
+            };
+            return Err(format!("unknown rule `{rule}`\nhelp: {help}"));
+        }
+    }
+    Ok(())
 }

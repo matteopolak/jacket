@@ -75,10 +75,10 @@ struct Own {
     /// Settings file (default: the nearest jacket.toml)
     #[arg(long, value_name = "file")]
     config: Option<PathBuf>,
-    /// Allow a rule (repeatable; `all` for every rule)
+    /// Allow a rule or a compiler warning (repeatable; `all` for every rule)
     #[arg(short = 'A', value_name = "rule")]
     allow: Vec<String>,
-    /// Warn on a rule
+    /// Warn on a rule or a compiler warning
     #[arg(short = 'W', value_name = "rule")]
     warn: Vec<String>,
     /// Deny a rule; `-D warnings` makes every warning an error

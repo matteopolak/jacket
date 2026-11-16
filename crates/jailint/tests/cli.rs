@@ -360,3 +360,76 @@ fn a_directory_scan_leaves_out_tests_compile_fail_fixtures() {
     assert!(err.contains("lint-incomplete"), "{err}");
     assert_eq!(code, Some(1), "{err}");
 }
+
+#[test]
+fn compiler_warnings_are_reported_and_take_the_level_flags() {
+    let dir = scratch("compiler-warnings");
+    std::fs::write(
+        dir.join("main.jai"),
+        "main :: () {\n    a1: [..] u8 = .{};\n    _ = a1;\n}\n",
+    )
+    .unwrap();
+    let run = |args: &[&str]| {
+        let output = Command::new(env!("CARGO_BIN_EXE_jailint"))
+            .args(args)
+            .arg("main.jai")
+            .current_dir(&dir)
+            .env("NO_COLOR", "1")
+            .output()
+            .unwrap();
+        (
+            String::from_utf8_lossy(&output.stdout).into_owned(),
+            output.status.code(),
+        )
+    };
+    let (out, code) = run(&[]);
+    assert!(
+        out.contains("warning[struct-literal-as-dynamic-array]"),
+        "{out}"
+    );
+    assert!(out.contains("main.jai:2:"), "{out}");
+    // The linter's own notes are for its rules, not the compiler's.
+    assert!(!out.contains("by default"), "{out}");
+    assert_eq!(code, Some(0), "{out}");
+    let (out, code) = run(&["-D", "warnings"]);
+    assert!(
+        out.contains("error[struct-literal-as-dynamic-array]"),
+        "{out}"
+    );
+    assert_eq!(code, Some(1), "{out}");
+    let (out, code) = run(&["-A", "struct-literal-as-dynamic-array"]);
+    assert!(!out.contains("struct-literal-as-dynamic-array"), "{out}");
+    assert_eq!(code, Some(0), "{out}");
+    let (out, code) = run(&["-D", "struct-literal-as-dynamic-array"]);
+    assert!(
+        out.contains("error[struct-literal-as-dynamic-array]"),
+        "{out}"
+    );
+    assert_eq!(code, Some(1), "{out}");
+}
+
+#[test]
+fn fix_applies_the_compilers_safe_suggestions() {
+    let dir = scratch("fix-compiler-suggestion");
+    let file = dir.join("game.jai");
+    std::fs::write(&file, "main :: () {\n    x := 1e9;\n    _ = x;\n}\n").unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_jailint"))
+        .args(["-A", "all", "game.jai"])
+        .current_dir(&dir)
+        .env("NO_COLOR", "1")
+        .output()
+        .unwrap();
+    let out = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        out.contains("warning[float-exponent-without-fraction]"),
+        "{out}"
+    );
+    assert!(out.contains("help: write `1.0e9`"), "{out}");
+    let (text, code) = jailint(&dir, &["--fix", "-A", "all", "game.jai"]);
+    assert_eq!(
+        std::fs::read_to_string(&file).unwrap(),
+        "main :: () {\n    x := 1.0e9;\n    _ = x;\n}\n",
+        "{text}"
+    );
+    assert_eq!(code, Some(0), "{text}");
+}
