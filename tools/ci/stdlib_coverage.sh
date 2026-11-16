@@ -26,4 +26,6 @@ else
     args+=(--coverage-summary "$GITHUB_STEP_SUMMARY")
   fi
 fi
-"${display[@]}" "$jacket" test -q --needs display "${args[@]}"
+# A fixed seed: property tests drawing new values each run cover different shrinking and
+# reporting lines, which moved modules such as Testing by more than the allowed 0.5 points.
+"${display[@]}" "$jacket" test -q --seed 1 --needs display "${args[@]}"
