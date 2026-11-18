@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased]
+## [0.36.1] - 2026-11-18
+
+A false double free in `jacket lint` is gone, and calls may put a trailing comma before `,,`.
 
 ### Fixed
 
