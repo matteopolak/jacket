@@ -346,6 +346,21 @@ fn call_arguments() {
     assert!(args[3].context);
 }
 
+/// A trailing comma may close the ordinary arguments before `,,`, as in a call written one
+/// argument per line.
+#[test]
+fn trailing_comma_before_context_arguments() {
+    let ExprKind::Call {
+        args, ..
+    } = value("x := f(\n    a,\n    n = 1,\n,, allocator = temp);").kind
+    else {
+        panic!()
+    };
+    assert_eq!(args.len(), 3);
+    assert!(!args[0].context && !args[1].context);
+    assert!(args[2].context);
+}
+
 #[test]
 fn here_string_argument_in_call() {
     let stmts = body_of("print(#string END\nhello\nEND, 7);\ns := #string END\nraw\nEND\ny := 1;");

@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- A call may end its ordinary arguments with a trailing comma before `,,`: `f(a, b, ,, allocator = temp)`.
+
 ## [0.36.0] - 2026-11-16
 
 `jacket lint` reports the compiler's warnings alongside its own findings.

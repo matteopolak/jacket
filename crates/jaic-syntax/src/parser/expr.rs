@@ -444,7 +444,11 @@ impl Parser<'_> {
             if !self.eat(P::Comma) {
                 break;
             }
-            // `f(a, b,, allocator = temp)`: everything after `,,` modifies the context.
+            // `f(a, b,, allocator = temp)`: everything after `,,` modifies the context. A
+            // trailing comma may come first: `f(a, b, ,, allocator = temp)`.
+            if !after_context_comma && self.at(P::Comma) && self.at_n(1, P::Comma) {
+                self.bump();
+            }
             after_context_comma |= self.eat(P::Comma);
         }
         self.in_list = saved;
