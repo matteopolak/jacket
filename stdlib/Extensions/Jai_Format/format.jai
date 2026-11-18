@@ -1634,7 +1634,9 @@ spacing_rule :: (f: *Formatter, i: int) -> Spacing {
 
     if f.operator_decl || adjacency_matters(f.zone, f.tokens, f.src, p, i) return .PRESENCE;
 
-    // Separators and brackets.
+    // Separators and brackets. A trailing comma before `,,` stands apart from it:
+    // `f(a, b, ,, allocator = temp)`.
+    if ntext == "," && ptext == "," && i + 1 < f.tokens.count && is_punct(f, i + 1, ",") return .SPACE;
     if ntext == "," || ntext == ";" return .NONE;
 
     if ptext == "," {
