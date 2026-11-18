@@ -4,8 +4,9 @@
 
 ### Fixed
 
-- `jacket lint` no longer reports a double free when a wrapper calls `free_json` (or another procedure with a body and a `@FreesArgument` note) and the caller then frees the value: the lifetime rules read that note only on a declaration without a body, as documented, and `free_json` no longer carries it.
+- `jacket lint` no longer reports a double free when a wrapper calls `free_json` (or another procedure with a body and a `@FreesArgument` note) and the caller then frees the value: the linter reads that note only on a declaration without a body, as documented, and `free_json` no longer carries it.
 - A call may end its ordinary arguments with a trailing comma before `,,`: `f(a, b, ,, allocator = temp)`.
+- `jacket lint` reports a double free when a foreign release noted `@FreesArgument` takes a pointer to a struct (`freeaddrinfo(info)`) and the pointer is freed again; it took such a release to free only what the struct owns.
 
 ## [0.36.0] - 2026-11-16
 

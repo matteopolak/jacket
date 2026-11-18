@@ -90,3 +90,18 @@ help: remove the second call, or assign `holder` a new value in between
    |
    = note: `double_free` is `deny` by default
    = note: see https://jacket.matteopolak.com/lint-rules/double_free
+
+error[double_free]: `info` is freed a second time
+  --> tests/lint/double_free/bad.jai:68:5
+   |
+65 |     info := New(Address_Info);
+   |             ----------------- storage derived here
+   ...
+67 |     free_address_info(info);
+   |     ----------------------- storage invalidated here
+68 |     free(info);
+   |     ^^^^^^^^^^
+   |
+   = help: remove the second call, or assign `info` a new value in between
+   = note: `double_free` is `deny` by default
+   = note: see https://jacket.matteopolak.com/lint-rules/double_free

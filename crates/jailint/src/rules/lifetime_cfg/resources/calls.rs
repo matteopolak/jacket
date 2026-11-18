@@ -48,12 +48,13 @@ impl Builder<'_> {
             && let Some(arg) = args.iter().find(|a| a.formal == formal)
             && let Some(cell) = operand_cell(cx, places, cells, arg)
         {
-            let contents = points_to_struct(c, arg.ty);
+            // The note is read only on a declaration without a body, where it means the
+            // argument itself is gone (`freeaddrinfo(info)`), whatever it points to.
             ops.push(Op::Free {
                 cell,
                 span: *span,
                 callee: *callee,
-                contents,
+                contents: false,
                 fields: None,
             });
         }

@@ -52,3 +52,18 @@ release_all_twice :: () {
     release_all(holder);
     release_all(holder);
 }
+
+Address_Info :: struct {
+    next: *Address_Info;
+}
+
+libc :: #library "c";
+free_address_info :: (info: *Address_Info) #foreign libc "freeaddrinfo"; @FreesArgument
+
+// The foreign release frees the struct itself, not only what it owns.
+release_info_twice :: () {
+    info := New(Address_Info);
+
+    free_address_info(info);
+    free(info);
+}

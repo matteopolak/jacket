@@ -561,7 +561,7 @@ fn lifetime_resource_migration_preserves_existing_cases() {
     let mut failures = Vec::new();
     for (rule, expected) in [
         ("use_after_free", 8),
-        ("double_free", 5),
+        ("double_free", 6),
         ("returned_local_address", 5),
         ("temp_storage_escape", 3),
     ] {
