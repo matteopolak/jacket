@@ -3,6 +3,7 @@
   {"id": "jaison-example", "path": "rluba--jaison/examples/example.jai", "mode": "run"},
   {"id": "jails-build", "path": "SogoCZE--Jails/build.jai", "mode": "check", "why_check": "build program: its job is to drive a compile, not to print a result"},
   {"id": "sgpu-build", "path": "roeyb1--sgpu/examples/build.jai", "mode": "check", "why_check": "build program: its job is to drive a compile, not to print a result"},
+  {"id": "cutengine-build", "disabled": "unpinned-dependency: src/platform/platform_sdl.jai:174 imports module `SDL3`, which neither the repository nor current Jai ships (the README asks only for the SDL3 dylib in lib/), and the build bakes shaders with the external `shadercross` from the unpinned assets/ directory.", "path": "bqwstt--cutengine/first.jai", "mode": "check", "why_check": "build program: its job is to drive a compile, not to print a result"},
   {"id": "focus-build", "path": "focus-editor--focus/first.jai", "mode": "check", "why_check": "build program: its job is to drive a compile, not to print a result"},
   {"id": "ttwj-03-3.1-hello-sailor", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/03/3.1_hello_sailor.jai", "mode": "run"},
   {"id": "ttwj-03-3.2-hello-sailor-comptime", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/03/3.2_hello_sailor_comptime.jai", "mode": "run"},

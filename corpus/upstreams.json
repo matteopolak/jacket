@@ -59,6 +59,14 @@
       "file_count": 89
     },
     {
+      "repository": "bqwstt/cutengine",
+      "revision": "309888455a77abbefaadf74c364da9d8dfa870ab",
+      "latest_jai_change": "2026-10-23T14:11:46-04:00",
+      "source_of_truth": "https://github.com/bqwstt/cutengine/tree/309888455a77abbefaadf74c364da9d8dfa870ab",
+      "selection": "recent-source",
+      "file_count": 15
+    },
+    {
       "repository": "danieltan1517/chess-jai",
       "revision": "ab5793b8a0e74bc49c88c924a4f050f0b8665b2d",
       "latest_jai_change": "2026-06-18T23:10:34-07:00",

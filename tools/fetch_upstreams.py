@@ -26,6 +26,7 @@ REPOSITORIES = (
     "withlang-dev/open-jai",
     "ostef/Vk-Engine",
     "roeyb1/sgpu",
+    "bqwstt/cutengine",
     # Smoke-test set: the language:Jai repositories with 20+ stars pushed since 2026-05-05
     # (docs/tools/upstream-corpus.md explains how to refresh it). abhiramasonny/jaithon
     # matched too but is its own language that happens to use the .jai extension.
