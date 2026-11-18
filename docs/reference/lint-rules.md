@@ -224,7 +224,7 @@ main :: () {
 }
 ```
 
-The `defer` must be a single `@FreesArgument` call on a local.
+The `defer` must be a single call that frees its first argument, a local.
 
 ### double_free
 
