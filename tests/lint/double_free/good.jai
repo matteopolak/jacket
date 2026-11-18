@@ -14,6 +14,17 @@ release_holder :: (holder: *Holder) {
     free(holder.name);
 }
 
+// Releases what the holder owns and clears it; the holder itself stays allocated.
+empty_holder :: (holder: *Holder) {
+    free(holder.name);
+    holder.* = .{};
+} @FreesArgument
+
+// A wrapper passes on that contract unchanged.
+clear_holder :: (holder: *Holder) {
+    empty_holder(holder);
+}
+
 Link :: struct {
     wake: s64;
     allocator: Allocator;
@@ -106,6 +117,12 @@ main :: () {
     holder.name = copy_string("held");
     release_holder(holder);
     free(holder);
+
+    // A noted release of what a struct owns, called through a wrapper.
+    wrapped := New(Holder);
+    wrapped.name = copy_string("wrapped");
+    clear_holder(wrapped);
+    free(wrapped);
 
     // Only one of the two runs.
     text := copy_string("hello");

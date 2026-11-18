@@ -86,8 +86,8 @@ To change what a rule recognises, annotate the declaration; the linter has no na
 | `@RemovesFromArray` | `remove_in_for`, lifetime rules | removes elements; `(ordered,1)`/`(unordered,1)` name the index argument, `(last)` pops |
 | `@GrowsArray` | `pointer_into_resizable` | may reallocate the resizable array its first argument points to |
 | `@AddsToArray` | `useless_resizable` | adds one element to that array |
-| `@FreesArgument` | `defer_in_loop`, lifetime rules | an argument's memory is gone after the call (the first, or `@FreesArgument(1)`); needed only on a declaration without a body, since a body that frees the argument or what it owns says it already |
-| `@MaybeFreesArgument` | lifetime rules | like `@FreesArgument` for a release that can fail and leave the resource live (`munmap`, `VirtualFree`); the argument is released on some paths, not every one |
+| `@FreesArgument` | `defer_in_loop`, lifetime rules | an argument's memory is gone after the call (the first, or `@FreesArgument(1)`); the lifetime rules read it only on a declaration without a body, since a body that frees the argument or what it owns says it already. Leave it off a procedure that frees only what its argument owns (`free_json`) |
+| `@MaybeFreesArgument` | lifetime rules | like `@FreesArgument` for a release that can fail and leave the resource live (`munmap`, `VirtualFree`); the argument is released on some paths, not every one (bodiless only) |
 | `@Allocates` | `leaked_allocation`, `leaked_temporary` | the result is newly allocated and the caller owns it (bodiless only) |
 | `@TakesByteCount` | `element_count_as_bytes` | the last argument is a byte count |
 | `@Locks`, `@Unlocks` | `unpaired_lock` | takes or gives back the lock its first argument names |

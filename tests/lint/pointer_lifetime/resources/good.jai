@@ -4,7 +4,7 @@ Point :: struct {
     value: int;
 }
 
-close_handle :: (handle: int) {} @FreesArgument
+close_handle :: (handle: int) #foreign lib "lifetime_fixture_close_handle"; @FreesArgument
 
 conditional_free :: (flag: bool) {
     p := New(int);
@@ -115,3 +115,5 @@ old_allocation_survives_rebinding :: () {
 forward_box :: (value: Any) -> Any {
     return value;
 }
+
+lib :: #library "c";

@@ -4,8 +4,14 @@ alloc :: () -> *int {
     return cast(*int) Basic.alloc(size_of(int));
 }
 
-release :: (p: *int) {} @FreesArgument
-release2 :: (p: *int) {} @FreesArgument
+release :: (p: *int) {
+    c_free(p);
+}
+
+release2 :: (p: *int) {
+    c_free(p);
+}
+
 quiet :: (p: *int) {}
 
 sink :: (p: *int) -> int {
@@ -16,8 +22,9 @@ use_handle :: (h: int) -> int {
     return h;
 }
 
-close_handle :: (owner: int, h: int) {} @FreesArgument(1)
+close_handle :: (owner: int, h: int) #foreign lib "lifetime_fixture_close_handle"; @FreesArgument(1)
 lib :: #library "c";
+c_free :: (p: *void) #foreign lib "free"; @FreesArgument
 
 unknown :: (p: *int) #foreign lib "lifetime_fixture_unknown";
 provider :: () -> *int #foreign lib "lifetime_fixture_provider"; @ValidUntilNextCall

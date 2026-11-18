@@ -188,7 +188,7 @@ fn pointee_resources_preserve_distinct_header_ownership() {
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
     facts.lint = true;
     c.ed.record(facts);
-    c.begin_sources(&[ProgramSource::String("release_handle :: (value: s32) {} @FreesArgument\nrelease_field :: (value: *s32) { release_handle(value.*); }".into())]).unwrap();
+    c.begin_sources(&[ProgramSource::String("lib :: #library \"c\";\nrelease_handle :: (value: s32) #foreign lib; @FreesArgument\nrelease_field :: (value: *s32) { release_handle(value.*); }".into())]).unwrap();
     c.finish_program().unwrap();
     let _ = c.ide_check_all();
     let summaries = Summaries::build(&c);

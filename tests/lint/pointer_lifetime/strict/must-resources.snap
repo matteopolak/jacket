@@ -2,53 +2,53 @@
 source: crates/jailint/tests/rules.rs
 ---
 warning[use_after_free]: `p` is used after the call above freed it
-  --> tests/lint/pointer_lifetime/strict/resources.jai:57:10
+  --> tests/lint/pointer_lifetime/strict/resources.jai:64:10
    |
-50 |     p := alloc();
+57 |     p := alloc();
    |          ------- storage derived here
    ...
-56 |     f(p);
+63 |     f(p);
    |     ---- storage invalidated here
-57 |     sink(p);
+64 |     sink(p);
    |          ^
    |
    = help: free it after its last use, or give it a new value before using it again
    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[use_after_free]: `h` is used after the call above freed it
-  --> tests/lint/pointer_lifetime/strict/resources.jai:83:16
+  --> tests/lint/pointer_lifetime/strict/resources.jai:90:16
    |
-81 |     close_handle(owner, h);
+88 |     close_handle(owner, h);
    |     ---------------------- storage derived here
    |     ---------------------- storage invalidated here
    ...
-83 |     use_handle(h);
+90 |     use_handle(h);
    |                ^
    |
    = help: free it after its last use, or give it a new value before using it again
    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[use_after_free]: `p` is used after its foreign valid-until contract expired
-  --> tests/lint/pointer_lifetime/strict/resources.jai:89:10
-   |
-87 |     p := provider();
-   |          ---------- storage derived here
-88 |     provider();
-   |     ---------- storage invalidated here
-89 |     sink(p);
-   |          ^
-   |
-   = help: copy the borrowed data before the next provider call, or obtain a new result
-   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
+   --> tests/lint/pointer_lifetime/strict/resources.jai:96:10
+    |
+ 94 |     p := provider();
+    |          ---------- storage derived here
+ 95 |     provider();
+    |     ---------- storage invalidated here
+ 96 |     sink(p);
+    |          ^
+    |
+    = help: copy the borrowed data before the next provider call, or obtain a new result
+    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[use_after_free]: `p` is used after its foreign valid-until contract expired
-   --> tests/lint/pointer_lifetime/strict/resources.jai:95:10
+   --> tests/lint/pointer_lifetime/strict/resources.jai:102:10
     |
- 93 |     p := provider();
+100 |     p := provider();
     |          ---------- storage derived here
- 94 |     refresh();
+101 |     refresh();
     |     --------- storage invalidated here
- 95 |     sink(p);
+102 |     sink(p);
     |          ^
     |
     = help: copy the borrowed data before the next provider call, or obtain a new result

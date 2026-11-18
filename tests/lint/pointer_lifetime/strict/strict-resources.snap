@@ -2,137 +2,138 @@
 source: crates/jailint/tests/rules.rs
 ---
 warning[use_after_free]: strict mode: `p` may be used after release along a bad path; shortest bad path shown (0 other bad paths)
-  --> tests/lint/pointer_lifetime/strict/resources.jai:40:10
+  --> tests/lint/pointer_lifetime/strict/resources.jai:47:10
    |
-38 |     p := alloc();
+45 |     p := alloc();
    |          ------- storage derived here
-39 |     if flag release(p);
+46 |     if flag release(p);
    |        ---- shortest bad path takes this condition as true
    |             ---------- storage invalidated here
-40 |     sink(p);
+47 |     sink(p);
    |          ^
    |
    = help: free it after its last use, or give it a new value before using it again
    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[use_after_free]: strict mode: `p` may be used after release along a bad path; shortest bad path shown (0 other bad paths); release is possible, not guaranteed
-  --> tests/lint/pointer_lifetime/strict/resources.jai:46:10
+  --> tests/lint/pointer_lifetime/strict/resources.jai:53:10
    |
-44 |     p := alloc();
+51 |     p := alloc();
    |          ------- storage derived here
-45 |     maybe_release(p, flag);
+52 |     maybe_release(p, flag);
    |     ---------------------- storage invalidated here
-46 |     sink(p);
+53 |     sink(p);
    |          ^
    |
    = help: free it after its last use, or give it a new value before using it again
    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[use_after_free]: `p` is used after the call above freed it; shortest bad path shown (1 other bad path); possible targets of `f`: release, release2; the labelled chain identifies an invalidating target
-  --> tests/lint/pointer_lifetime/strict/resources.jai:57:10
+  --> tests/lint/pointer_lifetime/strict/resources.jai:64:10
    |
- 7 | release :: (p: *int) {} @FreesArgument
-   |            ------------ possible procedure target
- 8 | release2 :: (p: *int) {} @FreesArgument
-   |             ------------ possible procedure target
+ 7 | release :: (p: *int) {
+   |            ----------- possible procedure target
    ...
-50 |     p := alloc();
+11 | release2 :: (p: *int) {
+   |             ----------- possible procedure target
+   ...
+57 |     p := alloc();
    |          ------- storage derived here
    ...
-53 |     if flag f = release;
+60 |     if flag f = release;
    |        ---- shortest bad path takes this condition as true
    ...
-56 |     f(p);
+63 |     f(p);
    |     ---- storage invalidated here
-57 |     sink(p);
+64 |     sink(p);
    |          ^
    |
    = help: free it after its last use, or give it a new value before using it again
    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[use_after_free]: strict mode: `p` may be used after release along a bad path; shortest bad path shown (1 other bad path); possible targets of `f`: release, quiet; the labelled chain identifies an invalidating target; release is possible, not guaranteed
-  --> tests/lint/pointer_lifetime/strict/resources.jai:68:10
+  --> tests/lint/pointer_lifetime/strict/resources.jai:75:10
    |
- 7 | release :: (p: *int) {} @FreesArgument
-   |            ------------ possible procedure target
+ 7 | release :: (p: *int) {
+   |            ----------- possible procedure target
    ...
- 9 | quiet :: (p: *int) {}
+15 | quiet :: (p: *int) {}
    |          ------------ possible procedure target
    ...
-61 |     p := alloc();
+68 |     p := alloc();
    |          ------- storage derived here
    ...
-64 |     if flag f = release;
+71 |     if flag f = release;
    |        ---- shortest bad path takes this condition as true
    ...
-67 |     f(p);
+74 |     f(p);
    |     ---- storage invalidated here
-68 |     sink(p);
+75 |     sink(p);
    |          ^
    |
    = help: free it after its last use, or give it a new value before using it again
    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[use_after_free]: strict mode: `p` may be used after release along a bad path; shortest bad path shown (0 other bad paths); release is possible, not guaranteed
-  --> tests/lint/pointer_lifetime/strict/resources.jai:74:10
+  --> tests/lint/pointer_lifetime/strict/resources.jai:81:10
    |
-72 |     p := alloc();
+79 |     p := alloc();
    |          ------- storage derived here
-73 |     unknown(p);
+80 |     unknown(p);
    |     ---------- storage invalidated here
-74 |     sink(p);
+81 |     sink(p);
    |          ^
    |
    = help: free it after its last use, or give it a new value before using it again
    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[use_after_free]: `h` is used after the call above freed it; shortest bad path shown (no additional reconstructed bad path)
-  --> tests/lint/pointer_lifetime/strict/resources.jai:83:16
+  --> tests/lint/pointer_lifetime/strict/resources.jai:90:16
    |
-81 |     close_handle(owner, h);
+88 |     close_handle(owner, h);
    |     ---------------------- storage derived here
    |     ---------------------- storage invalidated here
    ...
-83 |     use_handle(h);
+90 |     use_handle(h);
    |                ^
    |
    = help: free it after its last use, or give it a new value before using it again
    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[use_after_free]: `p` is used after its foreign valid-until contract expired; shortest bad path shown (0 other bad paths)
-  --> tests/lint/pointer_lifetime/strict/resources.jai:89:10
-   |
-87 |     p := provider();
-   |          ---------- storage derived here
-88 |     provider();
-   |     ---------- storage invalidated here
-89 |     sink(p);
-   |          ^
-   |
-   = help: copy the borrowed data before the next provider call, or obtain a new result
-   = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
+   --> tests/lint/pointer_lifetime/strict/resources.jai:96:10
+    |
+ 94 |     p := provider();
+    |          ---------- storage derived here
+ 95 |     provider();
+    |     ---------- storage invalidated here
+ 96 |     sink(p);
+    |          ^
+    |
+    = help: copy the borrowed data before the next provider call, or obtain a new result
+    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[use_after_free]: `p` is used after its foreign valid-until contract expired; shortest bad path shown (0 other bad paths)
-   --> tests/lint/pointer_lifetime/strict/resources.jai:95:10
+   --> tests/lint/pointer_lifetime/strict/resources.jai:102:10
     |
- 93 |     p := provider();
+100 |     p := provider();
     |          ---------- storage derived here
- 94 |     refresh();
+101 |     refresh();
     |     --------- storage invalidated here
- 95 |     sink(p);
+102 |     sink(p);
     |          ^
     |
     = help: copy the borrowed data before the next provider call, or obtain a new result
     = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 warning[use_after_free]: strict mode: `p` may be used after release along a bad path; shortest bad path shown (0 other bad paths)
-   --> tests/lint/pointer_lifetime/strict/resources.jai:101:10
+   --> tests/lint/pointer_lifetime/strict/resources.jai:108:10
     |
- 99 |     p := provider();
+106 |     p := provider();
     |          ---------- storage derived here
-100 |     maybe_refresh(flag);
+107 |     maybe_refresh(flag);
     |     ------------------- storage invalidated here
-101 |     sink(p);
+108 |     sink(p);
     |          ^
     |
     = help: copy the borrowed data before the next provider call, or obtain a new result

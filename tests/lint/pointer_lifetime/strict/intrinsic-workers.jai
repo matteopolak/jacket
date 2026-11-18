@@ -13,7 +13,7 @@ make :: () -> *int {
     return New(int);
 }
 
-release :: (p: *int) {} @FreesArgument
+release :: (p: *int) #foreign lib "lifetime_fixture_release"; @FreesArgument
 
 copy_payload :: (job: *Job) {
     destination: int;
@@ -72,3 +72,5 @@ good_writer :: () {
     release(p);
     finish(*job);
 }
+
+lib :: #library "c";

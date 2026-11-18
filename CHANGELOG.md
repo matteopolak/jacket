@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- `jacket lint` no longer reports a double free when a wrapper calls `free_json` (or another procedure with a body and a `@FreesArgument` note) and the caller then frees the value: the lifetime rules read that note only on a declaration without a body, as documented, and `free_json` no longer carries it.
 - A call may end its ordinary arguments with a trailing comma before `,,`: `f(a, b, ,, allocator = temp)`.
 
 ## [0.36.0] - 2026-11-16

@@ -92,17 +92,23 @@ pub(super) fn result_indices(compiler: &Compiler, proc: ProcId, name: &str) -> V
     indices
 }
 
+/// The argument a declaration without a body releases: `@FreesArgument`. A body says what it
+/// frees, so the note is not read on one: `free_json` releases what a decoded value owns and
+/// leaves the value where it was, whatever its note says.
 pub(super) fn released_formal(compiler: &Compiler, proc: ProcId) -> Option<usize> {
     noted_formal(compiler, proc, &["FreesArgument"])
 }
 
-/// The argument a procedure may release: `@MaybeFreesArgument`, for a release that can fail and leave the
-/// resource live (`close`, `munmap`).
+/// The argument a declaration without a body may release: `@MaybeFreesArgument`, for a release
+/// that can fail and leave the resource live (`close`, `munmap`).
 pub(super) fn maybe_released_formal(compiler: &Compiler, proc: ProcId) -> Option<usize> {
     noted_formal(compiler, proc, &["MaybeFreesArgument"])
 }
 
 fn noted_formal(compiler: &Compiler, proc: ProcId, names: &[&str]) -> Option<usize> {
+    if compiler.pr.procs[proc.0 as usize].lit.body.is_some() {
+        return None;
+    }
     notes(compiler, proc).find_map(|n| {
         let args = names.iter().find_map(|name| parameters(&n.text, name))?;
         if args.is_empty() {

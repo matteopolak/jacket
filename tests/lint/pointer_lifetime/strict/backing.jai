@@ -8,7 +8,8 @@ make :: () -> *void {
     return alloc(128);
 }
 
-release :: (p: *void) {} @FreesArgument
+release :: (p: *void) #foreign lib "lifetime_fixture_release"; @FreesArgument
+
 read :: (p: *u8) -> u8 {
     return p.*;
 }
@@ -65,3 +66,5 @@ late_allocator :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *
     area := cast(*Arena) data;
     return area.base;
 }
+
+lib :: #library "c";

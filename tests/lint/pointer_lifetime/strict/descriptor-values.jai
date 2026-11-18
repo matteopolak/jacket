@@ -38,7 +38,8 @@ Handle :: struct {
     other: int;
 }
 
-release_handle :: (value: s32) {} @FreesArgument
+release_handle :: (value: s32) #foreign lib "lifetime_fixture_release_handle"; @FreesArgument
+
 release_field :: (value: *s32) {
     release_handle(value.*);
 }
@@ -115,3 +116,5 @@ replace_elements :: (names: [] string) {
         name.* = normalized;
     }
 }
+
+lib :: #library "c";

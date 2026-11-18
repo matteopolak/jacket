@@ -8,7 +8,8 @@ make :: () -> *int {
     return cast(*int) Basic.alloc(size_of(int));
 }
 
-release :: (p: *int) {} @FreesArgument
+release :: (p: *int) #foreign lib "lifetime_fixture_release"; @FreesArgument
+
 consume :: (p: *int) -> int {
     return p.*;
 }

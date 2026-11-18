@@ -8,7 +8,7 @@ release_inferred :: (p: *void) {
     free(p);
 }
 
-close_handle :: (handle: int) {} @FreesArgument
+close_handle :: (handle: int) #foreign lib "lifetime_fixture_close_handle"; @FreesArgument
 
 alias_after_free :: () {
     p := New(int);
@@ -174,3 +174,5 @@ escaped_temporary: string;
 retain_returned_temporary :: () {
     escaped_temporary = return_temporary();
 }
+
+lib :: #library "c";
