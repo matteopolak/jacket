@@ -101,7 +101,7 @@ texture_destroy :: (texture: *Texture) {
     }
 
     texture.* = .{};
-} @FreesArgument
+}
 
 backend_realloc_texture :: (texture: *Texture, bitmap: *Bitmap) {
     flush_texture_use(texture.gl_handle);

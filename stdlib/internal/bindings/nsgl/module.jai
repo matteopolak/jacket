@@ -100,7 +100,7 @@ release_object :: (value: *void) {
     Send :: #type (self: *void, op: O.Selector) #c_call;
     call := cast(Send) message;
     call(value, O.selector("release"));
-} @FreesArgument
+}
 
 diagnostic :: (text: *u8) {
     if native_printf("%s\n", text) < 0 c_abort();

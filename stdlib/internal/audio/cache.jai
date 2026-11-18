@@ -87,7 +87,7 @@ deinit :: (using decoder: *Cached_Decoder) {
     if !decoder return;
     dispose_decoder_resources(decoder);
     free(decoder);
-} @FreesArgument
+}
 
 #scope_module
 dispose_decoder_resources :: (using decoder: *Cached_Decoder) {

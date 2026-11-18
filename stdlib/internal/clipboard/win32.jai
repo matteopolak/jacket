@@ -186,4 +186,4 @@ unlock_memory :: (handle: HGLOBAL) {
 
 release_memory :: (handle: HGLOBAL) {
     assert(global_free(handle) == null, "native clipboard memory release failed");
-} @FreesArgument
+}

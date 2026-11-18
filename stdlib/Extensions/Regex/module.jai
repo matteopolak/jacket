@@ -181,7 +181,7 @@ free_regex :: (re: *Regex) {
         Memory_Pool.release(pool);
         free(pool);
     }
-} @FreesArgument
+}
 
 // Whether captures for this pattern are found in a single scan, which makes [captures] faster.
 //

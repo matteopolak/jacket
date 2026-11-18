@@ -186,7 +186,7 @@ tls_config_free :: (config: *Tls_Config) {
     release_native(config.native);
 
     config.native = null;
-} @FreesArgument
+}
 
 // Which setup the config is in: every `tls_config_init` that succeeds gives a new number, and 0 means not set up.
 // A pool that keys connections by a config's address can add this to tell the config from a later one at the same address.

@@ -208,7 +208,7 @@ operator != :: (a: $V/Variant, b: V) -> bool {
 // ```
 free_variant :: (v: *$V/Variant) {
     variant_free(v);
-} @FreesArgument
+}
 
 // ---- printing ----
 //

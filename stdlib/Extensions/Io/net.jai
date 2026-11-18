@@ -824,7 +824,7 @@ close :: (stream: Tcp_Stream, now := false) -> Io_Error {
     }
 
     return close_handle(stream.handle);
-} @FreesArgument
+}
 
 // Closes the listening socket. A fiber waiting in `accept` on it returns `.CLOSED`. The listener must not be used afterwards.
 // With `now` it closes at once without waiting and without waking such fibers; use it only where the code cannot block.
@@ -836,7 +836,7 @@ close :: (listener: Tcp_Listener, now := false) -> Io_Error {
     }
 
     return close_handle(listener.handle);
-} @FreesArgument
+}
 
 // Names
 
@@ -1178,7 +1178,7 @@ close_handle :: (handle: Handle) -> Io_Error {
     end_op(op);
 
     return error;
-} @FreesArgument
+}
 
 // Closes `handle` at once, on the calling thread's scheduler, without parking the fiber (it may
 // run outside any fiber, in a `Local_Drop`).

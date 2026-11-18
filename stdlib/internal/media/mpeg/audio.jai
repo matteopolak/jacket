@@ -59,7 +59,7 @@ audio_destroy :: (audio: *Audio) {
     remove_audio_private(audio);
     if audio.destroy_buffer_when_done buffer_destroy(audio.buffer);
     B.free(audio);
-} @FreesArgument
+}
 
 audio_has_header :: (audio: *Audio) -> bool {
     B.assert(audio != null);

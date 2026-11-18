@@ -341,7 +341,7 @@ make_nonblocking :: (fd: s32) -> bool {
 
 child_close :: (fd: s32) #no_context {
     if fd >= 0 && P.close(fd) != 0 P._exit(125);
-} @FreesArgument
+}
 
 read_exact :: (fd: s32, data: *void, count: s64) -> bool #no_context {
     cursor: s64;

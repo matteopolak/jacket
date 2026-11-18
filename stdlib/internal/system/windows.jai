@@ -234,7 +234,7 @@ close_native_handle :: (handle: W.HANDLE) {
 
 release_local_memory :: (memory: *void) {
     assert(W.LocalFree(memory) == null, "native memory cleanup failed");
-} @FreesArgument
+}
 
 account_profile :: (username: string) -> string, bool {
     name := Text.utf16_path(username);

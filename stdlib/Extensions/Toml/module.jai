@@ -402,7 +402,7 @@ toml_free_fields :: (value: *$T, defaults: *T) {
     #insert -> string {
         return generate_freer(T);
     };
-} @FreesArgument
+}
 
 toml_encode_body :: (w: *Toml_Writer, value: *$T) {
     #insert -> string {

@@ -264,4 +264,4 @@ backend_deinit :: (watcher: *$T/File_Watcher, state: *State) -> bool {
     B.array_free(watcher.directories);
 
     return true;
-} @FreesArgument
+}

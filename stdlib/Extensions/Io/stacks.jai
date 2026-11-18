@@ -105,7 +105,7 @@ stack_allocate :: (bytes: s64) -> Stack {
 
 stack_release :: (stack: Stack) {
     if stack.base unmap_stack(stack.base, stack.size);
-} @FreesArgument
+}
 
 // How far below the caller's frame a discard starts. The calls that discard run in that space, so it
 // must stay untouched. 2 KiB is enough on macOS and Linux; `DiscardVirtualMemory` goes deeper than

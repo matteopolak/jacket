@@ -224,7 +224,7 @@ release :: (using pool: *Pool) {
     }
 
     unused_memblocks = null;
-} @ResetsElements @FreesArgument
+} @ResetsElements
 
 // How much the pool has handed out: the bytes used in ordinary blocks (including their headers and alignment padding) and the number of oversized blocks.
 //

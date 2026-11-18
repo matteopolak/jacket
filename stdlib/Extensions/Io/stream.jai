@@ -310,7 +310,7 @@ close :: (reader: Reader, now := false) -> Io_Error {
     if !reader.close_proc return .NONE;
 
     return reader.close_proc(reader.data, now);
-} @FreesArgument
+}
 
 // Closes the sink behind a writer. A TCP stream or pipe end has a reader and a writer over one connection, so close only one
 // of them.
@@ -318,7 +318,7 @@ close :: (writer: Writer, now := false) -> Io_Error {
     if !writer.close_proc return .NONE;
 
     return writer.close_proc(writer.data, now);
-} @FreesArgument
+}
 
 // The built-in sources
 

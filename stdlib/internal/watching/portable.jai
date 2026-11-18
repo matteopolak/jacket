@@ -219,7 +219,7 @@ deinit :: (using watcher: $T/File_Watcher) {
     owner := state.owner;
 
     owner.proc(.FREE, 0, size_of(State), state, owner.data);
-} @FreesArgument
+}
 
 #scope_module
 B :: #import "Basic";

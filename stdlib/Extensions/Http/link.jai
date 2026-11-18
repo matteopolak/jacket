@@ -128,7 +128,7 @@ pipe_link :: (pipe: *Io.Pipe_Stream) -> Link {
 // ```
 close :: (link: Link, now := false) -> Io.Io_Error {
     return Io.close(link.reader, now);
-} @FreesArgument
+}
 
 // A `with_deadline` argument for a timeout setting in milliseconds where 0 or less means no limit.
 //

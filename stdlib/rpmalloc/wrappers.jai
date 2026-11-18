@@ -567,7 +567,7 @@ callback_name :: (huge: s32, bytes: **u8, length: *u64) #c_call {
 
         defer Domain.leave(*domain_scope);
         HeapBridge.release(cast(*void) heap);
-    } @FreesArgument
+    }
 
     heap_alloc :: inline (heap: *Heap, size: s64) -> *void {
         if size < 0 return null;
@@ -793,7 +793,7 @@ callback_name :: (huge: s32, bytes: **u8, length: *u64) #c_call {
 
             defer Domain.leave(*domain_scope);
             HeapBridge.release(cast(*void) heap);
-        } @FreesArgument
+        }
 
         rpmalloc_heap_alloc :: inline (heap: *rpmalloc_heap_t, size: size_t) -> *void {
             previous := NativeContext.enter(cast(*void) *context);

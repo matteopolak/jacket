@@ -550,7 +550,7 @@ close :: (stream: *Tls_Stream, now := false) -> Io.Io_Error {
     if stream.users == 0 release_stream(stream);
 
     return error;
-} @FreesArgument
+}
 
 // Whether `reader` is a TLS stream's reader (from `reader_of`) whose connection ended without the
 // peer's close_notify (`last_error(stream).kind == .TRUNCATED`). For a protocol that frames its own
@@ -671,7 +671,7 @@ wait_proc :: (data: *void) -> Io.Io_Error {
 
 close_proc :: (data: *void, now: bool) -> Io.Io_Error {
     return close(cast(*Tls_Stream) data, now);
-} @FreesArgument
+}
 
 c_text :: (text: *u8) -> string {
     if !text return "";

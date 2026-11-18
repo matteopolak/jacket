@@ -332,7 +332,7 @@ close :: (file: *Io_File, now := false) -> Io_Error {
     }
 
     return close_handle(file.handle);
-} @FreesArgument
+}
 
 // The whole content of a file, in memory from `context.allocator` (free it with `free`).
 //
