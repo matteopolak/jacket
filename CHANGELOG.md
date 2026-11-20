@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### New
+
+- Freestanding targets: `Operating_System_Tag.NONE` and `-target aarch64-none-elf` build programs with no OS, libc or system entry point, linked by `ld.lld` with a linker script. `Runtime_Support` has a NONE variant with console and panic hooks and no default heap ([embedded targets](docs/native/embedded.md)).
+
 ## [0.36.1] - 2026-11-18
 
 A false double free in `jacket lint` is gone, and calls may put a trailing comma before `,,`.
