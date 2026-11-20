@@ -348,6 +348,10 @@ fn jaifmt_is_idempotent_on_the_repository() {
 /// `-os windows` (x64, and `-cpu arm64`) when a MinGW-w64 toolchain for that CPU is installed
 /// (the result is checked to be a PE executable for it; CI runs them on Windows, see
 /// `tools/native/windows_cross.py`).
+#[allow(
+    clippy::disallowed_methods,
+    reason = "reads fields of a PE file, which is little-endian"
+)]
 #[test]
 fn windows_runtime_program() {
     let dir = TempDir::new("native-windows-runtime");
