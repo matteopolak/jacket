@@ -35,6 +35,7 @@ One page per topic in [language/](language/): [modules](language/modules-and-imp
 - [LLVM backend](native/llvm-backend.md), [C ABI](native/c-abi.md), [C++ vtables](native/cpp-vtables.md), [linking](native/native-linking.md), [debug info](native/debug-info.md), [sanitizers](native/sanitizers.md), [crash runtime build](native/crash-runtime-build.md)
 - [Windows](native/windows.md), [Windows console colors](native/windows-console-colors.md)
 - [WebAssembly](native/wasm-target.md)
+- [Plan: N-bit, big-endian and embedded targets](native/n-bit-and-embedded.md)
 - [Browser build and playground](browser/playground.md)
 
 ## Tools and editors
