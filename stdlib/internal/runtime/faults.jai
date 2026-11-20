@@ -5,19 +5,19 @@ __array_bounds_check_fail :: (index: s64, limit: s64, line_number: s64, filename
     write_string(" >= ", true);
     write_number(limit, 10, true);
     write_string("\n", true);
-    c_abort();
+    abort_program();
 }
 
 __cast_bounds_check_fail :: (pre_value: s64, pre_flags: u32, post_value: s64, post_flags: u32, fatal: u8, line_number: s64, filename: *u8) #no_context {
     report_location(filename, line_number);
     write_string("cast out of bounds\n", true);
-    if fatal != 0 c_abort();
+    if fatal != 0 abort_program();
 }
 
 __null_pointer_check_fail :: (index: s64, line_number: s64, filename: *u8) #no_context {
     report_location(filename, line_number);
     write_string("null pointer access\n", true);
-    c_abort();
+    abort_program();
 }
 
 __arithmetic_overflow :: (left: s64, right: s64, type_code: u16, line_number: s64, filename: *u8) #no_context #no_aoc {
@@ -41,7 +41,7 @@ __arithmetic_overflow :: (left: s64, right: s64, type_code: u16, line_number: s6
 
     write_number(cast(s64) (type_code & 0x7f) * 8, 10, true);
     write_string("\n", true);
-    if (type_code & 0x8000) != 0 c_abort();
+    if (type_code & 0x8000) != 0 abort_program();
 }
 
 one_time_init :: (synch_value: *s32, to_insert: Code) #expand {

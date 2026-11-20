@@ -89,6 +89,8 @@ portable = ["stdlib/**"]
 # WebAssembly only.
 "stdlib/Wasi_Numeric_Runtime/**" = []
 "stdlib/Extensions/Wasi_Runtime/**" = []
+# No operating system only (`OS == .NONE`).
+"stdlib/internal/runtime-freestanding/**" = []
 # Asserts a Windows host, not a Windows target.
 "stdlib/linux_build/**" = []
 # Linux on ARM64 only.
