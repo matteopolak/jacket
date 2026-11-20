@@ -517,12 +517,14 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `JAIC_AR` | The program that archives object files into a static library. | the system `ar`, or `llvm-ar`, a MinGW `ar` or `lib.exe` where that is needed | jaic |
 | `JAIC_BACKEND` | The code generation library (`libjaic_backend`) a release `jaic` opens when a build writes native code. | the code generation library next to the `jaic` executable | jaic |
 | `JAIC_CACHE_DIR` | Where `jaic` unpacks the helpers it embeds (the crash runtime). | `$XDG_CACHE_HOME/jaic`, else the platform's user cache (`~/Library/Caches/jaic`, `~/.cache/jaic`) | jaic |
+| `JAIC_COMPILER_RT` | The compiler-rt builtins archive a freestanding build links. | `lib/clang/<version>/lib/<triple>/libclang_rt.builtins.a` in the build's LLVM | jaic |
 | `JAIC_CROSS_LIBS` | A path list of directories with libraries cross-built for a MinGW target; a cross build links from these instead of the host's native libraries. | unset | jaic |
 | `JAIC_DIAGNOSTICS` | The diagnostic layout: `plain`, `ascii` or `unicode`. | by terminal: `unicode` or `ascii` on one, `plain` otherwise | jaic, jailint |
 | `JAIC_DSYM` | When set, a macOS debug build writes a `.dSYM` bundle instead of keeping its object files. | unset: macOS debug builds keep their object files for the debugger | jaic |
 | `JAIC_HOST_TWIN_DEBUG` | When set, the host twin prints what it generates. | unset | jaic |
 | `JAIC_ID_SCRAMBLE` | The same as `JAIC_SYM_SCRAMBLE`, for AST ids. | unset | jaic |
 | `JAIC_LINKER` | The program that links executables and libraries. Empty counts as unset. | the linker found for the target | jaic |
+| `JAIC_LLD` | The `ld.lld` that links freestanding (`-os none`) output. | `ld.lld` next to the build's LLVM, an LLD install, then `PATH` | jaic |
 | `JAIC_MEMORY_LIMIT` | Stop with exit status 120 once this much memory is allocated: bytes, or a number with a `K`, `M` or `G` suffix. Child processes inherit it. | no limit | jaic |
 | `JAIC_NATIVE_LIBS` | A path list of directories holding the prebuilt third-party native libraries (SDL3, FreeType, ...), replacing the default search. | `native-libs/<os>-<cpu>` beside the library, else under `target/` | jaic |
 | `JAIC_NO_HOST_TWIN` | Any value but `0` turns the host twin off, which makes compile-time code with foreign calls fail the way it would without one. | unset: compile-time code that needs the host's types gets a host twin | jaic |

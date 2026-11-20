@@ -44,7 +44,7 @@ pub fn link_wasm(link: &WasmLink) -> Result<(), String> {
         cmd.arg("--strip-debug");
     }
     for lib in link.libraries {
-        if let Some(path) = wasm_library_file(lib) {
+        if let Some(path) = crate::linker::static_library_file(lib) {
             cmd.arg(path);
         }
     }
@@ -57,25 +57,6 @@ pub fn link_wasm(link: &WasmLink) -> Result<(), String> {
     } else {
         Err(crate::link_failure(&program, &out))
     }
-}
-
-/// A non-system `#library` with a wasm archive or object next to the declaring file. Other
-/// libraries link nothing: their procedures are imports from a module of the library's name.
-fn wasm_library_file(lib: &Library) -> Option<PathBuf> {
-    if lib.system {
-        return None;
-    }
-    let path = Path::new(&lib.name);
-    let file = path.file_name()?.to_string_lossy().into_owned();
-    let dir = Path::new(&lib.base_dir).join(path.parent().unwrap_or(Path::new("")));
-    [
-        format!("{file}.a"),
-        format!("lib{file}.a"),
-        format!("{file}.o"),
-    ]
-    .into_iter()
-    .map(|name| dir.join(name))
-    .find(|p| p.is_file())
 }
 
 /// `wasm-ld`: `JAIC_WASM_LD`, else next to the LLVM jaic was built with, else an LLD install

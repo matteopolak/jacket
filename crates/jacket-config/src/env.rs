@@ -178,6 +178,16 @@ vars! {
         default: "`wasm-ld` next to the build's LLVM, an LLD install, then `PATH`",
         summary: "The `wasm-ld` that links WebAssembly output.",
     }
+    LLD {
+        name: "JAIC_LLD", group: Settings, readers: [Jaic],
+        default: "`ld.lld` next to the build's LLVM, an LLD install, then `PATH`",
+        summary: "The `ld.lld` that links freestanding (`-os none`) output.",
+    }
+    COMPILER_RT {
+        name: "JAIC_COMPILER_RT", group: Settings, readers: [Jaic],
+        default: "`lib/clang/<version>/lib/<triple>/libclang_rt.builtins.a` in the build's LLVM",
+        summary: "The compiler-rt builtins archive a freestanding build links.",
+    }
     MEMORY_LIMIT {
         name: "JAIC_MEMORY_LIMIT", group: Settings, readers: [Jaic],
         default: "no limit",
