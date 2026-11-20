@@ -15,8 +15,15 @@ Other spellings (`aarch64-w64-mingw32`, `arm64-apple-macosx11.0`) parse to the s
 - `jaic-cli` resolves the final `Target`: `-os windows` off Windows is MinGW, `-os wasm` is a WASI command, a workspace with only `os_target = .WASM` is a bare module. `None` means the host.
 - `jaic-llvm` matches on `os`/`abi`/`cpu` for every linker, archiver and extension decision. How the C runtime is linked: [toolchain](toolchain.md).
 
+## Data layout
+
+`Target::data_layout()` is the only place a `DataLayout` is chosen (`crates/jaic/src/layout.rs`): pointer size and alignment, byte order, the alignment of each scalar, the size of an x87 `long double`, and the C type widths. It is stored in `sema::Options::layout` and copied into `Types`, `Interp` and the LLVM backend. `Ty::size` and `Ty::align` take it, so a pointer is the target's, never 8 bytes.
+
+`crates/jaic-llvm` has a test that builds an LLVM target machine for each supported triple and checks that `DataLayout` agrees with LLVM on `i8` to `i64`, `f32`, `f64`, `ptr` and byte order. Every supported target is still 64-bit little-endian; the 4-byte and big-endian layouts arrive with their targets ([plan](../native/n-bit-and-embedded.md)).
+
 ## How to change it
 
+- New layout: change `Target::data_layout`; the agreement test says whether LLVM agrees.
 - New OS or CPU: add the variant, its names, and `parse`/`Display` arms, then follow the compiler errors to each `match`. There are no string comparisons on target names.
 - New C environment: a `TargetAbi` variant plus the matches (`Toolchain::for_target`, `DebugFormat`).
 

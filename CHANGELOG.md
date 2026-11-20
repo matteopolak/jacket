@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- The compiler lays out data from a per-target `DataLayout` (pointer size, byte order, scalar alignment) instead of assuming 8-byte little-endian pointers. Output for every supported target is unchanged. Compiler APIs that took `Ty::size()` or `layout::POINTER_SIZE` now take the layout.
+
 ## [0.36.1] - 2026-11-18
 
 A false double free in `jacket lint` is gone, and calls may put a trailing comma before `,,`.

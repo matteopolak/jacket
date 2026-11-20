@@ -8,6 +8,10 @@ jaic file.jai -interp -- a b     # main gets argc/argv: [file.jai, a, b]
 
 Arguments between `-` and `--` go to a metaprogram. The program runs in the main file's directory.
 
+## Data layout
+
+`Interp::new(host, layout)` takes the program's `DataLayout`. Compiler reads and writes of program memory (`read_u64`, `read_ptr`, `read_view`, `put_ptr`) go through it. Interpreted loads and stores still use host memory directly, so only targets with the host's pointer width and byte order run; the address window and byte-swapping ops come with the wasm32 and big-endian milestones.
+
 ## How it works
 
 `Interp::call` is the entry from the compiler; `run_code` (`interp/code.rs`) runs a body.
