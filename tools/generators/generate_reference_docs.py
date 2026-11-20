@@ -149,7 +149,7 @@ def tools_page():
     jaifmt = subprocess.run([str(build_jaifmt()), "--help"], check=True, capture_output=True, text=True).stdout
     jaifmt = "\n".join(line.rstrip() for line in jaifmt.strip().splitlines())
     own = [n for n in jacket_commands(jacket) if n not in PASSTHROUGH and n != "help"]
-    expected = {"new", "init", "test", "bench", "doc", "config", "clean", "explain", "version", "upgrade"}
+    expected = {"new", "init", "test", "bench", "doc", "config", "clean", "explain", "migrate", "version", "upgrade"}
     if set(own) != expected:
         raise SystemExit(f"jacket commands changed ({sorted(set(own) ^ expected)}): place them in tools_page()")
 
@@ -198,6 +198,11 @@ def tools_page():
         "### Explaining diagnostics\n",
         "Every diagnostic carries a code; `jacket explain <code>` says what it means and how to fix it.\n",
         sub("explain"),
+        "### Migrating old code\n",
+        "`jacket migrate` rewrites code written for an older Jai to the current language. It prints "
+        "the diff, and `--apply` writes it when git could give every file back. "
+        "[jacket migrate](../tools/jacket-migrate.md) lists the migrations and how to add one.\n",
+        sub("migrate"),
         "## Testing and documenting\n",
         "### Testing\n",
         "`jacket test` builds the `@test` procedures once and runs each in its own process. "

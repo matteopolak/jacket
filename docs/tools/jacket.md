@@ -16,6 +16,7 @@ jacket lint --fix src           # jailint --fix src
 jacket fmt --check              # jaifmt --check on the project's files
 jacket doc                      # API reference site (see jacket-doc.md)
 jacket explain type-mismatch    # what a diagnostic code means
+jacket migrate                  # rewrite old Jai code (prints the diff; --apply writes)
 jacket upgrade                  # install the latest release
 ```
 
@@ -30,7 +31,7 @@ What `jacket` adds is the project:
 
 ## Commands
 
-`build`, `check`, `run`, `lint`, `fmt` and `lsp` front the tool of the same name. `test`, `bench` and `doc` are [jacket test](jacket-test.md), [jacket bench](jacket-bench.md) and [jacket doc](jacket-doc.md). `new`, `init`, `config`, `clean`, `explain`, `version` and `upgrade` are `jacket`'s own and use `--long` flags. `jacket jaic|jailint|jailsp|jaifmt <args>` runs that tool verbatim, and any other command runs `jacket-<command>` from `PATH`, as cargo does. Every flag is in the [tools reference](../reference/tools.md).
+`build`, `check`, `run`, `lint`, `fmt` and `lsp` front the tool of the same name. `test`, `bench`, `doc` and `migrate` are [jacket test](jacket-test.md), [jacket bench](jacket-bench.md), [jacket doc](jacket-doc.md) and [jacket migrate](jacket-migrate.md). `new`, `init`, `config`, `clean`, `explain`, `version` and `upgrade` are `jacket`'s own and use `--long` flags. `jacket jaic|jailint|jailsp|jaifmt <args>` runs that tool verbatim, and any other command runs `jacket-<command>` from `PATH`, as cargo does. Every flag is in the [tools reference](../reference/tools.md).
 
 Tools are found next to the `jacket` executable (symlinks followed), else on `PATH`.
 

@@ -10,6 +10,7 @@ mod commands;
 mod compile;
 mod doc;
 mod fmt;
+mod migrate;
 mod project;
 mod status;
 mod test;
@@ -58,6 +59,7 @@ fn main() -> ExitCode {
         Command::Config {
             action,
         } => commands::config(action, &cwd),
+        Command::Migrate(args) => migrate::run(&args, &cwd),
         Command::Clean => commands::clean(&cwd),
         Command::Version => commands::version(),
         Command::Explain {

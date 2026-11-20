@@ -79,6 +79,9 @@ pub enum Command {
         #[command(subcommand)]
         action: ConfigAction,
     },
+    /// Rewrite code written for an older Jai to the current language (prints the diff; `--apply`
+    /// writes it)
+    Migrate(MigrateArgs),
     /// Remove the executable `jacket build` writes
     Clean,
     /// Explain a diagnostic code such as `type-mismatch`; without one, list them all
@@ -114,6 +117,28 @@ pub enum Command {
     Jaifmt(Passthrough),
     #[command(external_subcommand)]
     External(Vec<OsString>),
+}
+
+/// `jacket migrate`'s options.
+#[derive(clap::Args, Debug)]
+pub struct MigrateArgs {
+    /// Files or folders to migrate (default: the project, else the current directory)
+    pub paths: Vec<std::path::PathBuf>,
+    /// Write the changes; without it nothing is written
+    #[arg(long)]
+    pub apply: bool,
+    /// Run only this migration, even an ambiguous one (repeatable; `--list` names them)
+    #[arg(long, value_name = "NAME")]
+    pub only: Vec<String>,
+    /// List the migrations
+    #[arg(long)]
+    pub list: bool,
+    /// Write files that have uncommitted changes
+    #[arg(long)]
+    pub allow_dirty: bool,
+    /// Write files that are not in a git repository
+    #[arg(long)]
+    pub allow_no_vcs: bool,
 }
 
 #[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]

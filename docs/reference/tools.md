@@ -294,6 +294,33 @@ jacket explain [CODE]
 | --- | --- |
 | `-h, --help` | Print help |
 
+### Migrating old code
+
+`jacket migrate` rewrites code written for an older Jai to the current language. It prints the diff, and `--apply` writes it when git could give every file back. [jacket migrate](../tools/jacket-migrate.md) lists the migrations and how to add one.
+
+Rewrite code written for an older Jai to the current language (prints the diff; `--apply` writes it)
+
+```text
+jacket migrate [OPTIONS] [PATHS]...
+```
+
+#### Arguments
+
+| Argument | Meaning |
+| --- | --- |
+| `[PATHS]...` | Files or folders to migrate (default: the project, else the current directory) |
+
+#### Options
+
+| Option | Meaning |
+| --- | --- |
+| `--apply` | Write the changes; without it nothing is written |
+| `--only <NAME>` | Run only this migration, even an ambiguous one (repeatable; `--list` names them) |
+| `--list` | List the migrations |
+| `--allow-dirty` | Write files that have uncommitted changes |
+| `--allow-no-vcs` | Write files that are not in a git repository |
+| `-h, --help` | Print help |
+
 ## Testing and documenting
 
 ### Testing

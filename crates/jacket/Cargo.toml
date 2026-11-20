@@ -24,6 +24,7 @@ regex-lite = "=0.1.9"
 semver = "=1.0.28"
 pulldown-cmark = { workspace = true, features = ["html"] }
 sha2 = "=0.10.9"
+similar = { version = "=2.7.0", default-features = false, features = ["text"] }
 
 [dev-dependencies]
 test-support = { path = "../test-support" }

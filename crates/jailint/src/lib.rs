@@ -12,6 +12,7 @@ pub mod config;
 pub mod driver;
 pub mod facts;
 pub mod fix;
+pub mod migrate;
 pub mod render;
 mod rules;
 mod suppress;
