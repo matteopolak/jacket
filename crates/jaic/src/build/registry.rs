@@ -238,6 +238,7 @@ impl Workspaces {
                     OsTag::Linux => TargetOs::Linux,
                     OsTag::MacOS => TargetOs::MacOS,
                     OsTag::Wasm => TargetOs::Wasm,
+                    OsTag::None => TargetOs::None,
                 });
             }
             WorkspaceNumber::CpuTarget => {
@@ -493,6 +494,9 @@ pub(super) fn new_compiler(shared: &SharedWorkspaces, id: i64) -> Result<Box<Com
         options.entry_point.clone_from(&settings.entry_point_name);
     }
     if let Some(which) = &settings.runtime_support_definitions {
+        if options.os == TargetOs::None && *which == RuntimeSupport::EntryPointAndInit {
+            return Err("`runtime_support_definitions = .ENTRY_POINT_AND_INIT` defines a system entry point, and a freestanding target (`os_target = .NONE`) has none\nhelp: use `.ONLY_INIT` (or `.AUTO`), or `.OMIT` to write the start-up code yourself".into());
+        }
         // AUTO and ENTRY_POINT_AND_INIT: both; ONLY_INIT: the program has its own entry point.
         options.runtime_entry_point =
             !matches!(which, RuntimeSupport::OnlyInit | RuntimeSupport::Omit);

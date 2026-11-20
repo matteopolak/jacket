@@ -102,12 +102,7 @@ fn relative_include_roots_are_relative_to_invocation_not_each_source() {
 fn selected_target_branches_check_with_unchanged_compiler_host() {
     let root = fixture("matrix");
     let host = jaic::sema::Options::host();
-    let host_os = match host.os {
-        jaic::target::TargetOs::Windows => "WINDOWS",
-        jaic::target::TargetOs::Linux => "LINUX",
-        jaic::target::TargetOs::MacOS => "MACOS",
-        jaic::target::TargetOs::Wasm => "WASM",
-    };
+    let host_os = jaic::target::os_member(host.os);
     let host_cpu = match host.cpu {
         jaic::target::TargetCpu::X64 => "X64",
         jaic::target::TargetCpu::Arm64 => "ARM64",

@@ -39,6 +39,7 @@ impl Target {
                 TargetOs::Linux => "LINUX",
                 TargetOs::MacOS => "MACOS",
                 TargetOs::Wasm => "WASM",
+                TargetOs::None => "NONE",
             },
             cpu: match cpu {
                 TargetCpu::X64 => "X64",

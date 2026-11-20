@@ -283,7 +283,7 @@ pub struct Options {
 }
 
 /// The C `long double` of a target, when wider than `float64`: x87 extended on x86-64 System V
-/// and MinGW (`windows_gnu`), binary128 on Linux `AArch64` and wasm32, plain `double` on Apple
+/// and MinGW (`windows_gnu`), binary128 on Linux and bare-metal `AArch64` and wasm32, plain `double` on Apple
 /// arm64 and with the Microsoft toolchain.
 pub fn long_double_for(
     os: TargetOs,
@@ -296,7 +296,9 @@ pub fn long_double_for(
         (TargetOs::Windows, _) => None,
         (TargetOs::MacOS, TargetCpu::Arm64) => None,
         (_, TargetCpu::X64) => Some(WideFloat::X87),
-        (TargetOs::Linux, TargetCpu::Arm64) | (_, TargetCpu::Wasm) => Some(WideFloat::Binary128),
+        (TargetOs::Linux | TargetOs::None, TargetCpu::Arm64) | (_, TargetCpu::Wasm) => {
+            Some(WideFloat::Binary128)
+        }
         (_, TargetCpu::Arm64) => None,
     }
 }
@@ -313,7 +315,7 @@ mod long_double_tests {
     #[test]
     fn formats_follow_the_c_compiler() {
         use TargetCpu::*;
-        use TargetOs::*;
+        use TargetOs::{Linux, MacOS, Windows};
         assert_eq!(long_double_for(Linux, X64, true), Some(WideFloat::X87));
         assert_eq!(long_double_for(MacOS, X64, false), Some(WideFloat::X87));
         assert_eq!(long_double_for(Windows, X64, true), Some(WideFloat::X87));
@@ -325,10 +327,21 @@ mod long_double_tests {
         assert_eq!(long_double_for(MacOS, Arm64, false), None);
         assert_eq!(long_double_for(Windows, Arm64, false), None);
         assert_eq!(long_double_for(Windows, Arm64, true), None);
+        // aarch64-none-elf follows the generic AAPCS64.
+        assert_eq!(
+            long_double_for(TargetOs::None, Arm64, false),
+            Some(WideFloat::Binary128)
+        );
     }
 }
 
 impl Options {
+    /// Whether `Runtime_Support` defines the system entry point (`main`): not on a freestanding
+    /// target, which has no system to call it, whatever `runtime_support_definitions` says.
+    pub fn defines_system_entry_point(&self) -> bool {
+        self.runtime_entry_point && self.os != TargetOs::None
+    }
+
     /// Standard-library root for bootstrap layouts and explicitly supplied preload files.
     pub fn stdlib_root(&self) -> Option<&std::path::Path> {
         self.preload_stdlib.as_deref().or_else(|| {

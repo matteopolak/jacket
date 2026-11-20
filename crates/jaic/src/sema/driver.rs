@@ -54,7 +54,7 @@ impl Compiler {
             let params = vec![
                 (
                     Sym::intern("DEFINE_SYSTEM_ENTRY_POINT"),
-                    Value::Bool(self.options.runtime_entry_point),
+                    Value::Bool(self.options.defines_system_entry_point()),
                     TypeId::BOOL,
                 ),
                 (

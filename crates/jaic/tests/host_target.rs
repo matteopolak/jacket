@@ -4,12 +4,7 @@ use jaic::target::{TargetCpu, TargetOs};
 use std::rc::Rc;
 
 fn os_name(os: TargetOs) -> &'static str {
-    match os {
-        TargetOs::Windows => "WINDOWS",
-        TargetOs::Linux => "LINUX",
-        TargetOs::MacOS => "MACOS",
-        TargetOs::Wasm => "WASM",
-    }
+    jaic::target::os_member(os)
 }
 
 fn cpu_name(cpu: TargetCpu) -> &'static str {
@@ -28,6 +23,7 @@ fn build_constants_identify_compiler_host_for_every_selected_target() {
         TargetOs::Linux,
         TargetOs::MacOS,
         TargetOs::Wasm,
+        TargetOs::None,
     ] {
         for cpu in [TargetCpu::X64, TargetCpu::Arm64, TargetCpu::Wasm] {
             let mut options = Options::host();
@@ -36,7 +32,7 @@ fn build_constants_identify_compiler_host_for_every_selected_target() {
             options.runtime_support = false;
             options.preload = Some("/lib/prelude/module.jai".into());
             let mut fs = VirtualFs::default();
-            fs.insert("/lib/prelude/module.jai", "Operating_System_Tag :: enum u32 { WINDOWS; LINUX; MACOS; WASM; } CPU_Tag :: enum u32 { X64; ARM64; CUSTOM; }".as_bytes());
+            fs.insert("/lib/prelude/module.jai", "Operating_System_Tag :: enum u32 { NONE; WINDOWS; LINUX; MACOS; WASM; } CPU_Tag :: enum u32 { X64; ARM64; CUSTOM; }".as_bytes());
             let mut c = Compiler::new(options, Rc::new(fs));
             let source = format!(
                 r"

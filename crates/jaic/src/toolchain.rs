@@ -8,6 +8,7 @@
 use crate::target::{Target, TargetAbi, TargetOs};
 
 pub mod discover;
+pub mod freestanding;
 mod linux;
 mod macos;
 mod wasm;
@@ -179,6 +180,7 @@ impl Toolchain {
             (TargetOs::MacOS, _) => &macos::MACOS,
             (TargetOs::Linux, _) => &linux::LINUX,
             (TargetOs::Wasm, _) => &wasm::WASM,
+            (TargetOs::None, _) => &freestanding::FREESTANDING,
         }
     }
 

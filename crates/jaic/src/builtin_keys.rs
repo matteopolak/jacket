@@ -23,6 +23,7 @@ raw_enum! {
 raw_enum! {
     /// The `Operating_System_Tag` members jaic can build for.
     pub enum OsTag {
+        None = 0,
         Windows = 2,
         Linux = 3,
         MacOS = 6,

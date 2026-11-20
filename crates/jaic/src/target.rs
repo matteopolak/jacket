@@ -9,6 +9,9 @@ pub enum TargetOs {
     Linux,
     MacOS,
     Wasm,
+    /// No operating system: a freestanding program with no libc and no system entry point
+    /// (`Operating_System_Tag.NONE`).
+    None,
 }
 
 /// The CPU a program is built for (`Wasm` is the CPU of a WebAssembly target).
@@ -20,7 +23,7 @@ pub enum TargetCpu {
 }
 
 /// The names `-os` accepts.
-pub const OS_NAMES: [&str; 4] = ["linux", "windows", "macos", "wasm"];
+pub const OS_NAMES: [&str; 5] = ["linux", "windows", "macos", "wasm", "none"];
 
 pub fn parse_os(name: &str) -> Option<TargetOs> {
     match name {
@@ -28,6 +31,7 @@ pub fn parse_os(name: &str) -> Option<TargetOs> {
         "windows" => Some(TargetOs::Windows),
         "macos" => Some(TargetOs::MacOS),
         "wasm" => Some(TargetOs::Wasm),
+        "none" => Some(TargetOs::None),
         _ => None,
     }
 }
@@ -48,6 +52,7 @@ pub fn os_name(os: TargetOs) -> &'static str {
         TargetOs::Linux => "linux",
         TargetOs::MacOS => "macos",
         TargetOs::Wasm => "wasm",
+        TargetOs::None => "none",
     }
 }
 
@@ -67,6 +72,7 @@ pub fn os_member(os: TargetOs) -> &'static str {
         TargetOs::Linux => "LINUX",
         TargetOs::MacOS => "MACOS",
         TargetOs::Wasm => "WASM",
+        TargetOs::None => "NONE",
     }
 }
 
@@ -92,7 +98,8 @@ pub enum TargetAbi {
     Apple,
     /// A WebAssembly System Interface command.
     Wasi,
-    /// Nothing named: freestanding WebAssembly, or a Linux environment jaic has no name for.
+    /// Nothing named: freestanding WebAssembly, bare metal (`*-none-elf`), or a Linux
+    /// environment jaic has no name for.
     Unknown,
 }
 
@@ -118,6 +125,7 @@ impl Target {
             TargetOs::Linux => TargetAbi::Gnu,
             TargetOs::MacOS => TargetAbi::Apple,
             TargetOs::Wasm => TargetAbi::Wasi,
+            TargetOs::None => TargetAbi::Unknown,
         };
         Target {
             os,
@@ -188,6 +196,14 @@ impl Target {
                 _ => return Err(format!("unsupported WebAssembly target `{triple}`")),
             };
             (TargetOs::Wasm, abi)
+        } else if parts.contains(&"none") && parts.last() == Some(&"elf") {
+            // `aarch64-none-elf`: bare metal. Only the CPUs jaic has a freestanding ABI for.
+            if cpu != TargetCpu::Arm64 {
+                return Err(format!(
+                    "unsupported CPU for a freestanding target in `{triple}`: only aarch64 is supported"
+                ));
+            }
+            (TargetOs::None, TargetAbi::Unknown)
         } else if parts
             .iter()
             .any(|p| matches!(*p, "windows" | "mingw32" | "w64"))
@@ -245,6 +261,11 @@ impl Target {
         self.os == TargetOs::Wasm
     }
 
+    /// A bare-metal target: no operating system, libc, threads or system entry point.
+    pub fn is_freestanding(self) -> bool {
+        self.os == TargetOs::None
+    }
+
     pub fn is_apple(self) -> bool {
         self.os == TargetOs::MacOS
     }
@@ -287,6 +308,7 @@ impl std::fmt::Display for Target {
             (TargetOs::Linux, TargetAbi::Gnu) => "unknown-linux-gnu",
             (TargetOs::Linux, TargetAbi::Musl) => "unknown-linux-musl",
             (TargetOs::Linux, _) => "unknown-linux",
+            (TargetOs::None, _) => "none-elf",
             (TargetOs::Wasm, _) => unreachable!("a wasm OS has a wasm CPU"),
         };
         write!(f, "{arch}-{rest}")
@@ -372,6 +394,8 @@ pub fn select_os_cpu(options: &mut Options, os: Option<TargetOs>, cpu: Option<Ta
     options.os = os.unwrap_or(options.os);
     options.cpu = match options.os {
         TargetOs::Wasm => TargetCpu::Wasm,
+        // The one CPU a freestanding build supports.
+        TargetOs::None => cpu.unwrap_or(TargetCpu::Arm64),
         os => cpu.unwrap_or(if os == host_os {
             options.cpu
         } else {
@@ -477,12 +501,26 @@ mod tests {
     }
 
     #[test]
+    fn a_freestanding_target_is_the_none_operating_system() {
+        let target = Target::parse("aarch64-none-elf").unwrap();
+        assert!(target.is_freestanding());
+        assert!(!Target::host().is_freestanding());
+        assert_eq!(os_member(TargetOs::None), "NONE");
+        assert_eq!(
+            Target::new(TargetOs::None, TargetCpu::Arm64),
+            target,
+            "the usual environment of a freestanding target"
+        );
+    }
+
+    #[test]
     fn names_round_trip() {
         for os in [
             TargetOs::Windows,
             TargetOs::Linux,
             TargetOs::MacOS,
             TargetOs::Wasm,
+            TargetOs::None,
         ] {
             assert_eq!(parse_os(os_name(os)), Some(os));
         }
@@ -509,9 +547,15 @@ mod tests {
         let mut options = host.clone();
         select_os_cpu(&mut options, Some(TargetOs::Wasm), None);
         assert_eq!(options.cpu, TargetCpu::Wasm);
-        let mut options = host;
+        let mut options = host.clone();
         select_os_cpu(&mut options, Some(other), Some(TargetCpu::Arm64));
         assert_eq!(options.cpu, TargetCpu::Arm64);
+        let mut options = host;
+        select_os_cpu(&mut options, Some(TargetOs::None), None);
+        assert_eq!(
+            (options.os, options.cpu),
+            (TargetOs::None, TargetCpu::Arm64)
+        );
     }
 
     #[test]
@@ -560,6 +604,13 @@ mod tests {
                 "x86_64-unknown-linux-musl",
             ),
             (
+                "aarch64-none-elf",
+                TargetOs::None,
+                TargetCpu::Arm64,
+                TargetAbi::Unknown,
+                "aarch64-none-elf",
+            ),
+            (
                 "wasm32-unknown-unknown",
                 TargetOs::Wasm,
                 TargetCpu::Wasm,
@@ -585,6 +636,9 @@ mod tests {
         }
         assert!(Target::parse("riscv64-unknown-linux-gnu").is_err());
         assert!(Target::parse("x86_64-unknown-freebsd").is_err());
+        // A freestanding target needs a CPU jaic has an embedded ABI for.
+        assert!(Target::parse("x86_64-none-elf").is_err());
+        assert!(Target::parse("aarch64-none").is_err());
     }
 
     #[test]
@@ -595,6 +649,7 @@ mod tests {
             ("x86_64-w64-windows-gnu", Some(Arch::Win64)),
             ("aarch64-pc-windows-gnu", Some(Arch::Win64Arm)),
             ("aarch64-unknown-linux-gnu", Some(Arch::Aarch64)),
+            ("aarch64-none-elf", Some(Arch::Aarch64)),
             ("x86_64-unknown-linux-gnu", Some(Arch::X86_64)),
             ("wasm64-unknown-unknown", Some(Arch::Wasm64)),
             ("wasm32-unknown-unknown", None),
