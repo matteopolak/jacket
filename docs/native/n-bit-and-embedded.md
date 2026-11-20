@@ -222,6 +222,36 @@ Size work:
 5. **E4, 32-bit microcontrollers.** Needs N-bit N4. Add the `Mps2_An386`, `Mps2_An505` and `Qemu_Virt_Riscv32` boards, with blinky and the stdlib tests on each.
 6. **E5, 16-bit.** Needs N-bit N5. The `Arduino_Uno` board on `qemu-system-avr`, and the size gate.
 
+## Part 3: lints
+
+Two jailint rules in the `restriction` category, so both are off by default. A project turns them on with `[lint.rules] narrow_pointers = "warn"` or `-W freestanding`.
+
+They catch code that compiles for the target being linted but would be wrong on a narrow or freestanding one. Anything that simply fails to compile for that target is not their job: `jailint --target <triple>` compiles for the target, and the compiler reports it.
+
+### `narrow_pointers`
+
+Flags code whose meaning depends on 8-byte pointers. Lands with the N-bit work, after N0, because it uses `DataLayout`.
+
+- **Constants that change with pointer size.** The rule re-evaluates each `#assert`, `#if` condition, array length and constant that reads `size_of` or `align_of` of a pointer-holding type, under the 4- and 2-byte layouts. It flags each one whose value or outcome changes. The finding names the type and the sizes, for example `size_of(Node) is 24 here, 12 with 4-byte pointers`. This is real constant evaluation, not text matching.
+- **Pointer bits treated as a 64-bit integer.**
+  - Masks or shifts touching bits 32 and up on a value cast from a pointer (high-bit pointer tagging).
+  - `cast(*u64)` or `cast(*s64)` of storage that holds a pointer.
+  - A union member that overlays a pointer with an 8-byte integer or `[8] u8`.
+- **Integer constants that can't be addresses or sizes on 32-bit.** Values of 2³² or more used as a pointer, or as an allocation or view size.
+- **Foreign C width mismatches.** `#foreign` parameters and fields declared `s64`/`u64` where the binding's own type alias says C `long`/`size_t`. This uses the stdlib C-width aliases from N2, so it is exact, not a guess from names.
+
+### `freestanding`
+
+Flags code that can't work with `OS == .NONE`, or that misbehaves on a microcontroller. Lands with embedded E2, because it uses the NONE runtime and `@Interrupt`.
+
+- **OS-only modules.** Importing a module that doesn't build on `NONE`. The rule reads the same per-module availability facts `jacket doc` computes (`Module::support`), so there is no list to maintain.
+- **Allocation through the default allocator.** On `NONE` it has no heap: `alloc`, `New`, `array_add` and `tprint` calls reached with no allocator in scope. Calls inside a `push_allocator` or `push_context` that sets one are fine.
+- **Interrupt handlers that do too much.** Inside an `@Interrupt` procedure and everything it calls: allocation, `print`, locks, and calls that may block.
+- **Unbounded stack.** Recursion (cycles in the call graph) and stack frames over a configurable size, `[lint.freestanding] max_frame_bytes`, default 1024.
+- **Float and wide-integer work the CPU can't do.** `float64` arithmetic, or `s64` division and remainder in a loop, when the linted target has no double-precision FPU or no 64-bit divide. This needs a freestanding target selected; without one, this part stays quiet.
+
+Each rule gets a `### <rule>` section in `docs/tools/jailint.md`, good and bad fixtures under `tests/lint/<rule>/`, and a regenerated `docs/reference/lint-rules.md`.
+
 ## Example: blinky on a Cortex-M4
 
 `blinky.jai`, for QEMU `mps2-an386`:
