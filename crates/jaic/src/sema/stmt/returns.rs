@@ -255,7 +255,8 @@ impl Compiler {
                 None => {
                     // Keep the value safe from defers that modify locals.
                     let t = self.ir_ty(ty).unwrap();
-                    let slot = f.b.alloca(t.size(), t.size());
+                    let slot =
+                        f.b.alloca(t.size(&self.options.layout), t.size(&self.options.layout));
                     f.b.store(t, slot, v);
                     scalars.push((v, Some((t, slot))));
                 }

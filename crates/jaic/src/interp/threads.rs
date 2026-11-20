@@ -57,7 +57,7 @@ mod pthread_name_tests {
 
     #[test]
     fn invalid_pthread_name_handles_never_fall_through_to_native() {
-        let mut interp = Interp::default();
+        let mut interp = Interp::native(crate::layout::DataLayout::host());
         for (symbol, args) in [
             ("pthread_setname_np", vec![0, 0]),
             ("pthread_getname_np", vec![0, 0, 16]),
@@ -72,7 +72,7 @@ mod pthread_name_tests {
 
     #[test]
     fn inline_pthread_names_report_unsupported_without_native_fallback() {
-        let mut interp = Interp::default();
+        let mut interp = Interp::native(crate::layout::DataLayout::host());
         for (symbol, args) in [
             ("pthread_setname_np", vec![1, 0]),
             ("pthread_setname_np", vec![0]),
@@ -88,7 +88,7 @@ mod pthread_name_tests {
 
     #[test]
     fn wrong_signature_and_cross_target_names_are_explicit_errors() {
-        let mut interp = Interp::default();
+        let mut interp = Interp::native(crate::layout::DataLayout::host());
         for symbol in ["pthread_setname_np", "pthread_getname_np"] {
             assert!(
                 interp
@@ -110,7 +110,7 @@ mod pthread_name_tests {
 
     #[test]
     fn finished_or_identityless_slots_cannot_be_named() {
-        let mut interp = Interp::default();
+        let mut interp = Interp::native(crate::layout::DataLayout::host());
         let shared = interp.shared();
         let mut thread = GThread::new(false, None);
         thread.finished = true;
@@ -128,7 +128,7 @@ mod pthread_name_tests {
 
     #[test]
     fn unrelated_foreigns_keep_their_existing_route() {
-        let mut interp = Interp::default();
+        let mut interp = Interp::native(crate::layout::DataLayout::host());
         assert!(
             interp
                 .thread_foreign(&Program::default(), "unrelated_symbol", &[])

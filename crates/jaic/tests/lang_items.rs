@@ -1,6 +1,5 @@
 //! The compiler's contract with the standard library, checked against the real prelude: every
 //! type it names resolves, and the layouts in `jaic::layout` agree with the prelude's structs.
-use jaic::layout;
 use jaic::sema::{Compiler, NativeFs, Options, PreludeType, ProgramSource};
 use jaic::source::Span;
 use std::path::Path;
@@ -39,7 +38,7 @@ fn the_builtin_layouts_match_the_prelude() {
         .expect("Allocator");
     assert_eq!(
         compiler.size_of(allocator, Span::NONE).unwrap(),
-        layout::ALLOCATOR_SIZE
+        compiler.ty.types.builtins().allocator.size
     );
     let info = compiler
         .preload_type(PreludeType::TypeInfo, Span::NONE)
@@ -47,6 +46,6 @@ fn the_builtin_layouts_match_the_prelude() {
     let pointer = compiler.ty.types.pointer(info);
     assert_eq!(
         compiler.size_of(pointer, Span::NONE).unwrap(),
-        layout::POINTER_SIZE
+        compiler.options.layout.ptr_bytes()
     );
 }

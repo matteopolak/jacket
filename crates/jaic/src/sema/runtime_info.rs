@@ -12,6 +12,7 @@ use super::{
     Arc, Compiler, Diagnostic, EntityId, HashSet, Result, Span, TypeId, Value, ast, ir, scope,
 };
 use crate::diagnostics::Code;
+use crate::layout::{DataLayout, Member, Packed};
 use crate::sema::Output;
 use crate::sema::TypeState;
 use crate::types::{LayoutState, TypeKind};
@@ -19,7 +20,21 @@ use scope::{EntityKind, Resolved, ScopeKind};
 
 const SEGMENT_DATA: u16 = 1;
 const SEGMENT_RDATA: u16 = 2;
-const SEGMENT_INFO_SIZE: u64 = 24;
+
+/// `Runtime_Info { type_table: [] *Type_Info; global_data_info: *Global_Data_Info; }`.
+fn runtime_info_layout(layout: &DataLayout) -> Packed {
+    layout.pack(&[Member::View, Member::Ptr])
+}
+
+/// `Global_Data_Info { version_stamp: u64; segment_info: [] Global_Data_Segment_Info; }`.
+fn global_data_info_layout(layout: &DataLayout) -> Packed {
+    layout.pack(&[Member::Int(8), Member::View])
+}
+
+/// `Global_Data_Segment_Info { segment_tag: u16; data: [] u8; }`.
+fn segment_info_layout(layout: &DataLayout) -> Packed {
+    layout.pack(&[Member::Int(2), Member::View])
+}
 
 /// The library-less `#foreign` global the compiler defines with the program's segments.
 pub(super) const RUNTIME_INFO: &str = "__runtime_info";
@@ -29,9 +44,10 @@ impl Compiler {
         if let Some(g) = self.out.runtime_info {
             return Ok(g);
         }
+        let size = runtime_info_layout(&self.options.layout).size;
         let g = self
             .out
-            .data_global(RUNTIME_INFO, 24, Vec::new(), Vec::new());
+            .data_global(RUNTIME_INFO, size, Vec::new(), Vec::new());
         self.out.runtime_info = Some(g);
         Ok(g)
     }
@@ -48,15 +64,22 @@ impl Compiler {
         }
         let bytes: Arc<[u8]> = Arc::from(text.as_bytes());
         let data = self.out.string_global(&bytes);
-        let mut init = (text.len() as u64).to_le_bytes().to_vec();
-        init.extend_from_slice(&[0; 8]);
+        let view = self.ty.types.builtins().view;
+        let mut init = vec![0; view.size as usize];
+        self.options
+            .layout
+            .write_view(&mut init, text.len() as u64, 0);
         let reloc = ir::Reloc {
-            offset: 8,
+            offset: view.data,
             target: ir::RelocTarget::Global(data),
             addend: 0,
         };
-        self.out
-            .data_global(super::private_names::BUILD_DIRECTORY, 16, init, vec![reloc])
+        self.out.data_global(
+            super::private_names::BUILD_DIRECTORY,
+            view.size,
+            init,
+            vec![reloc],
+        )
     }
 
     /// Fill `__runtime_info` (if the program uses it) from the final program.
@@ -87,20 +110,24 @@ impl Compiler {
             .map(|(&t, &g)| (t, g))
             .collect();
         types.sort_by_key(|&(t, _)| t);
+        let layout = self.options.layout;
+        let pointer = layout.ptr_bytes();
         let table_relocs = (0..types.len())
-            .map(|i| reloc(i as u64 * 8, types[i].1))
+            .map(|i| reloc(i as u64 * pointer, types[i].1))
             .collect();
         let table = self.out.data_global(
             "__runtime_info.type_table",
-            types.len() as u64 * 8,
-            vec![0; types.len() * 8],
+            types.len() as u64 * pointer,
+            vec![0; types.len() * pointer as usize],
             table_relocs,
         );
 
-        let mut segments = vec![0u8; data_globals.len() * SEGMENT_INFO_SIZE as usize];
+        let view = layout.builtins().view;
+        let segment = segment_info_layout(&layout);
+        let mut segments = vec![0u8; data_globals.len() * segment.size as usize];
         let mut segment_relocs = Vec::new();
         for (i, &(global, size, read_only)) in data_globals.iter().enumerate() {
-            let at = i * SEGMENT_INFO_SIZE as usize;
+            let at = i * segment.size as usize;
             let tag = self
                 .out
                 .registered_data_segments
@@ -111,9 +138,10 @@ impl Compiler {
                 } else {
                     SEGMENT_DATA
                 });
-            segments[at..at + 2].copy_from_slice(&tag.to_le_bytes());
-            segments[at + 8..at + 16].copy_from_slice(&size.to_le_bytes());
-            segment_relocs.push(reloc(at as u64 + 16, global));
+            let view_at = at + segment.offsets[1] as usize;
+            layout.write_u16(&mut segments[at + segment.offsets[0] as usize..], tag);
+            layout.write_view(&mut segments[view_at..], size, 0);
+            segment_relocs.push(reloc(view_at as u64 + view.data, global));
         }
         let segments = self.out.data_global(
             "__runtime_info.segments",
@@ -122,20 +150,27 @@ impl Compiler {
             segment_relocs,
         );
 
-        let mut gdi = vec![0u8; 24];
-        gdi[8..16].copy_from_slice(&(data_globals.len() as u64).to_le_bytes());
+        let data_info = global_data_info_layout(&layout);
+        let mut gdi = vec![0u8; data_info.size as usize];
+        let segment_view = data_info.offsets[1];
+        layout.write_view(
+            &mut gdi[segment_view as usize..],
+            data_globals.len() as u64,
+            0,
+        );
         let gdi = self.out.data_global(
             "__runtime_info.global_data_info",
-            24,
+            data_info.size,
             gdi,
-            vec![reloc(16, segments)],
+            vec![reloc(segment_view + view.data, segments)],
         );
 
-        let mut bytes = vec![0u8; 24];
-        bytes[0..8].copy_from_slice(&(types.len() as u64).to_le_bytes());
+        let record = runtime_info_layout(&layout);
+        let mut bytes = vec![0u8; record.size as usize];
+        layout.write_view(&mut bytes, types.len() as u64, 0);
         let g = &mut self.out.program.globals[info.0 as usize];
         g.init = bytes;
-        g.relocs = vec![reloc(8, table), reloc(16, gdi)];
+        g.relocs = vec![reloc(view.data, table), reloc(record.offsets[1], gdi)];
         self.ct
             .interp
             .refresh_global(&self.out.program, info)

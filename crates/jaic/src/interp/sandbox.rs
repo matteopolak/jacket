@@ -545,6 +545,10 @@ impl SandboxHost {
         Some(target)
     }
 
+    #[allow(
+        clippy::disallowed_methods,
+        reason = "the sandbox writes interpreter memory, which is host memory"
+    )]
     fn fill_stat(&self, path: &str, out: u64) -> Result<(), u64> {
         let links = 1 + self
             .fs

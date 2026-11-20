@@ -100,10 +100,11 @@ pub struct TypeState {
         Probed<HashMap<ast::AstId, ir::GlobalId>, { W::TyGenericStructInfos as usize }>,
 }
 
-impl Default for TypeState {
-    fn default() -> Self {
+impl TypeState {
+    /// Empty state for a program laid out for `layout`.
+    pub fn new(layout: crate::layout::DataLayout) -> Self {
         Self {
-            types: Probed::new(Types::new()),
+            types: Probed::new(Types::new(layout)),
             nominal_origins: Probed::default(),
             poly_structs: Probed::default(),
             struct_asts: Probed::default(),

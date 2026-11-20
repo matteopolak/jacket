@@ -217,6 +217,8 @@ pub struct HostPlatform {
     pub cpu: TargetCpu,
     /// The host C compiler's `long double` when wider than `float64`; see `long_double_for`.
     pub long_double: Option<crate::wide_float::WideFloat>,
+    /// How the host lays out data.
+    pub layout: crate::layout::DataLayout,
 }
 
 impl HostPlatform {
@@ -227,6 +229,7 @@ impl HostPlatform {
             os,
             cpu,
             long_double: long_double_for(os, cpu, cfg!(target_env = "gnu")),
+            layout: crate::target::Target::new(os, cpu).data_layout(),
         }
     }
 }
@@ -238,6 +241,8 @@ pub struct Options {
     /// Where compile-time code runs. Always the native platform outside tests, which replace it
     /// to exercise a host that differs from the target on a machine that does not.
     pub host: HostPlatform,
+    /// How the target lays out data: set with `os` and `cpu` by `Target::apply`.
+    pub layout: crate::layout::DataLayout,
     /// Directories searched by `#import "Name"`, in order.
     pub import_paths: Vec<PathBuf>,
     /// Bootstrap entry loaded into every program (see `crate::PRELUDE_ENTRIES`).
@@ -388,6 +393,7 @@ impl Options {
         Self {
             os,
             cpu,
+            layout: host.layout,
             host,
             import_paths: Vec::new(),
             preload: None,
@@ -478,6 +484,10 @@ pub struct InstanceKeyValue {
     value: Value,
 }
 
+#[allow(
+    clippy::disallowed_methods,
+    reason = "a host-side cache key, not program data"
+)]
 fn instance_key_value(types: &Types, value: &Value, ty: TypeId) -> InstanceKeyValue {
     let view = matches!(
         types.kind(ty),
@@ -606,12 +616,13 @@ impl Compiler {
         body_probe::init();
         speculative::init();
         let cross_target = options.is_cross_build();
+        let layout = options.layout;
         let windows_target = options.os == crate::target::TargetOs::Windows;
         let mut c = Compiler {
             pr: ProcState::default(),
             caches: NameCaches::default(),
             ns: Namespaces::default(),
-            ty: TypeState::default(),
+            ty: TypeState::new(layout),
             src: SourceState::new(fs),
             out: Output::new(cross_target, windows_target),
             meta: MetaState::default(),
@@ -621,7 +632,7 @@ impl Compiler {
             ed: Probed::default(),
             #[cfg(debug_assertions)]
             namespace_check: std::cell::Cell::new((0, 0, 0)),
-            ct: CompileTime::default(),
+            ct: CompileTime::new(layout),
         };
         c.ct.interp.eval_steps = c.options.eval_step_limit;
         if c.ct.interp.eval_steps.is_none() && crate::interp::profile::run_costs() {

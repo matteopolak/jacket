@@ -351,7 +351,7 @@ impl Compiler {
                     )
                     && let Some(bytes) = image.bytes.get(0..8)
                 {
-                    let count = u64::from_le_bytes(bytes.try_into().unwrap());
+                    let count = self.options.layout.read_u64(bytes);
                     vt = self.ty.types.array(elem, ArrayKind::Fixed(count));
                 }
                 let represented = if let Value::Type(t) = &value {

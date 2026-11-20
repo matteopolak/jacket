@@ -290,6 +290,10 @@ fn windows_file_round_trip() {
 }
 
 #[test]
+#[allow(
+    clippy::disallowed_methods,
+    reason = "the sandbox's records are read back from host memory"
+)]
 fn windows_find_files_lists_a_directory() {
     let mut h = host();
     h.fs.dirs.insert("/tmp/d".to_string());
@@ -439,6 +443,10 @@ fn read_from(h: &mut SandboxHost, fd: u64, size: usize) -> Vec<u8> {
 }
 
 /// `(mode, size, links)` from `stat`, or the errno of a failed call.
+#[allow(
+    clippy::disallowed_methods,
+    reason = "the sandbox's records are read back from host memory"
+)]
 fn stat_of(h: &mut SandboxHost, symbol: &str, subject: u64) -> Result<(u32, u64, u64), u32> {
     let mut st = [0u8; 144];
     if call(h, symbol, &[subject, st.as_mut_ptr() as u64]) == u64::MAX {
@@ -929,6 +937,10 @@ fn stdin_end_marker_is_consumed_by_the_read_that_finds_nothing() {
 }
 
 #[test]
+#[allow(
+    clippy::disallowed_methods,
+    reason = "the sandbox's records are read back from host memory"
+)]
 fn darwin_file_records_match_stat_and_dirent_layouts() {
     let mut h = host();
     h.set_file_target(crate::target::TargetOs::MacOS);
@@ -965,6 +977,10 @@ fn darwin_file_records_match_stat_and_dirent_layouts() {
 }
 
 #[test]
+#[allow(
+    clippy::disallowed_methods,
+    reason = "the sandbox's records are read back from host memory"
+)]
 fn windows_virtual_memory_reserves_commits_protects_and_frees() {
     use super::guest::write_u32;
     let mut h = host();

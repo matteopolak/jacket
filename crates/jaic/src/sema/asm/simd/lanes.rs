@@ -28,7 +28,7 @@ impl Compiler {
         match op {
             VOp::Bin(b2, ty) => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
-                for i in 0..width / ty.size() {
+                for i in 0..width / ty.numeric_size() {
                     let a = load_lane(f, s[0], i, ty);
                     let b = load_lane(f, s[1], i, ty);
                     let r = Self::simd_bin(f, b2, ty, a, b);
@@ -39,7 +39,7 @@ impl Compiler {
             VOp::RotImm(left, ty) => {
                 let (s, k) = self.simd_args(f, ops, 1, true, span)?;
                 let c = konst(f, ty, k % bits(ty));
-                for i in 0..width / ty.size() {
+                for i in 0..width / ty.numeric_size() {
                     let a = load_lane(f, s[0], i, ty);
                     let r = bin(
                         f,
@@ -64,7 +64,7 @@ impl Compiler {
             VOp::Horizontal(sub, sat, ty) => self.simd_horizontal(f, cx, c, sub, sat, ty)?,
             VOp::AddSub(ty) => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
-                for i in 0..width / ty.size() {
+                for i in 0..width / ty.numeric_size() {
                     let x = load_lane(f, s[0], i, ty);
                     let y = load_lane(f, s[1], i, ty);
                     let r = bin(
@@ -110,7 +110,7 @@ impl Compiler {
             Ty::F64 => (Ty::F64, true),
             t => (t, false),
         };
-        let n = width / lane.size();
+        let n = width / lane.numeric_size();
         for i in 0..n {
             let a = load_lane(f, s[0], i, lane);
             let r = match u {
@@ -192,7 +192,7 @@ impl Compiler {
         let lanes = if scalar {
             1
         } else {
-            width / ty.size()
+            width / ty.numeric_size()
         };
         let src = *s.last().unwrap();
         if scalar {
@@ -251,7 +251,7 @@ impl Compiler {
         let lanes = if scalar {
             1
         } else {
-            width / ty.size()
+            width / ty.numeric_size()
         };
         if scalar {
             f.b.copy(tmp, d, 16);
@@ -319,7 +319,7 @@ impl Compiler {
             ..
         } = *c;
         let (s, _) = self.simd_args(f, ops, 2, false, span)?;
-        let per = block / ty.size();
+        let per = block / ty.numeric_size();
         for blk in 0..width / block {
             let base = blk * per;
             for j in 0..per {
@@ -399,7 +399,7 @@ impl Compiler {
                 } else {
                     (Ty::I8, Ty::I16)
                 };
-                for i in 0..width / out.size() {
+                for i in 0..width / out.numeric_size() {
                     let mut sum = konst(f, Ty::I32, 0);
                     for k in 0..2 {
                         let a = load_lane(f, s[0], 2 * i + k, src);
@@ -502,7 +502,7 @@ impl Compiler {
             }
             VOp::DotAcc(src) => {
                 let (s, _) = self.simd_args(f, ops, 3, false, span)?;
-                let per = 4 / src.size();
+                let per = 4 / src.numeric_size();
                 for i in 0..width / 4 {
                     let mut sum = load_lane(f, s[0], i, Ty::I32);
                     for k in 0..per {

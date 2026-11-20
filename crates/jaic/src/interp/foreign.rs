@@ -640,7 +640,7 @@ mod native_handoff_tests {
 
     #[test]
     fn a_blocking_call_keeps_parked_arguments_and_execution_state_alive() {
-        let mut interp = Interp::default();
+        let mut interp = Interp::native(crate::layout::DataLayout::host());
         interp.stack = ValueStack::heap(4);
         interp.stack[2] = 41;
         interp.sp = 3;
@@ -665,7 +665,7 @@ mod native_handoff_tests {
 
     #[test]
     fn a_native_argument_error_still_reacquires_and_restores_the_stack() {
-        let mut interp = Interp::default();
+        let mut interp = Interp::native(crate::layout::DataLayout::host());
         interp.stack = ValueStack::heap(1);
         interp.stack[0] = 77;
         interp.shared();
@@ -711,7 +711,7 @@ mod native_handoff_tests {
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     #[test]
     fn a_native_call_sees_errno_the_program_wrote_since_the_last_one() {
-        let mut interp = Interp::default();
+        let mut interp = Interp::native(crate::layout::DataLayout::host());
         let failed = &signature(vec![ir::Ty::I32], vec![ir::Ty::I32]);
         let read = &signature(vec![], vec![ir::Ty::I32]);
         for scheduling in [NativeScheduling::Short, NativeScheduling::Exclusive] {
@@ -765,7 +765,7 @@ mod native_handoff_tests {
     #[cfg(windows)]
     #[test]
     fn the_next_native_call_sees_the_last_error_the_last_one_left() {
-        let mut interp = Interp::default();
+        let mut interp = Interp::native(crate::layout::DataLayout::host());
         let failed = &signature(vec![ir::Ty::I32], vec![ir::Ty::I32]);
         let read = &signature(vec![], vec![ir::Ty::I32]);
         for scheduling in [NativeScheduling::Short, NativeScheduling::Exclusive] {
@@ -800,7 +800,7 @@ mod native_handoff_tests {
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     #[test]
     fn interrupted_and_timed_out_returns_preserve_errno_after_reacquiring() {
-        let mut interp = Interp::default();
+        let mut interp = Interp::native(crate::layout::DataLayout::host());
         interp.shared();
         for error in [4, crate::interp::errno::ETIMEDOUT_HOST as i32] {
             let result = interp

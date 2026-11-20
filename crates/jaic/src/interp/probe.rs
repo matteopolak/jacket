@@ -602,7 +602,7 @@ mod tests {
 
     #[test]
     fn memory_intrinsics_preserve_overlap_and_empty_ranges() {
-        let mut interp = super::super::Interp::default();
+        let mut interp = super::super::Interp::native(crate::layout::DataLayout::host());
         let original: Vec<u8> = (0..15000).map(|i| (i % 251) as u8).collect();
         for (source, destination) in [(0, 3), (3, 0), (0, 7500)] {
             let mut actual = original.clone();

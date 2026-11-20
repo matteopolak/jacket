@@ -252,4 +252,75 @@ mod tests {
             OptLevel::O0
         );
     }
+
+    /// `DataLayout` and LLVM must agree on every scalar the compiler lays out, or the data it
+    /// emits would not match the code LLVM generates for it.
+    #[test]
+    fn the_data_layout_agrees_with_llvms_for_every_supported_triple() {
+        use inkwell::context::Context;
+        use inkwell::targets::ByteOrdering;
+        // Registers the targets.
+        target_machine(&Options::default()).expect("a host target machine");
+        let context = Context::create();
+        for triple in [
+            "x86_64-unknown-linux-gnu",
+            "x86_64-unknown-linux-musl",
+            "aarch64-unknown-linux-gnu",
+            "x86_64-pc-windows-msvc",
+            "aarch64-pc-windows-msvc",
+            "x86_64-apple-macosx11.0",
+            "aarch64-apple-macosx11.0",
+            "wasm64-unknown-wasi",
+        ] {
+            let ours = BuildTarget::parse(triple).unwrap().data_layout();
+            let llvm_triple =
+                TargetTriple::create(&BuildTarget::parse(triple).unwrap().to_string());
+            let target = Target::from_triple(&llvm_triple).unwrap();
+            let machine = target
+                .create_target_machine(
+                    &llvm_triple,
+                    "generic",
+                    "",
+                    inkwell::OptimizationLevel::None,
+                    RelocMode::Static,
+                    CodeModel::Default,
+                )
+                .unwrap();
+            let data = machine.get_target_data();
+            let size_align = |ty: &dyn inkwell::types::AnyType<'_>| {
+                let ty = ty.as_any_type_enum();
+                (data.get_abi_size(&ty), data.get_abi_alignment(&ty) as u64)
+            };
+            let ints = [
+                context.i8_type(),
+                context.i16_type(),
+                context.i32_type(),
+                context.i64_type(),
+            ];
+            for (bytes, ty) in [1u64, 2, 4, 8].into_iter().zip(ints) {
+                let (size, align) = size_align(&ty);
+                assert_eq!(size, bytes, "{triple}: i{} size", bytes * 8);
+                assert_eq!(
+                    align,
+                    ours.int_align_of(bytes),
+                    "{triple}: i{} align",
+                    bytes * 8
+                );
+            }
+            let (size, align) = size_align(&context.f32_type());
+            assert_eq!((size, align), (4, ours.float_align_of(4)), "{triple}: f32");
+            let (size, align) = size_align(&context.f64_type());
+            assert_eq!((size, align), (8, ours.float_align_of(8)), "{triple}: f64");
+            let pointer = context.ptr_type(inkwell::AddressSpace::default());
+            let (size, align) = size_align(&pointer);
+            assert_eq!(size, ours.ptr_bytes(), "{triple}: pointer size");
+            assert_eq!(align, ours.pointer_align as u64, "{triple}: pointer align");
+            let big = data.get_byte_ordering() == ByteOrdering::BigEndian;
+            assert_eq!(
+                ours.endian == jaic::layout::Endian::Big,
+                big,
+                "{triple}: byte order"
+            );
+        }
+    }
 }

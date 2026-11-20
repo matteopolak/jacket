@@ -29,7 +29,10 @@ fn raw_pointers_execute_native_and_wasm_at_o0_and_o2() {
             .iter()
             .find(|g| g.name == "exported_handle")
             .unwrap();
-        assert_eq!(global.init, 0x8000_0001_u64.to_le_bytes());
+        assert_eq!(
+            global.init,
+            jaic::layout::DataLayout::host().s64_bytes(0x8000_0001_u64)
+        );
         assert!(
             global.relocs.is_empty(),
             "raw constants must be literal pointer bits, not relocations to invented storage"

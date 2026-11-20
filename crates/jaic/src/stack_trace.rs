@@ -11,13 +11,14 @@ use crate::ir::{
     Program, Reloc, RelocTarget, Slot, SlotId, Term, TraceInfo, TraceInfoLayout, TraceLayout, Ty,
     Val, inst_vals, term_uses,
 };
+use crate::layout::DataLayout;
 
 const HASH_SEED: u64 = 0xcbf2_9ce4_8422_2325;
 const HASH_PRIME: u64 = 0x0100_0000_01b3;
 
 /// Instrument every function that has `trace` info; the info is then cleared, so running the
 /// result in the interpreter does not push a second node.
-pub fn instrument(program: &mut Program, layout: &TraceLayout) {
+pub fn instrument(program: &mut Program, layout: &TraceLayout, data: &DataLayout) {
     let quiet = quiet_funcs(&program.funcs);
     for i in 0..program.funcs.len() {
         let Some(info) = program.funcs[i].as_ref().and_then(|f| f.trace.clone()) else {
@@ -29,7 +30,7 @@ pub fn instrument(program: &mut Program, layout: &TraceLayout) {
             program.funcs[i].as_mut().unwrap().trace = None;
             continue;
         }
-        let info_global = info_global(program, FuncId(i as u32), &info, &layout.info);
+        let info_global = info_global(program, FuncId(i as u32), &info, &layout.info, data);
         let func = program.funcs[i].as_mut().unwrap();
         func.trace = None;
         instrument_func(func, FuncId(i as u32), &info, info_global, layout);
@@ -191,7 +192,9 @@ fn info_global(
     id: FuncId,
     info: &TraceInfo,
     at: &TraceInfoLayout,
+    layout: &DataLayout,
 ) -> GlobalId {
+    let view = layout.builtins().view;
     let path = program
         .file_paths
         .get(info.file as usize)
@@ -203,7 +206,7 @@ fn info_global(
         (at.name as usize, info.name.as_str()),
         (at.path as usize, path.as_str()),
     ] {
-        init[offset..offset + 8].copy_from_slice(&(text.len() as u64).to_le_bytes());
+        layout.write_view(&mut init[offset..], text.len() as u64, 0);
         if !text.is_empty() {
             let mut bytes = text.as_bytes().to_vec();
             bytes.push(0);
@@ -217,15 +220,15 @@ fn info_global(
                 export: None,
             });
             relocs.push(Reloc {
-                offset: offset as u64 + 8,
+                offset: offset as u64 + view.data,
                 target: RelocTarget::Global(g),
                 addend: 0,
             });
         }
     }
     let (line, column) = (at.line as usize, at.column as usize);
-    init[line..line + 8].copy_from_slice(&(info.line as u64).to_le_bytes());
-    init[column..column + 8].copy_from_slice(&(info.col as u64).to_le_bytes());
+    layout.write_u64(&mut init[line..], info.line as u64);
+    layout.write_u64(&mut init[column..], info.col as u64);
     relocs.push(Reloc {
         offset: at.procedure_address,
         target: RelocTarget::Func(id),

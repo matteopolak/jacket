@@ -32,7 +32,7 @@ impl Compiler {
             }
             VOp::Compress(ty) => {
                 let (s, _) = self.simd_args(f, ops, 1, false, span)?;
-                let n = width / ty.size();
+                let n = width / ty.numeric_size();
                 let all = konst(f, Ty::I64, u64::MAX);
                 let bits = wm.map_or(all, |w| w.bits);
                 // Pack active lanes to the front of a scratch buffer.
@@ -73,7 +73,7 @@ impl Compiler {
             }
             VOp::Expand(ty) => {
                 let (s, _) = self.simd_args(f, ops, 1, false, span)?;
-                let n = width / ty.size();
+                let n = width / ty.numeric_size();
                 let all = konst(f, Ty::I64, u64::MAX);
                 let bits = wm.map_or(all, |w| w.bits);
                 let mut pos = konst(f, Ty::I64, 0);
@@ -137,7 +137,7 @@ impl Compiler {
             }
             VOp::Dp(ty) => {
                 let (s, k) = self.simd_args(f, ops, 2, true, span)?;
-                let per = 16 / ty.size();
+                let per = 16 / ty.numeric_size();
                 for blk in 0..width / 16 {
                     let base = blk * per;
                     let mut terms = Vec::new();
@@ -334,7 +334,7 @@ impl Compiler {
                     );
                 }
                 let mask = self.vec_ptr(f, ops[1], span)?;
-                let n = width / ty.size();
+                let n = width / ty.numeric_size();
                 match (ops[0], ops[2]) {
                     (VOpd::Mem(addr), src) => {
                         let src = self.vec_ptr(f, src, span)?;

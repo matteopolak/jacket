@@ -1,4 +1,8 @@
 //! COFF import-provider metadata only. No DLL execution or arbitrary string scanning.
+#![allow(
+    clippy::disallowed_methods,
+    reason = "Win32 records and wide strings are little-endian on every Windows target"
+)]
 use std::path::{Path, PathBuf};
 
 fn bytes(data: &[u8], at: usize, len: usize) -> Result<&[u8], String> {

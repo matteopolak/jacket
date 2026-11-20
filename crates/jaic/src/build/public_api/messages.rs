@@ -227,10 +227,14 @@ fn filter(cx: &Call, interp: &mut Interp, at: u64, ty: TypeId, flags: i64) -> Re
                 cx.schema().field(all_element, "expression")?;
             let (views_offset, views_type) = cx.schema().field(all_element, "subexpressions")?;
             let expression_size = cx.schema().get(expression_type)?.size as usize;
+            let mut expression_bytes = [0; 8];
+            interp
+                .data_layout()
+                .write_uint(&mut expression_bytes[..expression_size], expression);
             let views_size = cx.schema().get(views_type)?.size as usize;
             all[start + expression_offset as usize
                 ..start + expression_offset as usize + expression_size]
-                .copy_from_slice(&expression.to_le_bytes()[..expression_size]);
+                .copy_from_slice(&expression_bytes[..expression_size]);
             all[start + views_offset as usize..start + views_offset as usize + views_size]
                 .copy_from_slice(&bytes(interp, views, views_size)?);
         }

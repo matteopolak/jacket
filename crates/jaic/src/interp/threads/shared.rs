@@ -376,7 +376,7 @@ mod native_handoff_tests {
 
     #[test]
     fn a_reentrant_blocking_callback_returns_to_the_existing_short_call_policy() {
-        let mut interp = Box::new(Interp::default());
+        let mut interp = Box::new(Interp::native(crate::layout::DataLayout::host()));
         let pointer = std::ptr::from_mut::<Interp>(&mut interp) as usize;
         let shared = Shared::new(pointer);
         let program = Program::default();

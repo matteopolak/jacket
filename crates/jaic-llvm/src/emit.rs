@@ -319,7 +319,13 @@ pub(super) fn apply_codegen_attributes(
 
 /// Translate `program` to a single native object file at `path`.
 pub fn emit_object(program: &Program, options: &Options, path: &Path) -> Result<(), String> {
-    let instrumented = green::instrument(program);
+    let instrumented = green::instrument(
+        program,
+        &options
+            .target
+            .unwrap_or_else(jaic::target::Target::host)
+            .data_layout(),
+    );
     let program = instrumented.as_ref().unwrap_or(program);
     emit_module(
         program,
@@ -452,7 +458,13 @@ pub fn emit_objects(
     path: &Path,
 ) -> Result<Vec<PathBuf>, String> {
     // WASI programs that start threads run them as green threads (`green.rs`).
-    let instrumented = green::instrument(program);
+    let instrumented = green::instrument(
+        program,
+        &options
+            .target
+            .unwrap_or_else(jaic::target::Target::host)
+            .data_layout(),
+    );
     let program = instrumented.as_ref().unwrap_or(program);
     let cuts = inline_cuts(program, options);
     let graph = (options.opt_level != OptLevel::O0)

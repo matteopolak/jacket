@@ -215,14 +215,14 @@ pub(super) fn mix_columns(f: &mut FnCtx, s: &[Val; 16], inverse: bool) -> [Val; 
 
 /// Load `ty` at `base + index * ty.size()` for a runtime lane index (`I64`).
 pub(super) fn load_dyn(f: &mut FnCtx, base: Val, index: Val, ty: Ty) -> Val {
-    let size = konst(f, Ty::I64, ty.size());
+    let size = konst(f, Ty::I64, ty.numeric_size());
     let off = bin(f, BinOp::Mul, Ty::I64, index, size);
     let p = f.b.ptr_add(base, off);
     f.b.load(ty, p)
 }
 
 pub(super) fn store_dyn(f: &mut FnCtx, base: Val, index: Val, ty: Ty, v: Val) {
-    let size = konst(f, Ty::I64, ty.size());
+    let size = konst(f, Ty::I64, ty.numeric_size());
     let off = bin(f, BinOp::Mul, Ty::I64, index, size);
     let p = f.b.ptr_add(base, off);
     f.b.store(ty, p, v);

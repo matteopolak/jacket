@@ -381,7 +381,7 @@ impl Interp {
                         let value = sched.threads[id].result;
                         sched.release_handle(id);
                         if arg(1) != 0
-                            && let Err(trap) = self.put(arg(1), &value.to_le_bytes())
+                            && let Err(trap) = self.put_ptr(arg(1), value)
                         {
                             return Some(Err(trap));
                         }
@@ -487,7 +487,7 @@ impl Interp {
         let handle = sched.slots.handle_of(id);
         self.multi = true;
         if out != 0 {
-            self.put(out, &handle.to_le_bytes())?;
+            self.put_ptr(out, handle)?;
         }
         Ok(0)
     }
@@ -507,7 +507,7 @@ impl Interp {
         let value = sched.threads[id].result;
         sched.release_handle(id);
         if result_out != 0 {
-            self.put(result_out, &value.to_le_bytes())?;
+            self.put_ptr(result_out, value)?;
         }
         Ok(0)
     }

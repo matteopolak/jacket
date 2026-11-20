@@ -43,6 +43,7 @@ pub(super) fn poison_registers(registers: &mut [u64]) {
 #[cfg(all(test, debug_assertions))]
 mod register_poison_tests {
     #[test]
+    #[allow(clippy::disallowed_methods, reason = "checks host stack words")]
     fn every_register_keeps_the_exact_debug_pattern_and_slice_boundaries() {
         for size in [0, 1, 7, 8, 31, 32, 33, 63, 64, 65, 127, 128, 129, 1024] {
             let mut guarded = vec![0x1234_5678_9abc_def0; size + 2];
@@ -201,6 +202,7 @@ impl Interp {
                     .is_some_and(|g| g.read_only)
             },
             (self.profile.is_none() || !profile::exact()) && self.lines.is_none(),
+            &self.layout,
         );
         let node_size = match &program.stack_trace {
             Some(layout) if func.trace.is_some() => layout.node.size.next_multiple_of(8),

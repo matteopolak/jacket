@@ -547,8 +547,7 @@ impl Interp {
             }
             Hook::WriteString => {
                 let s = args[0];
-                let count = self.fetch_u64(s)? as usize;
-                let data = self.fetch_u64(s + 8)?;
+                let (count, data) = self.fetch_view(s)?;
                 let bytes = self.fetch(data, count)?;
                 self.effects += 1;
                 self.host
@@ -556,14 +555,12 @@ impl Interp {
             }
             Hook::WriteStrings => {
                 let view = args[0];
-                let count = self.fetch_u64(view)? as usize;
-                let data = self.fetch_u64(view + 8)?;
+                let (count, data) = self.fetch_view(view)?;
                 let to_stderr = args.get(1).is_some_and(|&v| v & 1 != 0);
                 self.effects += 1;
                 for i in 0..count {
-                    let s = data + i as u64 * 16;
-                    let n = self.fetch_u64(s)? as usize;
-                    let p = self.fetch_u64(s + 8)?;
+                    let s = data + i as u64 * self.layout.builtins().view.size;
+                    let (n, p) = self.fetch_view(s)?;
                     let bytes = self.fetch(p, n)?;
                     self.host.write(&bytes, to_stderr);
                 }
@@ -571,8 +568,7 @@ impl Interp {
             Hook::DebugBreak => return self.trap("debug_break() was called"),
             Hook::Service => {
                 let read = |this: &Self, s: u64| -> Res<Vec<u8>> {
-                    let count = this.fetch_u64(s)? as usize;
-                    let data = this.fetch_u64(s + 8)?;
+                    let (count, data) = this.fetch_view(s)?;
                     this.fetch(data, count)
                 };
                 let service = String::from_utf8_lossy(&read(self, args[0])?).into_owned();
@@ -584,15 +580,22 @@ impl Interp {
                 let (count, data) = (body.len() as u64, body.as_ptr() as u64);
                 self.service_replies.push(body);
                 if response != 0 {
-                    self.store(ir::Ty::I64, response, count)?;
-                    self.store(ir::Ty::Ptr, response + 8, data)?;
+                    self.store(
+                        ir::Ty::I64,
+                        response + self.layout.builtins().view.count,
+                        count,
+                    )?;
+                    self.store(
+                        ir::Ty::Ptr,
+                        response + self.layout.builtins().view.data,
+                        data,
+                    )?;
                 }
                 return Ok(Rets::one(reply.status as u64));
             }
             Hook::Unknown => {
                 let s = args[0];
-                let count = self.fetch_u64(s)? as usize;
-                let data = self.fetch_u64(s + 8)?;
+                let (count, data) = self.fetch_view(s)?;
                 let message = String::from_utf8_lossy(&self.fetch(data, count)?).into_owned();
                 return self.trap_of(TrapKind::Unknown, message);
             }
@@ -611,8 +614,7 @@ impl Interp {
             } => {
                 let args = &args[usize::from(context)..];
                 let string = |s: &Self, at: u64| -> Res<String> {
-                    let count = s.fetch_u64(at)? as usize;
-                    let data = s.fetch_u64(at + 8)?;
+                    let (count, data) = s.fetch_view(at)?;
                     Ok(String::from_utf8_lossy(&s.fetch(data, count)?).into_owned())
                 };
                 let (loc, message) = (args[0], args[1]);

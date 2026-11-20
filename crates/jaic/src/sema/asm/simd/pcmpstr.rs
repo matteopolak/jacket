@@ -53,7 +53,7 @@ impl Compiler {
         } else {
             Ty::I8
         };
-        let n = 16 / ty.size();
+        let n = 16 / ty.numeric_size();
         let first = if explicit {
             3
         } else {

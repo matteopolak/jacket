@@ -131,6 +131,8 @@ pub struct MadeCode {
 }
 
 pub struct Interp {
+    /// How the program's data is laid out in memory.
+    layout: crate::layout::DataLayout,
     stack: ValueStack,
     sp: u64,
     globals: Vec<Option<GlobalMem>>,
@@ -300,13 +302,17 @@ pub struct Interp {
     lines: Option<Box<line_cover::Lines>>,
 }
 
-impl Default for Interp {
-    fn default() -> Self {
-        Self::new(Box::new(NativeHost))
-    }
-}
-
 impl Interp {
+    /// An interpreter that runs on this machine's own services.
+    pub fn native(layout: crate::layout::DataLayout) -> Self {
+        Self::new(Box::new(NativeHost), layout)
+    }
+
+    /// How the program's data is laid out in memory.
+    pub fn data_layout(&self) -> &crate::layout::DataLayout {
+        &self.layout
+    }
+
     /// A top-level compile-time evaluation starts: it gets its own `eval_steps` when the
     /// interpreter has them. Returns the blocks left, to measure the cost against.
     pub fn begin_evaluation(&mut self) -> Option<u64> {
@@ -333,11 +339,13 @@ impl Interp {
         self.budget_traps += other.budget_traps;
     }
 
-    pub fn new(host: Box<dyn Host>) -> Self {
+    /// An interpreter whose program memory is laid out as `layout` says.
+    pub fn new(host: Box<dyn Host>, layout: crate::layout::DataLayout) -> Self {
         if host.native_linking() {
             native::waits::prepare();
         }
         Self {
+            layout,
             stack: ValueStack::default(),
             sp: 0,
             globals: Vec::new(),

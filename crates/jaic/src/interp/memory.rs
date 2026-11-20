@@ -20,25 +20,30 @@ impl Interp {
         self.probe.read(addr, out)
     }
 
-    /// The `u64` at `addr` in program memory, or `None` when it cannot be read.
+    /// The `s64`/`u64` at `addr` in program memory, or `None` when it cannot be read.
     pub fn read_u64(&self, addr: u64) -> Option<u64> {
         let mut out = [0; 8];
         self.probe
             .read(addr, &mut out)
-            .then(|| u64::from_le_bytes(out))
+            .then(|| self.layout.read_u64(&out))
     }
 
-    /// The two `u64`s at `addr` (a Jai `string` or view: count, then data), or `None` when
-    /// they cannot be read.
-    pub fn read_pair(&self, addr: u64) -> Option<(u64, u64)> {
-        let mut out = [0; 16];
-        if !self.probe.read(addr, &mut out) {
-            return None;
-        }
-        let (a, b) = out.split_at(8);
+    /// The pointer at `addr` in program memory, or `None` when it cannot be read.
+    pub fn read_ptr(&self, addr: u64) -> Option<u64> {
+        let mut out = [0; 8];
+        let out = &mut out[..self.layout.pointer_size as usize];
+        self.probe
+            .read(addr, out)
+            .then(|| self.layout.read_ptr(out))
+    }
+
+    /// The count and data pointer of the `string` or view at `addr`, or `None` when they
+    /// cannot be read.
+    pub fn read_view(&self, addr: u64) -> Option<(u64, u64)> {
+        let view = self.layout.builtins().view;
         Some((
-            u64::from_le_bytes(a.try_into().ok()?),
-            u64::from_le_bytes(b.try_into().ok()?),
+            self.read_u64(addr + view.count)?,
+            self.read_ptr(addr + view.data)?,
         ))
     }
 
@@ -63,6 +68,23 @@ impl Interp {
             Some(v) => Ok(v),
             None => self.unreadable(addr, 8),
         }
+    }
+
+    /// `read_view` for a `string` or view an intrinsic or emulated library call was given.
+    pub(super) fn fetch_view(&self, addr: u64) -> Res<(usize, u64)> {
+        let size = self.layout.builtins().view.size as usize;
+        match self.read_view(addr) {
+            Some((count, data)) => Ok((count as usize, data)),
+            None => self.unreadable(addr, size),
+        }
+    }
+
+    /// Store the pointer-sized `value` at `addr`: a trap when the memory cannot be written.
+    pub(super) fn put_ptr(&mut self, addr: u64, value: u64) -> Res<()> {
+        let size = self.layout.pointer_size as usize;
+        let mut bytes = [0; 8];
+        self.layout.write_ptr(&mut bytes, value);
+        self.put(addr, &bytes[..size])
     }
 
     /// `write` for a pointer an intrinsic or emulated library call was given: a trap when the

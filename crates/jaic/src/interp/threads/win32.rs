@@ -13,6 +13,10 @@
 //!   sets the thread's last error to `ERROR_TIMEOUT`, as Windows does.
 //! - Thread ids and TLS need nothing: each scheduler thread is a real OS thread, so
 //!   `GetCurrentThreadId` and `TlsGetValue` already answer per thread.
+#![allow(
+    clippy::disallowed_methods,
+    reason = "Win32 records and wide strings are little-endian on every Windows target"
+)]
 #[cfg(windows)]
 use super::sched::NATIVE_STACK;
 use super::worker::join_ended_worker;

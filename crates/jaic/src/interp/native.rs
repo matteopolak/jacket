@@ -15,6 +15,7 @@
 use crate::abi::{self, Arch, Passing, Piece, PieceTy};
 use crate::interp::Rets;
 use crate::ir::{Sig, Ty};
+use crate::layout::DataLayout;
 
 mod callbacks;
 pub(super) mod waits;
@@ -29,6 +30,8 @@ mod windows;
 pub(super) use windows::set_last_error;
 #[cfg(windows)]
 mod windows_imports;
+mod words;
+use words::{read_bytes, write_bytes};
 
 #[derive(Clone)]
 pub struct Library {
@@ -556,25 +559,6 @@ impl Regs {
     }
 }
 
-/// Little-endian bytes `[addr, addr + len)` (len <= 8) as a `u64`.
-///
-/// SAFETY: interpreter addresses are host addresses of live memory.
-unsafe fn read_bytes(addr: u64, len: u64) -> u64 {
-    let mut out = [0u8; 8];
-    let len = len.min(8) as usize;
-    // SAFETY: the caller guarantees `[addr, addr + len)` is readable; `out` has room for 8.
-    unsafe { std::ptr::copy_nonoverlapping(addr as *const u8, out.as_mut_ptr(), len) };
-    u64::from_le_bytes(out)
-}
-
-/// SAFETY: as `read_bytes`.
-unsafe fn write_bytes(addr: u64, value: u64, len: u64) {
-    let bytes = value.to_le_bytes();
-    let len = len.min(8) as usize;
-    // SAFETY: the caller guarantees `[addr, addr + len)` is writable; `bytes` has 8.
-    unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), addr as *mut u8, len) };
-}
-
 // Return shapes. A C aggregate returned in registers comes back as one of these: Rust lays
 // them out and classifies them like the C struct with the same register classes (an `f32`
 // member arrives in the low half of its `f64` register).
@@ -892,6 +876,8 @@ fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
     let arch = Arch::host().ok_or("native foreign calls are not available on this CPU")?;
+    // A foreign call follows the host's C ABI, whatever the program's own layout.
+    let host = DataLayout::host();
     // The register model below is System V / AAPCS64 (Windows on arm64 included); the
     // Microsoft x64 convention has its own (`windows.rs`).
     if arch == Arch::Win64 {
@@ -908,7 +894,7 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> 
     let forced_sret = cabi.is_some_and(|c| c.ret_indirect);
     let ret_pieces = ret_layout
         .filter(|_| !forced_sret)
-        .and_then(|l| abi::classify_ret(arch, l));
+        .and_then(|l| abi::classify_ret(arch, l, &host));
     let sret = ret_layout.is_some() && ret_pieces.is_none();
     // A result too big for `Sret`: the pointer is passed explicitly (the first integer argument
     // on x86-64, `x8` through the assembly call of `wide.rs` on AArch64).
@@ -940,7 +926,7 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> 
             // words, or as the address of a copy when it is over 16 bytes and not a float aggregate.
             match layout {
                 None => regs.stack(a)?,
-                Some(l) if matches!(abi::classify_arg(arch, l), Passing::Indirect) => {
+                Some(l) if matches!(abi::classify_arg(arch, l, &host), Passing::Indirect) => {
                     regs.stack(indirect_copy(a, l.size, &mut copies))?;
                 }
                 Some(l) => {
@@ -953,7 +939,7 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> 
             continue;
         }
         if general_only {
-            match layout.map(|l| (l, abi::classify_vararg(arch, l))) {
+            match layout.map(|l| (l, abi::classify_vararg(arch, l, &host))) {
                 None => regs.int(a)?,
                 Some((l, Passing::Registers(pieces))) => {
                     for p in pieces {
@@ -972,8 +958,8 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> 
             } else {
                 regs.ni == regs.int_avail
             };
-            if full && PACKED_STACK && ty.size() < 8 {
-                regs.packed(a, ty.size() as usize)?;
+            if full && PACKED_STACK && ty.size(&host) < 8 {
+                regs.packed(a, ty.size(&host) as usize)?;
                 continue;
             }
             if ty.is_float() {
@@ -983,7 +969,7 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> 
             }
             continue;
         };
-        match abi::classify_arg(arch, layout) {
+        match abi::classify_arg(arch, layout, &host) {
             // An x87 `long double` is memory class: a 16-byte aligned stack slot.
             Passing::Registers(pieces) if pieces.iter().any(|p| p.ty == PieceTy::X87) => {
                 regs.align_stack()?;

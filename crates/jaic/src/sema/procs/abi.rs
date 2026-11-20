@@ -1,7 +1,6 @@
 //! IR signatures and aggregate layouts for procedures.
 use crate::diagnostics::Code;
 use crate::ir::{Conv, Sig, Ty};
-use crate::layout;
 use crate::sema::{Compiler, Result, Span, TypeId, err, ir};
 use crate::types::{ArrayKind, TypeKind};
 
@@ -121,20 +120,26 @@ impl Compiler {
                 kind: ArrayKind::View,
                 ..
             } => {
-                out.push((base + layout::view::COUNT, Ty::I64));
-                out.push((base + layout::view::DATA, Ty::Ptr));
+                let view = self.ty.types.builtins().view;
+                out.push((base + view.count, Ty::I64));
+                out.push((base + view.data, Ty::Ptr));
             }
             TypeKind::Any => {
-                out.push((base + layout::any::TYPE, Ty::Ptr));
-                out.push((base + layout::any::VALUE_POINTER, Ty::Ptr));
+                let any = self.ty.types.builtins().any;
+                out.push((base + any.type_, Ty::Ptr));
+                out.push((base + any.value_pointer, Ty::Ptr));
             }
             TypeKind::Array {
                 kind: ArrayKind::Resizable,
                 ..
             } => {
-                for i in 0..5 {
-                    out.push((base + i * 8, Ty::I64));
-                }
+                let array = self.ty.types.builtins().resizable;
+                let proc_pointer = self.options.layout.ptr_bytes();
+                out.push((base + array.count, Ty::I64));
+                out.push((base + array.data, Ty::Ptr));
+                out.push((base + array.allocated, Ty::I64));
+                out.push((base + array.allocator, Ty::Ptr));
+                out.push((base + array.allocator + proc_pointer, Ty::Ptr));
             }
             _ => {}
         }

@@ -1,5 +1,6 @@
 //! Target selection shared by the command-line tools: `-os`, `-cpu` and `-target` names, and
 //! the `Options` they imply when a program is only checked.
+use crate::layout::DataLayout;
 use crate::sema::{Options, long_double_for};
 
 /// The operating system a program is built for.
@@ -225,10 +226,22 @@ impl Target {
         })
     }
 
+    /// How this target lays out data. The one place a layout is chosen. Every target is still
+    /// 64-bit little-endian: `wasm32` gets its 4-byte layout with the address window.
+    pub fn data_layout(self) -> DataLayout {
+        let mut layout = DataLayout::lp64_little();
+        // LLP64: `long` stays 32 bits on 64-bit Windows.
+        if self.os == TargetOs::Windows {
+            layout.c.long = 4;
+        }
+        layout
+    }
+
     /// Make `options` target this.
     pub fn apply(self, options: &mut Options) {
         options.os = self.os;
         options.cpu = self.cpu;
+        options.layout = self.data_layout();
         options.long_double = long_double_for(self.os, self.cpu, self.abi == TargetAbi::Gnu);
     }
 
@@ -378,6 +391,11 @@ pub fn select_os_cpu(options: &mut Options, os: Option<TargetOs>, cpu: Option<Ta
             TargetCpu::X64
         }),
     };
+    options.layout = Target {
+        memory32: false,
+        ..Target::new(options.os, options.cpu)
+    }
+    .data_layout();
     options.long_double = long_double_for(
         options.os,
         options.cpu,

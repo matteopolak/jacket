@@ -601,7 +601,7 @@ impl Compiler {
         } else {
             None
         };
-        let hsz = half.size();
+        let hsz = half.numeric_size();
         let lo_addr = addr;
         let off = konst(f, Ty::I64, hsz);
         let hi_addr = bin(f, BinOp::Add, Ty::I64, addr, off);
@@ -692,9 +692,9 @@ impl Compiler {
             f,
             Ty::I64,
             if cx.df {
-                sz.size().wrapping_neg()
+                sz.numeric_size().wrapping_neg()
             } else {
-                sz.size()
+                sz.numeric_size()
             },
         );
         // Flags survive the loop in slots (a zero count leaves them unchanged).

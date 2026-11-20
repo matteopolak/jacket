@@ -280,10 +280,10 @@ impl Compiler {
         }
         let y = if is_shift {
             let rt = self.ir_ty(rhs_ty).unwrap();
-            if rt.size() == t.size() {
+            if rt.size(&self.options.layout) == t.size(&self.options.layout) {
                 y
             } else {
-                let conv = if rt.size() > t.size() {
+                let conv = if rt.size(&self.options.layout) > t.size(&self.options.layout) {
                     ir::ConvOp::Trunc
                 } else {
                     ir::ConvOp::ZExt
@@ -379,7 +379,7 @@ impl Compiler {
                 "`__arithmetic_overflow` must be defined in Jai",
             );
         };
-        let width = f.b.iconst(Ty::I64, t.size());
+        let width = f.b.iconst(Ty::I64, t.size(&self.options.layout));
         let overflowed = f.b.intrinsic(intrinsic, vec![x, y, width], &[Ty::I8])[0];
         let fail = f.b.new_block();
         let cont = f.b.new_block();
@@ -402,7 +402,7 @@ impl Compiler {
         let code = (u64::from(self.options.arithmetic_overflow_check == 2) << 15)
             | (u64::from(signed) << 14)
             | (operator << 7)
-            | t.size();
+            | t.size(&self.options.layout);
         let code = f.b.iconst(Ty::I16, code);
         let file = self.src.sources.get(span.file);
         let (line, _) = file.line_col(span.start);

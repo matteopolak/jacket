@@ -27,7 +27,7 @@ const WORDS: [u64; 19] = [
 ];
 
 fn bits(ty: Ty) -> u32 {
-    ty.size() as u32 * 8
+    ty.numeric_size() as u32 * 8
 }
 
 /// `v` as a value of `ty`: the low bits, zero-extended.

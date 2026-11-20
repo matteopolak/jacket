@@ -59,7 +59,7 @@ pub(crate) fn int_bin(op: BinOp, ty: Ty, x: u64, y: u64) -> Result<u64, DivideBy
     } else {
         operand(y)
     };
-    let bits = ty.size() as u8 * 8;
+    let bits = register_bits(ty);
     int_binop(iop, operand(x), rhs, bits, signed).map(|r| mask(ty, r as u64))
 }
 
@@ -102,6 +102,19 @@ pub(crate) fn bin_total(op: BinOp, ty: Ty, x: u64, y: u64) -> u64 {
                 .to_bits()
             }
         }
+    }
+}
+
+/// The bits an arithmetic result of `ty` keeps. A register is 64 bits wide and a pointer fills
+/// one, so a pointer wraps like an `s64`; a narrower program address stays in range because every
+/// address the program is given is.
+#[inline]
+fn register_bits(ty: Ty) -> u8 {
+    match ty {
+        Ty::I8 => 8,
+        Ty::I16 => 16,
+        Ty::I32 | Ty::F32 => 32,
+        _ => 64,
     }
 }
 
@@ -198,8 +211,8 @@ pub(super) fn conv(op: ConvOp, from: Ty, to: Ty, v: u64) -> u64 {
         ConvOp::Trunc => mask(to, v),
         ConvOp::ZExt => mask(from, v),
         ConvOp::SExt => mask(to, sext(from, v) as u64),
-        ConvOp::FToS => mask(to, float_to_int(f(v), to.size() as u8 * 8, true) as u64),
-        ConvOp::FToU => mask(to, float_to_int(f(v), to.size() as u8 * 8, false) as u64),
+        ConvOp::FToS => mask(to, float_to_int(f(v), register_bits(to), true) as u64),
+        ConvOp::FToU => mask(to, float_to_int(f(v), register_bits(to), false) as u64),
         // Straight to the target width: going through f64 first rounds twice, which is wrong
         // for 64-bit integers whose bits below f64's precision decide an f32 tie.
         ConvOp::SToF if to == Ty::F32 => (sext(from, v) as f32).to_bits() as u64,

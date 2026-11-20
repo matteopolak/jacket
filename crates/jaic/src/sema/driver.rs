@@ -750,7 +750,7 @@ impl Compiler {
         self.out.drop_unreferenced_code();
         self.enable_stack_traces(Span::NONE);
         if let Some(layout) = self.out.program.stack_trace {
-            crate::stack_trace::instrument(&mut self.out.program, &layout);
+            crate::stack_trace::instrument(&mut self.out.program, &layout, &self.options.layout);
         }
         if self.options.debug_info {
             self.collect_debug_types();

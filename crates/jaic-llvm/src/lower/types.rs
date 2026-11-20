@@ -66,7 +66,8 @@ impl<'ctx> Backend<'ctx, '_> {
         let forced_sret = cabi.is_some_and(|c| c.ret_indirect);
         let ret = match &ret_agg {
             Some(layout) => {
-                if let Some(pieces) = abi::classify_ret(self.arch, layout).filter(|_| !forced_sret)
+                if let Some(pieces) =
+                    abi::classify_ret(self.arch, layout, &self.layout).filter(|_| !forced_sret)
                 {
                     RetPlan::Registers(layout.clone(), pieces)
                 } else {
@@ -108,9 +109,9 @@ impl<'ctx> Backend<'ctx, '_> {
             let layout = cabi.and_then(|c| c.params.get(i).cloned().flatten());
             if let Some(layout) = layout {
                 let passing = if sig.c_varargs {
-                    abi::classify_vararg(self.arch, &layout)
+                    abi::classify_vararg(self.arch, &layout, &self.layout)
                 } else {
-                    abi::classify_arg(self.arch, &layout)
+                    abi::classify_arg(self.arch, &layout, &self.layout)
                 };
                 let passing = budget.aggregate(passing);
                 let array = passing.as_array(self.arch, sig.c_varargs);

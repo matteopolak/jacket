@@ -3,6 +3,7 @@ use super::super::mask;
 use super::op::{Code, CodeBlock, NO_LOC, Op};
 use super::{flow, promote, sink};
 use crate::ir::{self, BinOp, GlobalId, Inst, Ty, Val, inst_vals, term_uses};
+use crate::layout::DataLayout;
 
 /// The distinct locations of some code and where each applies (`Code::locs`, `Code::loc_marks`).
 type LoweredLocs = (Vec<(u32, u32, u32)>, Vec<(u32, u32)>);
@@ -165,6 +166,7 @@ pub(in crate::interp) fn build(
     late_value: &dyn Fn(ir::FuncId) -> bool,
     read_only: &dyn Fn(GlobalId) -> bool,
     straighten: bool,
+    layout: &DataLayout,
 ) -> Code {
     let n = func.vals.len();
     let mut defs = vec![0u32; n];
@@ -333,9 +335,10 @@ pub(in crate::interp) fn build(
         &mut ops,
         &mut b.pool,
         &mut blocks,
+        layout,
     );
     for op in &mut ops {
-        *op = specialize(*op);
+        *op = specialize(*op, layout);
     }
     if straighten && !switches().no_flow {
         flow::straighten(&mut ops, &mut blocks);
@@ -400,14 +403,14 @@ pub(in crate::interp) fn build(
 
 /// The op for the loads and stores of the widths most code uses (bytes, 32 and 64 bits) that
 /// needs no dispatch on the type; any other op as is.
-fn specialize(op: Op) -> Op {
+fn specialize(op: Op, layout: &DataLayout) -> Op {
     match op {
         Op::Load {
             ty,
             dst,
             base,
             off,
-        } => match ty.size() {
+        } => match ty.size(layout) {
             1 => Op::Load8 {
                 dst,
                 base,
@@ -429,7 +432,7 @@ fn specialize(op: Op) -> Op {
             ty,
             dst,
             off,
-        } => match ty.size() {
+        } => match ty.size(layout) {
             1 => Op::LoadFrame8 {
                 dst,
                 off,
@@ -449,7 +452,7 @@ fn specialize(op: Op) -> Op {
             base,
             off,
             value,
-        } => match ty.size() {
+        } => match ty.size(layout) {
             1 => Op::Store8 {
                 base,
                 off,
@@ -471,7 +474,7 @@ fn specialize(op: Op) -> Op {
             ty,
             off,
             value,
-        } => match ty.size() {
+        } => match ty.size(layout) {
             1 => Op::StoreFrame8 {
                 off,
                 value,

@@ -3,7 +3,7 @@ use crate::ir::{BinOp, CmpOp, ConvOp, Intrinsic, Ty, UnOp, Val};
 use crate::sema::lower::FnCtx;
 
 pub(super) fn bits(ty: Ty) -> u64 {
-    ty.size() * 8
+    ty.numeric_size() * 8
 }
 
 pub(super) fn konst(f: &mut FnCtx, ty: Ty, v: u64) -> Val {
@@ -21,7 +21,7 @@ pub(super) fn cmp(f: &mut FnCtx, op: CmpOp, ty: Ty, a: Val, b: Val) -> Val {
 pub(super) fn resize(f: &mut FnCtx, v: Val, from: Ty, to: Ty, signed: bool) -> Val {
     if from == to {
         v
-    } else if from.size() > to.size() {
+    } else if from.numeric_size() > to.numeric_size() {
         f.b.conv(ConvOp::Trunc, from, to, v)
     } else if signed {
         f.b.conv(ConvOp::SExt, from, to, v)

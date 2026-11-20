@@ -1,4 +1,8 @@
 //! Shared Win32 file, path, text and time calls for sandbox and native cross evaluation.
+#![allow(
+    clippy::disallowed_methods,
+    reason = "Win32 records and wide strings are little-endian on every Windows target"
+)]
 use super::errno::{EBADF, EEXIST, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM};
 use super::globals::ZeroedBlock;
 use super::sandbox::guest::{fill, read_bytes, read_u8, write_u32, write_u64, write_units};

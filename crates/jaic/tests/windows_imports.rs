@@ -1,4 +1,8 @@
 //! Portable metadata controls; these tests never load or execute a Windows DLL.
+#![allow(
+    clippy::disallowed_methods,
+    reason = "Win32 records and wide strings are little-endian on every Windows target"
+)]
 #[path = "../src/interp/native/windows_imports.rs"]
 mod imports;
 

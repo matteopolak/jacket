@@ -47,8 +47,10 @@ pub fn call(
         MetaOp::SyntaxInt => Ok(Rets::one(int as u64)),
         MetaOp::SyntaxString => {
             let value = string.unwrap_or_default();
-            store(interp, arg(2), &(value.len() as u64).to_le_bytes())?;
-            store(interp, arg(2) + 8, &(value.as_ptr() as u64).to_le_bytes())?;
+            let layout = *interp.data_layout();
+            let mut view = vec![0; layout.builtins().view.size as usize];
+            layout.write_view(&mut view, value.len() as u64, value.as_ptr() as u64);
+            store(interp, arg(2), &view)?;
             reg.kept.push(value);
             Ok(Rets::default())
         }

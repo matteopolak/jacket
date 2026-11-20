@@ -213,7 +213,9 @@ pub(in crate::sema) enum VOp {
 /// Lane size in bytes, for EVEX broadcast and masking.
 fn elem_size(op: VOp) -> u64 {
     match op {
-        VOp::Lanes(_, ty, _) | VOp::Sqrt(ty, _) | VOp::Abs(ty) | VOp::Shift(_, ty) => ty.size(),
+        VOp::Lanes(_, ty, _) | VOp::Sqrt(ty, _) | VOp::Abs(ty) | VOp::Shift(_, ty) => {
+            ty.numeric_size()
+        }
         VOp::Broadcast(size) | VOp::Movmsk(size) => size,
         _ => simd::elem_size(op),
     }
@@ -353,12 +355,12 @@ pub(super) fn lane_addr(f: &mut FnCtx, base: Val, offset: u64) -> Val {
 }
 
 pub(super) fn load_lane(f: &mut FnCtx, base: Val, i: u64, ty: Ty) -> Val {
-    let p = lane_addr(f, base, i * ty.size());
+    let p = lane_addr(f, base, i * ty.numeric_size());
     f.b.load(ty, p)
 }
 
 pub(super) fn store_lane(f: &mut FnCtx, base: Val, i: u64, ty: Ty, v: Val) {
-    let p = lane_addr(f, base, i * ty.size());
+    let p = lane_addr(f, base, i * ty.numeric_size());
     f.b.store(ty, p, v);
 }
 
@@ -368,7 +370,7 @@ pub(super) fn bitcast(f: &mut FnCtx, from: Ty, to: Ty, v: Val) -> Val {
 
 /// `cond ? a : b` for a float lane.
 pub(super) fn fselect(f: &mut FnCtx, ty: Ty, cond: Val, a: Val, b: Val) -> Val {
-    let it = Ty::int(ty.size());
+    let it = Ty::int(ty.numeric_size());
     let a = bitcast(f, ty, it, a);
     let b = bitcast(f, ty, it, b);
     let r = select(f, it, cond, a, b);
@@ -907,7 +909,7 @@ impl Compiler {
                             Ok(VOpd::Gpr(self.asm_place(ty, addr, true, e.span)?))
                         }
                         Some(t) => {
-                            let size = t.size();
+                            let size = t.numeric_size();
                             let reg = f.b.alloca(64, 16);
                             f.b.zero(reg, 64);
                             f.b.copy(reg, addr, size);
