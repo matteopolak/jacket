@@ -84,6 +84,7 @@ fn lint_target(
         verbose: false,
         add_sources: Vec::new(),
         limits: jaic::ide::lint_compile::CheckLimits::default(),
+        overlay: std::collections::BTreeMap::new(),
     };
     let outcome = jailint::driver::run(&options);
     assert!(

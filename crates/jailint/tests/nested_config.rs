@@ -50,6 +50,7 @@ fn flagged(root: &Path, paths: &[&str]) -> Vec<String> {
         jobs: 1,
         verbose: false,
         limits: jaic::ide::lint_compile::CheckLimits::default(),
+        overlay: std::collections::BTreeMap::new(),
     });
     assert!(outcome.incomplete.is_empty(), "{:?}", outcome.incomplete);
     assert!(outcome.config_errors.is_empty());

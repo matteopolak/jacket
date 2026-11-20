@@ -14,6 +14,7 @@ use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
 
 /// Compilers of finished workspaces, with whether each failed.
 pub(super) type Finished = Rc<RefCell<Vec<(Box<Compiler>, bool)>>>;
@@ -46,8 +47,10 @@ pub(super) struct Compiled {
     pub(super) workspaces: SharedWorkspaces,
     pub(super) done: Finished,
     pub(super) reports: Rc<RefCell<Vec<String>>>,
-    /// The first error of the root's own compile.
+    /// The first error of the root's own compile, as text.
     pub(super) error: Option<String>,
+    /// The same error as the compiler reported it.
+    pub(super) stopping: Option<Box<jaic::diagnostics::Diagnostic>>,
     /// The host of every compiler of the root, which knows when the wall-clock limit passed.
     pub(super) host: Rc<RefCell<SandboxHost>>,
 }
@@ -79,9 +82,15 @@ pub(super) fn compile_root(
     let fs: Rc<dyn FileSystem> = Rc::new(RootedFs {
         resolved: CanonCache::new(),
         base: main_dir.clone(),
-        virtual_source: root
-            .module_stub()
-            .map(|(path, text)| (path, text.into_bytes())),
+        overlay: options
+            .overlay
+            .iter()
+            .map(|(path, text)| (path.clone(), text.clone()))
+            .chain(
+                root.module_stub()
+                    .map(|(path, text)| (path, Arc::from(text.into_bytes()))),
+            )
+            .collect(),
     });
     let roots: Vec<IdeRoot> =
         report.map_or_else(Vec::new, |r| r.iter().map(IdeRoot::under).collect());
@@ -134,7 +143,8 @@ pub(super) fn compile_root(
         workspaces: started.workspaces.clone(),
         done,
         reports,
-        error: result.err().map(|e| stopping_error(&e)),
+        error: result.as_ref().err().map(|e| stopping_error(e)),
+        stopping: result.err(),
         host: started.host.clone(),
     }
 }

@@ -60,6 +60,7 @@ fn main() {
         verbose: false,
         add_sources: Vec::new(),
         limits: jaic::ide::lint_compile::CheckLimits::new(0, 0.0),
+        overlay: std::collections::BTreeMap::new(),
     });
     if let Some(path) = manifest {
         let contexts: Vec<_> = result.contexts.iter().map(|c| serde_json::json!({"root":c.root, "os":jaic::target::os_name(c.os), "cpu":jaic::target::cpu_name(c.cpu), "complete":c.complete,"visited_files":c.visited_files})).collect();

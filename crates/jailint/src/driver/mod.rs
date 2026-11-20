@@ -69,10 +69,17 @@ pub struct Options {
     /// What bounds the compile-time code of each root: set by whoever runs the linter, never
     /// by the project.
     pub limits: jaic::ide::lint_compile::CheckLimits,
+    /// Files compiled from this text instead of what is on disk, by canonical path
+    /// (`migrate` checks edits this way before writing them).
+    pub overlay: BTreeMap<PathBuf, Arc<[u8]>>,
 }
 
 pub struct Outcome {
     pub lints: Vec<Lint>,
+    /// Compile errors in the reported files, each reported once, from the root that owns the file.
+    pub errors: Vec<CompileError>,
+    /// Every file the run reports on.
+    pub files: Vec<PathBuf>,
     /// Text of every file a lint points into, by path.
     pub texts: BTreeMap<String, Arc<str>>,
     /// Roots the compiler could not finish, with its first error (their lints may be fewer).
@@ -92,6 +99,19 @@ pub struct Outcome {
     /// `// test:` notes about where a file runs that did not parse, each with its file's path;
     /// they were ignored.
     pub test_note_problems: Vec<(PathBuf, String)>,
+}
+
+/// A compile error in a reported file.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CompileError {
+    /// Canonical path of the file.
+    pub path: PathBuf,
+    /// Byte range into the file's text.
+    pub start: usize,
+    pub end: usize,
+    /// The diagnostic code (`unknown-identifier`).
+    pub code: &'static str,
+    pub message: String,
 }
 
 #[derive(Clone, Debug)]
@@ -173,6 +193,7 @@ fn run_planned(options: &Options, entries: Option<&[PathBuf]>) -> Outcome {
         results[i] = Some(result);
     }
     let mut lints = Vec::new();
+    let mut errors = Vec::new();
     let mut texts: BTreeMap<String, Arc<str>> = BTreeMap::new();
     let mut incomplete = Vec::new();
     let mut owner: BTreeMap<String, usize> = BTreeMap::new();
@@ -203,6 +224,11 @@ fn run_planned(options: &Options, entries: Option<&[PathBuf]>) -> Outcome {
         for l in r.lints {
             if owner.get(&l.path) == Some(&i) {
                 lints.push(l);
+            }
+        }
+        for e in r.errors {
+            if owner.get(e.path.to_string_lossy().as_ref()) == Some(&i) {
+                errors.push(e);
             }
         }
         for (p, text) in r.texts {
@@ -243,8 +269,11 @@ fn run_planned(options: &Options, entries: Option<&[PathBuf]>) -> Outcome {
             }
         }
     }
+    errors.sort_by(|a, b| (&a.path, a.start, a.code).cmp(&(&b.path, b.start, b.code)));
     Outcome {
         lints,
+        errors,
+        files: report.iter().cloned().collect(),
         texts,
         incomplete,
         roots: roots.len(),

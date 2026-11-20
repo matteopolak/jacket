@@ -37,6 +37,7 @@ fn linter_options(dir: &Path) -> Options {
         source: None,
         add_sources: Vec::new(),
         limits: jaic::ide::lint_compile::CheckLimits::default(),
+        overlay: std::collections::BTreeMap::new(),
     }
 }
 

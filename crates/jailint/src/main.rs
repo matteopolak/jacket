@@ -157,6 +157,7 @@ fn run() -> Result<ExitCode, String> {
         verbose: args.verbose,
         add_sources: args.common.add,
         limits,
+        overlay: std::collections::BTreeMap::new(),
     };
     let entries = if args.default_project {
         project_entries(&mut options, &cwd)?

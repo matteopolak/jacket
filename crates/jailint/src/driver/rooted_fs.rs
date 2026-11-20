@@ -1,13 +1,17 @@
 //! The file system a root is compiled over.
 use jaic::paths::CanonCache;
 use jaic::sema::{FileSystem, NativeFs};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 /// The native file system with relative paths taken from `base` (the root's directory), as if
 /// the compiler ran there: metaprograms name files relative to where they are built from.
 pub(super) struct RootedFs {
     pub(super) base: PathBuf,
-    pub(super) virtual_source: Option<(PathBuf, Vec<u8>)>,
+    /// Files read from memory instead of disk, by full path: a module's generated stub, and the
+    /// edited text `migrate` checks before anything is written.
+    pub(super) overlay: BTreeMap<PathBuf, Arc<[u8]>>,
     /// Paths that exist, resolved: the compiler asks about the same few hundred files for
     /// every access check and import.
     pub(super) resolved: CanonCache,
@@ -21,27 +25,31 @@ impl RootedFs {
             path.to_path_buf()
         }
     }
+
+    /// The overlay's text for `path` (already made absolute), under any spelling of it.
+    fn overlaid(&self, path: &Path) -> Option<&Arc<[u8]>> {
+        if self.overlay.is_empty() {
+            return None;
+        }
+        self.overlay.get(path).or_else(|| {
+            let canonical = self.resolved.canonicalize(path).ok()?;
+            self.overlay.get(&canonical)
+        })
+    }
 }
 
 impl FileSystem for RootedFs {
     fn read(&self, path: &Path) -> Option<Vec<u8>> {
-        if let Some((source, text)) = &self.virtual_source
-            && self.at(path) == *source
-        {
-            return Some(text.clone());
+        let path = self.at(path);
+        if let Some(text) = self.overlaid(&path) {
+            return Some(text.to_vec());
         }
-        NativeFs.read(&self.at(path))
+        NativeFs.read(&path)
     }
 
     fn is_file(&self, path: &Path) -> bool {
-        if self
-            .virtual_source
-            .as_ref()
-            .is_some_and(|(source, _)| self.at(path) == *source)
-        {
-            return true;
-        }
-        NativeFs.is_file(&self.at(path))
+        let path = self.at(path);
+        self.overlaid(&path).is_some() || NativeFs.is_file(&path)
     }
 
     fn is_dir(&self, path: &Path) -> bool {

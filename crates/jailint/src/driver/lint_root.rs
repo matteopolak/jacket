@@ -4,7 +4,7 @@ use super::claims::{Claims, Release};
 use super::compile::{Compiled, compile_root};
 use super::marked_target::{Marked, marked_target};
 use super::plan::{Notes, canonical};
-use super::{CheckedContext, Options};
+use super::{CheckedContext, CompileError, Options};
 use crate::config::Configs;
 use crate::{Edit, Fix, Level, Lint, SecondaryLabel, lint_files_with_entry};
 use jaic::paths::CanonCache;
@@ -21,6 +21,8 @@ pub(super) struct RootResult {
     /// Text of every file a lint of this root points into, by path.
     pub(super) texts: BTreeMap<String, String>,
     pub(super) error: Option<String>,
+    /// Compile errors in the files this root owns.
+    pub(super) errors: Vec<CompileError>,
     pub(super) contexts: Vec<CheckedContext>,
     pub(super) failures: Vec<AssertFailure>,
 }
@@ -69,6 +71,7 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
         done,
         reports,
         error,
+        stopping,
         host,
     } = compile_root(root, options, os, cpu, Some(report), canon, limits);
     let mut error = error;
@@ -103,12 +106,19 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
         complete: bool,
         /// Facts cover every requested file, including loads outside the root folder.
         files: Vec<(jaic::source::FileId, PathBuf)>,
+        diagnostics: Vec<jaic::diagnostics::Diagnostic>,
     }
     let mut checked = Vec::new();
     let mut failures = Vec::new();
-    for (mut compiler, failed) in compilers {
+    let top = compilers.len() - 1;
+    for (i, (mut compiler, failed)) in compilers.into_iter().enumerate() {
         failures.extend(failures_of(&compiler, root.path()));
-        let diagnostics = compiler.ide_check_all();
+        let mut diagnostics = compiler.ide_check_all();
+        if i == top
+            && let Some(stopping) = &stopping
+        {
+            diagnostics.insert(0, (**stopping).clone());
+        }
         let complete = !failed && diagnostics.is_empty();
         if error.is_none()
             && let Some(diagnostic) = diagnostics.first()
@@ -127,6 +137,7 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
             compiler,
             complete,
             files,
+            diagnostics,
         });
     }
     let compiled: BTreeSet<PathBuf> = checked
@@ -137,13 +148,34 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
     let owned = claims.owned(index, &compiled);
     let mut lints = Vec::new();
     let mut texts = BTreeMap::new();
+    let mut errors = Vec::new();
     let mut contexts = Vec::new();
     for Checked {
         mut compiler,
         complete,
         files,
+        diagnostics,
     } in checked
     {
+        for d in &diagnostics {
+            if d.severity != jaic::diagnostics::Severity::Error
+                || d.span.file == jaic::source::Span::NONE.file
+            {
+                continue;
+            }
+            let Some((_, path)) = files.iter().find(|(f, _)| *f == d.span.file) else {
+                continue;
+            };
+            if owned.contains(path) {
+                errors.push(CompileError {
+                    path: path.clone(),
+                    start: d.span.start as usize,
+                    end: d.span.end as usize,
+                    code: d.code.name(),
+                    message: d.message.clone(),
+                });
+            }
+        }
         for (f, path) in &files {
             if owned.contains(path) {
                 texts.insert(
@@ -204,10 +236,13 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
         // Drop the compiler now: they hold the workspace registry, which held them.
         drop(compiler);
     }
+    errors.sort_by(|a, b| (&a.path, a.start, a.code).cmp(&(&b.path, b.start, b.code)));
+    errors.dedup_by(|a, b| a.path == b.path && a.start == b.start && a.code == b.code);
     RootResult {
         lints,
         texts,
         error,
+        errors,
         contexts,
         failures,
     }
