@@ -142,7 +142,7 @@ impl Compiler {
             };
             (n, data)
         };
-        if count > super::value::MAX_IMAGE / 16 {
+        if count > super::value::MAX_IMAGE / self.ty.types.builtins().view.size.max(1) {
             return err(
                 Code::UsingFilterInvalid,
                 span,
@@ -152,7 +152,7 @@ impl Compiler {
         let mut names = Vec::new();
         for i in 0..count {
             let Some(at) = i
-                .checked_mul(16)
+                .checked_mul(self.ty.types.builtins().view.size)
                 .and_then(|offset| data.checked_add(offset))
             else {
                 return err(
