@@ -525,6 +525,20 @@ jobs:
           grep -v '^#' ../tools/dev/i686-roots.txt | while read -r root; do
             (cd "$root" && ../../target/debug/jacket test -- -target i686-unknown-linux-gnu) || exit 1
           done
+      - name: Linux s390x stdlib
+        id: s390x-stdlib
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',diff,') && runner.os == 'Linux' && matrix.architecture == 'x86_64' }}
+        # Big-endian: the roots in tools/dev/s390x-roots.txt, cross-linked with gcc and run under
+        # qemu-user (docs/compiler/targets.md). Add a root there when it passes.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-user gcc-s390x-linux-gnu libc6-dev-s390x-cross
+          cargo build --locked -p jaic-cli -p jacket
+          cd stdlib
+          export JAIC_LINKER=s390x-linux-gnu-gcc
+          grep -v '^#' ../tools/dev/s390x-roots.txt | while read -r root; do
+            (cd "$root" && ../../target/debug/jacket test --runner "qemu-s390x -L /usr/s390x-linux-gnu" -- -target s390x-unknown-linux-gnu) || exit 1
+          done
   vscode-extension:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.jobs), 'vscode-extension')

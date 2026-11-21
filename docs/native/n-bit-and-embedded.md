@@ -1,6 +1,6 @@
 # Plan: N-bit, big-endian and embedded targets
 
-Status: N0 landed (`DataLayout`); N1 (wasm32) landed: the stdlib passes under node and wasmtime. N2 (i686 Linux, glibc) landed: 93 stdlib roots pass (`tools/dev/i686-roots.txt`, run in CI); the rest of the roots need per-CPU socket ABIs and 32-bit builds of the third-party native libraries (see below); musl is not built yet. The rest is plan. Each milestone updates this page and the docs it names when it lands.
+Status: N0 landed (`DataLayout`); N1 (wasm32) landed: the stdlib passes under node and wasmtime. N2 (i686 Linux, glibc) landed: 93 stdlib roots pass (`tools/dev/i686-roots.txt`, run in CI); the rest of the roots need per-CPU socket ABIs and 32-bit builds of the third-party native libraries (see below); musl is not built yet. N3 (s390x) landed in part: it builds, links and runs under qemu-user, and 69 stdlib roots pass on it (`tools/dev/s390x-roots.txt`, run in CI); powerpc64 is not started. The rest is plan. Each milestone updates this page and the docs it names when it lands.
 
 Jacket builds for 64-bit little-endian machines with an OS: x86-64 and arm64 on macOS, Linux and Windows, plus wasm64. This plan adds:
 
@@ -140,6 +140,7 @@ Each milestone is a series of one-change commits, starting with a failing test.
 4. **N3, big-endian.** `s390x-linux-gnu`, which is 64-bit, so byte order is tested alone.
    - Adds byte-swapping interpreter ops and big-endian emission.
    - Done means the stdlib runtime tests pass under `qemu-s390x` in CI. Then `powerpc64-linux-gnu`, under `qemu-ppc64`.
+   - Landed for s390x: `TargetCpu::S390x`, the z/Architecture ABI, the SystemZ backend, per-CPU POSIX declarations, and an interpreter that swaps bytes on loads and stores and runs on the emulated C library. Remaining gaps: powerpc64; fibers (no s390x switch routine); the crash runtime; the sandbox's hard-coded record layouts (`stat`, `dirent`) are little-endian; compile-time atomics on big-endian memory; the same Socket ABI and third-party native library gaps as i686.
 5. **N4, armv7 Linux.** `armv7-linux-gnueabihf` with AAPCS32 hard-float, under `qemu-arm`. This covers 32-bit and big-endian ARM ABI code before embedded work uses it.
 6. **N5, 16-bit.** AVR data layout, ABI and the 64 KiB interpreter window. Tested in the embedded milestones (E5), since AVR has no OS.
 
