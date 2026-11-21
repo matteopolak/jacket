@@ -52,7 +52,7 @@ linker_script :: (map: Memory_Map) -> string {
     }
 
     append(*builder, "  .bss (NOLOAD) : { __bss_start = .; *(.bss .bss.* COMMON) __bss_end = .; } > RAM\n");
-    append(*builder, "  __heap_start = .;\n");
+    append(*builder, "  __heap_start = ALIGN(16);\n");
     append(*builder, "  __stack_top = ORIGIN(RAM) + LENGTH(RAM);\n");
     print_to_builder(*builder, "  __heap_end = __stack_top - 0x%;\n", formatInt(map.stack_size, base = 16));
     append(*builder, "  /DISCARD/ : { *(.comment) *(.eh_frame*) *(.note*) }\n}\n");

@@ -61,6 +61,7 @@ linker_script_test :: () {
     check(contains(ram_only, "__data_load = __data_start;"), "data is not copied");
     check(contains(ram_only, "__stack_top = ORIGIN(RAM) + LENGTH(RAM);"), "stack at the end of RAM");
     check(contains(ram_only, "__heap_end = __stack_top - 0x2000;"), "default stack of 8 KiB");
+    check(contains(ram_only, "__heap_start = ALIGN(16);"), "the heap starts aligned, as its allocator hands out blocks");
 
     split := Embedded.linker_script(.{ flash = .{ 0x800_0000, 0x10_0000 }, ram = .{ 0x2000_0000, 0x2_0000 }, stack_size = 0x1000, entry = "reset" });
 
