@@ -89,8 +89,16 @@ def run_check(module):
         once(module, importlib.import_module(f"developer_checks.{module}").main)
 
 
-def run(command, *, output=None, error=""):
-    return run_checked(command, label="Developer tools check", expected=output, stderr=error, timeout=60).stdout
+# The 60-second guard against a hung command covers one compile. A driven program that builds others
+# in its own workspaces gets it once per build: `iprof-client-setup` builds 8 Iprof configurations at
+# O0 and O2, which the debug compiler on the Intel macOS runner took over 60 seconds to do.
+COMMAND_TIMEOUT = 60
+PROGRAMS_BUILT = {"iprof-client-setup": 16}
+
+
+def run(command, *, output=None, error="", builds=1):
+    return run_checked(command, label="Developer tools check", expected=output, stderr=error,
+                       timeout=COMMAND_TIMEOUT * builds).stdout
 
 
 def check_framework_consumer(prefix, emitter):
@@ -291,7 +299,8 @@ def inline_case(case):
     if case == "debug-native":
         error = "native debug output\n"
     expected = "x = 7 (s32)\nok\n" if case == "print-vars" else "ok\n"
-    run([JAIC, source, "-interp", "-I", output_dir()], output=expected, error=error)
+    builds = PROGRAMS_BUILT.get(case, 1)
+    run([JAIC, source, "-interp", "-I", output_dir()], output=expected, error=error, builds=builds)
     if case == "bindings-clang-build-system":
         check_framework_consumer(prefix, "interp")
     if case == "bindings-bridge":
@@ -310,7 +319,7 @@ def inline_case(case):
             run([cpp_exe])
     for optimization in [0, 2]:
         exe = output_dir(f"developer-tools-{case}-o{optimization}")
-        run([JAIC, source, f"-O{optimization}", "-exe", exe, "-I", output_dir()])
+        run([JAIC, source, f"-O{optimization}", "-exe", exe, "-I", output_dir()], builds=builds)
         run([exe], output=expected, error=error)
         if case == "bindings-clang-build-system":
             check_framework_consumer(prefix, f"o{optimization}")
