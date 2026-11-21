@@ -290,6 +290,7 @@ impl Compiler {
             self.module_asm_text(e, &resolved)?;
             i += 1;
         }
+        self.collect_module_asm()?;
         // A program with no entry point still has code to lower when it exports procedures: a
         // freestanding program starts at a symbol of its own, and the runtime exports `memcpy`.
         // One made only of `#run` and `#assert` directives has nothing to lower.
@@ -755,7 +756,6 @@ impl Compiler {
         self.bake_no_reset_globals();
         self.out.drop_unreferenced_code();
         self.reject_c_library_calls_without_a_c_library()?;
-        self.collect_module_asm()?;
         self.enable_stack_traces(Span::NONE);
         if let Some(layout) = self.out.program.stack_trace {
             crate::stack_trace::instrument(&mut self.out.program, &layout);
