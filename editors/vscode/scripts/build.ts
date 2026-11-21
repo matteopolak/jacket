@@ -274,6 +274,14 @@ const jacket = {
             },
           },
         },
+        freestanding: {
+          type: "object",
+          additionalProperties: false,
+          markdownDescription: "Limits for the `freestanding` rule.",
+          properties: {
+            max_frame_bytes: { type: "integer", minimum: 0, default: 1024, markdownDescription: "The bytes of local variables above which `freestanding` reports a procedure's stack frame." },
+          },
+        },
         portability: {
           type: "object",
           additionalProperties: false,

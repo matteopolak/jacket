@@ -131,6 +131,8 @@ pub struct Config {
     pub max_bools: Option<usize>,
     /// The size in bytes above which `large_stack_array` fires.
     pub max_stack_array_bytes: Option<usize>,
+    /// The bytes of fixed-size locals above which `freestanding` reports a stack frame.
+    pub max_frame_bytes: Option<usize>,
     /// Numbers `magic_number` lets through, besides its built-in ones.
     pub magic_number_allow: Vec<f64>,
     /// Whole numbers below this magnitude are not magic.
@@ -328,6 +330,10 @@ pub const DEFAULT_MAX_BOOLS: usize = 3;
 /// The bytes a local array may take for `large_stack_array` when nothing sets it (64 KiB).
 pub const DEFAULT_MAX_STACK_ARRAY_BYTES: usize = 64 * 1024;
 
+/// The bytes of fixed-size locals a procedure may hold for `freestanding` when nothing sets
+/// `[lint.freestanding] max_frame_bytes`.
+pub const DEFAULT_MAX_FRAME_BYTES: usize = 1024;
+
 /// Whole numbers below this magnitude are not magic when nothing sets `magic_number_min`.
 pub const DEFAULT_MAGIC_NUMBER_MIN: f64 = 3.0;
 
@@ -449,6 +455,7 @@ impl Config {
             max_arguments: lint.max_arguments,
             max_bools: lint.max_bools,
             max_stack_array_bytes: lint.max_stack_array_bytes,
+            max_frame_bytes: lint.freestanding.as_ref().and_then(|f| f.max_frame_bytes),
             magic_number_allow: lint.magic_number_allow.clone(),
             magic_number_min: lint.magic_number_min,
             magic_number_in_tests: lint.magic_number_in_tests,

@@ -119,10 +119,22 @@ pub struct Lifetimes {
     pub mode: LifetimeMode,
 }
 
+/// Settings of the `freestanding` rule.
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+pub struct Freestanding {
+    /// How many bytes of fixed-size locals a procedure's stack frame may hold before
+    /// `freestanding` reports it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_frame_bytes: Option<usize>,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct Lint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lifetimes: Option<Lifetimes>,
+    /// Limits for the `freestanding` rule.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub freestanding: Option<Freestanding>,
     /// Patterns of paths not to lint, relative to the file.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub exclude: Vec<PathPattern>,
@@ -739,6 +751,7 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
         "toolchain" => &["version"],
         "lint" => &[
             "lifetimes",
+            "freestanding",
             "exclude",
             "max_nesting",
             "max_complexity",
@@ -753,6 +766,7 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "portability",
         ],
         "lint.lifetimes" => &["mode"],
+        "lint.freestanding" => &["max_frame_bytes"],
         "lint.portability" => &["targets", "portable", "platforms"],
         "format" => FORMAT_KEYS,
         "experimental" => &["parse_threads", "serial_parse", "codegen_units"],

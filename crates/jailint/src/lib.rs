@@ -172,6 +172,9 @@ pub(crate) fn lint_files_with_entry(
         cx.max_stack_array_bytes = config
             .max_stack_array_bytes
             .unwrap_or(config::DEFAULT_MAX_STACK_ARRAY_BYTES);
+        cx.max_frame_bytes = config
+            .max_frame_bytes
+            .unwrap_or(config::DEFAULT_MAX_FRAME_BYTES);
         cx.doc_links = doc_links;
         for &(rule, level) in &wanted {
             if jaic::interrupt::should_stop() {

@@ -232,6 +232,34 @@ Adding `0.1` ten times does not give `1.0`, so whether the loop runs ten or elev
 ### format_push_string
 Fires on a call of a procedure noted `@AppendsString` (the library's `append` of a string) whose string is a call of one noted `@FormatsToString` (`tprint`, `sprint`).
 
+### freestanding
+Off by default (`restriction`): for code that is meant to run with no operating system, on `OS == .NONE`. It reads the code the way it is written, so it works for any linted target; it does not replace compiling for the target (`jailint -target aarch64-none-elf`), which reports what simply fails to build.
+
+```jai
+main :: () {
+    names: [..] string;
+    array_add(*names, "ada");       // the default allocator has no heap here
+}
+```
+
+It reports:
+
+- **OS-only modules.** An `#import` of a module that asserts its systems and leaves out `NONE` (`Thread`, `Process`, `POSIX`). The systems are the ones `jacket doc` shows, read from the module's `#assert`, so there is no list to maintain. An import under `#if` is skipped.
+- **Allocation through the default allocator.** `alloc`, `New`, `NewArray`, `array_add` and `tprint` reached from `main`, a `#program_export` procedure or an `@Interrupt` procedure with no `push_allocator` or `push_context` (naming a context) around the call. Calls into other files are followed; the finding is at the call in the linted file that leads there. Calls into the standard library are not followed.
+- **Interrupt handlers that do too much.** In an `@Interrupt` procedure and what it calls: allocation (even with an allocator pushed), `print`, `write_string`, `log`, locks, and calls that block (`sleep_milliseconds`, `wait`, `wait_for`).
+- **Unbounded stack.** A procedure in a call cycle (once per cycle, at the first member in the file), and a procedure whose locals add up to more than `max_frame_bytes`.
+- **Work the CPU cannot do.** `float64` arithmetic, or `s64` division in a loop, when the target is freestanding and its CPU has no double-precision float unit or 64-bit divide. AArch64 has both, so this is quiet until the 32-bit microcontroller CPUs are added.
+
+Turn it on with `-W freestanding` or `[lint.rules] freestanding = "warn"`. The frame limit is `[lint.freestanding] max_frame_bytes`, 1024 by default:
+
+```toml
+[lint.rules]
+freestanding = "warn"
+
+[lint.freestanding]
+max_frame_bytes = 512
+```
+
 ### identical_branches
 Compared by tokens. Empty branches, `#if`, and the last link of an `else if` chain are left alone.
 
@@ -553,6 +581,9 @@ magic_number_in_tests = false                            # also check `tests`/`t
 excessive_nesting = "warn"
 float_equality = "warn"
 unused_parameter = "allow"
+
+[lint.freestanding]
+max_frame_bytes = 1024                                   # bytes of locals `freestanding` allows a procedure
 
 [[lint.overrides]]                                       # levels for some paths only
 paths = ["tests/**"]

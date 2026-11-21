@@ -18,9 +18,9 @@
 use crate::Finding;
 use crate::syntax::Cx;
 use jaic::ast::walk::walk;
-use jaic::ast::{DeclKind, StmtKind as S};
+use jaic::ast::{DeclKind, Ident, Stmt, StmtKind as S};
 use jaic::sema::scope::EntityKind;
-use jaic::types::{ArrayKind, TypeKind};
+use jaic::types::{ArrayKind, TypeId, TypeKind};
 
 /// The rule's name, group and one-line summary, and its check.
 pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
@@ -39,72 +39,75 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.typed() {
             continue;
         }
-        walk(&p.body.stmts, &mut |n, _| {
-            let Some(s) = n.stmt() else {
-                return true;
-            };
-            let S::Decl(d) = &s.kind else {
-                return true;
-            };
-            if d.kind != DeclKind::Var {
-                return true;
+        locals(cx, &p.body.stmts, &mut |name, ty| {
+            if !matches!(
+                types.kind(ty),
+                TypeKind::Array {
+                    kind: ArrayKind::Fixed(_),
+                    ..
+                }
+            ) {
+                return;
             }
-            for name in &d.names {
-                let entities = cx.locals(name.span);
-                if entities.is_empty() {
-                    continue;
-                }
-                let mut found = None;
-                for &e in &*entities {
-                    let EntityKind::Local {
-                        ty, ..
-                    } = cx.compiler.entity(e).kind
-                    else {
-                        continue;
-                    };
-                    found = match found {
-                        None => Some(ty),
-                        Some(other) if other == ty => Some(ty),
-                        Some(_) => None,
-                    };
-                }
-                let Some(ty) = found else {
-                    continue;
-                };
-                if !matches!(
-                    types.kind(ty),
-                    TypeKind::Array {
-                        kind: ArrayKind::Fixed(_),
-                        ..
-                    }
-                ) {
-                    continue;
-                }
-                let bytes = types.size_of(ty);
-                if bytes as usize <= cx.max_stack_array_bytes {
-                    continue;
-                }
-                out.push(super::finding(
-                    name.span,
-                    format!(
-                        "`{}` is {} on the stack, past the limit of {}",
-                        name.name.as_str(),
-                        size(bytes),
-                        size(cx.max_stack_array_bytes as u64)
-                    ),
-                    Some(
-                        "allocate it (`NewArray`, `alloc`), use a resizable array, or keep it in a global"
-                            .into(),
-                    ),
-                ));
+            let bytes = types.size_of(ty);
+            if bytes as usize <= cx.max_stack_array_bytes {
+                return;
             }
-            true
+            out.push(super::finding(
+                name.span,
+                format!(
+                    "`{}` is {} on the stack, past the limit of {}",
+                    name.name.as_str(),
+                    size(bytes),
+                    size(cx.max_stack_array_bytes as u64)
+                ),
+                Some(
+                    "allocate it (`NewArray`, `alloc`), use a resizable array, or keep it in a global"
+                        .into(),
+                ),
+            ));
         });
     }
 }
 
+/// Every local variable declared in `stmts` (parameters and nested procedures left out) whose
+/// type the checks agree on, with its name and type.
+pub(super) fn locals(cx: &Cx, stmts: &[Stmt], f: &mut dyn FnMut(&Ident, TypeId)) {
+    walk(stmts, &mut |n, _| {
+        let Some(s) = n.stmt() else {
+            return true;
+        };
+        let S::Decl(d) = &s.kind else {
+            return true;
+        };
+        if d.kind != DeclKind::Var {
+            return true;
+        }
+        for name in &d.names {
+            let mut found = None;
+            for &e in &*cx.locals(name.span) {
+                let EntityKind::Local {
+                    ty, ..
+                } = cx.compiler.entity(e).kind
+                else {
+                    continue;
+                };
+                found = match found {
+                    None => Some(ty),
+                    Some(other) if other == ty => Some(ty),
+                    Some(_) => None,
+                };
+            }
+            if let Some(ty) = found {
+                f(name, ty);
+            }
+        }
+        true
+    });
+}
+
 /// `65536` as `64 KiB`.
-fn size(bytes: u64) -> String {
+pub(super) fn size(bytes: u64) -> String {
     const KIB: u64 = 1024;
     const MIB: u64 = KIB * KIB;
     if bytes >= MIB && bytes.is_multiple_of(MIB) {

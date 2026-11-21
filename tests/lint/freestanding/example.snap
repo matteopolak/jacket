@@ -1,0 +1,11 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[freestanding]: `array_add` allocates with the default allocator
+  --> tests/lint/freestanding/example.jai:5:5
+   |
+ 5 |     array_add(*names, "ada");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: the default allocator has no heap here: wrap the call in `push_allocator(...)`, or `push_context` with an allocator set
+   = note: see https://jacket.matteopolak.com/lint-rules/freestanding

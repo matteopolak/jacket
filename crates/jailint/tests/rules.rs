@@ -1187,3 +1187,6 @@ mod lifetime_returns;
 
 #[path = "rules/fix_previews.rs"]
 mod fix_previews;
+
+#[path = "rules/freestanding.rs"]
+mod freestanding;

@@ -210,6 +210,7 @@ fn known_keys_match_the_structs() {
              magic_number_min = 4\nmagic_number_in_tests = true\n[lint.rules]\na = \"b\"\n\
              [[lint.overrides]]\npaths = [\"c\"]\n[lint.overrides.rules]\nd = \"e\"\n\
              [lint.lifetimes]\nmode = \"strict\"\n\
+             [lint.freestanding]\nmax_frame_bytes = 512\n\
              [lint.portability]\ntargets = [\"linux\"]\nportable = [\"p/**\"]\n[lint.portability.platforms]\n\"q/**\" = [\"linux\"]\n",
         ),
         (

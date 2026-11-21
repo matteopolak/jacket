@@ -149,7 +149,7 @@ def tools_page():
     jaifmt = subprocess.run([str(build_jaifmt()), "--help"], check=True, capture_output=True, text=True).stdout
     jaifmt = "\n".join(line.rstrip() for line in jaifmt.strip().splitlines())
     own = [n for n in jacket_commands(jacket) if n not in PASSTHROUGH and n != "help"]
-    expected = {"new", "init", "test", "bench", "doc", "config", "clean", "explain", "version", "upgrade"}
+    expected = {"new", "init", "test", "bench", "doc", "config", "targets", "clean", "explain", "version", "upgrade"}
     if set(own) != expected:
         raise SystemExit(f"jacket commands changed ({sorted(set(own) ^ expected)}): place them in tools_page()")
 
@@ -177,6 +177,9 @@ def tools_page():
         command_rows(jacket, ["build", "check", "run", "clean", "jaic"]),
         "#### jaic\n",
         block(jaic, 5),
+        "`--target NAME` builds for a `[target.NAME]` of `jacket.toml` or a built-in board; `jacket targets` "
+        "lists them ([targets](../tools/jacket.md#targets)).\n",
+        sub("targets", 5),
         "### Creating a project\n",
         "`jacket new` makes a directory with a `jacket.toml` and a `main.jai`; `jacket init` does the "
         "same in the current directory.\n",
