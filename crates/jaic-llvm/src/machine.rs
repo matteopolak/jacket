@@ -271,6 +271,8 @@ mod tests {
             "x86_64-apple-macosx11.0",
             "aarch64-apple-macosx11.0",
             "wasm64-unknown-wasi",
+            "wasm32-wasi",
+            "wasm32-unknown-unknown",
         ] {
             let ours = BuildTarget::parse(triple).unwrap().data_layout();
             let llvm_triple =

@@ -226,10 +226,16 @@ impl Target {
         })
     }
 
-    /// How this target lays out data. The one place a layout is chosen. Every target is still
-    /// 64-bit little-endian: `wasm32` gets its 4-byte layout with the address window.
+    /// How this target lays out data. The one place a layout is chosen. `wasm32` has 4-byte
+    /// pointers; the rest are 64-bit little-endian.
     pub fn data_layout(self) -> DataLayout {
         let mut layout = DataLayout::lp64_little();
+        if self.cpu == TargetCpu::Wasm && self.memory32 {
+            layout.pointer_size = 4;
+            layout.pointer_align = 4;
+            layout.c.long = 4;
+            layout.c.size_t = 4;
+        }
         // LLP64: `long` stays 32 bits on 64-bit Windows.
         if self.os == TargetOs::Windows {
             layout.c.long = 4;
