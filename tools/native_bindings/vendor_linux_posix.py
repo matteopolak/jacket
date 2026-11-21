@@ -148,7 +148,11 @@ def build(arch):
     keep = set(names)
     enums = {d.name for d in declarations if re.search(r'::\s*enum\b', d.code)}
     renames = {m[2]: m[1] for m in re.finditer(r'#define (\w+) (\w+)\.tv_sec\b', macros)}
-    ctx = cabi.Context(ast, long_bytes, keep, renames)
+    # `#define sa_handler __sigaction_handler.sa_handler`: the spec's record holds those members
+    # directly. (Longer paths, like `si_pid`, name members of records the spec leaves nested.)
+    reached = {m[1] for m in re.finditer(r'#define \w+ (\w+)\.\w+\s*$', macros, re.M)} \
+        - set(renames.values())
+    ctx = cabi.Context(ast, long_bytes, keep, renames, reached)
     # Records the spec leaves opaque (`struct {}`) have no layout to get wrong.
     opaque = {}
     for shape in spec.shapes:

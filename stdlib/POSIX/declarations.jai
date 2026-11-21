@@ -628,7 +628,7 @@ librt :: #library,system "librt"; @native(external)
         __kind: s32;
         __nusers: u32;
         using __anonymous6: struct {
-            __elision_data: struct {
+            using __elision_data: struct {
                 __espins: s16;
                 __eelision: s16;
             };
@@ -7806,7 +7806,7 @@ librt :: #library,system "librt"; @native(external)
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     sigaction_t :: struct {
-        __sigaction_handler: struct {
+        using __sigaction_handler: struct {
             sa_handler: #type (unknown0: s32) -> void #c_call;
             #overlay (sa_handler) sa_sigaction: #type (unknown0: s32, unknown1: *siginfo_t, unknown2: *void) -> void #c_call;
         };

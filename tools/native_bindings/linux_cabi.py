@@ -25,10 +25,13 @@ class Unsupported(Exception):
 class Context:
     """Types of one translation unit: what to name, what to expand, how wide `long` is."""
 
-    def __init__(self, ast, long_bytes, keep, renames=None):
+    def __init__(self, ast, long_bytes, keep, renames=None, reached=None):
         self.long_bytes = long_bytes
         # `#define st_mtime st_mtim.tv_sec`: the spec names the member by the macro.
         self.renames = renames or {}
+        # `#define sa_handler __sigaction_handler.sa_handler`: the members of these fields are
+        # used as if the record held them directly, so the field is a `using` one.
+        self.reached = reached or set()
         self.keep = keep  # typedef names the public spec declares; they stay names
         self.typedefs, self.records, self.enums, self.functions = {}, {}, {}, {}
         self.constants = {}
@@ -256,7 +259,13 @@ def record_body(ctx, node, indent):
                 text = record_body(ctx, pending.pop(0), indent + '    ')
                 member = child.get('name') and ctx.renames.get(child['name'], child['name'])
                 if member is None:
-                    lines.append(indent + '    using ' + '__anonymous%d: ' % len(lines) + text + ';')
+                    member = '__anonymous%d' % len(lines)
+                    lines.append(indent + '    using ' + member + ': ' + text + ';')
+                    continue
+                if member in ctx.reached:
+                    prefix = '#overlay (%s) ' % first if union and first is not None else ''
+                    lines.append('%s    %susing %s: %s;' % (indent, prefix, member, text))
+                    first = member if first is None else first
                     continue
             else:
                 text = render(ctx, spelling, ty.get('desugaredQualType'))

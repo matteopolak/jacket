@@ -66,6 +66,13 @@ class RecordTests(unittest.TestCase):
                            4, {'timespec'}, {'st_mtim': 'st_mtime'})
         self.assertIn('st_mtime: timespec;', cabi.shape(ctx, 'stat'))
 
+    def test_a_field_the_headers_reach_through_a_macro_is_a_using_field(self):
+        inner = self.record(None, [field('sa_handler', 'int'), field('sa_sigaction', 'long')], 'union')
+        outer = self.record('sigaction', [
+            inner, field('__sigaction_handler', 'union (unnamed union at x.h:1:2)'), field('sa_flags', 'int')])
+        ctx = cabi.Context({'inner': [outer]}, 4, set(), {}, {'__sigaction_handler'})
+        self.assertIn('using __sigaction_handler: struct {', cabi.shape(ctx, 'sigaction'))
+
     def test_a_named_bit_field_is_never_flattened(self):
         named = {'kind': 'FieldDecl', 'isBitfield': True, 'name': 'flag', 'type': {'qualType': 'int'},
                  'inner': [{'kind': 'ConstantExpr', 'value': '1'}]}
