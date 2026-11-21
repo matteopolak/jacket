@@ -166,7 +166,7 @@ def render(ctx, text, desugared=None):
             return '*void'
         bare = TAGS.sub('', pointee).strip()
         if bare not in ctx.keep and bare not in ctx.enums and bare not in ctx.typedefs \
-                and any(bare == n for (_, n) in ctx.records):
+                and bare not in SCALARS and bare not in ('long', 'unsigned long'):
             return '*void'
         return '*' + render(ctx, pointee, inner)
     if text == '...':

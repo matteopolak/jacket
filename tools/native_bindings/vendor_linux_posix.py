@@ -147,6 +147,10 @@ def build(arch):
     ast, layout_dump, macros = dump(arch)
     keep = set(names)
     ctx = cabi.Context(ast, long_bytes, keep)
+    # Records the spec leaves opaque (`struct {}`) have no layout to get wrong.
+    opaque = {}
+    for shape in spec.shapes:
+        opaque[shape.name] = opaque.get(shape.name, True) and bool(re.fullmatch(r'\w+\s*::\s*struct\s*\{\s*\}', shape.code.strip()))
     sizes = cabi.layouts(layout_dump)
     result = {'arch': arch, 'architecture': architecture, 'triple': ARCHES[arch][0],
               'typedefs': {}, 'shapes': {}, 'functions': {}, 'constants': {},
@@ -168,7 +172,8 @@ def build(arch):
             elif re.search(r'::\s*(struct|union)\b', code):
                 declared = cabi.shape(ctx, C_NAMES.get(name, name))
                 if declared is None:
-                    result['uncovered'].append(name)
+                    if not opaque.get(name):
+                        result['uncovered'].append(name)
                     continue
                 result['shapes'][name] = declared
                 key = ctx.record_key(C_NAMES.get(name, name))

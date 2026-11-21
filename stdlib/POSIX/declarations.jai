@@ -300,7 +300,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .X86 {
+#if OS == .LINUX {
     __dirstream :: struct {}
 
 }
@@ -413,6 +413,17 @@ librt :: #library,system "librt"; @native(external)
         __ctype_tolower: *s32;
         __ctype_toupper: *s32;
 
+        __names: [13] *u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __locale_struct :: struct {
+        __locales: [13] *void;
+        __ctype_b: *u16;
+        __ctype_tolower: *s32;
+        __ctype_toupper: *s32;
         __names: [13] *u8;
     }
 
@@ -1094,6 +1105,41 @@ librt :: #library,system "librt"; @native(external)
 
 #if (OS == .LINUX) && ARCHITECTURE != .X86 {
     _IO_FILE :: struct {}
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    _IO_FILE :: struct {
+        _flags: s32;
+        _IO_read_ptr: *u8;
+        _IO_read_end: *u8;
+        _IO_read_base: *u8;
+        _IO_write_base: *u8;
+        _IO_write_ptr: *u8;
+        _IO_write_end: *u8;
+        _IO_buf_base: *u8;
+        _IO_buf_end: *u8;
+        _IO_save_base: *u8;
+        _IO_backup_base: *u8;
+        _IO_save_end: *u8;
+        _markers: *void;
+        _chain: *_IO_FILE;
+        _fileno: s32;
+        _flags2: s32;
+        _old_offset: s32;
+        _cur_column: u16;
+        _vtable_offset: s8;
+        _shortbuf: [1] u8;
+        _lock: *void;
+        _offset: s64;
+        _codecvt: *void;
+        _wide_data: *void;
+        _freeres_list: *_IO_FILE;
+        _freeres_buf: *void;
+        __pad5: size_t;
+        _mode: s32;
+        _unused2: [40] u8;
+    }
 
 }
 
@@ -5182,7 +5228,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .X86 {
+#if OS == .LINUX {
     obstack :: struct {}
 
 }
@@ -38012,8 +38058,12 @@ off_t :: s64;
 
 // Native entry points
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .X86 {
     __asprintf :: (__ptr: **u8, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __asprintf :: (__ptr: *void, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
 }
 
 #if (OS == .LINUX) && ARCHITECTURE != .X86 {
@@ -38061,7 +38111,7 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    __getdelim :: (__lineptr: **u8, __n: *size_t, __delimiter: s32, __stream: *FILE) -> s32 #foreign libc;
+    __getdelim :: (__lineptr: *void, __n: *size_t, __delimiter: s32, __stream: *FILE) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -38525,11 +38575,15 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    aio_suspend :: (__list: **aiocb, __nent: s32, __timeout: *timespec) -> s32 #foreign librt "__aio_suspend_time64";
+    aio_suspend :: (__list: *void, __nent: s32, __timeout: *timespec) -> s32 #foreign librt "__aio_suspend_time64";
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .X86 {
     aio_suspend64 :: (__list: **aiocb64, __nent: s32, __timeout: *timespec) -> s32 #foreign librt;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    aio_suspend64 :: (__list: *void, __nent: s32, __timeout: *timespec) -> s32 #foreign librt;
 }
 
 #if (OS == .LINUX) && ARCHITECTURE != .X86 {
@@ -38593,10 +38647,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    alphasort :: (__e1: **dirent, __e2: **dirent) -> s32 #foreign libc "alphasort64";
+    alphasort :: (__e1: *void, __e2: *void) -> s32 #foreign libc "alphasort64";
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .X86 {
     alphasort64 :: (__e1: **dirent64, __e2: **dirent64) -> s32 #foreign libc;
 }
 
@@ -38606,6 +38660,10 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     alphasort64 :: (__lhs: **dirent64, __rhs: **dirent64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    alphasort64 :: (__e1: *void, __e2: *void) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -38648,7 +38706,7 @@ off_t :: s64;
     asctime_r :: (__tm: *tm, __buf: *u8) -> *u8 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .X86 {
     asprintf :: (__ptr: **u8, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
 }
 
@@ -38666,6 +38724,10 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     asprintf :: (__s_ptr: **u8, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    asprintf :: (__ptr: *void, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -39316,8 +39378,12 @@ off_t :: s64;
     dladdr :: (__addr: *void, __info: *Dl_info) -> s32 #foreign libdl;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .X86 {
     dladdr1 :: (__address: *void, __info: *Dl_info, __extra_info: **void, __flags: s32) -> s32 #foreign libdl;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    dladdr1 :: (__address: *void, __info: *Dl_info, __extra_info: *void, __flags: s32) -> s32 #foreign libdl;
 }
 
 #if OS == .LINUX {
@@ -39656,7 +39722,7 @@ off_t :: s64;
     execlp :: (__file: *u8, __arg0: *u8, __args: ..Any) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .X86 {
     execv :: (__path: *u8, __argv: **u8) -> s32 #foreign libc;
 }
 
@@ -39676,7 +39742,11 @@ off_t :: s64;
     execv :: (__path: *u8, __argv: **u8) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    execv :: (__path: *u8, __argv: *void) -> s32 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .X86 {
     execve :: (__path: *u8, __argv: **u8, __envp: **u8) -> s32 #foreign libc;
 }
 
@@ -39696,7 +39766,11 @@ off_t :: s64;
     execve :: (__file: *u8, __argv: **u8, __envp: **u8) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    execve :: (__path: *u8, __argv: *void, __envp: *void) -> s32 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .X86 {
     execvp :: (__file: *u8, __argv: **u8) -> s32 #foreign libc;
 }
 
@@ -39724,7 +39798,11 @@ off_t :: s64;
     execvp :: (__file: *u8, __argv: **u8) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    execvp :: (__file: *u8, __argv: *void) -> s32 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .X86 {
     execvpe :: (__file: *u8, __argv: **u8, __envp: **u8) -> s32 #foreign libc;
 }
 
@@ -39734,6 +39812,10 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     execvpe :: (__file: *u8, __argv: **u8, __envp: **u8) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    execvpe :: (__file: *u8, __argv: *void, __envp: *void) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -40072,7 +40154,7 @@ off_t :: s64;
     ferror_unlocked :: (__fp: *FILE) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .X86 {
     fexecve :: (__fd: s32, __argv: **u8, __envp: **u8) -> s32 #foreign libc;
 }
 
@@ -40082,6 +40164,10 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     fexecve :: (__fd: s32, __argv: **u8, __envp: **u8) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    fexecve :: (__fd: s32, __argv: *void, __envp: *void) -> s32 #foreign libc;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -40233,7 +40319,7 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    fgetpwent_r :: (__stream: *FILE, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: **passwd) -> s32 #foreign libc;
+    fgetpwent_r :: (__stream: *FILE, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -41373,7 +41459,7 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    getdelim :: (__lineptr: **u8, __n: *size_t, __delimiter: s32, __stream: *FILE) -> s32 #foreign libc;
+    getdelim :: (__lineptr: *void, __n: *size_t, __delimiter: s32, __stream: *FILE) -> s32 #foreign libc;
 }
 
 #if (OS == .LINUX) && ARCHITECTURE != .X86 {
@@ -41645,7 +41731,7 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    getline :: (__lineptr: **u8, __n: *size_t, __stream: *FILE) -> s32 #foreign libc;
+    getline :: (__lineptr: *void, __n: *size_t, __stream: *FILE) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -41881,7 +41967,7 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    getpwent_r :: (__resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: **passwd) -> s32 #foreign libc;
+    getpwent_r :: (__resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -41925,7 +42011,7 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    getpwnam_r :: (__name: *u8, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: **passwd) -> s32 #foreign libc;
+    getpwnam_r :: (__name: *u8, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -41969,7 +42055,7 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    getpwuid_r :: (__uid: u32, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: **passwd) -> s32 #foreign libc;
+    getpwuid_r :: (__uid: u32, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -42473,11 +42559,15 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    lio_listio :: (__mode: s32, __list: **aiocb, __nent: s32, __sig: *sigevent) -> s32 #foreign librt "lio_listio64";
+    lio_listio :: (__mode: s32, __list: *void, __nent: s32, __sig: *sigevent) -> s32 #foreign librt "lio_listio64";
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .X86 {
     lio_listio64 :: (__mode: s32, __list: **aiocb64, __nent: s32, __sig: *sigevent) -> s32 #foreign librt;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    lio_listio64 :: (__mode: s32, __list: *void, __nent: s32, __sig: *sigevent) -> s32 #foreign librt;
 }
 
 #if (OS == .LINUX) && ARCHITECTURE != .X86 {
@@ -43413,7 +43503,7 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    open_memstream :: (__bufloc: **u8, __sizeloc: *size_t) -> *FILE #foreign libc;
+    open_memstream :: (__bufloc: *void, __sizeloc: *size_t) -> *FILE #foreign libc;
 }
 
 #if (OS == .LINUX) && ARCHITECTURE != .X86 {
@@ -44113,10 +44203,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    pthread_attr_getstack :: (__attr: *pthread_attr_t, __stackaddr: **void, __stacksize: *size_t) -> s32 #foreign libpthread;
+    pthread_attr_getstack :: (__attr: *pthread_attr_t, __stackaddr: *void, __stacksize: *size_t) -> s32 #foreign libpthread;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .X86 {
     pthread_attr_getstackaddr :: (__attr: *pthread_attr_t, __stackaddr: **void) -> s32 #foreign libpthread;
 }
 
@@ -44126,6 +44216,10 @@ off_t :: s64;
 
 #if OS == .MACOS && CPU == .X64 {
     pthread_attr_getstackaddr :: (unknown0: *pthread_attr_t, unknown1: **void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_attr_getstackaddr :: (__attr: *pthread_attr_t, __stackaddr: *void) -> s32 #foreign libpthread;
 }
 
 #if (OS == .LINUX) && ARCHITECTURE != .X86 {
@@ -44473,7 +44567,7 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    pthread_clockjoin_np :: (__th: pthread_t, __thread_return: **void, __clockid: clockid_t, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_clockjoin_np64";
+    pthread_clockjoin_np :: (__th: pthread_t, __thread_return: *void, __clockid: clockid_t, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_clockjoin_np64";
 }
 
 #if OS == .LINUX {
@@ -45012,7 +45106,7 @@ off_t :: s64;
     pthread_jit_write_protect_supported_np :: () -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .X86 {
     pthread_join :: (__th: pthread_t, __thread_return: **void) -> s32 #foreign libpthread;
 }
 
@@ -45030,6 +45124,10 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     pthread_join :: (__pthread: pthread_t, __return_value_ptr: **void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_join :: (__th: pthread_t, __thread_return: *void) -> s32 #foreign libpthread;
 }
 
 #if OS == .LINUX {
@@ -46073,11 +46171,15 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    pthread_timedjoin_np :: (__th: pthread_t, __thread_return: **void, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_timedjoin_np64";
+    pthread_timedjoin_np :: (__th: pthread_t, __thread_return: *void, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_timedjoin_np64";
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .X86 {
     pthread_tryjoin_np :: (__th: pthread_t, __thread_return: **void) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_tryjoin_np :: (__th: pthread_t, __thread_return: *void) -> s32 #foreign libpthread;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -46404,7 +46506,7 @@ off_t :: s64;
     readdir64 :: (__dir: *DIR) -> *dirent64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .X86 {
     readdir64_r :: (__dirp: *DIR, __entry: *dirent64, __result: **dirent64) -> s32 #foreign libc;
 }
 
@@ -46414,6 +46516,10 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     readdir64_r :: (__dir: *DIR, __entry: *dirent64, __buffer: **dirent64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    readdir64_r :: (__dirp: *DIR, __entry: *dirent64, __result: *void) -> s32 #foreign libc;
 }
 
 #if (OS == .LINUX) && ARCHITECTURE != .X86 {
@@ -46437,7 +46543,7 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    readdir_r :: (__dirp: *DIR, __entry: *dirent, __result: **dirent) -> s32 #foreign libc "readdir64_r";
+    readdir_r :: (__dirp: *DIR, __entry: *dirent, __result: *void) -> s32 #foreign libc "readdir64_r";
 }
 
 #if (OS == .LINUX) && ARCHITECTURE != .X86 {
@@ -46717,10 +46823,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    scandir :: (__dir: *u8, __namelist: ***dirent, __selector: #type (unknown0: *dirent) -> s32 #c_call, __cmp: #type (unknown0: **dirent, unknown1: **dirent) -> s32 #c_call) -> s32 #foreign libc "scandir64";
+    scandir :: (__dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc "scandir64";
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .X86 {
     scandir64 :: (__dir: *u8, __namelist: ***dirent64, __selector: #type (unknown0: *dirent64) -> s32 #c_call, __cmp: #type (unknown0: **dirent64, unknown1: **dirent64) -> s32 #c_call) -> s32 #foreign libc;
 }
 
@@ -46730,6 +46836,10 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     scandir64 :: (__path: *u8, __name_list: ***dirent64, __filter: #type (unknown0: *dirent64) -> s32 #c_call, __comparator: #type (unknown0: **dirent64, unknown1: **dirent64) -> s32 #c_call) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    scandir64 :: (__dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent64) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc;
 }
 
 #if (OS == .LINUX) && ARCHITECTURE != .X86 {
@@ -46745,10 +46855,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    scandirat :: (__dfd: s32, __dir: *u8, __namelist: ***dirent, __selector: #type (unknown0: *dirent) -> s32 #c_call, __cmp: #type (unknown0: **dirent, unknown1: **dirent) -> s32 #c_call) -> s32 #foreign libc "scandirat64";
+    scandirat :: (__dfd: s32, __dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc "scandirat64";
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .X86 {
     scandirat64 :: (__dfd: s32, __dir: *u8, __namelist: ***dirent64, __selector: #type (unknown0: *dirent64) -> s32 #c_call, __cmp: #type (unknown0: **dirent64, unknown1: **dirent64) -> s32 #c_call) -> s32 #foreign libc;
 }
 
@@ -46758,6 +46868,10 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     scandirat64 :: (__dir_fd: s32, __path: *u8, __name_list: ***dirent64, __filter: #type (unknown0: *dirent64) -> s32 #c_call, __comparator: #type (unknown0: **dirent64, unknown1: **dirent64) -> s32 #c_call) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    scandirat64 :: (__dfd: s32, __dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent64) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -49731,11 +49845,15 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    versionsort :: (__e1: **dirent, __e2: **dirent) -> s32 #foreign libc "versionsort64";
+    versionsort :: (__e1: *void, __e2: *void) -> s32 #foreign libc "versionsort64";
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .X86 {
     versionsort64 :: (__e1: **dirent64, __e2: **dirent64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    versionsort64 :: (__e1: *void, __e2: *void) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
