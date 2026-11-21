@@ -18,7 +18,7 @@ Only `aarch64-none-elf` builds today. 32-bit and 16-bit microcontrollers wait on
 
 ## How to run one
 
-`tests/freestanding` in `crates/jaic-cli` is a complete example: `start.S` sets the stack and calls Jai, the program exits through the semihosting `SYS_EXIT_EXTENDED` call, and QEMU turns that into its own exit code.
+The `Qemu_Virt_Aarch64` board in [Extensions/Embedded](../extensions/embedded.md) needs no startup file or linker script of its own. `tests/freestanding` in `crates/jaic-cli` also has a hand-written one: `start.S` sets the stack and calls Jai, the program exits through the semihosting `SYS_EXIT_EXTENDED` call, and QEMU turns that into its own exit code.
 
 ```sh
 jaic build.jai    # writes prog.elf

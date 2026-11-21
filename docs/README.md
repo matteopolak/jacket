@@ -47,6 +47,7 @@ Guides: [testing](guides/testing.md), [benchmarking](guides/benchmarking.md), [d
 
 - [Time](extensions/time.md): Civil time, exact instants, TZif zones and spans
 - [Archive](extensions/archive.md): bounded ZIP/ZIP64, TAR and safe extraction
+- [Embedded](extensions/embedded.md): runtime, memory maps, notes, volatile access, flash images and boards for programs with no OS
 - [VT parser](extensions/vt.md): streaming terminal actions without a grid
 
 - [TOML](extensions/toml.md): general values, semantic writing and formatter configuration

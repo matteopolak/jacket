@@ -5,6 +5,7 @@
 ### New
 
 - Freestanding targets: `Operating_System_Tag.NONE` and `-target aarch64-none-elf` build programs with no OS, libc or system entry point, linked by `ld.lld` with a linker script. `Runtime_Support` has a NONE variant with console and panic hooks and no default heap ([embedded targets](docs/native/embedded.md)).
+- `Extensions/Embedded` for those programs: `init_runtime`, a heap allocator, `Memory_Map` and `link_for` (the linker script), `write_binary` (BIN, HEX and UF2), volatile access, CPU barriers, and a `Qemu_Virt_Aarch64` board. The compiler gains the `@Section(".name")`, `@Module_Asm` and `@Interrupt` notes and `volatile_load`/`volatile_store` ([Embedded](docs/extensions/embedded.md)).
 
 ## [0.36.1] - 2026-11-18
 
