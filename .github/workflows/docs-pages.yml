@@ -72,7 +72,6 @@ jobs:
       - name: Install the pinned Rust toolchain and wasm target
         run: python3 tools/ci/install_pinned.py rust --target wasm32-unknown-unknown
       - uses: ./.github/actions/rust-cache
-      - uses: ./.github/actions/dependency-age-cache
       - name: Validate dependency ages before building
         env:
           GITHUB_TOKEN: ${{ github.token }}

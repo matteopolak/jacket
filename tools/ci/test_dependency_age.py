@@ -1,7 +1,10 @@
 import importlib.util
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import tempfile
 import unittest
+
+from toolkit.age_policy import load_cache
 
 spec = importlib.util.spec_from_file_location(
     "age", Path(__file__).with_name("check_dependency_age.py")
@@ -101,31 +104,43 @@ class AgePolicyTests(unittest.TestCase):
         )
         self.assertIn("yanked", errors[0])
 
-    def test_cache_entries_are_trusted_only_while_fresh_and_well_formed(self):
-        now = datetime(2026, 10, 1, tzinfo=timezone.utc)
-        entry = {
-            "created_at": "2026-01-01T00:00:00+00:00",
-            "yanked": False,
-            "fetched": (now - timedelta(days=1)).isoformat(),
+    def test_index_paths_follow_the_sparse_layout(self):
+        self.assertEqual(age.index_path("a"), "1/a")
+        self.assertEqual(age.index_path("cc"), "2/cc")
+        self.assertEqual(age.index_path("Log"), "3/l/log")
+        self.assertEqual(age.index_path("anstream"), "an/st/anstream")
+
+    def test_index_versions_carry_publish_time_and_yank_state(self):
+        text = "\n".join(
+            [
+                '{"name":"x","vers":"1.0.0","pubtime":"2020-01-01T00:00:00Z","yanked":false}',
+                '{"name":"x","vers":"1.0.1","pubtime":"2020-02-01T00:00:00Z","yanked":true}',
+                '{"name":"x","vers":"0.9.0","yanked":false}',
+                "",
+            ]
+        )
+        found = age.versions(text)
+        self.assertEqual(found["1.0.0"], {"created_at": "2020-01-01T00:00:00Z", "yanked": False})
+        self.assertTrue(found["1.0.1"]["yanked"])
+        self.assertNotIn("0.9.0", found)
+
+    def test_versions_missing_from_the_index_fail_closed(self):
+        p = {
+            "name": "x",
+            "version": "1",
+            "source": "registry+https://github.com/rust-lang/crates.io-index",
         }
-        stale = entry | {"fetched": (now - timedelta(days=4)).isoformat()}
-        future = entry | {"fetched": (now + timedelta(days=1)).isoformat()}
-        self.assertTrue(age.fresh(entry, now))
-        self.assertFalse(age.fresh(stale, now))
-        self.assertFalse(age.fresh(future, now))
-        self.assertFalse(age.fresh(entry | {"yanked": "no"}, now))
-        self.assertFalse(age.fresh({}, now))
+        errors = age.check([p], lambda *_: None, datetime.now(timezone.utc))
+        self.assertIn("not in the crates.io index", errors[0])
 
     def test_unreadable_cache_is_empty(self):
-        import tempfile
-
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "c.json"
-            self.assertEqual(age.load_cache(path), {})
+            self.assertEqual(load_cache(path), {})
             path.write_text("not json")
-            self.assertEqual(age.load_cache(path), {})
+            self.assertEqual(load_cache(path), {})
             path.write_text("[1]")
-            self.assertEqual(age.load_cache(path), {})
+            self.assertEqual(load_cache(path), {})
 
 
 if __name__ == "__main__":

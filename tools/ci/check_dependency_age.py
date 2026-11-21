@@ -2,17 +2,15 @@
 """Fail closed for every registry dependency, including existing lock entries."""
 
 import argparse
-from datetime import datetime, timedelta, timezone
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 import json
-import os
 from pathlib import Path
 import re
-import time
 import tomllib
-import urllib.parse
 
 
-from toolkit.age_policy import MIN_AGE, load_cache, parse_time, recent, save_cache
+from toolkit.age_policy import MIN_AGE, parse_time
 from toolkit import github
 from toolkit.download import fetch
 
@@ -22,17 +20,32 @@ REGISTRY = "registry+https://github.com/rust-lang/crates.io-index"
 PINNED_GITHUB = re.compile(
     r"git\+https://github\.com/([\w.-]+)/([\w.-]+?)(?:\.git)?\?rev=([0-9a-f]{40})#([0-9a-f]{40})"
 )
-# A publish date never changes, but a release can be yanked later: a cached answer is trusted for
-# this long and looked up again after that.
-CACHE_TTL = timedelta(days=3)
+# The sparse index is served from a CDN without the API's one-request-a-second limit, and each
+# crate's file lists every version with its publish time and yank state.
+INDEX = "https://index.crates.io"
 
 
-def fresh(entry, now):
-    return (
-        isinstance(entry.get("created_at"), str)
-        and isinstance(entry.get("yanked"), bool)
-        and recent(entry.get("fetched"), now, CACHE_TTL)
-    )
+def index_path(name):
+    """The sparse-index path of crate `name`: `1/a`, `2/ab`, `3/a/abc`, or `ab/cd/abcd...`."""
+    name = name.lower()
+    if len(name) <= 2:
+        return f"{len(name)}/{name}"
+    if len(name) == 3:
+        return f"3/{name[0]}/{name}"
+    return f"{name[:2]}/{name[2:4]}/{name}"
+
+
+def versions(index_text):
+    """`{version: {"created_at", "yanked"}}` from a crate's sparse-index file; versions without a
+    publish time are left out, so they fail closed."""
+    found = {}
+    for line in index_text.splitlines():
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        if isinstance(row.get("pubtime"), str):
+            found[row["vers"]] = {"created_at": row["pubtime"], "yanked": bool(row.get("yanked"))}
+    return found
 
 
 def check(packages, get_version, now, get_commit=None):
@@ -57,6 +70,9 @@ def check(packages, get_version, now, get_commit=None):
                 )
             continue
         record = get_version(name, version)
+        if record is None:
+            errors.append(f"{name}@{version}: not in the crates.io index with a publish time")
+            continue
         published = parse_time(record["created_at"], "registry")
         if record.get("yanked", False):
             errors.append(f"{name}@{version}: yanked")
@@ -70,44 +86,18 @@ def check(packages, get_version, now, get_commit=None):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--lockfile", type=Path, default=Path("Cargo.lock"))
-    parser.add_argument(
-        "--cache",
-        type=Path,
-        default=os.environ.get("DEPENDENCY_AGE_CACHE") or None,
-        help="JSON file of registry answers kept between runs (default: $DEPENDENCY_AGE_CACHE); "
-        "only the lookups it lacks are made",
-    )
     args = parser.parse_args()
-    cache = load_cache(args.cache) if args.cache else {}
-    cached_before = dict(cache)
     packages = tomllib.loads(args.lockfile.read_text())["package"]
 
-    def get_version(name, version):
-        entry = cache.get(f"{name}@{version}")
-        if entry and fresh(entry, datetime.now(timezone.utc)):
-            return entry
-        url = (
-            "https://crates.io/api/v1/crates/"
-            + urllib.parse.quote(name, safe="")
-            + "/"
-            + urllib.parse.quote(version, safe="")
+    names = sorted({p["name"] for p in packages if p.get("source") == REGISTRY})
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        files = dict(
+            zip(names, pool.map(lambda n: fetch(f"{INDEX}/{index_path(n)}", timeout=30).decode(), names))
         )
-        record = json.loads(
-            fetch(
-                url,
-                timeout=30,
-                headers={
-                    "User-Agent": "jai-rs-dependency-policy/0.1 (local dependency age check)"
-                },
-            )
-        )["version"]
-        time.sleep(1)  # Respect registry API rate limits.
-        cache[f"{name}@{version}"] = {
-            "created_at": record["created_at"],
-            "yanked": bool(record.get("yanked", False)),
-            "fetched": datetime.now(timezone.utc).isoformat(),
-        }
-        return record
+    index = {name: versions(text) for name, text in files.items()}
+
+    def get_version(name, version):
+        return index[name].get(version)
 
     commits = {}
 
@@ -121,8 +111,6 @@ def main():
         return commits[owner, repo, sha]
 
     errors = check(packages, get_version, datetime.now(timezone.utc), get_commit)
-    if args.cache and cache != cached_before:
-        save_cache(args.cache, cache)
     if errors:
         raise SystemExit("\n".join(errors))
     print(

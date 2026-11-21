@@ -1,4 +1,4 @@
-"""The 14-day minimum age for third-party code, and the JSON answer cache its checks share.
+"""The 14-day minimum age for third-party code, and the JSON answer cache `check_action_pins.py` keeps.
 
 Used by `tools/ci/check_dependency_age.py` (cargo) and `tools/ci/check_action_pins.py` (GitHub Actions).
 """

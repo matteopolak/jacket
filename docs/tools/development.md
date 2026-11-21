@@ -84,7 +84,7 @@ Build products, downloads and scratch output go under `target/`. `playground/` i
 
 Cargo only selects crate versions published at least 14 days ago, direct and transitive. A git dependency must pin a full commit hash that is at least 14 days old. The same rule applies to npm packages in `editors/vscode` (pnpm's `minimumReleaseAge`).
 
-`.cargo/config.toml` enables `min-publish-age`, but cargo accepts young entries already in a lockfile, so `PYTHONPATH=tools python3 tools/ci/check_dependency_age.py [--lockfile PATH]` checks every locked crate against crates.io and fails on unknown sources, yanked releases and young versions. It runs before any build in the workflows. `--cache FILE` keeps answers between runs.
+`.cargo/config.toml` enables `min-publish-age`, but cargo accepts young entries already in a lockfile, so `PYTHONPATH=tools python3 tools/ci/check_dependency_age.py [--lockfile PATH]` checks every locked crate against the crates.io sparse index (`index.crates.io`, which lists each version's publish time and yank state) and fails on unknown sources, yanked releases, young versions and versions the index doesn't list. It runs before any build in the workflows. It reads the index rather than the crates.io API because the API allows one request a second, which parallel CI jobs exceeded.
 
 `inkwell` comes from a pinned git commit until a crates.io release supports the LLVM version we build against; then switch back to `version = "..."` and drop `allowBuiltinFetchGit` in `nix/jaic.nix`. Put shared dependencies in `[workspace.dependencies]`, prefer exact versions, and never weaken the age policy to resolve a conflict.
 

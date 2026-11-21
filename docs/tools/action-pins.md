@@ -47,4 +47,4 @@ This rewrites the SHA and comment of each outdated pin, in every file where the 
 - Answers are cached for six hours in `target/action-pins-cache.json`.
 - Only each repository's newest 100 releases are read.
 
-The 14-day constant and the cache helpers are shared with `check_dependency_age.py` in `tools/toolkit/age_policy.py`. Tests: `tools/ci/test_check_action_pins.py` (recorded answers, no network).
+The 14-day constant is shared with `check_dependency_age.py` in `tools/toolkit/age_policy.py`, which also holds the answer cache. Tests: `tools/ci/test_check_action_pins.py` (recorded answers, no network).
