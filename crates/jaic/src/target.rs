@@ -277,8 +277,7 @@ impl Target {
             (TargetCpu::Arm64, _) => Some(Arch::Aarch64),
             (TargetCpu::X64, TargetOs::Windows) => Some(Arch::Win64),
             (TargetCpu::X64, _) => Some(Arch::X86_64),
-            (TargetCpu::Wasm, _) if !self.memory32 => Some(Arch::Wasm64),
-            (TargetCpu::Wasm, _) => None,
+            (TargetCpu::Wasm, _) => Some(Arch::Wasm),
         }
     }
 }
@@ -620,8 +619,8 @@ mod tests {
             ("aarch64-pc-windows-gnu", Some(Arch::Win64Arm)),
             ("aarch64-unknown-linux-gnu", Some(Arch::Aarch64)),
             ("x86_64-unknown-linux-gnu", Some(Arch::X86_64)),
-            ("wasm64-unknown-unknown", Some(Arch::Wasm64)),
-            ("wasm32-unknown-unknown", None),
+            ("wasm64-unknown-unknown", Some(Arch::Wasm)),
+            ("wasm32-unknown-unknown", Some(Arch::Wasm)),
         ] {
             assert_eq!(Target::parse(triple).unwrap().arch(), arch, "{triple}");
         }

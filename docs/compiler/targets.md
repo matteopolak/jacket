@@ -3,7 +3,7 @@
 `jaic::target::Target` (`crates/jaic/src/target.rs`) is the one value for what a program is built for: `os`, `cpu`, `abi` (`Msvc`, `Gnu`, `Musl`, `Apple`, `Wasi`, `Unknown`), plus `memory32` for `wasm32`. `Display` writes the LLVM triple.
 
 ```text
-x86_64-pc-windows-msvc   aarch64-unknown-linux-gnu   wasm64-unknown-wasi
+x86_64-pc-windows-msvc   aarch64-unknown-linux-gnu   wasm64-unknown-wasi   wasm32-wasi
 ```
 
 Other spellings (`aarch64-w64-mingw32`, `arm64-apple-macosx11.0`) parse to the same value and print canonically.
@@ -19,7 +19,9 @@ Other spellings (`aarch64-w64-mingw32`, `arm64-apple-macosx11.0`) parse to the s
 
 `Target::data_layout()` is the only place a `DataLayout` is chosen (`crates/jaic/src/layout.rs`): pointer size and alignment, byte order, the alignment of each scalar, the size of an x87 `long double`, and the C type widths. It is stored in `sema::Options::layout` and copied into `Types`, `Interp` and the LLVM backend. `Ty::size` and `Ty::align` take it, so a pointer is the target's, never 8 bytes.
 
-`crates/jaic-llvm` has a test that builds an LLVM target machine for each supported triple and checks that `DataLayout` agrees with LLVM on `i8` to `i64`, `f32`, `f64`, `ptr` and byte order. Every supported target is still 64-bit little-endian; the 4-byte and big-endian layouts arrive with their targets ([plan](../native/n-bit-and-embedded.md)).
+`crates/jaic-llvm` has a test that builds an LLVM target machine for each supported triple and checks that `DataLayout` agrees with LLVM on `i8` to `i64`, `f32`, `f64`, `ptr` and byte order. `wasm32` pointers are 4 bytes (`Target::memory32`): `string` and `[]` are 12 bytes padded to 16 because `s64` counts stay 8-aligned, `Any` and `Allocator` are 8. Other layouts arrive with their targets ([plan](../native/n-bit-and-embedded.md)). Programs for a narrow target run at compile time in the interpreter's [address window](interpreter.md).
+
+Some sema IR is built from layout offsets, not constants: `box_any`, `Type_Info` arrays (`info_view`), relocations (`segments`), the stack-trace node (`trace_layout`) and the atomics. A hard-coded `8` or `16` there is a bug on a narrow target.
 
 ## How to change it
 

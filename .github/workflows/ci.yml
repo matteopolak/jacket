@@ -503,6 +503,14 @@ jobs:
           target/debug/jaic jaifmt/wasm.jai -os wasm -O2 -no_debug_info -exe target/jaifmt.wasm
           ls -l target/jaifmt.wasm
           node --no-warnings tools/browser/check_jaifmt_wasm.ts wasi target/jaifmt.wasm target/jaifmt
+      - name: WebAssembly 32-bit stdlib
+        id: wasm32-stdlib
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',diff,') && runner.os == 'Linux' && matrix.architecture == 'x86_64' }}
+        # Every stdlib test built for wasm32-wasi (4-byte pointers) and run under node.
+        run: |
+          cargo build --locked -p jaic-cli -p jacket
+          cd stdlib
+          ../target/debug/jacket test --runner "node --no-warnings $PWD/../tools/wasi_run.ts" -- -target wasm32-wasi
   vscode-extension:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.jobs), 'vscode-extension')

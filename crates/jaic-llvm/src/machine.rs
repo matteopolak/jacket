@@ -229,7 +229,7 @@ mod tests {
     fn an_unoptimized_wasm_module_gets_register_coloring_unless_the_program_chose_a_level() {
         let options = Options::default();
         assert_eq!(
-            wasm_machine_level(Arch::Wasm64, &options, OptLevel::O0),
+            wasm_machine_level(Arch::Wasm, &options, OptLevel::O0),
             OptLevel::O1
         );
         assert_eq!(
@@ -237,7 +237,7 @@ mod tests {
             OptLevel::O0
         );
         assert_eq!(
-            wasm_machine_level(Arch::Wasm64, &options, OptLevel::O2),
+            wasm_machine_level(Arch::Wasm, &options, OptLevel::O2),
             OptLevel::O2
         );
         let chosen = Options {
@@ -248,7 +248,7 @@ mod tests {
             ..Options::default()
         };
         assert_eq!(
-            wasm_machine_level(Arch::Wasm64, &chosen, OptLevel::O0),
+            wasm_machine_level(Arch::Wasm, &chosen, OptLevel::O0),
             OptLevel::O0
         );
     }

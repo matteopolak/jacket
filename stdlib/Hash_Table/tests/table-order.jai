@@ -6,10 +6,13 @@ table_members_keep_their_order_and_layout :: () {
     info := cast(*Type_Info_Struct) type_info(T);
 
     check_order(info, names);
-    expect(info.runtime_size == 56 && info.alignment == 8);
+    // The allocator holds two pointers and the entries view one, after three counts.
+    entries_at := (24 + size_of(Allocator) + 7) & ~7;
+
+    expect(info.runtime_size == entries_at + size_of([] u8) && info.alignment == 8);
     expect(type_info(T) == type_info(Same.Table(string, int)));
     expect(info.name == "Table");
-    expected_offsets := s64.[0, 8, 16, 24, -1, 40, -1, -1, -1];
+    expected_offsets := s64.[0, 8, 16, 24, -1, entries_at, -1, -1, -1];
 
     for member, index: info.members {
         if index == 4 || index >= 6 {
@@ -28,7 +31,7 @@ table_members_keep_their_order_and_layout :: () {
     expect((cast(u64) *table.allocated) - base == 8);
     expect((cast(u64) *table.slots_filled) - base == 16);
     expect((cast(u64) *table.allocator) - base == 24);
-    expect((cast(u64) *table.entries) - base == 40);
+    expect((cast(u64) *table.entries) - base == cast(u64) entries_at);
     expect(table.SIZE_MIN == 32);
     expect(T.hash_function("key") == H.get_hash("key"));
     expect(T.compare_function("key", "key") && !T.compare_function("key", "different"));
@@ -45,7 +48,9 @@ table_members_keep_their_order_and_layout :: () {
     counted := cast(*Type_Info_Struct) type_info(Counted.Table(string, int));
 
     check_order(counted, string.["count", "allocated", "slots_filled", "allocator", "Entry", "entries", "add_collisions", "find_collisions", "hash_function", "compare_function", "SIZE_MIN"]);
-    expect(counted.runtime_size == 72 && counted.members[6].offset_in_bytes == 56 && counted.members[7].offset_in_bytes == 64);
+    after_entries := entries_at + size_of([] u8);
+
+    expect(counted.runtime_size == after_entries + 16 && counted.members[6].offset_in_bytes == after_entries && counted.members[7].offset_in_bytes == after_entries + 8);
 } @test
 
 #scope_file

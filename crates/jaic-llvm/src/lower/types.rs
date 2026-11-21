@@ -10,6 +10,14 @@ use jaic::abi::{self, Passing, PieceTy};
 use jaic::ir::{Conv, Sig, Ty, WideFloat};
 
 impl<'ctx> Backend<'ctx, '_> {
+    /// The integer as wide as a pointer.
+    pub(super) fn word_ty(&self) -> inkwell::types::IntType<'ctx> {
+        match self.layout.pointer_size {
+            4 => self.ctx.i32_type(),
+            _ => self.ctx.i64_type(),
+        }
+    }
+
     pub(super) fn ptr_ty(&self) -> PointerType<'ctx> {
         self.ctx.ptr_type(AddressSpace::default())
     }

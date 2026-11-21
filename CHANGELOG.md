@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### New
+
+- `jaic` builds for `wasm32-wasi` and `wasm32-unknown-unknown`: pointers, strings and views are 4 bytes wide in the program's memory, and `-interp` runs such programs in an address window. The stdlib test suite passes on `wasm32-wasi` under node. `-mwasm32` replaces the "wasm64 only" refusal.
+
 ### Changed
 
 - The compiler lays out data from a per-target `DataLayout` (pointer size, byte order, scalar alignment) instead of assuming 8-byte little-endian pointers. Output for every supported target is unchanged. Compiler APIs that took `Ty::size()` or `layout::POINTER_SIZE` now take the layout.

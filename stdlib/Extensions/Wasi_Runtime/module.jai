@@ -1,4 +1,4 @@
-// What a wasm64 program needs to run as a WASI command (node, wasmtime and the
+// What a wasm program needs to run as a WASI command (node, wasmtime and the
 // like). jaic adds it to `jaic -os wasm` programs and to workspaces whose LLVM triple
 // names WASI; a program that brings its own host bindings leaves it out.
 // @experimental
@@ -38,8 +38,32 @@ program_main :: (argc: s32, argv: **u8) -> s32 #foreign c_runtime "main";
 // End of the linker's data: the heap starts here.
 __heap_base: u8 #elsewhere c_runtime;
 
-memory_page_count :: (memory: s32) -> s64 #intrinsic "llvm.wasm.memory.size.i64";
-memory_add_pages :: (memory: s32, pages: s64) -> s64 #intrinsic "llvm.wasm.memory.grow.i64";
+// The memory instructions take and return the width of the memory's addresses, and want the
+// memory index as a constant, so the wrappers pass memory 0 themselves.
+#if size_of(*void) == 8 {
+    memory_size_raw :: (memory: s32) -> s64 #intrinsic "llvm.wasm.memory.size.i64";
+    memory_grow_raw :: (memory: s32, pages: s64) -> s64 #intrinsic "llvm.wasm.memory.grow.i64";
+
+    memory_page_count :: () -> s64 #no_context {
+        return memory_size_raw(0);
+    }
+
+    memory_add_pages :: (pages: s64) -> s64 #no_context {
+        return memory_grow_raw(0, pages);
+    }
+} else {
+    memory_size_raw :: (memory: s32) -> s32 #intrinsic "llvm.wasm.memory.size.i32";
+    memory_grow_raw :: (memory: s32, pages: s32) -> s32 #intrinsic "llvm.wasm.memory.grow.i32";
+
+    memory_page_count :: () -> s64 #no_context {
+        return cast(s64) memory_size_raw(0);
+    }
+
+    memory_add_pages :: (pages: s64) -> s64 #no_context {
+        return cast(s64) memory_grow_raw(0, cast(s32) pages);
+    }
+}
+
 trap :: () #intrinsic "llvm.trap";
 
 // WASI preview 1 is specified for 32-bit memories, so every address it takes or fills in is a
@@ -79,30 +103,30 @@ wasi_start :: () #c_call {
         text_bytes = 0;
     }
 
-    // WASI hands out 32-bit pointers; Jai's argv holds 64-bit ones, so read into a table of
-    // offsets and widen it in place from the end.
-    table := cast(*u64) heap_take(cast(u64) (count + 1) * 8);
+    // WASI hands out 32-bit offsets; read them into the table and widen each in place from the
+    // end (a no-op on a 32-bit memory).
+    table := cast(**u8) heap_take(cast(u64) (count + 1) * cast(u64) size_of(*u8));
     text := heap_take(cast(u64) text_bytes + 1);
 
     if !table || !text wasi_proc_exit(71);
 
     if count > 0 && wasi_args_get(offset32(table), offset32(text)) == 0 {
         offsets := cast(*u32) table;
-        for < i: 0..cast(s64) count - 1 table[i] = cast(u64) offsets[i];
+        for < i: 0..cast(s64) count - 1 table[i] = widen(offsets[i]);
     } else {
         count = 0;
     }
 
-    table[count] = 0;
+    table[count] = null;
 
     // A program that starts threads runs `main` as the first of them (threads.jai).
     if green.enabled {
         main_argument_count = cast(s32) count;
-        main_arguments = cast(**u8) table;
+        main_arguments = table;
         run_threads();
     }
 
-    wasi_proc_exit(program_main(cast(s32) count, cast(**u8) table));
+    wasi_proc_exit(program_main(cast(s32) count, table));
 }
 
 // Output, input and process
@@ -465,17 +489,17 @@ load_environment :: () #no_context {
     count, text_bytes: u32;
     if wasi_environ_sizes_get(offset32(*count), offset32(*text_bytes)) != 0 return;
 
-    table := cast(*u64) heap_take(cast(u64) (count + 1) * 8);
+    table := cast(**u8) heap_take(cast(u64) (count + 1) * cast(u64) size_of(*u8));
     text := heap_take(cast(u64) text_bytes + 1);
 
     if !table || !text return;
     if wasi_environ_get(offset32(table), offset32(text)) != 0 return;
 
     offsets := cast(*u32) table;
-    for < i: 0..cast(s64) count - 1 table[i] = cast(u64) offsets[i];
+    for < i: 0..cast(s64) count - 1 table[i] = widen(offsets[i]);
 
-    table[count] = 0;
-    environment = cast(**u8) table;
+    table[count] = null;
+    environment = table;
 }
 
 write_all :: (fd: s32, data: *void, count: s64) #no_context {
@@ -567,7 +591,7 @@ class_for :: (bytes: u64) -> s64 #no_context {
 heap_take :: (bytes: u64) -> *u8 #no_context {
     if heap_cursor == 0 {
         heap_cursor = (cast(u64) *__heap_base + 15) & ~cast(u64) 15;
-        heap_limit = cast(u64) memory_page_count(0) * PAGE_BYTES;
+        heap_limit = cast(u64) memory_page_count() * PAGE_BYTES;
     }
 
     size := (bytes + 15) & ~cast(u64) 15;
@@ -576,7 +600,7 @@ heap_take :: (bytes: u64) -> *u8 #no_context {
         pages := cast(s64) ((missing + PAGE_BYTES - 1) / PAGE_BYTES);
 
         if pages < GROWTH_PAGES pages = GROWTH_PAGES;
-        if memory_add_pages(0, pages) < 0 return null;
+        if memory_add_pages(pages) < 0 return null;
 
         heap_limit += cast(u64) pages * PAGE_BYTES;
     }

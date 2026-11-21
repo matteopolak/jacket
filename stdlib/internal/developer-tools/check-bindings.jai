@@ -91,8 +91,13 @@ Binding_Signature :: struct {
     error: *u8;
 }
 
-#assert size_of(Binding_Native_Type) == 48;
-#assert size_of(Binding_Signature) == 48;
+// These mirror the native parser's records, so they have the host's layout. With narrower
+// pointers (a wasm32 target) `verify_elsewhere_binding` has already returned: the target is not
+// one the parser supports.
+#if size_of(*void) == 8 {
+    #assert size_of(Binding_Native_Type) == 48;
+    #assert size_of(Binding_Signature) == 48;
+}
 
 binding_native :: #library "check-native/developer_tools_check"; @native(developer)
 binding_parse :: (name: *u8, count: s64, windows: s32, long_bytes: s32, char_signed: s32) -> *Binding_Signature #foreign binding_native "developer_check_parse";

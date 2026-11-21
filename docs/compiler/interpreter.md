@@ -10,7 +10,12 @@ Arguments between `-` and `--` go to a metaprogram. The program runs in the main
 
 ## Data layout
 
-`Interp::new(host, layout)` takes the program's `DataLayout`. Compiler reads and writes of program memory (`read_u64`, `read_ptr`, `read_view`, `put_ptr`) go through it. Interpreted loads and stores still use host memory directly, so only targets with the host's pointer width and byte order run; the address window and byte-swapping ops come with the wasm32 and big-endian milestones.
+`Interp::new(host, layout)` takes the program's `DataLayout`. Compiler reads and writes of program memory (`read_u64`, `read_ptr`, `read_view`, `put_ptr`) go through it. Targets with the host's pointer width and byte order use host addresses. A narrower target (wasm32) runs in an **address window** (`interp/window.rs`): one 3 GiB host region shared by the whole process, where a program address is the offset from the region's base, so a 4-byte pointer holds every address the program can name. The low 64 KiB is never mapped, so null and small integers trap. The next 256 MiB is a pool of 16 read-only slots (16 MiB each) for compile-time constants (`ReadOnlyData`); the rest is the heap, committed 1 MiB at a time with a free list.
+
+- `Interp::set_host` attaches the window to any host, so `SandboxHost` and a native host see the same addresses. `host_addr`/`program_addr` convert; loads and stores add the base.
+- Procedure values are `0xE000_0000 | id` (interpreted) and `0xF000_0000 | id` (foreign), outside the heap.
+- Data the compiler hands to compile-time code (syntax strings, `Compiler` records) must live in the window: use `keep_narrow`, `zeroed_block` and `Interp::keep`, not host allocations.
+- Byte-swapping ops come with the big-endian milestone.
 
 ## How it works
 

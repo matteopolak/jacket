@@ -286,13 +286,6 @@ pub(super) fn compiler_options(cli: &Cli, stdlib: &Path, main: &Path) -> Result<
         options.cast_bounds_check = 0;
     }
     match cli.build_target() {
-        // The interpreter models wasm32 (the browser engine's target); LLVM output cannot.
-        Ok(Some(target)) if target.is_wasm() && target.memory32 && cli.mode == Mode::Build => {
-            eprintln!(
-                "error: jaic builds wasm64 (Memory64) only; Jai needs 8-byte pointers (use -target wasm64-unknown-wasi)"
-            );
-            return Err(ExitCode::from(2));
-        }
         Ok(Some(target)) => target.apply(&mut options),
         // `-os`/`-cpu` for checking only.
         Ok(None) => jaic::target::select_os_cpu(&mut options, cli.os, cli.cpu),

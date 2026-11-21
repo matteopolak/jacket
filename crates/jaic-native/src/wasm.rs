@@ -1,6 +1,6 @@
 //! Linking WebAssembly modules with `wasm-ld` (see `docs/native/wasm-target.md`).
 //!
-//! jaic targets wasm64 (Memory64) only: Jai's pointers and `s64` counts are 8 bytes. A
+//! A module has 32-bit memory (`wasm32`) or Memory64 (`wasm64`), as the target says. A
 //! foreign procedure the program does not define becomes an import (`lower.rs` names its
 //! module), so the link needs no `--allow-undefined`; anything else left undefined, such as a
 //! compiler-rt helper, is a link error.
@@ -15,6 +15,8 @@ const STACK_SIZE: u64 = 8 << 20;
 /// How a wasm module is linked.
 pub struct WasmLink<'a> {
     pub objects: &'a [PathBuf],
+    /// Memory64 (`wasm64`) rather than 32-bit memory.
+    pub memory64: bool,
     pub libraries: &'a [Library],
     pub output: &'a Path,
     /// Whether the program defines `_start` (a WASI command, as `Wasi_Runtime` provides).
@@ -30,10 +32,14 @@ pub struct WasmLink<'a> {
 pub fn link_wasm(link: &WasmLink) -> Result<(), String> {
     let wasm_ld = find_wasm_ld()?;
     let mut cmd = Command::new(&wasm_ld);
-    cmd.arg("-mwasm64")
-        .args(link.objects)
-        .arg("-o")
-        .arg(link.output);
+    cmd.arg(if link.memory64 {
+        "-mwasm64"
+    } else {
+        "-mwasm32"
+    })
+    .args(link.objects)
+    .arg("-o")
+    .arg(link.output);
     if !link.has_start {
         cmd.arg("--no-entry");
     }

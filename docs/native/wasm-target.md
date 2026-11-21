@@ -1,6 +1,6 @@
-# WebAssembly target (wasm64)
+# WebAssembly target
 
-`jaic` compiles a program to a WebAssembly module: LLVM generates wasm64 (Memory64) code and `wasm-ld` links it. With `-os wasm` the module is a WASI preview 1 command that runs under node, wasmtime or a browser with a WASI shim. With a bare `wasm64-unknown-unknown` triple the host supplies imports and calls exports directly.
+`jaic` compiles a program to a WebAssembly module: LLVM generates wasm64 (Memory64) or wasm32 code and `wasm-ld` links it. With `-os wasm` the module is a WASI preview 1 command that runs under node, wasmtime or a browser with a WASI shim. With a bare `wasm64-unknown-unknown` triple the host supplies imports and calls exports directly.
 
 This is separate from the [browser compiler](../browser/playground.md), which is the compiler itself built to wasm32 and interprets programs whose target is `OS == .WASM`.
 
@@ -24,11 +24,11 @@ options.additional_linker_arguments = .["-z", "stack-size=1048576"];  // passed 
 
 ## How it works
 
-- **Target.** `-os wasm` is `wasm64-unknown-wasi`; `-target` is taken as given. wasm32 triples are refused: Jai assumes 8-byte pointers. `+bulk-memory` is always on. `link_wasm` (`crates/jaic-native/src/wasm.rs`) runs `wasm-ld -mwasm64` with `--stack-first`, an 8 MiB stack, `--no-entry` unless the program exports `_start`, and `--strip-debug` with `-no_debug_info`.
+- **Target.** `-os wasm` is `wasm64-unknown-wasi`; `-target` is taken as given, so `wasm32-wasi` and `wasm32-unknown-unknown` build programs with 4-byte pointers (`DataLayout`, [targets](../compiler/targets.md)). `+bulk-memory` is always on. `link_wasm` (`crates/jaic-native/src/wasm.rs`) runs `wasm-ld -mwasm64` (`-mwasm32` for a 32-bit triple) with `--stack-first`, an 8 MiB stack, `--no-entry` unless the program exports `_start`, and `--strip-debug` with `-no_debug_info`.
 - **Machine level.** At `-O0` LLVM gives every IR value a local, and a function that inlines a lot passes the engines' limit of 50000 locals. `wasm_machine_level` (`machine.rs`) runs the target machine one level up unless the program set `machine_code_optimization_setting`. If a function still passes the limit, make its inlined code smaller.
 - **Imports and exports** (`lower.rs`). A `#foreign` procedure or `#elsewhere` global becomes an import from the library's name, or `env` for none or `libc`/`c`/`m`/`msvcrt`; if the program `#program_export`s that symbol, the reference binds to it. `#program_export` procedures are exported, except Wasi_Runtime's: only `_start` is, so `wasm-ld` drops unused runtime and its WASI imports. `#intrinsic "llvm.<name>"` calls that LLVM intrinsic.
 - Every function has `no-builtins`, or LLVM turns the runtime's own loops into recursive calls to `strlen`/`memset`. A weak `__multi3` covers 64-bit division by constants.
-- **ABI** (`Arch::Wasm64`): a struct with a single `s64`, pointer or float field is passed directly; every other aggregate by pointer. A Clang-built C library taking a small-integer struct by value would disagree.
+- **ABI** (`Arch::Wasm`): a struct with a single `s64`, pointer or float field is passed directly; every other aggregate by pointer. A Clang-built C library taking a small-integer struct by value would disagree.
 
 ### Wasi_Runtime
 
@@ -52,7 +52,8 @@ Debug info keeps lines and scopes for rewritten procedures but drops their varia
 ## How to change it
 
 - New libc entry point used under `OS == .WASM`: add a `#program_export` with the C name to Wasi_Runtime and keep `SandboxHost` answering it. A symbol neither defines becomes an `env` import and the module fails to instantiate (`wasm link error`); so does a libcall Wasi_Runtime lacks (`sinh`, `cbrt`, ...). `fp128` arguments arrive as two `u64`s, low first, and results go through a pointer passed first.
-- New WASI call: declare it `#foreign wasi "<name>"` with `u32` offsets (preview 1 pointers are 32-bit, fine while stack and heap stay under 4 GiB).
+- New WASI call: declare it `#foreign wasi "<name>"` with `u32` offsets (preview 1 pointers are 32-bit, fine while stack and heap stay under 4 GiB). Tables of pointers (`argv`, `environ`) are filled as offsets and widened in place, which is a no-op on wasm32; size them with `size_of(*u8)`.
+- Code that must differ by width tests `size_of(*void) == 8`: `memory_size`/`memory_grow` take and return the memory's address width.
 - Linker flags: `link_wasm`, or `additional_linker_arguments` per program. `wasm-ld` discovery: `find_llvm_tool`. ABI: `classify_arg`/`wasm_single_scalar`.
 - New blocking call in Wasi_Runtime: block with `block_running(object, deadline)`, wake with `wake_one`/`wake_all`, and keep a path for `!green.enabled`. The scheduler and `_start` are not rewritten, so never block below an unrewritten frame.
 - `Green_Control`'s layout is shared between `green.rs` constants (`TOP`, `LIMIT`, `ENABLED`) and `threads.jai`. Stack sizes: `MAIN_FRAME_BYTES` (8 MiB), `THREAD_FRAME_BYTES`.

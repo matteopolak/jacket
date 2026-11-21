@@ -1,6 +1,6 @@
 # Plan: N-bit, big-endian and embedded targets
 
-Status: N0 landed (`DataLayout`); the rest is plan. Each milestone updates this page and the docs it names when it lands.
+Status: N0 landed (`DataLayout`); N1 (wasm32) passes the stdlib under node, wasmtime not yet run; the rest is plan. Each milestone updates this page and the docs it names when it lands.
 
 Jacket builds for 64-bit little-endian machines with an OS: x86-64 and arm64 on macOS, Linux and Windows, plus wasm64. This plan adds:
 

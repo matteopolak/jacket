@@ -208,7 +208,8 @@ impl<'ctx> Backend<'ctx, '_> {
             Ty::I8 => self.ctx.i8_type(),
             Ty::I16 => self.ctx.i16_type(),
             Ty::I32 | Ty::F32 => self.ctx.i32_type(),
-            Ty::I64 | Ty::F64 | Ty::Ptr => self.ctx.i64_type(),
+            Ty::I64 | Ty::F64 => self.ctx.i64_type(),
+            Ty::Ptr => self.word_ty(),
             _ => return Err("an atomic operation takes 1, 2, 4 or 8 bytes".into()),
         })
     }
@@ -224,6 +225,10 @@ impl<'ctx> Backend<'ctx, '_> {
                     _ => return Err("an atomic operation takes 1, 2, 4 or 8 bytes".into()),
                 };
                 Ok(self.builder.build_bit_cast(f, int, "")?.into_int_value())
+            }
+            // A pointer is atomic at its own width.
+            BasicValueEnum::PointerValue(p) => {
+                Ok(self.builder.build_ptr_to_int(p, self.word_ty(), "")?)
             }
             other => self.as_int(other),
         }

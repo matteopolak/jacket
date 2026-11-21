@@ -19,10 +19,10 @@ pub enum Arch {
     /// every argument, fixed ones included, in x0-x7 and then on the stack, with no
     /// floating-point aggregate treatment (`classify_vararg`).
     Win64Arm,
-    /// WebAssembly with 64-bit memory (Memory64), Clang's basic C ABI: an aggregate holding
+    /// WebAssembly (32-bit memory or Memory64), Clang's basic C ABI: an aggregate holding
     /// a single scalar travels as that scalar, any other goes by `byval` pointer and comes
     /// back through a hidden result pointer.
-    Wasm64,
+    Wasm,
 }
 
 impl Arch {
@@ -58,7 +58,7 @@ impl Arch {
 
     /// Whether the target is WebAssembly.
     pub fn is_wasm(self) -> bool {
-        self == Arch::Wasm64
+        self == Arch::Wasm
     }
 }
 
@@ -125,7 +125,7 @@ pub fn classify_arg(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Passin
     match classify_registers(arch, layout, data) {
         Some(pieces) => Passing::Registers(pieces),
         None => match arch {
-            Arch::X86_64 | Arch::Wasm64 => Passing::ByVal,
+            Arch::X86_64 | Arch::Wasm => Passing::ByVal,
             Arch::Aarch64 | Arch::Win64 | Arch::Win64Arm => Passing::Indirect,
         },
     }
@@ -233,7 +233,7 @@ fn classify_registers(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Opti
     if arch == Arch::Win64 {
         return matches!(layout.size, 1 | 2 | 4 | 8).then(|| int_pieces(layout.size));
     }
-    if arch == Arch::Wasm64 {
+    if arch == Arch::Wasm {
         return wasm_single_scalar(layout);
     }
     if layout.size > 16 && !(arch.is_aarch64() && hfa(layout).is_some()) {
@@ -267,7 +267,7 @@ fn classify_registers(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Opti
             }
             Some(int_pieces(layout.size))
         }
-        Arch::Win64 | Arch::Wasm64 => unreachable!("handled above"),
+        Arch::Win64 | Arch::Wasm => unreachable!("handled above"),
         Arch::X86_64 => {
             // System V: an aggregate with a member that is not naturally aligned (a packed
             // struct, or `#no_padding`) is MEMORY, however small.
@@ -681,19 +681,19 @@ mod tests {
 
     #[test]
     fn wasm64_passes_single_scalars_directly_and_the_rest_by_pointer() {
-        assert_eq!(target_arch("wasm64-unknown-unknown"), Some(Arch::Wasm64));
+        assert_eq!(target_arch("wasm64-unknown-unknown"), Some(Arch::Wasm));
         let one = layout(8, &[(0, Ty::F64)]);
         assert_eq!(
-            classify_arg(Arch::Wasm64, &one, &LP64),
+            classify_arg(Arch::Wasm, &one, &LP64),
             Passing::Registers(vec![Piece {
                 offset: 0,
                 ty: PieceTy::F64
             }])
         );
         let pair = layout(16, &[(0, Ty::I64), (8, Ty::I64)]);
-        assert_eq!(classify_arg(Arch::Wasm64, &pair, &LP64), Passing::ByVal);
-        assert!(classify_ret(Arch::Wasm64, &pair, &LP64).is_none());
+        assert_eq!(classify_arg(Arch::Wasm, &pair, &LP64), Passing::ByVal);
+        assert!(classify_ret(Arch::Wasm, &pair, &LP64).is_none());
         let small = layout(4, &[(0, Ty::I32)]);
-        assert_eq!(classify_arg(Arch::Wasm64, &small, &LP64), Passing::ByVal);
+        assert_eq!(classify_arg(Arch::Wasm, &small, &LP64), Passing::ByVal);
     }
 }

@@ -266,6 +266,9 @@ impl<'ctx> Backend<'ctx, '_> {
                             };
                             Ok(b.build_bit_cast(f, int, "")?.into_int_value())
                         }
+                        BasicValueEnum::PointerValue(p) => {
+                            Ok(b.build_ptr_to_int(p, self.word_ty(), "")?)
+                        }
                         other => self.as_int(other),
                     }
                 };
@@ -808,7 +811,7 @@ impl<'ctx> Backend<'ctx, '_> {
                             self.call_intrinsic("llvm.readcyclecounter", &[], &[])?
                         }
                         // No cycle counter is visible to wasm code.
-                        Arch::Wasm64 => return Err(
+                        Arch::Wasm => return Err(
                             "no architectural cycle counter is available on a WebAssembly target"
                                 .into(),
                         ),
@@ -844,7 +847,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 let asm = match self.arch {
                     Arch::Aarch64 | Arch::Win64Arm => "yield",
                     Arch::X86_64 | Arch::Win64 => "pause",
-                    Arch::Wasm64 => return Ok(vec![]),
+                    Arch::Wasm => return Ok(vec![]),
                 };
                 self.inline_asm(asm, "", None)?;
                 Ok(vec![])
@@ -954,7 +957,7 @@ impl<'ctx> Backend<'ctx, '_> {
             match self.arch {
                 Arch::Aarch64 | Arch::Win64Arm => "w",
                 Arch::X86_64 | Arch::Win64 => "x",
-                Arch::Wasm64 => "r",
+                Arch::Wasm => "r",
             }
         } else {
             "r"

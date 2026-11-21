@@ -1,7 +1,4 @@
 //! Actual native/WASM O0/O2 execution of opaque scalar pointer constants and relocations.
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
-use jaic_llvm::emit_object;
-use std::rc::Rc;
 use test_support::TempDir;
 use test_support::backend::{self, VARIANTS};
 use test_support::ir;
@@ -51,13 +48,8 @@ fn raw_pointers_execute_native_and_wasm_at_o0_and_o2() {
 }
 
 #[test]
-fn unsupported_32_bit_targets_do_not_masquerade_as_supported_pointer_models() {
-    let mut options = Options::host();
-    options.runtime_support = false;
-    let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
-    c.compile_sources(&[ProgramSource::String("main :: () {}".into())])
-        .unwrap();
-    // A 32-bit x86 triple is not a target at all; wasm32 is one the backend refuses.
+fn unsupported_32_bit_targets_are_not_targets() {
+    // A 32-bit x86 triple is not a target yet; wasm32 is one.
     for target in ["i686-pc-windows-msvc", "i686-unknown-linux-gnu"] {
         let error = jaic::target::Target::parse(target).unwrap_err();
         assert!(
@@ -65,18 +57,4 @@ fn unsupported_32_bit_targets_do_not_masquerade_as_supported_pointer_models() {
             "{target}: {error}"
         );
     }
-    let dir = TempDir::new("raw-pointer-unsupported");
-    let error = emit_object(
-        &c.out.program,
-        &jaic_llvm::Options {
-            target: Some(jaic::target::Target::parse("wasm32-unknown-unknown").unwrap()),
-            ..Default::default()
-        },
-        &dir.join("unsupported.o"),
-    )
-    .unwrap_err();
-    assert!(
-        error.contains("unsupported target architecture"),
-        "wasm32: {error}"
-    );
 }

@@ -7,9 +7,9 @@ Stamped :: #import "Flat_Pool"(DEFAULT_VIRTUAL_MEMORY_RESERVE = 8193, OVERWRITE_
 
 main :: () {
     assert(type_info(F.Flat_Pool).name == "Flat_Pool");
-    assert(size_of(F.Flat_Pool) == 40);
+    assert(size_of(F.Flat_Pool) == 5 * size_of(*void));
     assert(type_info(F.Flat_Pool).members[0].offset_in_bytes == 0);
-    assert(type_info(F.Flat_Pool).members[1].offset_in_bytes == 8);
+    assert(type_info(F.Flat_Pool).members[1].offset_in_bytes == size_of(*void));
 
     #if OS == .MACOS || OS == .LINUX || OS == .ANDROID || OS == .WINDOWS {
         page: s64;

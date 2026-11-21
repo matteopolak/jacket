@@ -69,7 +69,7 @@ pub fn module_asm(arch: crate::abi::Arch, macho: bool) -> Option<String> {
             include_str!("fiber/aarch64-aapcs64.s"),
             false,
         ),
-        Arch::Wasm64 => return None,
+        Arch::Wasm => return None,
     };
     let note = if elf {
         ELF_NOTE
@@ -225,6 +225,6 @@ mod tests {
                 matches!(arch, Arch::X86_64 | Arch::Aarch64) && !macho
             );
         }
-        assert!(super::module_asm(Arch::Wasm64, false).is_none());
+        assert!(super::module_asm(Arch::Wasm, false).is_none());
     }
 }
