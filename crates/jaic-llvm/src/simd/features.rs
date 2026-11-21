@@ -40,6 +40,8 @@ pub enum Family {
     X86,
     Aarch64,
     Wasm,
+    /// A CPU with no vector feature the compiler names (s390x).
+    Other,
 }
 
 impl Family {
@@ -48,6 +50,7 @@ impl Family {
             Arch::X86_64 | Arch::Win64 | Arch::X86 => Family::X86,
             Arch::Aarch64 | Arch::Win64Arm => Family::Aarch64,
             Arch::Wasm => Family::Wasm,
+            Arch::S390x => Family::Other,
         }
     }
 }
@@ -234,6 +237,7 @@ fn known_extra(family: Family, name: &str) -> bool {
         Family::X86 => X86,
         Family::Aarch64 => AARCH64,
         Family::Wasm => WASM,
+        Family::Other => &[],
     }
     .contains(&name)
 }
@@ -368,6 +372,7 @@ fn cpu_features(family: Family, cpu: &str) -> &'static [Feature] {
             "bleeding-edge" => &[Simd128],
             _ => &[],
         },
+        Family::Other => &[],
     }
 }
 

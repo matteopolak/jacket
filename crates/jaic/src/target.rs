@@ -19,6 +19,8 @@ pub enum TargetCpu {
     Arm64,
     /// 32-bit x86 (i686).
     X86,
+    /// IBM z/Architecture (s390x), 64-bit big-endian.
+    S390x,
     Wasm,
 }
 
@@ -41,6 +43,7 @@ pub fn parse_cpu(name: &str) -> Option<TargetCpu> {
         "x64" | "x86_64" => Some(TargetCpu::X64),
         "arm64" | "aarch64" => Some(TargetCpu::Arm64),
         "x86" | "i686" => Some(TargetCpu::X86),
+        "s390x" => Some(TargetCpu::S390x),
         "wasm" => Some(TargetCpu::Wasm),
         _ => None,
     }
@@ -60,6 +63,7 @@ pub fn cpu_name(cpu: TargetCpu) -> &'static str {
         TargetCpu::X64 => "x64",
         TargetCpu::Arm64 => "arm64",
         TargetCpu::X86 => "x86",
+        TargetCpu::S390x => "s390x",
         TargetCpu::Wasm => "wasm",
     }
 }
@@ -80,7 +84,7 @@ pub fn cpu_member(cpu: TargetCpu) -> &'static str {
     match cpu {
         TargetCpu::X64 => "X64",
         TargetCpu::Arm64 => "ARM64",
-        TargetCpu::X86 | TargetCpu::Wasm => "CUSTOM",
+        TargetCpu::X86 | TargetCpu::S390x | TargetCpu::Wasm => "CUSTOM",
     }
 }
 
@@ -92,6 +96,7 @@ pub fn architecture_member(cpu: TargetCpu, pointer_bytes: u32) -> &'static str {
         (TargetCpu::X64, _) => "X64",
         (TargetCpu::Arm64, _) => "ARM64",
         (TargetCpu::X86, _) => "X86",
+        (TargetCpu::S390x, _) => "S390X",
         (TargetCpu::Wasm, 4) => "WASM32",
         (TargetCpu::Wasm, _) => "WASM64",
     }
@@ -191,6 +196,7 @@ impl Target {
             "x86_64" | "x64" | "amd64" => (TargetCpu::X64, false),
             "aarch64" | "arm64" => (TargetCpu::Arm64, false),
             "i686" | "i586" | "i486" | "i386" => (TargetCpu::X86, false),
+            "s390x" => (TargetCpu::S390x, false),
             "wasm32" => (TargetCpu::Wasm, true),
             "wasm64" => (TargetCpu::Wasm, false),
             _ => return Err(format!("unsupported target architecture in `{triple}`")),
@@ -198,9 +204,14 @@ impl Target {
         let gnu = parts
             .iter()
             .any(|p| p.starts_with("gnu") || p.starts_with("mingw"));
-        if cpu == TargetCpu::X86 && !parts.contains(&"linux") {
+        if matches!(cpu, TargetCpu::X86 | TargetCpu::S390x) && !parts.contains(&"linux") {
             return Err(format!(
-                "unsupported target OS in `{triple}`: 32-bit x86 is built for Linux only"
+                "unsupported target OS in `{triple}`: {} is built for Linux only",
+                if cpu == TargetCpu::X86 {
+                    "32-bit x86"
+                } else {
+                    "s390x"
+                }
             ));
         }
         let (os, abi) = if cpu == TargetCpu::Wasm {
@@ -270,6 +281,10 @@ impl Target {
             layout.c.long = 4;
             layout.c.size_t = 4;
         }
+        if self.cpu == TargetCpu::S390x {
+            // z/Architecture ELF: big-endian, `long double` is a 16-byte binary128 aligned to 8.
+            layout.endian = crate::layout::Endian::Big;
+        }
         // LLP64: `long` stays 32 bits on 64-bit Windows.
         if self.os == TargetOs::Windows {
             layout.c.long = 4;
@@ -312,6 +327,7 @@ impl Target {
             (TargetCpu::X64, TargetOs::Windows) => Some(Arch::Win64),
             (TargetCpu::X64, _) => Some(Arch::X86_64),
             (TargetCpu::X86, _) => Some(Arch::X86),
+            (TargetCpu::S390x, _) => Some(Arch::S390x),
             (TargetCpu::Wasm, _) => Some(Arch::Wasm),
         }
     }
@@ -331,6 +347,7 @@ impl std::fmt::Display for Target {
             TargetCpu::X64 => "x86_64",
             TargetCpu::Arm64 => "aarch64",
             TargetCpu::X86 => "i686",
+            TargetCpu::S390x => "s390x",
             TargetCpu::Wasm if self.memory32 => return write!(f, "wasm32-{}", self.wasm_system()),
             TargetCpu::Wasm => return write!(f, "wasm64-{}", self.wasm_system()),
         };

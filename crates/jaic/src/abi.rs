@@ -16,6 +16,11 @@ pub enum Arch {
     X86,
     /// x86-64 System V (macOS, Linux).
     X86_64,
+    /// IBM z/Architecture ELF (s390x Linux, big-endian): an aggregate of 1, 2, 4 or 8 bytes
+    /// travels as an integer of that size (a lone float as that float), a larger one by
+    /// reference to a caller copy, and every aggregate result comes back through a hidden
+    /// pointer in `r2`. Integer arguments take `r2`-`r6`, floating-point ones `f0`, `f2`, `f4`, `f6`.
+    S390x,
     /// x86-64 with the Microsoft x64 calling convention (Windows, MSVC and MinGW alike).
     Win64,
     /// `AArch64` Windows (MSVC and MinGW alike): AAPCS64, except that a variadic procedure takes
@@ -78,6 +83,9 @@ pub enum PieceTy {
     X87,
     /// A binary128 `long double` in a 128-bit vector register (`AArch64` outside Apple).
     F128,
+    /// An integer of this many bytes (1, 2, 4 or 8): a small aggregate on s390x, which keeps
+    /// its exact size so a big-endian register holds the right bytes.
+    Int(u8),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -120,7 +128,7 @@ pub fn sret_is_inreg(arch: Arch, forced: bool) -> bool {
 /// Whether the hidden result pointer takes the first integer argument register, leaving one
 /// fewer for the parameters (x86-64 always; arm64 only where it is `inreg`).
 pub fn sret_takes_int_register(arch: Arch, forced: bool) -> bool {
-    arch.is_x86_64() || sret_is_inreg(arch, forced)
+    arch.is_x86_64() || arch == Arch::S390x || sret_is_inreg(arch, forced)
 }
 
 /// Classify a by-value aggregate argument.
@@ -129,7 +137,7 @@ pub fn classify_arg(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Passin
         Some(pieces) => Passing::Registers(pieces),
         None => match arch {
             Arch::X86_64 | Arch::X86 | Arch::Wasm => Passing::ByVal,
-            Arch::Aarch64 | Arch::Win64 | Arch::Win64Arm => Passing::Indirect,
+            Arch::Aarch64 | Arch::Win64 | Arch::Win64Arm | Arch::S390x => Passing::Indirect,
         },
     }
 }
@@ -171,12 +179,17 @@ impl RegBudget {
         let ints = match arch {
             Arch::X86_64 => 6,
             Arch::X86 => 0,
+            Arch::S390x => 5,
             _ => 8,
         };
         RegBudget {
             arch,
             ints: ints - hidden_in_int as u32,
-            vectors: 8,
+            vectors: if arch == Arch::S390x {
+                4
+            } else {
+                8
+            },
         }
     }
 
@@ -223,6 +236,10 @@ impl RegBudget {
 /// Classify an aggregate return value; `None` means returned through a hidden
 /// `sret` pointer.
 pub fn classify_ret(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Option<Vec<Piece>> {
+    // s390x returns every aggregate in memory, whatever its size.
+    if arch == Arch::S390x && layout.size > 0 {
+        return None;
+    }
     classify_registers(arch, layout, data)
 }
 
@@ -244,6 +261,9 @@ fn classify_registers(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Opti
     }
     if arch == Arch::Wasm {
         return wasm_single_scalar(layout);
+    }
+    if arch == Arch::S390x {
+        return s390x_small(layout);
     }
     if layout.size > 16 && !(arch.is_aarch64() && hfa(layout).is_some()) {
         return None;
@@ -276,7 +296,7 @@ fn classify_registers(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Opti
             }
             Some(int_pieces(layout.size))
         }
-        Arch::Win64 | Arch::Wasm | Arch::X86 => unreachable!("handled above"),
+        Arch::Win64 | Arch::Wasm | Arch::X86 | Arch::S390x => unreachable!("handled above"),
         Arch::X86_64 => {
             // System V: an aggregate with a member that is not naturally aligned (a packed
             // struct, or `#no_padding`) is MEMORY, however small.
@@ -344,6 +364,21 @@ fn ty_size(ty: PieceTy) -> u64 {
     } else {
         8
     }
+}
+
+/// s390x: an aggregate holding one float travels as that float, any other of 1, 2, 4 or 8 bytes
+/// as an integer of its size; the rest go by reference.
+fn s390x_small(layout: &AggLayout) -> Option<Vec<Piece>> {
+    let ty = match layout.fields.as_slice() {
+        [(0, Ty::F32)] if layout.size == 4 => PieceTy::F32,
+        [(0, Ty::F64)] if layout.size == 8 => PieceTy::F64,
+        _ if matches!(layout.size, 1 | 2 | 4 | 8) => PieceTy::Int(layout.size as u8),
+        _ => return None,
+    };
+    Some(vec![Piece {
+        offset: 0,
+        ty,
+    }])
 }
 
 fn int_pieces(size: u64) -> Vec<Piece> {
@@ -425,6 +460,53 @@ mod tests {
         );
         // No argument register, and the result pointer is on the stack too.
         assert!(!sret_takes_int_register(Arch::X86, false));
+    }
+
+    /// s390x ELF psABI: aggregates of 1, 2, 4 or 8 bytes are integers of that size (a lone float
+    /// stays a float), larger ones go by reference, and no aggregate is returned in registers.
+    #[test]
+    fn s390x_passes_small_aggregates_as_exact_integers() {
+        let target = crate::target::Target::parse("s390x-unknown-linux-gnu").unwrap();
+        assert_eq!(target.arch(), Some(Arch::S390x));
+        let data = target.data_layout();
+        let piece = |ty| {
+            Passing::Registers(vec![Piece {
+                offset: 0,
+                ty,
+            }])
+        };
+        assert_eq!(
+            classify_arg(
+                Arch::S390x,
+                &layout(4, &[(0, Ty::I16), (2, Ty::I16)]),
+                &data
+            ),
+            piece(PieceTy::Int(4))
+        );
+        assert_eq!(
+            classify_arg(Arch::S390x, &layout(1, &[(0, Ty::I8)]), &data),
+            piece(PieceTy::Int(1))
+        );
+        assert_eq!(
+            classify_arg(Arch::S390x, &layout(8, &[(0, Ty::F64)]), &data),
+            piece(PieceTy::F64)
+        );
+        assert_eq!(
+            classify_arg(Arch::S390x, &layout(4, &[(0, Ty::F32)]), &data),
+            piece(PieceTy::F32)
+        );
+        for l in [
+            layout(16, &[(0, Ty::I64), (8, Ty::I64)]),
+            layout(3, &[(0, Ty::I8), (1, Ty::I8), (2, Ty::I8)]),
+        ] {
+            assert_eq!(
+                classify_arg(Arch::S390x, &l, &data),
+                Passing::Indirect,
+                "{l:?}"
+            );
+        }
+        assert!(classify_ret(Arch::S390x, &layout(8, &[(0, Ty::I64)]), &data).is_none());
+        assert!(sret_takes_int_register(Arch::S390x, false));
     }
 
     #[test]

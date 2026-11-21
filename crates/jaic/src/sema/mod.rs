@@ -301,7 +301,9 @@ pub fn long_double_for(
         (TargetOs::Windows, _) => None,
         (TargetOs::MacOS, TargetCpu::Arm64) => None,
         (_, TargetCpu::X64) => Some(WideFloat::X87),
-        (TargetOs::Linux, TargetCpu::Arm64) | (_, TargetCpu::Wasm) => Some(WideFloat::Binary128),
+        (TargetOs::Linux, TargetCpu::Arm64) | (_, TargetCpu::Wasm | TargetCpu::S390x) => {
+            Some(WideFloat::Binary128)
+        }
         (_, TargetCpu::Arm64) => None,
         (_, TargetCpu::X86) => Some(WideFloat::X87),
     }

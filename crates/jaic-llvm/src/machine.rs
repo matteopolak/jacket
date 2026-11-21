@@ -131,6 +131,7 @@ pub(super) fn target_machine(
         Target::initialize_x86(&config);
         Target::initialize_aarch64(&config);
         Target::initialize_webassembly(&config);
+        Target::initialize_system_z(&config);
     });
     let (triple, build_target) = match options.target {
         Some(t) => (TargetTriple::create(&t.to_string()), t),
@@ -239,15 +240,15 @@ mod tests {
     fn an_unoptimized_wasm_module_gets_register_coloring_unless_the_program_chose_a_level() {
         let options = Options::default();
         assert_eq!(
-            wasm_machine_level(Arch::Wasm, &options, OptLevel::O0),
+            unoptimized_machine_level(Arch::Wasm, &options, OptLevel::O0),
             OptLevel::O1
         );
         assert_eq!(
-            wasm_machine_level(Arch::X86_64, &options, OptLevel::O0),
+            unoptimized_machine_level(Arch::X86_64, &options, OptLevel::O0),
             OptLevel::O0
         );
         assert_eq!(
-            wasm_machine_level(Arch::Wasm, &options, OptLevel::O2),
+            unoptimized_machine_level(Arch::Wasm, &options, OptLevel::O2),
             OptLevel::O2
         );
         let chosen = Options {
@@ -258,7 +259,7 @@ mod tests {
             ..Options::default()
         };
         assert_eq!(
-            wasm_machine_level(Arch::Wasm, &chosen, OptLevel::O0),
+            unoptimized_machine_level(Arch::Wasm, &chosen, OptLevel::O0),
             OptLevel::O0
         );
     }
@@ -285,6 +286,7 @@ mod tests {
             "wasm32-unknown-unknown",
             "i686-unknown-linux-gnu",
             "i686-unknown-linux-musl",
+            "s390x-unknown-linux-gnu",
         ] {
             let ours = BuildTarget::parse(triple).unwrap().data_layout();
             let llvm_triple =

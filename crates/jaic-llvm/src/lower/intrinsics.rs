@@ -801,21 +801,21 @@ impl<'ctx> Backend<'ctx, '_> {
             | Intrinsic::X86Pause
             | Intrinsic::X86Prefetch(_) => self.intrinsic_x86(op, args),
             Intrinsic::CycleCounter => {
-                let v =
-                    match self.arch {
-                        // The user-space virtual counter; PMCCNTR is not readable from EL0.
-                        Arch::Aarch64 | Arch::Win64Arm => {
-                            self.inline_asm("mrs $0, cntvct_el0", "=r", Some(i64t.into()))?
-                        }
-                        Arch::X86_64 | Arch::Win64 | Arch::X86 => {
-                            self.call_intrinsic("llvm.readcyclecounter", &[], &[])?
-                        }
-                        // No cycle counter is visible to wasm code.
-                        Arch::Wasm => return Err(
-                            "no architectural cycle counter is available on a WebAssembly target"
-                                .into(),
-                        ),
-                    };
+                let v = match self.arch {
+                    // The user-space virtual counter; PMCCNTR is not readable from EL0.
+                    Arch::Aarch64 | Arch::Win64Arm => {
+                        self.inline_asm("mrs $0, cntvct_el0", "=r", Some(i64t.into()))?
+                    }
+                    Arch::X86_64 | Arch::Win64 | Arch::X86 => {
+                        self.call_intrinsic("llvm.readcyclecounter", &[], &[])?
+                    }
+                    // No cycle counter is visible to wasm code or to s390x user code.
+                    Arch::Wasm | Arch::S390x => {
+                        return Err(
+                            "no architectural cycle counter is available on this target".into()
+                        );
+                    }
+                };
                 Ok(vec![v.ok_or("cycle counter produced no value")?])
             }
             Intrinsic::Syscall => {
@@ -847,7 +847,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 let asm = match self.arch {
                     Arch::Aarch64 | Arch::Win64Arm => "yield",
                     Arch::X86_64 | Arch::Win64 | Arch::X86 => "pause",
-                    Arch::Wasm => return Ok(vec![]),
+                    Arch::Wasm | Arch::S390x => return Ok(vec![]),
                 };
                 self.inline_asm(asm, "", None)?;
                 Ok(vec![])
@@ -959,6 +959,7 @@ impl<'ctx> Backend<'ctx, '_> {
             match self.arch {
                 Arch::Aarch64 | Arch::Win64Arm => "w",
                 Arch::X86_64 | Arch::Win64 | Arch::X86 => "x",
+                Arch::S390x => "f",
                 Arch::Wasm => "r",
             }
         } else {

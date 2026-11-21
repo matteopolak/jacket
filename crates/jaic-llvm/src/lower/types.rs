@@ -52,6 +52,11 @@ impl<'ctx> Backend<'ctx, '_> {
             PieceTy::V2F32 => self.ctx.f32_type().vec_type(2).into(),
             PieceTy::X87 => self.ctx.x86_f80_type().into(),
             PieceTy::F128 => self.ctx.f128_type().into(),
+            PieceTy::Int(bytes) => self
+                .ctx
+                .custom_width_int_type(std::num::NonZeroU32::new(u32::from(bytes) * 8).unwrap())
+                .expect("an integer of 8 to 64 bits")
+                .into(),
         }
     }
 
