@@ -976,6 +976,36 @@ fn darwin_file_records_match_stat_and_dirent_layouts() {
     );
 }
 
+/// The i686 Linux `struct stat` (64-bit `time_t`): 108 bytes, 8-byte fields packed on 4.
+#[test]
+#[allow(
+    clippy::disallowed_methods,
+    reason = "the sandbox's records are read back from host memory"
+)]
+fn i686_linux_stat_record_has_the_32_bit_layout() {
+    let mut h = host();
+    h.set_file_target(crate::target::TargetOs::Linux);
+    h.set_cpu(crate::target::TargetCpu::X86);
+    let root = cstring("/tmp");
+    let mut st = [0xa5_u8; 120];
+    assert_eq!(
+        call(
+            &mut h,
+            "stat",
+            &[root.as_ptr() as u64, st.as_mut_ptr() as u64]
+        ),
+        0
+    );
+    let word = |at: usize| u32::from_le_bytes(st[at..at + 4].try_into().unwrap());
+    assert_eq!(word(16) & 0xf000, S_IFDIR);
+    assert_eq!(word(20), 1);
+    assert_eq!(word(48), 4096);
+    assert_eq!(word(60), BASE_MTIME as u32);
+    assert_eq!(word(76), BASE_MTIME as u32);
+    assert_eq!(word(92), BASE_MTIME as u32);
+    assert!(st[108..].iter().all(|&byte| byte == 0xa5));
+}
+
 #[test]
 #[allow(
     clippy::disallowed_methods,

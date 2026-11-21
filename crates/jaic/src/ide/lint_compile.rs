@@ -127,6 +127,7 @@ impl LintCompile {
             limits,
         } = setup;
         host.borrow_mut().set_file_target(options.os);
+        host.borrow_mut().set_cpu(options.cpu);
         let mut options = options;
         options.eval_step_limit = Some(limits.eval_steps);
         if let Some(seconds) = limits.seconds {

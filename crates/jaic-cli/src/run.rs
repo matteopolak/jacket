@@ -83,6 +83,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     // A target whose pointers are narrower than the compiler's cannot call the compiler's own C
     // functions either: its pointers are offsets into the interpreter's address window, so its
     // compile-time code runs on the sandbox host too.
+    shared_sandbox.borrow_mut().set_cpu(options.cpu);
     let narrow = options.layout.is_narrow();
     let sandbox = (options.os == TargetOs::Wasm || narrow).then(|| shared_sandbox.clone());
     if cli.mode == Mode::Interp
