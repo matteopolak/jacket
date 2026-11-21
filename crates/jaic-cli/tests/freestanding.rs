@@ -95,6 +95,12 @@ fn build(dir: &TempDir) -> Output {
         .unwrap()
 }
 
+/// The linker script made by `Embedded.link_for`: all RAM, or flash for the code and RAM for the data.
+const RAM_MAP: &str =
+    "Embedded.link_for(*options, Embedded.Memory_Map.{ ram = .{ 0x4000_0000, 0x100_0000 } });";
+
+const FLASH_MAP: &str = "Embedded.link_for(*options, Embedded.Memory_Map.{ flash = .{ 0x4000_0000, 0x10_0000 }, ram = .{ 0x4010_0000, 0xf0_0000 } });";
+
 const SCRIPT: &str = r#"options.additional_linker_arguments = string.["-T", "board.ld"];"#;
 
 /// Whether `ld.lld` is installed, as jaic looks for it. When it is not, a link names it.
@@ -367,5 +373,36 @@ fn init_runtime_copies_data_to_ram_and_zeroes_bss() {
         };
         assert_eq!(out.status.code(), Some(0), "{script}: {out:?}");
         assert_eq!(console(&out), "12648430 30 freestanding 0\n5\n", "{script}");
+    }
+}
+
+#[test]
+fn link_for_writes_a_script_for_a_ram_map_and_a_flash_map() {
+    for (name, map) in [("ram", RAM_MAP), ("flash", FLASH_MAP)] {
+        for program in ["data.jai", "print.jai"] {
+            let setup = Setup {
+                linker_arguments: map,
+                ..board(program, "DEBUG")
+            };
+            let Some(out) = run(&format!("map-{name}-{program}"), &setup) else {
+                return;
+            };
+            assert_eq!(out.status.code(), Some(0), "{name} {program}: {out:?}");
+        }
+    }
+}
+
+#[test]
+fn volatile_barriers_and_sections_work_on_the_target() {
+    for optimization in ["DEBUG", "OPTIMIZED"] {
+        let setup = Setup {
+            linker_arguments: RAM_MAP,
+            ..board("devices.jai", optimization)
+        };
+        let Some(out) = run("devices", &setup) else {
+            return;
+        };
+        assert_eq!(out.status.code(), Some(0), "{optimization}: {out:?}");
+        assert_eq!(console(&out), "42 8\n", "{optimization}");
     }
 }

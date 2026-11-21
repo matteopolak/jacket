@@ -1,5 +1,6 @@
 #import "Basic";
 #import "Compiler";
+Embedded :: #import "Extensions/Embedded";
 
 #run {
     set_build_options_dc(.{ do_output = false });
