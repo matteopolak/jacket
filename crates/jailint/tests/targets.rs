@@ -111,7 +111,7 @@ fn selected_target_branches_check_with_unchanged_compiler_host() {
     let host_cpu = match host.cpu {
         jaic::target::TargetCpu::X64 => "X64",
         jaic::target::TargetCpu::Arm64 => "ARM64",
-        jaic::target::TargetCpu::Wasm => "CUSTOM",
+        jaic::target::TargetCpu::X86 | jaic::target::TargetCpu::Wasm => "CUSTOM",
     };
     for (flags, os, cpu) in [
         (vec!["-os", "windows", "-cpu", "x64"], "WINDOWS", "X64"),

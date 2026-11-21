@@ -273,6 +273,8 @@ mod tests {
             "wasm64-unknown-wasi",
             "wasm32-wasi",
             "wasm32-unknown-unknown",
+            "i686-unknown-linux-gnu",
+            "i686-unknown-linux-musl",
         ] {
             let ours = BuildTarget::parse(triple).unwrap().data_layout();
             let llvm_triple =
@@ -317,6 +319,14 @@ mod tests {
             let (size, align) = size_align(&pointer);
             assert_eq!(size, ours.ptr_bytes(), "{triple}: pointer size");
             assert_eq!(align, ours.pointer_align as u64, "{triple}: pointer align");
+            if matches!(ours.f80_size, 12 | 16) && triple.starts_with(['x', 'i']) {
+                let (size, align) = size_align(&context.x86_f80_type());
+                assert_eq!(
+                    (size, align),
+                    (ours.f80_size as u64, ours.f80_align as u64),
+                    "{triple}: x86_fp80"
+                );
+            }
             let big = data.get_byte_ordering() == ByteOrdering::BigEndian;
             assert_eq!(
                 ours.endian == jaic::layout::Endian::Big,

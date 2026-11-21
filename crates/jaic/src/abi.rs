@@ -11,6 +11,9 @@ use crate::layout::DataLayout;
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Arch {
     Aarch64,
+    /// 32-bit x86 System V (Linux): every argument on the stack, aggregates by value in the
+    /// argument area, small aggregates returned in memory.
+    X86,
     /// x86-64 System V (macOS, Linux).
     X86_64,
     /// x86-64 with the Microsoft x64 calling convention (Windows, MSVC and MinGW alike).
@@ -125,7 +128,7 @@ pub fn classify_arg(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Passin
     match classify_registers(arch, layout, data) {
         Some(pieces) => Passing::Registers(pieces),
         None => match arch {
-            Arch::X86_64 | Arch::Wasm => Passing::ByVal,
+            Arch::X86_64 | Arch::X86 | Arch::Wasm => Passing::ByVal,
             Arch::Aarch64 | Arch::Win64 | Arch::Win64Arm => Passing::Indirect,
         },
     }
@@ -165,10 +168,10 @@ impl RegBudget {
     /// A fresh budget; `hidden_in_int` is whether the hidden result pointer takes an integer
     /// register (x86-64, and Windows on arm64 for a non-POD C++ result).
     pub fn new(arch: Arch, hidden_in_int: bool) -> RegBudget {
-        let ints = if arch == Arch::X86_64 {
-            6
-        } else {
-            8
+        let ints = match arch {
+            Arch::X86_64 => 6,
+            Arch::X86 => 0,
+            _ => 8,
         };
         RegBudget {
             arch,
@@ -233,6 +236,12 @@ fn classify_registers(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Opti
     if arch == Arch::Win64 {
         return matches!(layout.size, 1 | 2 | 4 | 8).then(|| int_pieces(layout.size));
     }
+    // i386 System V (Linux): no argument or result travels in a register but a scalar one. An
+    // aggregate is copied onto the stack as an argument and returned through a hidden pointer,
+    // whatever its size or members (`-fno-reg-struct-return`, the Linux default).
+    if arch == Arch::X86 {
+        return None;
+    }
     if arch == Arch::Wasm {
         return wasm_single_scalar(layout);
     }
@@ -267,7 +276,7 @@ fn classify_registers(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Opti
             }
             Some(int_pieces(layout.size))
         }
-        Arch::Win64 | Arch::Wasm => unreachable!("handled above"),
+        Arch::Win64 | Arch::Wasm | Arch::X86 => unreachable!("handled above"),
         Arch::X86_64 => {
             // System V: an aggregate with a member that is not naturally aligned (a packed
             // struct, or `#no_padding`) is MEMORY, however small.
@@ -391,6 +400,31 @@ mod tests {
             align: 8,
             fields: fields.to_vec(),
         }
+    }
+
+    /// i386 System V psABI: an aggregate is passed in the argument area and returned in
+    /// memory, however small, and whatever its members.
+    #[test]
+    fn i386_aggregates_go_on_the_stack_and_come_back_in_memory() {
+        let i686 = crate::target::Target::parse("i686-unknown-linux-gnu").unwrap();
+        assert_eq!(i686.arch(), Some(Arch::X86));
+        let data = i686.data_layout();
+        for l in [
+            layout(4, &[(0, Ty::I32)]),
+            layout(8, &[(0, Ty::F64)]),
+            layout(4, &[(0, Ty::F32)]),
+            layout(8, &[(0, Ty::I32), (4, Ty::I32)]),
+            layout(12, &[(0, Ty::F80)]),
+        ] {
+            assert_eq!(classify_arg(Arch::X86, &l, &data), Passing::ByVal, "{l:?}");
+            assert!(classify_ret(Arch::X86, &l, &data).is_none(), "{l:?}");
+        }
+        assert_eq!(
+            classify_ret(Arch::X86, &layout(0, &[]), &data),
+            Some(vec![])
+        );
+        // No argument register, and the result pointer is on the stack too.
+        assert!(!sret_takes_int_register(Arch::X86, false));
     }
 
     #[test]

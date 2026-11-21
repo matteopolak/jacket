@@ -80,7 +80,11 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         fs.clone(),
         &cwd.to_string_lossy(),
     )));
-    let sandbox = (options.os == TargetOs::Wasm).then(|| shared_sandbox.clone());
+    // A target whose pointers are narrower than the compiler's cannot call the compiler's own C
+    // functions either: its pointers are offsets into the interpreter's address window, so its
+    // compile-time code runs on the sandbox host too.
+    let narrow = usize::from(options.layout.pointer_size) < std::mem::size_of::<usize>();
+    let sandbox = (options.os == TargetOs::Wasm || narrow).then(|| shared_sandbox.clone());
     if cli.mode == Mode::Interp
         && sandbox.is_some()
         && let Some(listen) = jacket_config::env::TCP_LISTEN.non_empty()

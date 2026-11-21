@@ -303,6 +303,7 @@ pub fn long_double_for(
         (_, TargetCpu::X64) => Some(WideFloat::X87),
         (TargetOs::Linux, TargetCpu::Arm64) | (_, TargetCpu::Wasm) => Some(WideFloat::Binary128),
         (_, TargetCpu::Arm64) => None,
+        (_, TargetCpu::X86) => Some(WideFloat::X87),
     }
 }
 
@@ -312,7 +313,7 @@ mod long_double_tests {
     use crate::wide_float::WideFloat;
 
     /// `sizeof(long double)` per `clang -target <triple>`: 16 (x87) for x86_64-linux-gnu,
-    /// x86_64-apple-darwin and x86_64-w64-windows-gnu; 16 (binary128) for aarch64-linux-gnu and
+    /// x86_64-apple-darwin, x86_64-w64-windows-gnu and (12 bytes) i686-linux-gnu; 16 (binary128) for aarch64-linux-gnu and
     /// wasm32; 8 for arm64-apple-darwin and every Windows MSVC or arm64 triple
     /// (aarch64-pc-windows-msvc and aarch64-pc-windows-gnu included).
     #[test]

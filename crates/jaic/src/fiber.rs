@@ -69,7 +69,8 @@ pub fn module_asm(arch: crate::abi::Arch, macho: bool) -> Option<String> {
             include_str!("fiber/aarch64-aapcs64.s"),
             false,
         ),
-        Arch::Wasm => return None,
+        // i386 has no context-switch routine yet.
+        Arch::Wasm | Arch::X86 => return None,
     };
     let note = if elf {
         ELF_NOTE

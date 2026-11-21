@@ -17,6 +17,8 @@ pub enum TargetOs {
 pub enum TargetCpu {
     X64,
     Arm64,
+    /// 32-bit x86 (i686).
+    X86,
     Wasm,
 }
 
@@ -38,6 +40,7 @@ pub fn parse_cpu(name: &str) -> Option<TargetCpu> {
     match name {
         "x64" | "x86_64" => Some(TargetCpu::X64),
         "arm64" | "aarch64" => Some(TargetCpu::Arm64),
+        "x86" | "i686" => Some(TargetCpu::X86),
         "wasm" => Some(TargetCpu::Wasm),
         _ => None,
     }
@@ -56,6 +59,7 @@ pub fn cpu_name(cpu: TargetCpu) -> &'static str {
     match cpu {
         TargetCpu::X64 => "x64",
         TargetCpu::Arm64 => "arm64",
+        TargetCpu::X86 => "x86",
         TargetCpu::Wasm => "wasm",
     }
 }
@@ -76,7 +80,7 @@ pub fn cpu_member(cpu: TargetCpu) -> &'static str {
     match cpu {
         TargetCpu::X64 => "X64",
         TargetCpu::Arm64 => "ARM64",
-        TargetCpu::Wasm => "CUSTOM",
+        TargetCpu::X86 | TargetCpu::Wasm => "CUSTOM",
     }
 }
 
@@ -173,6 +177,7 @@ impl Target {
         let (cpu, memory32) = match parts[0] {
             "x86_64" | "x64" | "amd64" => (TargetCpu::X64, false),
             "aarch64" | "arm64" => (TargetCpu::Arm64, false),
+            "i686" | "i586" | "i486" | "i386" => (TargetCpu::X86, false),
             "wasm32" => (TargetCpu::Wasm, true),
             "wasm64" => (TargetCpu::Wasm, false),
             _ => return Err(format!("unsupported target architecture in `{triple}`")),
@@ -180,6 +185,11 @@ impl Target {
         let gnu = parts
             .iter()
             .any(|p| p.starts_with("gnu") || p.starts_with("mingw"));
+        if cpu == TargetCpu::X86 && !parts.contains(&"linux") {
+            return Err(format!(
+                "unsupported target OS in `{triple}`: 32-bit x86 is built for Linux only"
+            ));
+        }
         let (os, abi) = if cpu == TargetCpu::Wasm {
             // `wasm64-unknown-wasi`, `wasm32-wasi`, `wasm32-unknown-unknown`.
             let system = parts.get(2).or(parts.get(1)).copied();
@@ -236,6 +246,17 @@ impl Target {
             layout.c.long = 4;
             layout.c.size_t = 4;
         }
+        if self.cpu == TargetCpu::X86 {
+            // System V i386: `s64` and `float64` align to 4, and `long double` is 12 bytes.
+            layout.pointer_size = 4;
+            layout.pointer_align = 4;
+            layout.int_align = [1, 2, 4, 4];
+            layout.float_align = [4, 4];
+            layout.f80_size = 12;
+            layout.f80_align = 4;
+            layout.c.long = 4;
+            layout.c.size_t = 4;
+        }
         // LLP64: `long` stays 32 bits on 64-bit Windows.
         if self.os == TargetOs::Windows {
             layout.c.long = 4;
@@ -277,6 +298,7 @@ impl Target {
             (TargetCpu::Arm64, _) => Some(Arch::Aarch64),
             (TargetCpu::X64, TargetOs::Windows) => Some(Arch::Win64),
             (TargetCpu::X64, _) => Some(Arch::X86_64),
+            (TargetCpu::X86, _) => Some(Arch::X86),
             (TargetCpu::Wasm, _) => Some(Arch::Wasm),
         }
     }
@@ -295,6 +317,7 @@ impl std::fmt::Display for Target {
         let arch = match self.cpu {
             TargetCpu::X64 => "x86_64",
             TargetCpu::Arm64 => "aarch64",
+            TargetCpu::X86 => "i686",
             TargetCpu::Wasm if self.memory32 => return write!(f, "wasm32-{}", self.wasm_system()),
             TargetCpu::Wasm => return write!(f, "wasm64-{}", self.wasm_system()),
         };
@@ -624,5 +647,34 @@ mod tests {
         ] {
             assert_eq!(Target::parse(triple).unwrap().arch(), arch, "{triple}");
         }
+    }
+
+    /// `i686` is 32-bit x86 on Linux with 4-byte pointers, `s64` and `float64` aligned to 4 and
+    /// a 12-byte `long double`; any other OS is refused.
+    #[test]
+    fn i686_linux_is_a_32_bit_x86_target() {
+        for triple in [
+            "i686-unknown-linux-gnu",
+            "i686-unknown-linux-musl",
+            "i386-linux-gnu",
+        ] {
+            let target = Target::parse(triple).unwrap();
+            assert_eq!((target.os, target.cpu), (TargetOs::Linux, TargetCpu::X86));
+            let layout = target.data_layout();
+            assert_eq!(
+                (layout.pointer_size, layout.c.long, layout.c.size_t),
+                (4, 4, 4)
+            );
+            assert_eq!((layout.int_align_of(8), layout.float_align_of(8)), (4, 4));
+            assert_eq!((layout.f80_size, layout.f80_align), (12, 4));
+        }
+        assert_eq!(
+            Target::parse("i686-unknown-linux-musl")
+                .unwrap()
+                .to_string(),
+            "i686-unknown-linux-musl"
+        );
+        assert!(Target::parse("i686-pc-windows-msvc").is_err());
+        assert!(Target::parse("i686-apple-darwin").is_err());
     }
 }

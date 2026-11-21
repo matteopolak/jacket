@@ -807,7 +807,7 @@ impl<'ctx> Backend<'ctx, '_> {
                         Arch::Aarch64 | Arch::Win64Arm => {
                             self.inline_asm("mrs $0, cntvct_el0", "=r", Some(i64t.into()))?
                         }
-                        Arch::X86_64 | Arch::Win64 => {
+                        Arch::X86_64 | Arch::Win64 | Arch::X86 => {
                             self.call_intrinsic("llvm.readcyclecounter", &[], &[])?
                         }
                         // No cycle counter is visible to wasm code.
@@ -846,7 +846,7 @@ impl<'ctx> Backend<'ctx, '_> {
             Intrinsic::Pause => {
                 let asm = match self.arch {
                     Arch::Aarch64 | Arch::Win64Arm => "yield",
-                    Arch::X86_64 | Arch::Win64 => "pause",
+                    Arch::X86_64 | Arch::Win64 | Arch::X86 => "pause",
                     Arch::Wasm => return Ok(vec![]),
                 };
                 self.inline_asm(asm, "", None)?;
@@ -874,6 +874,11 @@ impl<'ctx> Backend<'ctx, '_> {
             Intrinsic::FiberInit | Intrinsic::FiberSwitch | Intrinsic::FiberFree
                 if self.arch.is_wasm() => Err(
                 "fibers are not supported when compiling for WebAssembly: wasm code cannot switch stacks"
+                    .into(),
+            ),
+            Intrinsic::FiberInit | Intrinsic::FiberSwitch | Intrinsic::FiberFree
+                if self.arch == Arch::X86 => Err(
+                "fibers are not supported when compiling for 32-bit x86 yet: there is no context-switch routine for it"
                     .into(),
             ),
             // Native fibers hold nothing but their stacks, which the program owns.
@@ -956,7 +961,7 @@ impl<'ctx> Backend<'ctx, '_> {
         let class = if ty.is_float_type() {
             match self.arch {
                 Arch::Aarch64 | Arch::Win64Arm => "w",
-                Arch::X86_64 | Arch::Win64 => "x",
+                Arch::X86_64 | Arch::Win64 | Arch::X86 => "x",
                 Arch::Wasm => "r",
             }
         } else {

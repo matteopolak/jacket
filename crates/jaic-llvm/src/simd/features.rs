@@ -45,7 +45,7 @@ pub enum Family {
 impl Family {
     pub fn of(arch: Arch) -> Family {
         match arch {
-            Arch::X86_64 | Arch::Win64 => Family::X86,
+            Arch::X86_64 | Arch::Win64 | Arch::X86 => Family::X86,
             Arch::Aarch64 | Arch::Win64Arm => Family::Aarch64,
             Arch::Wasm => Family::Wasm,
         }
