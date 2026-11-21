@@ -201,10 +201,15 @@ libc :: #system_library "libc"; @native(external)
 Write_Lock :: #import "internal/runtime/output-lock";
 #if OS == .ANDROID Android_Output :: #import "internal/runtime/android-output";
 
-// What every failed check ends in. The freestanding runtime halts through a panic hook instead.
+// What every failed check ends in, and so visible to the files loaded beside this one. The
+// freestanding runtime halts through a panic hook instead.
+#scope_module
+
 abort_program :: () #no_context {
     c_abort();
 }
+
+#scope_file
 
 acquire_output_lock :: () #no_context {
     Write_Lock.acquire();
