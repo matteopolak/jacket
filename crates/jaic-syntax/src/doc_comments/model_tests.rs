@@ -130,8 +130,43 @@ fn items_under_an_os_condition_name_their_systems() {
     assert_eq!(systems("both").as_deref(), Some(""));
     assert_eq!(
         systems("not_windows").as_deref(),
-        Some("MACOS,LINUX,ANDROID,IOS,WASM")
+        Some("MACOS,LINUX,ANDROID,IOS,WASM,NONE")
     );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn no_operating_system_is_a_system_of_its_own() {
+    let dir = library(
+        "none-system",
+        &[
+            (
+                "module.jai",
+                "#assert OS == .MACOS || OS == .LINUX, \"two systems\";\n#if OS == .NONE {\n    bare :: () {}\n}\nany :: () {}\n",
+            ),
+            (
+                "free/module.jai",
+                "#assert OS == .NONE;\nonly_bare :: () {}\n",
+            ),
+            (
+                "open/module.jai",
+                "#assert OS != .WINDOWS;\nplain :: () {}\n",
+            ),
+        ],
+    );
+    let model = module(&dir, Path::new("/nowhere"));
+    let find = |name: &str| model.items.iter().find(|i| i.name == name).unwrap();
+    assert_eq!(find("bare").platforms, ["NONE"]);
+    assert!(find("any").platforms.is_empty());
+    assert_eq!(model.platforms, ["MACOS", "LINUX"]);
+    assert_eq!(
+        module_platforms(&dir.join("module.jai")),
+        ["MACOS", "LINUX"]
+    );
+    assert_eq!(module_platforms(&dir.join("free/module.jai")), ["NONE"]);
+    // A condition that says more than the systems it names lists none.
+    assert!(module_platforms(&dir.join("open/module.jai")).is_empty());
+    assert!(module_platforms(&dir.join("missing.jai")).is_empty());
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -871,7 +906,7 @@ fn a_type_defined_differently_in_each_branch_keeps_every_definition() {
     assert_eq!(other.docs, "Other watcher.");
     assert_eq!(
         other.platforms,
-        ["LINUX", "WINDOWS", "ANDROID", "IOS", "WASM"]
+        ["LINUX", "WINDOWS", "ANDROID", "IOS", "WASM", "NONE"]
     );
     assert!(other.declaration.contains("handle: s32"));
     // Branches that say the same thing are one definition.

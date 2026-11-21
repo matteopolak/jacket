@@ -16,7 +16,8 @@ use crate::parser::ide_facts::{self, TopLevelKind};
 use crate::source::FileId;
 pub use gaps::{Entry as GapEntry, gaps, records as gap_records};
 pub use model::{
-    Expander, generated_origin, generated_path, print_expanding as model_json_expanding,
+    Expander, generated_origin, generated_path, module_platforms,
+    print_expanding as model_json_expanding,
 };
 use std::collections::{BTreeSet, VecDeque};
 use std::path::{Path, PathBuf};
