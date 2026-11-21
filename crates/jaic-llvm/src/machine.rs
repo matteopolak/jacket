@@ -160,7 +160,7 @@ pub(super) fn target_machine(
             &triple,
             &cpu,
             &features,
-            llvm_level(wasm_machine_level(arch, options, level)),
+            llvm_level(unoptimized_machine_level(arch, options, level)),
             reloc,
             CodeModel::Default,
         )
@@ -171,14 +171,24 @@ pub(super) fn target_machine(
     Ok((machine, triple, build_target, arch))
 }
 
-/// The level the target machine of a wasm module runs at. LLVM's WebAssembly backend gives every
+/// The level the target machine of a wasm or 32-bit x86 module runs at. LLVM's WebAssembly backend gives every
 /// virtual register its own local at `None` (register coloring and stackification are skipped),
 /// so an unoptimized module whose function inlines a lot of code (the `#asm` of an x86 hash,
 /// emulated instruction by instruction) passes the engines' limit of 50000 locals per function.
 /// One level up shares locals and still leaves the IR as unoptimized as it was; a machine level
 /// the program chose with `machine_code_optimization_setting` is kept as it is.
-fn wasm_machine_level(arch: jaic::abi::Arch, options: &Options, level: OptLevel) -> OptLevel {
-    if arch.is_wasm() && level == OptLevel::O0 && options.codegen.machine_level.is_none() {
+///
+/// 32-bit x86 gets the same step for another reason: its position-independent code keeps `ebx`
+/// for the GOT, and the fast register allocator that `None` selects runs out of registers for a
+/// 64-bit `cmpxchg8b` (`ran out of registers during register allocation`). The next level uses
+/// the greedy allocator and the IR stays unoptimized.
+fn unoptimized_machine_level(
+    arch: jaic::abi::Arch,
+    options: &Options,
+    level: OptLevel,
+) -> OptLevel {
+    let needs_better_allocator = arch.is_wasm() || arch == jaic::abi::Arch::X86;
+    if needs_better_allocator && level == OptLevel::O0 && options.codegen.machine_level.is_none() {
         OptLevel::O1
     } else {
         level

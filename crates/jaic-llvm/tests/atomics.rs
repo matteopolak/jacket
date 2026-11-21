@@ -215,6 +215,27 @@ const instance=new WebAssembly.Instance(m,{env}); if(instance.exports.atomic_che
     run(toolchain::command("node").args(["-e", script]).arg(module));
 }
 
+/// 64-bit atomics on 32-bit x86 use `cmpxchg8b`, which takes `ebx` (the PIC base): the
+/// unoptimized build must still find registers for it.
+#[test]
+fn a_64_bit_compare_and_swap_compiles_unoptimized_for_i686() {
+    let dir = directory("i686");
+    let target = jaic::target::Target::parse("i686-unknown-linux-gnu").unwrap();
+    let mut options = Options::host();
+    options.runtime_support = false;
+    target.apply(&mut options);
+    let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+    if let Err(e) = compiler.compile_sources(&[ProgramSource::String(SOURCE.into())]) {
+        panic!("{}", e.render(&compiler.src.sources));
+    }
+    let options = jaic_llvm::Options {
+        target: Some(target),
+        opt_level: OptLevel::O0,
+        ..Default::default()
+    };
+    emit_object(&compiler.out.program, &options, &dir.join("i686.o")).unwrap();
+}
+
 #[test]
 fn wasm_cannot_silently_disable_required_atomics() {
     if !toolchain::require_all(&["wasm-ld"]) {
