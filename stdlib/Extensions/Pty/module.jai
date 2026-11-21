@@ -122,7 +122,7 @@ open_session :: (shell: string, command: string = "", cols: int = 80, rows: int 
 // The caller owns `buffer`. `poll_exit` separately reports the child's exit status.
 read_session :: (session: *Session, buffer: [] u8) -> int {
     #if OS == .MACOS || OS == .LINUX {
-        n := P.read(session.fd, buffer.data, cast(u64) buffer.count);
+        n := P.read(session.fd, buffer.data, cast(P.size_t) buffer.count);
         if n < 0 && (errno_address().* == P.EAGAIN || errno_address().* == P.EINTR) return 0;
         if n <= 0 return -1;
         return n;

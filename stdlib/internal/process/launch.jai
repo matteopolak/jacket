@@ -346,7 +346,7 @@ child_close :: (fd: s32) #no_context {
 read_exact :: (fd: s32, data: *void, count: s64) -> bool #no_context {
     cursor: s64;
     while cursor < count {
-        got := P.read(fd, cast(*u8) data + cursor, cast(u64) (count - cursor));
+        got := P.read(fd, cast(*u8) data + cursor, cast(P.size_t) (count - cursor));
         if got < 0 {
             if P.errno() == P.EINTR continue;
             return false;
@@ -363,7 +363,7 @@ read_exact :: (fd: s32, data: *void, count: s64) -> bool #no_context {
 write_exact :: (fd: s32, data: *void, count: s64) -> bool #no_context {
     cursor: s64;
     while cursor < count {
-        sent := P.write(fd, cast(*u8) data + cursor, cast(u64) (count - cursor));
+        sent := P.write(fd, cast(*u8) data + cursor, cast(P.size_t) (count - cursor));
         if sent < 0 {
             if P.errno() == P.EINTR continue;
             return false;
@@ -456,7 +456,7 @@ supervise :: (handles: Launch_Handles, argv: **u8, directory: *u8, change_direct
     count: s64;
 
     while count < 4 {
-        got := P.read(errors[0], cast(*u8) *error_code + count, cast(u64) (4 - count));
+        got := P.read(errors[0], cast(*u8) *error_code + count, cast(P.size_t) (4 - count));
         if got < 0 {
             if P.errno() == P.EINTR continue;
             error_code = cast(s32) P.errno();

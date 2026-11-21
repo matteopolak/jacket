@@ -45,7 +45,7 @@ get_machinename :: () -> string {
         buffer := talloc_string(capacity);
 
         memset(buffer.data, 0, capacity);
-        status := P.gethostname(buffer.data, cast(u64) capacity);
+        status := P.gethostname(buffer.data, cast(P.size_t) capacity);
         error := P.errno();
 
         if status == 0 {
@@ -175,8 +175,8 @@ get_passwd_for_user :: (username := "") -> (success: bool, p: P.passwd) {
         found: *P.passwd;
         error: s32;
 
-        if username.count == 0 error = P.getpwuid_r(P.getuid(), *account, buffer, cast(u64) size, *found);
-        else error = P.getpwnam_r(name, *account, buffer, cast(u64) size, *found);
+        if username.count == 0 error = P.getpwuid_r(P.getuid(), *account, buffer, cast(P.size_t) size, *found);
+        else error = P.getpwnam_r(name, *account, buffer, cast(P.size_t) size, *found);
         if error == 0 return found != null, account;
 
         if error != cast(s32) P.ERANGE {

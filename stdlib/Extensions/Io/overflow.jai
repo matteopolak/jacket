@@ -108,6 +108,6 @@
             if value == 0 break;
         }
 
-        POSIX.write(2, digits.data + position, cast(u64) (digits.count - position));
+        POSIX.write(2, digits.data + position, cast(POSIX.size_t) (digits.count - position));
     }
 }

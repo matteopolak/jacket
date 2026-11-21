@@ -34,11 +34,11 @@
     }
 
     commit :: (start: *u8, bytes: u64) -> bool {
-        return P.mprotect(start, bytes, P.PROT_READ | P.PROT_WRITE) == 0;
+        return P.mprotect(start, cast(P.size_t) bytes, P.PROT_READ | P.PROT_WRITE) == 0;
     }
 
     read_only :: (start: *u8, bytes: u64) -> bool {
-        return P.mprotect(start, bytes, P.PROT_READ) == 0;
+        return P.mprotect(start, cast(P.size_t) bytes, P.PROT_READ) == 0;
     }
 
     release :: (start: *u8, bytes: u64) -> bool {

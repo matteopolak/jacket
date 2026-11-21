@@ -14,7 +14,7 @@ reader_create_channel_os_specific :: (name: string, bytes: s64) -> (success: boo
     extent := bytes;
 
     defer if !completed {
-        if mapping && P.munmap(mapping, cast(u64) extent) != 0 log_cleanup();
+        if mapping && P.munmap(mapping, cast(P.size_t) extent) != 0 log_cleanup();
 
         if fd >= 0 {
             if P.close(fd) != 0 log_cleanup();
@@ -45,7 +45,7 @@ reader_create_channel_os_specific :: (name: string, bytes: s64) -> (success: boo
     if stat.st_size < bytes return false, .{ os_specific = .{ shm = -1 } };
 
     extent = stat.st_size;
-    mapping = P.mmap(null, cast(u64) extent, P.PROT_READ | P.PROT_WRITE, P.MAP_SHARED, fd, 0);
+    mapping = P.mmap(null, cast(P.size_t) extent, P.PROT_READ | P.PROT_WRITE, P.MAP_SHARED, fd, 0);
     if mapping == P.MAP_FAILED {
         log_create_failure("mmap");
         mapping = null;
@@ -120,7 +120,7 @@ writer_connect :: (name: string, name_not_found_is_quiet := false) -> (success: 
     extent: s64;
 
     defer if !completed {
-        if mapping && P.munmap(mapping, cast(u64) extent) != 0 log_cleanup();
+        if mapping && P.munmap(mapping, cast(P.size_t) extent) != 0 log_cleanup();
         if P.close(fd) != 0 log_cleanup();
     }
 
@@ -130,7 +130,7 @@ writer_connect :: (name: string, name_not_found_is_quiet := false) -> (success: 
     extent = stat.st_size;
     if extent < OFFSET_TO_MESSAGE_DATA + 32 return false, .{ os_specific = .{ shm = -1 } };
 
-    mapping = P.mmap(null, cast(u64) extent, P.PROT_READ | P.PROT_WRITE, P.MAP_SHARED, fd, 0);
+    mapping = P.mmap(null, cast(P.size_t) extent, P.PROT_READ | P.PROT_WRITE, P.MAP_SHARED, fd, 0);
     if mapping == P.MAP_FAILED {
         mapping = null;
         return false, .{ os_specific = .{ shm = -1 } };
@@ -168,7 +168,7 @@ writer_disconnect :: (channel: *Write_Channel) -> bool {
     header := record.header;
 
     store_atomic(*header.writer_status, type_of(header.writer_status).DISCONNECTED);
-    unmapped := P.munmap(header, cast(u64) record.extent) == 0;
+    unmapped := P.munmap(header, cast(P.size_t) record.extent) == 0;
     closed := P.close(record.fd) == 0;
 
     if unmapped channel.header = null;
@@ -193,7 +193,7 @@ reader_release_channel :: (channel: *Read_Channel) -> bool {
     store_atomic(*header.reader_status, type_of(header.reader_status).DISCONNECTED);
     bytes := record.extent;
     unlinked := P.shm_unlink(record.name.data) == 0;
-    unmapped := P.munmap(header, cast(u64) bytes) == 0;
+    unmapped := P.munmap(header, cast(P.size_t) bytes) == 0;
     closed := P.close(record.fd) == 0;
 
     if unmapped channel.header = null;

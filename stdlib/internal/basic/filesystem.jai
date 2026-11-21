@@ -22,7 +22,7 @@ get_working_directory :: () -> result: string {
 
         assert(memory != null);
 
-        if P.getcwd(memory, cast(u64) capacity) {
+        if P.getcwd(memory, cast(P.size_t) capacity) {
             result := copy_string(to_string(memory));
             free(memory);
             return result;
