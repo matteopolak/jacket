@@ -287,9 +287,11 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `configure_rpmalloc.py` | Select the reviewed raw heap source profile in an OWNED/staged stdlib tree. | tools |
 | `generate.py` | Generate native ABI facades exclusively from the reviewed public specs. | tools |
 | `generate_appkit.py` | Generate AppKit message forwarding from the reviewed public contract. | tools |
+| `linux_cabi.py` | Render a Linux target's C headers (clang JSON AST) as Jai types, records and signatures. | - |
 | `prepare_rpmalloc.py` | Build-only, hash-checked fixes to official pinned C sources. Never edit vendor. | tools |
 | `vendor_context.py` | Private contextual ABI types from hash-pinned official native C headers. | - |
 | `vendor_cpp.py` | Translate the NVTT member API expressly delegated to pinned vendor headers. | - |
+| `vendor_linux_posix.py` | Per-CPU Linux POSIX shapes, symbols and constants from that CPU's own libc headers (cross container). | tools |
 | `vendor_linux_arm64.py` | Private Linux ARM64 kernel ABI from complete pinned official UAPI C headers. | - |
 | `vendor_rpmalloc.py` | Generate a private, complete rpmalloc C SDK ABI from the pinned vendor header. | - |
 | `verify.py` | Run desktop checks and real host native tests with an explicit own compiler. | tools |
