@@ -145,6 +145,8 @@ pub(super) struct Builder<'a> {
     /// Whether a procedure's value is decided at run time (`Interp::proc_value`), so its
     /// `FuncAddr` cannot become a constant.
     pub(super) late_value: &'a dyn Fn(ir::FuncId) -> bool,
+    /// How the program's data is laid out.
+    pub(super) layout: &'a DataLayout,
     pub(super) defs: Vec<u32>,
     /// Uses not folded away yet.
     pub(super) uses: Vec<u32>,
@@ -237,6 +239,7 @@ pub(in crate::interp) fn build(
     let mut b = Builder {
         func,
         late_value,
+        layout,
         defs,
         uses,
         known,

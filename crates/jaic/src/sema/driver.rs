@@ -790,16 +790,28 @@ impl Compiler {
         let (argc, argv) = if args.is_empty() {
             (0, 0)
         } else {
-            let pointers: Vec<u64> = args
-                .iter()
-                .map(|arg| {
-                    let mut bytes = arg.as_bytes().to_vec();
-                    bytes.push(0);
-                    Box::leak(bytes.into_boxed_slice()).as_ptr() as u64
-                })
-                .chain(std::iter::once(0))
-                .collect();
-            let argv = Box::leak(pointers.into_boxed_slice()).as_ptr() as u64;
+            let interp = &mut self.ct.interp;
+            let mut pointers = Vec::with_capacity(args.len() + 1);
+            for arg in args {
+                let mut bytes = arg.as_bytes().to_vec();
+                bytes.push(0);
+                let Some(address) = interp.keep(&bytes, 1) else {
+                    return err(
+                        Code::RuntimeConfigurationInvalid,
+                        Span::NONE,
+                        "cannot allocate the program's arguments",
+                    );
+                };
+                pointers.push(address);
+            }
+            pointers.push(0);
+            let Some(argv) = interp.keep_pointers(&pointers) else {
+                return err(
+                    Code::RuntimeConfigurationInvalid,
+                    Span::NONE,
+                    "cannot allocate the program's arguments",
+                );
+            };
             (args.len() as u64, argv)
         };
         let Some(main) = self.exported_func("main") else {

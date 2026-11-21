@@ -255,9 +255,12 @@ impl Compiler {
                 table.push(addr);
             }
         }
-        self.ct.interp.ct_type_tables.push(table);
-        let table = self.ct.interp.ct_type_tables.last().unwrap();
-        self.ct.interp.ct_type_table = (table.as_ptr() as u64, table.len() as u64);
+        let count = table.len() as u64;
+        // A table that cannot be made is empty, as one with no types is.
+        self.ct.interp.ct_type_table = match self.ct.interp.keep_pointers(&table) {
+            Some(address) => (address, count),
+            None => (0, 0),
+        };
         self.ty.snapshot_key = (
             self.ns.entities.len(),
             self.ty.types.count(),

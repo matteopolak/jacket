@@ -106,6 +106,11 @@ pub trait Host {
         None
     }
 
+    /// The program's memory is a window of host memory (its pointers are narrower than the
+    /// host's): everything the host hands the program must come from it.
+    fn attach_window(&mut self, _window: &std::sync::Arc<super::Window>) {
+    }
+
     /// Whether foreign symbols may be resolved through the native dynamic linker.
     fn native_linking(&self) -> bool;
 

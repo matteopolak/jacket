@@ -104,7 +104,10 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         c.ct.interp.stop_for_exit();
     });
     if let Some(host) = &sandbox {
-        compiler.ct.interp.host = Box::new(SharedHost(host.clone()));
+        compiler
+            .ct
+            .interp
+            .set_host(Box::new(SharedHost(host.clone())));
     }
     if cli.deps {
         Workspaces::record_source_files(&workspaces);

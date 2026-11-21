@@ -185,10 +185,10 @@ mod worker_lifetime_tests {
         let weak = Arc::downgrade(&source);
         compiler.src.sources.add("lifetime-order.jai", source);
         let alive = Rc::new(std::cell::Cell::new(false));
-        compiler.ct.interp.host = Box::new(LifetimeHost {
+        compiler.ct.interp.set_host(Box::new(LifetimeHost {
             source: weak,
             alive: alive.clone(),
-        });
+        }));
         drop(compiler);
         assert!(
             alive.get(),

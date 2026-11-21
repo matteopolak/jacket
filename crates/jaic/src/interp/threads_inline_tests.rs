@@ -12,7 +12,10 @@ fn slots_after(source: &str) -> usize {
     let mut options = Options::host();
     options.runtime_support = false;
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
-    compiler.ct.interp.host = Box::new(SandboxHost::default());
+    compiler
+        .ct
+        .interp
+        .set_host(Box::new(SandboxHost::default()));
     let source = format!(
         "{source}\n#program_export \"probe\" probe :: () -> s64 #c_call {{ if check() return 0; return 1; }}\n"
     );

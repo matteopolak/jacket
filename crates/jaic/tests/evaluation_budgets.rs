@@ -100,7 +100,7 @@ fn a_stopped_host_runs_no_compile_time_code() {
         "count :: (n: int) -> int { total := 0; for 0..n { total += it; } return total; } #run count(3); main :: () {}",
         Some(1000),
     );
-    c.ct.interp.host = Box::new(SharedHost(host));
+    c.ct.interp.set_host(Box::new(SharedHost(host)));
     let error = run(&mut c).unwrap_err();
     assert!(error.contains("checking stopped"), "{error}");
 }
@@ -111,7 +111,7 @@ fn the_wall_clock_limit_interrupts_a_running_loop() {
     host.borrow_mut().stop_after(Duration::from_millis(100));
     let mut c = compiler("#run { while true {} } main :: () {}", None);
     c.ct.interp.block_budget = Some(u64::MAX);
-    c.ct.interp.host = Box::new(SharedHost(host.clone()));
+    c.ct.interp.set_host(Box::new(SharedHost(host.clone())));
     let error = run(&mut c).unwrap_err();
     assert!(error.contains("checking stopped"), "{error}");
     assert!(!error.contains("budget"), "{error}");

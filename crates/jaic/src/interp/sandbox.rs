@@ -280,6 +280,9 @@ pub struct SandboxHost {
     /// Write order across the two streams: `(to_stderr, bytes)` runs, adjacent runs merged.
     pub order: Vec<(bool, usize)>,
     allocations: HashMap<u64, (ZeroedBlock, usize)>,
+    /// The program's window, when its pointers are narrower than the host's: where everything
+    /// the stand-ins hand the program comes from.
+    window: Option<std::sync::Arc<super::Window>>,
     #[cfg(unix)]
     mappings: BTreeMap<u64, virtual_memory::Mapping>,
     /// Bytes held by `mappings`, capped at `virtual_memory::MAX_MAPPED_BYTES`.
@@ -400,7 +403,7 @@ impl SandboxHost {
     /// A zeroed 16-byte aligned block, or null when the request cannot be met (like `malloc`;
     /// an infallible allocation would abort the whole compiler on `alloc(1 << 60)`).
     fn alloc(&mut self, size: usize) -> u64 {
-        let Some(block) = ZeroedBlock::new(size, 16) else {
+        let Some(block) = ZeroedBlock::in_window(self.window.as_ref(), size, 16) else {
             return 0;
         };
         let addr = block.addr();
@@ -635,6 +638,10 @@ fn cstr(ptr: u64) -> String {
 }
 
 impl Host for SandboxHost {
+    fn attach_window(&mut self, window: &std::sync::Arc<super::Window>) {
+        self.window = Some(window.clone());
+    }
+
     fn stop_requested(&mut self) -> bool {
         self.has_stopped()
     }
@@ -730,6 +737,10 @@ impl Host for SandboxHost {
 pub struct SharedHost(pub Rc<RefCell<SandboxHost>>);
 
 impl Host for SharedHost {
+    fn attach_window(&mut self, window: &std::sync::Arc<super::Window>) {
+        self.0.borrow_mut().attach_window(window);
+    }
+
     fn write(&mut self, bytes: &[u8], to_stderr: bool) {
         self.0.borrow_mut().write(bytes, to_stderr);
     }

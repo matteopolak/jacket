@@ -23,6 +23,10 @@ const STEP: usize = 64 * 1024;
 pub(super) struct ReadOnlyData {
     /// Start of the reservation; 0 before the first `place`.
     base: usize,
+    /// Bytes of the reservation; 0 before the first `place`.
+    limit: usize,
+    /// The reservation is a part of the program's window, which owns it.
+    in_window: bool,
     /// Bytes from `base` handed out.
     used: usize,
     /// Bytes from `base` usable (committed on Windows).
@@ -34,6 +38,17 @@ pub(super) struct ReadOnlyData {
 }
 
 impl ReadOnlyData {
+    /// Read-only data kept in `len` bytes of the program's window starting at host address
+    /// `base`, which the window owns and keeps inaccessible until used.
+    pub(super) fn in_window(base: usize, len: usize) -> Self {
+        ReadOnlyData {
+            base,
+            limit: len,
+            in_window: true,
+            ..Self::default()
+        }
+    }
+
     /// Whether `addr` lies in read-only data. On the path of every interpreted store.
     #[inline(always)]
     pub(super) fn contains(&self, addr: u64) -> bool {
@@ -60,10 +75,11 @@ impl ReadOnlyData {
                 return None;
             };
             self.base = base;
+            self.limit = RESERVE;
         }
         let start = self.used.checked_next_multiple_of(align)?;
         let end = start.checked_add(size.max(1))?;
-        if end > RESERVE || !(self.base + start).is_multiple_of(align) {
+        if end > self.limit || !(self.base + start).is_multiple_of(align) {
             return None;
         }
         if end > self.committed {
@@ -79,6 +95,20 @@ impl ReadOnlyData {
         }
         self.used = end;
         Some((self.base + start) as u64)
+    }
+
+    /// Forget everything placed, and zero it, for a reservation the window owns and so cannot
+    /// give back and take again.
+    pub(super) fn clear(&mut self) {
+        let (base, used) = (self.base as u64, self.used);
+        if used > 0 {
+            // SAFETY: `base..base + used` is the committed, placed part of this reservation.
+            self.fill(base, used, || unsafe {
+                std::ptr::write_bytes(base as *mut u8, 0, used);
+            });
+            self.seal();
+        }
+        self.used = 0;
     }
 
     /// Run `write` with the pages under `addr..addr + len` writable. They stay writable until
@@ -120,8 +150,8 @@ impl ReadOnlyData {
 
 impl Drop for ReadOnlyData {
     fn drop(&mut self) {
-        if self.base != 0 {
-            host_pages::release(self.base, RESERVE);
+        if self.base != 0 && !self.in_window {
+            host_pages::release(self.base, self.limit);
         }
     }
 }

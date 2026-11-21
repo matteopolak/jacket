@@ -48,10 +48,12 @@ impl Compiler {
             }
         };
         let info = self.type_info_global(ty, span)?;
-        let any = f.b.alloca(16, 8);
+        let layout = self.ty.types.builtins().any;
+        let any = f.b.alloca(layout.size, layout.align);
         let ti = f.b.global_addr(info);
-        f.b.store(Ty::Ptr, any, ti);
-        let vp = f.b.ptr_offset(any, 8);
+        let tp = f.b.ptr_offset(any, layout.type_);
+        f.b.store(Ty::Ptr, tp, ti);
+        let vp = f.b.ptr_offset(any, layout.value_pointer);
         f.b.store(Ty::Ptr, vp, addr);
         if !f.type_only
             && let Some(record) = &mut f.lifetimes

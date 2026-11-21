@@ -148,7 +148,10 @@ impl LintCompile {
             observer,
         });
         let mut compiler = Box::new(Compiler::new(options, fs));
-        compiler.ct.interp.host = Box::new(SharedHost(host.clone()));
+        compiler
+            .ct
+            .interp
+            .set_host(Box::new(SharedHost(host.clone())));
         compiler.ct.interp.block_budget = Some(limits.eval_steps);
         compiler.attach_workspaces(workspaces.clone());
         Self {

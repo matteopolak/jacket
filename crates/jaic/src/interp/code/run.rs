@@ -243,7 +243,7 @@ impl Interp {
                 Op::FrameAddr {
                     dst,
                     off,
-                } => set(dst, stack_base + off),
+                } => set(dst, stack_base.wrapping_sub(self.base) + off),
                 Op::Add {
                     dst,
                     a,
@@ -495,7 +495,7 @@ impl Interp {
                     }
                     // SAFETY: both addresses are non-null (checked above) host addresses of program
                     // memory that the IR sized `size` bytes.
-                    unsafe { copy_bytes(d, s, size) };
+                    unsafe { copy_bytes(self.host_addr(d), self.host_addr(s), size) };
                 }
                 Op::MemCopy {
                     dst,
@@ -519,7 +519,13 @@ impl Interp {
                         // Like a load or store, a copy goes through the program's pointers
                         // directly, so a bad one faults as it would natively.
                         // SAFETY: the program's own memmove.
-                        unsafe { std::ptr::copy(s as *const u8, d as *mut u8, n) };
+                        unsafe {
+                            std::ptr::copy(
+                                self.host_addr(s) as *const u8,
+                                self.host_addr(d) as *mut u8,
+                                n,
+                            )
+                        };
                     }
                 }
                 Op::MemSet {
@@ -542,7 +548,7 @@ impl Interp {
                             return Err(trap.at(self.loc));
                         }
                         // SAFETY: the program's own memset, as for `MemCopy`.
-                        unsafe { std::ptr::write_bytes(d as *mut u8, v as u8, n) };
+                        unsafe { std::ptr::write_bytes(self.host_addr(d) as *mut u8, v as u8, n) };
                     }
                 }
                 Op::Zero {
@@ -560,7 +566,7 @@ impl Interp {
                     }
                     // SAFETY: `d` is non-null (checked above) and addresses `size` writable bytes of
                     // program memory.
-                    unsafe { zero_bytes(d, size) };
+                    unsafe { zero_bytes(self.host_addr(d), size) };
                 }
                 Op::Loc {
                     ..

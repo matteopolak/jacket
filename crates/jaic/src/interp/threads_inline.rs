@@ -793,7 +793,7 @@ impl Interp {
                 let stack = sched
                     .spare_stacks
                     .pop()
-                    .unwrap_or_else(|| ValueStack::heap(THREAD_STACK / 8));
+                    .map_or_else(|| self.new_stack(THREAD_STACK / 8), Ok)?;
                 self.put_exec_state(ExecState {
                     stack,
                     ..ExecState::default()

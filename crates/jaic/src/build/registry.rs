@@ -503,7 +503,7 @@ pub(super) fn new_compiler(shared: &SharedWorkspaces, id: i64) -> Result<Box<Com
         options.backtrace_on_crash = on && options.os != TargetOs::Wasm;
     }
     let mut compiler = Box::new(Compiler::new(options, fs));
-    compiler.ct.interp.host = host;
+    compiler.ct.interp.set_host(host);
     compiler.meta.workspace = id;
     compiler.attach_workspaces(shared.clone());
     let observer = shared.borrow_mut().env.observer.take();

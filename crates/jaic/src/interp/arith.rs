@@ -1,5 +1,4 @@
 //! Integer arithmetic, comparison and conversion on raw register words.
-use super::FUNC_TAG;
 use crate::int_arith::{DivideByZero, IntOp, float_to_int, int_binop};
 use crate::ir::{BinOp, CmpOp, ConvOp, Ty};
 
@@ -8,8 +7,8 @@ use crate::ir::{BinOp, CmpOp, ConvOp, Ty};
 /// both: the tags are the highest addresses used, and subtracting the first page wraps the
 /// null page around to the top. An address that fails it is looked at again, closely.
 #[inline(always)]
-pub(super) fn plain_address(addr: u64) -> bool {
-    addr.wrapping_sub(4096) < FUNC_TAG - 4096
+pub(super) fn plain_address(addr: u64, limit: u64) -> bool {
+    addr.wrapping_sub(4096) < limit - 4096
 }
 
 /// Is `op` one of the binary operations that can fail (`Interp::divide`)?

@@ -60,7 +60,7 @@ impl Interp {
                 // mapping first read /proc/self/maps on Linux after every foreign call).
                 // Callers must retain the allocation and use compatible atomic accesses
                 // while it is shared.
-                let cell = unsafe { <$atomic>::from_ptr(address as *mut $scalar) };
+                let cell = unsafe { <$atomic>::from_ptr(self.host_addr(address) as *mut $scalar) };
                 match op {
                     I::AtomicLoad(_) => Rets::one(cell.load(success) as u64),
                     I::AtomicStore(_) => {

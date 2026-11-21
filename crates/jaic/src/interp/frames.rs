@@ -1,5 +1,5 @@
 //! Call frames, the value stack and the saved execution state of a suspended run.
-use super::{Call, Interp, code, last_error, profile};
+use super::{Call, Interp, Res, code, last_error, profile};
 use crate::ir::{self, FuncId, Program};
 
 pub(super) struct Frame {
@@ -63,7 +63,20 @@ mod register_poison_tests {
 pub(super) struct ValueStack {
     words: *mut u64,
     len: usize,
-    owned: bool,
+    owner: Owner,
+}
+
+/// What a stack has to give back.
+enum Owner {
+    /// Somebody else's memory.
+    Borrowed,
+    /// A boxed slice made by `heap`.
+    Heap,
+    /// A block of the program's window, freed when the stack goes.
+    Block(
+        #[allow(dead_code, reason = "owning it is the point: dropping it frees it")]
+        super::ZeroedBlock,
+    ),
 }
 
 impl Default for ValueStack {
@@ -71,7 +84,7 @@ impl Default for ValueStack {
         ValueStack {
             words: std::ptr::NonNull::dangling().as_ptr(),
             len: 0,
-            owned: false,
+            owner: Owner::Borrowed,
         }
     }
 }
@@ -83,8 +96,25 @@ impl ValueStack {
         ValueStack {
             words: words.cast(),
             len,
-            owned: true,
+            owner: Owner::Heap,
         }
+    }
+
+    /// `len` zeroed words inside `window`, so the program may point at them; host memory when
+    /// there is no window. `None` when the memory cannot be had.
+    pub(super) fn in_window(
+        window: Option<&std::sync::Arc<super::Window>>,
+        len: usize,
+    ) -> Option<Self> {
+        let Some(window) = window else {
+            return Some(Self::heap(len));
+        };
+        let block = super::ZeroedBlock::in_window(Some(window), len * 8, 4096)?;
+        Some(ValueStack {
+            words: (window.base() + block.addr()) as *mut u64,
+            len,
+            owner: Owner::Block(block),
+        })
     }
 
     /// `len` words of memory that outlives the stack and is zeroed.
@@ -96,7 +126,7 @@ impl ValueStack {
         ValueStack {
             words,
             len,
-            owned: false,
+            owner: Owner::Borrowed,
         }
     }
 }
@@ -123,7 +153,7 @@ impl std::ops::DerefMut for ValueStack {
 
 impl Drop for ValueStack {
     fn drop(&mut self) {
-        if self.owned {
+        if matches!(self.owner, Owner::Heap) {
             // SAFETY: made by `heap` from a boxed slice of `len` words.
             drop(unsafe {
                 Box::from_raw(std::ptr::slice_from_raw_parts_mut(self.words, self.len))
@@ -145,6 +175,14 @@ pub(super) struct ExecState {
 }
 
 impl Interp {
+    /// A fresh interpreter stack of `words` words, in the program's window when it has one.
+    pub(super) fn new_stack(&mut self, words: usize) -> Res<ValueStack> {
+        match ValueStack::in_window(self.window.as_ref(), words) {
+            Some(stack) => Ok(stack),
+            None => self.trap("cannot allocate the interpreter stack"),
+        }
+    }
+
     /// The frame of procedure `id`, made on its first call (and again when its body was
     /// replaced). The reference stays valid for as long as the interpreter lives: frames are
     /// boxed and a replaced one is kept in `retired`, since it may still be running.
