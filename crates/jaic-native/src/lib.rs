@@ -57,7 +57,7 @@ pub fn used_libraries(program: &Program) -> Vec<Library> {
 mod tests {
     use super::*;
     use crate::link::{LinkArg, order_link_groups, toolchain_for};
-    use crate::linker::{library_args, mingw_cpu, render_link_arg};
+    use crate::linker::{library_args, linker_command, mingw_cpu, render_link_arg};
     use jaic::target::Target as BuildTarget;
     use jaic::target::TargetCpu;
     use jaic::toolchain::Linker;
@@ -192,6 +192,24 @@ mod tests {
             panic!("{args:?}");
         };
         assert!(source.ends_with("crash-native/runtime.c"), "{source}");
+    }
+
+    /// The default `cc` links 32-bit x86 Linux programs with `-m32` (the runner needs the
+    /// multilib packages), and leaves other targets alone.
+    #[test]
+    fn linking_i686_linux_with_cc_asks_for_32_bit_output() {
+        if jacket_config::env::LINKER.os().is_some() {
+            return;
+        }
+        let flags = |triple: &str| {
+            let target = BuildTarget::parse(triple).unwrap();
+            let (_, cmd) = linker_command(Linker::Unix, Some(target)).unwrap();
+            cmd.get_args()
+                .map(|a| a.to_string_lossy().into_owned())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(flags("i686-unknown-linux-gnu"), ["-m32"]);
+        assert!(flags("x86_64-unknown-linux-gnu").is_empty());
     }
 
     #[test]

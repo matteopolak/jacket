@@ -245,6 +245,13 @@ pub(super) fn linker_command(
             {
                 cmd.arg(format!("--target={target}"));
             }
+            // 32-bit x86 Linux on a 64-bit runner: the C driver's multilib mode.
+            if let Some(target) = target
+                && target.os == jaic::target::TargetOs::Linux
+                && target.cpu == jaic::target::TargetCpu::X86
+            {
+                cmd.arg("-m32");
+            }
             Ok(("cc".into(), cmd))
         }
         Linker::MinGw => {
