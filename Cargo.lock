@@ -337,7 +337,7 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
 name = "jacket"
-version = "0.36.1"
+version = "0.37.0"
 dependencies = [
  "clap",
  "jacket-config",
@@ -357,7 +357,7 @@ dependencies = [
 
 [[package]]
 name = "jacket-config"
-version = "0.36.1"
+version = "0.37.0"
 dependencies = [
  "serde",
  "serde_ignored",
@@ -367,7 +367,7 @@ dependencies = [
 
 [[package]]
 name = "jai-language-server"
-version = "0.36.1"
+version = "0.37.0"
 dependencies = [
  "jacket-config",
  "jaic",
@@ -379,7 +379,7 @@ dependencies = [
 
 [[package]]
 name = "jai-wasm"
-version = "0.36.1"
+version = "0.37.0"
 dependencies = [
  "jacket-config",
  "jai-language-server",
@@ -390,7 +390,7 @@ dependencies = [
 
 [[package]]
 name = "jaic"
-version = "0.36.1"
+version = "0.37.0"
 dependencies = [
  "find-msvc-tools",
  "jacket-config",
@@ -401,7 +401,7 @@ dependencies = [
 
 [[package]]
 name = "jaic-backend"
-version = "0.36.1"
+version = "0.37.0"
 dependencies = [
  "jaic-llvm",
  "jaic-native",
@@ -409,7 +409,7 @@ dependencies = [
 
 [[package]]
 name = "jaic-cli"
-version = "0.36.1"
+version = "0.37.0"
 dependencies = [
  "jacket-config",
  "jaic",
@@ -423,14 +423,14 @@ dependencies = [
 
 [[package]]
 name = "jaic-cli-args"
-version = "0.36.1"
+version = "0.37.0"
 dependencies = [
  "jaic",
 ]
 
 [[package]]
 name = "jaic-llvm"
-version = "0.36.1"
+version = "0.37.0"
 dependencies = [
  "inkwell",
  "jacket-config",
@@ -441,7 +441,7 @@ dependencies = [
 
 [[package]]
 name = "jaic-native"
-version = "0.36.1"
+version = "0.37.0"
 dependencies = [
  "jacket-config",
  "jaic",
@@ -449,7 +449,7 @@ dependencies = [
 
 [[package]]
 name = "jaic-syntax"
-version = "0.36.1"
+version = "0.37.0"
 dependencies = [
  "jacket-config",
  "pulldown-cmark",
@@ -458,7 +458,7 @@ dependencies = [
 
 [[package]]
 name = "jailint"
-version = "0.36.1"
+version = "0.37.0"
 dependencies = [
  "clap",
  "jacket-config",
@@ -748,7 +748,7 @@ dependencies = [
 
 [[package]]
 name = "test-support"
-version = "0.36.1"
+version = "0.37.0"
 dependencies = [
  "insta",
  "jacket-config",

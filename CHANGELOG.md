@@ -1,15 +1,17 @@
 # Changelog
 
-## [Unreleased]
+## [0.37.0] - 2026-11-21
 
-### Added
+`jacket migrate` updates code written for an older Jai, and GetRect draws text without a font set up.
 
-- `jacket migrate` rewrites code written for an older Jai to the current language: it prints the diff, `--apply` writes it, and it writes only files git could give back. Its first migrations write `Context` as `#Context`, `#foreign_library` as `#library`, `make_vector2(x, y)` as `Vector2.{x, y}` and `New(T, allocator = a)` as `New(T,, allocator = a)`, drop the version from an import such as `freetype-2.12.1`, and say what replaces a removed `get_time` or `bubble_sort`.
+### Highlights
 
-### Fixed
+- `jacket migrate` rewrites code for an older Jai to the current language. It prints a diff, and `--apply` writes it, but only to files git can restore. It renames `Context` to `#Context` and `#foreign_library` to `#library`, rewrites `make_vector2(x, y)` as `Vector2.{x, y}` and `New(T, allocator = a)` as `New(T,, allocator = a)`, drops versions from imports such as `freetype-2.12.1`, and points removed procedures like `get_time` to their replacements.
 
-- GetRect draws text with a bundled Noto Sans when no theme and no `ui_init` call names a font, at a size that follows the widget's height, instead of crashing on the first label.
-- In a `for_expansion`, a backtick on one loop name gives the caller only that name: ``for c, `it_index: text`` now gives the inserted body `it_index`, including when `text` has a `for_expansion` of its own, and ``for `it, i: xs`` no longer leaks `i`.
+### Fixes
+
+- GetRect no longer crashes on the first label when no font is set. Text uses a bundled Noto Sans sized to the widget.
+- A backtick on one loop name inside a `for_expansion` now declares only that name in the caller: ``for c, `it_index: text`` gives the body `it_index`, and ``for `it, i: xs`` no longer leaks `i`.
 
 ## [0.36.1] - 2026-11-18
 
