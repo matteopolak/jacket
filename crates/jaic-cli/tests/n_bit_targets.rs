@@ -122,27 +122,25 @@ fn a_wasm32_executable_runs_under_wasmtime() {
 }
 
 /// A plugin that sets the workspace's options back (`jacket test`'s discovery does) keeps an
-/// i686 build i686: the spec's `CPU_Tag.CUSTOM` names it and wasm alike.
+/// i686 or s390x build as it was: the spec's `CPU_Tag.CUSTOM` names them and wasm alike.
 #[test]
-fn a_plugin_setting_the_cpu_back_keeps_i686() {
-    let output = Command::new(JAIC)
-        .arg("-check")
-        .arg(
-            Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../tests/compiler/targets/pointer-sizes.jai"),
-        )
-        .args([
-            "-target",
-            "i686-unknown-linux-gnu",
-            "+Extensions/Testing/Discovery",
-        ])
-        .output()
-        .unwrap();
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
+fn a_plugin_setting_the_cpu_back_keeps_the_target() {
+    for target in ["i686-unknown-linux-gnu", "s390x-unknown-linux-gnu"] {
+        let output = Command::new(JAIC)
+            .arg("-check")
+            .arg(
+                Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../tests/compiler/targets/pointer-sizes.jai"),
+            )
+            .args(["-target", target, "+Extensions/Testing/Discovery"])
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{target}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
 }
 
 /// The workspace a plugin creates for a 32-bit target runs its compile-time code on the
