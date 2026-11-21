@@ -186,14 +186,15 @@ impl Compiler {
     }
 
     pub(super) fn info_view(&mut self, types: &[TypeId], span: Span) -> Result<Aggregate> {
+        let slot = u64::from(self.ty.types.data_layout().pointer_size);
         let mut data = Aggregate {
-            bytes: vec![0; types.len() * 8],
+            bytes: vec![0; types.len() * slot as usize],
             relocs: Vec::new(),
         };
         for (i, &t) in types.iter().enumerate() {
             let g = self.type_info_global(t, span)?;
             data.relocs.push(ir::Reloc {
-                offset: i as u64 * 8,
+                offset: i as u64 * slot,
                 target: ir::RelocTarget::Global(g),
                 addend: 0,
             });

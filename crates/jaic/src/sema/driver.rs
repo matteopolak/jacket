@@ -710,6 +710,8 @@ impl Compiler {
             .preload_type(PreludeType::StackTraceProcedureInfo, span)
             .ok()?;
         let location = self.location_layout(span).ok()?;
+        let layout = self.options.layout;
+        let (pointer, view) = (layout.ptr_bytes(), layout.builtins().view.size);
         let field = |s: &mut Self, ty: TypeId, name: &str, size: u64| -> Option<u64> {
             let (offset, fty) = s.member_offset(ty, name, span).ok()??;
             (s.size_of(fty, span).ok()? == size).then_some(offset)
@@ -722,22 +724,22 @@ impl Compiler {
             return None;
         }
         Some(ir::TraceLayout {
-            context: field(self, context, "stack_trace", 8)?,
+            context: field(self, context, "stack_trace", pointer)?,
             node: ir::TraceNodeLayout {
                 size: self.size_of(node, span).ok()?,
-                next: field(self, node, "next", 8)?,
-                info: field(self, node, "info", 8)?,
+                next: field(self, node, "next", pointer)?,
+                info: field(self, node, "info", pointer)?,
                 hash: field(self, node, "hash", 8)?,
                 call_depth: field(self, node, "call_depth", 4)?,
                 line_number: field(self, node, "line_number", 4)?,
             },
             info: ir::TraceInfoLayout {
                 size: self.size_of(info, span).ok()?,
-                name: field(self, info, "name", 16)?,
+                name: field(self, info, "name", view)?,
                 path: location_at + location.path,
                 line: location_at + location.line,
                 column: location_at + location.column,
-                procedure_address: field(self, info, "procedure_address", 8)?,
+                procedure_address: field(self, info, "procedure_address", pointer)?,
             },
         })
     }
