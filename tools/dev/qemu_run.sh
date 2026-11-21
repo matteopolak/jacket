@@ -29,4 +29,4 @@ fi
 limit="${QEMU_MEMORY_KB:-4194304}"
 seconds="${QEMU_TIMEOUT:-300}"
 exec "$here/linux_x64.sh" cross-exec -- sh -c "ulimit -v $limit; exec timeout -k 5 $seconds \"\$@\"" sh \
-  env "QEMU_LD_PREFIX=$sysroot" "$qemu" "${guest[@]}" -L "$sysroot" "$@"
+  env "QEMU_LD_PREFIX=$sysroot" "$qemu" ${guest[@]+"${guest[@]}"} -L "$sysroot" "$@"
