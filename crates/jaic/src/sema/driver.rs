@@ -11,6 +11,7 @@ use crate::ide::Recorder;
 use crate::lang_items;
 use crate::sema::Diagnostics;
 use crate::sema::Output;
+use crate::target::TargetOs;
 use crate::types::TypeKind;
 use std::path::Path;
 
@@ -278,17 +279,20 @@ impl Compiler {
             return Ok(false);
         };
         let scope = self.ns.modules[m.0 as usize].scope;
-        if self
+        let has_entry = !self
             .lookup(scope, Sym::intern(&self.options.entry_point))?
-            .is_empty()
-        {
-            return Ok(false);
-        }
+            .is_empty();
         let mut i = 0;
         while i < self.ns.export_entities.len() {
             let e = self.ns.export_entities[i];
             self.resolve_entity(e)?;
             i += 1;
+        }
+        // A program with no entry point still has code to lower when it exports procedures: a
+        // freestanding program starts at a symbol of its own, and the runtime exports `memcpy`.
+        // One made only of `#run` and `#assert` directives has nothing to lower.
+        if !has_entry && self.pr.exports.is_empty() {
+            return Ok(false);
         }
         let mut i = 0;
         while i < self.pr.exports.len() {
@@ -748,12 +752,39 @@ impl Compiler {
         self.finalize_runtime_configuration()?;
         self.bake_no_reset_globals();
         self.out.drop_unreferenced_code();
+        self.reject_c_library_calls_without_a_c_library()?;
         self.enable_stack_traces(Span::NONE);
         if let Some(layout) = self.out.program.stack_trace {
             crate::stack_trace::instrument(&mut self.out.program, &layout);
         }
         if self.options.debug_info {
             self.collect_debug_types();
+        }
+        Ok(())
+    }
+
+    /// A freestanding target has no C library: a reachable `#foreign` procedure that a system
+    /// library provides (`write`, `malloc`) is a compile error naming it, not a link error or a
+    /// stub. Bind a board's own symbols with `#elsewhere`, or a static library of your own.
+    fn reject_c_library_calls_without_a_c_library(&self) -> Result<()> {
+        if self.options.os != TargetOs::None {
+            return Ok(());
+        }
+        let program = &self.out.program;
+        for foreign in &program.foreigns {
+            let Some(library) = foreign.library.and_then(|i| program.libraries.get(i)) else {
+                continue;
+            };
+            if library.system {
+                return err(
+                    Code::UnsupportedOperation,
+                    Span::NONE,
+                    format!(
+                        "cannot call `{}` on a freestanding target: it comes from the system library `{}`, and there is no operating system or C library",
+                        foreign.symbol, library.name
+                    ),
+                );
+            }
         }
         Ok(())
     }
