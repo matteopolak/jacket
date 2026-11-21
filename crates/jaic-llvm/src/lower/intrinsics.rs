@@ -864,7 +864,6 @@ impl<'ctx> Backend<'ctx, '_> {
         _want: &[Ty],
     ) -> R<Vec<BasicValueEnum<'ctx>>> {
         let b = &self.builder;
-        let i64t = self.ctx.i64_type();
         let ptr_arg = |i: usize| {
             self.coerce(args[i], Ty::Ptr)
                 .map(|v| v.into_pointer_value())
@@ -874,11 +873,6 @@ impl<'ctx> Backend<'ctx, '_> {
             Intrinsic::FiberInit | Intrinsic::FiberSwitch | Intrinsic::FiberFree
                 if self.arch.is_wasm() => Err(
                 "fibers are not supported when compiling for WebAssembly: wasm code cannot switch stacks"
-                    .into(),
-            ),
-            Intrinsic::FiberInit | Intrinsic::FiberSwitch | Intrinsic::FiberFree
-                if self.arch == Arch::X86 => Err(
-                "fibers are not supported when compiling for 32-bit x86 yet: there is no context-switch routine for it"
                     .into(),
             ),
             // Native fibers hold nothing but their stacks, which the program owns.
@@ -895,10 +889,12 @@ impl<'ctx> Backend<'ctx, '_> {
                 // top of the stack; the context also records the stack's bounds, which Windows
                 // wants in the thread information block when it switches to the fiber.
                 let ptr = self.ptr_ty();
-                let ty = i64t.fn_type(&[i64t.into(), ptr.into(), ptr.into()], false);
+                let word = self.word_ty();
+                let ty = word.fn_type(&[word.into(), ptr.into(), ptr.into()], false);
                 let prepare = self.fiber_routine(jaic::fiber::PREPARE, ty)?;
-                let (fiber, stack, size) = (ptr_arg(0)?, ptr_arg(1)?, size_arg(2)?);
-                let low = b.build_ptr_to_int(stack, i64t, "")?;
+                let (fiber, stack) = (ptr_arg(0)?, ptr_arg(1)?);
+                let size = b.build_int_truncate_or_bit_cast(size_arg(2)?, word, "")?;
+                let low = b.build_ptr_to_int(stack, word, "")?;
                 let high = b.build_int_add(low, size, "")?;
                 let sp = basic(b.build_call(
                     prepare,
@@ -907,11 +903,12 @@ impl<'ctx> Backend<'ctx, '_> {
                 )?)
                 .ok_or("fiber prepare produced no value")?
                 .into_int_value();
+                let at = jaic::fiber::offsets(self.layout.pointer_size);
                 for (offset, value) in [
-                    (jaic::fiber::SP, sp),
-                    (jaic::fiber::STACK_LOW, low),
-                    (jaic::fiber::STACK_HIGH, high),
-                    (jaic::fiber::STACK_DEALLOC, low),
+                    (at.sp, sp),
+                    (at.stack_low, low),
+                    (at.stack_high, high),
+                    (at.stack_dealloc, low),
                 ] {
                     b.build_store(self.gep_const(fiber, offset)?, value)?;
                 }
