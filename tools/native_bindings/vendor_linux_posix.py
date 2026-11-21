@@ -146,7 +146,9 @@ def build(arch):
     _, _, architecture, long_bytes = ARCHES[arch]
     ast, layout_dump, macros = dump(arch)
     keep = set(names)
-    ctx = cabi.Context(ast, long_bytes, keep)
+    enums = {d.name for d in declarations if re.search(r'::\s*enum\b', d.code)}
+    renames = {m[2]: m[1] for m in re.finditer(r'#define (\w+) (\w+)\.tv_sec\b', macros)}
+    ctx = cabi.Context(ast, long_bytes, keep, renames)
     # Records the spec leaves opaque (`struct {}`) have no layout to get wrong.
     opaque = {}
     for shape in spec.shapes:
@@ -161,9 +163,15 @@ def build(arch):
         try:
             if '#foreign' in code and name in ctx.functions:
                 params, ret, symbol = cabi.function_declaration(ctx, name)
-                header = (params and [re.sub(r'^\w+:\s*', '', p) for p in params] or [], ret)
                 spelled = types_of(code)
-                if bound or spelled is None or (spelled[0], spelled[1].rstrip()) != header or \
+                if spelled is not None and len(spelled[0]) == len(params):
+                    # The spec names an enum where the header has `int`: same width, keep the name.
+                    for i, (wanted, got) in enumerate(zip(spelled[0], params)):
+                        head, _, kind = got.partition(': ')
+                        if wanted in enums and kind in ('s32', 'u32'):
+                            params[i] = '%s: %s' % (head, wanted)
+                header = [re.sub(r'^\w+:\s*', '', p) for p in params]
+                if bound or spelled is None or (spelled[0], spelled[1].rstrip()) != (header, ret) or \
                         symbol != name:
                     library = re.search(r'#foreign\s+(\w+)', code)[1]
                     suffix = '' if symbol == name else ' "%s"' % symbol

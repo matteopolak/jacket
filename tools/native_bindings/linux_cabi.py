@@ -25,8 +25,10 @@ class Unsupported(Exception):
 class Context:
     """Types of one translation unit: what to name, what to expand, how wide `long` is."""
 
-    def __init__(self, ast, long_bytes, keep):
+    def __init__(self, ast, long_bytes, keep, renames=None):
         self.long_bytes = long_bytes
+        # `#define st_mtime st_mtim.tv_sec`: the spec names the member by the macro.
+        self.renames = renames or {}
         self.keep = keep  # typedef names the public spec declares; they stay names
         self.typedefs, self.records, self.enums, self.functions = {}, {}, {}, {}
         self.constants = {}
@@ -252,13 +254,13 @@ def record_body(ctx, node, indent):
                 if not pending:
                     raise Unsupported('nested record without a body')
                 text = record_body(ctx, pending.pop(0), indent + '    ')
-                member = child.get('name')
+                member = child.get('name') and ctx.renames.get(child['name'], child['name'])
                 if member is None:
                     lines.append(indent + '    using ' + '__anonymous%d: ' % len(lines) + text + ';')
                     continue
             else:
                 text = render(ctx, spelling, ty.get('desugaredQualType'))
-                member = child['name']
+                member = ctx.renames.get(child['name'], child['name'])
             if union and first is not None:
                 lines.append('%s    #overlay (%s) %s: %s;' % (indent, first, member, text))
             else:

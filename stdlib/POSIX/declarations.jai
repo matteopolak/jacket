@@ -8598,9 +8598,9 @@ librt :: #library,system "librt"; @native(external)
         st_size: s64;
         st_blksize: s32;
         st_blocks: s64;
-        st_atim: timespec;
-        st_mtim: timespec;
-        st_ctim: timespec;
+        st_atime: timespec;
+        st_mtime: timespec;
+        st_ctime: timespec;
     }
 
 }
@@ -8803,9 +8803,9 @@ librt :: #library,system "librt"; @native(external)
         st_size: s64;
         st_blksize: s32;
         st_blocks: s64;
-        st_atim: timespec;
-        st_mtim: timespec;
-        st_ctim: timespec;
+        st_atime: timespec;
+        st_mtime: timespec;
+        st_ctime: timespec;
     }
 
 }
@@ -40599,7 +40599,7 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    fpathconf :: (__fd: s32, __name: s32) -> s32 #foreign libc;
+    fpathconf :: (__fd: s32, __name: PC) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -43591,7 +43591,7 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    pathconf :: (__path: *u8, __name: s32) -> s32 #foreign libc;
+    pathconf :: (__path: *u8, __name: PC) -> s32 #foreign libc;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -49049,7 +49049,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    sysconf :: (__name: s32) -> s32 #foreign libc;
+    sysconf :: (__name: _SC_definitions) -> s32 #foreign libc;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {

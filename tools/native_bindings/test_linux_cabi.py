@@ -61,6 +61,11 @@ class RecordTests(unittest.TestCase):
         ctx = context([self.record('t', [field('a', 'int'), pad])])
         self.assertIn('[4] u8', cabi.shape(ctx, 't'))
 
+    def test_a_member_is_named_by_the_macro_that_stands_for_it(self):
+        ctx = cabi.Context({'inner': [self.record('stat', [field('st_mtim', 'struct timespec')])]},
+                           4, {'timespec'}, {'st_mtim': 'st_mtime'})
+        self.assertIn('st_mtime: timespec;', cabi.shape(ctx, 'stat'))
+
     def test_a_named_bit_field_is_never_flattened(self):
         named = {'kind': 'FieldDecl', 'isBitfield': True, 'name': 'flag', 'type': {'qualType': 'int'},
                  'inner': [{'kind': 'ConstantExpr', 'value': '1'}]}
