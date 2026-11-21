@@ -31,7 +31,11 @@
             if !valid_nanos return .{}, false;
         }
 
-        return .{ seconds, nanos }, true;
+        result: Clock_Native.timespec;
+        result.tv_sec = seconds;
+        result.tv_nsec = cast(type_of(result.tv_nsec)) nanos;
+
+        return result, true;
     }
 
     // The current wall-clock time. This is the clock the computer's owner can set, so it can jump; use `current_time_monotonic`

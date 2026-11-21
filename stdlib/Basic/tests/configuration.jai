@@ -6,7 +6,7 @@ ENABLE_ASSERT :: false; // A local constant does not configure Basic.
 main :: () {
     B.assert(!ENABLE_ASSERT);
     B.assert(type_info(B.String_Builder) == type_info(On.String_Builder));
-    B.assert(size_of(B.String_Builder.Buffer) == 32);
+    B.assert(size_of(B.String_Builder.Buffer) == 3 * size_of(s64) + size_of(*void));
     B.assert(B.STRING_BUILDER_BUFFER_SIZE == 4096 - size_of(B.String_Builder.Buffer));
     builder: B.String_Builder;
 

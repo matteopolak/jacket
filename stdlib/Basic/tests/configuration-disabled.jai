@@ -23,7 +23,7 @@ location :: () -> Source_Code_Location {
 
 main :: () {
     #assert !#exists(B.String_Builder.Buffer.ensured_count);
-    check(size_of(B.String_Builder.Buffer) == 24);
+    check(size_of(B.String_Builder.Buffer) == 2 * size_of(s64) + size_of(*void));
     check(B.STRING_BUILDER_BUFFER_SIZE == 4096 - size_of(B.String_Builder.Buffer));
     disabled: B.String_Builder;
 

@@ -1,5 +1,6 @@
 // Reviewed basic.md: POSIX normalization and -1 sentinel collision.
 #import "Basic";
+P :: #import "POSIX";
 
 main :: () {
     #if OS == .MACOS || OS == .LINUX || OS == .ANDROID {
@@ -36,7 +37,8 @@ main :: () {
                     nanos += 1000000000;
                 }
 
-                expected := timespec_to_apollo(.{ seconds + extra_seconds, nanos });
+                probe: P.timespec;
+                expected := timespec_to_apollo(.{ seconds + extra_seconds, cast(type_of(probe.tv_nsec)) nanos });
                 actual := calendar_to_apollo(ct);
 
                 assert(compare_apollo_times(actual, expected) == 0);

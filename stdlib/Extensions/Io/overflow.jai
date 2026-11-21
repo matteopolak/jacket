@@ -93,7 +93,7 @@
     }
 
     write_text :: (text: string) #c_call {
-        POSIX.write(2, text.data, cast(u64) text.count);
+        POSIX.write(2, text.data, cast(POSIX.size_t) text.count);
     }
 
     write_number :: (number: u64) #c_call {
