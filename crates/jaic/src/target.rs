@@ -84,6 +84,19 @@ pub fn cpu_member(cpu: TargetCpu) -> &'static str {
     }
 }
 
+/// The `Architecture` member that names a target's CPU family, which `CPU_Tag` cannot: every
+/// CPU the spec enum lacks is `.CUSTOM`. A WebAssembly target's memory width tells wasm32 from
+/// wasm64.
+pub fn architecture_member(cpu: TargetCpu, pointer_bytes: u32) -> &'static str {
+    match (cpu, pointer_bytes) {
+        (TargetCpu::X64, _) => "X64",
+        (TargetCpu::Arm64, _) => "ARM64",
+        (TargetCpu::X86, _) => "X86",
+        (TargetCpu::Wasm, 4) => "WASM32",
+        (TargetCpu::Wasm, _) => "WASM64",
+    }
+}
+
 /// The C environment a target's code is built for and linked against.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TargetAbi {
