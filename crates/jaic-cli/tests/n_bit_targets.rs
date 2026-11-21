@@ -168,3 +168,22 @@ fn a_plugin_workspace_reads_files_at_compile_time_on_i686() {
         String::from_utf8_lossy(&output.stderr)
     );
 }
+
+/// Type information lists enum names at the target's own string size: i686 strings are 12
+/// bytes, not 16.
+#[test]
+fn enum_names_in_type_information_use_the_targets_string_size() {
+    let source =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/compiler/targets/enum-names.jai");
+    for target in [
+        "x86_64-unknown-linux-gnu",
+        "i686-unknown-linux-gnu",
+        "wasm32-unknown-unknown",
+    ] {
+        assert_eq!(
+            run(target, &source),
+            "[0:ALPHA] [1:BETA] [2:GAMMA] \n",
+            "{target}"
+        );
+    }
+}

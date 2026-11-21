@@ -203,14 +203,15 @@ impl Compiler {
     }
 
     pub(super) fn string_view(&mut self, strings: &[Arc<[u8]>], span: Span) -> Result<Aggregate> {
+        let stride = self.ty.types.size_of(TypeId::STRING);
         let mut data = Aggregate {
-            bytes: vec![0; strings.len() * 16],
+            bytes: vec![0; strings.len() * stride as usize],
             relocs: Vec::new(),
         };
         for (i, s) in strings.iter().enumerate() {
             self.write_value(
                 &mut data,
-                i as u64 * 16,
+                i as u64 * stride,
                 &Value::String(s.clone()),
                 TypeId::STRING,
                 span,
