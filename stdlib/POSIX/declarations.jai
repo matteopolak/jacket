@@ -9053,7 +9053,7 @@ librt :: #library,system "librt"; @native(external)
     timespec :: struct {
         tv_sec: s64;
         tv_nsec: s32;
-        __pad3: [4] u8;
+        #overlay (tv_nsec) __pad3: [8] u8;
     }
 
 }
@@ -9143,13 +9143,13 @@ librt :: #library,system "librt"; @native(external)
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     timex :: struct {
         modes: u32;
-        __pad2: [4] u8;
+        #overlay (modes) __pad2: [8] u8;
         offset: s64;
         freq: s64;
         maxerror: s64;
         esterror: s64;
         status: s32;
-        __pad8: [4] u8;
+        #overlay (status) __pad8: [8] u8;
         constant: s64;
         precision: s64;
         tolerance: s64;
@@ -9158,24 +9158,14 @@ librt :: #library,system "librt"; @native(external)
         ppsfreq: s64;
         jitter: s64;
         shift: s32;
-        __pad17: [4] u8;
+        #overlay (shift) __pad17: [8] u8;
         stabil: s64;
         jitcnt: s64;
         calcnt: s64;
         errcnt: s64;
         stbcnt: s64;
         tai: s32;
-        __pad24: [4] u8;
-        __pad25: [4] u8;
-        __pad26: [4] u8;
-        __pad27: [4] u8;
-        __pad28: [4] u8;
-        __pad29: [4] u8;
-        __pad30: [4] u8;
-        __pad31: [4] u8;
-        __pad32: [4] u8;
-        __pad33: [4] u8;
-        __pad34: [4] u8;
+        #overlay (tai) __pad24: [48] u8;
     }
 
 }
@@ -38322,7 +38312,7 @@ off_t :: s64;
     _exit :: (__status: s32) -> void #foreign libc; @Exits
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .X86 {
+#if OS == .LINUX {
     _longjmp :: (__env: *[1] __jmp_buf_tag, __val: s32) -> void #foreign libpthread;
 }
 
@@ -38340,10 +38330,6 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     _longjmp :: (__env: *jmp_buf, __value: s32) -> void #foreign libc;
-}
-
-#if OS == .LINUX && ARCHITECTURE == .X86 {
-    _longjmp :: (unknown0: *__jmp_buf_tag, unknown1: s32) -> void #foreign libpthread;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -38374,7 +38360,7 @@ off_t :: s64;
     _remove :: (__path: *u8) -> s32 #foreign libc "remove";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .X86 {
+#if OS == .LINUX {
     _setjmp :: (__env: *[1] __jmp_buf_tag) -> s32 #foreign libpthread;
 }
 
@@ -38392,10 +38378,6 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     _setjmp :: (__env: *jmp_buf) -> s32 #foreign libc;
-}
-
-#if OS == .LINUX && ARCHITECTURE == .X86 {
-    _setjmp :: (unknown0: *__jmp_buf_tag) -> s32 #foreign libpthread;
 }
 
 #if OS == .LINUX {
@@ -41203,7 +41185,7 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    futimens :: (fd: s32, __times: *timespec) -> s32 #foreign libc "__futimens64";
+    futimens :: (fd: s32, __times: *[2] timespec) -> s32 #foreign libc "__futimens64";
 }
 
 #if (OS == .LINUX) && ARCHITECTURE != .X86 {
@@ -41227,7 +41209,7 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    futimes :: (__fd: s32, __tvp: *timeval) -> s32 #foreign libc "__futimes64";
+    futimes :: (__fd: s32, __tvp: *[2] timeval) -> s32 #foreign libc "__futimes64";
 }
 
 #if (OS == .LINUX) && ARCHITECTURE != .X86 {
@@ -41243,7 +41225,7 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    futimesat :: (__fd: s32, __file: *u8, __tvp: *timeval) -> s32 #foreign libc "__futimesat64";
+    futimesat :: (__fd: s32, __file: *u8, __tvp: *[2] timeval) -> s32 #foreign libc "__futimesat64";
 }
 
 #if (OS == .LINUX) && ARCHITECTURE != .X86 {
@@ -42638,7 +42620,7 @@ off_t :: s64;
     lockf64 :: (__fd: s32, __cmd: s32, __len: s64) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .X86 {
+#if OS == .LINUX {
     longjmp :: (__env: *[1] __jmp_buf_tag, __val: s32) -> void #foreign libpthread;
 }
 
@@ -42656,10 +42638,6 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     longjmp :: (__env: *jmp_buf, __value: s32) -> void #foreign libc;
-}
-
-#if OS == .LINUX && ARCHITECTURE == .X86 {
-    longjmp :: (unknown0: *__jmp_buf_tag, unknown1: s32) -> void #foreign libpthread;
 }
 
 #if OS == .MACOS && CPU == .X64 {
@@ -42763,7 +42741,7 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    lutimes :: (__file: *u8, __tvp: *timeval) -> s32 #foreign libc "__lutimes64";
+    lutimes :: (__file: *u8, __tvp: *[2] timeval) -> s32 #foreign libc "__lutimes64";
 }
 
 #if (OS == .LINUX) && ARCHITECTURE != .X86 {
@@ -43642,7 +43620,7 @@ off_t :: s64;
     perror :: (__msg: *u8) -> void #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .X86 {
+#if OS == .LINUX {
     pipe :: (__pipedes: *[2] s32) -> s32 #foreign libc;
 }
 
@@ -43662,11 +43640,7 @@ off_t :: s64;
     pipe :: (__fds: *[2] s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX && ARCHITECTURE == .X86 {
-    pipe :: (__pipedes: *s32) -> s32 #foreign libc;
-}
-
-#if (OS == .LINUX) && ARCHITECTURE != .X86 {
+#if OS == .LINUX {
     pipe2 :: (__pipedes: *[2] s32, __flags: s32) -> s32 #foreign libc;
 }
 
@@ -43676,10 +43650,6 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     pipe2 :: (__fds: *[2] s32, __flags: s32) -> s32 #foreign libc;
-}
-
-#if OS == .LINUX && ARCHITECTURE == .X86 {
-    pipe2 :: (__pipedes: *s32, __flags: s32) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -48018,7 +47988,7 @@ off_t :: s64;
     shmsys :: (unknown0: s32, __args: ..Any) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .X86 {
+#if OS == .LINUX {
     sigaction :: (__sig: s32, __act: *sigaction_t, __oact: *sigaction_t) -> s32 #foreign libc;
 }
 
@@ -48036,10 +48006,6 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     sigaction :: (__signal: s32, __new_action: *sigaction_t, __old_action: *sigaction_t) -> s32 #foreign libc;
-}
-
-#if OS == .LINUX && ARCHITECTURE == .X86 {
-    sigaction :: (__sig: s32, __act: *sigaction, __oact: *sigaction) -> s32 #foreign libc;
 }
 
 #if OS == .ANDROID && CPU == .ARM64 {
@@ -49805,7 +49771,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    utimensat :: (fd: s32, __path: *u8, __times: *timespec, flags: s32) -> s32 #foreign libc "__utimensat64";
+    utimensat :: (fd: s32, __path: *u8, __times: *[2] timespec, flags: s32) -> s32 #foreign libc "__utimensat64";
 }
 
 #if (OS == .LINUX) && ARCHITECTURE != .X86 {
@@ -49829,7 +49795,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
-    utimes :: (__file: *u8, __tvp: *timeval) -> s32 #foreign libc "__utimes64";
+    utimes :: (__file: *u8, __tvp: *[2] timeval) -> s32 #foreign libc "__utimes64";
 }
 
 #if OS == .MACOS && CPU == .ARM64 {

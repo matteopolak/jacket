@@ -174,6 +174,10 @@ def build(arch):
                         head, _, kind = got.partition(': ')
                         if wanted in enums and kind in ('s32', 'u32'):
                             params[i] = '%s: %s' % (head, wanted)
+                        # `int fds[2]` is the pointer `int *` to the header; the spec keeps the array.
+                        array = re.fullmatch(r'\*\[\d+\]\s*(.+)', wanted)
+                        if array and kind == '*' + array[1]:
+                            params[i] = '%s: %s' % (head, wanted)
                 header = [re.sub(r'^\w+:\s*', '', p) for p in params]
                 if bound or spelled is None or (spelled[0], spelled[1].rstrip()) != (header, ret) or \
                         symbol != name:

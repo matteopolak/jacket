@@ -59,7 +59,16 @@ class RecordTests(unittest.TestCase):
         pad = {'kind': 'FieldDecl', 'isBitfield': True, 'type': {'qualType': 'int'},
                'inner': [{'kind': 'ConstantExpr', 'value': '32'}]}
         ctx = context([self.record('t', [field('a', 'int'), pad])])
-        self.assertIn('[4] u8', cabi.shape(ctx, 't'))
+        self.assertIn('[8] u8', cabi.shape(ctx, 't'))
+
+    def test_padding_after_a_scalar_extends_it_so_literals_stay_short(self):
+        pad = {'kind': 'FieldDecl', 'isBitfield': True, 'type': {'qualType': 'int'},
+               'inner': [{'kind': 'ConstantExpr', 'value': '32'}]}
+        ctx = context([self.record('t', [field('a', 'int'), field('n', 'int'), pad])])
+        self.assertIn('#overlay (n) __pad3: [8] u8;', cabi.shape(ctx, 't'))
+        ctx = context([self.record('t', [field('n', 'int'), pad, pad, pad])])
+        self.assertEqual(cabi.shape(ctx, 't').count('__pad'), 1)
+        self.assertIn('[16] u8', cabi.shape(ctx, 't'))
 
     def test_a_member_is_named_by_the_macro_that_stands_for_it(self):
         ctx = cabi.Context({'inner': [self.record('stat', [field('st_mtim', 'struct timespec')])]},
@@ -72,6 +81,11 @@ class RecordTests(unittest.TestCase):
             inner, field('__sigaction_handler', 'union (unnamed union at x.h:1:2)'), field('sa_flags', 'int')])
         ctx = cabi.Context({'inner': [outer]}, 4, set(), {}, {'__sigaction_handler'})
         self.assertIn('using __sigaction_handler: struct {', cabi.shape(ctx, 'sigaction'))
+
+    def test_a_record_shares_its_name_with_an_exported_function(self):
+        node = dict(self.record('sigaction', [field('sa_flags', 'int')]), id='0x1')
+        ctx = cabi.Context({'inner': [node]}, 4, {'sigaction', 'sigaction_t'})
+        self.assertEqual(cabi.render(ctx, 'struct sigaction *'), '*sigaction_t')
 
     def test_a_named_bit_field_is_never_flattened(self):
         named = {'kind': 'FieldDecl', 'isBitfield': True, 'name': 'flag', 'type': {'qualType': 'int'},

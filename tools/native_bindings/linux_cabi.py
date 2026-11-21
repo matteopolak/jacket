@@ -65,6 +65,14 @@ class Context:
                 return record_body(self, node, '')
         return name
 
+    def exported(self, tag, name):
+        """The name the spec gives the record `tag name`: `name` itself, or `name_t` when `name`
+        is something else the spec exports (`sigaction` is also a function)."""
+        for candidate in (name + '_t', name):
+            if candidate in self.keep and (tag == 'enum' or self.record_key(candidate) == (tag, name)):
+                return candidate
+        return None
+
     def record_key(self, name):
         """The (tag, C name) of the record the Jai name `name` stands for: the struct or union
         of that name, the one a typedef of it defines, or `struct <name minus _t>`."""
@@ -97,6 +105,10 @@ def folded(node):
         if value is not None:
             return value
     return None
+
+
+def tag_of(text):
+    return re.match(r'(?:struct|union|enum)\s+\w+\s*$', text.strip())
 
 
 def split_function(text):
@@ -141,12 +153,14 @@ def split_function(text):
 def render(ctx, text, desugared=None):
     """Jai spelling of the C type `text` (clang's qualType), expanding typedefs the spec does
     not name through `desugared`."""
-    tagged = bool(re.match(r'(?:(?:const|volatile)\s+)*(?:struct|union|enum)\s+\w+\s*$', text))
+    tagged = re.match(r'(?:(?:const|volatile)\s+)*(struct|union|enum)\s+\w+\s*$', text)
+    tag = tagged and tagged[1]
     text = ATTRIBUTES.sub('', text)
+    spelled = re.sub(r'\s+', ' ', QUALIFIERS.sub('', text)).strip()  # keeps `struct`/`union`
     text = TAGS.sub('', QUALIFIERS.sub('', text)).strip()
     text = re.sub(r'\s+', ' ', text)
     if tagged:
-        return text if text in ctx.keep or text in ctx.enums else ctx.inline(text)
+        return ctx.exported(tag, text) or (text if text in ctx.enums else ctx.inline(text))
     if desugared is not None:
         desugared = re.sub(r'\s+', ' ', TAGS.sub('', QUALIFIERS.sub('', desugared)).strip())
     function = split_function(text)
@@ -173,7 +187,7 @@ def render(ctx, text, desugared=None):
         if bare not in ctx.keep and bare not in ctx.enums and bare not in ctx.typedefs \
                 and bare not in SCALARS and bare not in ('long', 'unsigned long'):
             return '*void'
-        return '*' + render(ctx, pointee, inner)
+        return '*' + render(ctx, spelled[:-1].strip() if tag_of(spelled[:-1]) else pointee, inner)
     if text == '...':
         return '..Any'
     if text in ctx.keep or text in ctx.enums:
@@ -238,7 +252,7 @@ def record_body(ctx, node, indent):
     for child in node.get('inner', []):
         if child['kind'] in ('PackedAttr', 'AlignedAttr', 'MaxFieldAlignmentAttr'):
             raise Unsupported('record attribute ' + child['kind'])
-    lines, pending, first = ['struct {'], [], None
+    lines, pending, first, last, padded = ['struct {'], [], None, None, None
     for child in node.get('inner', []):
         kind = child['kind']
         if kind == 'RecordDecl' and not child.get('name'):
@@ -249,7 +263,20 @@ def record_body(ctx, node, indent):
                 if child.get('name') or width is None or width % 8:
                     raise Unsupported('bit-field ' + str(child.get('name')))
                 if width:
-                    lines.append('%s    __pad%d: [%d] u8;' % (indent, len(lines), width // 8))
+                    # Padding after a scalar member extends that member's slot, so positional
+                    # literals still list only the real members (`timespec.{ sec, nsec }`).
+                    if padded and last is None and padded[0] == len(lines) - 1:
+                        padded[2] += width // 8
+                        lines[-1] = '%s    #overlay (%s) __pad%d: [%d] u8;' % (indent, padded[1], padded[3], padded[2])
+                        continue
+                    scalar = last and re.fullmatch(r'[su](8|16|32|64)', last[1])
+                    if scalar and not union:
+                        size = int(scalar[1]) // 8 + width // 8
+                        padded = [len(lines), last[0], size, len(lines)]
+                        lines.append('%s    #overlay (%s) __pad%d: [%d] u8;' % (indent, last[0], len(lines), size))
+                        last = None
+                    else:
+                        lines.append('%s    __pad%d: [%d] u8;' % (indent, len(lines), width // 8))
                 continue
             ty = child['type']
             spelling = ty['qualType']
@@ -261,11 +288,13 @@ def record_body(ctx, node, indent):
                 if member is None:
                     member = '__anonymous%d' % len(lines)
                     lines.append(indent + '    using ' + member + ': ' + text + ';')
+                    last = None
                     continue
                 if member in ctx.reached:
                     prefix = '#overlay (%s) ' % first if union and first is not None else ''
                     lines.append('%s    %susing %s: %s;' % (indent, prefix, member, text))
                     first = member if first is None else first
+                    last = None
                     continue
             else:
                 text = render(ctx, spelling, ty.get('desugaredQualType'))
@@ -275,6 +304,7 @@ def record_body(ctx, node, indent):
             else:
                 lines.append('%s    %s: %s;' % (indent, member, text))
                 first = member if first is None else first
+            last = (member, text)
     lines.append(indent + '}')
     return '\n'.join(lines)
 
