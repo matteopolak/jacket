@@ -406,3 +406,18 @@ fn volatile_barriers_and_sections_work_on_the_target() {
         assert_eq!(console(&out), "42 8\n", "{optimization}");
     }
 }
+
+#[test]
+fn the_heap_allocator_serves_growing_arrays_from_the_linker_script_region() {
+    for optimization in ["DEBUG", "OPTIMIZED"] {
+        let setup = Setup {
+            linker_arguments: RAM_MAP,
+            ..board("arena.jai", optimization)
+        };
+        let Some(out) = run("arena", &setup) else {
+            return;
+        };
+        assert_eq!(out.status.code(), Some(0), "{optimization}: {out:?}");
+        assert_eq!(console(&out), "200 20100\n1-2\n", "{optimization}");
+    }
+}

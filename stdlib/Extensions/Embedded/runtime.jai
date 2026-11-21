@@ -65,7 +65,99 @@ static_context :: () -> *#Context #no_context {
     return *context_storage;
 }
 
+// An allocator over the RAM between `.bss` and the stack (`__heap_start` to `__heap_end`, which
+// `link_for` defines). It hands out memory in order and never reuses it, except that freeing or
+// resizing the newest block gives the space back. Set it as the context's allocator:
+//
+// ```jai
+// heap := make_heap();
+// context_copy := static_context().*;
+// context_copy.allocator = heap_allocator(*heap);
+// push_context context_copy {
+//     main();
+// }
+// ```
+//
+// Running out of memory calls the panic hook.
+Heap :: struct {
+    next: *u8;
+    end: *u8;
+    newest: *u8;
+}
+
+// A heap over the whole region the linker script reserves.
+make_heap :: () -> Heap #no_context {
+    return .{ cast(*u8) *__heap_start, cast(*u8) *__heap_end, null };
+}
+
+heap_allocator :: (heap: *Heap) -> Allocator #no_context {
+    return .{ heap_allocator_proc, heap };
+}
+
 #scope_file
+
+HEAP_ALIGNMENT :: 16;
+
+heap_allocator_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
+    heap := cast(*Heap) allocator_data;
+
+    if mode == {
+        case .ALLOCATE;
+            return heap_take(heap, size);
+        case .RESIZE;
+            if !old_memory return heap_take(heap, size);
+
+            if old_memory == heap.newest {
+                // The newest block grows or shrinks where it is.
+                end := cast(*u8) old_memory + size;
+
+                if end > heap.end Impl.panic("heap exhausted");
+
+                heap.next = cast(*u8) ((cast(u64) end + HEAP_ALIGNMENT - 1) & ~cast(u64) (HEAP_ALIGNMENT - 1));
+
+                return old_memory;
+            }
+
+            fresh := heap_take(heap, size);
+            copy := ifx size < old_size then size else old_size;
+
+            for index: 0..copy - 1 {
+                (cast(*u8) fresh)[index] = (cast(*u8) old_memory)[index];
+            }
+
+            return fresh;
+        case .FREE;
+            if old_memory == heap.newest {
+                heap.next = heap.newest;
+                heap.newest = null;
+            }
+
+            return null;
+        case .CAPS;
+            if old_memory {
+                (cast(*string) old_memory).* = "bump heap";
+            }
+
+            return null;
+    }
+
+    return null;
+}
+
+heap_take :: (heap: *Heap, size: s64) -> *void {
+    block := heap.next;
+    end := cast(*u8) ((cast(u64) block + cast(u64) size + HEAP_ALIGNMENT - 1) & ~cast(u64) (HEAP_ALIGNMENT - 1));
+
+    if end > heap.end || end < block Impl.panic("heap exhausted");
+
+    heap.newest = block;
+    heap.next = end;
+
+    return block;
+}
+
+__heap_start: u8 #elsewhere;
+__heap_end: u8 #elsewhere;
 
 __data_load: u8 #elsewhere;
 __data_start: u8 #elsewhere;
