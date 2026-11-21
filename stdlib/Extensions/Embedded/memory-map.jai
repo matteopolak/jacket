@@ -63,7 +63,7 @@ linker_script :: (map: Memory_Map) -> string {
 // Writes the linker script for `map` and adds it to `options`' link line (`-T`), for a workspace
 // whose `os_target` is `.NONE`. The script goes in `script_path`, or beside the executable.
 //
-// ```jai
+// ```jai,ignore
 // options := get_build_options(w);
 // link_for(*options, Memory_Map.{ ram = .{ 0x4000_0000, 0x100_0000 } });
 // set_build_options(options, w);

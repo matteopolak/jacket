@@ -93,7 +93,7 @@ static_context :: () -> *#Context #no_context {
 // `link_for` defines). It hands out memory in order and never reuses it, except that freeing or
 // resizing the newest block gives the space back. Set it as the context's allocator:
 //
-// ```jai
+// ```jai,ignore
 // heap := make_heap();
 // context_copy := static_context().*;
 // context_copy.allocator = heap_allocator(*heap);

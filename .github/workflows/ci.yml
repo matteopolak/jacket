@@ -378,6 +378,13 @@ jobs:
         # when optimized), so a code generation bug that only shows across parts fails here
         # (docs/native/llvm-backend.md). Tests about a single module pin one unit themselves.
         run: JACKET_TEST_CODEGEN_UNITS=4 cargo nextest run --profile ci -p jaic-cli --locked --test native --test optimized_split --test debug_info --test embedded_data
+      - name: Standard library tests on a board (QEMU)
+        # `jacket test --target` builds the NONE-compatible tests for the board and runs each in
+        # QEMU (docs/tools/jacket-test.md#tests-on-a-board).
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.runner == 'ubuntu-24.04' && contains(matrix.parts, ',rust,') && startsWith(matrix.shard, '1/') }}
+        run: |
+          cargo build --locked -p jacket -p jaic-cli
+          target/debug/jacket test --target Qemu_Virt_Aarch64 --path stdlib/Extensions/Embedded
       - name: Stdlib type-checks and Objective-C selectors
         id: stdlib-targets
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',targets,') }}

@@ -2,7 +2,7 @@
 // (`OS == .NONE`). The runtime is yours to start (`init_runtime`), and the board's console and
 // failure behaviour are hooks you set.
 //
-// ```jai
+// ```jai,ignore
 // #import "Basic";
 // #import "Extensions/Embedded";
 //

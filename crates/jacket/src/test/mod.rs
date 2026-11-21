@@ -442,6 +442,8 @@ fn run_once(
         Some(Err(error)) => return fail(error),
         None => None,
     };
+    // On a board only the unit tests run: the other kinds build host programs.
+    let on_board = target_flags.iter().any(|flag| flag.starts_with('+'));
     let mut flags = target_flags;
     if let Some(os) = &args.os {
         flags.extend(["-os".to_string(), os.clone()]);
@@ -624,6 +626,9 @@ fn run_once(
     for case in cases {
         let is_bench = case.kind == Kind::Bench;
         if is_bench != bench && (bench || !args.list) {
+            continue;
+        }
+        if on_board && !matches!(case.kind, Kind::Test | Kind::Bench) {
             continue;
         }
         let is_doc = case.kind == Kind::Doc;
