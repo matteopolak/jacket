@@ -17,8 +17,15 @@ pub(super) const SPAN: usize = 0xC000_0000;
 /// Offsets below this are never mapped.
 const FIRST: usize = 64 << 10;
 
-/// Bytes at the start of the window kept for read-only data (`read_only.rs`).
+/// Bytes at the start of the window kept for read-only data (`read_only.rs`): `SLOTS` regions,
+/// one for each interpreter using the window.
 pub(super) const READ_ONLY: usize = 256 << 20;
+
+/// Bytes of read-only data one interpreter can have; more goes to ordinary memory.
+const SLOT: usize = 16 << 20;
+
+/// How many interpreters can have read-only data at once.
+const SLOTS: usize = READ_ONLY / SLOT;
 
 /// Memory is committed in steps of this many bytes: a multiple of every host's page size and of
 /// Windows' allocation granularity.
@@ -37,6 +44,8 @@ struct State {
     committed: usize,
     /// Freed blocks: offset to length.
     free: BTreeMap<usize, usize>,
+    /// Which read-only regions an interpreter holds.
+    slots: [bool; SLOTS],
 }
 
 impl Window {
@@ -54,8 +63,17 @@ impl Window {
                 bump: heap,
                 committed: heap,
                 free: BTreeMap::new(),
+                slots: [false; SLOTS],
             }),
         }))
+    }
+
+    /// The window every interpreter of a narrow-pointer program shares, so that a host the
+    /// interpreters share (the sandbox) hands each of them addresses valid in all. Made on first
+    /// use and kept for the life of the process.
+    pub(crate) fn shared() -> Option<Arc<Window>> {
+        static SHARED: std::sync::OnceLock<Option<Arc<Window>>> = std::sync::OnceLock::new();
+        SHARED.get_or_init(Window::new).clone()
     }
 
     /// The host address of offset 0.
@@ -63,9 +81,18 @@ impl Window {
         self.base as u64
     }
 
-    /// The host range kept for read-only data: its start and length.
-    pub(super) fn read_only_range(&self) -> (usize, usize) {
-        (self.base + FIRST, READ_ONLY)
+    /// A region of the host range kept for read-only data: its slot, start and length. `None`
+    /// when every interpreter has one.
+    pub(super) fn claim_read_only(&self) -> Option<(usize, usize, usize)> {
+        let mut state = self.state.lock().unwrap();
+        let slot = state.slots.iter().position(|taken| !taken)?;
+        state.slots[slot] = true;
+        Some((slot, self.base + FIRST + slot * SLOT, SLOT))
+    }
+
+    /// Give back the region `claim_read_only` made.
+    pub(super) fn release_read_only(&self, slot: usize) {
+        self.state.lock().unwrap().slots[slot] = false;
     }
 
     /// `size` zeroed bytes aligned to `align` (at most a page), as an offset; `None` when the

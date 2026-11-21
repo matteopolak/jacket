@@ -321,7 +321,14 @@ impl Workspaces {
         Ok(())
     }
 
-    pub(super) fn keep_string(&mut self, bytes: &[u8]) -> (u64, u64) {
+    pub(super) fn keep_string(
+        &mut self,
+        interp: &mut crate::interp::Interp,
+        bytes: &[u8],
+    ) -> (u64, u64) {
+        if let Some(data) = interp.keep_narrow(bytes) {
+            return (bytes.len() as u64, data);
+        }
         let boxed: Box<[u8]> = bytes.into();
         let ptr = boxed.as_ptr() as u64;
         self.strings.push(boxed);

@@ -111,7 +111,7 @@ pub struct Builder {
     built: Vec<u64>,
     /// Record ids by built struct, the first record wins (`record_of`).
     ids: HashMap<u64, i64>,
-    chunks: Vec<Box<[u128]>>,
+    chunks: Vec<Chunk>,
     next: u64,
     left: usize,
     /// Null record references may acquire targets in later compiler messages.
@@ -119,6 +119,14 @@ pub struct Builder {
     change_cursor: usize,
     /// The names of the fields that mark a descriptor or a builtin, once interned.
     marks: Option<(Name, Name)>,
+}
+
+/// Zeroed program memory the builder keeps, at program address `start`.
+struct Chunk {
+    start: u64,
+    len: usize,
+    /// Owns the memory.
+    _block: crate::interp::ZeroedBlock,
 }
 
 #[derive(Clone)]
@@ -286,12 +294,12 @@ impl Builder {
         let old_cursor = self.change_cursor;
         let result = (|| {
             self.link_ready_references(&mut fill, interp)?;
-            let root = self.obtain(&mut fill, id, expected)?;
+            let root = self.obtain(&mut fill, interp, id, expected)?;
             while let Some((id, memory, info)) = fill.queue.pop() {
                 let plan = self.plans[&info].clone();
                 let mut image = Image {
                     base: memory,
-                    bytes: self.own_bytes(memory, plan.size as usize)?,
+                    bytes: self.own_bytes(interp, memory, plan.size as usize)?,
                     layout: *interp.data_layout(),
                 };
                 self.fill_struct(&mut fill, interp, &mut image, memory, &plan, id)?;
@@ -344,7 +352,7 @@ impl Builder {
                     match item {
                         None | Some(Item::Ref(0) | Item::Int(0)) => Ok(false),
                         Some(Item::Ref(target) | Item::Int(target)) => {
-                            let pointer = self.obtain(fill, target, entry.expected)?;
+                            let pointer = self.obtain(fill, interp, target, entry.expected)?;
                             store_ptr(interp, entry.address, pointer)?;
                             fill.linked.push((id, entry.clone()));
                             Ok(true)
@@ -374,7 +382,13 @@ impl Builder {
     }
 
     /// The struct for record `id`: built already, or allocated now and queued to be filled.
-    fn obtain(&mut self, fill: &mut Fill, id: i64, expected: u64) -> Result<u64, Trap> {
+    fn obtain(
+        &mut self,
+        fill: &mut Fill,
+        interp: &Interp,
+        id: i64,
+        expected: u64,
+    ) -> Result<u64, Trap> {
         if id == 0 {
             return Ok(0);
         }
@@ -426,7 +440,8 @@ impl Builder {
                 "records: type {info:#x} was registered without a plan"
             ))
         })?;
-        let memory = self.alloc(plan.size as usize);
+        let size = plan.size as usize;
+        let memory = self.alloc(interp, size)?;
         // Before filling: records may refer to themselves.
         self.remember(id, memory);
         fill.created.push(id);
@@ -449,42 +464,54 @@ impl Builder {
     /// be written in place rather than through the interpreter's checked transfers (one kernel
     /// call each on some hosts).
     #[allow(unsafe_code)]
-    fn own_bytes(&mut self, p: u64, len: usize) -> Result<&'static mut [u8], Trap> {
-        let found = self.chunks.iter_mut().rev().find_map(|chunk| {
-            let start = chunk.as_mut_ptr() as u64;
-            let at = usize::try_from(p.checked_sub(start)?).ok()?;
-            let end = at.checked_add(len)?;
-            (end <= chunk.len() * 16).then_some((chunk.as_mut_ptr(), at))
+    fn own_bytes(
+        &mut self,
+        interp: &Interp,
+        p: u64,
+        len: usize,
+    ) -> Result<&'static mut [u8], Trap> {
+        let inside = self.chunks.iter().rev().any(|chunk| {
+            p.checked_sub(chunk.start)
+                .and_then(|at| usize::try_from(at).ok())
+                .and_then(|at| at.checked_add(len))
+                .is_some_and(|end| end <= chunk.len)
         });
-        let Some((base, at)) = found else {
+        if !inside {
             return Err(Trap::unwritable(p, len));
-        };
-        // SAFETY: `at..at + len` lies inside one chunk, which the builder keeps (never moves or
+        }
+        // SAFETY: `p..p + len` lies inside one chunk, which the builder keeps (never moves or
         // frees) for as long as it lives. The memory is zeroed and unread until the build that
         // fills it returns, and each region is filled by one build step at a time, so nothing
         // else reads or writes these bytes while the slice is in use.
-        Ok(unsafe { std::slice::from_raw_parts_mut(base.cast::<u8>().add(at), len) })
+        Ok(unsafe { std::slice::from_raw_parts_mut(interp.host_addr(p) as *mut u8, len) })
     }
 
-    /// Zeroed, 16-byte aligned memory that lives as long as the builder.
-    fn alloc(&mut self, size: usize) -> u64 {
+    /// Zeroed, 16-byte aligned program memory that lives as long as the builder.
+    fn alloc(&mut self, interp: &Interp, size: usize) -> Result<u64, Trap> {
         let size = (size.max(1) + 15) & !15;
+        let mut take = |size: usize| {
+            let block = interp
+                .zeroed_block(size, 16)
+                .ok_or_else(|| Trap::new("records: out of memory"))?;
+            let start = block.addr();
+            self.chunks.push(Chunk {
+                start,
+                len: size,
+                _block: block,
+            });
+            Ok::<u64, Trap>(start)
+        };
         if size > CHUNK / 4 {
-            let mut block = vec![0u128; size / 16].into_boxed_slice();
-            let at = block.as_mut_ptr() as u64;
-            self.chunks.push(block);
-            return at;
+            return take(size);
         }
         if size > self.left {
-            let mut chunk = vec![0u128; CHUNK / 16].into_boxed_slice();
-            self.next = chunk.as_mut_ptr() as u64;
+            self.next = take(CHUNK)?;
             self.left = CHUNK;
-            self.chunks.push(chunk);
         }
         let at = self.next;
         self.next += size as u64;
         self.left -= size;
-        at
+        Ok(at)
     }
 
     fn fill_struct(
@@ -551,14 +578,14 @@ impl Builder {
                     let data = if entry.shape == Shape::FixedArray {
                         target
                     } else {
-                        self.alloc(bytes as usize)
+                        self.alloc(interp, bytes as usize)?
                     };
                     let mut inline;
                     let elements: &mut [u8] = if entry.shape == Shape::FixedArray {
                         inline = vec![0; bytes as usize];
                         &mut inline
                     } else {
-                        self.own_bytes(data, bytes as usize)?
+                        self.own_bytes(interp, data, bytes as usize)?
                     };
                     let mut array = Image {
                         base: data,
@@ -638,14 +665,20 @@ impl Builder {
                 image.put_int(target, *v as u64, size.min(8))
             }
             (Shape::String, Item::Str(s)) => {
-                fill.kept.push(s.clone());
-                image.put_view(target, s.len() as u64, s.as_ptr() as u64)
+                let data = match interp.keep_narrow(s) {
+                    Some(data) => data,
+                    None => {
+                        fill.kept.push(s.clone());
+                        s.as_ptr() as u64
+                    }
+                };
+                image.put_view(target, s.len() as u64, data)
             }
             (Shape::Pointer, item) => {
                 let id = number(item).ok_or_else(|| {
                     Trap::new("records: pointer field requires a record reference")
                 })?;
-                let p = self.obtain(fill, id, type_target)?;
+                let p = self.obtain(fill, interp, id, type_target)?;
                 image.put_ptr(target, p)
             }
             (Shape::Struct, item) => {
@@ -697,7 +730,7 @@ impl Builder {
             let (Some(offset), Some(record)) = (number(offset), number(record)) else {
                 continue;
             };
-            let pointer = self.obtain(fill, record, 0)?;
+            let pointer = self.obtain(fill, interp, record, 0)?;
             store_ptr(interp, data + offset as u64, pointer)?;
         }
         Ok(())

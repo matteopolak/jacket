@@ -313,10 +313,10 @@ pub struct Interp {
 
 /// Empty read-only data for a program whose memory is `window` (or host memory).
 fn read_only_in(window: Option<&std::sync::Arc<Window>>) -> read_only::ReadOnlyData {
-    window.map_or_else(read_only::ReadOnlyData::default, |w| {
-        let (base, len) = w.read_only_range();
-        read_only::ReadOnlyData::in_window(base, len)
-    })
+    window.map_or_else(
+        read_only::ReadOnlyData::default,
+        read_only::ReadOnlyData::in_window,
+    )
 }
 
 impl Interp {
@@ -356,7 +356,6 @@ impl Interp {
         self.budget_traps += other.budget_traps;
     }
 
-    /// An interpreter whose program memory is laid out as `layout` says.
     /// Runs the program's host calls on `host`, which gets the program's address window.
     pub fn set_host(&mut self, mut host: Box<dyn Host>) {
         if let Some(window) = &self.window {
@@ -365,12 +364,13 @@ impl Interp {
         self.host = host;
     }
 
+    /// An interpreter whose program memory is laid out as `layout` says.
     pub fn new(mut host: Box<dyn Host>, layout: crate::layout::DataLayout) -> Self {
         if host.native_linking() {
             native::waits::prepare();
         }
         let window = (usize::from(layout.pointer_size) < std::mem::size_of::<usize>()).then(|| {
-            Window::new().expect(
+            Window::shared().expect(
                 "cannot reserve address space for a program with narrow pointers: it needs 3 GiB of virtual memory",
             )
         });

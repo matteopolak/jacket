@@ -126,6 +126,19 @@ impl Interp {
         Some(addr)
     }
 
+    /// Zeroed program memory (window memory when the target's pointers are narrow) the caller
+    /// owns.
+    pub(crate) fn zeroed_block(&self, size: usize, align: usize) -> Option<ZeroedBlock> {
+        ZeroedBlock::in_window(self.window.as_ref(), size, align)
+    }
+
+    /// A copy of `bytes` in program memory for a target with narrow pointers; `None` when
+    /// program addresses are host addresses and the host's own bytes can be handed out.
+    pub(crate) fn keep_narrow(&mut self, bytes: &[u8]) -> Option<u64> {
+        self.window.as_ref()?;
+        self.keep(bytes, 1)
+    }
+
     /// Host address of a global, materializing it (and what it points to) on first use.
     /// `read_only` globals go where interpreted code cannot write them, as in a native build.
     pub fn global_addr(&mut self, program: &Program, g: GlobalId) -> Res<u64> {

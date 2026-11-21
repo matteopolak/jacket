@@ -25,8 +25,9 @@ pub(super) struct ReadOnlyData {
     base: usize,
     /// Bytes of the reservation; 0 before the first `place`.
     limit: usize,
-    /// The reservation is a part of the program's window, which owns it.
-    in_window: bool,
+    /// The reservation is a part of the program's window, which owns it: the window and the
+    /// slot of it this data holds.
+    in_window: Option<(std::sync::Arc<super::Window>, usize)>,
     /// Bytes from `base` handed out.
     used: usize,
     /// Bytes from `base` usable (committed on Windows).
@@ -40,13 +41,18 @@ pub(super) struct ReadOnlyData {
 impl ReadOnlyData {
     /// Read-only data kept in `len` bytes of the program's window starting at host address
     /// `base`, which the window owns and keeps inaccessible until used.
-    pub(super) fn in_window(base: usize, len: usize) -> Self {
-        ReadOnlyData {
-            base,
-            limit: len,
-            in_window: true,
-            ..Self::default()
-        }
+    pub(super) fn in_window(window: &std::sync::Arc<super::Window>) -> Self {
+        let Some((slot, base, len)) = window.claim_read_only() else {
+            // Every region is taken: the data goes to ordinary memory.
+            let mut none = Self::default();
+            none.refused = true;
+            return none;
+        };
+        let mut data = Self::default();
+        data.base = base;
+        data.limit = len;
+        data.in_window = Some((window.clone(), slot));
+        data
     }
 
     /// Whether `addr` lies in read-only data. On the path of every interpreted store.
@@ -150,7 +156,11 @@ impl ReadOnlyData {
 
 impl Drop for ReadOnlyData {
     fn drop(&mut self) {
-        if self.base != 0 && !self.in_window {
+        if let Some((window, slot)) = self.in_window.take() {
+            // The region goes back zeroed for the next interpreter.
+            self.clear();
+            window.release_read_only(slot);
+        } else if self.base != 0 {
             host_pages::release(self.base, self.limit);
         }
     }

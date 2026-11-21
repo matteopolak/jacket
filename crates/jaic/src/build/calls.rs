@@ -49,7 +49,11 @@ pub fn call(
             let value = string.unwrap_or_default();
             let layout = *interp.data_layout();
             let mut view = vec![0; layout.builtins().view.size as usize];
-            layout.write_view(&mut view, value.len() as u64, value.as_ptr() as u64);
+            let data = match interp.keep_narrow(&value) {
+                Some(data) => data,
+                None => value.as_ptr() as u64,
+            };
+            layout.write_view(&mut view, value.len() as u64, data);
             store(interp, arg(2), &view)?;
             reg.kept.push(value);
             Ok(Rets::default())
