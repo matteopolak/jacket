@@ -54,6 +54,12 @@ fn build_problems_say_what_to_change() {
     let dir = TempDir::new("build");
     std::fs::write(dir.join("ok.jai"), "main :: () {}\n").unwrap();
     std::fs::write(dir.join("lib.jai"), "f :: () {}\n").unwrap();
+    // The runtime's own `main` is no program: a file of only compile-time code still has none.
+    std::fs::write(
+        dir.join("only_run.jai"),
+        "#import \"Basic\";\n#run print(\"computed at compile time\\n\");\n",
+    )
+    .unwrap();
     std::fs::create_dir_all(dir.join("out")).unwrap();
     let cases: &[(&[&str], Option<i32>, &[&str])] = &[
         (
@@ -62,6 +68,13 @@ fn build_problems_say_what_to_change() {
             &[
                 "error[cli-failure]: `lib.jai` has no `main` procedure, so there is no program to write",
                 "help: add `main :: () { ... }`",
+            ],
+        ),
+        (
+            &["only_run.jai"],
+            Some(3),
+            &[
+                "error[cli-failure]: `only_run.jai` has no `main` procedure, so there is no program to write",
             ],
         ),
         (

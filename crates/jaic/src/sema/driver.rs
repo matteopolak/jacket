@@ -291,10 +291,12 @@ impl Compiler {
             i += 1;
         }
         self.collect_module_asm()?;
-        // A program with no entry point still has code to lower when it exports procedures: a
-        // freestanding program starts at a symbol of its own, and the runtime exports `memcpy`.
-        // One made only of `#run` and `#assert` directives has nothing to lower.
-        if !has_entry && self.pr.exports.is_empty() {
+        // A freestanding program with no entry point still has code to lower when it exports
+        // procedures: it starts at a symbol of its own. A hosted one starts at the runtime's
+        // `main`, which calls the entry point, so without one (only `#run` and `#assert`
+        // directives) there is nothing to lower.
+        let starts_by_itself = self.options.os == TargetOs::None && !self.pr.exports.is_empty();
+        if !has_entry && !starts_by_itself {
             return Ok(false);
         }
         let mut i = 0;
