@@ -5,6 +5,7 @@
 ### New
 
 - `jaic` builds for `wasm32-wasi` and `wasm32-unknown-unknown`: pointers, strings and views are 4 bytes wide in the program's memory, and `-interp` runs such programs in an address window. The stdlib test suite passes on `wasm32-wasi` under node. `-mwasm32` replaces the "wasm64 only" refusal.
+- `jaic` builds for `i686-unknown-linux-gnu`: 4-byte pointers, 4-aligned 64-bit integers and the i386 System V calling convention. Programs link with the cross C driver and run under qemu-user or natively; compile-time code runs in the interpreter's address window. Per-CPU POSIX declarations come from the target's own glibc headers (`docs/native/linux-cpu-bindings.md`). 93 stdlib roots pass; the rest are listed in `docs/native/n-bit-and-embedded.md`.
 
 ### Changed
 

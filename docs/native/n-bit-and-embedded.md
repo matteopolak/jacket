@@ -1,6 +1,6 @@
 # Plan: N-bit, big-endian and embedded targets
 
-Status: N0 landed (`DataLayout`); N1 (wasm32) landed: the stdlib passes under node and wasmtime; the rest is plan. Each milestone updates this page and the docs it names when it lands.
+Status: N0 landed (`DataLayout`); N1 (wasm32) landed: the stdlib passes under node and wasmtime. N2 (i686 Linux, glibc) landed: 93 stdlib roots pass (`tools/dev/i686-roots.txt`, run in CI); the rest of the roots need per-CPU socket ABIs and 32-bit builds of the third-party native libraries (see below); musl is not built yet. The rest is plan. Each milestone updates this page and the docs it names when it lands.
 
 Jacket builds for 64-bit little-endian machines with an OS: x86-64 and arm64 on macOS, Linux and Windows, plus wasm64. This plan adds:
 
@@ -135,6 +135,8 @@ Each milestone is a series of one-change commits, starting with a failing test.
 3. **N2, i686 Linux.** `i686-linux-gnu` and `i686-linux-musl`.
    - Adds the `X86` ABI, 32-bit Linux syscall and ABI files, and the stdlib C-width aliases.
    - Done means the stdlib runtime tests run natively on the x64 Linux CI runner with multilib, plus a new CI leg.
+   - Landed for glibc: the CI leg runs the roots in `tools/dev/i686-roots.txt`. Remaining gaps: musl; a per-CPU Linux socket ABI (`internal/net/socket-abi-linux.jai` is 64-bit only, so Socket, Http, Grpc, WebSocket and Tls fail); 32-bit builds of the third-party native libraries (X11, mbedtls, freetype, lz4, stb); and the `Syscall` intrinsic, which is x86-64 only.
+   - 64-bit atomics need 8-byte alignment but i686 aligns `s64` to 4 inside structs: stack slots are raised to 8, and a struct member that is an atomic target takes `#align 8`.
 4. **N3, big-endian.** `s390x-linux-gnu`, which is 64-bit, so byte order is tested alone.
    - Adds byte-swapping interpreter ops and big-endian emission.
    - Done means the stdlib runtime tests pass under `qemu-s390x` in CI. Then `powerpc64-linux-gnu`, under `qemu-ppc64`.
