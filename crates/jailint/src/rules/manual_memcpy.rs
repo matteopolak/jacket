@@ -53,7 +53,7 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
         || f.pointer_if.is_some()
         || f.reverse_if.is_some()
         || f.iterator.is_some()
-        || f.backtick_names
+        || f.declares_in_caller()
         || f.index.is_some()
     {
         return None;

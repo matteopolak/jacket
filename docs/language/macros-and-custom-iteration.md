@@ -33,9 +33,10 @@ for b { s += it * 10 + it_index; }
 
 - `for :walk x, i: b` selects a named expansion `walk` {#macro.9}.
 - Naming the index hides the macro's `it_index` from the body {#macro.10}.
+- A loop inside an expansion can declare its names in the caller by writing them with a backtick: ``for c, `it_index: text`` gives the body `it_index` but not `c`. Each name counts on its own, and it works whether `text` is an array or has a `for_expansion` of its own.
 - An expansion can forward its body to another one {#macro.11}; overloads on different types coexist {#macro.12}.
 - `break` and `continue` in the inserted body leave through the expansion's innermost loop and run defers registered inside it, so `defer i += 1;` before `#insert body;` advances on `continue`.
 
 ## How to change it
 
-Inlining is `expand_macro` in `sema/calls/macro_expand.rs`; `macro_code_args` picks which arguments pass as `Code`. Loop-body plumbing is `ForBody` in `sema/lower.rs`; the lookup is `check_for_expansion` in `sema/stmt.rs`. `Code` and `For_Flags` come from the preload. Tests: `tests/compiler/regressions/for-expansion-*.jai`.
+Inlining is `expand_macro` in `sema/calls/macro_expand.rs`; `macro_code_args` picks which arguments pass as `Code`. Loop-body plumbing is `ForBody` in `sema/lower.rs`; the lookup is `check_for_expansion` in `sema/stmt/loops.rs`, and `insert_for_body` in `sema/stmt/insert.rs` declares the body's names. `Code` and `For_Flags` come from the preload. Tests: `tests/compiler/regressions/for-expansion-*.jai` and `for-backtick-single-name.jai`.

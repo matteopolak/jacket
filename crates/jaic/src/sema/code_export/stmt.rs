@@ -219,10 +219,12 @@ impl Exporter<'_> {
                 }
                 let it = f.it.map_or(0, |i| self.ident(i.name, i.span));
                 let index = f.index.map_or(0, |i| self.ident(i.name, i.span));
-                if f.backtick_names {
-                    for id in [it, index].into_iter().filter(|&id| id != 0) {
-                        self.r.get_mut(id).unwrap().int("flags", 0x40);
-                    }
+                for (id, _) in [it, index]
+                    .into_iter()
+                    .zip(f.backticks)
+                    .filter(|&(id, backtick)| id != 0 && backtick)
+                {
+                    self.r.get_mut(id).unwrap().int("flags", 0x40);
                 }
                 let pointer = self.opt_expr(f.pointer_if.as_ref());
                 let reverse = self.opt_expr(f.reverse_if.as_ref());

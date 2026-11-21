@@ -9,6 +9,7 @@
 ### Fixed
 
 - GetRect draws text with a bundled Noto Sans when no theme and no `ui_init` call names a font, at a size that follows the widget's height, instead of crashing on the first label.
+- In a `for_expansion`, a backtick on one loop name gives the caller only that name: ``for c, `it_index: text`` now gives the inserted body `it_index`, including when `text` has a `for_expansion` of its own, and ``for `it, i: xs`` no longer leaks `i`.
 
 ## [0.36.1] - 2026-11-18
 

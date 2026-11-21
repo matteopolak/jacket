@@ -676,12 +676,12 @@ impl Parser<'_> {
             self.bump();
         }
         let (mut it, mut index) = (None, None);
-        let backtick_names = self.at(P::Backtick);
+        let mut backticks = [false; 2];
         if self.for_names_ahead() {
-            self.eat(P::Backtick);
+            backticks[0] = self.eat(P::Backtick);
             it = Some(self.ident("as iterator name")?);
             if self.eat(P::Comma) {
-                self.eat(P::Backtick);
+                backticks[1] = self.eat(P::Backtick);
                 index = Some(self.ident("as index name")?);
             }
             self.bump();
@@ -713,7 +713,7 @@ impl Parser<'_> {
             pointer_if,
             reverse_if,
             iterator,
-            backtick_names,
+            backticks,
             over,
             body,
             flags,

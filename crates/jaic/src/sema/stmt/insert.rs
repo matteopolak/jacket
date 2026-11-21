@@ -394,6 +394,24 @@ impl Compiler {
                 hidden.push((original, id));
             }
         }
+        // ``for c, `it_index: text`` in a macro: the backticked names are also the macro
+        // caller's, sharing the loop's storage, as for a loop over an array.
+        if let Some((caller, backticks)) = body.caller_names {
+            for (name, _) in [body.it_name, body.index_name]
+                .into_iter()
+                .zip(backticks)
+                .filter(|&(_, backtick)| backtick)
+            {
+                let Some(id) = [names, body.scope]
+                    .into_iter()
+                    .find_map(|holder| self.scope(holder).names.get(&name)?.last().copied())
+                else {
+                    continue;
+                };
+                let kind = self.entity(id).kind.clone();
+                self.add_entity(caller, name, span, kind, false);
+            }
+        }
         // Inserted loop controls target the macro's innermost loop. Forward its array
         // removal state as well as jump/defer state; a numeric loop still has no remove.
         let (brk, cont, defer_depth, remove) = match f.loops.last() {

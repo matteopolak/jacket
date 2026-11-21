@@ -95,7 +95,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 }
 
 fn binds_it(f: &For, it: Sym) -> bool {
-    !f.backtick_names && f.iterator.is_none() && f.it.is_none_or(|i| i.name == it)
+    !f.declares_in_caller() && f.iterator.is_none() && f.it.is_none_or(|i| i.name == it)
 }
 
 fn loop_vars(cx: &Cx, stmt: &Stmt, it: Sym) -> Vec<EntityId> {

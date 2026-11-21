@@ -207,13 +207,14 @@ impl Compiler {
         Ok(())
     }
 
-    /// Declare a loop's iterator and index. ``for `it, `it_index`` inside a macro also declares
-    /// them in the scope that called the macro, where the inserted loop body can see them.
+    /// Declare a loop's iterator and index. Inside a macro, each name written with a backtick
+    /// (``for value, `it_index``) is also declared in the scope that called the macro, where the
+    /// inserted loop body can see it.
     fn declare_loop_vars(
         &mut self,
         f: &mut FnCtx,
         loop_scope: ScopeId,
-        backtick: bool,
+        backticks: [bool; 2],
         vars: [(Sym, EntityKind); 2],
         for_: &ast::For,
         span: Span,
@@ -225,7 +226,7 @@ impl Compiler {
             if i == 1 && var.0 == first {
                 continue;
             }
-            self.declare_loop_var(f, loop_scope, backtick, var, (span, written[i]));
+            self.declare_loop_var(f, loop_scope, backticks[i], var, (span, written[i]));
         }
     }
 
@@ -412,7 +413,7 @@ impl Compiler {
         self.declare_loop_vars(
             f,
             loop_scope,
-            for_.backtick_names,
+            for_.backticks,
             [
                 (
                     names[0],
@@ -765,7 +766,7 @@ impl Compiler {
         self.declare_loop_vars(
             f,
             loop_scope,
-            for_.backtick_names,
+            for_.backticks,
             [
                 (
                     it_name,
@@ -1037,6 +1038,12 @@ impl Compiler {
             it_name,
             index_name,
             name_spans: [for_.it.map(|i| i.span), for_.index.map(|i| i.span)],
+            caller_names: f
+                .macros
+                .last()
+                .map(|m| m.caller_scope)
+                .filter(|_| for_.declares_in_caller())
+                .map(|caller| (caller, for_.backticks)),
             label: Some(it_name),
         });
         let result = self.call_procs(f, loop_scope, &procs, args, None, span);

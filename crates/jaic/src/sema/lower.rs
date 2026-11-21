@@ -375,6 +375,10 @@ pub struct ForBody {
     pub index_name: Sym,
     /// Where the loop names `it_name` / `index_name`, when it renames them.
     pub name_spans: [Option<Span>; 2],
+    /// For a loop inside a macro whose names are written with a backtick
+    /// (``for c, `it_index: text``): the macro caller's scope, and which of the two names
+    /// the inserted body also declares there.
+    pub caller_names: Option<(ScopeId, [bool; 2])>,
     pub label: Option<Sym>,
 }
 

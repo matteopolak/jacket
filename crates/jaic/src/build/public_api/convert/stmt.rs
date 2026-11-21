@@ -363,13 +363,13 @@ impl Convert<'_, '_> {
         let by_pointer = pointer_if.is_none() && self.has(at, ty, "for_flags", "POINTER")?;
         let reverse = reverse_if.is_none() && self.has(at, ty, "for_flags", "REVERSE")?;
         let ident = self.ty("Code_Ident")?;
-        let mut backtick_names = false;
+        let mut backticks = [false; 2];
         let mut names = [None, None];
-        for (slot, field) in names.iter_mut().zip(["ident_it", "ident_it_index"]) {
+        for (i, field) in ["ident_it", "ident_it_index"].into_iter().enumerate() {
             let name = self.ptr(at, ty, field)?;
             if name != 0 {
-                *slot = Some(self.ident_name(name)?);
-                backtick_names |= self.num(name, ident, "flags")? & 0x40 != 0;
+                names[i] = Some(self.ident_name(name)?);
+                backticks[i] = self.num(name, ident, "flags")? & 0x40 != 0;
             }
         }
         let [it, index] = names;
@@ -389,7 +389,7 @@ impl Convert<'_, '_> {
             pointer_if,
             reverse_if,
             iterator,
-            backtick_names,
+            backticks,
             over,
             body: Box::new(self.branch(at, ty, "block")?),
             flags,

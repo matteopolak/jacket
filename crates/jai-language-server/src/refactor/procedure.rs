@@ -289,7 +289,7 @@ impl Cx<'_> {
                         }
                     }
                     S::For(f) => {
-                        if f.backtick_names || f.iterator.is_some() {
+                        if f.declares_in_caller() || f.iterator.is_some() {
                             ok = false;
                         }
                         declared.push(f.it.map_or_else(|| Sym::intern("it"), |i| i.name));

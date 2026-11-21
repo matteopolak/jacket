@@ -872,12 +872,20 @@ pub struct For {
     pub reverse_if: Option<Expr>,
     /// `for: path ...` custom iterator modifier: a name or a `.`-chain of names.
     pub iterator: Option<Expr>,
-    /// ``for `it, `it_index: ...``: the names are declared in the macro caller's scope.
-    pub backtick_names: bool,
+    /// Which of the iterator and index names were written with a backtick
+    /// (``for value, `it_index: ...``). Those are also declared in the macro caller's scope.
+    pub backticks: [bool; 2],
     /// `for a..b` (range) or `for collection`.
     pub over: ForOver,
     pub body: Box<Stmt>,
     pub flags: Vec<Ident>,
+}
+
+impl For {
+    /// Whether either loop name is declared in the macro caller's scope.
+    pub fn declares_in_caller(&self) -> bool {
+        self.backticks.contains(&true)
+    }
 }
 
 #[derive(Clone, Debug)]

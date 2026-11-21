@@ -92,7 +92,7 @@ fn examine_block(cx: &Cx, stmts: &[Stmt], block_end: u32, out: &mut Vec<Finding>
         let S::For(f) = &s.kind else {
             continue;
         };
-        if f.reverse || f.reverse_if.is_some() || f.iterator.is_some() || f.backtick_names {
+        if f.reverse || f.reverse_if.is_some() || f.iterator.is_some() || f.declares_in_caller() {
             continue;
         }
         let ForOver::Collection(c) = &f.over else {
