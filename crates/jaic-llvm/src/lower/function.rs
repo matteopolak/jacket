@@ -148,6 +148,14 @@ impl<'ctx> Backend<'ctx, '_> {
         let ptr = st
             .allocas
             .build_alloca(self.bytes_ty(size.max(1)), "slot")?;
+        // A narrow target's ABI aligns 64-bit integers to 4 inside aggregates, but a 64-bit atomic
+        // needs 8, and a slot may always be aligned more than its type asks: scalars of 8 bytes
+        // or more take the preferred alignment (`i64:32:64` in LLVM's i686 layout).
+        let align = if self.layout.is_narrow() && size >= 8 {
+            align.max(8)
+        } else {
+            align
+        };
         if let Some(inst) = ptr.as_instruction() {
             inst.set_alignment(align.clamp(1, 1 << 16).next_power_of_two() as u32)
                 .map_err(|e| Error(e.to_string()))?;

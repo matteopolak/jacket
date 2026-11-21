@@ -236,6 +236,38 @@ fn a_64_bit_compare_and_swap_compiles_unoptimized_for_i686() {
     emit_object(&compiler.out.program, &options, &dir.join("i686.o")).unwrap();
 }
 
+/// A 64-bit integer is only 4-aligned inside an i686 struct, but a 64-bit atomic needs 8: stack
+/// slots of that size take the larger, preferred alignment so locals work as atomic targets.
+#[test]
+fn i686_stack_slots_for_64_bit_values_are_8_aligned() {
+    let dir = directory("i686-slots");
+    let target = jaic::target::Target::parse("i686-unknown-linux-gnu").unwrap();
+    let mut options = Options::host();
+    options.runtime_support = false;
+    target.apply(&mut options);
+    let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let source = r#"
+atomic_exchange :: (pointer: *$T, new: T) -> T #intrinsic;
+#program_export "swap_local"
+swap_local :: () -> u64 #c_call {
+    x: u64 = 1;
+    return atomic_exchange(*x, 2);
+}
+"#;
+    if let Err(e) = compiler.compile_sources(&[ProgramSource::String(source.into())]) {
+        panic!("{}", e.render(&compiler.src.sources));
+    }
+    let options = jaic_llvm::Options {
+        target: Some(target),
+        opt_level: OptLevel::O0,
+        emit_ir: Some(dir.join("slots.ll")),
+        ..Default::default()
+    };
+    emit_object(&compiler.out.program, &options, &dir.join("slots.o")).unwrap();
+    let text = std::fs::read_to_string(dir.join("slots.ll")).unwrap();
+    ir::assert_function_contains(&text, "swap_local", "alloca [8 x i8], align 8");
+}
+
 #[test]
 fn wasm_cannot_silently_disable_required_atomics() {
     if !toolchain::require_all(&["wasm-ld"]) {
