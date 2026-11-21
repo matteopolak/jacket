@@ -123,6 +123,20 @@ By default jaic builds a native executable. Options may come before or after the
 
 exit status: 0 success, 1 the program failed to compile, an input file cannot be read or a runtime error stopped it (`-interp` otherwise exits with the program's own status), 2 a command-line mistake, 3 a build found no `main` to make an executable from, 120 the memory limit, 121 native code crashed under the interpreter, 101 an internal compiler error
 
+`--target NAME` builds for a `[target.NAME]` of `jacket.toml` or a built-in board; `jacket targets` lists them ([targets](../tools/jacket.md#targets)).
+
+List the targets `--target` accepts: the project's `[target.*]` tables and the built-in boards, with their triple, board and whether the runner is installed
+
+```text
+jacket targets
+```
+
+##### Options
+
+| Option | Meaning |
+| --- | --- |
+| `-h, --help` | Print help |
+
 ### Creating a project
 
 `jacket new` makes a directory with a `jacket.toml` and a `main.jai`; `jacket init` does the same in the current directory.
@@ -349,6 +363,7 @@ jacket test [OPTIONS] [FILTER]... [-- <FLAGS>...]
 | `--os <OS>` | Target OS, as jaic's -os (also spelt `-os`) [possible values: linux, windows, macos, wasm] |
 | `--cpu <CPU>` | Target CPU, as jaic's -cpu (also spelt `-cpu`) |
 | `--runner <COMMAND>` | Command that runs test programs built for another target (`node tools/wasi_run.ts`) |
+| `--target <NAME>` | A `[target.NAME]` of jacket.toml or an LLVM triple: builds for it, and runs the tests with its runner unless `--runner` is given |
 | `--needs <LIST>` | Capabilities this machine has, for tests with `@needs` (`network,gpu`) |
 | `--profile <NAME>` | Use `[test.profile.NAME]` from jacket.toml |
 | `--path <DIR>` | Test the `tests/` of these folders instead of the project's |
@@ -414,6 +429,7 @@ jacket bench [OPTIONS] [FILTER]... [-- <FLAGS>...]
 | `--os <OS>` | Target OS, as jaic's -os (also spelt `-os`) [possible values: linux, windows, macos, wasm] |
 | `--cpu <CPU>` | Target CPU, as jaic's -cpu (also spelt `-cpu`) |
 | `--runner <COMMAND>` | Command that runs test programs built for another target (`node tools/wasi_run.ts`) |
+| `--target <NAME>` | A `[target.NAME]` of jacket.toml or an LLVM triple: builds for it, and runs the tests with its runner unless `--runner` is given |
 | `--needs <LIST>` | Capabilities this machine has, for tests with `@needs` (`network,gpu`) |
 | `--profile <NAME>` | Use `[test.profile.NAME]` from jacket.toml |
 | `--path <DIR>` | Test the `tests/` of these folders instead of the project's |

@@ -277,8 +277,9 @@ jobs:
     timeout-minutes: ${{ matrix.timeout || 45 }}
     env:
       CARGO_INCREMENTAL: '0'
-      # The wasm target tests fail, rather than skip, without node or wasm-ld.
-      JAIC_REQUIRE_TOOLCHAIN: node,wasm-ld
+      # The wasm target tests fail, rather than skip, without node or wasm-ld. On Linux the
+      # freestanding tests (docs/native/embedded.md) also need QEMU to run their programs.
+      JAIC_REQUIRE_TOOLCHAIN: node,wasm-ld${{ matrix.runner == 'ubuntu-24.04' && ',qemu-system-aarch64' || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: {persist-credentials: false}
@@ -286,6 +287,9 @@ jobs:
         with:
           lld: 'true'
           font: 'false'
+      - name: Install QEMU for the freestanding tests
+        if: ${{ matrix.runner == 'ubuntu-24.04' }}
+        run: bash tools/ci/apt_install.sh qemu-system-arm
       # The format and lint steps below run the Justfile's recipes (docs/tools/development.md).
       - uses: ./.github/actions/install-tool
         with: {tool: just}

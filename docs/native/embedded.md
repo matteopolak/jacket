@@ -26,8 +26,16 @@ qemu-system-aarch64 -M virt -cpu cortex-a53 -nographic \
     -semihosting-config enable=on,target=native -kernel prog.elf
 ```
 
+With jacket, name the board in `jacket.toml` and let it do the rest (`[target.dev] board = "Qemu_Virt_Aarch64"`, [targets](../tools/jacket.md#targets)):
+
+```sh
+jacket run --target dev    # builds with the board plugin, runs it under QEMU
+jacket targets             # what --target accepts
+```
+
 ## How to change it
 
+- Another board for `--target`: give its module a `get_plugin` that runs its `configure` (see `Qemu_Virt_Aarch64`) and add it to `BUILT_IN` in `crates/jacket/src/target.rs` with its triple and runner.
 - Another OS-only procedure on NONE: put it behind `#if OS != .NONE`, so calling it is a compile error naming it. Never add a stub that fails at run time.
 - Another freestanding CPU: `Target::parse`, `emulation` in `jaic-native/src/freestanding.rs`, and the compiler-rt file name in `toolchain/freestanding.rs`.
 

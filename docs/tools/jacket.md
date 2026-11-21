@@ -30,7 +30,22 @@ What `jacket` adds is the project:
 
 ## Commands
 
-`build`, `check`, `run`, `lint`, `fmt` and `lsp` front the tool of the same name. `test`, `bench` and `doc` are [jacket test](jacket-test.md), [jacket bench](jacket-bench.md) and [jacket doc](jacket-doc.md). `new`, `init`, `config`, `clean`, `explain`, `version` and `upgrade` are `jacket`'s own and use `--long` flags. `jacket jaic|jailint|jailsp|jaifmt <args>` runs that tool verbatim, and any other command runs `jacket-<command>` from `PATH`, as cargo does. Every flag is in the [tools reference](../reference/tools.md).
+`build`, `check`, `run`, `lint`, `fmt` and `lsp` front the tool of the same name. `test`, `bench` and `doc` are [jacket test](jacket-test.md), [jacket bench](jacket-bench.md) and [jacket doc](jacket-doc.md). `new`, `init`, `config`, `targets`, `clean`, `explain`, `version` and `upgrade` are `jacket`'s own and use `--long` flags. `jacket jaic|jailint|jailsp|jaifmt <args>` runs that tool verbatim, and any other command runs `jacket-<command>` from `PATH`, as cargo does. Every flag is in the [tools reference](../reference/tools.md).
+
+### Targets
+
+`jacket build|check|run --target NAME` (also `-target NAME`) builds for a named target. `NAME` is a `[target.NAME]` table of `jacket.toml` or a built-in board; an LLVM triple still goes to jaic unchanged. `jacket targets` lists every name with its triple, board and whether its runner is installed. An unknown name fails and suggests the nearest one (`unknown target `pic`; did you mean `pico`?`).
+
+```toml
+[target.pico]
+triple = "thumbv6m-none-eabi"
+runner = "flash {exe}"          # `{exe}` is the built program; `jacket run` starts this instead
+
+[target.dev]
+board = "Qemu_Virt_Aarch64"     # builds with Extensions/Embedded/Boards/<board> as a plugin
+```
+
+A board adds `+Extensions/Embedded/Boards/<board>` to jaic's command line, so the board's `configure` sets the OS, CPU, triple and linker script. Built-in boards carry a runner (QEMU for `Qemu_Virt_Aarch64`); a table of the same name replaces it. `jacket run --target NAME` builds, then starts the runner, and refuses program arguments. `jacket test --target NAME` builds the tests for the triple and runs them through the runner (`{exe}` last, or left out); it refuses a board, since a board's program cannot take test names yet. The built-in list is `BUILT_IN` in `crates/jacket/src/target.rs`; a test keeps it in step with `stdlib/Extensions/Embedded/Boards`.
 
 Tools are found next to the `jacket` executable (symlinks followed), else on `PATH`.
 
@@ -87,6 +102,10 @@ timeout = 120                   # seconds per test
 
 [test.profile.ci]               # jacket test --profile ci
 retries = 2
+
+[target.pico]                   # jacket build --target pico; see Targets above
+triple = "thumbv6m-none-eabi"
+runner = "flash {exe}"
 
 [doc]                           # jacket doc's site, see jacket-doc.md
 path = "src/my_lib"
