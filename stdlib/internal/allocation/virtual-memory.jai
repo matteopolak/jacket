@@ -28,7 +28,7 @@
     }
 
     reserve :: (bytes: u64) -> *u8 {
-        memory := P.mmap(null, bytes, P.PROT_NONE, P.MAP_PRIVATE | P.MAP_ANONYMOUS, -1, 0);
+        memory := P.mmap(null, cast(P.size_t) bytes, P.PROT_NONE, P.MAP_PRIVATE | P.MAP_ANONYMOUS, -1, 0);
         if memory == P.MAP_FAILED return null;
         return cast(*u8) memory;
     }
@@ -42,7 +42,7 @@
     }
 
     release :: (start: *u8, bytes: u64) -> bool {
-        return P.munmap(start, bytes) == 0;
+        return P.munmap(start, cast(P.size_t) bytes) == 0;
     }
 }
 

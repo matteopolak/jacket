@@ -96,7 +96,7 @@ extract :: (a: *Archive, dest_dir: string, limits := Archive_Limits.{}) -> Archi
         at: s64;
 
         while at < bytes.count {
-            n := Posix.write(fd.*, bytes.data + at, cast(u64) (bytes.count - at));
+            n := Posix.write(fd.*, bytes.data + at, cast(Posix.size_t) (bytes.count - at));
             if n <= 0 return false;
 
             at += n;

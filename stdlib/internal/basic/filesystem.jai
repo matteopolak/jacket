@@ -71,7 +71,7 @@ sleep_milliseconds :: (milliseconds: s32) {
     assert(milliseconds >= 0);
     remaining: P.timespec;
     remaining.tv_sec = milliseconds / 1000;
-    remaining.tv_nsec = cast(s64) (milliseconds % 1000) * 1000000;
+    remaining.tv_nsec = cast(type_of(remaining.tv_nsec)) (milliseconds % 1000) * 1000000;
     while P.nanosleep(*remaining, *remaining) != 0 {
         assert(P.errno() == cast(P.OS_Error_Code) P.EINTR, "nanosleep failed");
     }

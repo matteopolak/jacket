@@ -102,7 +102,7 @@ get_path_of_running_executable :: () -> string {
 
         while true {
             buffer := talloc_string(capacity);
-            count := P.readlink(path, buffer.data, cast(u64) capacity);
+            count := P.readlink(path, buffer.data, cast(P.size_t) capacity);
 
             if count < 0 {
                 native_failure("executable-path lookup failed\n");

@@ -133,7 +133,7 @@ read_session :: (session: *Session, buffer: [] u8) -> int {
 // Keep the unwritten suffix and retry next frame.
 write_session :: (session: *Session, text: string) -> int {
     #if OS == .MACOS || OS == .LINUX {
-        n := P.write(session.fd, text.data, cast(u64) text.count);
+        n := P.write(session.fd, text.data, cast(P.size_t) text.count);
         return max(0, n);
     } else return 0;
 }

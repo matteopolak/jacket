@@ -147,7 +147,7 @@ is_valid :: (file: File) -> bool {
 // ```
 file_read :: (f: File, vdata: *void, bytes_to_read: s64) -> (success: bool, total_read: s64) {
     if bytes_to_read <= 0 || !vdata || !f.handle return false, 0;
-    count := P.fread(vdata, 1, cast(u64) bytes_to_read, f.handle);
+    count := P.fread(vdata, 1, cast(P.size_t) bytes_to_read, f.handle);
     return P.ferror(f.handle) == 0, cast(s64) count;
 }
 
@@ -311,8 +311,8 @@ file_flush :: (file: File) -> bool {
 file_write :: (file: *File, data: *void, length: s64) -> bool {
     if !file.handle || length < 0 || (!data && length > 0) return false;
     if length == 0 return true;
-    count := P.fwrite(data, 1, cast(u64) length, file.handle);
-    return count == cast(u64) length && P.ferror(file.handle) == 0;
+    count := P.fwrite(data, 1, cast(P.size_t) length, file.handle);
+    return count == cast(P.size_t) length && P.ferror(file.handle) == 0;
 }
 
 // Renames the file or directory `name_old` to `name_new`. Returns `false` if that fails.
