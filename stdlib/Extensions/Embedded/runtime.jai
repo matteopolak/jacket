@@ -20,6 +20,30 @@ set_panic_hook :: (hook: Panic_Hook) #no_context {
     Impl.panic_hook = hook;
 }
 
+// Ends the run with a status: a debugger or an emulator reads it (semihosting's exit call).
+Exit_Hook :: Impl.Exit_Hook;
+
+set_exit_hook :: (hook: Exit_Hook) #no_context {
+    Impl.exit_hook = hook;
+}
+
+// Ends the run with `status` through the exit hook. With no hook set, or if it returns, the
+// program halts.
+exit :: (status: s32) #no_context {
+    Impl.exit_program(status);
+}
+
+// The command line the board started the program with, the program's name first, as a hosted
+// `get_command_line_arguments` gives it. A board that can pass one (QEMU's semihosting command
+// line) sets it before `main`; otherwise it is empty.
+set_arguments :: (arguments: [] string) #no_context {
+    Impl.program_arguments = arguments;
+}
+
+arguments :: () -> [] string {
+    return Impl.program_arguments;
+}
+
 // Starts the runtime: copies `.data` from its load address, zeroes `.bss`, and sets up the static
 // `Context` (see `static_context`) with `TEMPORARY_STORAGE_SIZE` bytes of temporary storage. Call
 // it first from the reset handler, before anything that uses a global.

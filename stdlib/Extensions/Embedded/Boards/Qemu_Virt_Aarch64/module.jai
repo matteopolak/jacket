@@ -58,16 +58,51 @@ memory_map :: Embedded.Memory_Map.{
 
     // `jaic app.jai +Extensions/Embedded/Boards/Qemu_Virt_Aarch64` builds the program for this
     // board without a metaprogram of its own: the plugin runs `configure` on the workspace.
+    // With the option `tests` it also exports the reset function, which runs `jacket test`'s
+    // entry point (`+Extensions/Testing/Discovery` adds it), so the tests need no `jai_start`.
     get_plugin :: () -> *Metaprogram_Plugin {
-        plugin := New(Metaprogram_Plugin);
+        plugin := New(Board_Plugin);
+        plugin.init = (plugin: *Metaprogram_Plugin, options: [] string) -> bool {
+            for options {
+                if it == "tests" {
+                    (cast(*Board_Plugin) plugin).tests = true;
+                } else {
+                    print("Qemu_Virt_Aarch64: unknown option '%'\n", it);
+
+                    return false;
+                }
+            }
+
+            return true;
+        };
+
         plugin.add_source = (plugin: *Metaprogram_Plugin) {
             options := get_build_options(plugin.workspace);
+
             configure(*options);
             set_build_options(options, plugin.workspace);
+
+            if (cast(*Board_Plugin) plugin).tests {
+                add_build_string(TEST_START, plugin.workspace);
+            }
         };
 
         return plugin;
     }
+
+    Board_Plugin :: struct {
+        #as using base: Metaprogram_Plugin;
+        tests: bool;
+    }
+
+    TEST_START :: #string START
+Board :: #import "Extensions/Embedded/Boards/Qemu_Virt_Aarch64";
+
+#program_export "jai_start"
+reset :: () #c_call #no_context {
+    Board.start(__jacket_test_main);
+}
+START;
 } else {
     Program :: #type ();
 
@@ -78,6 +113,8 @@ memory_map :: Embedded.Memory_Map.{
         Embedded.init_runtime();
         Embedded.set_console_hook(console_write);
         Embedded.set_panic_hook(panic);
+        Embedded.set_exit_hook(exit);
+        Embedded.set_arguments(command_line());
 
         heap := Embedded.make_heap();
         context_copy := Embedded.static_context().*;
@@ -90,6 +127,42 @@ memory_map :: Embedded.Memory_Map.{
         exit(0);
     }
 
+    // What QEMU was told to start the program with (`-append`, or `-semihosting-config arg=`):
+    // the semihosting command-line call, split at spaces. QEMU puts the kernel's file name first, as
+    // a hosted program's name is. A line longer than the buffer is cut.
+    command_line :: () -> [] string #no_context {
+        words_used = 0;
+
+        block: [2] u64;
+        block[0] = cast,no_check(u64) line.data;
+        block[1] = line.count;
+
+        if semihost(0x15, *block) != 0 return .{ words_used, words_storage.data }; // SYS_GET_CMDLINE
+
+        length := cast(s64) block[1];
+        start := 0;
+
+        for 0..length {
+            at_end := it == length || line[it] == 0 || line[it] == #char " ";
+
+            if !at_end continue;
+
+            if it > start && words_used < words_storage.count {
+                words_storage[words_used] = .{ it - start, line.data + start };
+                words_used += 1;
+            }
+
+            start = it + 1;
+            if it == length || line[it] == 0 break;
+        }
+
+        return .{ words_used, words_storage.data };
+    }
+
+    line: [1024] u8;
+    words_storage: [64] string;
+    words_used: s64;
+
     // Ends the run with `status`.
     exit :: (status: s32) #no_context {
         // SYS_EXIT_EXTENDED: reason ADP_Stopped_ApplicationExit and the status.
@@ -99,12 +172,40 @@ memory_map :: Embedded.Memory_Map.{
         semihost(0x20, *block);
     }
 
+    // Standard output and standard error are two files of the host, opened as ARM semihosting
+    // defines the console (`:tt`: opened for writing it is standard output, for appending
+    // standard error), so what a program prints keeps its stream.
     console_write :: (text: string, to_standard_error: bool) #no_context {
-        for 0..text.count - 1 {
-            byte := text.data[it];
-            semihost(3, *byte); // SYS_WRITEC
-        }
+        if !console_opened open_console();
+
+        handle := ifx to_standard_error then error_handle else output_handle;
+        block: [3] u64;
+        block[0] = cast,no_check(u64) handle;
+        block[1] = cast,no_check(u64) text.data;
+        block[2] = cast,no_check(u64) text.count;
+
+        semihost(0x05, *block); // SYS_WRITE
     }
+
+    open_console :: () #no_context {
+        console_opened = true;
+        output_handle = open_console_file(4);
+        error_handle = open_console_file(8);
+    }
+
+    open_console_file :: (mode: u64) -> s64 #no_context {
+        name := ":tt";
+        block: [3] u64;
+        block[0] = cast,no_check(u64) name.data;
+        block[1] = mode;
+        block[2] = cast,no_check(u64) name.count;
+
+        return cast,no_check(s64) semihost(0x01, *block); // SYS_OPEN
+    }
+
+    console_opened: bool;
+    output_handle: s64;
+    error_handle: s64;
 
     panic :: (message: string) #no_context {
         console_write("panic: ", true);

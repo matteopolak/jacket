@@ -18,11 +18,24 @@ Console_Hook :: #type (text: string, to_standard_error: bool) #no_context;
 // heap). It must not return; if it does, the program halts.
 Panic_Hook :: #type (message: string) #no_context;
 
+// Ends the run with the status. It must not return; if it does, the program halts.
+Exit_Hook :: #type (status: s32) #no_context;
+
 console_hook: Console_Hook;
 panic_hook: Panic_Hook;
+exit_hook: Exit_Hook;
+
+// What the board says the program was started with (`Extensions/Embedded.set_arguments`).
+program_arguments: [] string;
 
 halt :: () #no_context {
     while true trap();
+}
+
+// Ends the run with `status` through the exit hook, then halts.
+exit_program :: (status: s32) #no_context {
+    if exit_hook exit_hook(status);
+    halt();
 }
 
 // Stops the program: the panic hook, then a breakpoint loop.

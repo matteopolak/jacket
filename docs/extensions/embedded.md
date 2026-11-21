@@ -13,7 +13,7 @@ Part of the module runs **on the target** (`OS == .NONE`) and part runs **in the
 
 | Where | Items |
 | --- | --- |
-| Target | `init_runtime`, `static_context`, `set_console_hook`, `set_panic_hook`, `Heap`, `make_heap`, `heap_allocator` |
+| Target | `init_runtime`, `static_context`, `set_console_hook`, `set_panic_hook`, `set_exit_hook`, `exit`, `set_arguments`, `arguments`, `Heap`, `make_heap`, `heap_allocator` |
 | Host | `Memory_Map`, `linker_script`, `link_for`, `write_binary` |
 | Both | `volatile_load`, `volatile_store`, the barriers and hints |
 
@@ -30,6 +30,7 @@ reset :: () #c_call #no_context {
 ```
 
 - `set_console_hook` receives everything `print` and `write_string` write. With none set, output is dropped.
+- `set_exit_hook` sets what `exit(status)` does: a board ends the run, for example through semihosting. `set_arguments` gives the program the command line the board was started with, as `arguments()` returns it (`Extensions/Testing` reads it on a board).
 - `set_panic_hook` runs when a check or assert fails or the default allocator is used. It must not return. With none set, the reason goes to the console and the program halts.
 - The default allocator has no heap and panics. Give the context one: `heap_allocator(*heap)` over `make_heap()` hands out the RAM between `.bss` and the stack in order. It never reuses memory, except that freeing or resizing the newest block gives the space back.
 
