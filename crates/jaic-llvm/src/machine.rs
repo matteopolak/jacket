@@ -97,6 +97,14 @@ pub(super) fn cpu_and_features(
         }
         features.push_str("+bulk-memory");
     }
+    // Freestanding code starts with the MMU off, where every access is to Device memory and an
+    // unaligned one faults. A board that turns the MMU on can pass `-strict-align`.
+    if target.is_freestanding() && !features.contains("strict-align") {
+        if !features.is_empty() {
+            features.push(',');
+        }
+        features.push_str("+strict-align");
+    }
     (cpu, features)
 }
 

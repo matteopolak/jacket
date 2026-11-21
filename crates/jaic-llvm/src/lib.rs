@@ -115,6 +115,17 @@ mod tests {
             cpu_and_features(None, Some("+simd128"), target("wasm64-unknown-wasi")),
             ("generic".into(), "+simd128,+bulk-memory".into())
         );
+        // Bare metal runs with the MMU off, where unaligned accesses fault: strict alignment, unless
+        // the build says otherwise.
+        let none = target("aarch64-none-elf");
+        assert_eq!(
+            cpu_and_features(None, None, none),
+            ("generic".into(), "+strict-align".into())
+        );
+        assert_eq!(
+            cpu_and_features(None, Some("-strict-align"), none).1,
+            "-strict-align"
+        );
         let (native, features) = cpu_and_features(Some("native"), None, linux);
         assert_eq!(native, TargetMachine::get_host_cpu_name().to_string());
         assert_eq!(features, TargetMachine::get_host_cpu_features().to_string());
