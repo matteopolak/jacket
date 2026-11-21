@@ -46,6 +46,7 @@ label :: (r: Rect, text: string, theme: *Label_Theme, do_scissor := true) -> des
     assert(draw_procs.prepare_text != null && draw_procs.draw_prepared_text != null, "text callbacks required");
     font := theme.font;
     if font == null font = default_overall_theme.font;
+    if font == null font = default_font_for_height(r.h);
 
     desired_width = cast(float) draw_procs.prepare_text(font, text, theme.effects);
     x, y := text_origin(theme, font, r, desired_width);
@@ -603,4 +604,45 @@ encode_utf8 :: (cp: u32, buffer: *[4] u8) -> int {
     buffer.*[3] = cast(u8) (0x80 | (cp & 63));
 
     return 4;
+}
+
+#scope_module
+
+// Text whose theme names no font is drawn with the `default_font` given to `ui_init`, or with
+// Noto Sans when none was given, at a pixel height that follows the rectangle it is drawn in.
+DEFAULT_FONT_HEIGHT_FRACTION :: 0.6;
+
+// The font file shipped beside the standard library (`internal/fonts`, under its own OFL licence).
+BUNDLED_FONT :: #run read_bundled_font();
+
+read_bundled_font :: () -> string {
+    path := tprint("%../fonts/NotoSans-Regular.ttf", #filepath);
+    data, ok := Font_File.read_entire_file(path);
+    assert(ok, "GetRect could not read its default font at %", path);
+    return data;
+}
+
+Font_File :: #import "File";
+
+default_font_data: string;
+default_fonts: [..] Default_Font;
+
+Default_Font :: struct {
+    pixel_height: int;
+    font: *Font;
+}
+
+// The default font at the size for a rectangle `height` tall, loaded once per size. Null when
+// `ui_init` has not run or the draw procedures cannot load fonts.
+default_font_for_height :: (height: float) -> *Font {
+    if default_font_data.count == 0 || draw_procs.get_font_at_size == null return null;
+
+    pixel_height := max(1, cast(int) (height * DEFAULT_FONT_HEIGHT_FRACTION + 0.5));
+    for default_fonts if it.pixel_height == pixel_height return it.font;
+
+    font := draw_procs.get_font_at_size(cast([] u8) default_font_data, pixel_height);
+
+    array_add(*default_fonts, .{ pixel_height, font });
+
+    return font;
 }

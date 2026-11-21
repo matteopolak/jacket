@@ -6,6 +6,10 @@
 
 - `jacket migrate` rewrites code written for an older Jai to the current language: it prints the diff, `--apply` writes it, and it writes only files git could give back. Its first migrations write `Context` as `#Context`, `#foreign_library` as `#library`, `make_vector2(x, y)` as `Vector2.{x, y}` and `New(T, allocator = a)` as `New(T,, allocator = a)`, drop the version from an import such as `freetype-2.12.1`, and say what replaces a removed `get_time` or `bubble_sort`.
 
+### Fixed
+
+- GetRect draws text with a bundled Noto Sans when no theme and no `ui_init` call names a font, at a size that follows the widget's height, instead of crashing on the first label.
+
 ## [0.36.1] - 2026-11-18
 
 A false double free in `jacket lint` is gone, and calls may put a trailing comma before `,,`.

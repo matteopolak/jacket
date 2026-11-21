@@ -16,6 +16,6 @@ SPDX: `(AGPL-3.0-or-later WITH LicenseRef-jaic-runtime-exception) OR MIT OR Apac
 
 A file or directory that carries its own license, notice file or copyright header (for example
 `Extensions/SDL3`, the Unicode data in `Extensions/Unicode_Text`, the controller database in
-`Gamepad/SDL_Input_Map`, the notices under `internal/developer-tools/clang-bindings` and the test
+`Gamepad/SDL_Input_Map`, the Noto Sans font in `internal/fonts` (SIL Open Font License 1.1), the notices under `internal/developer-tools/clang-bindings` and the test
 fixtures taken from other projects) keeps those terms. The MIT and Apache-2.0
 grant covers only the work of Jacket's authors.

@@ -45,10 +45,8 @@ ui_init :: (default_font := "", procs: *Draw_Procs = null) {
         #if Type_Indicator == void draw_procs = simp_draw_procs();
     }
 
-    if default_font.count > 0 {
-        assert(draw_procs.get_font_at_size != null, "font callback required");
-        default_overall_theme.font = draw_procs.get_font_at_size(.{ default_font.count, default_font.data }, 16);
-    }
+    default_font_data = ifx default_font.count > 0 then default_font else BUNDLED_FONT;
+    array_reset(*default_fonts);
 }
 
 ui_get_button_state :: (key: Key_Code) -> Key_Current_State {
