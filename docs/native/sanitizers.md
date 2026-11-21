@@ -32,11 +32,10 @@ Builds every `run` case sanitized, runs it from its source folder and applies th
 
 ### CI modes
 
-The full-tier Mac matrix gives O0 and O2 separate jobs, each with the existing 45-minute
-budget. Each mode runs its complete existing per-mode sweeps: the O2 optimized-module
-subset and existing Mac exclusions remain unchanged, and negative compiler cases remain
-O0-only. Fast Mac runs remain O0-only. Linux keeps its existing
-case shards and mode schedule.
+Mac O0 runs in two shards (`1/2`, `2/2`), because one job took 41 to 45 of its 45 minutes.
+The full tier adds one O2 job. Each mode covers its complete per-mode sweeps: the O2
+optimized-module subset and the Mac exclusions are unchanged, and negative compiler cases
+are O0-only. Fast Mac runs are O0-only. Linux keeps its case shards and mode schedule.
 
 `tools/ci/ci_changes.py::sanitizer_matrix` assigns the optional `mode` field. The workflow
 uses it for step selection, job names and concurrency keys, so the two full Mac modes

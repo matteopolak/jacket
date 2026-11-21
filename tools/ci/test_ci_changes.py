@@ -566,14 +566,17 @@ class SanitizerModes(unittest.TestCase):
         })
         for selected in (False, True):
             legs = [leg for leg in ci_changes.sanitizer_matrix(True, selected) if leg["runner"] == "macos-15"]
-            self.assertEqual(len(legs), 2)
-            self.assertEqual({leg["mode"] for leg in legs}, {"O0", "O2"})
+            self.assertEqual(
+                [(leg["mode"], leg["shard"]) for leg in legs],
+                [("O0", "1/2"), ("O0", "2/2"), ("O2", "1/1")],
+            )
+            # Each shard of a mode covers its share of every suite, so the shares add up to one run.
             actual = Counter()
             for leg in legs:
-                self.assertEqual(leg["shard"], "1/1")
                 mode = leg["mode"]
+                share = 1 / int(leg["shard"].split("/")[1])
                 for suite in ["corpus", "regressions", "stdlib", *(["negative"] if mode == "O0" else [])]:
-                    actual[mode, suite] += 1
+                    actual[mode, suite] += share
             self.assertEqual(actual, expected)
 
     def test_fast_mac_and_linux_assignments_are_unchanged(self):
@@ -588,7 +591,7 @@ class SanitizerModes(unittest.TestCase):
                 if not full:
                     self.assertEqual(
                         [leg for leg in legs if leg["runner"] == "macos-15"],
-                        [{"runner": "macos-15", "shard": "1/1"}] if selected else [],
+                        [{"runner": "macos-15", "shard": "1/2"}, {"runner": "macos-15", "shard": "2/2"}] if selected else [],
                     )
                 keys = [(leg["runner"], leg["shard"], leg.get("mode") == "O2") for leg in legs]
                 self.assertEqual(len(keys), len(set(keys)), keys)

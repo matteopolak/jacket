@@ -234,14 +234,15 @@ def stdlib_matrix(full):
 
 def sanitizer_matrix(full, macos):
     """The legs of `sanitizers`: Linux takes three shards for the fast tier's -O0 run and four
-    for the full tier's -O0 and -O2 runs, so each fits the job's time limit."""
+    for the full tier's -O0 and -O2 runs, so each fits the job's time limit. macOS runs -O0 in two
+    shards (one took 41 to 45 of its 45 minutes) and, in the full tier, -O2 in one job."""
     linux = shards(4 if full else 3)
     legs = [dict(runner="ubuntu-24.04", shard=s) for s in linux]
     if full:
-        # Each complete mode keeps its own job budget; no cases or per-test limits change.
-        legs += [dict(runner="macos-15", shard="1/1", mode=mode) for mode in ("O0", "O2")]
+        legs += [dict(runner="macos-15", shard=s, mode="O0") for s in shards(2)]
+        legs.append(dict(runner="macos-15", shard="1/1", mode="O2"))
     elif macos:
-        legs.append(dict(runner="macos-15", shard="1/1"))
+        legs += [dict(runner="macos-15", shard=s) for s in shards(2)]
     return legs
 
 
