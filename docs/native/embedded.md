@@ -48,3 +48,10 @@ jacket targets             # what --target accepts
 ## Dependencies
 
 `ld.lld` (Homebrew `lld`, Debian `lld-<llvm major>`), compiler-rt builtins for the target when the program needs them, and for the tests `clang` and `qemu-system-aarch64`.
+
+Build the builtins with `tools/embedded/build-compiler-rt.sh [TRIPLE] [OUT_DIR]`. It clones the pinned LLVM tag (`LLVM_TAG`, or `LLVM_SRC` for a checkout you have), configures compiler-rt for the bare-metal triple and prints the `JAIC_COMPILER_RT=` line that makes `jaic` link the result. It needs `clang`, `llvm-ar`, `cmake`, `ninja` and `git`, and says which one is missing and how to install it.
+
+```bash
+tools/embedded/build-compiler-rt.sh aarch64-none-elf
+export JAIC_COMPILER_RT=$PWD/target/compiler-rt/aarch64-none-elf/libclang_rt.builtins.a
+```
