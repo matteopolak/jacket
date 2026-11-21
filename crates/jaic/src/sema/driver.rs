@@ -287,7 +287,7 @@ impl Compiler {
         while i < self.ns.export_entities.len() {
             let e = self.ns.export_entities[i];
             let resolved = self.resolve_entity(e)?;
-            self.collect_module_asm(e, &resolved)?;
+            self.module_asm_text(e, &resolved)?;
             i += 1;
         }
         // A program with no entry point still has code to lower when it exports procedures: a
@@ -755,6 +755,7 @@ impl Compiler {
         self.bake_no_reset_globals();
         self.out.drop_unreferenced_code();
         self.reject_c_library_calls_without_a_c_library()?;
+        self.collect_module_asm()?;
         self.enable_stack_traces(Span::NONE);
         if let Some(layout) = self.out.program.stack_trace {
             crate::stack_trace::instrument(&mut self.out.program, &layout);
@@ -1007,18 +1008,17 @@ impl Output {
 }
 
 impl Compiler {
-    /// A string constant noted `@Module_Asm` adds its text to the module's assembly.
-    fn collect_module_asm(&mut self, entity: EntityId, resolved: &Resolved) -> Result<()> {
+    /// The text of a string constant noted `@Module_Asm`; `None` for any other entity.
+    fn module_asm_text(&self, entity: EntityId, resolved: &Resolved) -> Result<Option<String>> {
         let EntityKind::Decl {
             decl, ..
         } = &self.entity(entity).kind
         else {
-            return Ok(());
+            return Ok(None);
         };
         if !decl.notes.iter().any(|n| n.is(MODULE_ASM_NOTE)) {
-            return Ok(());
+            return Ok(None);
         }
-        let span = self.entity(entity).span;
         let Resolved::Const {
             value: Value::String(text),
             ..
@@ -1026,14 +1026,25 @@ impl Compiler {
         else {
             return err(
                 Code::ModuleAsmNotString,
-                span,
+                self.entity(entity).span,
                 "`@Module_Asm` goes on a constant string",
             );
         };
-        self.out
-            .program
-            .module_asm
-            .push(String::from_utf8_lossy(text).into_owned());
+        Ok(Some(String::from_utf8_lossy(text).into_owned()))
+    }
+
+    /// The module's assembly: every `@Module_Asm` constant, in source order.
+    fn collect_module_asm(&mut self) -> Result<()> {
+        let mut texts = Vec::new();
+        for i in 0..self.ns.export_entities.len() {
+            let entity = self.ns.export_entities[i];
+            if let EntityState::Done(resolved) = self.entity(entity).state.clone()
+                && let Some(text) = self.module_asm_text(entity, &resolved)?
+            {
+                texts.push(text);
+            }
+        }
+        self.out.program.module_asm = texts;
         Ok(())
     }
 }
