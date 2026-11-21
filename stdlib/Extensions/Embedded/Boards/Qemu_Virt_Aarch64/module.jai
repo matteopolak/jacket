@@ -43,6 +43,7 @@ memory_map :: Embedded.Memory_Map.{
 };
 
 #if OS != .NONE {
+    #import "Basic";
     #import "Compiler";
 
     // Makes the workspace build a freestanding AArch64 program for this board and writes its
@@ -53,6 +54,19 @@ memory_map :: Embedded.Memory_Map.{
         options.llvm_options.target_system_triple = "aarch64-none-elf";
         options.runtime_support_definitions = .ONLY_INIT;
         Embedded.link_for(options, memory_map);
+    }
+
+    // `jaic app.jai +Extensions/Embedded/Boards/Qemu_Virt_Aarch64` builds the program for this
+    // board without a metaprogram of its own: the plugin runs `configure` on the workspace.
+    get_plugin :: () -> *Metaprogram_Plugin {
+        plugin := New(Metaprogram_Plugin);
+        plugin.add_source = (plugin: *Metaprogram_Plugin) {
+            options := get_build_options(plugin.workspace);
+            configure(*options);
+            set_build_options(options, plugin.workspace);
+        };
+
+        return plugin;
     }
 } else {
     Program :: #type ();

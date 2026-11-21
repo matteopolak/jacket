@@ -474,3 +474,30 @@ fn a_panic_on_the_qemu_virt_board_exits_with_status_1() {
     assert!(text.contains("assertion failed: boom"), "{text}");
     assert!(text.contains("panic: assertion failed"), "{text}");
 }
+
+/// A board is a plugin too: `jaic prog.jai +Extensions/Embedded/Boards/Qemu_Virt_Aarch64` builds
+/// the program for the board with no metaprogram of its own.
+#[test]
+fn a_board_plugin_configures_the_build_without_a_build_file() {
+    let Some(qemu) = toolchain::optional("qemu-system-aarch64") else {
+        return;
+    };
+    let dir = TempDir::new(&format!("freestanding-plugin-{}", std::process::id()));
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/freestanding/qemu_virt");
+    std::fs::copy(source.join("hello.jai"), dir.join("prog.jai")).unwrap();
+    let built = Command::new(JAIC)
+        .args(["prog.jai", "-exe", "prog.elf"])
+        .arg("+Extensions/Embedded/Boards/Qemu_Virt_Aarch64")
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&built.stderr);
+    if lld_missing(&stderr) && !toolchain::strict("ld.lld") {
+        toolchain::skip(&stderr);
+        return;
+    }
+    assert!(built.status.success(), "jaic failed:\n{stderr}");
+    let out = qemu_run(&qemu, &dir.join("prog.elf"));
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+    assert_eq!(console(&out), "hello from 50 cells, last 2500\n");
+}
