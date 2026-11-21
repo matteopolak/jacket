@@ -144,6 +144,7 @@ rules! {
     missing_doc,
     mixed_case_hex_literals,
     modified_range_bound,
+    narrow_pointers,
     needless_bool,
     neg_cmp_float,
     needless_continue,

@@ -1,0 +1,11 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[narrow_pointers]: this changes the high half of a 64-bit pointer: the bits do not exist on 32-bit targets
+  --> tests/lint/narrow_pointers/example.jai:10:13
+   |
+10 |     return (cast(u64) node) >> 48;
+   |             ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: a pointer is 4 bytes on 32-bit targets: keep tags in the low bits, or store them next to the pointer
+   = note: see https://jacket.matteopolak.com/lint-rules/narrow_pointers
