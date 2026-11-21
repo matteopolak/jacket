@@ -45,19 +45,11 @@ fn a_wasm32_program_has_4_byte_pointers() {
     }
 }
 
-/// A `wasm32-wasi` executable gets stack traces and the arguments it is started with: the
-/// compiler's trace layout and the runtime's argument table both follow the 4-byte pointers.
-#[test]
-fn a_wasm32_executable_keeps_traces_and_arguments() {
-    use test_support::{tmp::TempDir, toolchain};
+const RUNTIME_OUTPUT: &str = "trace 2\narguments 3\n--list\n--run\nname\n";
 
-    if toolchain::wasm_ld().is_none() {
-        return;
-    }
-    let Some(mut node) = toolchain::node() else {
-        return;
-    };
-    let dir = TempDir::new("wasm32-runtime");
+/// Builds the wasm32 runtime program into `dir`; `None` without `wasm-ld`.
+fn build_wasm32_runtime(dir: &test_support::tmp::TempDir) -> Option<std::path::PathBuf> {
+    test_support::toolchain::wasm_ld()?;
     let source = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../tests/compiler/targets/wasm32-runtime.jai");
     let module = dir.join("program.wasm");
@@ -72,6 +64,31 @@ fn a_wasm32_executable_keeps_traces_and_arguments() {
         "{}",
         String::from_utf8_lossy(&build.stderr)
     );
+    Some(module)
+}
+
+fn assert_runtime_output(output: &std::process::Output) {
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), RUNTIME_OUTPUT);
+}
+
+/// A `wasm32-wasi` executable gets stack traces and the arguments it is started with: the
+/// compiler's trace layout and the runtime's argument table both follow the 4-byte pointers.
+#[test]
+fn a_wasm32_executable_keeps_traces_and_arguments() {
+    use test_support::{tmp::TempDir, toolchain};
+
+    let Some(mut node) = toolchain::node() else {
+        return;
+    };
+    let dir = TempDir::new("wasm32-runtime");
+    let Some(module) = build_wasm32_runtime(&dir) else {
+        return;
+    };
     let runner = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/wasi_run.ts");
     let output = node
         .arg(runner)
@@ -79,13 +96,27 @@ fn a_wasm32_executable_keeps_traces_and_arguments() {
         .args(["--list", "--run", "name"])
         .output()
         .unwrap();
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert_eq!(
-        String::from_utf8_lossy(&output.stdout),
-        "trace 2\narguments 3\n--list\n--run\nname\n"
-    );
+    assert_runtime_output(&output);
+}
+
+/// The same module under wasmtime. Skipped unless `JAIC_REQUIRE_TOOLCHAIN` names `wasmtime`,
+/// which then fails with an install hint when it is missing: there is no fallback to node.
+#[test]
+fn a_wasm32_executable_runs_under_wasmtime() {
+    use test_support::{tmp::TempDir, toolchain};
+
+    let Some(wasmtime) = toolchain::optional("wasmtime") else {
+        return;
+    };
+    let dir = TempDir::new("wasm32-wasmtime");
+    let Some(module) = build_wasm32_runtime(&dir) else {
+        return;
+    };
+    let output = Command::new(wasmtime)
+        .arg("run")
+        .arg(&module)
+        .args(["--list", "--run", "name"])
+        .output()
+        .unwrap();
+    assert_runtime_output(&output);
 }

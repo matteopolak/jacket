@@ -38,7 +38,7 @@ options.additional_linker_arguments = .["-z", "stack-size=1048576"];  // passed 
 - **Sockets.** Only sockets the host pre-opened work: `accept`, `recv`, `send`, `shutdown`. Everything else returns -1 with `ENOSYS`, so a program that builds a socket compiles and fails at run time. In `jaic -interp -os wasm`, `JAIC_TCPLISTEN=host:port,...` listens before the program starts (descriptors 3, 4, ... and `LISTEN_FDS`), like wasmtime's `--tcplisten` (`interp/sandbox/sockets.rs`).
 - **Math.** `fma`, `fmod` and binary128 helpers round once from a wide exact accumulator; transcendentals work in float64 pairs.
 - The interpreter and browser answer the same C names through `SandboxHost`, so no stdlib code tells them apart.
-- **Running.** `tools/wasi_run.ts` runs a command with node's WASI. It exits with the module's status (134 on a trap, 127 naming missing imports). `--unknown-imports-trap` lets a WebGPU program run and find no WebGPU.
+- **Running.** `tools/wasmtime_run.sh` does the same under wasmtime (`jacket test --runner "sh tools/wasmtime_run.sh"`): it pre-opens `/`, sets the guest's `PWD` and passes the environment, which wasmtime does not do itself, and fails with an install hint when `wasmtime` is missing. `tools/wasi_run.ts` runs a command with node's WASI. It exits with the module's status (134 on a trap, 127 naming missing imports). `--unknown-imports-trap` lets a WebGPU program run and find no WebGPU.
 
 ### Green threads
 

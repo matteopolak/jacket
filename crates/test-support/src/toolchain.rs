@@ -115,10 +115,26 @@ pub fn optional(name: &str) -> Option<PathBuf> {
 fn resolve(name: &str, must_exist: bool) -> Option<PathBuf> {
     let found = find(name);
     if found.is_none() {
-        assert!(!must_exist, "required test tool `{name}` is not installed");
+        assert!(
+            !must_exist,
+            "required test tool `{name}` is not installed{}",
+            install_hint(name)
+        );
         skip(&format!("`{name}` is not installed"));
     }
     found
+}
+
+/// How to install `name`, for the message of a required tool that is missing.
+fn install_hint(name: &str) -> &'static str {
+    match name {
+        "wasmtime" => {
+            ": install it with `curl https://wasmtime.dev/install.sh -sSf | bash` or `brew install wasmtime`"
+        }
+        "node" => ": install Node.js 24 from https://nodejs.org",
+        "wasm-ld" => ": install LLD with `brew install lld` or Debian's `lld-23`",
+        _ => "",
+    }
 }
 
 /// The `jaic` that sits beside the `jacket` executable `jacket`, as in an unpacked archive. `None`
