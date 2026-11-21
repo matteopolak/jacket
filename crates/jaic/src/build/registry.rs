@@ -227,6 +227,7 @@ impl Workspaces {
         ) -> Result<T, String> {
             decode(raw).ok_or_else(|| format!("internal: {option:?} has no value {raw}"))
         }
+        let current_cpu = self.env.options.cpu;
         let s = self.workspace_settings(id)?;
         match option {
             WorkspaceNumber::OutputType => {
@@ -244,7 +245,12 @@ impl Workspaces {
                 s.cpu = Some(match member(option, raw, CpuTag::from_raw)? {
                     CpuTag::X64 => TargetCpu::X64,
                     CpuTag::Arm64 => TargetCpu::Arm64,
-                    CpuTag::Custom => TargetCpu::Wasm,
+                    // `.CUSTOM` names every CPU the enum lacks: keep the one this build has
+                    // when it is one of them, so setting the options back changes nothing.
+                    CpuTag::Custom => match s.cpu.unwrap_or(current_cpu) {
+                        cpu @ (TargetCpu::X86 | TargetCpu::Wasm) => cpu,
+                        _ => TargetCpu::Wasm,
+                    },
                 });
             }
             WorkspaceNumber::TemporaryStorageSize => s.temporary_storage_size = Some(raw as i64),
