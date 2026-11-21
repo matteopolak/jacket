@@ -128,7 +128,10 @@ impl SandboxHost {
         fun: LibcFn,
         arg: impl Fn(usize) -> u64,
     ) -> Option<u64> {
-        if !matches!(fun, LibcFn::Mmap | LibcFn::Mprotect | LibcFn::Munmap) {
+        if !matches!(
+            fun,
+            LibcFn::Mmap | LibcFn::Mmap64 | LibcFn::Mprotect | LibcFn::Munmap
+        ) {
             return None;
         }
         #[cfg(not(unix))]
@@ -147,7 +150,7 @@ impl SandboxHost {
             else {
                 return Some(self.set_errno(EINVAL));
             };
-            if fun == LibcFn::Mmap {
+            if matches!(fun, LibcFn::Mmap | LibcFn::Mmap64) {
                 let anonymous = if self.darwin_files {
                     0x1000
                 } else {

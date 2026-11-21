@@ -14,6 +14,7 @@ raw_enum! {
         WasmWriteString = "wasm_write_string",
         Malloc = "malloc",
         Mmap = "mmap",
+        Mmap64 = "mmap64",
         Mprotect = "mprotect",
         Munmap = "munmap",
         Calloc = "calloc",
