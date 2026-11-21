@@ -133,7 +133,12 @@ case "$cmd" in
     cross_mounts=(--volume "$repo:$repo")
     IFS=: read -r -a folders <<<"${CROSS_SCRATCH:-}:${TMPDIR:-/tmp}:${CROSS_MOUNTS:-}"
     for folder in "${folders[@]}"; do
-      [ -n "$folder" ] && [ -d "$folder" ] && cross_mounts+=(--volume "$(cd "$folder" && pwd -P):$(cd "$folder" && pwd -P)")
+      [ -n "$folder" ] && [ -d "$folder" ] || continue
+      physical="$(cd "$folder" && pwd -P)"
+      cross_mounts+=(--volume "$physical:$physical")
+      # macOS reports $TMPDIR through the /var symlink; programs name it that way.
+      logical="${folder%/}"
+      [ "$logical" = "$physical" ] || cross_mounts+=(--volume "$physical:$logical")
     done
     container run -d --name "$cross_name" --arch arm64 --memory "$memory" --cpus "$cpus" --network none "${cross_mounts[@]}" \
       "$cross_image" sleep infinity >/dev/null 2>&1
