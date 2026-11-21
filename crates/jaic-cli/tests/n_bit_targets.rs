@@ -144,3 +144,27 @@ fn a_plugin_setting_the_cpu_back_keeps_i686() {
         String::from_utf8_lossy(&output.stderr)
     );
 }
+
+/// The workspace a plugin creates for a 32-bit target runs its compile-time code on the
+/// interpreter's host, not the compiler's: a native `fopen` would get a truncated address.
+#[test]
+fn a_plugin_workspace_reads_files_at_compile_time_on_i686() {
+    let output = Command::new(JAIC)
+        .arg("-check")
+        .arg(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../tests/compiler/targets/compile-time-file-read.jai"),
+        )
+        .args([
+            "-target",
+            "i686-unknown-linux-gnu",
+            "+Extensions/Testing/Discovery",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}

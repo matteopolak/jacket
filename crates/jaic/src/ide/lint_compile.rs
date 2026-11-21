@@ -140,7 +140,7 @@ impl LintCompile {
             options: options.clone(),
             backend: None,
             command_line: Vec::new(),
-            make_host: Box::new(move |os| {
+            make_host: Box::new(move |os, _| {
                 workspace_host.borrow_mut().set_file_target(os);
                 Box::new(SharedHost(workspace_host.clone()))
             }),

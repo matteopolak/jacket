@@ -284,7 +284,7 @@ fn run_styled(
         options: program_options(&*fs, &workspace_main(main), &stdlib),
         backend: None,
         command_line: Vec::new(),
-        make_host: Box::new(move |_| Box::new(SharedHost(workspace_host.clone()))),
+        make_host: Box::new(move |_, _| Box::new(SharedHost(workspace_host.clone()))),
         report: Box::new(move |_, text| {
             reports
                 .borrow_mut()

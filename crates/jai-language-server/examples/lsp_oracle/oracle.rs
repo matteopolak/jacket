@@ -100,7 +100,7 @@ pub fn compile(options: Options, path: &Path, text: &str) -> Result<Oracle, Stri
         options,
         backend: None,
         command_line: Vec::new(),
-        make_host: Box::new(move |_| Box::new(SharedHost(host.clone()))),
+        make_host: Box::new(move |_, _| Box::new(SharedHost(host.clone()))),
         report: Box::new(|_, _| {}),
         observer: None,
     }));

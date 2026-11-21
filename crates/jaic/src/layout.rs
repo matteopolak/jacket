@@ -168,6 +168,13 @@ impl DataLayout {
         crate::target::Target::new(os, cpu).data_layout()
     }
 
+    /// Whether pointers are narrower than the compiler's own, so the target's addresses are
+    /// offsets into the interpreter's window and its compile-time code cannot call the
+    /// compiler's C functions.
+    pub const fn is_narrow(&self) -> bool {
+        (self.pointer_size as usize) < std::mem::size_of::<usize>()
+    }
+
     /// The size in bytes of a pointer as a `u64`.
     pub const fn ptr_bytes(&self) -> u64 {
         self.pointer_size as u64

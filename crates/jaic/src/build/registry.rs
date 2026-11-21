@@ -350,7 +350,7 @@ pub const WASI_RUNTIME_IMPORT: &str =
 /// The embedder's host provider for the machine running the compiler, for the host twin
 /// (`sema::host_twin`), which shares `parent`'s workspaces instead of owning a registry.
 pub(crate) fn host_provider(parent: &SharedWorkspaces, os: TargetOs) -> Box<dyn Host> {
-    (parent.borrow().env.make_host)(os)
+    (parent.borrow().env.make_host)(os, false)
 }
 
 /// A host evaluation owns a fresh registry, preserving the embedder's real host
@@ -360,7 +360,7 @@ pub(crate) fn isolated_host_environment(
     options: Options,
     fs: Rc<dyn FileSystem>,
 ) -> (SharedWorkspaces, Box<dyn Host>) {
-    let host = (parent.borrow().env.make_host)(options.os);
+    let host = (parent.borrow().env.make_host)(options.os, options.layout.is_narrow());
     let factory_parent = parent.clone();
     let report_parent = parent.clone();
     let command_line = parent.borrow().env.command_line.clone();
@@ -370,7 +370,7 @@ pub(crate) fn isolated_host_environment(
         backend: None,
         unwritten_output_hint: None,
         command_line,
-        make_host: Box::new(move |os| (factory_parent.borrow().env.make_host)(os)),
+        make_host: Box::new(move |os, narrow| (factory_parent.borrow().env.make_host)(os, narrow)),
         report: Box::new(move |severity, message| {
             (report_parent.borrow_mut().env.report)(severity, message);
         }),
@@ -455,12 +455,8 @@ pub(super) fn new_compiler(shared: &SharedWorkspaces, id: i64) -> Result<Box<Com
         let settings = reg.ws(id)?.settings.clone();
         let options = reg.env.options.clone();
         let os = settings.os.unwrap_or(options.os);
-        (
-            settings,
-            options,
-            reg.env.fs.clone(),
-            (reg.env.make_host)(os),
-        )
+        let host = (reg.env.make_host)(os, options.layout.is_narrow());
+        (settings, options, reg.env.fs.clone(), host)
     };
     if let Some(paths) = &settings.import_paths {
         // The module search path the metaprogram set, then the defaults (stdlib).
