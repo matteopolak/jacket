@@ -187,3 +187,19 @@ fn enum_names_in_type_information_use_the_targets_string_size() {
         );
     }
 }
+
+/// Memory holds integers in the target's byte order: a big-endian program sees the high byte
+/// first, though the interpreter runs on a little-endian host.
+#[test]
+fn a_big_endian_program_sees_its_own_byte_order() {
+    let source =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/compiler/targets/byte-order.jai");
+    assert_eq!(
+        run("x86_64-unknown-linux-gnu", &source),
+        "4 3 2 1\n84281096\n1069547520\n"
+    );
+    assert_eq!(
+        run("s390x-unknown-linux-gnu", &source),
+        "1 2 3 4\n16909060\n1069547520\n"
+    );
+}

@@ -175,10 +175,20 @@ impl Interp {
         let set = |i: u32, v: u64| unsafe { *regs.add(i as usize) = v };
         // SAFETY: `build` checked that every frame offset an op names lies in the frame's slots
         // at `stack_base`, which the interpreter stack keeps mapped while the frame runs.
-        let load_frame = |ty: Ty, off: u32| unsafe { load_raw(ty, stack_base + u64::from(off)) };
+        let swap = self.swap_bytes;
+        let in_order = move |ty: Ty, v: u64| {
+            if swap {
+                super::super::memory::swap_scalar(ty, v)
+            } else {
+                v
+            }
+        };
+        let load_frame =
+            |ty: Ty, off: u32| in_order(ty, unsafe { load_raw(ty, stack_base + u64::from(off)) });
         // SAFETY: as for `load_frame`.
-        let store_frame =
-            |ty: Ty, off: u32, v: u64| unsafe { store_raw(ty, stack_base + u64::from(off), v) };
+        let store_frame = |ty: Ty, off: u32, v: u64| unsafe {
+            store_raw(ty, stack_base + u64::from(off), in_order(ty, v));
+        };
         let ops = code.ops.as_ptr();
         // A resumed run has done its block's entry already.
         let (mut pc, mut entered) = match start {

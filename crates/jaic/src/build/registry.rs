@@ -360,7 +360,7 @@ pub(crate) fn isolated_host_environment(
     options: Options,
     fs: Rc<dyn FileSystem>,
 ) -> (SharedWorkspaces, Box<dyn Host>) {
-    let host = (parent.borrow().env.make_host)(options.os, options.layout.is_narrow());
+    let host = (parent.borrow().env.make_host)(options.os, options.layout.is_foreign_memory());
     let factory_parent = parent.clone();
     let report_parent = parent.clone();
     let command_line = parent.borrow().env.command_line.clone();
@@ -455,7 +455,7 @@ pub(super) fn new_compiler(shared: &SharedWorkspaces, id: i64) -> Result<Box<Com
         let settings = reg.ws(id)?.settings.clone();
         let options = reg.env.options.clone();
         let os = settings.os.unwrap_or(options.os);
-        let host = (reg.env.make_host)(os, options.layout.is_narrow());
+        let host = (reg.env.make_host)(os, options.layout.is_foreign_memory());
         (settings, options, reg.env.fs.clone(), host)
     };
     if let Some(paths) = &settings.import_paths {

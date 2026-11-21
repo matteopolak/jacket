@@ -168,7 +168,18 @@ impl Interp {
             return self.load_unusual(ty, addr);
         }
         // SAFETY: the address is the program's own, as for native code.
-        Ok(unsafe { code::load_raw(ty, self.host_addr(addr)) })
+        Ok(self.in_register_order(ty, unsafe { code::load_raw(ty, self.host_addr(addr)) }))
+    }
+
+    /// `v`, loaded from or about to be stored to program memory as a `ty`, with its bytes in
+    /// the other order when the program's differs from the host's.
+    #[inline(always)]
+    pub(super) fn in_register_order(&self, ty: Ty, v: u64) -> u64 {
+        if self.swap_bytes {
+            swap_scalar(ty, v)
+        } else {
+            v
+        }
     }
 
     #[cold]
@@ -183,7 +194,7 @@ impl Interp {
             return self.trap(format!("read through an address no memory has ({addr:#x})"));
         }
         // SAFETY: the address is the program's own, as for native code.
-        Ok(unsafe { code::load_raw(ty, self.host_addr(addr)) })
+        Ok(self.in_register_order(ty, unsafe { code::load_raw(ty, self.host_addr(addr)) }))
     }
 
     #[inline(always)]
@@ -194,7 +205,7 @@ impl Interp {
             return self.refused_store(addr);
         }
         // SAFETY: the address is the program's own, as for native code.
-        unsafe { code::store_raw(ty, host, v) };
+        unsafe { code::store_raw(ty, host, self.in_register_order(ty, v)) };
         Ok(())
     }
 
@@ -220,5 +231,15 @@ impl Interp {
         self.trap(format!(
             "cannot write to a string literal or other constant (read-only memory at {addr:#x}); copy it first, for example with `copy_string`"
         ))
+    }
+}
+
+/// The bytes of the `ty` held in the low bytes of `v`, reversed.
+pub(super) fn swap_scalar(ty: Ty, v: u64) -> u64 {
+    match ty {
+        Ty::I16 => u64::from((v as u16).swap_bytes()),
+        Ty::I32 | Ty::F32 => u64::from((v as u32).swap_bytes()),
+        Ty::I64 | Ty::F64 | Ty::Ptr => v.swap_bytes(),
+        _ => v,
     }
 }

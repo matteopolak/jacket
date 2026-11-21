@@ -140,6 +140,9 @@ pub struct Interp {
     window: Option<std::sync::Arc<Window>>,
     /// What an interpreted pointer load or store moves: the target's pointer as an integer.
     ptr_ty: Ty,
+    /// Whether program memory holds multi-byte values in the other byte order than the host:
+    /// loads and stores of integers and floats swap their bytes.
+    swap_bytes: bool,
     /// The lowest address that is a procedure value, not data (`proc_addr::data_limit`).
     data_limit: u64,
     /// The host address of program address 0: the window's start, or 0 without a window.
@@ -384,6 +387,8 @@ impl Interp {
             layout,
             window,
             data_limit: proc_addr::data_limit(narrow),
+            swap_bytes: matches!(layout.endian, crate::layout::Endian::Big)
+                != cfg!(target_endian = "big"),
             ptr_ty: if narrow {
                 Ty::I32
             } else {

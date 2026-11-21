@@ -175,6 +175,13 @@ impl DataLayout {
         (self.pointer_size as usize) < std::mem::size_of::<usize>()
     }
 
+    /// Whether the program's memory cannot be the compiler's own: its pointers are narrower, or
+    /// its byte order differs from the host's. Its compile-time code then runs on the
+    /// interpreter's emulated C library, because native functions would read the wrong bytes.
+    pub const fn is_foreign_memory(&self) -> bool {
+        self.is_narrow() || matches!(self.endian, Endian::Big) != cfg!(target_endian = "big")
+    }
+
     /// The size in bytes of a pointer as a `u64`.
     pub const fn ptr_bytes(&self) -> u64 {
         self.pointer_size as u64
