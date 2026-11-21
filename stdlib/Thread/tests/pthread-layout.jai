@@ -3,7 +3,20 @@
 #if OS != .WINDOWS P :: #import "POSIX";
 T :: #import "Thread";
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    // glibc's i386 headers: 4-byte pthread_t, 4-aligned records.
+    #assert size_of(P.pthread_t) == 4;
+    #assert align_of(P.pthread_t) == 4;
+    #assert size_of(P.sem_t) == 16;
+    #assert align_of(P.sem_t) == 4;
+    #assert size_of(P.pthread_cond_t) == 48;
+    #assert align_of(P.pthread_cond_t) == 4;
+    #assert size_of(P.pthread_mutex_t) == 24;
+    #assert align_of(P.pthread_mutex_t) == 4;
+    #assert size_of(P.pthread_mutexattr_t) == 4;
+    #assert align_of(P.pthread_mutexattr_t) == 4;
+    #assert size_of(T.Mutex) >= size_of(P.pthread_mutex_t);
+} else #if OS == .LINUX {
     #assert size_of(P.pthread_t) == 8;
     #assert align_of(P.pthread_t) == 8;
     #assert size_of(P.sem_t) == 32;

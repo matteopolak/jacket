@@ -159,7 +159,7 @@ Thread_Continue_Status :: enum {
         worker_info_data_to_free: *void;
         next_worker_index: s32;
         // Work added and not yet finished, and what `wait_for_all` sleeps on.
-        outstanding: s64;
+        outstanding: s64 #align 8;
         idle_mutex: Mutex;
         idle_changed: Condition_Variable;
         Worker_Info :: struct {
