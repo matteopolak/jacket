@@ -249,10 +249,14 @@ def shape(ctx, name):
 
 def record_body(ctx, node, indent):
     union = node['tagUsed'] == 'union'
+    align = None
     for child in node.get('inner', []):
-        if child['kind'] in ('PackedAttr', 'AlignedAttr', 'MaxFieldAlignmentAttr'):
+        if child['kind'] == 'AlignedAttr' and child.get('inner') and 'value' in child['inner'][0]:
+            align = int(child['inner'][0]['value'])
+        elif child['kind'] in ('PackedAttr', 'AlignedAttr', 'MaxFieldAlignmentAttr'):
             raise Unsupported('record attribute ' + child['kind'])
-    lines, pending, first, last, padded = ['struct {'], [], None, None, None
+    header = 'struct #align %d {' % align if align else 'struct {'
+    lines, pending, first, last, padded = [header], [], None, None, None
     for child in node.get('inner', []):
         kind = child['kind']
         if kind == 'RecordDecl' and not child.get('name'):

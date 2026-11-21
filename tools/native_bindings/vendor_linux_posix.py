@@ -195,9 +195,12 @@ def build(arch):
                 key = ctx.record_key(C_NAMES.get(name, name))
                 if key in sizes:
                     result['layouts'][name] = list(sizes[key])
-            elif re.fullmatch(r'\w+\s*::\s*(?:[su]\d+|\w+|\[\d+\]\s*\w+);?', code) and name in ctx.typedefs:
+            elif re.fullmatch(r'\w+\s*::\s*(?:[su]\d+|\*?\w+|\[\d+\]\s*\w+);?', code) and name in ctx.typedefs:
                 declared = cabi.typedef_declaration(ctx, name)
-                if bound or declared.rstrip(';') != code.rstrip(';'):
+                if declared.rstrip(';') == '%s :: %s' % (name, name):
+                    # `typedef union { ... } name;`: the spec's pointer or scalar is a record here.
+                    result['shapes'][name] = cabi.shape(ctx, name)
+                elif bound or declared.rstrip(';') != code.rstrip(';'):
                     result['typedefs'][name] = declared
         except cabi.Unsupported as why:
             result['uncovered'].append('%s (%s)' % (name, why))

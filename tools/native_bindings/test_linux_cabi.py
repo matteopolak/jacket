@@ -87,6 +87,11 @@ class RecordTests(unittest.TestCase):
         ctx = cabi.Context({'inner': [node]}, 4, {'sigaction', 'sigaction_t'})
         self.assertEqual(cabi.render(ctx, 'struct sigaction *'), '*sigaction_t')
 
+    def test_an_aligned_attribute_with_a_value_becomes_align(self):
+        node = self.record('t', [field('a', 'int')])
+        node['inner'].insert(0, {'kind': 'AlignedAttr', 'inner': [{'kind': 'ConstantExpr', 'value': '8'}]})
+        self.assertTrue(cabi.shape(context([node]), 't').startswith('t :: struct #align 8 {'))
+
     def test_a_named_bit_field_is_never_flattened(self):
         named = {'kind': 'FieldDecl', 'isBitfield': True, 'name': 'flag', 'type': {'qualType': 'int'},
                  'inner': [{'kind': 'ConstantExpr', 'value': '1'}]}
