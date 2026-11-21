@@ -117,6 +117,7 @@ impl Compiler {
                 relocs: Vec::new(),
                 read_only: true,
                 export: None,
+                section: None,
             }),
         };
         // Register first: descriptors may refer to themselves.
@@ -191,6 +192,7 @@ impl Compiler {
             relocs: early.relocs,
             read_only: true,
             export: None,
+            section: None,
         });
         self.ty.failed_infos.insert(ty, g);
         self.ty.deferred_infos.push(ty);

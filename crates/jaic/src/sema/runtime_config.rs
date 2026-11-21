@@ -185,6 +185,7 @@ impl Compiler {
                 relocs: Vec::new(),
                 read_only: true,
                 export: None,
+                section: None,
             });
             self.out.runtime_storage_global = Some(global);
             global
@@ -265,7 +266,8 @@ impl Compiler {
             .globals
             .iter()
             .enumerate()
-            .filter_map(|(i, g)| g.export.as_ref().map(|_| ir::GlobalId(i as u32)))
+            .filter(|(_, g)| g.export.is_some() || g.section.is_some())
+            .map(|(i, _)| ir::GlobalId(i as u32))
             .collect();
         let mut seen_functions = HashSet::default();
         let mut seen_globals = HashSet::default();

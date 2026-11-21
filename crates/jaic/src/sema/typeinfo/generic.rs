@@ -80,6 +80,7 @@ impl Compiler {
             relocs: generic.relocs,
             read_only: true,
             export: None,
+            section: None,
         });
         self.ty.generic_struct_infos.insert(key, g);
         Ok(g)

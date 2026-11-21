@@ -72,6 +72,12 @@ impl Note {
     pub fn is(&self, name: &str) -> bool {
         self.text.trim() == name
     }
+
+    /// The text of the note `@name("text")`; `None` for any other note.
+    pub fn string_argument(&self, name: &str) -> Option<&str> {
+        let rest = self.text.trim().strip_prefix(name)?;
+        rest.strip_prefix("(\"")?.strip_suffix("\")")
+    }
 }
 
 /// The `@note` annotations of a statement or declaration. Nearly always empty, so it is a single

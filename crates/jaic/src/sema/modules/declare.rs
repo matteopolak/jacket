@@ -4,6 +4,7 @@ use crate::diagnostics::Code;
 use crate::ide::Recorder;
 use crate::sema::scope::{EntityKind, ImportEntry, Pending, PendingState, ScopeKind, UsingEntry};
 use crate::sema::{Arc, Compiler, EntityId, Result, ScopeId, Sym, ast, err, lower, procs};
+use crate::sema::{MODULE_ASM_NOTE, SECTION_NOTE};
 
 impl Compiler {
     /// Declare top-level statements. Returns the visibility state at the end.
@@ -145,6 +146,21 @@ impl Compiler {
                         ..
                     }) = &decl.value
                         && lit.header.flags.program_export.is_some()
+                    {
+                        self.ns.export_entities.push(id);
+                    }
+                    // A variable placed in a section is wanted by the linker script, not by code.
+                    if decl.kind != ast::DeclKind::Const
+                        && decl
+                            .notes
+                            .iter()
+                            .any(|n| n.string_argument(SECTION_NOTE).is_some())
+                    {
+                        self.ns.export_entities.push(id);
+                    }
+                    // Assembly the program is made of, not something code names.
+                    if decl.kind == ast::DeclKind::Const
+                        && decl.notes.iter().any(|n| n.is(MODULE_ASM_NOTE))
                     {
                         self.ns.export_entities.push(id);
                     }

@@ -70,6 +70,7 @@ impl Compiler {
                             relocs: agg.relocs.clone(),
                             read_only: false,
                             export: None,
+                            section: None,
                         });
                         f.b.global_addr(global)
                     }

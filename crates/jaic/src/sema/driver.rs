@@ -10,6 +10,7 @@ use crate::diagnostics::Code;
 use crate::ide::Recorder;
 use crate::lang_items;
 use crate::sema::Diagnostics;
+use crate::sema::MODULE_ASM_NOTE;
 use crate::sema::Output;
 use crate::target::TargetOs;
 use crate::types::TypeKind;
@@ -285,7 +286,8 @@ impl Compiler {
         let mut i = 0;
         while i < self.ns.export_entities.len() {
             let e = self.ns.export_entities[i];
-            self.resolve_entity(e)?;
+            let resolved = self.resolve_entity(e)?;
+            self.collect_module_asm(e, &resolved)?;
             i += 1;
         }
         // A program with no entry point still has code to lower when it exports procedures: a
@@ -930,7 +932,7 @@ impl Output {
             }
         }
         for (i, g) in program.globals.iter().enumerate() {
-            globals[i] |= g.export.is_some();
+            globals[i] |= g.export.is_some() || g.section.is_some();
         }
         // Native code calls the check reporter from its failure paths, not through an `Inst`.
         if let Some(handler) = program.check_failed {
@@ -1001,5 +1003,37 @@ impl Output {
                 x.library = None;
             }
         }
+    }
+}
+
+impl Compiler {
+    /// A string constant noted `@Module_Asm` adds its text to the module's assembly.
+    fn collect_module_asm(&mut self, entity: EntityId, resolved: &Resolved) -> Result<()> {
+        let EntityKind::Decl {
+            decl, ..
+        } = &self.entity(entity).kind
+        else {
+            return Ok(());
+        };
+        if !decl.notes.iter().any(|n| n.is(MODULE_ASM_NOTE)) {
+            return Ok(());
+        }
+        let span = self.entity(entity).span;
+        let Resolved::Const {
+            value: Value::String(text),
+            ..
+        } = resolved
+        else {
+            return err(
+                Code::ModuleAsmNotString,
+                span,
+                "`@Module_Asm` goes on a constant string",
+            );
+        };
+        self.out
+            .program
+            .module_asm
+            .push(String::from_utf8_lossy(text).into_owned());
+        Ok(())
     }
 }

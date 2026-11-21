@@ -692,6 +692,10 @@ catalog! {
             "<name> requires no arguments and one 64-bit integer result";
         CallAtomicOperation = "call-atomic-operation", Error,
             "an atomic operation with an unsupported type or memory ordering";
+        InterruptSignature = "interrupt-signature", Error,
+            "an `@Interrupt` procedure that is not `#c_call #no_context` with no parameters and no results";
+        ModuleAsmNotString = "module-asm-not-string", Error,
+            "`@Module_Asm` on something other than a constant string";
         CallBlackBox = "call-black-box", Error,
             "`black_box` used with the wrong arguments or a type without a runtime form";
         CallNoOperator = "call-no-operator", Error,

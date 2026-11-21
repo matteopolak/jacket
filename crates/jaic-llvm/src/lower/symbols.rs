@@ -130,6 +130,9 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     .create_enum_attribute(Attribute::get_named_enum_kind_id(name), 0),
             );
         }
+        if let Some(section) = &func.section {
+            crate::emit::set_section_name(f, section);
+        }
         if func.cold
             || self
                 .program
@@ -292,7 +295,11 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 .unwrap_or_else(|| format!("{}.g{i}", g.name));
             let gv = self.module.add_global(ty, None, &name);
             gv.set_linkage(Linkage::External);
-            if self.replicated(g) {
+            // A variable in a named section is the linker script's to place or drop: it stays
+            // visible and in one copy.
+            if let Some(section) = &g.section {
+                crate::emit::set_section_name(gv, section);
+            } else if self.replicated(g) {
                 gv.set_linkage(Linkage::Internal);
             } else if g.export.is_none() {
                 let shared = self.shard.is_some_and(|s| s.plan.global_shared[i]);

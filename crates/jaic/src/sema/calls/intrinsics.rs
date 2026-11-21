@@ -41,6 +41,8 @@ impl Compiler {
             "compare_and_swap" => ir::Intrinsic::AtomicCas(ir::ORDER_SEQ_CST, ir::ORDER_SEQ_CST),
             "atomic_load" => ir::Intrinsic::AtomicLoad(ir::ORDER_SEQ_CST),
             "atomic_store" => ir::Intrinsic::AtomicStore(ir::ORDER_SEQ_CST),
+            "volatile_load" => ir::Intrinsic::VolatileLoad,
+            "volatile_store" => ir::Intrinsic::VolatileStore,
             "atomic_exchange" => ir::Intrinsic::AtomicRmw(ir::AtomicOp::Xchg, ir::ORDER_SEQ_CST),
             ordered if OrderedAtomic::from_name(ordered).is_some() => {
                 let kind = OrderedAtomic::from_name(ordered).unwrap();
@@ -151,7 +153,11 @@ impl Compiler {
                 | ir::Intrinsic::AtomicRmw(..)
                 | ir::Intrinsic::AtomicCas(..)
         );
-        if (op == ir::Intrinsic::CompareAndSwap && values.len() == 3) || atomic {
+        let volatile = matches!(
+            op,
+            ir::Intrinsic::VolatileLoad | ir::Intrinsic::VolatileStore
+        );
+        if (op == ir::Intrinsic::CompareAndSwap && values.len() == 3) || atomic || volatile {
             // The interpreter needs the operand width: 1, 2, 4 or 8 bytes. A load has only the
             // pointer; the other operations take the value as their second parameter.
             let pointee = sig
@@ -162,7 +168,11 @@ impl Compiler {
                     Box::new(Diagnostic::new(
                         Code::CallAtomicOperation,
                         span,
-                        "an atomic operation requires a pointer to an atomic scalar",
+                        if volatile {
+                            "a volatile access requires a pointer to a scalar"
+                        } else {
+                            "an atomic operation requires a pointer to an atomic scalar"
+                        },
                     ))
                 })?;
             let repr = self.ty.types.repr(pointee);
@@ -179,12 +189,17 @@ impl Compiler {
                 return err(
                     Code::CallAtomicOperation,
                     span,
-                    "an atomic scalar must be an integer, enum, bool, float, pointer or procedure of 1, 2, 4 or 8 bytes",
+                    if volatile {
+                        "a volatile scalar must be an integer, enum, bool, float, pointer or procedure of 1, 2, 4 or 8 bytes"
+                    } else {
+                        "an atomic scalar must be an integer, enum, bool, float, pointer or procedure of 1, 2, 4 or 8 bytes"
+                    },
                 );
             }
             let (arguments, expected_returns) = match op {
                 ir::Intrinsic::AtomicLoad(_) => (1, vec![pointee]),
-                ir::Intrinsic::AtomicStore(_) => (2, vec![]),
+                ir::Intrinsic::AtomicStore(_) | ir::Intrinsic::VolatileStore => (2, vec![]),
+                ir::Intrinsic::VolatileLoad => (1, vec![pointee]),
                 ir::Intrinsic::AtomicCas(..) | ir::Intrinsic::CompareAndSwap => {
                     (3, vec![TypeId::BOOL, pointee])
                 }
@@ -202,29 +217,32 @@ impl Compiler {
                 return err(
                     Code::CallAtomicOperation,
                     span,
-                    "atomic intrinsic signature must preserve its pointer's scalar type and documented results",
+                    "the intrinsic's signature must preserve its pointer's scalar type and documented results",
                 );
             }
-            let address = f.b.conv(ir::ConvOp::Bitcast, Ty::Ptr, Ty::I64, values[0]);
-            let required = f.b.iconst(Ty::I64, width);
-            let mask = f.b.iconst(Ty::I64, width - 1);
-            let low = f.b.bin(ir::BinOp::And, Ty::I64, address, mask);
-            let zero = f.b.iconst(Ty::I64, 0);
-            let bad = f.b.cmp(ir::CmpOp::Ne, Ty::I64, low, zero);
-            let fail = f.b.new_block();
-            let ready = f.b.new_block();
-            f.b.branch(bad, fail, ready);
-            f.b.switch_to(fail);
-            self.emit_check_failed(
-                f,
-                ir::CheckReason::AtomicAlignment,
-                address,
-                required,
-                true,
-                span,
-            )?;
-            f.b.jump(ready);
-            f.b.switch_to(ready);
+            // A device register's alignment is the program's to get right; an atomic's is checked.
+            if !volatile {
+                let address = f.b.conv(ir::ConvOp::Bitcast, Ty::Ptr, Ty::I64, values[0]);
+                let required = f.b.iconst(Ty::I64, width);
+                let mask = f.b.iconst(Ty::I64, width - 1);
+                let low = f.b.bin(ir::BinOp::And, Ty::I64, address, mask);
+                let zero = f.b.iconst(Ty::I64, 0);
+                let bad = f.b.cmp(ir::CmpOp::Ne, Ty::I64, low, zero);
+                let fail = f.b.new_block();
+                let ready = f.b.new_block();
+                f.b.branch(bad, fail, ready);
+                f.b.switch_to(fail);
+                self.emit_check_failed(
+                    f,
+                    ir::CheckReason::AtomicAlignment,
+                    address,
+                    required,
+                    true,
+                    span,
+                )?;
+                f.b.jump(ready);
+                f.b.switch_to(ready);
+            }
             values.push(f.b.iconst(Ty::I64, width));
         }
         if !f.type_only
@@ -484,12 +502,12 @@ fn intrinsic_memory_effects(
             writes: 0,
             count: Some(1),
         }),
-        ir::Intrinsic::AtomicLoad(_) => Some(Memory {
+        ir::Intrinsic::AtomicLoad(_) | ir::Intrinsic::VolatileLoad => Some(Memory {
             reads: 0b1,
             writes: 0,
             count: None,
         }),
-        ir::Intrinsic::AtomicStore(_) => Some(Memory {
+        ir::Intrinsic::AtomicStore(_) | ir::Intrinsic::VolatileStore => Some(Memory {
             reads: 0,
             writes: 0b1,
             count: None,

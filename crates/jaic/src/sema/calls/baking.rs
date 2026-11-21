@@ -204,6 +204,7 @@ impl Compiler {
             relocs: image.relocs,
             read_only: true,
             export: None,
+            section: None,
         });
         let addr = self
             .ct
@@ -287,6 +288,7 @@ impl Compiler {
                 relocs: array.relocs,
                 read_only: true,
                 export: None,
+                section: None,
             });
             self.out.packs.insert(key, g);
             g

@@ -57,6 +57,18 @@ impl Compiler {
             || self.pr.proc_decl_notes.get(&p).is_some_and(|n| noted(n))
     }
 
+    /// The text of `proc`'s note `@name("text")`, from its header or its declaration.
+    pub fn proc_note_string(&self, p: ProcId, name: &str) -> Option<String> {
+        let found = |notes: &[ast::Note]| {
+            notes
+                .iter()
+                .find_map(|n| n.string_argument(name))
+                .map(str::to_string)
+        };
+        found(&self.proc(p).lit.header.notes)
+            .or_else(|| self.pr.proc_decl_notes.get(&p).and_then(|n| found(n)))
+    }
+
     /// Where `proc` takes a format string: the `string` parameter right before a variadic
     /// `..Any`, by the parameters' resolved types rather than how they are spelled.
     pub(crate) fn format_string_param(&mut self, proc: ProcId, span: Span) -> Option<usize> {

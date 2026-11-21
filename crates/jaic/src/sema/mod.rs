@@ -22,6 +22,16 @@ pub mod speculative;
 #[cfg(all(test, feature = "speculative-bodies"))]
 mod speculative_tests;
 mod sync_world;
+
+/// The note `@Section("name")`: place a variable or procedure in the named linker section.
+pub(crate) const SECTION_NOTE: &str = "Section";
+
+/// The note `@Module_Asm` on a string constant: its text is assembled into the module.
+pub(crate) const MODULE_ASM_NOTE: &str = "Module_Asm";
+
+/// The note `@Interrupt`: the procedure is entered by the hardware.
+pub(crate) const INTERRUPT_NOTE: &str = "Interrupt";
+
 use body_probe::{Probed, W};
 mod callable;
 pub(crate) mod calls;

@@ -39,6 +39,8 @@ pub struct Global {
     pub read_only: bool,
     /// `#program_export` name, if any.
     pub export: Option<String>,
+    /// The linker section the variable is placed in (`@Section(".name")`), or the default one.
+    pub section: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -115,6 +117,9 @@ pub struct Program {
     /// is lowered (`reserve_func_with_sig`); `None` for functions reserved without one.
     pub reserved_sigs: Vec<Option<Sig>>,
     pub globals: Vec<Global>,
+    /// Assembly for the whole module (`@Module_Asm` on a string constant), in source order:
+    /// reset code and the like, which the program's own symbols name.
+    pub module_asm: Vec<String>,
     pub foreigns: Vec<Foreign>,
     pub libraries: Vec<Library>,
     /// Variables whose compile-time state is discarded when the program runs

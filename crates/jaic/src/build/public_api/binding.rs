@@ -250,6 +250,7 @@ fn defaults(compiler: &mut Compiler, ty: TypeId, span: Span) -> Result<ir::Globa
         relocs,
         read_only: true,
         export: None,
+        section: None,
     }))
 }
 

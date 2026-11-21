@@ -961,6 +961,7 @@ impl Output {
             relocs: agg.relocs.clone(),
             read_only: true,
             export: None,
+            section: None,
         })
     }
 
@@ -985,6 +986,7 @@ impl Output {
             relocs: Vec::new(),
             read_only: true,
             export: None,
+            section: None,
         });
         self.strings.insert(bytes.clone(), g);
         g

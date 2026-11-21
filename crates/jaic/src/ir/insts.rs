@@ -52,6 +52,11 @@ pub enum Intrinsic {
     AtomicLoad(u8),
     /// `(ptr, value, width)`: an atomic store with the memory order of the payload.
     AtomicStore(u8),
+    /// `(ptr, width) -> value`: a load the optimizer neither removes, merges nor reorders
+    /// against other volatile accesses (a device register). `width` is 1, 2, 4 or 8 bytes.
+    VolatileLoad,
+    /// `(ptr, value, width)`: a store with the same guarantees as `VolatileLoad`.
+    VolatileStore,
     /// `(ptr, value, width) -> previous value`: an atomic read-modify-write, `*ptr = op(*ptr, value)`.
     AtomicRmw(AtomicOp, u8),
     /// `(ptr, old, new, width) -> (success, previous)`: a compare-exchange with the success and

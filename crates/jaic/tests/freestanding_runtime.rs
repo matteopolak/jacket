@@ -118,3 +118,39 @@ fn the_runtime_defines_the_c_memory_functions_the_compiler_calls() {
         );
     }
 }
+
+#[test]
+fn an_interrupt_handler_is_a_c_call_with_no_context_and_no_values() {
+    compiled(
+        "#program_export \"on_tick\"\n\
+         on_tick :: () #c_call #no_context {} @Interrupt\n\
+         main :: () {}",
+    );
+    for (name, source) in [
+        ("an ordinary procedure", "on_tick :: () {} @Interrupt"),
+        ("a context", "on_tick :: () #c_call {} @Interrupt"),
+        (
+            "a parameter",
+            "on_tick :: (n: s32) #c_call #no_context {} @Interrupt",
+        ),
+        (
+            "a result",
+            "on_tick :: () -> s32 #c_call #no_context { return 1; } @Interrupt",
+        ),
+    ] {
+        let program = format!("#program_export \"on_tick\"\n{source}\nmain :: () {{}}");
+        let (compiler, result) = compile(&program);
+        let error = result.expect_err(name).render(&compiler.src.sources);
+        assert!(error.contains("interrupt-signature"), "{name}: {error}");
+        assert!(error.contains("`@Interrupt`"), "{name}: {error}");
+    }
+}
+
+#[test]
+fn module_assembly_goes_on_a_constant_string() {
+    let (compiler, result) = compile("count :: 3; @Module_Asm\nmain :: () {}");
+    let error = result
+        .expect_err("an integer")
+        .render(&compiler.src.sources);
+    assert!(error.contains("module-asm-not-string"), "{error}");
+}

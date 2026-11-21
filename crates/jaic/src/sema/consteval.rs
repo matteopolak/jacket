@@ -83,6 +83,7 @@ impl Compiler {
                 relocs: Vec::new(),
                 read_only: false,
                 export: None,
+                section: None,
             });
             let addr = f.b.global_addr(g);
             self.store_value(&mut f, ty, addr, v, span)?;
@@ -270,6 +271,7 @@ impl Compiler {
                 relocs: Vec::new(),
                 read_only: data.read_only,
                 export: None,
+                section: None,
             });
             self.out
                 .registered_data_segments
@@ -329,6 +331,7 @@ impl Compiler {
             relocs,
             read_only: false,
             export: None,
+            section: None,
         });
         // Temporary storage backed by a static buffer.
         if let Some(rs) = self.ns.runtime_support
@@ -344,6 +347,7 @@ impl Compiler {
                 relocs: Vec::new(),
                 read_only: false,
                 export: None,
+                section: None,
             });
             self.ct.temporary_buffer = Some(buf);
             let mut agg = Aggregate {
@@ -386,6 +390,7 @@ impl Compiler {
                 relocs: agg.relocs,
                 read_only: false,
                 export: None,
+                section: None,
             });
             if let Some((path, _)) = self.find_member(ty, Sym::intern("temporary_storage"), span)? {
                 let off: u64 = path
