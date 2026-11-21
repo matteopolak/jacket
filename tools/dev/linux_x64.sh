@@ -15,6 +15,7 @@
 #   LINUX_ARM64_SCRATCH    the same for arm64 (default target/linux-arm64 in the repo)
 #   LINUX_X64_IMAGE        image (default docker.io/library/rust:1-bookworm)
 #   LINUX_MEMORY, LINUX_CPUS  VM size (default 8G and 4; rustc is killed in a smaller VM)
+#   CROSS_MEMORY, CROSS_CPUS  size of the cross container (default 4G and 2; never above 4G on a 16 GiB Mac)
 #   JAIC_OFFICIAL_MODULES  host folder of a module set used as JAIC_STDLIB (mounted read-only at /modules)
 #   LINUX_X64_NETWORK=1    lets `build` and `test` use the network (only to fetch crates the cache lacks)
 #   CROSS_IMAGE            the cross image (default jacket-cross:bookworm, built by `sysroots`)
@@ -42,7 +43,7 @@ cpus="${LINUX_CPUS:-4}"
 image="${LINUX_X64_IMAGE:-docker.io/library/rust:1-bookworm}"
 
 usage() {
-  sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
   exit 2
 }
 
@@ -140,7 +141,7 @@ case "$cmd" in
       logical="${folder%/}"
       [ "$logical" = "$physical" ] || cross_mounts+=(--volume "$physical:$logical")
     done
-    container run -d --name "$cross_name" --arch arm64 --memory "$memory" --cpus "$cpus" --network none "${cross_mounts[@]}" \
+    container run -d --name "$cross_name" --arch arm64 --memory "${CROSS_MEMORY:-4G}" --cpus "${CROSS_CPUS:-2}" --network none "${cross_mounts[@]}" \
       "$cross_image" sleep infinity >/dev/null 2>&1
     for _ in $(seq 60); do
       container exec "$cross_name" true >/dev/null 2>&1 && exit 0
