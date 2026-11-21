@@ -142,6 +142,68 @@ no_heap_allocator_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_m
     return null;
 }
 
+// The C memory functions the compiler's code calls for block copies and fills. There is no libc
+// to supply them. Plain byte loops: a board that wants faster ones defines its own `memcpy`.
+#program_export "memcpy"
+memcpy_symbol :: (to: *void, from: *void, count: u64) -> *void #c_call {
+    destination := cast(*u8) to;
+    source := cast(*u8) from;
+    for index: 0..cast(s64) count - 1 destination[index] = source[index];
+    return to;
+}
+
+#program_export "memmove"
+memmove_symbol :: (to: *void, from: *void, count: u64) -> *void #c_call {
+    destination := cast(*u8) to;
+    source := cast(*u8) from;
+
+    if cast(u64) destination <= cast(u64) source {
+        for index: 0..cast(s64) count - 1 destination[index] = source[index];
+    } else {
+        index := cast(s64) count;
+        while index > 0 {
+            index -= 1;
+            destination[index] = source[index];
+        }
+    }
+
+    return to;
+}
+
+#program_export "memset"
+memset_symbol :: (to: *void, value: s32, count: u64) -> *void #c_call {
+    destination := cast(*u8) to;
+    byte := cast,no_check(u8) value;
+    for index: 0..cast(s64) count - 1 destination[index] = byte;
+    return to;
+}
+
+#program_export "memcmp"
+memcmp_symbol :: (left: *void, right: *void, count: u64) -> s32 #c_call {
+    a := cast(*u8) left;
+    b := cast(*u8) right;
+
+    for index: 0..cast(s64) count - 1 {
+        if a[index] != b[index] return cast(s32) a[index] - cast(s32) b[index];
+    }
+
+    return 0;
+}
+
+// What LLVM calls for a loop that counts bytes up to a zero.
+#program_export "strlen"
+strlen_symbol :: (text: *u8) -> u64 #c_call {
+    count: u64 = 0;
+    while text[count] != 0 count += 1;
+    return count;
+}
+
+// What LLVM calls for an equality-only `memcmp`.
+#program_export "bcmp"
+bcmp_symbol :: (left: *void, right: *void, count: u64) -> s32 #c_call {
+    return memcmp_symbol(left, right, count);
+}
+
 #scope_module
 
 trap :: () #intrinsic "llvm.trap";
