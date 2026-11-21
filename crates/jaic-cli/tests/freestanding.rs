@@ -421,3 +421,56 @@ fn the_heap_allocator_serves_growing_arrays_from_the_linker_script_region() {
         assert_eq!(console(&out), "200 20100\n1-2\n", "{optimization}");
     }
 }
+
+/// Builds `tests/freestanding/qemu_virt/<program>` with the `Qemu_Virt_Aarch64` board, which needs
+/// no assembler, linker script or startup file of its own, and runs it.
+fn run_on_board(program: &str) -> Option<Output> {
+    let qemu = toolchain::optional("qemu-system-aarch64")?;
+    let dir = TempDir::new(&format!(
+        "freestanding-board-{program}-{}",
+        std::process::id()
+    ));
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/freestanding/qemu_virt");
+    for file in ["build.jai", program] {
+        std::fs::copy(
+            source.join(file),
+            dir.join(
+                file.replace(program, "prog.jai")
+                    .replace("build.jai", "build.jai"),
+            ),
+        )
+        .unwrap();
+    }
+    let built = build(&dir);
+    let stderr = String::from_utf8_lossy(&built.stderr);
+    if lld_missing(&stderr) && !toolchain::strict("ld.lld") {
+        toolchain::skip(&stderr);
+        return None;
+    }
+    assert!(
+        built.status.success(),
+        "{program}: jaic build.jai failed:\n{stderr}"
+    );
+    Some(qemu_run(&qemu, &dir.join("prog.elf")))
+}
+
+#[test]
+fn the_qemu_virt_board_runs_a_program_with_a_console_and_a_heap() {
+    let Some(out) = run_on_board("hello.jai") else {
+        return;
+    };
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+    assert_eq!(console(&out), "hello from 50 cells, last 2500\n");
+}
+
+#[test]
+fn a_panic_on_the_qemu_virt_board_exits_with_status_1() {
+    let Some(out) = run_on_board("panics.jai") else {
+        return;
+    };
+    assert_eq!(out.status.code(), Some(1), "{out:?}");
+    let text = console(&out);
+    assert!(text.starts_with("before\n"), "{text}");
+    assert!(text.contains("assertion failed: boom"), "{text}");
+    assert!(text.contains("panic: assertion failed"), "{text}");
+}
