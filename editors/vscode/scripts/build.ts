@@ -305,6 +305,19 @@ const jacket = {
       },
     },
     format: section(formatKeys, "Settings for the jaifmt formatter."),
+    target: {
+      type: "object",
+      markdownDescription: "Named build targets that `--target NAME` selects, with `jacket targets` listing them.",
+      additionalProperties: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          triple: { type: "string", markdownDescription: "The LLVM target triple, such as `aarch64-none-elf`. A board supplies it when this is left out." },
+          board: { type: "string", markdownDescription: "A board module under `Extensions/Embedded/Boards`, such as `Qemu_Virt_Aarch64`, that configures the build." },
+          runner: { type: "string", markdownDescription: "The command that runs the built program; `{exe}` stands for its path (`qemu-system-aarch64 -M virt -kernel {exe}`)." },
+        },
+      },
+    },
     doc: {
       type: "object",
       // Only `format` is described here; the other keys configure the `jacket doc` site.

@@ -425,6 +425,16 @@
               "default": "allow",
               "markdownDescription": "`==` or `!=` between two computed floats (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#float_equality)"
             },
+            "freestanding": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "code that cannot work, or misbehaves, with no operating system or on a microcontroller (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#freestanding)"
+            },
             "identical_branches": {
               "type": "string",
               "enum": [
@@ -1506,6 +1516,28 @@
             "type": "string"
           },
           "markdownDescription": "Globs (relative to this file) of files and directories not to format."
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "markdownDescription": "Named build targets that `--target NAME` selects, with `jacket targets` listing them.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "triple": {
+            "type": "string",
+            "markdownDescription": "The LLVM target triple, such as `aarch64-none-elf`. A board supplies it when this is left out."
+          },
+          "board": {
+            "type": "string",
+            "markdownDescription": "A board module under `Extensions/Embedded/Boards`, such as `Qemu_Virt_Aarch64`, that configures the build."
+          },
+          "runner": {
+            "type": "string",
+            "markdownDescription": "The command that runs the built program; `{exe}` stands for its path (`qemu-system-aarch64 -M virt -kernel {exe}`)."
+          }
         }
       }
     },

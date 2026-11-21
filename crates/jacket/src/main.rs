@@ -12,6 +12,7 @@ mod doc;
 mod fmt;
 mod project;
 mod status;
+mod target;
 mod test;
 mod tools;
 mod upgrade;
@@ -58,6 +59,7 @@ fn main() -> ExitCode {
         Command::Config {
             action,
         } => commands::config(action, &cwd),
+        Command::Targets => commands::targets(&cwd),
         Command::Clean => commands::clean(&cwd),
         Command::Version => commands::version(),
         Command::Explain {
@@ -132,7 +134,11 @@ fn run_jaic(check: bool, args: &[OsString], ctx: &compile::Context) -> ExitCode 
     let Some(jaic) = tools::require(tools::JAIC) else {
         return ExitCode::from(127);
     };
-    let argv = compile::jaic_argv(check, args, ctx);
+    let expansion = match target::expand(args, ctx.loaded.map(|loaded| &loaded.config)) {
+        Ok(expansion) => expansion,
+        Err(error) => return commands::fail(error),
+    };
+    let argv = compile::jaic_argv(check, &expansion.args, ctx);
     tools::exec_with_env(jaic.as_os_str(), &argv, &project_name_env(ctx))
 }
 
@@ -148,7 +154,11 @@ fn project_name_env(ctx: &compile::Context) -> Vec<(&'static str, OsString)> {
 /// `jacket run`: build with jaic, then start the executable with the arguments after `--`.
 fn run_program(args: &[OsString], ctx: &compile::Context) -> ExitCode {
     let (jaic_args, program_args) = compile::split_run(args);
-    let argv = compile::jaic_argv(false, jaic_args, ctx);
+    let expansion = match target::expand(jaic_args, ctx.loaded.map(|loaded| &loaded.config)) {
+        Ok(expansion) => expansion,
+        Err(error) => return commands::fail(error),
+    };
+    let argv = compile::jaic_argv(false, &expansion.args, ctx);
     let Some(jaic) = tools::require(tools::JAIC) else {
         return ExitCode::from(127);
     };
@@ -194,5 +204,25 @@ fn run_program(args: &[OsString], ctx: &compile::Context) -> ExitCode {
         let shown = exe.strip_prefix(ctx.cwd).unwrap_or(&exe);
         status::print("Running", &format!("`{}`", shown.display()), color);
     }
-    tools::exec(exe.as_os_str(), program_args)
+    let Some(target) = expansion.target else {
+        return tools::exec(exe.as_os_str(), program_args);
+    };
+    let Some(command) = target.command(&exe) else {
+        if target.triple.is_none() && target.board.is_none() {
+            return tools::exec(exe.as_os_str(), program_args);
+        }
+        return commands::fail(format!(
+            "target `{}` has no runner, so jacket cannot run what it built\nhelp: set `runner` under `[target.{}]` in jacket.toml; the program is at {}",
+            target.name,
+            target.name,
+            exe.display()
+        ));
+    };
+    if !program_args.is_empty() {
+        return commands::fail(format!(
+            "target `{}` runs the program through its runner, which passes it no arguments",
+            target.name
+        ));
+    }
+    tools::exec(&command[0], &command[1..])
 }

@@ -5,7 +5,7 @@ use jacket_config::{Disk, FILE_NAME};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
 
-fn fail(message: impl std::fmt::Display) -> ExitCode {
+pub(crate) fn fail(message: impl std::fmt::Display) -> ExitCode {
     eprintln!("jacket: {message}");
     ExitCode::from(2)
 }
@@ -142,6 +142,20 @@ fn finish_scaffold(dir: &Path, name: &str, lib: bool) -> ExitCode {
 }
 
 // ---- config ----------------------------------------------------------------------------------
+
+/// `jacket targets`: the names `--target` accepts.
+pub fn targets(cwd: &Path) -> ExitCode {
+    let loaded = match project::load(cwd) {
+        Ok(loaded) => loaded,
+        Err(error) => return fail(error),
+    };
+    let targets = crate::target::all(loaded.as_ref().map(|loaded| &loaded.config));
+    print!(
+        "{}",
+        crate::target::listing(&targets, crate::target::installed)
+    );
+    ExitCode::SUCCESS
+}
 
 pub fn config(action: ConfigAction, cwd: &Path) -> ExitCode {
     match action {
