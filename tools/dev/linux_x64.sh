@@ -6,6 +6,8 @@
 #   tools/dev/linux_x64.sh test [cargo test args...]
 #   tools/dev/linux_x64.sh run [-m HOST_PATH]... [--] JAIC_ARGS...
 #   tools/dev/linux_x64.sh shell
+#   tools/dev/linux_x64.sh sysroots          build the cross image (needs the network, once)
+#   tools/dev/linux_x64.sh cross-up|cross-down|cross-exec [--] COMMAND...
 #
 # Environment:
 #   LINUX_ARCH             amd64 (default; also x64, x86_64) or arm64 (aarch64): the VM's architecture
@@ -15,6 +17,9 @@
 #   LINUX_MEMORY, LINUX_CPUS  VM size (default 8G and 4; rustc is killed in a smaller VM)
 #   JAIC_OFFICIAL_MODULES  host folder of a module set used as JAIC_STDLIB (mounted read-only at /modules)
 #   LINUX_X64_NETWORK=1    lets `build` and `test` use the network (only to fetch crates the cache lacks)
+#   CROSS_IMAGE            the cross image (default jacket-cross:bookworm, built by `sysroots`)
+#   CROSS_SCRATCH          folder `cross-up` mounts read-write (default none; $TMPDIR is always mounted)
+#   CROSS_MOUNTS           extra host folders `cross-up` mounts read-write, colon separated
 set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -37,7 +42,7 @@ cpus="${LINUX_CPUS:-4}"
 image="${LINUX_X64_IMAGE:-docker.io/library/rust:1-bookworm}"
 
 usage() {
-  sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'
   exit 2
 }
 
@@ -107,6 +112,47 @@ case "$cmd" in
     fi
     exec container run --rm "${vm[@]}" --network none "${mounts[@]}" ${extra[@]+"${extra[@]}"} \
       "${env_args[@]}" "${jaic_env[@]}" --workdir /repo "$image" /target/debug/jaic "$@"
+    ;;
+  sysroots)
+    # The one step that needs the network: the cross compilers, glibc sysroots and qemu-user
+    # (tools/dev/linux-cross.Dockerfile). Everything after it runs with --network none.
+    exec container build --tag "${CROSS_IMAGE:-jacket-cross:bookworm}" \
+      --file "$repo/tools/dev/linux-cross.Dockerfile" "$repo/tools/dev"
+    ;;
+  cross-up)
+    cross_name=jacket-cross
+    cross_image="${CROSS_IMAGE:-jacket-cross:bookworm}"
+    if ! container image list 2>/dev/null | grep -q "^${cross_image%%:*} "; then
+      echo "the cross image $cross_image is missing: run \`tools/dev/linux_x64.sh sysroots\` once, with the network" >&2
+      exit 1
+    fi
+    if container exec "$cross_name" true >/dev/null 2>&1; then
+      exit 0
+    fi
+    container delete "$cross_name" >/dev/null 2>&1 || true
+    cross_mounts=(--volume "$repo:$repo")
+    IFS=: read -r -a folders <<<"${CROSS_SCRATCH:-}:${TMPDIR:-/tmp}:${CROSS_MOUNTS:-}"
+    for folder in "${folders[@]}"; do
+      [ -n "$folder" ] && [ -d "$folder" ] && cross_mounts+=(--volume "$(cd "$folder" && pwd -P):$(cd "$folder" && pwd -P)")
+    done
+    container run -d --name "$cross_name" --arch arm64 --memory "$memory" --cpus "$cpus" --network none "${cross_mounts[@]}" \
+      "$cross_image" sleep infinity >/dev/null 2>&1
+    for _ in $(seq 60); do
+      container exec "$cross_name" true >/dev/null 2>&1 && exit 0
+      sleep 1
+    done
+    echo "the cross container did not start" >&2
+    exit 1
+    ;;
+  cross-down)
+    container stop jacket-cross >/dev/null 2>&1 || true
+    container delete jacket-cross >/dev/null 2>&1 || true
+    ;;
+  cross-exec)
+    [ "${1:-}" = -- ] && shift
+    [ $# -ge 1 ] || usage
+    "$0" cross-up >/dev/null
+    exec container exec --workdir "$(pwd -P)" jacket-cross "$@"
     ;;
   *) usage ;;
 esac

@@ -27,3 +27,21 @@ It wraps Apple's `container` tool with the image `docker.io/library/rust:1-bookw
 
 - Image, scratch folder, VM size, architecture: `LINUX_X64_IMAGE`, `LINUX_X64_SCRATCH`/`LINUX_ARM64_SCRATCH`, `LINUX_MEMORY`/`LINUX_CPUS`, `LINUX_ARCH`.
 - A new subcommand goes in the `case` at the end of the script; keep the mounts, `vm` options and `--network none` shared.
+
+## Cross targets: i686, s390x, powerpc64 and armv7
+
+`jaic` builds for Linux CPUs a Mac cannot run. The cross image adds the glibc sysroots, cross C drivers and `qemu-user`; programs link and run inside it.
+
+```sh
+tools/dev/linux_x64.sh sysroots                       # once, with the network: builds jacket-cross:bookworm
+export JAIC_CROSS_ARCH=i686                           # i686, s390x, powerpc64 or armv7
+JAIC_LINKER=$PWD/tools/dev/cross_link.sh jaic -target i686-unknown-linux-gnu prog.jai
+tools/dev/qemu_run.sh ./prog arg...
+jacket test --runner "$PWD/tools/dev/qemu_run.sh" -- -target i686-unknown-linux-gnu
+```
+
+- `sysroots` is the only step that needs the network. It builds `tools/dev/linux-cross.Dockerfile` (Debian `qemu-user`, `gcc-*-linux-gnu`, `libc6-dev-*-cross`, `clang`, `lld`); everything after it runs with `--network none`.
+- `cross-up` starts one long-lived container, `jacket-cross`, that mounts the repo, `CROSS_SCRATCH` (a scratch volume, when set), `$TMPDIR` and `CROSS_MOUNTS` at the same paths as on the Mac, so the paths in a link command or a test mean the same thing inside. `cross-exec -- COMMAND` runs in it (about 0.4 s each); `cross-down` removes it.
+- `cross_link.sh` is a `JAIC_LINKER`: it runs the target's cross driver (`i686-linux-gnu-gcc`, `s390x-linux-gnu-gcc`, `arm-linux-gnueabihf-gcc`; clang with lld for powerpc64, which Debian does not package for arm64) on jaic's link command.
+- `qemu_run.sh` is the runner: `qemu-i386`, `qemu-s390x`, `qemu-ppc64` or `qemu-arm` with the matching glibc sysroot. Without Apple's `container` it fails with an install hint; there is no fallback.
+- The image is arm64, so armv7 runs under qemu too; the amd64 `LINUX_ARCH` is not used here.
