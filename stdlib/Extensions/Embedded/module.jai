@@ -18,4 +18,11 @@
 // Only what runs on the target is declared when `OS == .NONE`; the memory map, linker script and
 // output-format procedures run in the metaprogram, on the host.
 
-#if OS == .NONE #load "runtime.jai";
+#load "intrinsics.jai";
+
+#if OS == .NONE {
+    #load "runtime.jai";
+} else {
+    #load "memory-map.jai";
+    #load "binary.jai";
+}
