@@ -93,7 +93,7 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
     } = *request;
     let toolchain = toolchain_for(target);
     let linker = toolchain.linker;
-    let cross = target.is_some() && linker != toolchain_for(None).linker;
+    let cross = target.is_some_and(|t| t != BuildTarget::host());
     if sanitize.any() {
         check_sanitizer_target(target)?;
     }
@@ -249,7 +249,7 @@ pub fn link_inputs(
 ) -> Result<LinkInputs, String> {
     let toolchain = toolchain_for(target);
     let linker = toolchain.linker;
-    let cross = target.is_some() && linker != toolchain_for(None).linker;
+    let cross = target.is_some_and(|t| t != BuildTarget::host());
     let mut seen: Vec<Vec<LinkArg>> = Vec::new();
     for lib in libraries {
         let args = library_group(lib, toolchain, cross)?;

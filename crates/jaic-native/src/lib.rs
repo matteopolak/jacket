@@ -174,6 +174,27 @@ mod tests {
     }
 
     #[test]
+    fn a_cross_build_compiles_the_crash_runtime_from_source() {
+        let stdlib =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib/internal/runtime");
+        let lib = Library {
+            name: "crash-native/portable_crash".into(),
+            system: false,
+            link_always: false,
+            no_dll: false,
+            base_dir: stdlib.display().to_string(),
+        };
+        let toolchain = BuildTarget::parse("i686-unknown-linux-gnu")
+            .unwrap()
+            .toolchain();
+        let args = library_args(&lib, toolchain, true).unwrap();
+        let [LinkArg::File(source)] = args.as_slice() else {
+            panic!("{args:?}");
+        };
+        assert!(source.ends_with("crash-native/runtime.c"), "{source}");
+    }
+
+    #[test]
     fn library_files_link_before_named_libraries() {
         let mut groups = vec![
             vec![LinkArg::Lib("m".into())],

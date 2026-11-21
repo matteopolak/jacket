@@ -432,6 +432,14 @@ pub(super) fn library_args(
             }
             return Ok(args);
         }
+        // The compiler's own copy of the crash runtime is built for the host. A cross build
+        // hands the source to the target's C driver, which compiles it as it links.
+        if cross && linker == Linker::Unix && file == "portable_crash" {
+            let source = dir.join("runtime.c");
+            if source.exists() {
+                return Ok(vec![LinkArg::File(source.display().to_string())]);
+            }
+        }
         // Not beside the source: a helper the compiler provides (the crash runtime) is found
         // by file name in the library directories, as the interpreter does.
         if name.contains('/') && !cross && linker == Linker::Unix {
