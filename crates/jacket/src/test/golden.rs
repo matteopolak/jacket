@@ -226,7 +226,7 @@ fn built(
     if !compile_time_only && toolchain.runner.is_empty() {
         stage_dlls(&exe)?;
     }
-    let (program, args) = program_and_args(&exe, &toolchain.runner);
+    let (program, args) = program_and_args(&exe, &toolchain.runner, &[]);
     let env = coverage_env(toolchain);
     Ok(Built {
         invocation: Invocation {

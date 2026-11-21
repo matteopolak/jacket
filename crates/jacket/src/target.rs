@@ -15,7 +15,7 @@ const BUILT_IN: &[(&str, &str, &str)] = &[(
     "Qemu_Virt_Aarch64",
     "aarch64-none-elf",
     "qemu-system-aarch64 -M virt -cpu cortex-a53 -nographic \
-     -semihosting-config enable=on,target=native -kernel {exe}",
+     -semihosting-config enable=on,target=native -kernel {exe} -append {args}",
 )];
 
 /// A target `--target` can name.
@@ -54,13 +54,21 @@ impl Target {
     }
 
     /// The command that runs `exe`: the runner's words with `{exe}` filled in, or `exe` added
-    /// last when the runner does not say where it goes.
+    /// last when the runner does not say where it goes, and `{args}` (arguments for the tests)
+    /// empty.
     pub fn command(&self, exe: &Path) -> Option<Vec<OsString>> {
         let runner = self.runner.as_deref()?;
         let exe = exe.to_string_lossy();
         let mut words: Vec<OsString> = runner
             .split_whitespace()
-            .map(|word| word.replace("{exe}", &exe).into())
+            .map(|word| {
+                if word == "{args}" {
+                    String::new()
+                } else {
+                    word.replace("{exe}", &exe)
+                }
+                .into()
+            })
             .collect();
         if !runner.contains("{exe}") {
             words.push(exe.as_ref().into());
@@ -168,40 +176,24 @@ pub fn expand(args: &[OsString], config: Option<&Config>) -> Result<Expansion, S
 }
 
 /// What `jacket test --target NAME` builds with and runs with: the jaic flags, and the runner
-/// words that `{exe}` ends (the tests append the program themselves). A board is refused: a
-/// board's program is not a test harness that takes the names of the tests to run.
+/// (`{exe}` and `{args}` stand for the program and the test arguments, see
+/// `test::build::program_and_args`). A board's plugin gets the option `tests`, which exports the
+/// reset function that runs the tests.
 pub fn for_tests(
     name: &str,
     config: Option<&Config>,
 ) -> Result<(Vec<String>, Option<String>), String> {
     let expansion = expand(&os_args(["--target", name]), config)?;
-    if let Some(target) = &expansion.target
-        && target.board.is_some()
-    {
-        return Err(format!(
-            "target `{name}` is a board, and `jacket test` cannot run tests on one yet\nhelp: `jacket run --target {name}` runs a program on it"
-        ));
-    }
-    let flags = expansion
-        .args
-        .iter()
-        .map(|a| a.to_string_lossy().into_owned())
-        .collect();
-    let runner = match expansion.target.and_then(|t| t.runner) {
-        Some(runner) => {
-            let words = runner.trim_end();
-            match words.strip_suffix("{exe}") {
-                Some(rest) if !rest.contains("{exe}") => Some(rest.trim_end().to_string()),
-                None if !words.contains("{exe}") => Some(words.to_string()),
-                _ => {
-                    return Err(format!(
-                        "the runner of target `{name}` has `{{exe}}` before its last word, and `jacket test` appends the program to the runner\nhelp: put `{{exe}}` last"
-                    ));
-                }
-            }
+    let mut flags: Vec<String> = Vec::new();
+    for arg in &expansion.args {
+        let arg = arg.to_string_lossy().into_owned();
+        let board = arg.starts_with('+');
+        flags.push(arg);
+        if board {
+            flags.push("tests".to_string());
         }
-        None => None,
-    };
+    }
+    let runner = expansion.target.and_then(|target| target.runner);
     Ok((flags, runner))
 }
 
@@ -369,21 +361,24 @@ mod tests {
     }
 
     #[test]
-    fn tests_take_a_target_s_flags_and_a_runner_that_ends_in_the_program() {
+    fn tests_take_a_target_s_flags_and_runner() {
         let (flags, runner) = for_tests("pico", Some(&config(PROJECT))).unwrap();
         assert_eq!(flags, ["-target", "thumbv6m-none-eabi"]);
-        assert_eq!(runner.as_deref(), Some("flash"));
+        assert_eq!(runner.as_deref(), Some("flash {exe}"));
         let (flags, runner) = for_tests("x86_64-pc-windows-gnu", None).unwrap();
         assert_eq!(flags, ["-target", "x86_64-pc-windows-gnu"]);
         assert_eq!(runner, None);
-        let error = for_tests("dev", Some(&config(PROJECT))).unwrap_err();
-        assert!(error.contains("is a board"), "{error}");
-        let middle = config("[target.m]\ntriple = \"a-b\"\nrunner = \"r {exe} --x\"\n");
-        assert!(
-            for_tests("m", Some(&middle))
-                .unwrap_err()
-                .contains("put `{exe}` last")
+        let (flags, runner) = for_tests("Qemu_Virt_Aarch64", None).unwrap();
+        assert_eq!(
+            flags,
+            [
+                "-target",
+                "aarch64-none-elf",
+                "+Extensions/Embedded/Boards/Qemu_Virt_Aarch64",
+                "tests"
+            ]
         );
+        assert!(runner.unwrap().contains("-append {args}"));
     }
 
     #[test]

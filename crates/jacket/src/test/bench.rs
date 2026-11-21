@@ -309,8 +309,7 @@ pub fn run(run: &Run) -> ExitCode {
 /// Runs one benchmark in a process of its own.
 fn measure(run: &Run, case: &Case) -> Result<Measure, String> {
     let built = run.built[case.root].as_ref().ok_or("it was not built")?;
-    let (program, mut words) = build::program_and_args(&built.program, &run.toolchain.runner);
-    words.extend(["--bench".to_string(), case.local.clone()]);
+    let mut words = vec!["--bench".to_string(), case.local.clone()];
     for (flag, value) in [
         ("--samples", run.args.samples),
         ("--warmup", run.args.warmup),
@@ -320,6 +319,7 @@ fn measure(run: &Run, case: &Case) -> Result<Measure, String> {
             words.extend([flag.to_string(), value.to_string()]);
         }
     }
+    let (program, words) = build::program_and_args(&built.program, &run.toolchain.runner, &words);
     let invocation = Invocation {
         program,
         args: words,

@@ -6,8 +6,8 @@
 
 - Freestanding targets: `Operating_System_Tag.NONE` and `-target aarch64-none-elf` build programs with no OS, libc or system entry point, linked by `ld.lld` with a linker script. `Runtime_Support` has a NONE variant with console and panic hooks and no default heap ([embedded targets](docs/native/embedded.md)).
 - `Extensions/Embedded` for those programs: `init_runtime`, a heap allocator, `Memory_Map` and `link_for` (the linker script), `write_binary` (BIN, HEX and UF2), volatile access, CPU barriers, and a `Qemu_Virt_Aarch64` board. The compiler gains the `@Section(".name")`, `@Module_Asm` and `@Interrupt` notes and `volatile_load`/`volatile_store` ([Embedded](docs/extensions/embedded.md)).
-
 - `jacket build|check|run --target NAME` builds for a `[target.NAME]` table of `jacket.toml` (`triple`, `board`, `runner`) or a built-in board, `jacket run` starts the target's runner, and `jacket targets` lists them. An unknown name suggests the nearest. Boards are metaprogram plugins: `jaic app.jai +Extensions/Embedded/Boards/Qemu_Virt_Aarch64` ([targets](docs/tools/jacket.md#targets)).
+- `jacket test --target <board>` runs the tests on the board's emulator: `Extensions/Testing` builds for `OS == .NONE` (no benchmarks, snapshots or temporary folders), the `Qemu_Virt_Aarch64` board keeps standard output and standard error apart and passes the command line, and a runner may use `{exe}` and `{args}` ([tests on a board](docs/tools/jacket-test.md#tests-on-a-board)).
 
 - `jacket lint` has a `freestanding` rule (`restriction`, off by default) for code meant to run with no operating system: OS-only imports, allocation with the default allocator, interrupt handlers that allocate, print, lock or block, recursion and large stack frames (`[lint.freestanding] max_frame_bytes`) ([jailint](docs/tools/jailint.md#freestanding)).
 
