@@ -5,17 +5,18 @@ Log :: #import "internal/bindings/android-log";
 Output :: #import "internal/runtime/android-output";
 SameOutput :: #import "internal/runtime/android-output";
 #import "Basic";
+P :: #import "POSIX";
 
 libc :: #library,system "c";
-native_write :: (fd: s32, data: *u8, count: u64) -> s64 #foreign libc "write"; @WritesOutput(0)
+native_write :: (fd: s32, data: *u8, count: P.size_t) -> P.ssize_t #foreign libc "write"; @WritesOutput(0)
 abort :: () #foreign libc; @Exits
 
 emit :: (text: string) #no_context {
     offset: s64;
     while offset < text.count {
-        written := native_write(1, text.data + offset, cast(u64) (text.count - offset));
+        written := native_write(1, text.data + offset, cast(P.size_t) (text.count - offset));
         if written <= 0 abort();
-        offset += written;
+        offset += cast(s64) written;
     }
 }
 
@@ -37,7 +38,7 @@ host_sink :: (priority: s32, tag: *u8, text: *u8) -> s32 #c_call {
     // Return the actual native write result; no claimed Android SDK status.
     marker := "sink-complete\n";
 
-    return cast(s32) native_write(1, marker.data, cast(u64) marker.count);
+    return cast(s32) native_write(1, marker.data, cast(P.size_t) marker.count);
 }
 
 main :: () {
