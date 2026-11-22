@@ -63,15 +63,9 @@ jacket doc               # build the API docs site
 
 `jacket build`, `check` and `run` take the same flags as the compiler, `jaic`, and also read your project's `jacket.toml`. `jaic hello.jai -o -os windows` is the direct form; run `jaic -help` for every option. See [jacket](docs/tools/jacket.md) and the [command-line reference](docs/reference/tools.md#compiling).
 
-## 32-bit and embedded
+## Other targets
 
-The same code also builds for 32-bit WebAssembly, x86 and ARM Linux, and for microcontrollers with no operating system, which you can run in QEMU with one command:
-
-```sh
-jacket run hello.jai --target Mps2_An386    # a Cortex-M4 board, in QEMU
-```
-
-[32-bit and embedded targets](docs/guides/other-targets.md) walks through each one. 16-bit AVR is on the way.
+Besides macOS, Linux and Windows on x64 and arm64, Jacket builds for WebAssembly, 32-bit x86 and ARM Linux, big-endian s390x and PowerPC64 Linux, and bare-metal Cortex-M and AArch64 boards. The [32-bit and embedded guide](docs/guides/other-targets.md) shows how to build for each one and run it in QEMU.
 
 ## Contributing
 

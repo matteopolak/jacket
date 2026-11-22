@@ -8,14 +8,12 @@ Jacket doesn't stop at 64-bit desktops. The same program can build for 32-bit We
 | --- | --- | --- | --- |
 | WebAssembly (WASI) | `wasm32-wasi` | 4 bytes | `wasmtime`, node |
 | x86 Linux | `i686-unknown-linux-gnu` | 4 bytes | the machine itself, or `qemu-i386` |
-| ARM Linux (Raspberry Pi and friends) | `armv7-unknown-linux-gnueabihf` | 4 bytes | the machine itself, or `qemu-arm` |
+| 32-bit ARM Linux (Raspberry Pi and friends) | `armv7-unknown-linux-gnueabihf` | 4 bytes | the machine itself, or `qemu-arm` |
 | IBM Z Linux, big-endian | `s390x-unknown-linux-gnu` | 8 bytes | `qemu-s390x` |
 | POWER Linux, big-endian | `powerpc64-unknown-linux-gnu` | 8 bytes | `qemu-ppc64` |
 | Cortex-M4F board | `Mps2_An386` | 4 bytes | `qemu-system-arm` |
 | Cortex-M33 board | `Mps2_An505` | 4 bytes | `qemu-system-arm` |
 | AArch64 bare metal | `Qemu_Virt_Aarch64` | 8 bytes | `qemu-system-aarch64` |
-
-16-bit AVR (Arduino-class chips) is on the way: the compiler knows its layout and calling convention, but programs don't build end to end yet.
 
 ## Start here: a 32-bit program in WebAssembly
 
