@@ -20,71 +20,8 @@ impl Interp {
             }
         };
         Ok(match op {
-            I::Memcpy => {
-                if a[2] > 0 {
-                    if a[0] < 4096 || a[1] < 4096 {
-                        return self.null_trap("memcpy through a null pointer");
-                    }
-                    let Ok(len) = usize::try_from(a[2]) else {
-                        return self.trap("memcpy length exceeds the host address space");
-                    };
-                    self.check_writable(a[0], len)?;
-                    // Like a load or store, a copy goes through the program's pointers directly,
-                    // so a bad one faults as it would natively.
-                    // SAFETY: the program's own memmove.
-                    unsafe {
-                        std::ptr::copy(
-                            self.host_addr(a[1]) as *const u8,
-                            self.host_addr(a[0]) as *mut u8,
-                            len,
-                        )
-                    };
-                }
-                Rets::default()
-            }
-            I::Memset => {
-                if a[2] > 0 {
-                    if a[0] < 4096 {
-                        return self.null_trap("memset through a null pointer");
-                    }
-                    let Ok(len) = usize::try_from(a[2]) else {
-                        return self.trap("memset length exceeds the host address space");
-                    };
-                    self.check_writable(a[0], len)?;
-                    // SAFETY: the program's own memset, as for memcpy.
-                    unsafe {
-                        std::ptr::write_bytes(self.host_addr(a[0]) as *mut u8, a[1] as u8, len)
-                    };
-                }
-                Rets::default()
-            }
-            I::Memcmp => {
-                let Ok(n) = usize::try_from(a[2]) else {
-                    return self.trap("memcmp length exceeds the host address space");
-                };
-                // An empty comparison may pass null pointers, which a slice must not hold.
-                let r: i16 = if n == 0 {
-                    0
-                } else {
-                    if a[0] < 4096 || a[1] < 4096 {
-                        return self.null_trap("memcmp through a null pointer");
-                    }
-                    if n > isize::MAX as usize {
-                        return self.trap("memcmp length exceeds the host address space");
-                    }
-                    // SAFETY: the program's own memcmp, as for memcpy.
-                    let ordering = unsafe {
-                        std::slice::from_raw_parts(self.host_addr(a[0]) as *const u8, n).cmp(
-                            std::slice::from_raw_parts(self.host_addr(a[1]) as *const u8, n),
-                        )
-                    };
-                    match ordering {
-                        std::cmp::Ordering::Less => -1,
-                        std::cmp::Ordering::Equal => 0,
-                        std::cmp::Ordering::Greater => 1,
-                    }
-                };
-                Rets::one(r as u16 as u64)
+            I::Memcpy | I::Memset | I::Memcmp | I::VolatileLoad | I::VolatileStore => {
+                self.memory_intrinsic(op, a)?
             }
             I::CompareAndSwap
             | I::AtomicLoad(_)
@@ -98,20 +35,6 @@ impl Interp {
                     self.inline_poll();
                 }
                 result
-            }
-            // Compile-time code reads and writes ordinary memory; an address that is not the
-            // program's (a device register) traps, because there is no device to answer.
-            I::VolatileLoad => {
-                let width = a[1] as usize;
-                let bytes = self.fetch(a[0], width)?;
-                let mut word = [0u8; 8];
-                word[..width].copy_from_slice(&bytes);
-                Rets::one(u64::from_le_bytes(word))
-            }
-            I::VolatileStore => {
-                let width = a[2] as usize;
-                self.put(a[0], &a[1].to_le_bytes()[..width])?;
-                Rets::default()
             }
             I::DebugBreak => return self.trap("debug_break() was called"),
             I::Trap => {
@@ -291,6 +214,95 @@ impl Interp {
                 }
                 Rets::one(mask)
             }
+        })
+    }
+
+    /// `memcpy`, `memset`, `memcmp` and the volatile accesses: the intrinsics that read or write
+    /// program memory through the program's own pointers.
+    fn memory_intrinsic(&mut self, op: ir::Intrinsic, a: &[u64]) -> Res<Rets> {
+        use ir::Intrinsic as I;
+        Ok(match op {
+            I::Memcpy => {
+                if a[2] > 0 {
+                    if a[0] < 4096 || a[1] < 4096 {
+                        return self.null_trap("memcpy through a null pointer");
+                    }
+                    let Ok(len) = usize::try_from(a[2]) else {
+                        return self.trap("memcpy length exceeds the host address space");
+                    };
+                    self.check_writable(a[0], len)?;
+                    // Like a load or store, a copy goes through the program's pointers directly,
+                    // so a bad one faults as it would natively.
+                    // SAFETY: the program's own memmove.
+                    unsafe {
+                        std::ptr::copy(
+                            self.host_addr(a[1]) as *const u8,
+                            self.host_addr(a[0]) as *mut u8,
+                            len,
+                        );
+                    }
+                }
+                Rets::default()
+            }
+            I::Memset => {
+                if a[2] > 0 {
+                    if a[0] < 4096 {
+                        return self.null_trap("memset through a null pointer");
+                    }
+                    let Ok(len) = usize::try_from(a[2]) else {
+                        return self.trap("memset length exceeds the host address space");
+                    };
+                    self.check_writable(a[0], len)?;
+                    // SAFETY: the program's own memset, as for memcpy.
+                    unsafe {
+                        std::ptr::write_bytes(self.host_addr(a[0]) as *mut u8, a[1] as u8, len);
+                    }
+                }
+                Rets::default()
+            }
+            I::Memcmp => {
+                let Ok(n) = usize::try_from(a[2]) else {
+                    return self.trap("memcmp length exceeds the host address space");
+                };
+                // An empty comparison may pass null pointers, which a slice must not hold.
+                let r: i16 = if n == 0 {
+                    0
+                } else {
+                    if a[0] < 4096 || a[1] < 4096 {
+                        return self.null_trap("memcmp through a null pointer");
+                    }
+                    if n > isize::MAX as usize {
+                        return self.trap("memcmp length exceeds the host address space");
+                    }
+                    // SAFETY: the program's own memcmp, as for memcpy.
+                    let ordering = unsafe {
+                        std::slice::from_raw_parts(self.host_addr(a[0]) as *const u8, n).cmp(
+                            std::slice::from_raw_parts(self.host_addr(a[1]) as *const u8, n),
+                        )
+                    };
+                    match ordering {
+                        std::cmp::Ordering::Less => -1,
+                        std::cmp::Ordering::Equal => 0,
+                        std::cmp::Ordering::Greater => 1,
+                    }
+                };
+                Rets::one(r as u16 as u64)
+            }
+            // Compile-time code reads and writes ordinary memory; an address that is not the
+            // program's (a device register) traps, because there is no device to answer.
+            I::VolatileLoad => {
+                let width = a[1] as usize;
+                let bytes = self.fetch(a[0], width)?;
+                Rets::one(self.layout.read_uint(&bytes))
+            }
+            I::VolatileStore => {
+                let width = a[2] as usize;
+                let mut bytes = [0u8; 8];
+                self.layout.write_uint(&mut bytes[..width], a[1]);
+                self.put(a[0], &bytes[..width])?;
+                Rets::default()
+            }
+            _ => unreachable!("not a memory intrinsic"),
         })
     }
 

@@ -229,3 +229,22 @@ fn a_powerpc64_program_has_8_byte_pointers() {
         "pointer 8\nstring 16\narray 40\nany 16\nallocator 16\npair 24 8\nheap-42\n"
     );
 }
+
+/// `volatile_load` and `volatile_store` at compile time use the program's byte order, like a
+/// plain load or store.
+#[test]
+fn volatile_accesses_use_the_targets_byte_order() {
+    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/compiler/targets/volatile-order.jai");
+    assert_eq!(
+        run("x86_64-unknown-linux-gnu", &source),
+        "16909060\n168496141 13 3085\n"
+    );
+    for target in ["s390x-unknown-linux-gnu", "powerpc64-unknown-linux-gnu"] {
+        assert_eq!(
+            run(target, &source),
+            "16909060\n168496141 10 2571\n",
+            "{target}"
+        );
+    }
+}
