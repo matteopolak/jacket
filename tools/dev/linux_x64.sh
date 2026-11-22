@@ -134,7 +134,7 @@ case "$cmd" in
     cross_mounts=(--volume "$repo:$repo")
     IFS=: read -r -a folders <<<"${CROSS_SCRATCH:-}:${TMPDIR:-/tmp}:${CROSS_MOUNTS:-}"
     for folder in "${folders[@]}"; do
-      [ -n "$folder" ] && [ -d "$folder" ] || continue
+      if [ -z "$folder" ] || [ ! -d "$folder" ]; then continue; fi
       physical="$(cd "$folder" && pwd -P)"
       cross_mounts+=(--volume "$physical:$physical")
       # macOS reports $TMPDIR through the /var symlink; programs name it that way.
