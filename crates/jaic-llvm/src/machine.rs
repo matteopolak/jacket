@@ -99,7 +99,14 @@ pub(super) fn cpu_and_features(
     }
     // Freestanding code starts with the MMU off, where every access is to Device memory and an
     // unaligned one faults. A board that turns the MMU on can pass `-strict-align`.
-    if target.is_freestanding() && !features.contains("strict-align") {
+    // (AVR has no unaligned-access feature to set: nothing there is aligned.)
+    if target.is_freestanding()
+        && matches!(
+            target.cpu,
+            jaic::target::TargetCpu::Arm64 | jaic::target::TargetCpu::Arm
+        )
+        && !features.contains("strict-align")
+    {
         if !features.is_empty() {
             features.push(',');
         }
@@ -246,13 +253,16 @@ pub(super) fn target_machine(
 /// 32-bit x86 gets the same step for another reason: its position-independent code keeps `ebx`
 /// for the GOT, and the fast register allocator that `None` selects runs out of registers for a
 /// 64-bit `cmpxchg8b` (`ran out of registers during register allocation`). The next level uses
-/// the greedy allocator and the IR stays unoptimized.
+/// the greedy allocator and the IR stays unoptimized. AVR, which has 32 byte registers, gets it
+/// for the same reason: the fast allocator cannot hold the 64-bit values of an unoptimized
+/// function.
 fn unoptimized_machine_level(
     arch: jaic::abi::Arch,
     options: &Options,
     level: OptLevel,
 ) -> OptLevel {
-    let needs_better_allocator = arch.is_wasm() || arch == jaic::abi::Arch::X86;
+    let needs_better_allocator =
+        arch.is_wasm() || matches!(arch, jaic::abi::Arch::X86 | jaic::abi::Arch::Avr);
     if needs_better_allocator && level == OptLevel::O0 && options.codegen.machine_level.is_none() {
         OptLevel::O1
     } else {

@@ -13,8 +13,43 @@ impl<'ctx> Backend<'ctx, '_> {
     /// The integer as wide as a pointer.
     pub(super) fn word_ty(&self) -> inkwell::types::IntType<'ctx> {
         match self.layout.pointer_size {
+            2 => self.ctx.i16_type(),
             4 => self.ctx.i32_type(),
             _ => self.ctx.i64_type(),
+        }
+    }
+
+    /// The address space functions live in where code and data are separate (AVR's program
+    /// memory, `P1` in its data layout); `None` where they share one.
+    pub(super) fn code_space(&self) -> Option<AddressSpace> {
+        (self.arch == abi::Arch::Avr).then(|| AddressSpace::from(1u16))
+    }
+
+    /// A function's address as an ordinary pointer value, which is how the IR holds every
+    /// procedure value. In a separate code space that is the same bits, cast across: the
+    /// linker makes it a word address (`R_AVR_16_PM`), which is what `icall` jumps to.
+    pub(super) fn code_addr(
+        &self,
+        f: inkwell::values::FunctionValue<'ctx>,
+    ) -> inkwell::values::PointerValue<'ctx> {
+        let address = f.as_global_value().as_pointer_value();
+        match self.code_space() {
+            Some(_) => address.const_address_space_cast(self.ptr_ty()),
+            None => address,
+        }
+    }
+
+    /// `ptr` as the callee of a call: a function sits in the code space, so an ordinary pointer
+    /// is cast into it first.
+    pub(super) fn callee(
+        &self,
+        ptr: inkwell::values::PointerValue<'ctx>,
+    ) -> Result<inkwell::values::PointerValue<'ctx>, super::Error> {
+        match self.code_space() {
+            Some(space) if ptr.get_type().get_address_space() != space => Ok(self
+                .builder
+                .build_address_space_cast(ptr, self.ctx.ptr_type(space), "")?),
+            _ => Ok(ptr),
         }
     }
 

@@ -199,7 +199,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 .and_then(|&i| self.func(i))
         };
         let ptr = if let Some(f) = defined {
-            f.as_global_value().as_pointer_value()
+            self.code_addr(f)
         } else if *is_data {
             let g = self.module.add_global(self.ctx.i8_type(), None, symbol);
             g.set_linkage(Linkage::External);
@@ -228,7 +228,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             if self.arch.is_wasm() && !symbol.starts_with("llvm.") {
                 self.wasm_import(f, symbol, foreign.library);
             }
-            f.as_global_value().as_pointer_value()
+            self.code_addr(f)
         };
         self.foreign_symbols
             .borrow_mut()
@@ -374,10 +374,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     let ptr = if reloc.addend == 0 {
                         base
                     } else {
-                        let word = match self.layout.pointer_size {
-                            4 => self.ctx.i32_type(),
-                            _ => self.ctx.i64_type(),
-                        };
+                        let word = self.word_ty();
                         let sum = base
                             .const_to_int(word)
                             .const_add(word.const_int(reloc.addend as u64, true));
@@ -392,7 +389,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
 
     pub(super) fn func_ptr(&self, id: jaic::ir::FuncId) -> R<PointerValue<'ctx>> {
         match self.func(id.0 as usize) {
-            Some(f) => Ok(f.as_global_value().as_pointer_value()),
+            Some(f) => Ok(self.code_addr(f)),
             None => Err(Error(format!(
                 "function '{}' is referenced but was never lowered",
                 self.program

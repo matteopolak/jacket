@@ -156,7 +156,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 None => ll_args.push(arg.into()),
             }
         }
-        let call = b.build_indirect_call(lowered.fn_ty, ptr, &ll_args, "")?;
+        let call = b.build_indirect_call(lowered.fn_ty, self.callee(ptr)?, &ll_args, "")?;
         self.apply_attrs(&lowered, |loc, attr| call.add_attribute(loc, attr));
         let result = basic(call);
         match &lowered.ret {

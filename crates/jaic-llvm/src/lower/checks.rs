@@ -49,7 +49,7 @@ impl<'ctx> Backend<'ctx, '_> {
             }
             f
         });
-        let ptr = f.as_global_value().as_pointer_value();
+        let ptr = self.callee(self.code_addr(f))?;
         Ok(self.builder.build_indirect_call(ty, ptr, args, "")?)
     }
 
@@ -165,7 +165,7 @@ impl<'ctx> Backend<'ctx, '_> {
             args.push(v.into());
         }
         args.push(param(2)?.into());
-        let target = self.func_ptr(handler)?;
+        let target = self.callee(self.func_ptr(handler)?)?;
         b.build_indirect_call(lowered.fn_ty, target, &args, "")?;
         let trap = self.intrinsic_fn("llvm.trap", &[])?;
         b.build_call(trap, &[], "")?;
