@@ -363,8 +363,10 @@ def overlay_declarations(overlays):
     return result
 
 
-def generate_facade(module, spec):
-    overlays = linux_overlays(module)
+def generate_facade(module, spec, overlays=None):
+    """The declarations and ledger of `module`. `overlays` are its per-CPU Linux declarations,
+    by default the vendored ones (`linux_overlays`)."""
+    overlays = linux_overlays(module) if overlays is None else overlays
     shapes = defaultdict(list)
     for shape in spec.shapes:
         shapes[shape.name].append(shape)

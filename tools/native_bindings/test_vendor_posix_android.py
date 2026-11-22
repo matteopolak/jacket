@@ -36,7 +36,7 @@ class AndroidHeaderTests(unittest.TestCase):
 ## Public declaration inventory
 - [OS == .ANDROID && CPU == .X64] `iovec :: struct`
 ''')
-        code, ledger = generate_facade('POSIX',spec)
+        code, ledger = generate_facade('POSIX',spec,overlays={})
         self.assertIn('iov_base: *void;',code)
         self.assertNotIn('pollfd ::',code)
         self.assertEqual(ledger[0]['status'],'declared')
@@ -52,7 +52,7 @@ class AndroidHeaderTests(unittest.TestCase):
 iovec :: struct { explicit_public_field: s32; }
 ```
 ''')
-        code, ledger = generate_facade('POSIX',spec)
+        code, ledger = generate_facade('POSIX',spec,overlays={})
         self.assertIn('explicit_public_field',code)
         self.assertNotIn('iov_base',code)
         self.assertNotIn('native_shape_delegates',ledger[0])
