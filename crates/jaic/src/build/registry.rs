@@ -252,6 +252,7 @@ impl Workspaces {
                         cpu @ (TargetCpu::X86
                         | TargetCpu::S390x
                         | TargetCpu::Arm
+                        | TargetCpu::Avr
                         | TargetCpu::Wasm) => cpu,
                         _ => TargetCpu::Wasm,
                     },

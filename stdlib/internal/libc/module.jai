@@ -6,7 +6,8 @@
 #scope_file
 libc :: #system_library "libc"; @native(external)
 
-#if size_of(*void) == 4 {
+// `Wasi_Runtime` defines these three with 64-bit sizes, so a WebAssembly program passes 64-bit ones.
+#if size_of(*void) == 4 && OS != .WASM {
     C_Size :: u32;
 } else {
     C_Size :: u64;

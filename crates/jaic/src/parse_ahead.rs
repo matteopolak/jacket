@@ -426,9 +426,10 @@ mod imp {
                                 TargetCpu::X86 => "X86",
                                 TargetCpu::S390x => "S390X",
                                 TargetCpu::Arm => "ARM",
+                                TargetCpu::Avr => "AVR",
                                 TargetCpu::Wasm => "WASM",
                             },
-                            &["X64", "ARM64", "X86", "S390X", "ARM", "WASM"],
+                            &["X64", "ARM64", "X86", "S390X", "ARM", "AVR", "WASM"],
                         ),
                         _ => return None,
                     };

@@ -28,6 +28,7 @@ fn builtins_file(target: Target) -> String {
         },
         crate::target::TargetCpu::X64 => "x86_64",
         crate::target::TargetCpu::X86 => "i386",
+        crate::target::TargetCpu::Avr => "avr",
         crate::target::TargetCpu::S390x => "s390x",
         crate::target::TargetCpu::Wasm => "wasm",
     };

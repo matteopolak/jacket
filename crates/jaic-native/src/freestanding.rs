@@ -33,6 +33,11 @@ fn emulation(cpu: TargetCpu) -> Result<&'static str, String> {
     match cpu {
         TargetCpu::Arm64 => Ok("aarch64elf"),
         TargetCpu::Arm => Ok("armelf"),
+        TargetCpu::Avr => Err(
+            "ld.lld cannot link AVR programs (it has no AVR backend), and jaic has no other \
+             linker for a freestanding target"
+                .into(),
+        ),
         other => Err(format!("jaic cannot link a freestanding {other:?} program")),
     }
 }

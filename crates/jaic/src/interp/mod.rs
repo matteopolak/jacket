@@ -367,13 +367,19 @@ impl Interp {
         self.host = host;
     }
 
+    /// The pointer size of the program's address space in bytes, 8 when it is the host's: the
+    /// width `proc_addr` encodes procedure values for.
+    pub(super) fn proc_width(&self) -> u8 {
+        self.window.as_ref().map_or(8, |w| w.pointer_size())
+    }
+
     /// An interpreter whose program memory is laid out as `layout` says.
     pub fn new(mut host: Box<dyn Host>, layout: crate::layout::DataLayout) -> Self {
         if host.native_linking() {
             native::waits::prepare();
         }
         let window = (usize::from(layout.pointer_size) < std::mem::size_of::<usize>()).then(|| {
-            Window::shared().expect(
+            Window::shared(layout.pointer_size).expect(
                 "cannot reserve address space for a program with narrow pointers: it needs 3 GiB of virtual memory",
             )
         });
@@ -381,16 +387,21 @@ impl Interp {
             host.attach_window(window);
         }
         let narrow = window.is_some();
+        let width = if narrow {
+            layout.pointer_size
+        } else {
+            8
+        };
         let read_only = read_only_in(window.as_ref());
         let base = window.as_ref().map_or(0, |w| w.base());
         Self {
             layout,
             window,
-            data_limit: proc_addr::data_limit(narrow),
+            data_limit: proc_addr::data_limit(width),
             swap_bytes: matches!(layout.endian, crate::layout::Endian::Big)
                 != cfg!(target_endian = "big"),
             ptr_ty: if narrow {
-                Ty::I32
+                Ty::int(u64::from(layout.pointer_size))
             } else {
                 Ty::Ptr
             },

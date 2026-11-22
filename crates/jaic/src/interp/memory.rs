@@ -187,7 +187,7 @@ impl Interp {
         if addr < 4096 {
             return self.null_trap(null_access("read", addr));
         }
-        if proc_of(self.window.is_some(), addr).is_some() {
+        if proc_of(self.proc_width(), addr).is_some() {
             return self.trap("read through a procedure address");
         }
         if addr >= self.data_limit {

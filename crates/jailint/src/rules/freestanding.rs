@@ -647,13 +647,13 @@ struct CpuGaps {
 ///
 /// AArch64 has both. The freestanding 32-bit ARM CPUs are the Cortex-M4 and M33: their FPU is
 /// single precision and they have no 64-bit divide, so both are software routines. A core without
-/// an FPU (Cortex-M0, M3) is not a target yet.
+/// an FPU (Cortex-M0, M3) is not a target yet. AVR has no FPU or divider at all.
 fn cpu_gaps(options: &jaic::sema::Options) -> CpuGaps {
     if options.os != TargetOs::None {
         return CpuGaps::default();
     }
     match options.cpu {
-        TargetCpu::Arm => CpuGaps {
+        TargetCpu::Arm | TargetCpu::Avr => CpuGaps {
             double_float: true,
             wide_divide: true,
         },
