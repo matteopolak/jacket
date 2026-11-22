@@ -5,7 +5,8 @@
 #
 # TRIPLE defaults to aarch64-none-elf. The archive lands in OUT_DIR/TRIPLE/libclang_rt.builtins.a
 # (OUT_DIR defaults to target/compiler-rt); the last line printed is the `JAIC_COMPILER_RT=` setting
-# that makes jaic link it. Copying the file to `<llvm>/lib/clang/<version>/lib/TRIPLE/` works too.
+# that makes jaic link it. OUT_DIR itself also works as JAIC_COMPILER_RT, for every triple built
+# into it. Copying the file to `<llvm>/lib/clang/<version>/lib/TRIPLE/` works too.
 #
 # Reproducible: the sources are the pinned LLVM_TAG, cloned shallowly, built with the one
 # compiler-rt configuration below. Environment:
@@ -34,6 +35,23 @@ need cmake "Install it: 'brew install cmake' or 'apt install cmake'."
 need ninja "Install it: 'brew install ninja' or 'apt install ninja-build'."
 [ -n "${LLVM_SRC:-}" ] || need git "Install git, or point LLVM_SRC at an llvm-project checkout."
 
+# A Cortex-M target is configured as compiler-rt's soft-float `armv7em` or `armv8m.main` (it does not
+# know `thumbv...`) and then compiled for the core with the hard-float ABI of the program. Not as
+# `armhf`: that builds the floating-point helpers with the VFP calling convention, while LLVM
+# calls them (`__muldf3`) with the base one, so the soft-float variant is the one that matches.
+CONFIG_TRIPLE="$TRIPLE"
+ARCH_FLAGS=""
+case "$TRIPLE" in
+    thumbv7em-none-eabihf)
+        CONFIG_TRIPLE=armv7em-none-eabi
+        ARCH_FLAGS="-mcpu=cortex-m4 -mfloat-abi=soft"
+        ;;
+    thumbv8m.main-none-eabihf)
+        CONFIG_TRIPLE=armv8m.main-none-eabi
+        ARCH_FLAGS="-mcpu=cortex-m33 -mfloat-abi=soft"
+        ;;
+esac
+
 WORK="$OUT/build-$TRIPLE"
 SRC="${LLVM_SRC:-$OUT/llvm-project-$LLVM_TAG}"
 
@@ -51,11 +69,12 @@ cmake -S "$SRC/compiler-rt" -B "$WORK" -G Ninja \
     -DCMAKE_SYSTEM_NAME=Generic \
     -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
     -DCMAKE_C_COMPILER="$CLANG" \
-    -DCMAKE_C_COMPILER_TARGET="$TRIPLE" \
+    -DCMAKE_C_COMPILER_TARGET="$CONFIG_TRIPLE" \
     -DCMAKE_ASM_COMPILER="$CLANG" \
-    -DCMAKE_ASM_COMPILER_TARGET="$TRIPLE" \
+    -DCMAKE_ASM_COMPILER_TARGET="$CONFIG_TRIPLE" \
+    -DCMAKE_ASM_FLAGS="$ARCH_FLAGS" \
     -DCMAKE_AR="$(command -v "$LLVM_AR")" \
-    -DCMAKE_C_FLAGS="-ffreestanding" \
+    -DCMAKE_C_FLAGS="-ffreestanding $ARCH_FLAGS" \
     -DCOMPILER_RT_BAREMETAL_BUILD=ON \
     -DCOMPILER_RT_DEFAULT_TARGET_ONLY=ON \
     -DCOMPILER_RT_BUILD_BUILTINS=ON \
@@ -80,4 +99,4 @@ ARCHIVE="$(find "$WORK" -name 'libclang_rt.builtins*.a' | head -n 1)"
 mkdir -p "$OUT/$TRIPLE"
 cp "$ARCHIVE" "$OUT/$TRIPLE/libclang_rt.builtins.a"
 echo "built $OUT/$TRIPLE/libclang_rt.builtins.a"
-echo "export JAIC_COMPILER_RT=$OUT/$TRIPLE/libclang_rt.builtins.a"
+echo "export JAIC_COMPILER_RT=$OUT"

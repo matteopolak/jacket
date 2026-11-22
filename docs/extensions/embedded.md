@@ -62,7 +62,7 @@ These are Jacket-only; the official compiler ignores the notes.
 - **`@Module_Asm`** after a constant string adds the string to the module's assembly. A board's reset code and the semihosting call are written this way, since there is no `#asm` for AArch64. The assembly is added once, however it is referenced.
 - **`@Interrupt`** after a procedure marks it as entered by hardware. It must be `#c_call #no_context` with no parameters or results, or the compile fails (`interrupt-signature`). On AArch64 the note is checked and nothing more: the vector stub saves registers.
 - **`volatile_load(p)` and `volatile_store(p, v)`** read and write a 1, 2, 4 or 8-byte scalar exactly once, in order with other volatile accesses. At compile time the address must be ordinary memory; a device register is an error.
-- **Barriers and hints** (AArch64): `wait_for_interrupt`, `wait_for_event`, `send_event`, `data_sync_barrier`, `data_memory_barrier` and `instruction_barrier`.
+- **Barriers and hints** (AArch64 and 32-bit ARM): `wait_for_interrupt`, `wait_for_event`, `send_event`, `data_sync_barrier`, `data_memory_barrier` and `instruction_barrier`.
 
 Freestanding code is compiled with `+strict-align`: with the MMU off, an unaligned access faults. A board that enables the MMU can pass `-strict-align` in `llvm_options.target_system_features`.
 
@@ -72,7 +72,15 @@ Freestanding code is compiled with `+strict-align`: with the MMU off, an unalign
 
 ## Boards
 
-A board lives in `Extensions/Embedded/Boards/<Name>` and holds its memory map and startup code. `Qemu_Virt_Aarch64` runs on `qemu-system-aarch64 -M virt`:
+A board lives in `Extensions/Embedded/Boards/<Name>` and holds its memory map and startup code:
+
+| Board | Core | Runs on |
+| --- | --- | --- |
+| `Qemu_Virt_Aarch64` | Cortex-A53, AArch64 | `qemu-system-aarch64 -M virt` |
+| `Mps2_An386` | Cortex-M4F, Thumb-2 | `qemu-system-arm -M mps2-an386 -cpu cortex-m4` |
+| `Mps2_An505` | Cortex-M33 (secure state), Thumb-2 | `qemu-system-arm -M mps2-an505 -cpu cortex-m33` |
+
+Every board has:
 
 - `configure(*options)` sets the target, runtime and linker script.
 - `start(program)` runs from the reset function: it sets up the runtime, a heap, a semihosting console and panic handler, runs `program`, and exits with status 0. A panic exits with status 1.
@@ -92,10 +100,12 @@ reset :: () #c_call #no_context { Board.start(main); }
 
 ## How to change it
 
-- A new board: add `Boards/<Name>/module.jai` with a `memory_map`, a `configure` for the host, and a `start` for the target. Boards that use another CPU need that CPU's compiler support first.
+- A new board: add `Boards/<Name>/module.jai` with a `memory_map`, a `configure` for the host, a `get_plugin` that returns `Embedded.board_plugin("<import path>", configure)`, and a `start` for the target that calls `Embedded.start_semihosted` (or your own startup). Add it to `BUILT_IN` in `crates/jacket/src/target.rs`. Boards that use another CPU need that CPU's compiler support first.
+- A Cortex-M board needs nothing but its memory map and triple: `cortex-m.jai` has the vector table (the stack top, reset, and a fault handler that exits with status 1), the reset code that enables the FPU and calls `jai_start`, and the semihosting trap (`bkpt 0xab`). The core boots from address 0, so the memory map's `flash` region must be there.
+- Semihosting (`semihosting.jai`: console, exit, command line) is shared by the boards that use it. A board with a UART sets its own `set_console_hook` instead.
 - A new CPU's hints: add them under `#if CPU == ...` in `intrinsics.jai`.
 - A new output format: add a flag to `Output_Formats` and a branch in `write_binary`.
 
 ## Dependencies
 
-`ld.lld` and, for builtins such as 64-bit division, compiler-rt for the target (see [embedded and freestanding targets](../native/embedded.md); `tools/embedded/build-compiler-rt.sh` builds it). The tests also need `clang` and `qemu-system-aarch64`.
+`ld.lld` and, for builtins such as 64-bit division, compiler-rt for the target (see [embedded and freestanding targets](../native/embedded.md); `tools/embedded/build-compiler-rt.sh` builds it). The tests also need `clang`, `qemu-system-aarch64` and `qemu-system-arm`.

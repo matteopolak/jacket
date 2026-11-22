@@ -279,7 +279,7 @@ jobs:
       CARGO_INCREMENTAL: '0'
       # The wasm target tests fail, rather than skip, without node or wasm-ld. On Linux the
       # freestanding tests (docs/native/embedded.md) also need QEMU to run their programs.
-      JAIC_REQUIRE_TOOLCHAIN: node,wasm-ld${{ matrix.runner == 'ubuntu-24.04' && ',qemu-system-aarch64' || '' }}
+      JAIC_REQUIRE_TOOLCHAIN: node,wasm-ld${{ matrix.runner == 'ubuntu-24.04' && ',qemu-system-aarch64,qemu-system-arm,compiler-rt' || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: {persist-credentials: false}
@@ -290,6 +290,14 @@ jobs:
       - name: Install QEMU for the freestanding tests
         if: ${{ matrix.runner == 'ubuntu-24.04' }}
         run: bash tools/ci/apt_install.sh qemu-system-arm
+      - name: Build compiler-rt for the Cortex-M boards
+        # The builtins a Cortex-M program links (64-bit division, double-precision floats); the
+        # board tests below and the `board_tests` suite find them through JAIC_COMPILER_RT.
+        if: ${{ matrix.runner == 'ubuntu-24.04' }}
+        run: |
+          bash tools/ci/apt_install.sh clang llvm cmake ninja-build
+          tools/embedded/build-compiler-rt.sh thumbv7em-none-eabihf "$RUNNER_TEMP/compiler-rt"
+          echo "JAIC_COMPILER_RT=$RUNNER_TEMP/compiler-rt" >> "$GITHUB_ENV"
       # The format and lint steps below run the Justfile's recipes (docs/tools/development.md).
       - uses: ./.github/actions/install-tool
         with: {tool: just}
@@ -385,6 +393,7 @@ jobs:
         run: |
           cargo build --locked -p jacket -p jaic-cli
           target/debug/jacket test --target Qemu_Virt_Aarch64 --path stdlib/Extensions/Embedded
+          target/debug/jacket test --target Mps2_An386 --path stdlib/Extensions/Embedded
       - name: Stdlib type-checks and Objective-C selectors
         id: stdlib-targets
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',targets,') }}
