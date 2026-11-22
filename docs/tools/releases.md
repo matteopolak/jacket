@@ -66,6 +66,16 @@ Our Rust code is built with profile-guided optimisation (`tools/dev/build_pgo.py
 - To check process cleanup on Windows x64 and arm64: `gh workflow run ci.yml --ref my-branch -f jobs=docs -f tier=fast -F pgo_processes=true`. It runs `tools/ci/check_native_python.py` and the focused Python tests, without building the compiler.
 - Locally: `PYTHONPATH=tools python3 tools/dev/build_pgo.py --jobs 4`. Options: `--llvm dynamic|static|lazy|none`, `--bolt`, `--target`, `--out`, `--profile`. Tests: `tools/dev/test_build_pgo.py`.
 
+## Release token
+
+The `publish` job creates the GitHub release with the `RELEASE_TOKEN` secret, so the release shows the maintainer as its author. It fails when the secret is missing. The token is a fine-grained personal access token for `matteopolak/jacket` with **Contents: Read and write** and nothing else:
+
+```sh
+gh secret set RELEASE_TOKEN -R matteopolak/jacket
+```
+
+When it expires, make a new one and set the secret again. The other jobs use the workflow's own token.
+
 ## Cutting a release
 
 1. Add `## [x.y.z] - YYYY-MM-DD` at the top of `CHANGELOG.md`: one or two sentences, `### Highlights` (up to 6 one-liners), `### Breaking changes` (a Was/Now table, if any), `### Fixes`. Keep it for users; no internals. End a line that comes from an issue with `(#N, @reporter)`. `tools/ci/check_changelog.py` (a repo check, and run by `just bump-version`) enforces the limits on unreleased notes:

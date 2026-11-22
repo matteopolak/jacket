@@ -344,12 +344,18 @@ jobs:
           python3 tools/ci/toolchain_manifest.py --version "$tag" --archives dist --out dist/toolchain-manifest.json
           (cd dist && sha256sum -- * > SHA256SUMS)
           echo "TAG=$tag" >> "$GITHUB_ENV"
+      # The maintainer's token, so the release shows them as its author instead of github-actions.
       - name: Publish
         id: publish
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           CURRENT_VERSION: ${{ needs.release-meta.outputs.version }}
-        run: python3 tools/release.py publish
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::RELEASE_TOKEN is not set; add one as described in docs/tools/releases.md#release-token"
+            exit 1
+          fi
+          python3 tools/release.py publish
 
   # One Zulip post per release, when this run created it (a resumed or re-run publish edits instead).
   announce:
