@@ -162,7 +162,7 @@ pub fn windows_command_line(args: &[String]) -> String {
 #[cfg(test)]
 mod tests {
     use super::windows_command_line;
-    use crate::interp::{Interp, NativeHost};
+    use crate::interp::Interp;
     use crate::ir::Ty;
 
     fn wide_text(interp: &Interp, address: u64) -> String {
@@ -181,7 +181,7 @@ mod tests {
 
     #[test]
     fn omitted_interpreter_arguments_still_name_the_windows_executable() {
-        let mut interp = Interp::new(Box::new(NativeHost));
+        let mut interp = Interp::native(crate::layout::DataLayout::host());
         interp.run_executable = Some(r"C:\program files\雪\probe.exe".into());
         let address = interp
             .executable_path_foreign("GetCommandLineW", &[])
@@ -195,7 +195,7 @@ mod tests {
 
     #[test]
     fn command_line_parser_keeps_native_success_and_error_semantics() {
-        let mut interp = Interp::new(Box::new(NativeHost));
+        let mut interp = Interp::native(crate::layout::DataLayout::host());
         interp.run_executable = Some(r"C:\probe.exe".into());
         let address = interp
             .executable_path_foreign("GetCommandLineW", &[])
@@ -218,7 +218,7 @@ mod tests {
             vec!["provided.jai", "雪😀", "", "quote\" slash\\"],
             vec!["", "explicit empty argv zero"],
         ] {
-            let mut interp = Interp::new(Box::new(NativeHost));
+            let mut interp = Interp::native(crate::layout::DataLayout::host());
             interp.run_executable = Some(r"C:\probe.exe".into());
             interp.run_arguments = args.into_iter().map(String::from).collect();
             let expected = windows_command_line(&interp.run_arguments);

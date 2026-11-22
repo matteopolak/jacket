@@ -282,7 +282,7 @@ negotiate_tls :: (c: *Connection, config: Config) -> Pg_Error {
             defer POSIX.close(fd);
 
             text := tprint("%\n", line);
-            if POSIX.write(fd, text.data, cast(u64) text.count) < 0 {
+            if POSIX.write(fd, text.data, cast(POSIX.size_t) text.count) < 0 {
                 _, reason := System.get_error_value_and_string();
                 print_error_line(tprint("WARNING: could not write to SSL key logging file \"%\": %", path, reason));
             }

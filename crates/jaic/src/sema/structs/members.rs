@@ -2,7 +2,6 @@
 use super::model::{MemberResolution, PathStep, UsingFilters, using_candidates};
 use crate::diagnostics::Code;
 use crate::ir::Ty;
-use crate::layout;
 use crate::sema::lower::FnCtx;
 use crate::sema::scope::EntityKind;
 use crate::sema::{
@@ -18,10 +17,11 @@ impl Compiler {
         span: Span,
     ) -> Result<Vec<(Sym, TypeId, u64)>> {
         let s = |n: &str| Sym::intern(n);
+        let layout = *self.ty.types.builtins();
         Ok(match self.ty.types.kind(ty).clone() {
             TypeKind::String => vec![
-                (s("count"), TypeId::S64, layout::view::COUNT),
-                (s("data"), TypeId::U8_PTR, layout::view::DATA),
+                (s("count"), TypeId::S64, layout.view.count),
+                (s("data"), TypeId::U8_PTR, layout.view.data),
             ],
             TypeKind::Array {
                 elem,
@@ -29,8 +29,8 @@ impl Compiler {
             } => {
                 let p = self.ty.types.pointer(elem);
                 vec![
-                    (s("count"), TypeId::S64, layout::view::COUNT),
-                    (s("data"), p, layout::view::DATA),
+                    (s("count"), TypeId::S64, layout.view.count),
+                    (s("data"), p, layout.view.data),
                 ]
             }
             TypeKind::Array {
@@ -40,21 +40,21 @@ impl Compiler {
                 let p = self.ty.types.pointer(elem);
                 let alloc = self.preload_type(PreludeType::Allocator, span)?;
                 vec![
-                    (s("count"), TypeId::S64, layout::resizable::COUNT),
-                    (s("data"), p, layout::resizable::DATA),
-                    (s("allocated"), TypeId::S64, layout::resizable::ALLOCATED),
-                    (s("allocator"), alloc, layout::resizable::ALLOCATOR),
+                    (s("count"), TypeId::S64, layout.resizable.count),
+                    (s("data"), p, layout.resizable.data),
+                    (s("allocated"), TypeId::S64, layout.resizable.allocated),
+                    (s("allocator"), alloc, layout.resizable.allocator),
                 ]
             }
             TypeKind::Any => {
                 let ti = self.preload_type(PreludeType::TypeInfo, span)?;
                 let p = self.ty.types.pointer(ti);
                 vec![
-                    (s("type"), p, layout::any::TYPE),
+                    (s("type"), p, layout.any.type_),
                     (
                         s("value_pointer"),
                         TypeId::VOID_PTR,
-                        layout::any::VALUE_POINTER,
+                        layout.any.value_pointer,
                     ),
                 ]
             }

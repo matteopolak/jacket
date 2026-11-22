@@ -11,7 +11,6 @@ use crate::ide::Recorder;
 
 use crate::ir::Ty;
 use crate::lang_items;
-use crate::layout;
 use crate::sema::CompileTime;
 use crate::sema::SourceState;
 use crate::types::TypeKind;
@@ -368,8 +367,10 @@ impl Compiler {
                         })
                         .sum();
                     match value {
-                        Some(v) => agg.bytes[off as usize..off as usize + 8]
-                            .copy_from_slice(&v.to_le_bytes()),
+                        Some(v) => self
+                            .options
+                            .layout
+                            .write_u64(&mut agg.bytes[off as usize..], v),
                         None => agg.relocs.push(ir::Reloc {
                             offset: off,
                             target: ir::RelocTarget::Global(buf),
@@ -619,9 +620,7 @@ impl Compiler {
                 signed,
             } => {
                 let bytes = self.ct.program_bytes(addr, bits as usize / 8, span)?;
-                let mut buf = [0u8; 8];
-                buf[..bytes.len()].copy_from_slice(&bytes);
-                let raw = u64::from_le_bytes(buf);
+                let raw = self.options.layout.read_uint(&bytes);
                 Ok(Value::Int(crate::int_arith::wrap(
                     raw as i128,
                     bits,
@@ -632,9 +631,7 @@ impl Compiler {
                 bits: 32,
             } => {
                 let b = self.ct.program_bytes(addr, 4, span)?;
-                Ok(Value::float(
-                    f32::from_le_bytes([b[0], b[1], b[2], b[3]]) as f64
-                ))
+                Ok(Value::float(self.options.layout.read_f32(&b) as f64))
             }
             TypeKind::Float {
                 ..
@@ -649,13 +646,13 @@ impl Compiler {
                 self.read_aggregate(addr, ty, span)
             }
             TypeKind::Type => {
-                let p = self.ct.program_u64(addr, span)?;
+                let p = self.ct.program_ptr(addr, span)?;
                 self.type_at(p, span).map(Value::Type)
             }
             TypeKind::Code => {
                 self.adopt_made_codes();
                 // Any integer can be cast to `Code`; only ids of real code are usable.
-                let id = self.ct.program_u64(addr, span)?;
+                let id = self.ct.program_ptr(addr, span)?;
                 if id >= self.pr.codes.len() as u64 {
                     return err(
                         Code::NotValidCode,
@@ -666,14 +663,15 @@ impl Compiler {
                 Ok(Value::Code(value::CodeId(id as u32)))
             }
             TypeKind::String => {
-                let count = self.ct.program_u64(addr + layout::view::COUNT, span)? as usize;
-                let data = self.ct.program_u64(addr + layout::view::DATA, span)?;
+                let view = self.ty.types.builtins().view;
+                let count = self.ct.program_u64(addr + view.count, span)? as usize;
+                let data = self.ct.program_ptr(addr + view.data, span)?;
                 Ok(Value::String(
                     self.ct.program_bytes(data, count, span)?.into(),
                 ))
             }
             TypeKind::Proc(_) => {
-                let p = self.ct.program_u64(addr, span)?;
+                let p = self.ct.program_ptr(addr, span)?;
                 if p == 0 {
                     return Ok(Value::Null);
                 }
@@ -685,7 +683,7 @@ impl Compiler {
                 self.read_aggregate(addr, ty, span)
             }
             TypeKind::Pointer(_) | TypeKind::Null => {
-                let pointer = self.ct.program_u64(addr, span)?;
+                let pointer = self.ct.program_ptr(addr, span)?;
                 if pointer == 0 {
                     return Ok(Value::Null);
                 }
@@ -760,6 +758,14 @@ impl CompileTime {
     pub(super) fn program_bytes(&self, addr: u64, len: usize, span: Span) -> Result<Vec<u8>> {
         match self.interp.read(addr, len) {
             Some(bytes) => Ok(bytes),
+            None => unreadable(addr, span),
+        }
+    }
+
+    /// The pointer at `addr` in compile-time memory.
+    pub(super) fn program_ptr(&self, addr: u64, span: Span) -> Result<u64> {
+        match self.interp.read_ptr(addr) {
+            Some(v) => Ok(v),
             None => unreadable(addr, span),
         }
     }

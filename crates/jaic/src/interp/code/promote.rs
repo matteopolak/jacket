@@ -16,6 +16,7 @@
 use super::{CodeBlock, Op};
 use crate::fxhash::HashMap;
 use crate::ir::{self, Inst, Term, Ty};
+use crate::layout::DataLayout;
 
 #[derive(Clone, Copy, PartialEq)]
 pub(super) enum Use {
@@ -329,7 +330,7 @@ fn pure(op: &Op) -> bool {
 
 /// Whether `op`, which writes `reg`, leaves a value that `mask` keeps whole: it is the width of
 /// its type, or one bit for a comparison. (Registers hold values masked to their type.)
-fn fits(op: &Op, reg: u32, mask: u32) -> bool {
+fn fits(op: &Op, reg: u32, mask: u32, layout: &DataLayout) -> bool {
     let within = |bits: u64| bits & !(mask as u64) == 0;
     let bytes = |n: u64| {
         if n >= 8 {
@@ -354,7 +355,7 @@ fn fits(op: &Op, reg: u32, mask: u32) -> bool {
             dst,
             ty,
             ..
-        } => dst == reg && within(bytes(ty.size())),
+        } => dst == reg && within(bytes(ty.size(layout))),
         Op::Load {
             dst,
             ty,
@@ -364,7 +365,7 @@ fn fits(op: &Op, reg: u32, mask: u32) -> bool {
             dst,
             ty,
             ..
-        } => dst == reg && within(bytes(ty.size())),
+        } => dst == reg && within(bytes(ty.size(layout))),
         Op::Load8 {
             dst, ..
         }
@@ -434,6 +435,7 @@ struct Pass<'a> {
     ops: &'a mut Vec<Op>,
     pool: &'a mut Vec<u32>,
     blocks: &'a mut [CodeBlock],
+    layout: &'a DataLayout,
     /// IR definitions of each value.
     defs: &'a [u32],
     /// Registers below this are IR values; the rest are slot pieces.
@@ -455,9 +457,10 @@ pub(super) fn promote(
     ops: &mut Vec<Op>,
     pool: &mut Vec<u32>,
     blocks: &mut Vec<CodeBlock>,
+    layout: &DataLayout,
 ) -> usize {
     let base = func.vals.len() as u32;
-    let Some(pieces) = pieces(func, offsets, ops) else {
+    let Some(pieces) = pieces(func, offsets, ops, layout) else {
         return base as usize;
     };
     // The pieces' registers, in the order of their offsets.
@@ -508,6 +511,7 @@ pub(super) fn promote(
         ops,
         pool,
         blocks,
+        layout,
         defs,
         base,
         dead: Vec::new(),
@@ -537,7 +541,12 @@ fn store_to(r: u32, size: u8, value: u32) -> Op {
 
 /// The (frame offset -> size, slot) pieces of the slots that can live in registers; `None`
 /// when there are none.
-fn pieces(func: &ir::Func, offsets: &[u64], ops: &[Op]) -> Option<HashMap<u64, (u8, u32)>> {
+fn pieces(
+    func: &ir::Func,
+    offsets: &[u64],
+    ops: &[Op],
+    layout: &DataLayout,
+) -> Option<HashMap<u64, (u8, u32)>> {
     let slot_of = |off: u64| offsets.partition_point(|&o| o <= off).checked_sub(1);
     // Slots whose address is taken, or that are reached any other way than by frame ops.
     let mut bad = vec![false; func.slots.len()];
@@ -585,7 +594,7 @@ fn pieces(func: &ir::Func, offsets: &[u64], ops: &[Op]) -> Option<HashMap<u64, (
         let Some(s) = slot_of(off) else {
             continue;
         };
-        let size = ty.size();
+        let size = ty.size(layout);
         let end = offsets[s] + func.slots[s].size;
         if !matches!(
             ty,
@@ -709,7 +718,7 @@ impl Pass<'_> {
                     }
                     let (_, write) = self.touches(j, src);
                     if write {
-                        if fits(&self.ops[j], src, mask) {
+                        if fits(&self.ops[j], src, mask, self.layout) {
                             self.ops[i] = Op::Mov {
                                 dst,
                                 src,

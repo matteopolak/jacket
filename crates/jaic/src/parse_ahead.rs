@@ -412,6 +412,7 @@ mod imp {
                                 TargetOs::Linux => "LINUX",
                                 TargetOs::MacOS => "MACOS",
                                 TargetOs::Wasm => "WASM",
+                                TargetOs::None => "NONE",
                             },
                             &["WINDOWS", "LINUX", "MACOS", "WASM", "ANDROID", "IOS", "PS5"],
                         ),
@@ -419,9 +420,14 @@ mod imp {
                             match self.cpu {
                                 TargetCpu::X64 => "X64",
                                 TargetCpu::Arm64 => "ARM64",
+                                TargetCpu::X86 => "X86",
+                                TargetCpu::S390x => "S390X",
+                                TargetCpu::PowerPc64 => "POWERPC64",
+                                TargetCpu::Arm => "ARM",
+                                TargetCpu::Avr => "AVR",
                                 TargetCpu::Wasm => "WASM",
                             },
-                            &["X64", "ARM64", "WASM"],
+                            &["X64", "ARM64", "X86", "S390X", "ARM", "AVR", "WASM"],
                         ),
                         _ => return None,
                     };

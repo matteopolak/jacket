@@ -41,13 +41,37 @@ mod native {
         fn munmap(addr: *mut c_void, len: usize) -> i32;
     }
 
+    /// A private anonymous mapping: host address space, or a page range of the program's
+    /// window, where `base` is the program address.
     pub(in crate::interp::sandbox) struct Mapping {
         pub base: u64,
         pub len: u64,
+        pub window: Option<std::sync::Arc<crate::interp::Window>>,
     }
 
     impl Mapping {
-        pub fn reserve(len: u64, prot: i32) -> Option<Self> {
+        /// The host address of program address `addr` in this mapping.
+        fn host(&self, addr: u64) -> u64 {
+            addr + self.window.as_ref().map_or(0, |w| w.base())
+        }
+
+        pub fn reserve(
+            len: u64,
+            prot: i32,
+            window: Option<&std::sync::Arc<crate::interp::Window>>,
+        ) -> Option<Self> {
+            if let Some(window) = window {
+                let base = window.alloc_pages(len as usize)?;
+                let mapping = Self {
+                    base,
+                    len,
+                    window: Some(window.clone()),
+                };
+                if !mapping.protect(base, len, prot) {
+                    return None;
+                }
+                return Some(mapping);
+            }
             let anon = if cfg!(target_os = "macos") || cfg!(target_os = "ios") {
                 0x1000
             } else {
@@ -59,15 +83,20 @@ mod native {
             (base != u64::MAX).then_some(Self {
                 base,
                 len,
+                window: None,
             })
         }
 
         pub fn protect(&self, base: u64, len: u64, prot: i32) -> bool {
             // SAFETY: the caller checked that the complete range belongs to this live mapping.
-            unsafe { mprotect(base as *mut c_void, len as usize, prot) == 0 }
+            unsafe { mprotect(self.host(base) as *mut c_void, len as usize, prot) == 0 }
         }
 
         pub fn release(&mut self, base: u64, len: u64) -> bool {
+            if let Some(window) = &self.window {
+                window.free_pages(base, len as usize);
+                return true;
+            }
             // SAFETY: the caller checked ownership; successful release transfers the remaining ranges to new owners.
             unsafe { munmap(base as *mut c_void, len as usize) == 0 }
         }
@@ -77,6 +106,10 @@ mod native {
         fn drop(&mut self) {
             if self.len != 0 {
                 crate::interp::probe::invalidate();
+                if let Some(window) = &self.window {
+                    window.free_pages(self.base, self.len as usize);
+                    return;
+                }
                 // SAFETY: this object exclusively owns the mapping that remains.
                 unsafe {
                     munmap(self.base as *mut c_void, self.len as usize);
@@ -95,7 +128,10 @@ impl SandboxHost {
         fun: LibcFn,
         arg: impl Fn(usize) -> u64,
     ) -> Option<u64> {
-        if !matches!(fun, LibcFn::Mmap | LibcFn::Mprotect | LibcFn::Munmap) {
+        if !matches!(
+            fun,
+            LibcFn::Mmap | LibcFn::Mmap64 | LibcFn::Mprotect | LibcFn::Munmap
+        ) {
             return None;
         }
         #[cfg(not(unix))]
@@ -114,7 +150,7 @@ impl SandboxHost {
             else {
                 return Some(self.set_errno(EINVAL));
             };
-            if fun == LibcFn::Mmap {
+            if matches!(fun, LibcFn::Mmap | LibcFn::Mmap64) {
                 let anonymous = if self.darwin_files {
                     0x1000
                 } else {
@@ -131,7 +167,8 @@ impl SandboxHost {
                 if self.mapped_bytes.saturating_add(length) > MAX_MAPPED_BYTES {
                     return Some(self.set_errno(super::super::errno::ENOMEM));
                 }
-                let Some(mapping) = Mapping::reserve(length, arg(2) as i32) else {
+                let Some(mapping) = Mapping::reserve(length, arg(2) as i32, self.window.as_ref())
+                else {
                     return Some(self.set_errno(super::super::errno::ENOMEM));
                 };
                 self.mapped_bytes += length;
@@ -182,6 +219,7 @@ impl SandboxHost {
                     Mapping {
                         base: key,
                         len: base - key,
+                        window: mapping.window.clone(),
                     },
                 );
             }
@@ -191,6 +229,7 @@ impl SandboxHost {
                     Mapping {
                         base: end,
                         len: old_end - end,
+                        window: mapping.window.clone(),
                     },
                 );
             }

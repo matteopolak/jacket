@@ -224,12 +224,13 @@ impl Compiler {
         else {
             return Ok(None);
         };
-        let mut image = value::Aggregate::zeroed(crate::layout::view::SIZE, span)?;
+        let layout = self.ty.types.builtins().view;
+        let mut image = value::Aggregate::zeroed(layout.size, span)?;
         self.write_value(&mut image, 0, view, *ty, span)?;
         let global = self.out.program.add_global(crate::ir::Global {
             name: "constant.view".into(),
-            size: crate::layout::view::SIZE,
-            align: 8,
+            size: layout.size,
+            align: layout.align,
             init: image.bytes,
             relocs: image.relocs,
             read_only: true,
@@ -246,12 +247,8 @@ impl Compiler {
                     t.into_message(),
                 ))
             })?;
-        let count = self
-            .ct
-            .program_u64(addr + crate::layout::view::COUNT, span)?;
-        let data = self
-            .ct
-            .program_u64(addr + crate::layout::view::DATA, span)?;
+        let count = self.ct.program_u64(addr + layout.count, span)?;
+        let data = self.ct.program_ptr(addr + layout.data, span)?;
         let esize = self.size_of(elem, span)?;
         let mut array = value::Aggregate::zeroed(esize.saturating_mul(count), span)?;
         for k in 0..count {

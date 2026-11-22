@@ -14,7 +14,7 @@ fn interpreted_cas_is_atomic_against_simultaneous_host_access() {
             let value = value.clone();
             let barrier = barrier.clone();
             std::thread::spawn(move || {
-                let mut interp = Interp::new(Box::new(NativeHost));
+                let mut interp = Interp::native(crate::layout::DataLayout::host());
                 let address = Arc::as_ptr(&value) as u64;
                 barrier.wait();
                 for _ in 0..20_000 {
@@ -51,7 +51,7 @@ fn interpreted_exchange_preserves_all_prior_values_under_contention() {
             let value = value.clone();
             let barrier = barrier.clone();
             std::thread::spawn(move || {
-                let mut interp = Interp::new(Box::new(NativeHost));
+                let mut interp = Interp::native(crate::layout::DataLayout::host());
                 let address = Arc::as_ptr(&value) as u64;
                 barrier.wait();
                 let mut sum = 0;

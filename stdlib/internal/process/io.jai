@@ -36,7 +36,7 @@ read_pipe :: (pipe: *Process.Pipe, buffer: [] u8) -> success: bool, bytes_read: 
     if pipe.handle < 0 || buffer.count <= 0 return false, 0;
 
     while true {
-        count := P.read(pipe.handle, buffer.data, cast(u64) buffer.count);
+        count := P.read(pipe.handle, buffer.data, cast(P.size_t) buffer.count);
         if count >= 0 {
             if count == 0 pipe.eof = true;
             return true, count;
@@ -108,7 +108,7 @@ get_process_result :: (process: *Process, timeout_ms := -1) -> success: bool, Pr
     if ready == 0 return true, Process_Result.{ type = .STILL_RUNNING };
 
     while state.received < size_of(Result_Packet) {
-        count := P.read(state.result_fd, cast(*u8) *state.packet + state.received, cast(u64) (size_of(Result_Packet) - state.received));
+        count := P.read(state.result_fd, cast(*u8) *state.packet + state.received, cast(P.size_t) (size_of(Result_Packet) - state.received));
         if count < 0 {
             if P.errno() == P.EINTR continue;
             state.failed = true;
@@ -198,7 +198,7 @@ protected_write :: (fd: s32, data: *void, count: s64) -> bool, s64 {
     sent: s64;
 
     while true {
-        sent = P.write(fd, data, cast(u64) count);
+        sent = P.write(fd, data, cast(P.size_t) count);
         if sent >= 0 || P.errno() != P.EINTR break;
     }
 

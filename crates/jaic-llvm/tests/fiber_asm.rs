@@ -17,6 +17,7 @@ fn the_module_assembly_assembles_for_every_target() {
         ("aarch64-unknown-linux-gnu", Arch::Aarch64, false),
         ("x86_64-pc-windows-msvc", Arch::Win64, false),
         ("aarch64-pc-windows-msvc", Arch::Win64Arm, false),
+        ("i686-unknown-linux-gnu", Arch::X86, false),
     ];
     for (triple, arch, macho) in cases {
         let triple = TargetTriple::create(triple);

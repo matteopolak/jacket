@@ -25,13 +25,15 @@ impl Compiler {
         let mut options = self.options.clone();
         let host = options.host;
         (options.os, options.cpu, options.long_double) = (host.os, host.cpu, host.long_double);
+        options.layout = host.layout;
+        let layout = options.layout;
         let mut host = Compiler::new(options.clone(), self.src.fs.clone());
         host.src.sources = self.src.sources.clone().into();
         let source_count = self.src.sources.len();
         if let Some(parent) = &self.ct.interp.workspaces {
             let (shared, provider) =
                 crate::build::isolated_host_environment(parent, options, self.src.fs.clone());
-            host.ct.interp = crate::interp::Interp::new(provider).into();
+            host.ct.interp = crate::interp::Interp::new(provider, layout).into();
             host.ct.interp.workspaces = Some(shared);
         } else {
             let provider = self.ct.interp.host.isolated_host().ok_or_else(|| {
@@ -41,7 +43,7 @@ impl Compiler {
                     "this compiler host does not provide isolated #run,host execution",
                 ))
             })?;
-            host.ct.interp = crate::interp::Interp::new(provider).into();
+            host.ct.interp = crate::interp::Interp::new(provider, layout).into();
         }
         let nested = self.meta.perf.running();
         self.ct.interp.lend_budget(&mut host.ct.interp, nested);

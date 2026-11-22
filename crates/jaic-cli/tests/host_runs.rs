@@ -8,6 +8,10 @@ fn fixture() -> PathBuf {
         .join("../../tests/fixtures/host-runs/host-result-transfer.jai")
 }
 
+#[allow(
+    clippy::disallowed_methods,
+    reason = "reads fields of the host's own PE/ELF file format"
+)]
 #[cfg(feature = "llvm")]
 #[test]
 fn workspace_host_clock_produces_a_linux_x64_object() {

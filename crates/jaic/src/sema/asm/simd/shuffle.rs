@@ -36,7 +36,7 @@ impl Compiler {
             | VOp::Shuf128(..) => self.simd_permutes(f, cx, c, op)?,
             VOp::Unpack(high, ty) => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
-                let per = block / ty.size();
+                let per = block / ty.numeric_size();
                 for blk in 0..width / block {
                     let base = blk * per;
                     let from = base
@@ -107,7 +107,7 @@ impl Compiler {
             }
             VOp::Valign(ty) => {
                 let (s, k) = self.simd_args(f, ops, 2, true, span)?;
-                let n = width / ty.size();
+                let n = width / ty.numeric_size();
                 let k = k % n;
                 for j in 0..n {
                     let at = j + k;
@@ -140,7 +140,7 @@ impl Compiler {
             }
             VOp::BlendImm(ty) => {
                 let (s, k) = self.simd_args(f, ops, 2, true, span)?;
-                for i in 0..width / ty.size() {
+                for i in 0..width / ty.numeric_size() {
                     let src = if (k >> (i % 8)) & 1 != 0 {
                         s[1]
                     } else {
@@ -153,7 +153,7 @@ impl Compiler {
             }
             VOp::BlendVar(ty) => {
                 let (s, _) = self.simd_args(f, ops, 3, false, span)?;
-                for i in 0..width / ty.size() {
+                for i in 0..width / ty.numeric_size() {
                     let a = load_lane(f, s[0], i, ty);
                     let b = load_lane(f, s[1], i, ty);
                     let m = load_lane(f, s[2], i, ty);
@@ -165,7 +165,7 @@ impl Compiler {
             }
             VOp::BlendMask(ty) => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
-                for i in 0..width / ty.size() {
+                for i in 0..width / ty.numeric_size() {
                     let a = load_lane(f, s[0], i, ty);
                     let b = load_lane(f, s[1], i, ty);
                     let r = match wm {
@@ -246,7 +246,7 @@ impl Compiler {
             VOp::Perm(ty) => {
                 // `perm* dst, index, table`
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
-                let n = width / ty.size();
+                let n = width / ty.numeric_size();
                 let m = konst(f, Ty::I64, n - 1);
                 for i in 0..n {
                     let idx = load_lane(f, s[0], i, ty);
@@ -265,7 +265,7 @@ impl Compiler {
                 } else {
                     (s[1], s[0], s[2])
                 };
-                let n = width / ty.size();
+                let n = width / ty.numeric_size();
                 let m = konst(f, Ty::I64, n - 1);
                 let sel_bit = konst(f, Ty::I64, n);
                 for i in 0..n {
@@ -285,8 +285,8 @@ impl Compiler {
             VOp::PermilImm(ty) if !last_imm => {
                 // permilps/pd with a vector control: `permilps dst, src, control`.
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
-                let per = 16 / ty.size();
-                for i in 0..width / ty.size() {
+                let per = 16 / ty.numeric_size();
+                for i in 0..width / ty.numeric_size() {
                     let c = load_lane(f, s[1], i, ty);
                     let c = resize(f, c, ty, Ty::I64, false);
                     let c = if ty == Ty::I64 {
@@ -305,8 +305,8 @@ impl Compiler {
             }
             VOp::PermilImm(ty) => {
                 let (s, k) = self.simd_args(f, ops, 1, true, span)?;
-                let per = 16 / ty.size();
-                for i in 0..width / ty.size() {
+                let per = 16 / ty.numeric_size();
+                for i in 0..width / ty.numeric_size() {
                     let pick = if ty == Ty::I64 {
                         (k >> (i % 8)) & 1
                     } else {
@@ -410,7 +410,7 @@ impl Compiler {
                 };
                 let v = self.vec_scalar_read(f, src, ty, span)?;
                 f.b.copy(tmp, a, 16);
-                store_lane(f, tmp, k % (16 / ty.size()), ty, v);
+                store_lane(f, tmp, k % (16 / ty.numeric_size()), ty, v);
                 self.simd_out(f, cx, dst, tmp, 16, span)?;
             }
             VOp::Pextr(_) | VOp::Extractps => {
@@ -428,7 +428,7 @@ impl Compiler {
                         );
                     }
                 };
-                let v = load_lane(f, src, k % (16 / ty.size()), ty);
+                let v = load_lane(f, src, k % (16 / ty.numeric_size()), ty);
                 match dst {
                     // Into a register the value is zero-extended (a 32-bit write below .q).
                     VOpd::Gpr(_) => {
@@ -502,7 +502,7 @@ impl Compiler {
                     DupKind::EvenF32 => (Ty::I32, 0),
                     DupKind::OddF32 => (Ty::I32, 1),
                 };
-                for i in 0..width / ty.size() {
+                for i in 0..width / ty.numeric_size() {
                     let v = load_lane(f, s[0], i / 2 * 2 + pick, ty);
                     store_lane(f, tmp, i, ty, v);
                 }
@@ -510,7 +510,7 @@ impl Compiler {
             }
             VOp::Extend(from, to, signed) => {
                 let (s, _) = self.simd_args(f, ops, 1, false, span)?;
-                for i in 0..width / to.size() {
+                for i in 0..width / to.numeric_size() {
                     let v = load_lane(f, s[0], i, from);
                     let v = resize(f, v, from, to, signed);
                     store_lane(f, tmp, i, to, v);
@@ -519,7 +519,7 @@ impl Compiler {
             }
             VOp::Narrow(from, to, sat) => {
                 let (s, _) = self.simd_args(f, ops, 1, false, span)?;
-                let n = width / from.size();
+                let n = width / from.numeric_size();
                 for i in 0..n {
                     let v = load_lane(f, s[0], i, from);
                     let v = match sat {
@@ -534,12 +534,12 @@ impl Compiler {
                     };
                     store_lane(f, tmp, i, to, v);
                 }
-                self.simd_out(f, cx, dst, tmp, n * to.size(), span)?;
+                self.simd_out(f, cx, dst, tmp, n * to.numeric_size(), span)?;
             }
             VOp::Pack(from, unsigned) => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
-                let to = Ty::int(from.size() / 2);
-                let per = block / from.size();
+                let to = Ty::int(from.numeric_size() / 2);
+                let per = block / from.numeric_size();
                 for blk in 0..width / block {
                     for (h, src) in [s[0], s[1]].into_iter().enumerate() {
                         for j in 0..per {

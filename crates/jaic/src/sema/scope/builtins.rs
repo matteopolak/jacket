@@ -69,6 +69,7 @@ impl Compiler {
             "CPU",
             "BUILD_OS",
             "BUILD_CPU",
+            "ARCHITECTURE",
             "IS_CROSS_COMPILING",
             "MACHINE_OPTIONS_SIZE",
             "_STACK_TRACE",

@@ -3,7 +3,6 @@
 use super::value::Aggregate;
 use super::{Arc, Compiler, Result, Span, TypeId, Value, err, ir};
 use crate::diagnostics::Code;
-use crate::layout;
 use crate::types::{ArrayKind, TypeKind};
 
 /// The `count` elements of `elem` (`bytes` in all) that a pointer freezes to, read at `p` in the
@@ -58,13 +57,36 @@ impl Compiler {
         Ok(Value::Bytes(Arc::new(agg)))
     }
 
-    /// The `u64` a frozen value holds at `offset`, which `agg` copied from `addr` a moment ago.
+    /// The `s64` a frozen value holds at `offset`, which `agg` copied from `addr` a moment ago.
     fn frozen_u64(&self, agg: &Aggregate, offset: u64, addr: u64, span: Span) -> Result<u64> {
         let at = offset as usize;
         match agg.bytes.get(at..at + 8) {
-            Some(bytes) => Ok(u64::from_le_bytes(bytes.try_into().unwrap())),
+            Some(bytes) => Ok(self.options.layout.read_u64(bytes)),
             None => self.ct.program_u64(addr, span),
         }
+    }
+
+    /// The pointer a frozen value holds at `offset`, which `agg` copied from `addr` a moment ago.
+    fn frozen_ptr(&self, agg: &Aggregate, offset: u64, addr: u64, span: Span) -> Result<u64> {
+        let at = offset as usize;
+        let size = self.options.layout.pointer_size as usize;
+        match agg.bytes.get(at..at + size) {
+            Some(bytes) => Ok(self.options.layout.read_ptr(bytes)),
+            None => self.ct.program_ptr(addr, span),
+        }
+    }
+
+    /// Store the pointer `p` in a frozen value at `offset`.
+    fn put_frozen_ptr(&self, agg: &mut Aggregate, offset: u64, p: u64) {
+        self.options
+            .layout
+            .write_ptr(&mut agg.bytes[offset as usize..], p);
+    }
+
+    /// Zero the pointer in a frozen value at `offset`.
+    fn clear_frozen_ptr(&self, agg: &mut Aggregate, offset: u64) {
+        let at = offset as usize;
+        agg.bytes[at..at + self.options.layout.pointer_size as usize].fill(0);
     }
 
     /// Turn pointers inside a value read from interpreter memory into relocations,
@@ -77,6 +99,7 @@ impl Compiler {
         ty: TypeId,
         span: Span,
     ) -> Result<()> {
+        let layout = *self.ty.types.builtins();
         match self.ty.types.kind(ty).clone() {
             TypeKind::Struct(s) => {
                 self.layout_struct(s, span)?;
@@ -110,14 +133,14 @@ impl Compiler {
             } => {
                 let count = self.frozen_u64(
                     agg,
-                    offset + layout::view::COUNT,
-                    addr + layout::view::COUNT,
+                    offset + layout.view.count,
+                    addr + layout.view.count,
                     span,
                 )?;
-                let data = self.frozen_u64(
+                let data = self.frozen_ptr(
                     agg,
-                    offset + layout::view::DATA,
-                    addr + layout::view::DATA,
+                    offset + layout.view.data,
+                    addr + layout.view.data,
                     span,
                 )?;
                 let esize = self.size_of(elem, span)?;
@@ -126,7 +149,7 @@ impl Compiler {
                 // before into the output, differently from one run to the next.
                 self.freeze_pointer(
                     agg,
-                    offset + layout::view::DATA,
+                    offset + layout.view.data,
                     Run {
                         p: data,
                         elem,
@@ -137,28 +160,30 @@ impl Compiler {
                 )?;
                 if kind == ArrayKind::Resizable {
                     // The frozen copy is not owned by any allocator.
-                    let allocated = (offset + layout::resizable::ALLOCATED) as usize;
-                    let end = (offset + layout::resizable::SIZE) as usize;
+                    let allocated = (offset + layout.resizable.allocated) as usize;
+                    let end = (offset + layout.resizable.size) as usize;
                     agg.bytes[allocated..end].fill(0);
-                    agg.bytes[allocated..allocated + 8].copy_from_slice(&count.to_le_bytes());
+                    self.options
+                        .layout
+                        .write_u64(&mut agg.bytes[allocated..], count);
                 }
             }
             TypeKind::String => {
                 let count = self.frozen_u64(
                     agg,
-                    offset + layout::view::COUNT,
-                    addr + layout::view::COUNT,
+                    offset + layout.view.count,
+                    addr + layout.view.count,
                     span,
                 )?;
-                let data = self.frozen_u64(
+                let data = self.frozen_ptr(
                     agg,
-                    offset + layout::view::DATA,
-                    addr + layout::view::DATA,
+                    offset + layout.view.data,
+                    addr + layout.view.data,
                     span,
                 )?;
                 self.freeze_pointer(
                     agg,
-                    offset + layout::view::DATA,
+                    offset + layout.view.data,
                     Run {
                         p: data,
                         elem: TypeId::U8,
@@ -169,7 +194,7 @@ impl Compiler {
                 )?;
             }
             TypeKind::Pointer(to) => {
-                let p = self.frozen_u64(agg, offset, addr, span)?;
+                let p = self.frozen_ptr(agg, offset, addr, span)?;
                 let size = if to == TypeId::VOID {
                     0
                 } else {
@@ -188,7 +213,7 @@ impl Compiler {
                 )?;
             }
             TypeKind::Type => {
-                let p = self.frozen_u64(agg, offset, addr, span)?;
+                let p = self.frozen_ptr(agg, offset, addr, span)?;
                 if p != 0 {
                     let t = self.type_at(p, span)?;
                     let g = self.type_info_global(t, span)?;
@@ -197,12 +222,12 @@ impl Compiler {
                         target: ir::RelocTarget::Global(g),
                         addend: 0,
                     });
-                    agg.bytes[offset as usize..offset as usize + 8].fill(0);
+                    self.clear_frozen_ptr(agg, offset);
                 }
             }
             TypeKind::Proc(_) => {
-                let p = self.frozen_u64(agg, offset, addr, span)?;
-                agg.bytes[offset as usize..offset as usize + 8].fill(0);
+                let p = self.frozen_ptr(agg, offset, addr, span)?;
+                self.clear_frozen_ptr(agg, offset);
                 if let Some(func) = self.ct.interp.func_of(p) {
                     agg.relocs.push(ir::Reloc {
                         offset,
@@ -211,8 +236,7 @@ impl Compiler {
                     });
                 } else if is_integer_handle(p) {
                     // Sentinels cast to a procedure type (`SIG_IGN`, `SIG_ERR`) stay integers.
-                    agg.bytes[offset as usize..offset as usize + 8]
-                        .copy_from_slice(&p.to_le_bytes());
+                    self.put_frozen_ptr(agg, offset, p);
                 } else {
                     return err(
                         Code::CompileTimeValueUnreadable,
@@ -222,19 +246,19 @@ impl Compiler {
                 }
             }
             TypeKind::Any => {
-                let t = self.frozen_u64(
+                let t = self.frozen_ptr(
                     agg,
-                    offset + layout::any::TYPE,
-                    addr + layout::any::TYPE,
+                    offset + layout.any.type_,
+                    addr + layout.any.type_,
                     span,
                 )?;
-                let v = self.frozen_u64(
+                let v = self.frozen_ptr(
                     agg,
-                    offset + layout::any::VALUE_POINTER,
-                    addr + layout::any::VALUE_POINTER,
+                    offset + layout.any.value_pointer,
+                    addr + layout.any.value_pointer,
                     span,
                 )?;
-                agg.bytes[offset as usize..(offset + layout::any::SIZE) as usize].fill(0);
+                agg.bytes[offset as usize..(offset + layout.any.size) as usize].fill(0);
                 if t != 0 {
                     let vt = self.type_at(t, span)?;
                     let g = self.type_info_global(vt, span)?;
@@ -246,7 +270,7 @@ impl Compiler {
                     let size = self.size_of(vt, span)?;
                     self.freeze_pointer(
                         agg,
-                        offset + layout::any::VALUE_POINTER,
+                        offset + layout.any.value_pointer,
                         Run {
                             p: v,
                             elem: vt,
@@ -267,25 +291,26 @@ impl Compiler {
     /// global, null when it points at memory only the interpreter holds. Other words are data.
     /// See `holds_host_address` for what counts as an address.
     fn freeze_union_words(&mut self, agg: &mut Aggregate, offset: u64, size: u64) -> Result<()> {
-        for at in (offset..offset + size / 8 * 8).step_by(8) {
-            let Some(word) = agg.bytes.get(at as usize..at as usize + 8) else {
+        let word = self.options.layout.ptr_bytes();
+        for at in (offset..offset + size / word * word).step_by(word as usize) {
+            let Some(bytes) = agg.bytes.get(at as usize..(at + word) as usize) else {
                 break;
             };
-            let p = u64::from_le_bytes(word.try_into().unwrap());
+            let p = self.options.layout.read_ptr(bytes);
             if p == 0 || is_integer_handle(p) {
                 continue;
             }
             if let Some((g, off)) = self.ct.interp.global_at(p)
                 && self.ct.temporary_buffer != Some(g)
             {
-                agg.bytes[at as usize..at as usize + 8].fill(0);
+                self.clear_frozen_ptr(agg, at);
                 agg.relocs.push(ir::Reloc {
                     offset: at,
                     target: ir::RelocTarget::Global(g),
                     addend: off as i64,
                 });
             } else if holds_host_address(p, usize::BITS, |p| self.ct.interp.read(p, 1).is_some()) {
-                agg.bytes[at as usize..at as usize + 8].fill(0);
+                self.clear_frozen_ptr(agg, at);
             }
         }
         Ok(())
@@ -305,7 +330,7 @@ impl Compiler {
             bytes,
             count,
         } = run;
-        agg.bytes[offset as usize..offset as usize + 8].fill(0);
+        self.clear_frozen_ptr(agg, offset);
         if p == 0 {
             return Ok(());
         }
@@ -322,7 +347,7 @@ impl Compiler {
         if is_integer_handle(p) {
             // Integers cast to pointers (handle-like constants such as `cast(*void) 32512` or
             // `HKEY_CLASSES_ROOT`) have no memory to freeze.
-            agg.bytes[offset as usize..offset as usize + 8].copy_from_slice(&p.to_le_bytes());
+            self.put_frozen_ptr(agg, offset, p);
             return Ok(());
         }
         if bytes == 0 {
@@ -331,14 +356,14 @@ impl Compiler {
             // program (copying it would make the output depend on where the host put it), so
             // the pointer is null; anything else is a number and stays one.
             if self.ct.interp.read(p, 1).is_none() {
-                agg.bytes[offset as usize..offset as usize + 8].copy_from_slice(&p.to_le_bytes());
+                self.put_frozen_ptr(agg, offset, p);
             }
             return Ok(());
         }
         // Nothing to copy where nothing can be read: an integer cast to a pointer that the
         // range above does not catch (`cast(*T) 80000000`). It stays a number, like those.
         let Some(contents) = self.ct.interp.read(p, bytes as usize) else {
-            agg.bytes[offset as usize..offset as usize + 8].copy_from_slice(&p.to_le_bytes());
+            self.put_frozen_ptr(agg, offset, p);
             return Ok(());
         };
         if let Some(&g) = self.ct.frozen.get(&(p, bytes)) {
@@ -350,7 +375,7 @@ impl Compiler {
             return Ok(());
         }
         let align = if elem == TypeId::VOID {
-            8
+            self.options.layout.pointer_align as u64
         } else {
             self.align_of(elem, span)?
         };

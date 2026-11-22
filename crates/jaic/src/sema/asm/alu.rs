@@ -233,7 +233,7 @@ impl Compiler {
                 let wide = resize(f, idx, sz, Ty::I64, true);
                 let shift = konst(f, Ty::I64, n.trailing_zeros() as u64);
                 let element = bin(f, BinOp::AShr, Ty::I64, wide, shift);
-                let bytes = konst(f, Ty::I64, sz.size());
+                let bytes = konst(f, Ty::I64, sz.numeric_size());
                 let off = bin(f, BinOp::Mul, Ty::I64, element, bytes);
                 Opd::Mem(bin(f, BinOp::Add, Ty::I64, addr, off))
             }

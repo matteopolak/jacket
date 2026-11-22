@@ -1,6 +1,5 @@
 //! Writing fields, pointers and views of the type information tables.
 use crate::diagnostics::Code;
-use crate::layout;
 use crate::sema::value::Aggregate;
 use crate::sema::{Arc, Compiler, Result, Span, Sym, TypeId, Value, err, ir, structs};
 
@@ -161,8 +160,11 @@ impl Compiler {
                 }
             })
             .sum();
-        let count_at = (offset + layout::view::COUNT) as usize;
-        agg.bytes[count_at..count_at + 8].copy_from_slice(&(count as u64).to_le_bytes());
+        let view = self.ty.types.builtins().view;
+        let count_at = (offset + view.count) as usize;
+        self.options
+            .layout
+            .write_u64(&mut agg.bytes[count_at..], count as u64);
         if count > 0 {
             let name = format!("type_info.{name}.{}", self.out.program.globals.len());
             let g = self.out.program.add_global(ir::Global {
@@ -175,7 +177,7 @@ impl Compiler {
                 export: None,
             });
             agg.relocs.push(ir::Reloc {
-                offset: offset + layout::view::DATA,
+                offset: offset + view.data,
                 target: ir::RelocTarget::Global(g),
                 addend: 0,
             });
@@ -184,14 +186,15 @@ impl Compiler {
     }
 
     pub(super) fn info_view(&mut self, types: &[TypeId], span: Span) -> Result<Aggregate> {
+        let slot = u64::from(self.ty.types.data_layout().pointer_size);
         let mut data = Aggregate {
-            bytes: vec![0; types.len() * 8],
+            bytes: vec![0; types.len() * slot as usize],
             relocs: Vec::new(),
         };
         for (i, &t) in types.iter().enumerate() {
             let g = self.type_info_global(t, span)?;
             data.relocs.push(ir::Reloc {
-                offset: i as u64 * 8,
+                offset: i as u64 * slot,
                 target: ir::RelocTarget::Global(g),
                 addend: 0,
             });
@@ -200,14 +203,15 @@ impl Compiler {
     }
 
     pub(super) fn string_view(&mut self, strings: &[Arc<[u8]>], span: Span) -> Result<Aggregate> {
+        let stride = self.ty.types.size_of(TypeId::STRING);
         let mut data = Aggregate {
-            bytes: vec![0; strings.len() * 16],
+            bytes: vec![0; strings.len() * stride as usize],
             relocs: Vec::new(),
         };
         for (i, s) in strings.iter().enumerate() {
             self.write_value(
                 &mut data,
-                i as u64 * 16,
+                i as u64 * stride,
                 &Value::String(s.clone()),
                 TypeId::STRING,
                 span,

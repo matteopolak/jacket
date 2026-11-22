@@ -142,6 +142,10 @@ struct Candidate {
 }
 
 /// The `PUNCT` entries that start with each byte, longest first (`PUNCT`'s order).
+#[allow(
+    clippy::disallowed_methods,
+    reason = "packs source text bytes into a key, not program data"
+)]
 fn candidates() -> &'static [Vec<Candidate>; 256] {
     static BY_FIRST: std::sync::OnceLock<[Vec<Candidate>; 256]> = std::sync::OnceLock::new();
     BY_FIRST.get_or_init(|| {
@@ -168,6 +172,10 @@ fn candidates() -> &'static [Vec<Candidate>; 256] {
 }
 
 /// The longest punctuation `rest` starts with: its length in bytes and token.
+#[allow(
+    clippy::disallowed_methods,
+    reason = "packs source text bytes into a key, not program data"
+)]
 pub(super) fn match_punct(rest: &[u8]) -> Option<(usize, P)> {
     let first = *rest.first()?;
     let mut window = [0u8; 4];

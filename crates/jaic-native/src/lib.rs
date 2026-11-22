@@ -57,7 +57,7 @@ pub fn used_libraries(program: &Program) -> Vec<Library> {
 mod tests {
     use super::*;
     use crate::link::{LinkArg, order_link_groups, toolchain_for};
-    use crate::linker::{library_args, mingw_cpu, render_link_arg};
+    use crate::linker::{library_args, linker_command, mingw_cpu, render_link_arg};
     use jaic::target::Target as BuildTarget;
     use jaic::target::TargetCpu;
     use jaic::toolchain::Linker;
@@ -171,6 +171,48 @@ mod tests {
         let mut cmd = Command::new("link");
         render_link_arg(&mut cmd, &LinkArg::Lib("user32".into()), true);
         assert_eq!(cmd.get_args().next().unwrap(), "user32.lib");
+    }
+
+    #[test]
+    fn a_cross_build_compiles_the_crash_runtime_from_source() {
+        let stdlib =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib/internal/runtime");
+        let lib = Library {
+            name: "crash-native/portable_crash".into(),
+            system: false,
+            link_always: false,
+            no_dll: false,
+            base_dir: stdlib.display().to_string(),
+        };
+        let toolchain = BuildTarget::parse("i686-unknown-linux-gnu")
+            .unwrap()
+            .toolchain();
+        let args = library_args(&lib, toolchain, true).unwrap();
+        // ARM's EABI unwinder finds no frame in code built without unwind tables, so the
+        // runtime's own `backtrace` call would come back empty.
+        let [LinkArg::Option(flag), LinkArg::File(source)] = args.as_slice() else {
+            panic!("{args:?}");
+        };
+        assert_eq!(flag, "-funwind-tables");
+        assert!(source.ends_with("crash-native/runtime.c"), "{source}");
+    }
+
+    /// The default `cc` links 32-bit x86 Linux programs with `-m32` (the runner needs the
+    /// multilib packages), and leaves other targets alone.
+    #[test]
+    fn linking_i686_linux_with_cc_asks_for_32_bit_output() {
+        if jacket_config::env::LINKER.os().is_some() {
+            return;
+        }
+        let flags = |triple: &str| {
+            let target = BuildTarget::parse(triple).unwrap();
+            let (_, cmd) = linker_command(Linker::Unix, Some(target)).unwrap();
+            cmd.get_args()
+                .map(|a| a.to_string_lossy().into_owned())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(flags("i686-unknown-linux-gnu"), ["-m32"]);
+        assert!(flags("x86_64-unknown-linux-gnu").is_empty());
     }
 
     #[test]

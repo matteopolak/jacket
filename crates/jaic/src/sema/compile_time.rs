@@ -14,8 +14,6 @@ pub const CONTEXT_CAPACITY: u64 = 4096;
 /// A top-level `#assert`: condition, message, extra arguments, and the scope it is checked in.
 pub type TopLevelAssert = (ast::Expr, Option<ast::Expr>, Vec<ast::Expr>, ScopeId);
 
-#[derive(Default)]
-
 pub struct CompileTime {
     pub interp: Probed<Interp, { W::CtInterp as usize }>,
     /// Interpreter address of the compile-time `#Context`.
@@ -42,6 +40,27 @@ pub struct CompileTime {
     /// Expressions left to check until the check's time limit is asked again
     /// (`Compiler::check_expr`).
     pub(crate) expr_polls: u8,
+}
+
+impl CompileTime {
+    /// No compile-time code has run yet; the interpreter's memory is laid out as `layout`.
+    pub fn new(layout: crate::layout::DataLayout) -> Self {
+        Self {
+            interp: Probed::new(Interp::native(layout)),
+            context: None,
+            context_global: None,
+            temporary_buffer: None,
+            executions: 0,
+            traps: 0,
+            top_level_runs: Probed::default(),
+            asserts: Probed::default(),
+            runs_done: 0,
+            asserts_done: 0,
+            frozen: Probed::default(),
+            twin: Probed::default(),
+            expr_polls: 0,
+        }
+    }
 }
 
 impl Drop for Compiler {

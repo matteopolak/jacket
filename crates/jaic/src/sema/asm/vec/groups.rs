@@ -58,7 +58,7 @@ impl Compiler {
             }
             VOp::MovScalarFloat(ty) => {
                 want(2, 3)?;
-                let size = ty.size();
+                let size = ty.numeric_size();
                 match (n, ops[0], ops[1]) {
                     (2, VOpd::Reg(dst), VOpd::Reg(src)) => {
                         // Register to register keeps the destination's other lanes.
@@ -154,7 +154,7 @@ impl Compiler {
                     store_lane(f, tmp, 0, ty, r);
                     self.vec_store(f, cx, ops[0], tmp, 16, span)?;
                 } else {
-                    for i in 0..width / ty.size() {
+                    for i in 0..width / ty.numeric_size() {
                         let x = load_lane(f, a, i, ty);
                         let y = load_lane(f, b, i, ty);
                         let r = lane_op(f, lane, ty, x, y);
@@ -176,7 +176,7 @@ impl Compiler {
                 } else {
                     want(2, 2)?;
                     let src = self.vec_ptr(f, ops[1], span)?;
-                    for i in 0..width / ty.size() {
+                    for i in 0..width / ty.numeric_size() {
                         let x = load_lane(f, src, i, ty);
                         let r = float_unary(f, Intrinsic::Sqrt, ty, x);
                         store_lane(f, tmp, i, ty, r);
@@ -187,7 +187,7 @@ impl Compiler {
             VOp::Abs(ty) => {
                 want(2, 2)?;
                 let src = self.vec_ptr(f, ops[1], span)?;
-                for i in 0..width / ty.size() {
+                for i in 0..width / ty.numeric_size() {
                     let x = load_lane(f, src, i, ty);
                     let neg = is_neg(f, ty, x);
                     let zero = konst(f, ty, 0);
@@ -217,7 +217,7 @@ impl Compiler {
                 let over = cmp(f, CmpOp::UGt, Ty::I64, count, max);
                 let clamped = select(f, Ty::I64, over, max, count);
                 let amount = resize(f, clamped, Ty::I64, ty, false);
-                for i in 0..width / ty.size() {
+                for i in 0..width / ty.numeric_size() {
                     let x = load_lane(f, src, i, ty);
                     let r = match kind {
                         Shift::Left | Shift::Logical => {

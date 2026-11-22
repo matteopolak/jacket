@@ -9,6 +9,7 @@ fn os_name(os: TargetOs) -> &'static str {
         TargetOs::Linux => "LINUX",
         TargetOs::MacOS => "MACOS",
         TargetOs::Wasm => "WASM",
+        TargetOs::None => "NONE",
     }
 }
 
@@ -16,7 +17,12 @@ fn cpu_name(cpu: TargetCpu) -> &'static str {
     match cpu {
         TargetCpu::X64 => "X64",
         TargetCpu::Arm64 => "ARM64",
-        TargetCpu::Wasm => "CUSTOM",
+        TargetCpu::X86
+        | TargetCpu::S390x
+        | TargetCpu::PowerPc64
+        | TargetCpu::Arm
+        | TargetCpu::Avr
+        | TargetCpu::Wasm => "CUSTOM",
     }
 }
 

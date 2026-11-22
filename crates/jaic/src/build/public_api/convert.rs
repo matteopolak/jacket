@@ -149,6 +149,10 @@ impl<'a, 'b> Convert<'a, 'b> {
 
     // Reading records. Pointers are logged by presence only: a rerun places records elsewhere.
 
+    #[allow(
+        clippy::disallowed_methods,
+        reason = "a host-side fingerprint of the records read, not program data"
+    )]
     fn num(&mut self, at: u64, ty: TypeId, field: &str) -> R<u64> {
         let value = self.cx.number(self.interp, ty, at, field)?;
         self.print.extend_from_slice(&value.to_le_bytes());
@@ -161,6 +165,10 @@ impl<'a, 'b> Convert<'a, 'b> {
         Ok(value)
     }
 
+    #[allow(
+        clippy::disallowed_methods,
+        reason = "a host-side fingerprint of the records read, not program data"
+    )]
     fn raw(&mut self, at: u64, ty: TypeId, field: &str) -> R<Vec<u8>> {
         let (count, data) = view(self.interp, self.cx.field(ty, at, field)?.0)?;
         let size = usize::try_from(count).map_err(|_| Trap::new("invalid syntax string size"))?;
@@ -174,6 +182,10 @@ impl<'a, 'b> Convert<'a, 'b> {
         Ok(String::from_utf8_lossy(&self.raw(at, ty, field)?).into_owned())
     }
 
+    #[allow(
+        clippy::disallowed_methods,
+        reason = "a host-side fingerprint of the records read, not program data"
+    )]
     fn list(&mut self, at: u64, ty: TypeId, field: &str) -> R<Vec<u64>> {
         let (address, array) = self.cx.field(ty, at, field)?;
         let Kind::Array {

@@ -237,7 +237,10 @@ impl Compiler {
             let v = match (results.first(), main_sig.returns.first()) {
                 (Some(&r), Some(&mt)) if self.ty.types.is_integer(mt) => {
                     let have = f.b.val_ty(r);
-                    match have.size().cmp(&want.size()) {
+                    match have
+                        .size(&self.options.layout)
+                        .cmp(&want.size(&self.options.layout))
+                    {
                         std::cmp::Ordering::Greater => f.b.conv(ir::ConvOp::Trunc, have, want, r),
                         std::cmp::Ordering::Less => {
                             let signed = self.ty.types.int_info(mt).is_some_and(|i| i.1);

@@ -7,7 +7,6 @@ use super::{
     Value, ast, err, ir, scope,
 };
 use crate::diagnostics::Code;
-use crate::layout;
 use crate::types::{ArrayKind, TypeKind};
 
 pub(crate) fn filter_target(filter: &ast::UsingFilter, name: Sym) -> Option<Sym> {
@@ -126,14 +125,15 @@ impl Compiler {
         let (count, data) = if let ArrayKind::Fixed(n) = kind {
             (n, addr)
         } else {
-            let Some(n) = self.ct.interp.read_u64(addr + layout::view::COUNT) else {
+            let view = self.ty.types.builtins().view;
+            let Some(n) = self.ct.interp.read_u64(addr + view.count) else {
                 return err(
                     Code::UsingFilterInvalid,
                     span,
                     "unreadable using filter count",
                 );
             };
-            let Some(data) = self.ct.interp.read_u64(addr + layout::view::DATA) else {
+            let Some(data) = self.ct.interp.read_ptr(addr + view.data) else {
                 return err(
                     Code::UsingFilterInvalid,
                     span,
@@ -142,7 +142,7 @@ impl Compiler {
             };
             (n, data)
         };
-        if count > super::value::MAX_IMAGE / 16 {
+        if count > super::value::MAX_IMAGE / self.ty.types.builtins().view.size.max(1) {
             return err(
                 Code::UsingFilterInvalid,
                 span,
@@ -152,7 +152,7 @@ impl Compiler {
         let mut names = Vec::new();
         for i in 0..count {
             let Some(at) = i
-                .checked_mul(16)
+                .checked_mul(self.ty.types.builtins().view.size)
                 .and_then(|offset| data.checked_add(offset))
             else {
                 return err(

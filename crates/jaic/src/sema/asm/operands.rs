@@ -451,7 +451,7 @@ impl Compiler {
                 };
                 let new = if sz == st {
                     v
-                } else if sz.size() > st.size() {
+                } else if sz.numeric_size() > st.numeric_size() {
                     resize(f, v, sz, st, false)
                 } else if sz == Ty::I32 {
                     // 32-bit writes clear the upper half of the register.
@@ -535,7 +535,7 @@ impl Compiler {
     pub(super) fn rmw_end(&mut self, f: &mut FnCtx, rmw: Rmw, new: Val, span: Span) -> Result<()> {
         match rmw.cas {
             Some((ptr, old, retry, exit)) => {
-                let width = konst(f, Ty::I64, rmw.sz.size());
+                let width = konst(f, Ty::I64, rmw.sz.numeric_size());
                 let r = f.b.intrinsic(
                     Intrinsic::CompareAndSwap,
                     vec![ptr, old, new, width],

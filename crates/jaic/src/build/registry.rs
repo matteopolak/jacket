@@ -227,6 +227,7 @@ impl Workspaces {
         ) -> Result<T, String> {
             decode(raw).ok_or_else(|| format!("internal: {option:?} has no value {raw}"))
         }
+        let current_cpu = self.env.options.cpu;
         let s = self.workspace_settings(id)?;
         match option {
             WorkspaceNumber::OutputType => {
@@ -238,13 +239,24 @@ impl Workspaces {
                     OsTag::Linux => TargetOs::Linux,
                     OsTag::MacOS => TargetOs::MacOS,
                     OsTag::Wasm => TargetOs::Wasm,
+                    OsTag::None => TargetOs::None,
                 });
             }
             WorkspaceNumber::CpuTarget => {
                 s.cpu = Some(match member(option, raw, CpuTag::from_raw)? {
                     CpuTag::X64 => TargetCpu::X64,
                     CpuTag::Arm64 => TargetCpu::Arm64,
-                    CpuTag::Custom => TargetCpu::Wasm,
+                    // `.CUSTOM` names every CPU the enum lacks: keep the one this build has
+                    // when it is one of them, so setting the options back changes nothing.
+                    CpuTag::Custom => match s.cpu.unwrap_or(current_cpu) {
+                        cpu @ (TargetCpu::X86
+                        | TargetCpu::S390x
+                        | TargetCpu::PowerPc64
+                        | TargetCpu::Arm
+                        | TargetCpu::Avr
+                        | TargetCpu::Wasm) => cpu,
+                        _ => TargetCpu::Wasm,
+                    },
                 });
             }
             WorkspaceNumber::TemporaryStorageSize => s.temporary_storage_size = Some(raw as i64),
@@ -321,7 +333,14 @@ impl Workspaces {
         Ok(())
     }
 
-    pub(super) fn keep_string(&mut self, bytes: &[u8]) -> (u64, u64) {
+    pub(super) fn keep_string(
+        &mut self,
+        interp: &mut crate::interp::Interp,
+        bytes: &[u8],
+    ) -> (u64, u64) {
+        if let Some(data) = interp.keep_narrow(bytes) {
+            return (bytes.len() as u64, data);
+        }
         let boxed: Box<[u8]> = bytes.into();
         let ptr = boxed.as_ptr() as u64;
         self.strings.push(boxed);
@@ -337,7 +356,7 @@ pub const WASI_RUNTIME_IMPORT: &str =
 /// The embedder's host provider for the machine running the compiler, for the host twin
 /// (`sema::host_twin`), which shares `parent`'s workspaces instead of owning a registry.
 pub(crate) fn host_provider(parent: &SharedWorkspaces, os: TargetOs) -> Box<dyn Host> {
-    (parent.borrow().env.make_host)(os)
+    (parent.borrow().env.make_host)(os, false)
 }
 
 /// A host evaluation owns a fresh registry, preserving the embedder's real host
@@ -347,7 +366,7 @@ pub(crate) fn isolated_host_environment(
     options: Options,
     fs: Rc<dyn FileSystem>,
 ) -> (SharedWorkspaces, Box<dyn Host>) {
-    let host = (parent.borrow().env.make_host)(options.os);
+    let host = (parent.borrow().env.make_host)(options.os, options.layout.is_foreign_memory());
     let factory_parent = parent.clone();
     let report_parent = parent.clone();
     let command_line = parent.borrow().env.command_line.clone();
@@ -357,7 +376,7 @@ pub(crate) fn isolated_host_environment(
         backend: None,
         unwritten_output_hint: None,
         command_line,
-        make_host: Box::new(move |os| (factory_parent.borrow().env.make_host)(os)),
+        make_host: Box::new(move |os, narrow| (factory_parent.borrow().env.make_host)(os, narrow)),
         report: Box::new(move |severity, message| {
             (report_parent.borrow_mut().env.report)(severity, message);
         }),
@@ -442,12 +461,8 @@ pub(super) fn new_compiler(shared: &SharedWorkspaces, id: i64) -> Result<Box<Com
         let settings = reg.ws(id)?.settings.clone();
         let options = reg.env.options.clone();
         let os = settings.os.unwrap_or(options.os);
-        (
-            settings,
-            options,
-            reg.env.fs.clone(),
-            (reg.env.make_host)(os),
-        )
+        let host = (reg.env.make_host)(os, options.layout.is_foreign_memory());
+        (settings, options, reg.env.fs.clone(), host)
     };
     if let Some(paths) = &settings.import_paths {
         // The module search path the metaprogram set, then the defaults (stdlib).
@@ -503,7 +518,7 @@ pub(super) fn new_compiler(shared: &SharedWorkspaces, id: i64) -> Result<Box<Com
         options.backtrace_on_crash = on && options.os != TargetOs::Wasm;
     }
     let mut compiler = Box::new(Compiler::new(options, fs));
-    compiler.ct.interp.host = host;
+    compiler.ct.interp.set_host(host);
     compiler.meta.workspace = id;
     compiler.attach_workspaces(shared.clone());
     let observer = shared.borrow_mut().env.observer.take();

@@ -245,6 +245,13 @@ pub(super) fn linker_command(
             {
                 cmd.arg(format!("--target={target}"));
             }
+            // 32-bit x86 Linux on a 64-bit runner: the C driver's multilib mode.
+            if let Some(target) = target
+                && target.os == jaic::target::TargetOs::Linux
+                && target.cpu == jaic::target::TargetCpu::X86
+            {
+                cmd.arg("-m32");
+            }
             Ok(("cc".into(), cmd))
         }
         Linker::MinGw => {
@@ -431,6 +438,17 @@ pub(super) fn library_args(
                 args.push(LinkArg::Rpath(parent.display().to_string()));
             }
             return Ok(args);
+        }
+        // The compiler's own copy of the crash runtime is built for the host. A cross build
+        // hands the source to the target's C driver, which compiles it as it links.
+        if cross && linker == Linker::Unix && file == "portable_crash" {
+            let source = dir.join("runtime.c");
+            if source.exists() {
+                return Ok(vec![
+                    LinkArg::Option("-funwind-tables".into()),
+                    LinkArg::File(source.display().to_string()),
+                ]);
+            }
         }
         // Not beside the source: a helper the compiler provides (the crash runtime) is found
         // by file name in the library directories, as the interpreter does.

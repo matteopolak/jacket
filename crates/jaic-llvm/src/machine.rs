@@ -115,6 +115,31 @@ pub(super) fn baseline_cpu(target: BuildTarget) -> &'static str {
 }
 
 /// The target machine for `options`, and what it targets.
+/// Registers the AVR backend. Neither `inkwell` nor `llvm-sys` declares its initializers, but a
+/// release LLVM build that includes the target (`docs/tools/llvm-setup.md`) defines them.
+#[allow(
+    unsafe_code,
+    reason = "LLVM's C entry points for a backend the bindings omit"
+)]
+fn initialize_avr() {
+    unsafe extern "C" {
+        fn LLVMInitializeAVRTargetInfo();
+        fn LLVMInitializeAVRTarget();
+        fn LLVMInitializeAVRTargetMC();
+        fn LLVMInitializeAVRAsmPrinter();
+        fn LLVMInitializeAVRAsmParser();
+    }
+    // SAFETY: each takes no arguments and only fills LLVM's target registry; the caller holds
+    // the `Once` that serializes registration.
+    unsafe {
+        LLVMInitializeAVRTargetInfo();
+        LLVMInitializeAVRTarget();
+        LLVMInitializeAVRTargetMC();
+        LLVMInitializeAVRAsmPrinter();
+        LLVMInitializeAVRAsmParser();
+    }
+}
+
 pub(super) fn target_machine(
     options: &Options,
 ) -> Result<(TargetMachine, TargetTriple, BuildTarget, jaic::abi::Arch), String> {
@@ -131,6 +156,10 @@ pub(super) fn target_machine(
         Target::initialize_x86(&config);
         Target::initialize_aarch64(&config);
         Target::initialize_webassembly(&config);
+        Target::initialize_system_z(&config);
+        Target::initialize_arm(&config);
+        Target::initialize_power_pc(&config);
+        initialize_avr();
     });
     let (triple, build_target) = match options.target {
         Some(t) => (TargetTriple::create(&t.to_string()), t),
@@ -160,7 +189,7 @@ pub(super) fn target_machine(
             &triple,
             &cpu,
             &features,
-            llvm_level(wasm_machine_level(arch, options, level)),
+            llvm_level(unoptimized_machine_level(arch, options, level)),
             reloc,
             CodeModel::Default,
         )
@@ -171,14 +200,24 @@ pub(super) fn target_machine(
     Ok((machine, triple, build_target, arch))
 }
 
-/// The level the target machine of a wasm module runs at. LLVM's WebAssembly backend gives every
+/// The level the target machine of a wasm or 32-bit x86 module runs at. LLVM's WebAssembly backend gives every
 /// virtual register its own local at `None` (register coloring and stackification are skipped),
 /// so an unoptimized module whose function inlines a lot of code (the `#asm` of an x86 hash,
 /// emulated instruction by instruction) passes the engines' limit of 50000 locals per function.
 /// One level up shares locals and still leaves the IR as unoptimized as it was; a machine level
 /// the program chose with `machine_code_optimization_setting` is kept as it is.
-fn wasm_machine_level(arch: jaic::abi::Arch, options: &Options, level: OptLevel) -> OptLevel {
-    if arch.is_wasm() && level == OptLevel::O0 && options.codegen.machine_level.is_none() {
+///
+/// 32-bit x86 gets the same step for another reason: its position-independent code keeps `ebx`
+/// for the GOT, and the fast register allocator that `None` selects runs out of registers for a
+/// 64-bit `cmpxchg8b` (`ran out of registers during register allocation`). The next level uses
+/// the greedy allocator and the IR stays unoptimized.
+fn unoptimized_machine_level(
+    arch: jaic::abi::Arch,
+    options: &Options,
+    level: OptLevel,
+) -> OptLevel {
+    let needs_better_allocator = arch.is_wasm() || arch == jaic::abi::Arch::X86;
+    if needs_better_allocator && level == OptLevel::O0 && options.codegen.machine_level.is_none() {
         OptLevel::O1
     } else {
         level
@@ -229,15 +268,15 @@ mod tests {
     fn an_unoptimized_wasm_module_gets_register_coloring_unless_the_program_chose_a_level() {
         let options = Options::default();
         assert_eq!(
-            wasm_machine_level(Arch::Wasm64, &options, OptLevel::O0),
+            unoptimized_machine_level(Arch::Wasm, &options, OptLevel::O0),
             OptLevel::O1
         );
         assert_eq!(
-            wasm_machine_level(Arch::X86_64, &options, OptLevel::O0),
+            unoptimized_machine_level(Arch::X86_64, &options, OptLevel::O0),
             OptLevel::O0
         );
         assert_eq!(
-            wasm_machine_level(Arch::Wasm64, &options, OptLevel::O2),
+            unoptimized_machine_level(Arch::Wasm, &options, OptLevel::O2),
             OptLevel::O2
         );
         let chosen = Options {
@@ -248,8 +287,95 @@ mod tests {
             ..Options::default()
         };
         assert_eq!(
-            wasm_machine_level(Arch::Wasm64, &chosen, OptLevel::O0),
+            unoptimized_machine_level(Arch::Wasm, &chosen, OptLevel::O0),
             OptLevel::O0
         );
+    }
+
+    /// `DataLayout` and LLVM must agree on every scalar the compiler lays out, or the data it
+    /// emits would not match the code LLVM generates for it.
+    #[test]
+    fn the_data_layout_agrees_with_llvms_for_every_supported_triple() {
+        use inkwell::context::Context;
+        use inkwell::targets::ByteOrdering;
+        // Registers the targets.
+        target_machine(&Options::default()).expect("a host target machine");
+        let context = Context::create();
+        for triple in [
+            "x86_64-unknown-linux-gnu",
+            "x86_64-unknown-linux-musl",
+            "aarch64-unknown-linux-gnu",
+            "x86_64-pc-windows-msvc",
+            "aarch64-pc-windows-msvc",
+            "x86_64-apple-macosx11.0",
+            "aarch64-apple-macosx11.0",
+            "wasm64-unknown-wasi",
+            "wasm32-wasi",
+            "wasm32-unknown-unknown",
+            "i686-unknown-linux-gnu",
+            "i686-unknown-linux-musl",
+            "s390x-unknown-linux-gnu",
+            "powerpc64-unknown-linux-gnu",
+            "armv7-unknown-linux-gnueabihf",
+            "avr-none-elf",
+        ] {
+            let ours = BuildTarget::parse(triple).unwrap().data_layout();
+            let llvm_triple =
+                TargetTriple::create(&BuildTarget::parse(triple).unwrap().to_string());
+            let target = Target::from_triple(&llvm_triple).unwrap();
+            let machine = target
+                .create_target_machine(
+                    &llvm_triple,
+                    "generic",
+                    "",
+                    inkwell::OptimizationLevel::None,
+                    RelocMode::Static,
+                    CodeModel::Default,
+                )
+                .unwrap();
+            let data = machine.get_target_data();
+            let size_align = |ty: &dyn inkwell::types::AnyType<'_>| {
+                let ty = ty.as_any_type_enum();
+                (data.get_abi_size(&ty), data.get_abi_alignment(&ty) as u64)
+            };
+            let ints = [
+                context.i8_type(),
+                context.i16_type(),
+                context.i32_type(),
+                context.i64_type(),
+            ];
+            for (bytes, ty) in [1u64, 2, 4, 8].into_iter().zip(ints) {
+                let (size, align) = size_align(&ty);
+                assert_eq!(size, bytes, "{triple}: i{} size", bytes * 8);
+                assert_eq!(
+                    align,
+                    ours.int_align_of(bytes),
+                    "{triple}: i{} align",
+                    bytes * 8
+                );
+            }
+            let (size, align) = size_align(&context.f32_type());
+            assert_eq!((size, align), (4, ours.float_align_of(4)), "{triple}: f32");
+            let (size, align) = size_align(&context.f64_type());
+            assert_eq!((size, align), (8, ours.float_align_of(8)), "{triple}: f64");
+            let pointer = context.ptr_type(inkwell::AddressSpace::default());
+            let (size, align) = size_align(&pointer);
+            assert_eq!(size, ours.ptr_bytes(), "{triple}: pointer size");
+            assert_eq!(align, ours.pointer_align as u64, "{triple}: pointer align");
+            if matches!(ours.f80_size, 12 | 16) && triple.starts_with(['x', 'i']) {
+                let (size, align) = size_align(&context.x86_f80_type());
+                assert_eq!(
+                    (size, align),
+                    (ours.f80_size as u64, ours.f80_align as u64),
+                    "{triple}: x86_fp80"
+                );
+            }
+            let big = data.get_byte_ordering() == ByteOrdering::BigEndian;
+            assert_eq!(
+                ours.endian == jaic::layout::Endian::Big,
+                big,
+                "{triple}: byte order"
+            );
+        }
     }
 }

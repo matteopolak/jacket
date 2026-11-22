@@ -3,7 +3,7 @@
 use super::crash;
 use super::rets::Rets;
 use super::trap::{Trap, TrapKind};
-use super::{FOREIGN_TAG, FUNC_TAG, Interp, Res, TAG_MASK, native, probe};
+use super::{Interp, Res, native, probe, proc_addr, sandbox};
 use crate::ir::{self, ForeignId, FuncId, Program};
 
 /// C functions whose calls leave nothing observable outside the interpreter's memory, so a
@@ -243,7 +243,7 @@ impl Interp {
                     foreign.symbol
                 ));
             }
-            None => FOREIGN_TAG | id.0 as u64,
+            None => proc_addr::foreign_word(self.proc_width(), id),
         };
         if self.foreign_addrs.len() <= id.0 as usize {
             self.foreign_addrs.resize(id.0 as usize + 1, 0);
@@ -325,7 +325,10 @@ impl Interp {
         if symbol == "abort" {
             crash::skip_core_dump();
         }
-        if let Some(result) = self.host.foreign(symbol, args, sig) {
+        let base = self.base;
+        if let Some(result) =
+            sandbox::guest::with_base(base, || self.host.foreign(symbol, args, sig))
+        {
             let exits = matches!(symbol, "exit" | "_exit");
             return result.map(Rets::from).map_err(|m| {
                 Trap::new(m).at(self.loc).of_kind(
@@ -344,7 +347,10 @@ impl Interp {
             return Ok(Rets::from(vec![result]));
         }
         let addr = self.foreign_addr(program, id)?;
-        if addr & TAG_MASK == FOREIGN_TAG {
+        if matches!(
+            proc_addr::proc_of(self.proc_width(), addr),
+            Some(proc_addr::Proc::Foreign(_))
+        ) {
             let foreign = &program.foreigns[id.0 as usize];
             let from = foreign
                 .library
@@ -433,13 +439,17 @@ impl Interp {
         // A `#c_call` procedure handed to C is a native thunk already (`proc_value`), unless C
         // cannot call it: that stayed tagged, and asking for its thunk again says why.
         let mut thunked: Vec<u64>;
-        let argv = if args.iter().any(|v| v & TAG_MASK == FUNC_TAG) {
+        let narrow = self.proc_width();
+        let func_of = |v: u64| match proc_addr::proc_of(narrow, v) {
+            Some(proc_addr::Proc::Func(id)) => Some(id),
+            _ => None,
+        };
+        let argv = if args.iter().any(|&v| func_of(v).is_some()) {
             thunked = args.to_vec();
             for v in &mut thunked {
-                if *v & TAG_MASK != FUNC_TAG {
+                let Some(id) = func_of(*v) else {
                     continue;
-                }
-                let id = FuncId((*v & !TAG_MASK) as u32);
+                };
                 let Some(sig) = program.func_sig(id).filter(|s| s.conv == ir::Conv::C) else {
                     continue;
                 };
@@ -527,7 +537,7 @@ impl Interp {
         {
             return v;
         }
-        let tagged = FUNC_TAG | id.0 as u64;
+        let tagged = proc_addr::func_word(self.proc_width(), id);
         // The signature is known from the moment the procedure is reserved, so the value is
         // the same whether it is taken before or after the body is lowered.
         let value = match program.func_sig(id) {
@@ -595,8 +605,8 @@ impl Interp {
     /// The interpreted procedure a procedure value names: a tagged id, or a thunk this
     /// interpreter made.
     pub fn func_of(&self, value: u64) -> Option<FuncId> {
-        if value & TAG_MASK == FUNC_TAG {
-            return Some(FuncId((value & 0xFFFF_FFFF) as u32));
+        if let Some(proc_addr::Proc::Func(id)) = proc_addr::proc_of(self.proc_width(), value) {
+            return Some(id);
         }
         self.thunk_funcs.get(&value).copied()
     }
@@ -640,7 +650,7 @@ mod native_handoff_tests {
 
     #[test]
     fn a_blocking_call_keeps_parked_arguments_and_execution_state_alive() {
-        let mut interp = Interp::default();
+        let mut interp = Interp::native(crate::layout::DataLayout::host());
         interp.stack = ValueStack::heap(4);
         interp.stack[2] = 41;
         interp.sp = 3;
@@ -665,7 +675,7 @@ mod native_handoff_tests {
 
     #[test]
     fn a_native_argument_error_still_reacquires_and_restores_the_stack() {
-        let mut interp = Interp::default();
+        let mut interp = Interp::native(crate::layout::DataLayout::host());
         interp.stack = ValueStack::heap(1);
         interp.stack[0] = 77;
         interp.shared();
@@ -711,7 +721,7 @@ mod native_handoff_tests {
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     #[test]
     fn a_native_call_sees_errno_the_program_wrote_since_the_last_one() {
-        let mut interp = Interp::default();
+        let mut interp = Interp::native(crate::layout::DataLayout::host());
         let failed = &signature(vec![ir::Ty::I32], vec![ir::Ty::I32]);
         let read = &signature(vec![], vec![ir::Ty::I32]);
         for scheduling in [NativeScheduling::Short, NativeScheduling::Exclusive] {
@@ -765,7 +775,7 @@ mod native_handoff_tests {
     #[cfg(windows)]
     #[test]
     fn the_next_native_call_sees_the_last_error_the_last_one_left() {
-        let mut interp = Interp::default();
+        let mut interp = Interp::native(crate::layout::DataLayout::host());
         let failed = &signature(vec![ir::Ty::I32], vec![ir::Ty::I32]);
         let read = &signature(vec![], vec![ir::Ty::I32]);
         for scheduling in [NativeScheduling::Short, NativeScheduling::Exclusive] {
@@ -800,7 +810,7 @@ mod native_handoff_tests {
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     #[test]
     fn interrupted_and_timed_out_returns_preserve_errno_after_reacquiring() {
-        let mut interp = Interp::default();
+        let mut interp = Interp::native(crate::layout::DataLayout::host());
         interp.shared();
         for error in [4, crate::interp::errno::ETIMEDOUT_HOST as i32] {
             let result = interp

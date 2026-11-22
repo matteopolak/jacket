@@ -8,6 +8,10 @@ use std::sync::Arc;
 mod suggestion;
 
 /// The offset of the first `\n` or `\r` in `bytes`, found eight bytes at a time.
+#[allow(
+    clippy::disallowed_methods,
+    reason = "scans host text a word at a time, not program data"
+)]
 fn find_line_break(bytes: &[u8]) -> Option<usize> {
     const ONES: u64 = u64::from_ne_bytes([0x01; 8]);
     const HIGHS: u64 = u64::from_ne_bytes([0x80; 8]);

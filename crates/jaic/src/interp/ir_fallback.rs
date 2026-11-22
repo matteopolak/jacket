@@ -6,8 +6,8 @@
 use super::arith::{bin_total, cmp, conv, divides, int_bin, mask};
 use super::frames::Frame;
 use super::trap::TrapKind;
-use super::{FOREIGN_TAG, FUNC_TAG, Interp, Res, TAG_MASK};
-use crate::ir::{self, BinOp, Callee, ForeignId, FuncId, Inst, Program, Ty, UnOp};
+use super::{Interp, Res, proc_addr};
+use crate::ir::{self, BinOp, Callee, Inst, Program, Ty, UnOp};
 
 impl Interp {
     pub(super) fn exec_ir(
@@ -42,7 +42,7 @@ impl Interp {
                     );
                 };
                 self.sp = end;
-                vals[dst.0 as usize] = base + start;
+                vals[dst.0 as usize] = self.program_addr(base + start);
             }
             Inst::IConst {
                 dst,
@@ -109,7 +109,10 @@ impl Interp {
             Inst::SlotAddr {
                 dst,
                 slot,
-            } => vals[dst.0 as usize] = stack_base + frame.offsets[slot.0 as usize],
+            } => {
+                vals[dst.0 as usize] =
+                    self.program_addr(stack_base + frame.offsets[slot.0 as usize])
+            }
             Inst::GlobalAddr {
                 dst,
                 global,
@@ -150,7 +153,13 @@ impl Interp {
                 self.check_writable(d, *size as usize)?;
                 // SAFETY: operands are host addresses of live program memory, which `ptr::copy` may
                 // overlap; the null case was trapped above.
-                unsafe { std::ptr::copy(s as *const u8, d as *mut u8, *size as usize) };
+                unsafe {
+                    std::ptr::copy(
+                        self.host_addr(s) as *const u8,
+                        self.host_addr(d) as *mut u8,
+                        *size as usize,
+                    )
+                };
             }
             Inst::Zero {
                 dst,
@@ -163,7 +172,7 @@ impl Interp {
                 self.check_writable(d, *size as usize)?;
                 // SAFETY: `d` is non-null (trapped above) and addresses `size` writable bytes of
                 // program memory.
-                unsafe { std::ptr::write_bytes(d as *mut u8, 0, *size as usize) };
+                unsafe { std::ptr::write_bytes(self.host_addr(d) as *mut u8, 0, *size as usize) };
             }
             Inst::Call(call) => {
                 let ir::CallInst {
@@ -181,17 +190,12 @@ impl Interp {
                     }
                     Callee::Indirect(target, sig) => {
                         let addr = vals[target.0 as usize];
-                        match addr & TAG_MASK {
-                            FUNC_TAG => {
-                                self.exec(program, FuncId((addr & !TAG_MASK) as u32), argv)?
+                        match proc_addr::proc_of(self.proc_width(), addr) {
+                            Some(proc_addr::Proc::Func(id)) => self.exec(program, id, argv)?,
+                            Some(proc_addr::Proc::Foreign(id)) => {
+                                self.call_foreign(program, id, argv, sig)?
                             }
-                            FOREIGN_TAG => self.call_foreign(
-                                program,
-                                ForeignId((addr & !TAG_MASK) as u32),
-                                argv,
-                                sig,
-                            )?,
-                            _ if addr < 4096 => {
+                            None if addr < 4096 => {
                                 return self.null_trap("call through a null procedure pointer");
                             }
                             _ => {

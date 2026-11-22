@@ -350,7 +350,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 let p = self.get_ptr(st, *addr)?;
                 let load = b.build_load(self.ll(*ty), p, "")?;
                 if let Some(i) = load.as_instruction_value() {
-                    let _ = i.set_alignment(ty.size() as u32);
+                    let _ = i.set_alignment(ty.align(&self.layout) as u32);
                 }
                 if st.null_checks
                     && *ty == Ty::Ptr
@@ -370,7 +370,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 let p = self.get_ptr(st, *addr)?;
                 let v = self.coerce(self.get(st, *value)?, *ty)?;
                 let store = b.build_store(p, v)?;
-                let _ = store.set_alignment(ty.size() as u32);
+                let _ = store.set_alignment(ty.align(&self.layout) as u32);
                 if st.null_checks
                     && let Some(slot) = st.facts.tracked_slot(*addr)
                 {

@@ -217,6 +217,8 @@ pub struct HostPlatform {
     pub cpu: TargetCpu,
     /// The host C compiler's `long double` when wider than `float64`; see `long_double_for`.
     pub long_double: Option<crate::wide_float::WideFloat>,
+    /// How the host lays out data.
+    pub layout: crate::layout::DataLayout,
 }
 
 impl HostPlatform {
@@ -227,6 +229,7 @@ impl HostPlatform {
             os,
             cpu,
             long_double: long_double_for(os, cpu, cfg!(target_env = "gnu")),
+            layout: crate::target::Target::new(os, cpu).data_layout(),
         }
     }
 }
@@ -238,6 +241,8 @@ pub struct Options {
     /// Where compile-time code runs. Always the native platform outside tests, which replace it
     /// to exercise a host that differs from the target on a machine that does not.
     pub host: HostPlatform,
+    /// How the target lays out data: set with `os` and `cpu` by `Target::apply`.
+    pub layout: crate::layout::DataLayout,
     /// Directories searched by `#import "Name"`, in order.
     pub import_paths: Vec<PathBuf>,
     /// Bootstrap entry loaded into every program (see `crate::PRELUDE_ENTRIES`).
@@ -296,8 +301,14 @@ pub fn long_double_for(
         (TargetOs::Windows, _) => None,
         (TargetOs::MacOS, TargetCpu::Arm64) => None,
         (_, TargetCpu::X64) => Some(WideFloat::X87),
-        (TargetOs::Linux, TargetCpu::Arm64) | (_, TargetCpu::Wasm) => Some(WideFloat::Binary128),
-        (_, TargetCpu::Arm64) => None,
+        (TargetOs::Linux, TargetCpu::Arm64) | (_, TargetCpu::Wasm | TargetCpu::S390x) => {
+            Some(WideFloat::Binary128)
+        }
+        (_, TargetCpu::Arm64)
+        | (_, TargetCpu::Arm)
+        | (_, TargetCpu::Avr)
+        | (_, TargetCpu::PowerPc64) => None,
+        (_, TargetCpu::X86) => Some(WideFloat::X87),
     }
 }
 
@@ -307,13 +318,13 @@ mod long_double_tests {
     use crate::wide_float::WideFloat;
 
     /// `sizeof(long double)` per `clang -target <triple>`: 16 (x87) for x86_64-linux-gnu,
-    /// x86_64-apple-darwin and x86_64-w64-windows-gnu; 16 (binary128) for aarch64-linux-gnu and
+    /// x86_64-apple-darwin, x86_64-w64-windows-gnu and (12 bytes) i686-linux-gnu; 16 (binary128) for aarch64-linux-gnu and
     /// wasm32; 8 for arm64-apple-darwin and every Windows MSVC or arm64 triple
     /// (aarch64-pc-windows-msvc and aarch64-pc-windows-gnu included).
     #[test]
     fn formats_follow_the_c_compiler() {
         use TargetCpu::*;
-        use TargetOs::*;
+        use TargetOs::{Linux, MacOS, Windows};
         assert_eq!(long_double_for(Linux, X64, true), Some(WideFloat::X87));
         assert_eq!(long_double_for(MacOS, X64, false), Some(WideFloat::X87));
         assert_eq!(long_double_for(Windows, X64, true), Some(WideFloat::X87));
@@ -388,6 +399,7 @@ impl Options {
         Self {
             os,
             cpu,
+            layout: host.layout,
             host,
             import_paths: Vec::new(),
             preload: None,
@@ -478,6 +490,10 @@ pub struct InstanceKeyValue {
     value: Value,
 }
 
+#[allow(
+    clippy::disallowed_methods,
+    reason = "a host-side cache key, not program data"
+)]
 fn instance_key_value(types: &Types, value: &Value, ty: TypeId) -> InstanceKeyValue {
     let view = matches!(
         types.kind(ty),
@@ -606,12 +622,13 @@ impl Compiler {
         body_probe::init();
         speculative::init();
         let cross_target = options.is_cross_build();
+        let layout = options.layout;
         let windows_target = options.os == crate::target::TargetOs::Windows;
         let mut c = Compiler {
             pr: ProcState::default(),
             caches: NameCaches::default(),
             ns: Namespaces::default(),
-            ty: TypeState::default(),
+            ty: TypeState::new(layout),
             src: SourceState::new(fs),
             out: Output::new(cross_target, windows_target),
             meta: MetaState::default(),
@@ -621,7 +638,7 @@ impl Compiler {
             ed: Probed::default(),
             #[cfg(debug_assertions)]
             namespace_check: std::cell::Cell::new((0, 0, 0)),
-            ct: CompileTime::default(),
+            ct: CompileTime::new(layout),
         };
         c.ct.interp.eval_steps = c.options.eval_step_limit;
         if c.ct.interp.eval_steps.is_none() && crate::interp::profile::run_costs() {

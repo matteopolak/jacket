@@ -197,9 +197,10 @@ pub struct BuildEnv {
     pub unwritten_output_hint: Option<UnwrittenOutputHint>,
     /// Arguments after `-` on the command line (`compile_time_command_line`).
     pub command_line: Vec<String>,
-    /// Host for the compile-time interpreter of each workspace, given its target `OS`
-    /// (`OS == .WASM` code expects the interpreter's sandbox, whatever the compiler runs on).
-    pub make_host: Box<dyn Fn(TargetOs) -> Box<dyn Host>>,
+    /// Host for the compile-time interpreter of each workspace, given its target `OS` and
+    /// whether its pointers are narrower than the compiler's (`OS == .WASM` code and 32-bit
+    /// targets expect the interpreter's sandbox, whatever the compiler runs on).
+    pub make_host: Box<dyn Fn(TargetOs, bool) -> Box<dyn Host>>,
     /// Where diagnostics of workspace compilations go.
     pub report: ReportSink,
     /// Sees each workspace compiler as it is made and when its workspace is done (tools that

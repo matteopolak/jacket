@@ -326,7 +326,45 @@ def supplement_nvtt_members(owner, body, condition):
     return body[:closing]+'\n'+'\n'.join(sorted(additions, key=lambda line:line.split('::',1)[0].strip().casefold()))+'\n'+body[closing:], records
 
 
+def linux_overlays(module):
+    """The per-CPU Linux declarations `vendor_linux_posix.py` took from each CPU's headers,
+    as {Architecture member: data}. Only POSIX has them."""
+    if module != 'POSIX':
+        return {}
+    found = {}
+    for path in sorted((ROOT/'stdlib/internal/bindings/vendor').glob('linux-posix-*.json')):
+        data = json.loads(path.read_text())
+        found[data['architecture']] = data
+    return found
+
+
+def overlay_exclusions(overlays, name):
+    """`ARCHITECTURE != .X` for each CPU whose own headers redeclare `name` (or that the
+    headers cannot express), so the 64-bit declaration never reaches that CPU."""
+    result = []
+    for architecture, data in overlays.items():
+        uncovered = {entry.split(' ')[0] for entry in data['uncovered']}
+        if any(name in data[kind] for kind in ('shapes', 'functions', 'typedefs', 'constants')) or name in uncovered:
+            result.append('ARCHITECTURE != .'+architecture)
+    return result
+
+
+def overlay_declarations(overlays):
+    """(declaration, code) for each per-CPU Linux declaration, guarded by its CPU."""
+    result = []
+    for architecture, data in overlays.items():
+        condition = 'OS == .LINUX && ARCHITECTURE == .'+architecture
+        entries = [(name, code+'\n') for name, code in sorted(data['shapes'].items())]
+        entries += [(name, code+';') for name, code in sorted(data['typedefs'].items())]
+        entries += [(name, code+';') for name, code in sorted(data['functions'].items())]
+        entries += [(name, '%s :: %s;' % (name, value)) for name, value in sorted(data['constants'].items())]
+        for name, code in entries:
+            result.append((Declaration(code, condition), guard(code, condition)))
+    return result
+
+
 def generate_facade(module, spec):
+    overlays = linux_overlays(module)
     shapes = defaultdict(list)
     for shape in spec.shapes:
         shapes[shape.name].append(shape)
@@ -543,8 +581,13 @@ def generate_facade(module, spec):
         else:
             code += ';'
             record['status'] = 'declared'
+        exclusions = [] if re.search(r'CPU\s*==', condition) else overlay_exclusions(overlays, d.name)
+        if exclusions:
+            record['redeclared_for'] = exclusions
+            condition = ' && '.join((['('+condition+')'] if condition else []) + exclusions)
         output.append((d, guard(code, condition)))
         ledger.append(record)
+    output += overlay_declarations(overlays)
     return organize_declarations(output), ledger
 
 

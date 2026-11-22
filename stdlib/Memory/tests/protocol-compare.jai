@@ -3,8 +3,14 @@ using #import "Basic";
 P :: #import "Protocol_For_Memory_Visualization";
 
 exercise :: () {
-    pointers := (*void).[null, cast(*void) 1, cast(*void) 2, cast(*void) 0x100000000,
-        cast(*void) 0x7fffffffffffffff, cast(*void) 0x8000000000000000, cast(*void) 0xffffffffffffffff];
+    #if size_of(*void) == 8 {
+        pointers := (*void).[null, cast(*void) 1, cast(*void) 2, cast(*void) 0x100000000,
+            cast(*void) 0x7fffffffffffffff, cast(*void) 0x8000000000000000, cast(*void) 0xffffffffffffffff];
+    } else {
+        pointers := (*void).[null, cast(*void) 1, cast(*void) 2, cast(*void) 0x10000,
+            cast(*void) 0x7fffffff, cast(*void) 0x80000000, cast(*void) 0xffffffff];
+    }
+
     for allocation, i: pointers for release, j: pointers {
         a := P.Alloc_And_Free_Traces.{ allocation, release };
 

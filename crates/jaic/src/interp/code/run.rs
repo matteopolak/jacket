@@ -175,10 +175,20 @@ impl Interp {
         let set = |i: u32, v: u64| unsafe { *regs.add(i as usize) = v };
         // SAFETY: `build` checked that every frame offset an op names lies in the frame's slots
         // at `stack_base`, which the interpreter stack keeps mapped while the frame runs.
-        let load_frame = |ty: Ty, off: u32| unsafe { load_raw(ty, stack_base + u64::from(off)) };
+        let swap = self.swap_bytes;
+        let in_order = move |ty: Ty, v: u64| {
+            if swap {
+                super::super::memory::swap_scalar(ty, v)
+            } else {
+                v
+            }
+        };
+        let load_frame =
+            |ty: Ty, off: u32| in_order(ty, unsafe { load_raw(ty, stack_base + u64::from(off)) });
         // SAFETY: as for `load_frame`.
-        let store_frame =
-            |ty: Ty, off: u32, v: u64| unsafe { store_raw(ty, stack_base + u64::from(off), v) };
+        let store_frame = |ty: Ty, off: u32, v: u64| unsafe {
+            store_raw(ty, stack_base + u64::from(off), in_order(ty, v));
+        };
         let ops = code.ops.as_ptr();
         // A resumed run has done its block's entry already.
         let (mut pc, mut entered) = match start {
@@ -243,7 +253,7 @@ impl Interp {
                 Op::FrameAddr {
                     dst,
                     off,
-                } => set(dst, stack_base + off),
+                } => set(dst, stack_base.wrapping_sub(self.base) + off),
                 Op::Add {
                     dst,
                     a,
@@ -495,7 +505,7 @@ impl Interp {
                     }
                     // SAFETY: both addresses are non-null (checked above) host addresses of program
                     // memory that the IR sized `size` bytes.
-                    unsafe { copy_bytes(d, s, size) };
+                    unsafe { copy_bytes(self.host_addr(d), self.host_addr(s), size) };
                 }
                 Op::MemCopy {
                     dst,
@@ -519,7 +529,13 @@ impl Interp {
                         // Like a load or store, a copy goes through the program's pointers
                         // directly, so a bad one faults as it would natively.
                         // SAFETY: the program's own memmove.
-                        unsafe { std::ptr::copy(s as *const u8, d as *mut u8, n) };
+                        unsafe {
+                            std::ptr::copy(
+                                self.host_addr(s) as *const u8,
+                                self.host_addr(d) as *mut u8,
+                                n,
+                            )
+                        };
                     }
                 }
                 Op::MemSet {
@@ -542,7 +558,7 @@ impl Interp {
                             return Err(trap.at(self.loc));
                         }
                         // SAFETY: the program's own memset, as for `MemCopy`.
-                        unsafe { std::ptr::write_bytes(d as *mut u8, v as u8, n) };
+                        unsafe { std::ptr::write_bytes(self.host_addr(d) as *mut u8, v as u8, n) };
                     }
                 }
                 Op::Zero {
@@ -560,7 +576,7 @@ impl Interp {
                     }
                     // SAFETY: `d` is non-null (checked above) and addresses `size` writable bytes of
                     // program memory.
-                    unsafe { zero_bytes(d, size) };
+                    unsafe { zero_bytes(self.host_addr(d), size) };
                 }
                 Op::Loc {
                     ..

@@ -264,7 +264,7 @@ backend_drain :: (watcher: *$T/File_Watcher, state: *State) -> bool {
             if !handle_inotify(watcher, state, record) return false;
         }
 
-        count := P.read(state.descriptor, watcher.inotify_data, cast(u64) watcher.buffer_size);
+        count := P.read(state.descriptor, watcher.inotify_data, cast(P.size_t) watcher.buffer_size);
         if count < 0 {
             error := cast(s32) P.errno();
             if error == P.EINTR continue;

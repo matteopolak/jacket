@@ -385,7 +385,7 @@ fn bytes_of(interp: &Interp, at: u64) -> Result<Vec<u8>, Trap> {
 
 /// Store `text` as a `string` at `at`, its bytes owned by the registry for the whole build.
 fn keep_string(cx: &Call, interp: &mut Interp, at: u64, text: &[u8]) -> Result<(), Trap> {
-    let (count, data) = cx.registry().keep_string(text);
+    let (count, data) = cx.registry().keep_string(interp, text);
     put_view(interp, at, count, data)
 }
 

@@ -83,6 +83,23 @@ fn process_creation_and_shared_memory_are_refused() {
     assert_eq!(call(&mut h, "posix_spawnp", &[0, 0, 0, 0, 0, 0]), EPERM);
 }
 
+/// A 32-bit Linux program's `mmap` links to `mmap64` (64-bit file offsets); the sandbox answers both.
+#[cfg(unix)]
+#[test]
+fn mmap64_maps_like_mmap() {
+    let mut h = host();
+    h.darwin_files = cfg!(target_os = "macos");
+    let flags = if h.darwin_files {
+        2 | 0x1000
+    } else {
+        2 | 0x20
+    };
+    let page = virtual_memory::page_size();
+    let at = call(&mut h, "mmap64", &[0, page, 3, flags, u64::MAX, 0]);
+    assert_ne!(at, u64::MAX);
+    assert_eq!(call(&mut h, "munmap", &[at, page]), 0);
+}
+
 #[cfg(unix)]
 #[test]
 fn anonymous_mappings_share_one_total_cap_per_host() {
@@ -290,6 +307,10 @@ fn windows_file_round_trip() {
 }
 
 #[test]
+#[allow(
+    clippy::disallowed_methods,
+    reason = "the sandbox's records are read back from host memory"
+)]
 fn windows_find_files_lists_a_directory() {
     let mut h = host();
     h.fs.dirs.insert("/tmp/d".to_string());
@@ -439,6 +460,10 @@ fn read_from(h: &mut SandboxHost, fd: u64, size: usize) -> Vec<u8> {
 }
 
 /// `(mode, size, links)` from `stat`, or the errno of a failed call.
+#[allow(
+    clippy::disallowed_methods,
+    reason = "the sandbox's records are read back from host memory"
+)]
 fn stat_of(h: &mut SandboxHost, symbol: &str, subject: u64) -> Result<(u32, u64, u64), u32> {
     let mut st = [0u8; 144];
     if call(h, symbol, &[subject, st.as_mut_ptr() as u64]) == u64::MAX {
@@ -929,6 +954,10 @@ fn stdin_end_marker_is_consumed_by_the_read_that_finds_nothing() {
 }
 
 #[test]
+#[allow(
+    clippy::disallowed_methods,
+    reason = "the sandbox's records are read back from host memory"
+)]
 fn darwin_file_records_match_stat_and_dirent_layouts() {
     let mut h = host();
     h.set_file_target(crate::target::TargetOs::MacOS);
@@ -964,7 +993,41 @@ fn darwin_file_records_match_stat_and_dirent_layouts() {
     );
 }
 
+/// The i686 Linux `struct stat` (64-bit `time_t`): 108 bytes, 8-byte fields packed on 4.
 #[test]
+#[allow(
+    clippy::disallowed_methods,
+    reason = "the sandbox's records are read back from host memory"
+)]
+fn i686_linux_stat_record_has_the_32_bit_layout() {
+    let mut h = host();
+    h.set_file_target(crate::target::TargetOs::Linux);
+    h.set_cpu(crate::target::TargetCpu::X86);
+    let root = cstring("/tmp");
+    let mut st = [0xa5_u8; 120];
+    assert_eq!(
+        call(
+            &mut h,
+            "stat",
+            &[root.as_ptr() as u64, st.as_mut_ptr() as u64]
+        ),
+        0
+    );
+    let word = |at: usize| u32::from_le_bytes(st[at..at + 4].try_into().unwrap());
+    assert_eq!(word(16) & 0xf000, S_IFDIR);
+    assert_eq!(word(20), 1);
+    assert_eq!(word(48), 4096);
+    assert_eq!(word(60), BASE_MTIME as u32);
+    assert_eq!(word(76), BASE_MTIME as u32);
+    assert_eq!(word(92), BASE_MTIME as u32);
+    assert!(st[108..].iter().all(|&byte| byte == 0xa5));
+}
+
+#[test]
+#[allow(
+    clippy::disallowed_methods,
+    reason = "the sandbox's records are read back from host memory"
+)]
 fn windows_virtual_memory_reserves_commits_protects_and_frees() {
     use super::guest::write_u32;
     let mut h = host();

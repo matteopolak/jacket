@@ -80,7 +80,12 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         fs.clone(),
         &cwd.to_string_lossy(),
     )));
-    let sandbox = (options.os == TargetOs::Wasm).then(|| shared_sandbox.clone());
+    // A target whose pointers are narrower than the compiler's cannot call the compiler's own C
+    // functions either: its pointers are offsets into the interpreter's address window, so its
+    // compile-time code runs on the sandbox host too.
+    shared_sandbox.borrow_mut().set_cpu(options.cpu);
+    let narrow = options.layout.is_foreign_memory();
+    let sandbox = (options.os == TargetOs::Wasm || narrow).then(|| shared_sandbox.clone());
     if cli.mode == Mode::Interp
         && sandbox.is_some()
         && let Some(listen) = jacket_config::env::TCP_LISTEN.non_empty()
@@ -104,7 +109,10 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         c.ct.interp.stop_for_exit();
     });
     if let Some(host) = &sandbox {
-        compiler.ct.interp.host = Box::new(SharedHost(host.clone()));
+        compiler
+            .ct
+            .interp
+            .set_host(Box::new(SharedHost(host.clone())));
     }
     if cli.deps {
         Workspaces::record_source_files(&workspaces);
@@ -283,13 +291,6 @@ pub(super) fn compiler_options(cli: &Cli, stdlib: &Path, main: &Path) -> Result<
         options.cast_bounds_check = 0;
     }
     match cli.build_target() {
-        // The interpreter models wasm32 (the browser engine's target); LLVM output cannot.
-        Ok(Some(target)) if target.is_wasm() && target.memory32 && cli.mode == Mode::Build => {
-            eprintln!(
-                "error: jaic builds wasm64 (Memory64) only; Jai needs 8-byte pointers (use -target wasm64-unknown-wasi)"
-            );
-            return Err(ExitCode::from(2));
-        }
         Ok(Some(target)) => target.apply(&mut options),
         // `-os`/`-cpu` for checking only.
         Ok(None) => jaic::target::select_os_cpu(&mut options, cli.os, cli.cpu),
@@ -330,8 +331,8 @@ fn create_workspaces(
             }
         }),
         command_line: cli.command_line.clone(),
-        make_host: Box::new(move |os| {
-            if os == TargetOs::Wasm {
+        make_host: Box::new(move |os, narrow| {
+            if os == TargetOs::Wasm || narrow {
                 Box::new(SharedHost(workspace_sandbox.clone()))
             } else {
                 Box::new(NativeHost)

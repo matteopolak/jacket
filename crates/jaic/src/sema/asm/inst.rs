@@ -198,7 +198,7 @@ impl Compiler {
                 }
                 let sz = self.asm_size(f, cx, inst, opds)?;
                 if !matches!(sz, Ty::I16 | Ty::I32 | Ty::I64)
-                    || !matches!(opds[0], Opd::Reg(r) if matches!(r.storage, Ty::I16 | Ty::I32 | Ty::I64) && r.storage.size() >= sz.size())
+                    || !matches!(opds[0], Opd::Reg(r) if matches!(r.storage, Ty::I16 | Ty::I32 | Ty::I64) && r.storage.numeric_size() >= sz.numeric_size())
                 {
                     return err(
                         Code::AsmRegisterSize,
@@ -669,7 +669,7 @@ impl Compiler {
         match (base, chars.as_slice()) {
             ("movsxd", []) => Ok((Ty::I32, Ty::I64)),
             (_, [s, d]) => match (size_of_letter(*s), size_of_letter(*d)) {
-                (Some(s), Some(d)) if s.size() < d.size() => Ok((s, d)),
+                (Some(s), Some(d)) if s.numeric_size() < d.numeric_size() => Ok((s, d)),
                 _ => err(
                     Code::AsmInvalidOperandSizes,
                     span,
@@ -743,7 +743,7 @@ impl Compiler {
                     if let Opd::Reg(r) = o
                         && r.natural
                     {
-                        return Ok(Ty::int(r.storage.size()));
+                        return Ok(Ty::int(r.storage.numeric_size()));
                     }
                 }
                 Ok(Ty::I64)

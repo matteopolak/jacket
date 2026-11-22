@@ -107,6 +107,10 @@ fn cache_root() -> Result<PathBuf, String> {
     }))
 }
 
+#[allow(
+    clippy::disallowed_methods,
+    reason = "hashes host bytes for a colour, not program data"
+)]
 fn hash_part(hash: &mut Sha256, name: &str, bytes: &[u8]) {
     hash.update((name.len() as u64).to_le_bytes());
     hash.update(name);

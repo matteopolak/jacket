@@ -11,6 +11,8 @@
             if result == 0 binding_copy_kernel_stat(buf, native);
 
             return result;
+        } else #if ARCHITECTURE == .X86 {
+            return cast(s64) time64_stat(path, buf);
         } else {
             return syscall(SYS_stat, path, buf);
         }
@@ -26,6 +28,8 @@
             if result == 0 binding_copy_kernel_stat(buf, native);
 
             return result;
+        } else #if ARCHITECTURE == .X86 {
+            return cast(s64) time64_lstat(path, buf);
         } else {
             return syscall(SYS_lstat, path, buf);
         }
@@ -41,6 +45,8 @@
             if result == 0 binding_copy_kernel_stat(buf, native);
 
             return result;
+        } else #if ARCHITECTURE == .X86 {
+            return cast(s64) time64_fstat(fd, buf);
         } else {
             return syscall(SYS_fstat, fd, buf);
         }
@@ -48,6 +54,16 @@
 }
 
 #scope_file
+// 32-bit x86 has no `stat` system call with a 64-bit `time_t`: the C library's own entry points
+// (what `<sys/stat.h>` links to there) fill the record.
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    c_library :: #library,system "c";
+
+    time64_stat :: (path: *u8, buf: *stat_t) -> s32 #foreign c_library "__stat64_time64";
+    time64_lstat :: (path: *u8, buf: *stat_t) -> s32 #foreign c_library "__lstat64_time64";
+    time64_fstat :: (fd: s32, buf: *stat_t) -> s32 #foreign c_library "__fstat64_time64";
+}
+
 #if OS == .LINUX && CPU == .ARM64 {
     Kernel :: #import "internal/bindings/linux-arm64-kernel";
 

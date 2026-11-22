@@ -173,6 +173,13 @@ impl Compiler {
             "BUILD_OS" => ("Operating_System_Tag", crate::target::os_member(host_os)),
             "CPU" => ("CPU_Tag", crate::target::cpu_member(self.options.cpu)),
             "BUILD_CPU" => ("CPU_Tag", crate::target::cpu_member(host_cpu)),
+            "ARCHITECTURE" => (
+                "Architecture",
+                crate::target::architecture_member(
+                    self.options.cpu,
+                    self.options.layout.ptr_bytes() as u32,
+                ),
+            ),
             "IS_CROSS_COMPILING" => {
                 return Ok(Resolved::Const {
                     value: Value::Bool((self.options.os, self.options.cpu) != (host_os, host_cpu)),

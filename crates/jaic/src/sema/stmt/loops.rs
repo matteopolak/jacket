@@ -370,7 +370,8 @@ impl Compiler {
         let (_, end) = self.rvalue(f, bv, b.span)?;
         let t = self.ir_ty(ty).unwrap();
         let signed = self.ty.types.int_info(ty).is_some_and(|i| i.1);
-        let it = f.b.alloca(t.size(), t.size());
+        let it =
+            f.b.alloca(t.size(&self.options.layout), t.size(&self.options.layout));
         let idx = f.b.alloca(8, 8);
         f.b.store(
             t,
