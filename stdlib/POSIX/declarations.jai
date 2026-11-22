@@ -305,7 +305,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     __fsid_t :: struct {
         __val: [2] s32;
     }
@@ -320,6 +320,13 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    __fsid_t :: struct {
+        __val: [2] s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     __fsid_t :: struct {
         __val: [2] s32;
     }
@@ -350,7 +357,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     __jmp_buf_tag :: struct {
         __jmpbuf: __jmp_buf;
         __mask_was_saved: s32;
@@ -369,6 +376,15 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    __jmp_buf_tag :: struct {
+        __jmpbuf: __jmp_buf;
+        __mask_was_saved: s32;
+        __saved_mask: __sigset_t;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     __jmp_buf_tag :: struct {
         __jmpbuf: __jmp_buf;
         __mask_was_saved: s32;
@@ -436,7 +452,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     __locale_struct :: struct {
         __locale_data :: struct {}
         __locales: [13] *__locale_data;
@@ -472,6 +488,17 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    __locale_struct :: struct {
+        __locales: [13] *void;
+        __ctype_b: *u16;
+        __ctype_tolower: *s32;
+        __ctype_toupper: *s32;
+        __names: [13] *u8;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     __locale_struct :: struct {
         __locales: [13] *void;
@@ -493,7 +520,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     __mbstate_t :: struct {
         __count: s32;
         __value: struct {
@@ -517,6 +544,17 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    __mbstate_t :: struct {
+        __count: s32;
+        __value: struct {
+            __wch: u32;
+            #overlay (__wch) __wchb: [4] u8;
+        };
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     __mbstate_t :: struct {
         __count: s32;
         __value: struct {
@@ -553,7 +591,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     __pthread_cleanup_frame :: struct {
         __cancel_routine: #type (unknown0: *void) -> void #c_call;
         __cancel_arg: *void;
@@ -574,6 +612,16 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    __pthread_cleanup_frame :: struct {
+        __cancel_routine: #type (unknown0: *void) -> void #c_call;
+        __cancel_arg: *void;
+        __do_it: s32;
+        __cancel_type: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     __pthread_cleanup_frame :: struct {
         __cancel_routine: #type (unknown0: *void) -> void #c_call;
         __cancel_arg: *void;
@@ -611,7 +659,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     __pthread_cond_s :: struct {
         struct {
             __wseq: u64;
@@ -690,6 +738,31 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    __pthread_cond_s :: struct {
+        __wseq: struct {
+            __value64: u64;
+            #overlay (__value64) __value32: struct {
+                __low: u32;
+                __high: u32;
+            };
+        };
+        __g1_start: struct {
+            __value64: u64;
+            #overlay (__value64) __value32: struct {
+                __low: u32;
+                __high: u32;
+            };
+        };
+        __g_refs: [2] u32;
+        __g_size: [2] u32;
+        __g1_orig_size: u32;
+        __wrefs: u32;
+        __g_signals: [2] u32;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     __pthread_cond_s :: struct {
         __wseq: struct {
@@ -715,7 +788,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     __pthread_internal_list :: struct {
         __prev: *__pthread_internal_list;
         __next: *__pthread_internal_list;
@@ -739,6 +812,14 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    __pthread_internal_list :: struct {
+        __prev: *__pthread_internal_list;
+        __next: *__pthread_internal_list;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     __pthread_internal_list :: struct {
         __prev: *__pthread_internal_list;
@@ -747,7 +828,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     __pthread_internal_slist :: struct {
         __next: *__pthread_internal_slist;
     }
@@ -768,6 +849,13 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    __pthread_internal_slist :: struct {
+        __next: *__pthread_internal_slist;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     __pthread_internal_slist :: struct {
         __next: *__pthread_internal_slist;
@@ -775,7 +863,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     __pthread_mutex_s :: struct {
         __lock: s32;
         __count: u32;
@@ -833,6 +921,23 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    __pthread_mutex_s :: struct {
+        __lock: s32;
+        __count: u32;
+        __owner: s32;
+        __nusers: u32;
+        __kind: s32;
+        __spins: s16;
+        __elision: s16;
+        __list: struct {
+            __prev: *__pthread_internal_list;
+            __next: *__pthread_internal_list;
+        };
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     __pthread_mutex_s :: struct {
         __lock: s32;
@@ -850,7 +955,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     __pthread_rwlock_arch_t :: struct {
         __readers: u32;
         __writers: u32;
@@ -906,6 +1011,24 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    __pthread_rwlock_arch_t :: struct {
+        __readers: u32;
+        __writers: u32;
+        __wrphase_futex: u32;
+        __writers_futex: u32;
+        __pad3: u32;
+        __pad4: u32;
+        __cur_writer: s32;
+        __shared: s32;
+        __rwelision: u8;
+        __pad1: [7] u8;
+        __pad2: u64;
+        __flags: u32;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     __pthread_rwlock_arch_t :: struct {
         __readers: u32;
@@ -923,7 +1046,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     __pthread_unwind_buf_t :: struct {
         __cancel_jmp_buf: [1] struct {
             __cancel_jmp_buf: __jmp_buf;
@@ -947,6 +1070,17 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    __pthread_unwind_buf_t :: struct {
+        __cancel_jmp_buf: [1] struct {
+            __cancel_jmp_buf: __jmp_buf;
+            __mask_was_saved: s32;
+        };
+        __pad: [4] *void;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     __pthread_unwind_buf_t :: struct {
         __cancel_jmp_buf: [1] struct {
             __cancel_jmp_buf: __jmp_buf;
@@ -1200,7 +1334,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     __sigset_t :: struct {
         __val: [16] u64;
     }
@@ -1217,6 +1351,13 @@ librt :: #library,system "librt"; @native(external)
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     __sigset_t :: struct {
         __val: [32] u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    __sigset_t :: struct {
+        __val: [16] u64;
     }
 
 }
@@ -1238,7 +1379,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     _fpstate :: struct {
         cwd: u16;
         swd: u16;
@@ -1313,7 +1454,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     _fpxreg :: struct {
         significand: [4] u16;
         exponent: u16;
@@ -1331,7 +1472,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     _G_fpos64_t :: struct {
         __pos: s64;
         __state: __mbstate_t;
@@ -1355,6 +1496,14 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    _G_fpos64_t :: struct {
+        __pos: s64;
+        __state: __mbstate_t;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     _G_fpos64_t :: struct {
         __pos: s64;
@@ -1363,7 +1512,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     _G_fpos_t :: struct {
         __pos: s64;
         __state: __mbstate_t;
@@ -1387,6 +1536,14 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    _G_fpos_t :: struct {
+        __pos: s64;
+        __state: __mbstate_t;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     _G_fpos_t :: struct {
         __pos: s64;
@@ -1395,7 +1552,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     _IO_cookie_io_functions_t :: struct {
         read: cookie_read_function_t;
         write: cookie_write_function_t;
@@ -1425,6 +1582,16 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    _IO_cookie_io_functions_t :: struct {
+        read: *cookie_read_function_t;
+        write: *cookie_write_function_t;
+        seek: *cookie_seek_function_t;
+        close: *cookie_close_function_t;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     _IO_cookie_io_functions_t :: struct {
         read: *cookie_read_function_t;
@@ -1435,7 +1602,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     _IO_FILE :: struct {}
 
 }
@@ -1510,6 +1677,41 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    _IO_FILE :: struct {
+        _flags: s32;
+        _IO_read_ptr: *u8;
+        _IO_read_end: *u8;
+        _IO_read_base: *u8;
+        _IO_write_base: *u8;
+        _IO_write_ptr: *u8;
+        _IO_write_end: *u8;
+        _IO_buf_base: *u8;
+        _IO_buf_end: *u8;
+        _IO_save_base: *u8;
+        _IO_backup_base: *u8;
+        _IO_save_end: *u8;
+        _markers: *void;
+        _chain: *_IO_FILE;
+        _fileno: s32;
+        _flags2: s32;
+        _old_offset: s64;
+        _cur_column: u16;
+        _vtable_offset: s8;
+        _shortbuf: [1] u8;
+        _lock: *void;
+        _offset: s64;
+        _codecvt: *void;
+        _wide_data: *void;
+        _freeres_list: *_IO_FILE;
+        _freeres_buf: *void;
+        __pad5: size_t;
+        _mode: s32;
+        _unused2: [20] u8;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     _IO_FILE :: struct {
         _flags: s32;
@@ -1545,7 +1747,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     _libc_fpstate :: struct {
         cwd: u16;
         swd: u16;
@@ -1597,7 +1799,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     _libc_fpxreg :: struct {
         significand: [4] u16;
         exponent: u16;
@@ -1615,7 +1817,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     _libc_xmmreg :: struct {
         element: [4] u32;
     }
@@ -1801,7 +2003,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     _pthread_cleanup_buffer :: struct {
         __routine: #type (unknown0: *void) -> void #c_call;
         __arg: *void;
@@ -1822,6 +2024,16 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    _pthread_cleanup_buffer :: struct {
+        __routine: #type (unknown0: *void) -> void #c_call;
+        __arg: *void;
+        __canceltype: s32;
+        __prev: *_pthread_cleanup_buffer;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     _pthread_cleanup_buffer :: struct {
         __routine: #type (unknown0: *void) -> void #c_call;
         __arg: *void;
@@ -2918,7 +3130,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     _xmmreg :: struct {
         element: [4] u32;
     }
@@ -2967,7 +3179,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     aiocb :: struct {
         aio_fildes: s32;
         aio_lio_opcode: s32;
@@ -3058,6 +3270,25 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    aiocb :: struct {
+        aio_fildes: s32;
+        aio_lio_opcode: s32;
+        aio_reqprio: s32;
+        aio_buf: *void;
+        aio_nbytes: size_t;
+        aio_sigevent: sigevent;
+        __next_prio: *aiocb;
+        __abs_prio: s32;
+        __policy: s32;
+        __error_code: s32;
+        __return_value: s64;
+        aio_offset: s64;
+        __glibc_reserved: [32] u8;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     aiocb :: struct {
         aio_fildes: s32;
@@ -3077,7 +3308,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     aiocb64 :: struct {
         aio_fildes: s32;
         aio_lio_opcode: s32;
@@ -3136,6 +3367,25 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    aiocb64 :: struct {
+        aio_fildes: s32;
+        aio_lio_opcode: s32;
+        aio_reqprio: s32;
+        aio_buf: *void;
+        aio_nbytes: size_t;
+        aio_sigevent: sigevent;
+        __next_prio: *aiocb;
+        __abs_prio: s32;
+        __policy: s32;
+        __error_code: s32;
+        __return_value: s64;
+        aio_offset: s64;
+        __glibc_reserved: [32] u8;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     aiocb64 :: struct {
         aio_fildes: s32;
@@ -3155,7 +3405,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     aioinit :: struct {
         aio_threads: s32;
         aio_num: s32;
@@ -3186,6 +3436,20 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    aioinit :: struct {
+        aio_threads: s32;
+        aio_num: s32;
+        aio_locks: s32;
+        aio_usedba: s32;
+        aio_debug: s32;
+        aio_numusers: s32;
+        aio_idle_time: s32;
+        aio_reserved: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     aioinit :: struct {
         aio_threads: s32;
         aio_num: s32;
@@ -4056,7 +4320,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     cpu_set_t :: struct {
         __bits: [16] __cpu_mask;
     }
@@ -4091,6 +4355,13 @@ librt :: #library,system "librt"; @native(external)
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     cpu_set_t :: struct {
         __bits: [32] __cpu_mask;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    cpu_set_t :: struct {
+        __bits: [16] __cpu_mask;
     }
 
 }
@@ -4429,7 +4700,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     dirent :: struct {
         d_ino: u64;
         d_off: s64;
@@ -4517,6 +4788,17 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    dirent :: struct {
+        d_ino: u64;
+        d_off: s64;
+        d_reclen: u16;
+        d_type: u8;
+        d_name: [256] u8;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     dirent :: struct {
         d_ino: u64;
@@ -4528,7 +4810,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     dirent64 :: struct {
         d_ino: u64;
         d_off: s64;
@@ -4587,6 +4869,17 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    dirent64 :: struct {
+        d_ino: u64;
+        d_off: s64;
+        d_reclen: u16;
+        d_type: u8;
+        d_name: [256] u8;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     dirent64 :: struct {
         d_ino: u64;
@@ -4614,7 +4907,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     Dl_info :: struct {
         dli_fname: *u8;
         dli_fbase: *void;
@@ -4696,6 +4989,16 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    Dl_info :: struct {
+        dli_fname: *u8;
+        dli_fbase: *void;
+        dli_sname: *u8;
+        dli_saddr: *void;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     Dl_info :: struct {
         dli_fname: *u8;
@@ -4706,7 +5009,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     Dl_serinfo :: struct {
         dls_size: u64;
         dls_cnt: u32;
@@ -4744,6 +5047,18 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    Dl_serinfo :: struct {
+        dls_size: size_t;
+        dls_cnt: u32;
+        using __anonymous3: struct {
+            dls_serpath: [0] Dl_serpath;
+            #overlay (dls_serpath) __dls_serpath_pad: [1] Dl_serpath;
+        };
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     Dl_serinfo :: struct {
         dls_size: size_t;
@@ -4756,7 +5071,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     Dl_serpath :: struct {
         dls_name: *u8;
         dls_flags: u32;
@@ -4773,6 +5088,14 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    Dl_serpath :: struct {
+        dls_name: *u8;
+        dls_flags: u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     Dl_serpath :: struct {
         dls_name: *u8;
         dls_flags: u32;
@@ -5032,7 +5355,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     f_owner_ex :: struct {
         type: __pid_type;
         pid: s32;
@@ -5069,6 +5392,14 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    f_owner_ex :: struct {
+        type: __pid_type;
+        pid: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     f_owner_ex :: struct {
         type: __pid_type;
         pid: s32;
@@ -5152,7 +5483,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     file_handle :: struct {
         handle_bytes: u32;
         handle_type: s32;
@@ -5172,6 +5503,15 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    file_handle :: struct {
+        handle_bytes: u32;
+        handle_type: s32;
+        f_handle: [0] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     file_handle :: struct {
         handle_bytes: u32;
         handle_type: s32;
@@ -5239,7 +5579,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     flock :: struct {
         l_type: s16;
         l_whence: s16;
@@ -5300,6 +5640,17 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    flock :: struct {
+        l_type: s16;
+        l_whence: s16;
+        l_start: s64;
+        l_len: s64;
+        l_pid: s32;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     flock :: struct {
         l_type: s16;
@@ -5311,7 +5662,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     flock64 :: struct {
         l_type: s16;
         l_whence: s16;
@@ -5334,6 +5685,17 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    flock64 :: struct {
+        l_type: s16;
+        l_whence: s16;
+        l_start: s64;
+        l_len: s64;
+        l_pid: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     flock64 :: struct {
         l_type: s16;
         l_whence: s16;
@@ -5379,6 +5741,13 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    fpos64_t :: struct {
+        __pos: s64;
+        __state: __mbstate_t;
+    };
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     fpos64_t :: struct {
         __pos: s64;
         __state: __mbstate_t;
@@ -5400,6 +5769,13 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    fpos_t :: struct {
+        __pos: s64;
+        __state: __mbstate_t;
+    };
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     fpos_t :: struct {
         __pos: s64;
         __state: __mbstate_t;
@@ -5605,7 +5981,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     iovec :: struct {
         iov_base: *void;
         iov_len: u64;
@@ -5665,6 +6041,14 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    iovec :: struct {
+        iov_base: *void;
+        iov_len: size_t;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     iovec :: struct {
         iov_base: *void;
@@ -5691,7 +6075,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     ipc_perm :: struct {
         __key: s32;
         uid: u32;
@@ -5765,6 +6149,22 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    ipc_perm :: struct {
+        __key: s32;
+        uid: u32;
+        gid: u32;
+        cuid: u32;
+        cgid: u32;
+        mode: u32;
+        __seq: u32;
+        __pad1: u32;
+        __glibc_reserved1: u64;
+        __glibc_reserved2: u64;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     ipc_perm :: struct {
         __key: s32;
@@ -5781,7 +6181,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     itimerspec :: struct {
         it_interval: timespec;
         it_value: timespec;
@@ -5821,6 +6221,14 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    itimerspec :: struct {
+        it_interval: timespec;
+        it_value: timespec;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     itimerspec :: struct {
         it_interval: timespec;
@@ -5829,7 +6237,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     itimerval :: struct {
 
         it_interval: timeval;
@@ -5880,6 +6288,14 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    itimerval :: struct {
+        it_interval: timeval;
+        it_value: timeval;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     itimerval :: struct {
         it_interval: timeval;
         it_value: timeval;
@@ -6096,6 +6512,30 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    mcontext_t :: struct {
+        __glibc_reserved: [4] u64;
+        signal: s32;
+        __pad0: s32;
+        handler: u64;
+        oldmask: u64;
+        regs: *void;
+        gp_regs: gregset_t;
+        fp_regs: fpregset_t;
+        v_regs: *struct {
+            vrregs: [4][32] u32;
+            vscr: struct {
+                __pad: [3] u32;
+                vscr_word: u32;
+            };
+            vrsave: u32;
+            __pad: [3] u32;
+        };
+        vmx_reserve: [69] s64;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     mcontext_t :: struct {
         psw: struct #align 8 {
@@ -6156,7 +6596,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     passwd :: struct {
         pw_name: *u8;
 
@@ -6255,6 +6695,19 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    passwd :: struct {
+        pw_name: *u8;
+        pw_passwd: *u8;
+        pw_uid: u32;
+        pw_gid: u32;
+        pw_gecos: *u8;
+        pw_dir: *u8;
+        pw_shell: *u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     passwd :: struct {
         pw_name: *u8;
         pw_passwd: *u8;
@@ -6509,7 +6962,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pollfd :: struct {
         fd: s32;
         events: s16;
@@ -6568,6 +7021,15 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    pollfd :: struct {
+        fd: s32;
+        events: s16;
+        revents: s16;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     pollfd :: struct {
         fd: s32;
         events: s16;
@@ -6693,7 +7155,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_attr_t :: struct {
         #if CPU == .ARM64 {
             __size: [64] u8;
@@ -6754,6 +7216,14 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    pthread_attr_t :: struct {
+        __size: [56] u8;
+        #overlay (__size) __align: s64;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     pthread_attr_t :: struct {
         __size: [56] u8;
@@ -6762,7 +7232,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_barrier_t :: struct {
         __size: [32] u8;
 
@@ -6805,6 +7275,14 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    pthread_barrier_t :: struct {
+        __size: [32] u8;
+        #overlay (__size) __align: s64;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     pthread_barrier_t :: struct {
         __size: [32] u8;
@@ -6813,7 +7291,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_barrierattr_t :: struct {
         #if CPU == .ARM64 {
             __size: [8] u8;
@@ -6835,6 +7313,14 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_barrierattr_t :: struct {
+        __size: [4] u8;
+        #overlay (__size) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     pthread_barrierattr_t :: struct {
         __size: [4] u8;
         #overlay (__size) __align: s32;
@@ -6876,7 +7362,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_cond_t :: struct {
         __data: __pthread_cond_s;
 
@@ -6922,6 +7408,15 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    pthread_cond_t :: struct {
+        __data: __pthread_cond_s;
+        #overlay (__data) __size: [48] u8;
+        #overlay (__data) __align: s64;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     pthread_cond_t :: struct {
         __data: __pthread_cond_s;
@@ -6931,7 +7426,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_condattr_t :: struct {
         #if CPU == .ARM64 {
             __size: [8] u8;
@@ -6953,6 +7448,14 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_condattr_t :: struct {
+        __size: [4] u8;
+        #overlay (__size) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     pthread_condattr_t :: struct {
         __size: [4] u8;
         #overlay (__size) __align: s32;
@@ -7075,7 +7578,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_mutex_t :: struct {
         __data: __pthread_mutex_s;
 
@@ -7125,6 +7628,15 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    pthread_mutex_t :: struct {
+        __data: __pthread_mutex_s;
+        #overlay (__data) __size: [40] u8;
+        #overlay (__data) __align: s64;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     pthread_mutex_t :: struct {
         __data: __pthread_mutex_s;
@@ -7134,7 +7646,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_mutexattr_t :: struct {
         #if CPU == .ARM64 __size: [8] u8;
         else __size: [4] u8;
@@ -7153,6 +7665,14 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_mutexattr_t :: struct {
+        __size: [4] u8;
+        #overlay (__size) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     pthread_mutexattr_t :: struct {
         __size: [4] u8;
         #overlay (__size) __align: s32;
@@ -7241,7 +7761,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_rwlock_t :: struct {
         __data: __pthread_rwlock_arch_t;
 
@@ -7287,6 +7807,15 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    pthread_rwlock_t :: struct {
+        __data: __pthread_rwlock_arch_t;
+        #overlay (__data) __size: [56] u8;
+        #overlay (__data) __align: s64;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     pthread_rwlock_t :: struct {
         __data: __pthread_rwlock_arch_t;
@@ -7296,7 +7825,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_rwlockattr_t :: struct {
         __size: [8] u8;
 
@@ -7317,6 +7846,14 @@ librt :: #library,system "librt"; @native(external)
     pthread_rwlockattr_t :: struct {
         __size: [8] u8;
         #overlay (__size) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    pthread_rwlockattr_t :: struct {
+        __size: [8] u8;
+        #overlay (__size) __align: s64;
     }
 
 }
@@ -7558,7 +8095,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     rlimit :: struct {
         rlim_cur: rlim_t;
 
@@ -7623,6 +8160,14 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    rlimit :: struct {
+        rlim_cur: rlim_t;
+        rlim_max: rlim_t;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     rlimit :: struct {
         rlim_cur: rlim_t;
@@ -7631,7 +8176,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     rlimit64 :: struct {
         rlim_cur: rlim64_t;
 
@@ -7669,6 +8214,14 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    rlimit64 :: struct {
+        rlim_cur: rlim64_t;
+        rlim_max: rlim64_t;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     rlimit64 :: struct {
         rlim_cur: rlim64_t;
         rlim_max: rlim64_t;
@@ -7894,7 +8447,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     rusage :: struct {
         ru_utime: timeval;
 
@@ -8254,6 +8807,70 @@ librt :: #library,system "librt"; @native(external)
         using __anonymous16: struct {
             ru_nivcsw: s32;
             #overlay (ru_nivcsw) __ru_nivcsw_word: s32;
+        };
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    rusage :: struct {
+        ru_utime: timeval;
+        ru_stime: timeval;
+        using __anonymous3: struct {
+            ru_maxrss: s64;
+            #overlay (ru_maxrss) __ru_maxrss_word: s64;
+        };
+        using __anonymous4: struct {
+            ru_ixrss: s64;
+            #overlay (ru_ixrss) __ru_ixrss_word: s64;
+        };
+        using __anonymous5: struct {
+            ru_idrss: s64;
+            #overlay (ru_idrss) __ru_idrss_word: s64;
+        };
+        using __anonymous6: struct {
+            ru_isrss: s64;
+            #overlay (ru_isrss) __ru_isrss_word: s64;
+        };
+        using __anonymous7: struct {
+            ru_minflt: s64;
+            #overlay (ru_minflt) __ru_minflt_word: s64;
+        };
+        using __anonymous8: struct {
+            ru_majflt: s64;
+            #overlay (ru_majflt) __ru_majflt_word: s64;
+        };
+        using __anonymous9: struct {
+            ru_nswap: s64;
+            #overlay (ru_nswap) __ru_nswap_word: s64;
+        };
+        using __anonymous10: struct {
+            ru_inblock: s64;
+            #overlay (ru_inblock) __ru_inblock_word: s64;
+        };
+        using __anonymous11: struct {
+            ru_oublock: s64;
+            #overlay (ru_oublock) __ru_oublock_word: s64;
+        };
+        using __anonymous12: struct {
+            ru_msgsnd: s64;
+            #overlay (ru_msgsnd) __ru_msgsnd_word: s64;
+        };
+        using __anonymous13: struct {
+            ru_msgrcv: s64;
+            #overlay (ru_msgrcv) __ru_msgrcv_word: s64;
+        };
+        using __anonymous14: struct {
+            ru_nsignals: s64;
+            #overlay (ru_nsignals) __ru_nsignals_word: s64;
+        };
+        using __anonymous15: struct {
+            ru_nvcsw: s64;
+            #overlay (ru_nvcsw) __ru_nvcsw_word: s64;
+        };
+        using __anonymous16: struct {
+            ru_nivcsw: s64;
+            #overlay (ru_nivcsw) __ru_nivcsw_word: s64;
         };
     }
 
@@ -8673,7 +9290,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     sched_param :: struct {
         sched_priority: s32;
     }
@@ -8728,6 +9345,13 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    sched_param :: struct {
+        sched_priority: s32;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     sched_param :: struct {
         sched_priority: s32;
@@ -8753,7 +9377,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     sem_t :: struct {
         __size: [32] u8;
 
@@ -8796,6 +9420,14 @@ librt :: #library,system "librt"; @native(external)
     sem_t :: struct {
         __size: [16] u8;
         #overlay (__size) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    sem_t :: struct {
+        __size: [32] u8;
+        #overlay (__size) __align: s64;
     }
 
 }
@@ -8831,7 +9463,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     shm_info :: struct {
         used_ids: s32;
         shm_tot: u64;
@@ -8891,6 +9523,18 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    shm_info :: struct {
+        used_ids: s32;
+        shm_tot: u64;
+        shm_rss: u64;
+        shm_swp: u64;
+        swap_attempts: u64;
+        swap_successes: u64;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     shm_info :: struct {
         used_ids: s32;
@@ -8903,7 +9547,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     shmid_ds :: struct {
         shm_perm: ipc_perm;
 
@@ -8954,6 +9598,22 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    shmid_ds :: struct {
+        shm_perm: ipc_perm;
+        shm_atime: s64;
+        shm_dtime: s64;
+        shm_ctime: s64;
+        shm_segsz: size_t;
+        shm_cpid: s32;
+        shm_lpid: s32;
+        shm_nattch: shmatt_t;
+        __glibc_reserved5: u64;
+        __glibc_reserved6: u64;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     shmid_ds :: struct {
         shm_perm: ipc_perm;
@@ -8970,7 +9630,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     shminfo :: struct {
         shmmax: u64;
         shmmin: u64;
@@ -9041,6 +9701,21 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    shminfo :: struct {
+        shmmax: u64;
+        shmmin: u64;
+        shmmni: u64;
+        shmseg: u64;
+        shmall: u64;
+        __glibc_reserved1: u64;
+        __glibc_reserved2: u64;
+        __glibc_reserved3: u64;
+        __glibc_reserved4: u64;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     shminfo :: struct {
         shmmax: u64;
@@ -9084,7 +9759,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     sigaction_t :: struct {
         using __sigaction_handler: struct {
             sa_handler: #type (unknown0: s32) -> void #c_call;
@@ -9169,6 +9844,19 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    sigaction_t :: struct {
+        using __sigaction_handler: struct {
+            sa_handler: #type (unknown0: s32) -> void #c_call;
+            #overlay (sa_handler) sa_sigaction: #type (unknown0: s32, unknown1: *siginfo_t, unknown2: *void) -> void #c_call;
+        };
+        sa_mask: __sigset_t;
+        sa_flags: s32;
+        sa_restorer: #type () -> void #c_call;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     sigaction_t :: struct {
         using __sigaction_handler: struct {
             sa_handler: #type (unknown0: s32) -> void #c_call;
@@ -9377,6 +10065,24 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    sigcontext :: struct {
+        _unused: [4] u64;
+        signal: s32;
+        _pad0: s32;
+        handler: u64;
+        oldmask: u64;
+        regs: *void;
+        gp_regs: [48] u64;
+        fp_regs: [33] float64;
+        v_regs: *struct #align 16 {
+            u: [4] u32;
+        };
+        vmx_reserve: [101] s64;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     sigcontext :: struct {
         oldmask: [1] u64;
@@ -9399,7 +10105,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     sigevent :: struct {
         sigev_value: sigval;
         sigev_signo: s32;
@@ -9518,6 +10224,23 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    sigevent :: struct {
+        sigev_value: sigval;
+        sigev_signo: s32;
+        sigev_notify: s32;
+        _sigev_un: struct {
+            _pad: [12] s32;
+            #overlay (_pad) _tid: s32;
+            #overlay (_pad) _sigev_thread: struct {
+                _function: #type (unknown0: sigval) -> void #c_call;
+                _attribute: *pthread_attr_t;
+            };
+        };
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     sigevent :: struct {
         sigev_value: sigval;
@@ -9567,7 +10290,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     siginfo_t :: struct {
         si_signo: s32;
 
@@ -9734,6 +10457,60 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    siginfo_t :: struct {
+        si_signo: s32;
+        si_errno: s32;
+        si_code: s32;
+        __pad0: s32;
+        _sifields: struct {
+            _pad: [28] s32;
+            #overlay (_pad) _kill: struct {
+                si_pid: s32;
+                si_uid: u32;
+            };
+            #overlay (_pad) _timer: struct {
+                si_tid: s32;
+                si_overrun: s32;
+                si_sigval: sigval;
+            };
+            #overlay (_pad) _rt: struct {
+                si_pid: s32;
+                si_uid: u32;
+                si_sigval: sigval;
+            };
+            #overlay (_pad) _sigchld: struct {
+                si_pid: s32;
+                si_uid: u32;
+                si_status: s32;
+                si_utime: s64;
+                si_stime: s64;
+            };
+            #overlay (_pad) _sigfault: struct {
+                si_addr: *void;
+                si_addr_lsb: s16;
+                _bounds: struct {
+                    _addr_bnd: struct {
+                        _lower: *void;
+                        _upper: *void;
+                    };
+                    #overlay (_addr_bnd) _pkey: u32;
+                };
+            };
+            #overlay (_pad) _sigpoll: struct {
+                si_band: s64;
+                si_fd: s32;
+            };
+            #overlay (_pad) _sigsys: struct {
+                _call_addr: *void;
+                _syscall: s32;
+                _arch: u32;
+            };
+        };
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     siginfo_t :: struct {
         si_signo: s32;
@@ -9788,7 +10565,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     signalfd_siginfo :: struct {
         ssi_signo: u32;
         ssi_errno: s32;
@@ -9901,6 +10678,34 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    signalfd_siginfo :: struct {
+        ssi_signo: u32;
+        ssi_errno: s32;
+        ssi_code: s32;
+        ssi_pid: u32;
+        ssi_uid: u32;
+        ssi_fd: s32;
+        ssi_tid: u32;
+        ssi_band: u32;
+        ssi_overrun: u32;
+        ssi_trapno: u32;
+        ssi_status: s32;
+        ssi_int: s32;
+        ssi_ptr: u64;
+        ssi_utime: u64;
+        ssi_stime: u64;
+        ssi_addr: u64;
+        ssi_addr_lsb: u16;
+        __pad2: u16;
+        ssi_syscall: s32;
+        ssi_call_addr: u64;
+        ssi_arch: u32;
+        __pad: [28] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     signalfd_siginfo :: struct {
         ssi_signo: u32;
         ssi_errno: s32;
@@ -9963,7 +10768,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     sigval :: struct {
         sival_ptr: *void;
 
@@ -10024,6 +10829,14 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    sigval :: struct {
+        sival_int: s32;
+        #overlay (sival_int) sival_ptr: *void;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     sigval :: struct {
         sival_int: s32;
@@ -10050,7 +10863,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     stack_t :: struct {
         ss_sp: *void;
         ss_flags: s32;
@@ -10091,6 +10904,15 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    stack_t :: struct {
+        ss_sp: *void;
+        ss_flags: s32;
+        ss_size: size_t;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     stack_t :: struct {
         ss_sp: *void;
         ss_flags: s32;
@@ -10282,6 +11104,29 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    stat64_t :: struct {
+        st_dev: u64;
+        st_ino: u64;
+        st_nlink: u64;
+        st_mode: u32;
+        st_uid: u32;
+        st_gid: u32;
+        __pad2: s32;
+        st_rdev: u64;
+        st_size: s64;
+        st_blksize: s64;
+        st_blocks: s64;
+        st_atime: timespec;
+        st_mtime: timespec;
+        st_ctime: timespec;
+        __glibc_reserved4: u64;
+        __glibc_reserved5: u64;
+        __glibc_reserved6: u64;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     stat64_t :: struct {
         st_dev: u64;
@@ -10527,6 +11372,29 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    stat_t :: struct {
+        st_dev: u64;
+        st_ino: u64;
+        st_nlink: u64;
+        st_mode: u32;
+        st_uid: u32;
+        st_gid: u32;
+        __pad2: s32;
+        st_rdev: u64;
+        st_size: s64;
+        st_blksize: s64;
+        st_blocks: s64;
+        st_atime: timespec;
+        st_mtime: timespec;
+        st_ctime: timespec;
+        __glibc_reserved4: u64;
+        __glibc_reserved5: u64;
+        __glibc_reserved6: u64;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     stat_t :: struct {
         st_dev: u64;
@@ -10548,7 +11416,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     statx_t :: struct {
         stx_mask: u32;
         stx_blksize: u32;
@@ -10704,6 +11572,36 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    statx_t :: struct {
+        stx_mask: u32;
+        stx_blksize: u32;
+        stx_attributes: u64;
+        stx_nlink: u32;
+        stx_uid: u32;
+        stx_gid: u32;
+        stx_mode: u16;
+        __spare0: [1] u16;
+        stx_ino: u64;
+        stx_size: u64;
+        stx_blocks: u64;
+        stx_attributes_mask: u64;
+        stx_atime: statx_timestamp;
+        stx_btime: statx_timestamp;
+        stx_ctime: statx_timestamp;
+        stx_mtime: statx_timestamp;
+        stx_rdev_major: u32;
+        stx_rdev_minor: u32;
+        stx_dev_major: u32;
+        stx_dev_minor: u32;
+        stx_mnt_id: u64;
+        stx_dio_mem_align: u32;
+        stx_dio_offset_align: u32;
+        __spare3: [12] u64;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     statx_t :: struct {
         stx_mask: u32;
@@ -10734,7 +11632,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     statx_timestamp :: struct {
         tv_sec: s64;
         tv_nsec: u32;
@@ -10771,6 +11669,15 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    statx_timestamp :: struct {
+        tv_sec: s64;
+        tv_nsec: u32;
+        __reserved: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     statx_timestamp :: struct {
         tv_sec: s64;
         tv_nsec: u32;
@@ -10814,7 +11721,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     timespec :: struct {
         tv_sec: s64;
 
@@ -10883,6 +11790,14 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    timespec :: struct {
+        tv_sec: s64;
+        tv_nsec: s64;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     timespec :: struct {
         tv_sec: s64;
@@ -10891,7 +11806,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     timeval :: struct {
         tv_sec: s64;
         tv_usec: s64;
@@ -10951,6 +11866,14 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    timeval :: struct {
+        tv_sec: s64;
+        tv_usec: s64;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     timeval :: struct {
         tv_sec: s64;
@@ -10959,7 +11882,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     timex :: struct {
         modes: u32;
         offset: s64;
@@ -11049,6 +11972,33 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    timex :: struct {
+        modes: u32;
+        offset: s64;
+        freq: s64;
+        maxerror: s64;
+        esterror: s64;
+        status: s32;
+        constant: s64;
+        precision: s64;
+        tolerance: s64;
+        time: timeval;
+        tick: s64;
+        ppsfreq: s64;
+        jitter: s64;
+        shift: s32;
+        stabil: s64;
+        jitcnt: s64;
+        calcnt: s64;
+        errcnt: s64;
+        stbcnt: s64;
+        tai: s32;
+        #overlay (tai) __pad21: [48] u8;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     timex :: struct {
         modes: u32;
@@ -11076,7 +12026,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     timezone :: struct {
         tz_minuteswest: s32;
         tz_dsttime: s32;
@@ -11140,6 +12090,14 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    timezone :: struct {
+        tz_minuteswest: s32;
+        tz_dsttime: s32;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     timezone :: struct {
         tz_minuteswest: s32;
@@ -11148,7 +12106,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     tm :: struct {
         tm_sec: s32;
         tm_min: s32;
@@ -11291,6 +12249,23 @@ librt :: #library,system "librt"; @native(external)
         tm_yday: s32;
         tm_isdst: s32;
         tm_gmtoff: s32;
+        tm_zone: *u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    tm :: struct {
+        tm_sec: s32;
+        tm_min: s32;
+        tm_hour: s32;
+        tm_mday: s32;
+        tm_mon: s32;
+        tm_year: s32;
+        tm_wday: s32;
+        tm_yday: s32;
+        tm_isdst: s32;
+        tm_gmtoff: s64;
         tm_zone: *u8;
     }
 
@@ -11444,6 +12419,17 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    ucontext_t :: struct {
+        uc_flags: u64;
+        uc_link: *ucontext_t;
+        uc_stack: stack_t;
+        uc_sigmask: sigset_t;
+        uc_mcontext: mcontext_t;
+    }
+
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     ucontext_t :: struct {
         uc_flags: u64;
@@ -11559,7 +12545,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     utsname :: struct {
 
         sysname: [65] u8;
@@ -11656,6 +12642,18 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    utsname :: struct {
+        sysname: [65] u8;
+        nodename: [65] u8;
+        release: [65] u8;
+        version: [65] u8;
+        machine: [65] u8;
+        domainname: [65] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     utsname :: struct {
         sysname: [65] u8;
         nodename: [65] u8;
@@ -12273,6 +13271,10 @@ OS_Error_Code :: #type,isa s32;
     __jmp_buf :: [6] s32;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    __jmp_buf :: [64] s64;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     __jmp_buf :: [1] struct {
         __gregs: [10] s64;
@@ -12296,12 +13298,16 @@ OS_Error_Code :: #type,isa s32;
     __LPBIG_OFFBIG :: 1;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     __NGREG :: 23;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     __NGREG :: 19;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    __NGREG :: 48;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -12328,6 +13334,10 @@ OS_Error_Code :: #type,isa s32;
     __O_DIRECT :: 16384;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    __O_DIRECT :: 131072;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     __O_DIRECT :: 16384;
 }
@@ -12346,6 +13356,10 @@ OS_Error_Code :: #type,isa s32;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     __O_DIRECTORY :: 65536;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    __O_DIRECTORY :: 16384;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -12386,6 +13400,10 @@ OS_Error_Code :: #type,isa s32;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     __O_NOFOLLOW :: 131072;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    __O_NOFOLLOW :: 32768;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -14122,6 +15140,10 @@ OS_Error_Code :: #type,isa s32;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     blksize_t :: s32;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    blksize_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -18160,7 +19182,7 @@ OS_Error_Code :: #type,isa s32;
     F_GETLEASE :: F_LINUX_SPECIFIC_BASE + 1;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 {
     F_GETLK :: 5;
 }
 
@@ -18188,7 +19210,11 @@ OS_Error_Code :: #type,isa s32;
     F_GETLK :: 12;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    F_GETLK :: 12;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 {
     F_GETLK64 :: 5;
 }
 
@@ -18205,6 +19231,10 @@ OS_Error_Code :: #type,isa s32;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    F_GETLK64 :: 12;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     F_GETLK64 :: 12;
 }
 
@@ -18700,7 +19730,7 @@ OS_Error_Code :: #type,isa s32;
     F_SETLEASE :: F_LINUX_SPECIFIC_BASE + 0;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 {
     F_SETLK :: 6;
 }
 
@@ -18728,7 +19758,11 @@ OS_Error_Code :: #type,isa s32;
     F_SETLK :: 13;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    F_SETLK :: 13;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 {
     F_SETLK64 :: 6;
 }
 
@@ -18748,7 +19782,11 @@ OS_Error_Code :: #type,isa s32;
     F_SETLK64 :: 13;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    F_SETLK64 :: 13;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 {
     F_SETLKW :: 7;
 }
 
@@ -18776,7 +19814,11 @@ OS_Error_Code :: #type,isa s32;
     F_SETLKW :: 14;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    F_SETLKW :: 14;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 {
     F_SETLKW64 :: 7;
 }
 
@@ -18793,6 +19835,10 @@ OS_Error_Code :: #type,isa s32;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    F_SETLKW64 :: 14;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     F_SETLKW64 :: 14;
 }
 
@@ -19148,7 +20194,7 @@ OS_Error_Code :: #type,isa s32;
     filesec_t :: *_filesec;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     FIOASYNC :: 0x5452;
 }
 
@@ -19160,7 +20206,11 @@ OS_Error_Code :: #type,isa s32;
     FIOASYNC :: 0x5452;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    FIOASYNC :: 2147772029;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     FIOCLEX :: 0x5451;
 }
 
@@ -19172,7 +20222,11 @@ OS_Error_Code :: #type,isa s32;
     FIOCLEX :: 0x5451;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    FIOCLEX :: 536897025;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     FIONBIO :: 0x5421;
 }
 
@@ -19184,7 +20238,11 @@ OS_Error_Code :: #type,isa s32;
     FIONBIO :: 0x5421;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    FIONBIO :: 2147772030;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     FIONCLEX :: 0x5450;
 }
 
@@ -19196,7 +20254,11 @@ OS_Error_Code :: #type,isa s32;
     FIONCLEX :: 0x5450;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    FIONCLEX :: 536897026;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     FIONREAD :: 0x541B;
 }
 
@@ -19208,7 +20270,11 @@ OS_Error_Code :: #type,isa s32;
     FIONREAD :: 0x541B;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .S390X {
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    FIONREAD :: 1074030207;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     FIOQSIZE :: 0x5460;
 }
 
@@ -19222,6 +20288,10 @@ OS_Error_Code :: #type,isa s32;
 
 #if OS == .LINUX && ARCHITECTURE == .ARM {
     FIOQSIZE :: 21598;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    FIOQSIZE :: 1074292352;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -19612,7 +20682,7 @@ OS_Error_Code :: #type,isa s32;
     FPE_NOOP :: 0;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     fpos64_t :: _G_fpos64_t;
 }
 
@@ -19624,7 +20694,7 @@ OS_Error_Code :: #type,isa s32;
     fpos64_t :: s64;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     fpos_t :: _G_fpos_t;
 }
 
@@ -19644,7 +20714,7 @@ OS_Error_Code :: #type,isa s32;
     fpos_t :: s64;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     fpregset_t :: *_libc_fpstate;
 }
 
@@ -19658,6 +20728,10 @@ OS_Error_Code :: #type,isa s32;
 
 #if OS == .LINUX && ARCHITECTURE == .ARM {
     fpregset_t :: _libc_fpstate;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    fpregset_t :: [33] float64;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -19900,7 +20974,7 @@ OS_Error_Code :: #type,isa s32;
     greg_t :: u64;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     gregset_t :: [23] greg_t;
 }
 
@@ -19918,6 +20992,10 @@ OS_Error_Code :: #type,isa s32;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     gregset_t :: [19] greg_t;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    gregset_t :: [48] u64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -22624,7 +23702,7 @@ OS_Error_Code :: #type,isa s32;
     MAP_JIT :: 0x0800;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     MAP_LOCKED :: 0x02000;
 }
 
@@ -22634,6 +23712,10 @@ OS_Error_Code :: #type,isa s32;
 
 #if OS == .ANDROID && CPU == .X64 {
     MAP_LOCKED :: 0x2000;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    MAP_LOCKED :: 128;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -22664,7 +23746,7 @@ OS_Error_Code :: #type,isa s32;
     MAP_NONBLOCK :: 0x010000;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     MAP_NORESERVE :: 0x04000;
 }
 
@@ -22682,6 +23764,10 @@ OS_Error_Code :: #type,isa s32;
 
 #if OS == .ANDROID && CPU == .X64 {
     MAP_NORESERVE :: 0x4000;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    MAP_NORESERVE :: 64;
 }
 
 #if OS == .LINUX {
@@ -22852,7 +23938,7 @@ OS_Error_Code :: #type,isa s32;
     MAXNAMLEN :: __DARWIN_MAXNAMLEN;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     MCL_CURRENT :: 1;
 }
 
@@ -22872,7 +23958,11 @@ OS_Error_Code :: #type,isa s32;
     MCL_CURRENT :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    MCL_CURRENT :: 8192;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     MCL_FUTURE :: 2;
 }
 
@@ -22892,7 +23982,11 @@ OS_Error_Code :: #type,isa s32;
     MCL_FUTURE :: 2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    MCL_FUTURE :: 16384;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     MCL_ONFAULT :: 4;
 }
 
@@ -22902,6 +23996,10 @@ OS_Error_Code :: #type,isa s32;
 
 #if OS == .ANDROID && CPU == .X64 {
     MCL_ONFAULT :: 4;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    MCL_ONFAULT :: 32768;
 }
 
 #if OS == .ANDROID && CPU == .ARM64 {
@@ -23234,6 +24332,10 @@ OS_Error_Code :: #type,isa s32;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     nlink_t :: u32;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    nlink_t :: u64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -29306,6 +30408,10 @@ off_t :: s64;
     SYS__sysctl :: 149;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS__sysctl :: 149;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS__sysctl :: 149;
 }
@@ -29342,6 +30448,10 @@ off_t :: s64;
     SYS_accept :: 285;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_accept :: 330;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_accept4 :: 288;
 }
@@ -29360,6 +30470,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_accept4 :: 364;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_accept4 :: 344;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -29395,6 +30509,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_access :: 33;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_access :: 33;
 }
 
@@ -29438,6 +30556,10 @@ off_t :: s64;
     SYS_acct :: 51;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_acct :: 51;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_acct :: 51;
 }
@@ -29460,6 +30582,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_add_key :: 286;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_add_key :: 269;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -29494,6 +30620,10 @@ off_t :: s64;
     SYS_adjtimex :: 124;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_adjtimex :: 124;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_adjtimex :: 124;
 }
@@ -29510,6 +30640,10 @@ off_t :: s64;
     SYS_afs_syscall :: 137;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_afs_syscall :: 137;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_afs_syscall :: 137;
 }
@@ -29587,6 +30721,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_alarm :: 27;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_alarm :: 27;
 }
 
@@ -29686,6 +30824,10 @@ off_t :: s64;
     SYS_bind :: 361;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_bind :: 327;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_bind :: 361;
 }
@@ -29710,6 +30852,10 @@ off_t :: s64;
     SYS_bpf :: 357;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_bpf :: 361;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_bpf :: 351;
 }
@@ -29731,6 +30877,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_brk :: 45;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_brk :: 45;
 }
 
@@ -29790,6 +30940,10 @@ off_t :: s64;
     SYS_capget :: 184;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_capget :: 183;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_capget :: 184;
 }
@@ -29812,6 +30966,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_capset :: 185;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_capset :: 184;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -29854,6 +31012,10 @@ off_t :: s64;
     SYS_chdir :: 12;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_chdir :: 12;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_chdir :: 12;
 }
@@ -29890,6 +31052,10 @@ off_t :: s64;
     SYS_chmod :: 15;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_chmod :: 15;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_chmod :: 15;
 }
@@ -29926,6 +31092,10 @@ off_t :: s64;
     SYS_chown :: 182;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_chown :: 181;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_chown :: 212;
 }
@@ -29958,6 +31128,10 @@ off_t :: s64;
     SYS_chroot :: 61;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_chroot :: 61;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_chroot :: 61;
 }
@@ -29980,6 +31154,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_clock_adjtime :: 343;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_clock_adjtime :: 347;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -30006,6 +31184,10 @@ off_t :: s64;
     SYS_clock_getres :: 266;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_clock_getres :: 247;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_clock_getres :: 261;
 }
@@ -30028,6 +31210,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_clock_gettime :: 265;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_clock_gettime :: 246;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -30054,6 +31240,10 @@ off_t :: s64;
     SYS_clock_nanosleep :: 267;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_clock_nanosleep :: 248;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_clock_nanosleep :: 262;
 }
@@ -30076,6 +31266,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_clock_settime :: 264;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_clock_settime :: 245;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -30102,6 +31296,10 @@ off_t :: s64;
     SYS_clone :: 120;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_clone :: 120;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_clone :: 120;
 }
@@ -30123,6 +31321,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_clone3 :: 435;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_clone3 :: 435;
 }
 
@@ -30163,6 +31365,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_close :: 6;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_close :: 6;
 }
 
@@ -30234,6 +31440,10 @@ off_t :: s64;
     SYS_connect :: 362;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_connect :: 328;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_connect :: 362;
 }
@@ -30274,6 +31484,10 @@ off_t :: s64;
     SYS_copy_file_range :: 377;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_copy_file_range :: 379;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_copy_file_range :: 375;
 }
@@ -30302,6 +31516,10 @@ off_t :: s64;
     SYS_creat :: 8;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_creat :: 8;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_creat :: 8;
 }
@@ -30315,6 +31533,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_create_module :: 127;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_create_module :: 127;
 }
 
@@ -30374,6 +31596,10 @@ off_t :: s64;
     SYS_delete_module :: 129;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_delete_module :: 129;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_delete_module :: 129;
 }
@@ -30414,6 +31640,10 @@ off_t :: s64;
     SYS_dup :: 41;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_dup :: 41;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_dup :: 41;
 }
@@ -30442,6 +31672,10 @@ off_t :: s64;
     SYS_dup2 :: 63;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_dup2 :: 63;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_dup2 :: 63;
 }
@@ -30466,6 +31700,10 @@ off_t :: s64;
     SYS_dup3 :: 330;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_dup3 :: 316;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_dup3 :: 326;
 }
@@ -30484,6 +31722,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_epoll_create :: 254;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_epoll_create :: 236;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -30510,6 +31752,10 @@ off_t :: s64;
     SYS_epoll_create1 :: 329;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_epoll_create1 :: 315;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_epoll_create1 :: 327;
 }
@@ -30532,6 +31778,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_epoll_ctl :: 255;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_epoll_ctl :: 237;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -30566,6 +31816,10 @@ off_t :: s64;
     SYS_epoll_pwait :: 319;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_epoll_pwait :: 303;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_epoll_pwait :: 312;
 }
@@ -30592,6 +31846,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_epoll_wait :: 256;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_epoll_wait :: 238;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -30622,6 +31880,10 @@ off_t :: s64;
     SYS_eventfd :: 323;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_eventfd :: 307;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_eventfd :: 318;
 }
@@ -30644,6 +31906,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_eventfd2 :: 328;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_eventfd2 :: 314;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -30686,6 +31952,10 @@ off_t :: s64;
     SYS_execve :: 11;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_execve :: 11;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_execve :: 11;
 }
@@ -30708,6 +31978,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_execveat :: 358;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_execveat :: 362;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -30742,6 +32016,10 @@ off_t :: s64;
     SYS_exit :: 1;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_exit :: 1;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_exit :: 1;
 }
@@ -30764,6 +32042,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_exit_group :: 252;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_exit_group :: 234;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -30798,6 +32080,10 @@ off_t :: s64;
     SYS_faccessat :: 307;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_faccessat :: 298;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_faccessat :: 300;
 }
@@ -30826,6 +32112,10 @@ off_t :: s64;
     SYS_fadvise64 :: 250;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_fadvise64 :: 233;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_fadvise64 :: 253;
 }
@@ -30848,6 +32138,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_fallocate :: 324;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_fallocate :: 309;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -30874,6 +32168,10 @@ off_t :: s64;
     SYS_fanotify_init :: 338;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_fanotify_init :: 323;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_fanotify_init :: 332;
 }
@@ -30896,6 +32194,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_fanotify_mark :: 339;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_fanotify_mark :: 324;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -30927,6 +32229,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fchdir :: 133;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_fchdir :: 133;
 }
 
@@ -30970,6 +32276,10 @@ off_t :: s64;
     SYS_fchmod :: 94;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_fchmod :: 94;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_fchmod :: 94;
 }
@@ -31010,6 +32320,10 @@ off_t :: s64;
     SYS_fchmodat :: 306;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_fchmodat :: 297;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_fchmodat :: 299;
 }
@@ -31039,6 +32353,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fchown :: 95;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_fchown :: 95;
 }
 
@@ -31072,6 +32390,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_fchownat :: 298;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_fchownat :: 289;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -31114,6 +32436,10 @@ off_t :: s64;
     SYS_fcntl :: 55;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_fcntl :: 55;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_fcntl :: 55;
 }
@@ -31151,6 +32477,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fdatasync :: 148;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_fdatasync :: 148;
 }
 
@@ -31202,6 +32532,10 @@ off_t :: s64;
     SYS_fgetxattr :: 231;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_fgetxattr :: 214;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_fgetxattr :: 229;
 }
@@ -31250,6 +32584,10 @@ off_t :: s64;
     SYS_finit_module :: 350;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_finit_module :: 353;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_finit_module :: 344;
 }
@@ -31280,6 +32618,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_flistxattr :: 234;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_flistxattr :: 217;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -31314,6 +32656,10 @@ off_t :: s64;
     SYS_flock :: 143;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_flock :: 143;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_flock :: 143;
 }
@@ -31347,6 +32693,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fork :: 2;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_fork :: 2;
 }
 
@@ -31390,6 +32740,10 @@ off_t :: s64;
     SYS_fremovexattr :: 237;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_fremovexattr :: 220;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_fremovexattr :: 235;
 }
@@ -31419,6 +32773,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fsconfig :: 431;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_fsconfig :: 431;
 }
 
@@ -31470,6 +32828,10 @@ off_t :: s64;
     SYS_fsetxattr :: 228;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_fsetxattr :: 211;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_fsetxattr :: 226;
 }
@@ -31506,6 +32868,10 @@ off_t :: s64;
     SYS_fsmount :: 432;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_fsmount :: 432;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_fsmount :: 432;
 }
@@ -31530,6 +32896,10 @@ off_t :: s64;
     SYS_fsopen :: 430;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_fsopen :: 430;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_fsopen :: 430;
 }
@@ -31551,6 +32921,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fspick :: 433;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_fspick :: 433;
 }
 
@@ -31583,6 +32957,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fstat :: 108;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_fstat :: 108;
 }
 
@@ -31658,6 +33036,10 @@ off_t :: s64;
     SYS_fstatfs :: 100;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_fstatfs :: 100;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_fstatfs :: 100;
 }
@@ -31695,6 +33077,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fsync :: 118;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_fsync :: 118;
 }
 
@@ -31738,6 +33124,10 @@ off_t :: s64;
     SYS_ftruncate :: 93;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_ftruncate :: 93;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_ftruncate :: 93;
 }
@@ -31760,6 +33150,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_futex :: 240;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_futex :: 221;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -31798,6 +33192,10 @@ off_t :: s64;
     SYS_futimesat :: 299;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_futimesat :: 290;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_futimesat :: 292;
 }
@@ -31811,6 +33209,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_get_kernel_syms :: 130;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_get_kernel_syms :: 130;
 }
 
@@ -31838,6 +33240,10 @@ off_t :: s64;
     SYS_get_mempolicy :: 275;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_get_mempolicy :: 260;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_get_mempolicy :: 269;
 }
@@ -31860,6 +33266,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_get_robust_list :: 312;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_get_robust_list :: 299;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -31938,6 +33348,10 @@ off_t :: s64;
     SYS_getcpu :: 318;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_getcpu :: 302;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_getcpu :: 311;
 }
@@ -31962,6 +33376,10 @@ off_t :: s64;
     SYS_getcwd :: 183;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_getcwd :: 182;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_getcwd :: 183;
 }
@@ -31979,6 +33397,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getdents :: 141;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_getdents :: 141;
 }
 
@@ -32004,6 +33426,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_getdents64 :: 220;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_getdents64 :: 202;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -32070,6 +33496,10 @@ off_t :: s64;
     SYS_getegid :: 50;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_getegid :: 50;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_getegid :: 202;
 }
@@ -32107,6 +33537,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_geteuid :: 49;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_geteuid :: 49;
 }
 
@@ -32166,6 +33600,10 @@ off_t :: s64;
     SYS_getgid :: 47;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_getgid :: 47;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_getgid :: 200;
 }
@@ -32195,6 +33633,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getgroups :: 80;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_getgroups :: 80;
 }
 
@@ -32238,6 +33680,10 @@ off_t :: s64;
     SYS_getitimer :: 105;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_getitimer :: 105;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_getitimer :: 105;
 }
@@ -32278,6 +33724,10 @@ off_t :: s64;
     SYS_getpeername :: 368;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_getpeername :: 332;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_getpeername :: 368;
 }
@@ -32310,6 +33760,10 @@ off_t :: s64;
     SYS_getpgid :: 132;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_getpgid :: 132;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_getpgid :: 132;
 }
@@ -32335,6 +33789,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getpgrp :: 65;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_getpgrp :: 65;
 }
 
@@ -32370,6 +33828,10 @@ off_t :: s64;
     SYS_getpid :: 20;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_getpid :: 20;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_getpid :: 20;
 }
@@ -32384,6 +33846,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_getpmsg :: 188;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_getpmsg :: 187;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -32415,6 +33881,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getppid :: 64;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_getppid :: 64;
 }
 
@@ -32450,6 +33920,10 @@ off_t :: s64;
     SYS_getpriority :: 96;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_getpriority :: 96;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_getpriority :: 96;
 }
@@ -32472,6 +33946,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_getrandom :: 355;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_getrandom :: 359;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -32498,6 +33976,10 @@ off_t :: s64;
     SYS_getresgid :: 171;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_getresgid :: 170;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_getresgid :: 211;
 }
@@ -32519,6 +34001,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getresuid :: 165;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_getresuid :: 165;
 }
 
@@ -32547,6 +34033,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getrlimit :: 76;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_getrlimit :: 76;
 }
 
@@ -32579,6 +34069,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getrusage :: 77;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_getrusage :: 77;
 }
 
@@ -32622,6 +34116,10 @@ off_t :: s64;
     SYS_getsid :: 147;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_getsid :: 147;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_getsid :: 147;
 }
@@ -32652,6 +34150,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_getsockname :: 367;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_getsockname :: 331;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -32686,6 +34188,10 @@ off_t :: s64;
     SYS_getsockopt :: 365;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_getsockopt :: 340;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_getsockopt :: 365;
 }
@@ -32716,6 +34222,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_gettid :: 224;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_gettid :: 207;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -32750,6 +34260,10 @@ off_t :: s64;
     SYS_gettimeofday :: 78;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_gettimeofday :: 78;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_gettimeofday :: 78;
 }
@@ -32779,6 +34293,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getuid :: 24;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_getuid :: 24;
 }
 
@@ -32820,6 +34338,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_getxattr :: 229;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_getxattr :: 212;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -32918,6 +34440,10 @@ off_t :: s64;
     SYS_init_module :: 128;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_init_module :: 128;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_init_module :: 128;
 }
@@ -32950,6 +34476,10 @@ off_t :: s64;
     SYS_inotify_add_watch :: 292;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_inotify_add_watch :: 276;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_inotify_add_watch :: 285;
 }
@@ -32968,6 +34498,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_inotify_init :: 291;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_inotify_init :: 275;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -32994,6 +34528,10 @@ off_t :: s64;
     SYS_inotify_init1 :: 332;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_inotify_init1 :: 318;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_inotify_init1 :: 324;
 }
@@ -33016,6 +34554,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_inotify_rm_watch :: 293;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_inotify_rm_watch :: 277;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -33050,6 +34592,10 @@ off_t :: s64;
     SYS_io_cancel :: 249;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_io_cancel :: 231;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_io_cancel :: 247;
 }
@@ -33072,6 +34618,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_io_destroy :: 246;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_io_destroy :: 228;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -33098,6 +34648,10 @@ off_t :: s64;
     SYS_io_getevents :: 247;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_io_getevents :: 229;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_io_getevents :: 245;
 }
@@ -33120,6 +34674,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_io_pgetevents :: 385;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_io_pgetevents :: 388;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -33146,6 +34704,10 @@ off_t :: s64;
     SYS_io_setup :: 245;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_io_setup :: 227;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_io_setup :: 243;
 }
@@ -33170,6 +34732,10 @@ off_t :: s64;
     SYS_io_submit :: 248;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_io_submit :: 230;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_io_submit :: 246;
 }
@@ -33194,6 +34760,10 @@ off_t :: s64;
     SYS_io_uring_enter :: 426;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_io_uring_enter :: 426;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_io_uring_enter :: 426;
 }
@@ -33218,6 +34788,10 @@ off_t :: s64;
     SYS_io_uring_register :: 427;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_io_uring_register :: 427;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_io_uring_register :: 427;
 }
@@ -33239,6 +34813,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_io_uring_setup :: 425;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_io_uring_setup :: 425;
 }
 
@@ -33274,6 +34852,10 @@ off_t :: s64;
     SYS_ioctl :: 54;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_ioctl :: 54;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_ioctl :: 54;
 }
@@ -33290,6 +34872,10 @@ off_t :: s64;
     SYS_ioperm :: 101;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_ioperm :: 101;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_iopl :: 172;
 }
@@ -33299,6 +34885,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_iopl :: 110;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_iopl :: 110;
 }
 
@@ -33330,6 +34920,10 @@ off_t :: s64;
     SYS_ioprio_get :: 290;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_ioprio_get :: 274;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_ioprio_get :: 283;
 }
@@ -33352,6 +34946,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_ioprio_set :: 289;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_ioprio_set :: 273;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -33392,6 +34990,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_kcmp :: 349;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_kcmp :: 354;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -33478,6 +35080,10 @@ off_t :: s64;
     SYS_kexec_file_load :: 401;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_kexec_file_load :: 382;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_kexec_file_load :: 381;
 }
@@ -33502,6 +35108,10 @@ off_t :: s64;
     SYS_kexec_load :: 283;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_kexec_load :: 268;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_kexec_load :: 277;
 }
@@ -33524,6 +35134,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_keyctl :: 288;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_keyctl :: 271;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -33555,6 +35169,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_kill :: 37;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_kill :: 37;
 }
 
@@ -33622,6 +35240,10 @@ off_t :: s64;
     SYS_lchown :: 16;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_lchown :: 16;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_lchown :: 198;
 }
@@ -33654,6 +35276,10 @@ off_t :: s64;
     SYS_lgetxattr :: 230;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_lgetxattr :: 213;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_lgetxattr :: 228;
 }
@@ -33679,6 +35305,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_link :: 9;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_link :: 9;
 }
 
@@ -33712,6 +35342,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_linkat :: 303;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_linkat :: 294;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -33754,6 +35388,10 @@ off_t :: s64;
     SYS_listen :: 363;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_listen :: 329;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_listen :: 363;
 }
@@ -33786,6 +35424,10 @@ off_t :: s64;
     SYS_listxattr :: 232;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_listxattr :: 215;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_listxattr :: 230;
 }
@@ -33808,6 +35450,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_llistxattr :: 233;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_llistxattr :: 216;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -33838,6 +35484,10 @@ off_t :: s64;
     SYS_lookup_dcookie :: 253;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_lookup_dcookie :: 235;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_lookup_dcookie :: 110;
 }
@@ -33860,6 +35510,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_lremovexattr :: 236;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_lremovexattr :: 219;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -33894,6 +35548,10 @@ off_t :: s64;
     SYS_lseek :: 19;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_lseek :: 19;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_lseek :: 19;
 }
@@ -33916,6 +35574,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_lsetxattr :: 227;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_lsetxattr :: 210;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -33943,6 +35605,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_lstat :: 107;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_lstat :: 107;
 }
 
@@ -34014,6 +35680,10 @@ off_t :: s64;
     SYS_madvise :: 219;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_madvise :: 205;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_madvise :: 219;
 }
@@ -34046,6 +35716,10 @@ off_t :: s64;
     SYS_mbind :: 274;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_mbind :: 259;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_mbind :: 268;
 }
@@ -34070,6 +35744,10 @@ off_t :: s64;
     SYS_membarrier :: 375;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_membarrier :: 365;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_membarrier :: 356;
 }
@@ -34092,6 +35770,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_memfd_create :: 356;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_memfd_create :: 360;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -34154,6 +35836,10 @@ off_t :: s64;
     SYS_migrate_pages :: 294;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_migrate_pages :: 258;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_migrate_pages :: 287;
 }
@@ -34184,6 +35870,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_mincore :: 218;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_mincore :: 206;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -34219,6 +35909,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_mkdir :: 39;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_mkdir :: 39;
 }
 
@@ -34260,6 +35954,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_mkdirat :: 296;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_mkdirat :: 287;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -34306,6 +36004,10 @@ off_t :: s64;
     SYS_mknod :: 14;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_mknod :: 14;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_mknod :: 14;
 }
@@ -34328,6 +36030,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_mknodat :: 297;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_mknodat :: 288;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -34362,6 +36068,10 @@ off_t :: s64;
     SYS_mlock :: 150;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_mlock :: 150;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_mlock :: 150;
 }
@@ -34384,6 +36094,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_mlock2 :: 376;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_mlock2 :: 378;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -34418,6 +36132,10 @@ off_t :: s64;
     SYS_mlockall :: 152;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_mlockall :: 152;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_mlockall :: 152;
 }
@@ -34446,6 +36164,10 @@ off_t :: s64;
     SYS_mmap :: 90;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_mmap :: 90;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_mmap :: 90;
 }
@@ -34459,6 +36181,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_modify_ldt :: 123;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_modify_ldt :: 123;
 }
 
@@ -34494,6 +36220,10 @@ off_t :: s64;
     SYS_mount :: 21;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_mount :: 21;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_mount :: 21;
 }
@@ -34526,6 +36256,10 @@ off_t :: s64;
     SYS_move_mount :: 429;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_move_mount :: 429;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_move_mount :: 429;
 }
@@ -34548,6 +36282,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_move_pages :: 317;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_move_pages :: 301;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -34582,6 +36320,10 @@ off_t :: s64;
     SYS_mprotect :: 125;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_mprotect :: 125;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_mprotect :: 125;
 }
@@ -34604,6 +36346,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_mq_getsetattr :: 282;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_mq_getsetattr :: 267;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -34630,6 +36376,10 @@ off_t :: s64;
     SYS_mq_notify :: 281;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_mq_notify :: 266;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_mq_notify :: 275;
 }
@@ -34652,6 +36402,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_mq_open :: 277;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_mq_open :: 262;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -34678,6 +36432,10 @@ off_t :: s64;
     SYS_mq_timedreceive :: 280;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_mq_timedreceive :: 265;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_mq_timedreceive :: 274;
 }
@@ -34700,6 +36458,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_mq_timedsend :: 279;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_mq_timedsend :: 264;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -34726,6 +36488,10 @@ off_t :: s64;
     SYS_mq_unlink :: 278;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_mq_unlink :: 263;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_mq_unlink :: 272;
 }
@@ -34747,6 +36513,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_mremap :: 163;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_mremap :: 163;
 }
 
@@ -34790,6 +36560,10 @@ off_t :: s64;
     SYS_msgctl :: 402;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_msgctl :: 402;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_msgctl :: 402;
 }
@@ -34822,6 +36596,10 @@ off_t :: s64;
     SYS_msgget :: 399;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_msgget :: 399;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_msgget :: 399;
 }
@@ -34851,6 +36629,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_msgrcv :: 401;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_msgrcv :: 401;
 }
 
@@ -34891,6 +36673,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_msgsnd :: 400;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_msgsnd :: 400;
 }
 
@@ -34942,6 +36728,10 @@ off_t :: s64;
     SYS_msync :: 144;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_msync :: 144;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_msync :: 144;
 }
@@ -34982,6 +36772,10 @@ off_t :: s64;
     SYS_munlock :: 151;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_munlock :: 151;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_munlock :: 151;
 }
@@ -35011,6 +36805,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_munlockall :: 153;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_munlockall :: 153;
 }
 
@@ -35046,6 +36844,10 @@ off_t :: s64;
     SYS_munmap :: 91;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_munmap :: 91;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_munmap :: 91;
 }
@@ -35070,6 +36872,10 @@ off_t :: s64;
     SYS_name_to_handle_at :: 341;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_name_to_handle_at :: 345;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_name_to_handle_at :: 335;
 }
@@ -35091,6 +36897,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_nanosleep :: 162;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_nanosleep :: 162;
 }
 
@@ -35166,6 +36976,10 @@ off_t :: s64;
     SYS_newfstatat :: 262;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_newfstatat :: 291;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_newfstatat :: 293;
 }
@@ -35198,6 +37012,10 @@ off_t :: s64;
     SYS_nfsservctl :: 169;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_nfsservctl :: 168;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_nfsservctl :: 169;
 }
@@ -35258,6 +37076,10 @@ off_t :: s64;
     SYS_open :: 5;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_open :: 5;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_open :: 5;
 }
@@ -35280,6 +37102,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_open_by_handle_at :: 342;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_open_by_handle_at :: 346;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -35330,6 +37156,10 @@ off_t :: s64;
     SYS_open_tree :: 428;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_open_tree :: 428;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_open_tree :: 428;
 }
@@ -35360,6 +37190,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_openat :: 295;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_openat :: 286;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -35422,6 +37256,10 @@ off_t :: s64;
     SYS_pause :: 29;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_pause :: 29;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_pause :: 29;
 }
@@ -35452,6 +37290,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_perf_event_open :: 336;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_perf_event_open :: 319;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -35486,6 +37328,10 @@ off_t :: s64;
     SYS_personality :: 136;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_personality :: 136;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_personality :: 136;
 }
@@ -35550,6 +37396,10 @@ off_t :: s64;
     SYS_pidfd_open :: 434;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_pidfd_open :: 434;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_pidfd_open :: 434;
 }
@@ -35571,6 +37421,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_pidfd_send_signal :: 424;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_pidfd_send_signal :: 424;
 }
 
@@ -35602,6 +37456,10 @@ off_t :: s64;
     SYS_pipe :: 42;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_pipe :: 42;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_pipe :: 42;
 }
@@ -35624,6 +37482,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_pipe2 :: 331;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_pipe2 :: 317;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -35654,6 +37516,10 @@ off_t :: s64;
     SYS_pivot_root :: 217;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_pivot_root :: 203;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_pivot_root :: 217;
 }
@@ -35676,6 +37542,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_pkey_alloc :: 381;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_pkey_alloc :: 384;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -35702,6 +37572,10 @@ off_t :: s64;
     SYS_pkey_free :: 382;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_pkey_free :: 385;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_pkey_free :: 386;
 }
@@ -35724,6 +37598,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_pkey_mprotect :: 380;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_pkey_mprotect :: 386;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -35752,6 +37630,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_poll :: 168;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_poll :: 167;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -35794,6 +37676,10 @@ off_t :: s64;
     SYS_ppoll :: 309;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_ppoll :: 281;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_ppoll :: 302;
 }
@@ -35816,6 +37702,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_prctl :: 172;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_prctl :: 171;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -35848,6 +37738,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_pread64 :: 180;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_pread64 :: 179;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -35886,6 +37780,10 @@ off_t :: s64;
     SYS_preadv :: 333;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_preadv :: 320;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_preadv :: 328;
 }
@@ -35908,6 +37806,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_preadv2 :: 378;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_preadv2 :: 380;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -35936,6 +37838,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_prlimit64 :: 340;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_prlimit64 :: 325;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -36022,6 +37928,10 @@ off_t :: s64;
     SYS_process_vm_readv :: 347;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_process_vm_readv :: 351;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_process_vm_readv :: 340;
 }
@@ -36044,6 +37954,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_process_vm_writev :: 348;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_process_vm_writev :: 352;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -36076,6 +37990,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_pselect6 :: 308;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_pselect6 :: 280;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -36230,6 +38148,10 @@ off_t :: s64;
     SYS_ptrace :: 26;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_ptrace :: 26;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_ptrace :: 26;
 }
@@ -36244,6 +38166,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_putpmsg :: 189;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_putpmsg :: 188;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -36276,6 +38202,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_pwrite64 :: 181;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_pwrite64 :: 180;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -36314,6 +38244,10 @@ off_t :: s64;
     SYS_pwritev :: 334;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_pwritev :: 321;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_pwritev :: 329;
 }
@@ -36338,6 +38272,10 @@ off_t :: s64;
     SYS_pwritev2 :: 379;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_pwritev2 :: 381;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_pwritev2 :: 377;
 }
@@ -36356,6 +38294,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_query_module :: 167;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_query_module :: 166;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -36387,6 +38329,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_quotactl :: 131;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_quotactl :: 131;
 }
 
@@ -36430,6 +38376,10 @@ off_t :: s64;
     SYS_read :: 3;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_read :: 3;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_read :: 3;
 }
@@ -36462,6 +38412,10 @@ off_t :: s64;
     SYS_readahead :: 225;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_readahead :: 191;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_readahead :: 222;
 }
@@ -36487,6 +38441,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_readlink :: 85;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_readlink :: 85;
 }
 
@@ -36522,6 +38480,10 @@ off_t :: s64;
     SYS_readlinkat :: 305;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_readlinkat :: 296;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_readlinkat :: 298;
 }
@@ -36551,6 +38513,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_readv :: 145;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_readv :: 145;
 }
 
@@ -36594,6 +38560,10 @@ off_t :: s64;
     SYS_reboot :: 88;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_reboot :: 88;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_reboot :: 88;
 }
@@ -36624,6 +38594,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_recvfrom :: 371;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_recvfrom :: 337;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -36658,6 +38632,10 @@ off_t :: s64;
     SYS_recvmmsg :: 337;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_recvmmsg :: 343;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_recvmmsg :: 357;
 }
@@ -36688,6 +38666,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_recvmsg :: 372;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_recvmsg :: 342;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -36730,6 +38712,10 @@ off_t :: s64;
     SYS_remap_file_pages :: 257;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_remap_file_pages :: 239;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_remap_file_pages :: 267;
 }
@@ -36762,6 +38748,10 @@ off_t :: s64;
     SYS_removexattr :: 235;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_removexattr :: 218;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_removexattr :: 233;
 }
@@ -36787,6 +38777,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_rename :: 38;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_rename :: 38;
 }
 
@@ -36822,6 +38816,10 @@ off_t :: s64;
     SYS_renameat :: 302;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_renameat :: 293;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_renameat :: 295;
 }
@@ -36844,6 +38842,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_renameat2 :: 353;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_renameat2 :: 357;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -36878,6 +38880,10 @@ off_t :: s64;
     SYS_request_key :: 287;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_request_key :: 270;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_request_key :: 279;
 }
@@ -36899,6 +38905,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_restart_syscall :: 0;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_restart_syscall :: 0;
 }
 
@@ -36938,6 +38948,10 @@ off_t :: s64;
     SYS_rmdir :: 40;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_rmdir :: 40;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_rmdir :: 40;
 }
@@ -36960,6 +38974,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_rseq :: 386;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_rseq :: 387;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -36986,6 +39004,10 @@ off_t :: s64;
     SYS_rt_sigaction :: 174;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_rt_sigaction :: 173;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_rt_sigaction :: 174;
 }
@@ -37008,6 +39030,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_rt_sigpending :: 176;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_rt_sigpending :: 175;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -37034,6 +39060,10 @@ off_t :: s64;
     SYS_rt_sigprocmask :: 175;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_rt_sigprocmask :: 174;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_rt_sigprocmask :: 175;
 }
@@ -37056,6 +39086,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_rt_sigqueueinfo :: 178;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_rt_sigqueueinfo :: 177;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -37082,6 +39116,10 @@ off_t :: s64;
     SYS_rt_sigreturn :: 173;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_rt_sigreturn :: 172;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_rt_sigreturn :: 173;
 }
@@ -37104,6 +39142,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_rt_sigsuspend :: 179;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_rt_sigsuspend :: 178;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -37130,6 +39172,10 @@ off_t :: s64;
     SYS_rt_sigtimedwait :: 177;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_rt_sigtimedwait :: 176;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_rt_sigtimedwait :: 177;
 }
@@ -37154,6 +39200,10 @@ off_t :: s64;
     SYS_rt_tgsigqueueinfo :: 335;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_rt_tgsigqueueinfo :: 322;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_rt_tgsigqueueinfo :: 330;
 }
@@ -37175,6 +39225,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sched_get_priority_max :: 159;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_sched_get_priority_max :: 159;
 }
 
@@ -37202,6 +39256,10 @@ off_t :: s64;
     SYS_sched_get_priority_min :: 160;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_sched_get_priority_min :: 160;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_sched_get_priority_min :: 160;
 }
@@ -37224,6 +39282,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_sched_getaffinity :: 242;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_sched_getaffinity :: 223;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -37250,6 +39312,10 @@ off_t :: s64;
     SYS_sched_getattr :: 352;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_sched_getattr :: 356;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_sched_getattr :: 346;
 }
@@ -37271,6 +39337,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sched_getparam :: 155;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_sched_getparam :: 155;
 }
 
@@ -37298,6 +39368,10 @@ off_t :: s64;
     SYS_sched_getscheduler :: 157;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_sched_getscheduler :: 157;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_sched_getscheduler :: 157;
 }
@@ -37319,6 +39393,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sched_rr_get_interval :: 161;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_sched_rr_get_interval :: 161;
 }
 
@@ -37346,6 +39424,10 @@ off_t :: s64;
     SYS_sched_setaffinity :: 241;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_sched_setaffinity :: 222;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_sched_setaffinity :: 239;
 }
@@ -37370,6 +39452,10 @@ off_t :: s64;
     SYS_sched_setattr :: 351;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_sched_setattr :: 355;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_sched_setattr :: 345;
 }
@@ -37391,6 +39477,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sched_setparam :: 154;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_sched_setparam :: 154;
 }
 
@@ -37418,6 +39508,10 @@ off_t :: s64;
     SYS_sched_setscheduler :: 156;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_sched_setscheduler :: 156;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_sched_setscheduler :: 156;
 }
@@ -37439,6 +39533,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sched_yield :: 158;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_sched_yield :: 158;
 }
 
@@ -37482,6 +39580,10 @@ off_t :: s64;
     SYS_seccomp :: 354;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_seccomp :: 358;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_seccomp :: 348;
 }
@@ -37511,6 +39613,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_select :: 82;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_select :: 82;
 }
 
@@ -37610,6 +39716,10 @@ off_t :: s64;
     SYS_semctl :: 394;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_semctl :: 394;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_semctl :: 394;
 }
@@ -37639,6 +39749,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_semget :: 393;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_semget :: 393;
 }
 
@@ -37694,6 +39808,10 @@ off_t :: s64;
     SYS_semtimedop :: 312;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_semtimedop :: 392;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_semtimedop :: 392;
 }
@@ -37726,6 +39844,10 @@ off_t :: s64;
     SYS_sendfile :: 187;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_sendfile :: 186;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_sendfile :: 187;
 }
@@ -37748,6 +39870,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_sendmmsg :: 345;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_sendmmsg :: 349;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -37780,6 +39906,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_sendmsg :: 370;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_sendmsg :: 341;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -37830,6 +39960,10 @@ off_t :: s64;
     SYS_sendto :: 369;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_sendto :: 335;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_sendto :: 369;
 }
@@ -37862,6 +39996,10 @@ off_t :: s64;
     SYS_set_mempolicy :: 276;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_set_mempolicy :: 261;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_set_mempolicy :: 270;
 }
@@ -37892,6 +40030,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_set_robust_list :: 311;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_set_robust_list :: 300;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -37928,6 +40070,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_set_tid_address :: 258;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_set_tid_address :: 232;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -37986,6 +40132,10 @@ off_t :: s64;
     SYS_setdomainname :: 121;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_setdomainname :: 121;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_setdomainname :: 121;
 }
@@ -38026,6 +40176,10 @@ off_t :: s64;
     SYS_setfsgid :: 139;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_setfsgid :: 139;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_setfsgid :: 216;
 }
@@ -38047,6 +40201,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_setfsuid :: 138;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_setfsuid :: 138;
 }
 
@@ -38082,6 +40240,10 @@ off_t :: s64;
     SYS_setgid :: 46;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_setgid :: 46;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_setgid :: 214;
 }
@@ -38114,6 +40276,10 @@ off_t :: s64;
     SYS_setgroups :: 81;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_setgroups :: 81;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_setgroups :: 206;
 }
@@ -38135,6 +40301,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sethostname :: 74;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_sethostname :: 74;
 }
 
@@ -38170,6 +40340,10 @@ off_t :: s64;
     SYS_setitimer :: 104;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_setitimer :: 104;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_setitimer :: 104;
 }
@@ -38200,6 +40374,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_setns :: 346;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_setns :: 350;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -38234,6 +40412,10 @@ off_t :: s64;
     SYS_setpgid :: 57;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_setpgid :: 57;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_setpgid :: 57;
 }
@@ -38263,6 +40445,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_setpriority :: 97;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_setpriority :: 97;
 }
 
@@ -38306,6 +40492,10 @@ off_t :: s64;
     SYS_setregid :: 71;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_setregid :: 71;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_setregid :: 204;
 }
@@ -38330,6 +40520,10 @@ off_t :: s64;
     SYS_setresgid :: 170;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_setresgid :: 169;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_setresgid :: 210;
 }
@@ -38351,6 +40545,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_setresuid :: 164;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_setresuid :: 164;
 }
 
@@ -38386,6 +40584,10 @@ off_t :: s64;
     SYS_setreuid :: 70;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_setreuid :: 70;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_setreuid :: 203;
 }
@@ -38415,6 +40617,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_setrlimit :: 75;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_setrlimit :: 75;
 }
 
@@ -38458,6 +40664,10 @@ off_t :: s64;
     SYS_setsid :: 66;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_setsid :: 66;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_setsid :: 66;
 }
@@ -38488,6 +40698,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_setsockopt :: 366;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_setsockopt :: 339;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -38538,6 +40752,10 @@ off_t :: s64;
     SYS_settimeofday :: 79;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_settimeofday :: 79;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_settimeofday :: 79;
 }
@@ -38567,6 +40785,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_setuid :: 23;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_setuid :: 23;
 }
 
@@ -38608,6 +40830,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_setxattr :: 226;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_setxattr :: 209;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -38694,6 +40920,10 @@ off_t :: s64;
     SYS_shmat :: 397;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_shmat :: 397;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_shmat :: 397;
 }
@@ -38723,6 +40953,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_shmctl :: 396;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_shmctl :: 396;
 }
 
@@ -38758,6 +40992,10 @@ off_t :: s64;
     SYS_shmdt :: 398;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_shmdt :: 398;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_shmdt :: 398;
 }
@@ -38787,6 +41025,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_shmget :: 395;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_shmget :: 395;
 }
 
@@ -38830,6 +41072,10 @@ off_t :: s64;
     SYS_shutdown :: 373;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_shutdown :: 338;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_shutdown :: 373;
 }
@@ -38870,6 +41116,10 @@ off_t :: s64;
     SYS_sigaltstack :: 186;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_sigaltstack :: 185;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_sigaltstack :: 186;
 }
@@ -38888,6 +41138,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_signalfd :: 321;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_signalfd :: 305;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -38912,6 +41166,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_signalfd4 :: 327;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_signalfd4 :: 313;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -38986,6 +41244,10 @@ off_t :: s64;
     SYS_socket :: 359;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_socket :: 326;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_socket :: 359;
 }
@@ -39026,6 +41288,10 @@ off_t :: s64;
     SYS_socketpair :: 360;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_socketpair :: 333;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_socketpair :: 360;
 }
@@ -39048,6 +41314,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_splice :: 313;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_splice :: 283;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -39083,6 +41353,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_stat :: 106;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_stat :: 106;
 }
 
@@ -39142,6 +41416,10 @@ off_t :: s64;
     SYS_statfs :: 99;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_statfs :: 99;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_statfs :: 99;
 }
@@ -39174,6 +41452,10 @@ off_t :: s64;
     SYS_statx :: 383;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_statx :: 383;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_statx :: 379;
 }
@@ -39195,6 +41477,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_swapoff :: 115;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_swapoff :: 115;
 }
 
@@ -39230,6 +41516,10 @@ off_t :: s64;
     SYS_swapon :: 87;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_swapon :: 87;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_swapon :: 87;
 }
@@ -39255,6 +41545,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_symlink :: 83;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_symlink :: 83;
 }
 
@@ -39290,6 +41584,10 @@ off_t :: s64;
     SYS_symlinkat :: 304;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_symlinkat :: 295;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_symlinkat :: 297;
 }
@@ -39319,6 +41617,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sync :: 36;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_sync :: 36;
 }
 
@@ -39364,6 +41666,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_syncfs :: 344;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_syncfs :: 348;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -39414,6 +41720,10 @@ off_t :: s64;
     SYS_sysfs :: 135;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_sysfs :: 135;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_sysfs :: 135;
 }
@@ -39438,6 +41748,10 @@ off_t :: s64;
     SYS_sysinfo :: 116;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_sysinfo :: 116;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_sysinfo :: 116;
 }
@@ -39459,6 +41773,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_syslog :: 103;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_syslog :: 103;
 }
 
@@ -39502,6 +41820,10 @@ off_t :: s64;
     SYS_tee :: 315;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_tee :: 284;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_tee :: 308;
 }
@@ -39540,6 +41862,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_tgkill :: 270;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_tgkill :: 250;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -39582,6 +41908,10 @@ off_t :: s64;
     SYS_time :: 13;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_time :: 13;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_timer_create :: 222;
 }
@@ -39600,6 +41930,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_timer_create :: 259;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_timer_create :: 240;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -39626,6 +41960,10 @@ off_t :: s64;
     SYS_timer_delete :: 263;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_timer_delete :: 244;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_timer_delete :: 258;
 }
@@ -39648,6 +41986,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_timer_getoverrun :: 262;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_timer_getoverrun :: 243;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -39674,6 +42016,10 @@ off_t :: s64;
     SYS_timer_gettime :: 261;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_timer_gettime :: 242;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_timer_gettime :: 256;
 }
@@ -39696,6 +42042,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_timer_settime :: 260;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_timer_settime :: 241;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -39722,6 +42072,10 @@ off_t :: s64;
     SYS_timerfd_create :: 322;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_timerfd_create :: 306;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_timerfd_create :: 319;
 }
@@ -39744,6 +42098,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_timerfd_gettime :: 326;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_timerfd_gettime :: 312;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -39770,6 +42128,10 @@ off_t :: s64;
     SYS_timerfd_settime :: 325;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_timerfd_settime :: 311;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_timerfd_settime :: 320;
 }
@@ -39791,6 +42153,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_times :: 43;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_times :: 43;
 }
 
@@ -39816,6 +42182,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_tkill :: 238;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_tkill :: 208;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -39850,6 +42220,10 @@ off_t :: s64;
     SYS_truncate :: 92;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_truncate :: 92;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_truncate :: 92;
 }
@@ -39860,6 +42234,10 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_tuxcall :: 184;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_tuxcall :: 225;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -39910,6 +42288,10 @@ off_t :: s64;
     SYS_umask :: 60;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_umask :: 60;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_umask :: 60;
 }
@@ -39942,6 +42324,10 @@ off_t :: s64;
     SYS_umount2 :: 52;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_umount2 :: 52;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_umount2 :: 52;
 }
@@ -39966,6 +42352,10 @@ off_t :: s64;
     SYS_uname :: 122;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_uname :: 122;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_uname :: 122;
 }
@@ -39999,6 +42389,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_unlink :: 10;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_unlink :: 10;
 }
 
@@ -40034,6 +42428,10 @@ off_t :: s64;
     SYS_unlinkat :: 301;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_unlinkat :: 292;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_unlinkat :: 294;
 }
@@ -40066,6 +42464,10 @@ off_t :: s64;
     SYS_unshare :: 310;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_unshare :: 282;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_unshare :: 303;
 }
@@ -40083,6 +42485,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_uselib :: 86;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_uselib :: 86;
 }
 
@@ -40118,6 +42524,10 @@ off_t :: s64;
     SYS_userfaultfd :: 374;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_userfaultfd :: 364;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_userfaultfd :: 355;
 }
@@ -40146,6 +42556,10 @@ off_t :: s64;
     SYS_ustat :: 62;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_ustat :: 62;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_ustat :: 62;
 }
@@ -40159,6 +42573,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_utime :: 30;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     SYS_utime :: 30;
 }
 
@@ -40184,6 +42602,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_utimensat :: 320;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_utimensat :: 304;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -40214,6 +42636,10 @@ off_t :: s64;
     SYS_utimes :: 271;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_utimes :: 251;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_utimes :: 313;
 }
@@ -40240,6 +42666,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_vfork :: 190;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_vfork :: 189;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -40274,6 +42704,10 @@ off_t :: s64;
     SYS_vhangup :: 111;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_vhangup :: 111;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_vhangup :: 111;
 }
@@ -40304,6 +42738,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_vmsplice :: 316;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_vmsplice :: 285;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -40354,6 +42792,10 @@ off_t :: s64;
     SYS_wait4 :: 114;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_wait4 :: 114;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_wait4 :: 114;
 }
@@ -40396,6 +42838,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     SYS_waitid :: 284;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_waitid :: 272;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -40466,6 +42912,10 @@ off_t :: s64;
     SYS_write :: 4;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_write :: 4;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_write :: 4;
 }
@@ -40506,6 +42956,10 @@ off_t :: s64;
     SYS_writev :: 146;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    SYS_writev :: 146;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_writev :: 146;
 }
@@ -40526,7 +42980,7 @@ off_t :: s64;
     SYSCALL_UNIX_BASE :: 0x2000000;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     TCFLSH :: 0x540B;
 }
 
@@ -40538,7 +42992,11 @@ off_t :: s64;
     TCFLSH :: 0x540B;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    TCFLSH :: 536900639;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     TCGETA :: 0x5405;
 }
 
@@ -40550,7 +43008,11 @@ off_t :: s64;
     TCGETA :: 0x5405;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    TCGETA :: 1075082263;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     TCGETS :: 0x5401;
 }
 
@@ -40560,6 +43022,10 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     TCGETS :: 0x5401;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    TCGETS :: 1077703699;
 }
 
 #if OS == .LINUX {
@@ -40574,7 +43040,7 @@ off_t :: s64;
     TCGETX :: 0x5432;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     TCSBRK :: 0x5409;
 }
 
@@ -40584,6 +43050,10 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     TCSBRK :: 0x5409;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    TCSBRK :: 536900637;
 }
 
 #if OS == .LINUX {
@@ -40598,7 +43068,7 @@ off_t :: s64;
     TCSBRKP :: 0x5425;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     TCSETA :: 0x5406;
 }
 
@@ -40610,7 +43080,11 @@ off_t :: s64;
     TCSETA :: 0x5406;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    TCSETA :: 2148824088;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     TCSETAF :: 0x5408;
 }
 
@@ -40622,7 +43096,11 @@ off_t :: s64;
     TCSETAF :: 0x5408;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    TCSETAF :: 2148824092;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     TCSETAW :: 0x5407;
 }
 
@@ -40634,7 +43112,11 @@ off_t :: s64;
     TCSETAW :: 0x5407;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    TCSETAW :: 2148824089;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     TCSETS :: 0x5402;
 }
 
@@ -40646,7 +43128,11 @@ off_t :: s64;
     TCSETS :: 0x5402;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    TCSETS :: 2151445524;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     TCSETSF :: 0x5404;
 }
 
@@ -40658,7 +43144,11 @@ off_t :: s64;
     TCSETSF :: 0x5404;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    TCSETSF :: 2151445526;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     TCSETSW :: 0x5403;
 }
 
@@ -40668,6 +43158,10 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     TCSETSW :: 0x5403;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    TCSETSW :: 2151445525;
 }
 
 #if OS == .LINUX {
@@ -40706,7 +43200,7 @@ off_t :: s64;
     TCSETXW :: 0x5435;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     TCXONC :: 0x540A;
 }
 
@@ -40716,6 +43210,10 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     TCXONC :: 0x540A;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    TCXONC :: 536900638;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -40914,7 +43412,7 @@ off_t :: s64;
     TIOCGLCKTRMIOS :: 0x5456;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     TIOCGPGRP :: 0x540F;
 }
 
@@ -40924,6 +43422,10 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     TIOCGPGRP :: 0x540F;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    TIOCGPGRP :: 1074033783;
 }
 
 #if OS == .LINUX {
@@ -40974,7 +43476,7 @@ off_t :: s64;
     TIOCGSOFTCAR :: 0x5419;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     TIOCGWINSZ :: 0x5413;
 }
 
@@ -40984,6 +43486,10 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     TIOCGWINSZ :: 0x5413;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    TIOCGWINSZ :: 1074295912;
 }
 
 #if OS == .LINUX {
@@ -41094,7 +43600,7 @@ off_t :: s64;
     TIOCNXCL :: 0x540D;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     TIOCOUTQ :: 0x5411;
 }
 
@@ -41104,6 +43610,10 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     TIOCOUTQ :: 0x5411;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    TIOCOUTQ :: 1074033779;
 }
 
 #if OS == .LINUX {
@@ -41358,7 +43868,7 @@ off_t :: s64;
     TIOCSLCKTRMIOS :: 0x5457;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     TIOCSPGRP :: 0x5410;
 }
 
@@ -41368,6 +43878,10 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     TIOCSPGRP :: 0x5410;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    TIOCSPGRP :: 2147775606;
 }
 
 #if OS == .LINUX {
@@ -41418,7 +43932,7 @@ off_t :: s64;
     TIOCSTI :: 0x5412;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .POWERPC64 {
     TIOCSWINSZ :: 0x5414;
 }
 
@@ -41428,6 +43942,10 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     TIOCSWINSZ :: 0x5414;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    TIOCSWINSZ :: 2148037735;
 }
 
 #if OS == .LINUX {
@@ -42838,7 +45356,7 @@ off_t :: s64;
 
 // Native entry points
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     __asprintf :: (__ptr: **u8, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
 }
 
@@ -42850,11 +45368,15 @@ off_t :: s64;
     __asprintf :: (__ptr: *void, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    __asprintf :: (__ptr: *void, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     __asprintf :: (__ptr: *void, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     __errno_location :: () -> *OS_Error_Code #foreign libc;
 }
 
@@ -42882,6 +45404,10 @@ off_t :: s64;
     __errno_location :: () -> *s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    __errno_location :: () -> *s32 #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     __errno_location :: () -> *s32 #foreign libc;
 }
@@ -42902,7 +45428,7 @@ off_t :: s64;
     __fxstatat64 :: (__ver: s32, __fildes: s32, __filename: *u8, __stat_buf: *stat64_t, __flag: s32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     __getdelim :: (__lineptr: **u8, __n: *u64, __delimiter: s32, __stream: *FILE) -> s64 #foreign libc;
 }
 
@@ -42912,6 +45438,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     __getdelim :: (__lineptr: *void, __n: *size_t, __delimiter: s32, __stream: *FILE) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    __getdelim :: (__lineptr: *void, __n: *size_t, __delimiter: s32, __stream: *FILE) -> s64 #foreign libc;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -43002,7 +45532,7 @@ off_t :: s64;
     __pthread_unwind_next :: (__buf: *__pthread_unwind_buf_t) -> void #foreign libpthread;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     __sched_cpualloc :: (__count: u64) -> *cpu_set_t #foreign libpthread;
 }
 
@@ -43022,11 +45552,15 @@ off_t :: s64;
     __sched_cpualloc :: (__count: size_t) -> *cpu_set_t #foreign libpthread;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    __sched_cpualloc :: (__count: size_t) -> *cpu_set_t #foreign libpthread;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     __sched_cpualloc :: (__count: size_t) -> *cpu_set_t #foreign libpthread;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     __sched_cpucount :: (__setsize: u64, __setp: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
@@ -43043,6 +45577,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    __sched_cpucount :: (__setsize: size_t, __setp: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     __sched_cpucount :: (__setsize: size_t, __setp: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
@@ -43082,7 +45620,7 @@ off_t :: s64;
     __swbuf :: (unknown0: s32, unknown1: *FILE) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     __sysv_signal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
 }
 
@@ -43091,6 +45629,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    __sysv_signal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     __sysv_signal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
 }
 
@@ -43278,7 +45820,7 @@ off_t :: s64;
     adjtime :: (__delta: *timeval, __olddelta: *timeval) -> s32 #foreign libc "__adjtime64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     aio_cancel :: (__fildes: s32, __aiocbp: *aiocb) -> s32 #foreign librt;
 }
 
@@ -43298,6 +45840,10 @@ off_t :: s64;
     aio_cancel :: (__fildes: s32, __aiocbp: *aiocb) -> s32 #foreign librt "aio_cancel64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    aio_cancel :: (__fildes: s32, __aiocbp: *aiocb) -> s32 #foreign librt "aio_cancel64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     aio_cancel :: (__fildes: s32, __aiocbp: *aiocb) -> s32 #foreign librt "aio_cancel64";
 }
@@ -43306,7 +45852,7 @@ off_t :: s64;
     aio_cancel64 :: (__fildes: s32, __aiocbp: *aiocb64) -> s32 #foreign librt;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     aio_error :: (__aiocbp: *aiocb) -> s32 #foreign librt;
 }
 
@@ -43326,6 +45872,10 @@ off_t :: s64;
     aio_error :: (__aiocbp: *aiocb) -> s32 #foreign librt "aio_error64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    aio_error :: (__aiocbp: *aiocb) -> s32 #foreign librt "aio_error64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     aio_error :: (__aiocbp: *aiocb) -> s32 #foreign librt "aio_error64";
 }
@@ -43334,7 +45884,7 @@ off_t :: s64;
     aio_error64 :: (__aiocbp: *aiocb64) -> s32 #foreign librt;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     aio_fsync :: (__operation: s32, __aiocbp: *aiocb) -> s32 #foreign librt;
 }
 
@@ -43354,6 +45904,10 @@ off_t :: s64;
     aio_fsync :: (__operation: s32, __aiocbp: *aiocb) -> s32 #foreign librt "aio_fsync64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    aio_fsync :: (__operation: s32, __aiocbp: *aiocb) -> s32 #foreign librt "aio_fsync64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     aio_fsync :: (__operation: s32, __aiocbp: *aiocb) -> s32 #foreign librt "aio_fsync64";
 }
@@ -43366,7 +45920,7 @@ off_t :: s64;
     aio_init :: (__init: *aioinit) -> void #foreign librt;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     aio_read :: (__aiocbp: *aiocb) -> s32 #foreign librt;
 }
 
@@ -43386,6 +45940,10 @@ off_t :: s64;
     aio_read :: (__aiocbp: *aiocb) -> s32 #foreign librt "aio_read64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    aio_read :: (__aiocbp: *aiocb) -> s32 #foreign librt "aio_read64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     aio_read :: (__aiocbp: *aiocb) -> s32 #foreign librt "aio_read64";
 }
@@ -43394,7 +45952,7 @@ off_t :: s64;
     aio_read64 :: (__aiocbp: *aiocb64) -> s32 #foreign librt;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     aio_return :: (__aiocbp: *aiocb) -> s64 #foreign librt;
 }
 
@@ -43414,6 +45972,10 @@ off_t :: s64;
     aio_return :: (__aiocbp: *aiocb) -> s32 #foreign librt "aio_return64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    aio_return :: (__aiocbp: *aiocb) -> s64 #foreign librt "aio_return64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     aio_return :: (__aiocbp: *aiocb) -> s64 #foreign librt "aio_return64";
 }
@@ -43430,7 +45992,7 @@ off_t :: s64;
     aio_return64 :: (__aiocbp: *aiocb64) -> s32 #foreign librt;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     aio_suspend :: (__list: **aiocb, __nent: s32, __timeout: *timespec) -> s32 #foreign librt;
 }
 
@@ -43450,11 +46012,15 @@ off_t :: s64;
     aio_suspend :: (__list: *void, __nent: s32, __timeout: *timespec) -> s32 #foreign librt "__aio_suspend_time64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    aio_suspend :: (__list: *void, __nent: s32, __timeout: *timespec) -> s32 #foreign librt "aio_suspend64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     aio_suspend :: (__list: *void, __nent: s32, __timeout: *timespec) -> s32 #foreign librt "aio_suspend64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     aio_suspend64 :: (__list: **aiocb64, __nent: s32, __timeout: *timespec) -> s32 #foreign librt;
 }
 
@@ -43466,11 +46032,15 @@ off_t :: s64;
     aio_suspend64 :: (__list: *void, __nent: s32, __timeout: *timespec) -> s32 #foreign librt;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    aio_suspend64 :: (__list: *void, __nent: s32, __timeout: *timespec) -> s32 #foreign librt;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     aio_suspend64 :: (__list: *void, __nent: s32, __timeout: *timespec) -> s32 #foreign librt;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     aio_write :: (__aiocbp: *aiocb) -> s32 #foreign librt;
 }
 
@@ -43487,6 +46057,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    aio_write :: (__aiocbp: *aiocb) -> s32 #foreign librt "aio_write64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     aio_write :: (__aiocbp: *aiocb) -> s32 #foreign librt "aio_write64";
 }
 
@@ -43518,7 +46092,7 @@ off_t :: s64;
     alarm :: (__seconds: u32) -> u32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     alphasort :: (__e1: **dirent, __e2: **dirent) -> s32 #foreign libc;
 }
 
@@ -43546,11 +46120,15 @@ off_t :: s64;
     alphasort :: (__e1: *void, __e2: *void) -> s32 #foreign libc "alphasort64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    alphasort :: (__e1: *void, __e2: *void) -> s32 #foreign libc "alphasort64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     alphasort :: (__e1: *void, __e2: *void) -> s32 #foreign libc "alphasort64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     alphasort64 :: (__e1: **dirent64, __e2: **dirent64) -> s32 #foreign libc;
 }
 
@@ -43567,6 +46145,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    alphasort64 :: (__e1: *void, __e2: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     alphasort64 :: (__e1: *void, __e2: *void) -> s32 #foreign libc;
 }
 
@@ -43614,7 +46196,7 @@ off_t :: s64;
     asctime_r :: (__tm: *tm, __buf: *u8) -> *u8 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     asprintf :: (__ptr: **u8, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
 }
 
@@ -43639,6 +46221,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    asprintf :: (__ptr: *void, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     asprintf :: (__ptr: *void, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
 }
 
@@ -44018,7 +46604,7 @@ off_t :: s64;
     clock_settime :: (__clock_id: clockid_t, __tp: *timespec) -> s32 #foreign libc "__clock_settime64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     clone :: (__fn: #type (__arg: *void) -> s32 #c_call, __child_stack: *void, __flags: s32, __arg: *void, __args: ..Any) -> s32 #foreign libpthread;
 }
 
@@ -44035,6 +46621,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    clone :: (__fn: #type (unknown0: *void) -> s32 #c_call, __child_stack: *void, __flags: s32, __arg: *void, __args: ..Any) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     clone :: (__fn: #type (unknown0: *void) -> s32 #c_call, __child_stack: *void, __flags: s32, __arg: *void, __args: ..Any) -> s32 #foreign libpthread;
 }
 
@@ -44090,7 +46680,7 @@ off_t :: s64;
     closedir :: (__dir: *DIR) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     confstr :: (__name: s32, __buf: *u8, __len: u64) -> u64 #foreign libc;
 }
 
@@ -44110,11 +46700,15 @@ off_t :: s64;
     confstr :: (__name: s32, __buf: *u8, __len: size_t) -> size_t #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    confstr :: (__name: s32, __buf: *u8, __len: size_t) -> size_t #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     confstr :: (__name: s32, __buf: *u8, __len: size_t) -> size_t #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     copy_file_range :: (__infd: s32, __pinoff: *s64, __outfd: s32, __poutoff: *s64, __length: u64, __flags: u32) -> s64 #foreign libc;
 }
 
@@ -44134,11 +46728,15 @@ off_t :: s64;
     copy_file_range :: (__infd: s32, __pinoff: *s64, __outfd: s32, __poutoff: *s64, __length: size_t, __flags: u32) -> ssize_t #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    copy_file_range :: (__infd: s32, __pinoff: *s64, __outfd: s32, __poutoff: *s64, __length: size_t, __flags: u32) -> ssize_t #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     copy_file_range :: (__infd: s32, __pinoff: *s64, __outfd: s32, __poutoff: *s64, __length: size_t, __flags: u32) -> ssize_t #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     creat :: (__file: *u8, __mode: mode_t) -> s32 #foreign libc;
 }
 
@@ -44163,6 +46761,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    creat :: (__file: *u8, __mode: mode_t) -> s32 #foreign libc "creat64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     creat :: (__file: *u8, __mode: mode_t) -> s32 #foreign libc "creat64";
 }
 
@@ -44354,7 +46956,7 @@ off_t :: s64;
     dladdr :: (__addr: *void, __info: *Dl_info) -> s32 #foreign libdl;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     dladdr1 :: (__address: *void, __info: *Dl_info, __extra_info: **void, __flags: s32) -> s32 #foreign libdl;
 }
 
@@ -44363,6 +46965,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    dladdr1 :: (__address: *void, __info: *Dl_info, __extra_info: *void, __flags: s32) -> s32 #foreign libdl;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     dladdr1 :: (__address: *void, __info: *Dl_info, __extra_info: *void, __flags: s32) -> s32 #foreign libdl;
 }
 
@@ -44706,7 +47312,7 @@ off_t :: s64;
     execlp :: (__file: *u8, __arg0: *u8, __args: ..Any) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     execv :: (__path: *u8, __argv: **u8) -> s32 #foreign libc;
 }
 
@@ -44734,11 +47340,15 @@ off_t :: s64;
     execv :: (__path: *u8, __argv: *void) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    execv :: (__path: *u8, __argv: *void) -> s32 #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     execv :: (__path: *u8, __argv: *void) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     execve :: (__path: *u8, __argv: **u8, __envp: **u8) -> s32 #foreign libc;
 }
 
@@ -44766,11 +47376,15 @@ off_t :: s64;
     execve :: (__path: *u8, __argv: *void, __envp: *void) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    execve :: (__path: *u8, __argv: *void, __envp: *void) -> s32 #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     execve :: (__path: *u8, __argv: *void, __envp: *void) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     execvp :: (__file: *u8, __argv: **u8) -> s32 #foreign libc;
 }
 
@@ -44806,11 +47420,15 @@ off_t :: s64;
     execvp :: (__file: *u8, __argv: *void) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    execvp :: (__file: *u8, __argv: *void) -> s32 #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     execvp :: (__file: *u8, __argv: *void) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     execvpe :: (__file: *u8, __argv: **u8, __envp: **u8) -> s32 #foreign libc;
 }
 
@@ -44827,6 +47445,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    execvpe :: (__file: *u8, __argv: *void, __envp: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     execvpe :: (__file: *u8, __argv: *void, __envp: *void) -> s32 #foreign libc;
 }
 
@@ -44854,7 +47476,7 @@ off_t :: s64;
     faccessat :: (__dirfd: s32, __path: *u8, __mode: s32, __flags: s32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     fallocate :: (__fd: s32, __mode: s32, __offset: s64, __len: s64) -> s32 #foreign libc;
 }
 
@@ -44871,6 +47493,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    fallocate :: (__fd: s32, __mode: s32, __offset: s64, __len: s64) -> s32 #foreign libc "fallocate64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     fallocate :: (__fd: s32, __mode: s32, __offset: s64, __len: s64) -> s32 #foreign libc "fallocate64";
 }
 
@@ -45030,7 +47656,7 @@ off_t :: s64;
     fcloseall :: () -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     fcntl :: (__fd: s32, __cmd: s32, __args: ..Any) -> s32 #foreign libc;
 }
 
@@ -45056,6 +47682,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     fcntl :: (__fd: s32, __request: s32, __args: ..Any) -> s32 #foreign libc "__fcntl_time64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    fcntl :: (__fd: s32, __cmd: s32, __args: ..Any) -> s32 #foreign libc "fcntl64";
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -45190,7 +47820,7 @@ off_t :: s64;
     ferror_unlocked :: (__fp: *FILE) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     fexecve :: (__fd: s32, __argv: **u8, __envp: **u8) -> s32 #foreign libc;
 }
 
@@ -45207,6 +47837,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    fexecve :: (__fd: s32, __argv: *void, __envp: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     fexecve :: (__fd: s32, __argv: *void, __envp: *void) -> s32 #foreign libc;
 }
 
@@ -45318,7 +47952,7 @@ off_t :: s64;
     fgetln :: (__fp: *FILE, __length_ptr: *u64) -> *u8 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     fgetpos :: (__stream: *FILE, __pos: *fpos_t) -> s32 #foreign libc;
 }
 
@@ -45346,6 +47980,10 @@ off_t :: s64;
     fgetpos :: (__stream: *FILE, __pos: *fpos_t) -> s32 #foreign libc "fgetpos64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    fgetpos :: (__stream: *FILE, __pos: *fpos_t) -> s32 #foreign libc "fgetpos64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     fgetpos :: (__stream: *FILE, __pos: *fpos_t) -> s32 #foreign libc "fgetpos64";
 }
@@ -45366,7 +48004,7 @@ off_t :: s64;
     fgetpwent :: (__stream: *FILE) -> *passwd #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     fgetpwent_r :: (__stream: *FILE, __resultbuf: *passwd, __buffer: *u8, __buflen: u64, __result: **passwd) -> s32 #foreign libc;
 }
 
@@ -45375,6 +48013,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    fgetpwent_r :: (__stream: *FILE, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     fgetpwent_r :: (__stream: *FILE, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
 }
 
@@ -45530,7 +48172,7 @@ off_t :: s64;
     flockfile :: (__fp: *FILE) -> void #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     fmemopen :: (__s: *void, __len: u64, __modes: *u8) -> *FILE #foreign libc;
 }
 
@@ -45555,6 +48197,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    fmemopen :: (__s: *void, __len: size_t, __modes: *u8) -> *FILE #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     fmemopen :: (__s: *void, __len: size_t, __modes: *u8) -> *FILE #foreign libc;
 }
 
@@ -45802,7 +48448,7 @@ off_t :: s64;
     fread :: (unknown0: *void, unknown1: u32, unknown2: u32, unknown3: *FILE) -> u32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     fread_unlocked :: (__ptr: *void, __size: u64, __n: u64, __stream: *FILE) -> u64 #foreign libc;
 }
 
@@ -45822,11 +48468,15 @@ off_t :: s64;
     fread_unlocked :: (__ptr: *void, __size: size_t, __n: size_t, __stream: *FILE) -> size_t #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    fread_unlocked :: (__ptr: *void, __size: size_t, __n: size_t, __stream: *FILE) -> size_t #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     fread_unlocked :: (__ptr: *void, __size: size_t, __n: size_t, __stream: *FILE) -> size_t #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     freopen :: (__filename: *u8, __modes: *u8, __stream: *FILE) -> *FILE #foreign libc;
 }
 
@@ -45851,6 +48501,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    freopen :: (__filename: *u8, __modes: *u8, __stream: *FILE) -> *FILE #foreign libc "freopen64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     freopen :: (__filename: *u8, __modes: *u8, __stream: *FILE) -> *FILE #foreign libc "freopen64";
 }
 
@@ -45926,7 +48580,7 @@ off_t :: s64;
     fseek :: (__stream: *FILE, __off: s32, __whence: s32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     fseeko :: (__stream: *FILE, __off: s64, __whence: s32) -> s32 #foreign libc;
 }
 
@@ -45954,6 +48608,10 @@ off_t :: s64;
     fseeko :: (__stream: *FILE, __off: s64, __whence: s32) -> s32 #foreign libc "fseeko64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    fseeko :: (__stream: *FILE, __off: s64, __whence: s32) -> s32 #foreign libc "fseeko64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     fseeko :: (__stream: *FILE, __off: s64, __whence: s32) -> s32 #foreign libc "fseeko64";
 }
@@ -45978,7 +48636,7 @@ off_t :: s64;
     fsetattrlist :: (unknown0: s32, unknown1: *void, unknown2: *void, unknown3: u64, unknown4: u32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     fsetpos :: (__stream: *FILE, __pos: *fpos_t) -> s32 #foreign libc;
 }
 
@@ -46003,6 +48661,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    fsetpos :: (__stream: *FILE, __pos: *fpos_t) -> s32 #foreign libc "fsetpos64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     fsetpos :: (__stream: *FILE, __pos: *fpos_t) -> s32 #foreign libc "fsetpos64";
 }
 
@@ -46142,7 +48804,7 @@ off_t :: s64;
     ftell :: (__stream: *FILE) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     ftello :: (__stream: *FILE) -> s64 #foreign libc;
 }
 
@@ -46167,6 +48829,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    ftello :: (__stream: *FILE) -> s64 #foreign libc "ftello64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     ftello :: (__stream: *FILE) -> s64 #foreign libc "ftello64";
 }
 
@@ -46206,7 +48872,7 @@ off_t :: s64;
     ftok :: (__path: *u8, __id: s32) -> key_t #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     ftruncate :: (__fd: s32, __length: s64) -> s32 #foreign libc;
 }
 
@@ -46231,6 +48897,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    ftruncate :: (__fd: s32, __length: s64) -> s32 #foreign libc "ftruncate64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     ftruncate :: (__fd: s32, __length: s64) -> s32 #foreign libc "ftruncate64";
 }
 
@@ -46418,7 +49088,7 @@ off_t :: s64;
     fwrite :: (unknown0: *void, unknown1: u32, unknown2: u32, unknown3: *FILE) -> u32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     fwrite_unlocked :: (__ptr: *void, __size: u64, __n: u64, __stream: *FILE) -> u64 #foreign libc;
 }
 
@@ -46435,6 +49105,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    fwrite_unlocked :: (__ptr: *void, __size: size_t, __n: size_t, __stream: *FILE) -> size_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     fwrite_unlocked :: (__ptr: *void, __size: size_t, __n: size_t, __stream: *FILE) -> size_t #foreign libc;
 }
 
@@ -46554,7 +49228,7 @@ off_t :: s64;
     getcpu :: (unknown0: *u32, unknown1: *u32) -> s32 #foreign libpthread;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     getcwd :: (__buf: *u8, __size: u64) -> *u8 #foreign libc;
 }
 
@@ -46582,6 +49256,10 @@ off_t :: s64;
     getcwd :: (__buf: *u8, __size: size_t) -> *u8 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    getcwd :: (__buf: *u8, __size: size_t) -> *u8 #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     getcwd :: (__buf: *u8, __size: size_t) -> *u8 #foreign libc;
 }
@@ -46602,7 +49280,7 @@ off_t :: s64;
     getdate_r :: (__string: *u8, __resbufp: *tm) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     getdelim :: (__lineptr: **u8, __n: *u64, __delimiter: s32, __stream: *FILE) -> s64 #foreign libc;
 }
 
@@ -46630,11 +49308,15 @@ off_t :: s64;
     getdelim :: (__lineptr: *void, __n: *size_t, __delimiter: s32, __stream: *FILE) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    getdelim :: (__lineptr: *void, __n: *size_t, __delimiter: s32, __stream: *FILE) -> s64 #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     getdelim :: (__lineptr: *void, __n: *size_t, __delimiter: s32, __stream: *FILE) -> s64 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     getdirentries :: (__fd: s32, __buf: *u8, __nbytes: u64, __basep: *s64) -> s64 #foreign libc;
 }
 
@@ -46646,11 +49328,15 @@ off_t :: s64;
     getdirentries :: (__fd: s32, __buf: *u8, __nbytes: size_t, __basep: *s64) -> s32 #foreign libc "getdirentries64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    getdirentries :: (__fd: s32, __buf: *u8, __nbytes: size_t, __basep: *s64) -> s64 #foreign libc "getdirentries64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     getdirentries :: (__fd: s32, __buf: *u8, __nbytes: size_t, __basep: *s64) -> s64 #foreign libc "getdirentries64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     getdirentries64 :: (__fd: s32, __buf: *u8, __nbytes: u64, __basep: *s64) -> s64 #foreign libc;
 }
 
@@ -46660,6 +49346,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     getdirentries64 :: (__fd: s32, __buf: *u8, __nbytes: size_t, __basep: *s64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    getdirentries64 :: (__fd: s32, __buf: *u8, __nbytes: size_t, __basep: *s64) -> s64 #foreign libc;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -46674,7 +49364,7 @@ off_t :: s64;
     getdirentriesattr :: (unknown0: s32, unknown1: *void, unknown2: *void, unknown3: u64, unknown4: *u32, unknown5: *u32, unknown6: *u32, unknown7: u32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     getdomainname :: (__name: *u8, __len: u64) -> s32 #foreign libc;
 }
 
@@ -46699,6 +49389,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    getdomainname :: (__name: *u8, __len: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     getdomainname :: (__name: *u8, __len: size_t) -> s32 #foreign libc;
 }
 
@@ -46738,7 +49432,7 @@ off_t :: s64;
     getegid :: () -> gid_t #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     getentropy :: (__buffer: *void, __length: u64) -> s32 #foreign libc;
 }
 
@@ -46747,6 +49441,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    getentropy :: (__buffer: *void, __length: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     getentropy :: (__buffer: *void, __length: size_t) -> s32 #foreign libc;
 }
 
@@ -46862,7 +49560,7 @@ off_t :: s64;
     gethostid :: () -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     gethostname :: (__name: *u8, __len: u64) -> s32 #foreign libc;
 }
 
@@ -46887,6 +49585,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    gethostname :: (__name: *u8, __len: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     gethostname :: (__name: *u8, __len: size_t) -> s32 #foreign libc;
 }
 
@@ -46930,7 +49632,7 @@ off_t :: s64;
     getitimer :: (__which: __itimer_which, __value: *itimerval) -> s32 #foreign libc "__getitimer64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     getline :: (__lineptr: **u8, __n: *u64, __stream: *FILE) -> s64 #foreign libc;
 }
 
@@ -46958,6 +49660,10 @@ off_t :: s64;
     getline :: (__lineptr: *void, __n: *size_t, __stream: *FILE) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    getline :: (__lineptr: *void, __n: *size_t, __stream: *FILE) -> s64 #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     getline :: (__lineptr: *void, __n: *size_t, __stream: *FILE) -> s64 #foreign libc;
 }
@@ -46982,7 +49688,7 @@ off_t :: s64;
     getlogin :: () -> *u8 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     getlogin_r :: (__name: *u8, __name_len: u64) -> s32 #foreign libc;
 }
 
@@ -47007,6 +49713,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    getlogin_r :: (__name: *u8, __name_len: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     getlogin_r :: (__name: *u8, __name_len: size_t) -> s32 #foreign libc;
 }
 
@@ -47150,7 +49860,7 @@ off_t :: s64;
     getppid :: () -> pid_t #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     getpriority :: (__which: PRIO, __who: id_t) -> s32 #foreign libc;
 }
 
@@ -47175,6 +49885,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    getpriority :: (__which: __priority_which, __who: id_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     getpriority :: (__which: __priority_which, __who: id_t) -> s32 #foreign libc;
 }
 
@@ -47206,7 +49920,7 @@ off_t :: s64;
     getpwent :: () -> *passwd #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     getpwent_r :: (__resultbuf: *passwd, __buffer: *u8, __buflen: u64, __result: **passwd) -> s32 #foreign libc;
 }
 
@@ -47215,6 +49929,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    getpwent_r :: (__resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     getpwent_r :: (__resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
 }
 
@@ -47242,7 +49960,7 @@ off_t :: s64;
     getpwnam :: (__name: *u8) -> *passwd #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     getpwnam_r :: (__name: *u8, __resultbuf: *passwd, __buffer: *u8, __buflen: u64, __result: **passwd) -> s32 #foreign libc;
 }
 
@@ -47270,6 +49988,10 @@ off_t :: s64;
     getpwnam_r :: (__name: *u8, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    getpwnam_r :: (__name: *u8, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     getpwnam_r :: (__name: *u8, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
 }
@@ -47294,7 +50016,7 @@ off_t :: s64;
     getpwuid :: (__uid: uid_t) -> *passwd #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     getpwuid_r :: (__uid: u32, __resultbuf: *passwd, __buffer: *u8, __buflen: u64, __result: **passwd) -> s32 #foreign libc;
 }
 
@@ -47319,6 +50041,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    getpwuid_r :: (__uid: u32, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     getpwuid_r :: (__uid: u32, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
 }
 
@@ -47366,7 +50092,7 @@ off_t :: s64;
     getresuid :: (__ruid: *uid_t, __euid: *uid_t, __suid: *uid_t) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     getrlimit :: (__resource: RLIMIT_RESOURCE, __rlimits: *rlimit) -> s32 #foreign libc;
 }
 
@@ -47394,11 +50120,15 @@ off_t :: s64;
     getrlimit :: (__resource: __rlimit_resource, __rlimits: *rlimit) -> s32 #foreign libc "getrlimit64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    getrlimit :: (__resource: __rlimit_resource, __rlimits: *rlimit) -> s32 #foreign libc "getrlimit64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     getrlimit :: (__resource: __rlimit_resource, __rlimits: *rlimit) -> s32 #foreign libc "getrlimit64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     getrlimit64 :: (__resource: RLIMIT_RESOURCE, __rlimits: *rlimit64) -> s32 #foreign libc;
 }
 
@@ -47418,11 +50148,15 @@ off_t :: s64;
     getrlimit64 :: (__resource: __rlimit_resource, __rlimits: *rlimit64) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    getrlimit64 :: (__resource: __rlimit_resource, __rlimits: *rlimit64) -> s32 #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     getrlimit64 :: (__resource: __rlimit_resource, __rlimits: *rlimit64) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     getrusage :: (__who: RUSAGE, __usage: *rusage) -> s32 #foreign libc;
 }
 
@@ -47447,6 +50181,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    getrusage :: (__who: __rusage_who, __usage: *rusage) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     getrusage :: (__who: __rusage_who, __usage: *rusage) -> s32 #foreign libc;
 }
 
@@ -47854,7 +50592,7 @@ off_t :: s64;
     linkat :: (__old_dir_fd: s32, __old_path: *u8, __new_dir_fd: s32, __new_path: *u8, __flags: s32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     lio_listio :: (__mode: s32, __list: **aiocb, __nent: s32, __sig: *sigevent) -> s32 #foreign librt;
 }
 
@@ -47874,11 +50612,15 @@ off_t :: s64;
     lio_listio :: (__mode: s32, __list: *void, __nent: s32, __sig: *sigevent) -> s32 #foreign librt "lio_listio64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    lio_listio :: (__mode: s32, __list: *void, __nent: s32, __sig: *sigevent) -> s32 #foreign librt "lio_listio64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     lio_listio :: (__mode: s32, __list: *void, __nent: s32, __sig: *sigevent) -> s32 #foreign librt "lio_listio64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     lio_listio64 :: (__mode: s32, __list: **aiocb64, __nent: s32, __sig: *sigevent) -> s32 #foreign librt;
 }
 
@@ -47887,6 +50629,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    lio_listio64 :: (__mode: s32, __list: *void, __nent: s32, __sig: *sigevent) -> s32 #foreign librt;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     lio_listio64 :: (__mode: s32, __list: *void, __nent: s32, __sig: *sigevent) -> s32 #foreign librt;
 }
 
@@ -47950,7 +50696,7 @@ off_t :: s64;
     localtime_r :: (__t: *time_t, __tp: *tm) -> *tm #foreign libc "__localtime64_r";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     lockf :: (__fd: s32, __cmd: s32, __len: s64) -> s32 #foreign libc;
 }
 
@@ -47967,6 +50713,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    lockf :: (__fd: s32, __cmd: s32, __len: s64) -> s32 #foreign libc "lockf64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     lockf :: (__fd: s32, __cmd: s32, __len: s64) -> s32 #foreign libc "lockf64";
 }
 
@@ -48002,7 +50752,7 @@ off_t :: s64;
     longjmperror :: () -> void #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     lseek :: (__fd: s32, __offset: s64, __whence: s32) -> s64 #foreign libc;
 }
 
@@ -48027,6 +50777,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    lseek :: (__fd: s32, __offset: s64, __whence: s32) -> s64 #foreign libc "lseek64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     lseek :: (__fd: s32, __offset: s64, __whence: s32) -> s64 #foreign libc "lseek64";
 }
 
@@ -48114,7 +50868,7 @@ off_t :: s64;
     lutimes :: (__file: *u8, __tvp: *[2] timeval) -> s32 #foreign libc "__lutimes64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     madvise :: (__addr: *void, __len: u64, __advice: s32) -> s32 #foreign libc;
 }
 
@@ -48142,6 +50896,10 @@ off_t :: s64;
     madvise :: (__addr: *void, __len: size_t, __advice: s32) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    madvise :: (__addr: *void, __len: size_t, __advice: s32) -> s32 #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     madvise :: (__addr: *void, __len: size_t, __advice: s32) -> s32 #foreign libc;
 }
@@ -48154,7 +50912,7 @@ off_t :: s64;
     memfd_create :: (__name: *u8, __flags: u32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     mincore :: (__start: *void, __len: u64, __vec: *u8) -> s32 #foreign libc;
 }
 
@@ -48179,6 +50937,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    mincore :: (__start: *void, __len: size_t, __vec: *u8) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     mincore :: (__start: *void, __len: size_t, __vec: *u8) -> s32 #foreign libc;
 }
 
@@ -48334,7 +51096,7 @@ off_t :: s64;
     mknodat :: (__dir_fd: s32, __path: *u8, __mode: mode_t, __dev: dev_t) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     mkostemp :: (__template: *u8, __flags: s32) -> s32 #foreign libc;
 }
 
@@ -48362,11 +51124,15 @@ off_t :: s64;
     mkostemp :: (__template: *u8, __flags: s32) -> s32 #foreign libc "mkostemp64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    mkostemp :: (__template: *u8, __flags: s32) -> s32 #foreign libc "mkostemp64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     mkostemp :: (__template: *u8, __flags: s32) -> s32 #foreign libc "mkostemp64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     mkostemps :: (__template: *u8, __suffixlen: s32, __flags: s32) -> s32 #foreign libc;
 }
 
@@ -48394,6 +51160,10 @@ off_t :: s64;
     mkostemps :: (__template: *u8, __suffixlen: s32, __flags: s32) -> s32 #foreign libc "mkostemps64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    mkostemps :: (__template: *u8, __suffixlen: s32, __flags: s32) -> s32 #foreign libc "mkostemps64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     mkostemps :: (__template: *u8, __suffixlen: s32, __flags: s32) -> s32 #foreign libc "mkostemps64";
 }
@@ -48422,7 +51192,7 @@ off_t :: s64;
     mkpathat_np :: (dfd: s32, path: *u8, omode: mode_t) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     mkstemp :: (__template: *u8) -> s32 #foreign libc;
 }
 
@@ -48450,6 +51220,10 @@ off_t :: s64;
     mkstemp :: (__template: *u8) -> s32 #foreign libc "mkstemp64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    mkstemp :: (__template: *u8) -> s32 #foreign libc "mkstemp64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     mkstemp :: (__template: *u8) -> s32 #foreign libc "mkstemp64";
 }
@@ -48462,7 +51236,7 @@ off_t :: s64;
     mkstemp_dprotected_np :: (path: *u8, dpclass: s32, dpflags: s32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     mkstemps :: (__template: *u8, __suffixlen: s32) -> s32 #foreign libc;
 }
 
@@ -48487,6 +51261,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    mkstemps :: (__template: *u8, __suffixlen: s32) -> s32 #foreign libc "mkstemps64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     mkstemps :: (__template: *u8, __suffixlen: s32) -> s32 #foreign libc "mkstemps64";
 }
 
@@ -48550,7 +51328,7 @@ off_t :: s64;
     mktime :: (__tp: *tm) -> time_t #foreign libc "__mktime64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     mlock :: (__addr: *void, __len: u64) -> s32 #foreign libc;
 }
 
@@ -48578,6 +51356,10 @@ off_t :: s64;
     mlock :: (__addr: *void, __len: size_t) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    mlock :: (__addr: *void, __len: size_t) -> s32 #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     mlock :: (__addr: *void, __len: size_t) -> s32 #foreign libc;
 }
@@ -48610,7 +51392,7 @@ off_t :: s64;
     mlockall :: (__flags: s32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     mmap :: (__addr: *void, __len: u64, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc;
 }
 
@@ -48638,11 +51420,15 @@ off_t :: s64;
     mmap :: (__addr: *void, __len: size_t, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc "mmap64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    mmap :: (__addr: *void, __len: size_t, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc "mmap64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     mmap :: (__addr: *void, __len: size_t, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc "mmap64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     mmap64 :: (__addr: *void, __len: u64, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc;
 }
 
@@ -48662,11 +51448,15 @@ off_t :: s64;
     mmap64 :: (__addr: *void, __len: size_t, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    mmap64 :: (__addr: *void, __len: size_t, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     mmap64 :: (__addr: *void, __len: size_t, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     mprotect :: (__addr: *void, __len: u64, __prot: s32) -> s32 #foreign libc;
 }
 
@@ -48694,11 +51484,15 @@ off_t :: s64;
     mprotect :: (__addr: *void, __len: size_t, __prot: s32) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    mprotect :: (__addr: *void, __len: size_t, __prot: s32) -> s32 #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     mprotect :: (__addr: *void, __len: size_t, __prot: s32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     mremap :: (__addr: *void, __old_len: u64, __new_len: u64, __flags: s32, __args: ..Any) -> *void #foreign libc;
 }
 
@@ -48718,11 +51512,15 @@ off_t :: s64;
     mremap :: (__addr: *void, __old_len: size_t, __new_len: size_t, __flags: s32, __args: ..Any) -> *void #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    mremap :: (__addr: *void, __old_len: size_t, __new_len: size_t, __flags: s32, __args: ..Any) -> *void #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     mremap :: (__addr: *void, __old_len: size_t, __new_len: size_t, __flags: s32, __args: ..Any) -> *void #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     msync :: (__addr: *void, __len: u64, __flags: s32) -> s32 #foreign libc;
 }
 
@@ -48750,11 +51548,15 @@ off_t :: s64;
     msync :: (__addr: *void, __len: size_t, __flags: s32) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    msync :: (__addr: *void, __len: size_t, __flags: s32) -> s32 #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     msync :: (__addr: *void, __len: size_t, __flags: s32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     munlock :: (__addr: *void, __len: u64) -> s32 #foreign libc;
 }
 
@@ -48782,6 +51584,10 @@ off_t :: s64;
     munlock :: (__addr: *void, __len: size_t) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    munlock :: (__addr: *void, __len: size_t) -> s32 #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     munlock :: (__addr: *void, __len: size_t) -> s32 #foreign libc;
 }
@@ -48806,7 +51612,7 @@ off_t :: s64;
     munlockall :: () -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     munmap :: (__addr: *void, __len: u64) -> s32 #foreign libc; @MaybeFreesArgument
 }
 
@@ -48831,6 +51637,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    munmap :: (__addr: *void, __len: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     munmap :: (__addr: *void, __len: size_t) -> s32 #foreign libc;
 }
 
@@ -48902,7 +51712,7 @@ off_t :: s64;
     obstack_printf :: (__obstack: *obstack, __format: *u8, __args: ..Any) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     open :: (__file: *u8, __oflag: s32, __args: ..Any) -> s32 #foreign libc;
 }
 
@@ -48927,6 +51737,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    open :: (__file: *u8, __oflag: s32, __args: ..Any) -> s32 #foreign libc "open64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     open :: (__file: *u8, __oflag: s32, __args: ..Any) -> s32 #foreign libc "open64";
 }
 
@@ -48958,7 +51772,7 @@ off_t :: s64;
     open_dprotected_np :: (unknown0: *u8, unknown1: s32, unknown2: s32, unknown3: s32, __args: ..Any) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     open_memstream :: (__bufloc: **u8, __sizeloc: *u64) -> *FILE #foreign libc;
 }
 
@@ -48986,11 +51800,15 @@ off_t :: s64;
     open_memstream :: (__bufloc: *void, __sizeloc: *size_t) -> *FILE #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    open_memstream :: (__bufloc: *void, __sizeloc: *size_t) -> *FILE #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     open_memstream :: (__bufloc: *void, __sizeloc: *size_t) -> *FILE #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     openat :: (__fd: s32, __file: *u8, __oflag: s32, __args: ..Any) -> s32 #foreign libc;
 }
 
@@ -49015,6 +51833,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    openat :: (__fd: s32, __file: *u8, __oflag: s32, __args: ..Any) -> s32 #foreign libc "openat64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     openat :: (__fd: s32, __file: *u8, __oflag: s32, __args: ..Any) -> s32 #foreign libc "openat64";
 }
 
@@ -49218,7 +52040,7 @@ off_t :: s64;
     posix2time :: (unknown0: time_t) -> time_t #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     posix_fadvise :: (__fd: s32, __offset: s64, __len: s64, __advise: s32) -> s32 #foreign libc;
 }
 
@@ -49238,6 +52060,10 @@ off_t :: s64;
     posix_fadvise :: (__fd: s32, __offset: s64, __len: s64, __advise: s32) -> s32 #foreign libc "posix_fadvise64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    posix_fadvise :: (__fd: s32, __offset: s64, __len: s64, __advise: s32) -> s32 #foreign libc "posix_fadvise64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     posix_fadvise :: (__fd: s32, __offset: s64, __len: s64, __advise: s32) -> s32 #foreign libc "posix_fadvise64";
 }
@@ -49254,7 +52080,7 @@ off_t :: s64;
     posix_fadvise64 :: (__fd: s32, __offset: s64, __length: s64, __advice: s32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     posix_fallocate :: (__fd: s32, __offset: s64, __len: s64) -> s32 #foreign libc;
 }
 
@@ -49274,6 +52100,10 @@ off_t :: s64;
     posix_fallocate :: (__fd: s32, __offset: s64, __len: s64) -> s32 #foreign libc "posix_fallocate64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    posix_fallocate :: (__fd: s32, __offset: s64, __len: s64) -> s32 #foreign libc "posix_fallocate64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     posix_fallocate :: (__fd: s32, __offset: s64, __len: s64) -> s32 #foreign libc "posix_fallocate64";
 }
@@ -49290,7 +52120,7 @@ off_t :: s64;
     posix_fallocate64 :: (__fd: s32, __offset: s64, __length: s64) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     posix_madvise :: (__addr: *void, __len: u64, __advice: s32) -> s32 #foreign libc;
 }
 
@@ -49318,11 +52148,15 @@ off_t :: s64;
     posix_madvise :: (__addr: *void, __len: size_t, __advice: s32) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    posix_madvise :: (__addr: *void, __len: size_t, __advice: s32) -> s32 #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     posix_madvise :: (__addr: *void, __len: size_t, __advice: s32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     ppoll :: (__fds: *pollfd, __nfds: nfds_t, __timeout: *timespec, __ss: *sigset_t) -> s32 #foreign libc;
 }
 
@@ -49342,6 +52176,10 @@ off_t :: s64;
     ppoll :: (__fds: *pollfd, __nfds: nfds_t, __timeout: *timespec, __ss: *__sigset_t) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    ppoll :: (__fds: *pollfd, __nfds: nfds_t, __timeout: *timespec, __ss: *__sigset_t) -> s32 #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     ppoll :: (__fds: *pollfd, __nfds: nfds_t, __timeout: *timespec, __ss: *__sigset_t) -> s32 #foreign libc;
 }
@@ -49354,7 +52192,7 @@ off_t :: s64;
     ppoll64 :: (__fds: *pollfd, __count: nfds_t, __timeout: *timespec, __mask: *sigset64_t) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pread :: (__fd: s32, __buf: *void, __nbytes: u64, __offset: s64) -> s64 #foreign libc;
 }
 
@@ -49382,11 +52220,15 @@ off_t :: s64;
     pread :: (__fd: s32, __buf: *void, __nbytes: size_t, __offset: s64) -> ssize_t #foreign libc "pread64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    pread :: (__fd: s32, __buf: *void, __nbytes: size_t, __offset: s64) -> ssize_t #foreign libc "pread64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     pread :: (__fd: s32, __buf: *void, __nbytes: size_t, __offset: s64) -> ssize_t #foreign libc "pread64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pread64 :: (__fd: s32, __buf: *void, __nbytes: u64, __offset: s64) -> s64 #foreign libc;
 }
 
@@ -49406,11 +52248,15 @@ off_t :: s64;
     pread64 :: (__fd: s32, __buf: *void, __nbytes: size_t, __offset: s64) -> ssize_t #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    pread64 :: (__fd: s32, __buf: *void, __nbytes: size_t, __offset: s64) -> ssize_t #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     pread64 :: (__fd: s32, __buf: *void, __nbytes: size_t, __offset: s64) -> ssize_t #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     preadv :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> s64 #foreign libc;
 }
 
@@ -49422,11 +52268,15 @@ off_t :: s64;
     preadv :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc "preadv64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    preadv :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc "preadv64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     preadv :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc "preadv64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     preadv2 :: (__fp: s32, __iovec: *iovec, __count: s32, __offset: s64, ___flags: s32) -> s64 #foreign libc;
 }
 
@@ -49438,11 +52288,15 @@ off_t :: s64;
     preadv2 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64, __flags: s32) -> ssize_t #foreign libc "preadv64v2";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    preadv2 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64, __flags: s32) -> ssize_t #foreign libc "preadv64v2";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     preadv2 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64, __flags: s32) -> ssize_t #foreign libc "preadv64v2";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     preadv64 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> s64 #foreign libc;
 }
 
@@ -49454,11 +52308,15 @@ off_t :: s64;
     preadv64 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    preadv64 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     preadv64 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     preadv64v2 :: (__fp: s32, __iovec: *iovec, __count: s32, __offset: s64, ___flags: s32) -> s64 #foreign libc;
 }
 
@@ -49467,6 +52325,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    preadv64v2 :: (__fp: s32, __iovec: *iovec, __count: s32, __offset: s64, ___flags: s32) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     preadv64v2 :: (__fp: s32, __iovec: *iovec, __count: s32, __offset: s64, ___flags: s32) -> ssize_t #foreign libc;
 }
 
@@ -49494,7 +52356,7 @@ off_t :: s64;
     printf :: (__fmt: *u8, __args: ..Any) -> s32 #foreign libc; @WritesOutput
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     prlimit :: (__pid: s32, __resource: RLIMIT_RESOURCE, __new_limit: *rlimit, __old_limit: *rlimit) -> s32 #foreign libc;
 }
 
@@ -49514,11 +52376,15 @@ off_t :: s64;
     prlimit :: (__pid: s32, __resource: __rlimit_resource, __new_limit: *rlimit, __old_limit: *rlimit) -> s32 #foreign libc "prlimit64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    prlimit :: (__pid: s32, __resource: __rlimit_resource, __new_limit: *rlimit, __old_limit: *rlimit) -> s32 #foreign libc "prlimit64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     prlimit :: (__pid: s32, __resource: __rlimit_resource, __new_limit: *rlimit, __old_limit: *rlimit) -> s32 #foreign libc "prlimit64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     prlimit64 :: (__pid: s32, __resource: RLIMIT_RESOURCE, __new_limit: *rlimit64, __old_limit: *rlimit64) -> s32 #foreign libc;
 }
 
@@ -49538,6 +52404,10 @@ off_t :: s64;
     prlimit64 :: (__pid: s32, __resource: __rlimit_resource, __new_limit: *rlimit64, __old_limit: *rlimit64) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    prlimit64 :: (__pid: s32, __resource: __rlimit_resource, __new_limit: *rlimit64, __old_limit: *rlimit64) -> s32 #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     prlimit64 :: (__pid: s32, __resource: __rlimit_resource, __new_limit: *rlimit64, __old_limit: *rlimit64) -> s32 #foreign libc;
 }
@@ -49550,7 +52420,7 @@ off_t :: s64;
     process_madvise :: (__pid_fd: s32, __iov: *iovec, __count: u64, __advice: s32, __flags: u32) -> s64 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     profil :: (__sample_buffer: *u16, __size: u64, __offset: u64, __scale: u32) -> s32 #foreign libc;
 }
 
@@ -49559,6 +52429,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    profil :: (__sample_buffer: *u16, __size: size_t, __offset: size_t, __scale: u32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     profil :: (__sample_buffer: *u16, __size: size_t, __offset: size_t, __scale: u32) -> s32 #foreign libc;
 }
 
@@ -49642,7 +52516,7 @@ off_t :: s64;
     pthread_attr_get_qos_class_np :: (__attr: *pthread_attr_t, __qos_class: *qos_class_t, __relative_priority: *s32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_attr_getaffinity_np :: (__attr: *pthread_attr_t, __cpusetsize: u64, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
@@ -49651,6 +52525,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_attr_getaffinity_np :: (__attr: *pthread_attr_t, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     pthread_attr_getaffinity_np :: (__attr: *pthread_attr_t, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
@@ -49678,7 +52556,7 @@ off_t :: s64;
     pthread_attr_getdetachstate :: (__attr: *pthread_attr_t, __state: *s32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_attr_getguardsize :: (__attr: *pthread_attr_t, __guardsize: *u64) -> s32 #foreign libpthread;
 }
 
@@ -49703,6 +52581,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_attr_getguardsize :: (__attr: *pthread_attr_t, __guardsize: *size_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     pthread_attr_getguardsize :: (__attr: *pthread_attr_t, __guardsize: *size_t) -> s32 #foreign libpthread;
 }
 
@@ -49790,7 +52672,7 @@ off_t :: s64;
     pthread_attr_getscope :: (__attr: *pthread_attr_t, __scope: *s32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_attr_getstack :: (__attr: *pthread_attr_t, __stackaddr: **void, __stacksize: *u64) -> s32 #foreign libpthread;
 }
 
@@ -49818,11 +52700,15 @@ off_t :: s64;
     pthread_attr_getstack :: (__attr: *pthread_attr_t, __stackaddr: *void, __stacksize: *size_t) -> s32 #foreign libpthread;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    pthread_attr_getstack :: (__attr: *pthread_attr_t, __stackaddr: *void, __stacksize: *size_t) -> s32 #foreign libpthread;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     pthread_attr_getstack :: (__attr: *pthread_attr_t, __stackaddr: *void, __stacksize: *size_t) -> s32 #foreign libpthread;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_attr_getstackaddr :: (__attr: *pthread_attr_t, __stackaddr: **void) -> s32 #foreign libpthread;
 }
 
@@ -49842,11 +52728,15 @@ off_t :: s64;
     pthread_attr_getstackaddr :: (__attr: *pthread_attr_t, __stackaddr: *void) -> s32 #foreign libpthread;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    pthread_attr_getstackaddr :: (__attr: *pthread_attr_t, __stackaddr: *void) -> s32 #foreign libpthread;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     pthread_attr_getstackaddr :: (__attr: *pthread_attr_t, __stackaddr: *void) -> s32 #foreign libpthread;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_attr_getstacksize :: (__attr: *pthread_attr_t, __stacksize: *u64) -> s32 #foreign libpthread;
 }
 
@@ -49871,6 +52761,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_attr_getstacksize :: (__attr: *pthread_attr_t, __stacksize: *size_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     pthread_attr_getstacksize :: (__attr: *pthread_attr_t, __stacksize: *size_t) -> s32 #foreign libpthread;
 }
 
@@ -49906,7 +52800,7 @@ off_t :: s64;
     pthread_attr_set_qos_class_np :: (__attr: *pthread_attr_t, __qos_class: qos_class_t, __relative_priority: s32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_attr_setaffinity_np :: (__attr: *pthread_attr_t, __cpusetsize: u64, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
@@ -49915,6 +52809,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_attr_setaffinity_np :: (__attr: *pthread_attr_t, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     pthread_attr_setaffinity_np :: (__attr: *pthread_attr_t, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
@@ -49942,7 +52840,7 @@ off_t :: s64;
     pthread_attr_setdetachstate :: (__attr: *pthread_attr_t, __state: s32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_attr_setguardsize :: (__attr: *pthread_attr_t, __guardsize: u64) -> s32 #foreign libpthread;
 }
 
@@ -49967,6 +52865,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_attr_setguardsize :: (__attr: *pthread_attr_t, __guardsize: size_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     pthread_attr_setguardsize :: (__attr: *pthread_attr_t, __guardsize: size_t) -> s32 #foreign libpthread;
 }
 
@@ -50054,7 +52956,7 @@ off_t :: s64;
     pthread_attr_setscope :: (__attr: *pthread_attr_t, __scope: s32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_attr_setstack :: (__attr: *pthread_attr_t, __stackaddr: *void, __stacksize: u64) -> s32 #foreign libpthread;
 }
 
@@ -50082,6 +52984,10 @@ off_t :: s64;
     pthread_attr_setstack :: (__attr: *pthread_attr_t, __stackaddr: *void, __stacksize: size_t) -> s32 #foreign libpthread;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    pthread_attr_setstack :: (__attr: *pthread_attr_t, __stackaddr: *void, __stacksize: size_t) -> s32 #foreign libpthread;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     pthread_attr_setstack :: (__attr: *pthread_attr_t, __stackaddr: *void, __stacksize: size_t) -> s32 #foreign libpthread;
 }
@@ -50098,7 +53004,7 @@ off_t :: s64;
     pthread_attr_setstackaddr :: (unknown0: *pthread_attr_t, unknown1: *void) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_attr_setstacksize :: (__attr: *pthread_attr_t, __stacksize: u64) -> s32 #foreign libpthread;
 }
 
@@ -50123,6 +53029,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_attr_setstacksize :: (__attr: *pthread_attr_t, __stacksize: size_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     pthread_attr_setstacksize :: (__attr: *pthread_attr_t, __stacksize: size_t) -> s32 #foreign libpthread;
 }
 
@@ -50226,7 +53136,7 @@ off_t :: s64;
     pthread_cancel :: (unknown0: pthread_t) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_clockjoin_np :: (__th: pthread_t, __thread_return: **void, __clockid: clockid_t, __abstime: *timespec) -> s32 #foreign libpthread;
 }
 
@@ -50236,6 +53146,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     pthread_clockjoin_np :: (__th: pthread_t, __thread_return: *void, __clockid: clockid_t, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_clockjoin_np64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    pthread_clockjoin_np :: (__th: pthread_t, __thread_return: *void, __clockid: clockid_t, __abstime: *timespec) -> s32 #foreign libpthread;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -50650,7 +53564,7 @@ off_t :: s64;
     pthread_get_stacksize_np :: (unknown0: pthread_t) -> u64 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_getaffinity_np :: (__th: pthread_t, __cpusetsize: u64, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
@@ -50659,6 +53573,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_getaffinity_np :: (__th: pthread_t, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     pthread_getaffinity_np :: (__th: pthread_t, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
@@ -50706,7 +53624,7 @@ off_t :: s64;
     pthread_getcpuclockid :: (__pthread: pthread_t, __clock: *clockid_t) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_getname_np :: (__target_thread: pthread_t, __buf: *u8, __buflen: u64) -> s32 #foreign libpthread;
 }
 
@@ -50731,6 +53649,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_getname_np :: (__target_thread: pthread_t, __buf: *u8, __buflen: size_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     pthread_getname_np :: (__target_thread: pthread_t, __buf: *u8, __buflen: size_t) -> s32 #foreign libpthread;
 }
 
@@ -50802,7 +53724,7 @@ off_t :: s64;
     pthread_jit_write_protect_supported_np :: () -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_join :: (__th: pthread_t, __thread_return: **void) -> s32 #foreign libpthread;
 }
 
@@ -50827,6 +53749,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_join :: (__th: pthread_t, __thread_return: *void) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     pthread_join :: (__th: pthread_t, __thread_return: *void) -> s32 #foreign libpthread;
 }
 
@@ -51686,7 +54612,7 @@ off_t :: s64;
     pthread_set_qos_class_self_np :: (__qos_class: qos_class_t, __relative_priority: s32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_setaffinity_np :: (__th: pthread_t, __cpusetsize: u64, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
@@ -51695,6 +54621,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_setaffinity_np :: (__th: pthread_t, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     pthread_setaffinity_np :: (__th: pthread_t, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
@@ -51902,7 +54832,7 @@ off_t :: s64;
     pthread_threadid_np :: (unknown0: pthread_t, unknown1: *u64) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_timedjoin_np :: (__th: pthread_t, __thread_return: **void, __abstime: *timespec) -> s32 #foreign libpthread;
 }
 
@@ -51914,11 +54844,15 @@ off_t :: s64;
     pthread_timedjoin_np :: (__th: pthread_t, __thread_return: *void, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_timedjoin_np64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    pthread_timedjoin_np :: (__th: pthread_t, __thread_return: *void, __abstime: *timespec) -> s32 #foreign libpthread;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     pthread_timedjoin_np :: (__th: pthread_t, __thread_return: *void, __abstime: *timespec) -> s32 #foreign libpthread;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pthread_tryjoin_np :: (__th: pthread_t, __thread_return: **void) -> s32 #foreign libpthread;
 }
 
@@ -51927,6 +54861,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_tryjoin_np :: (__th: pthread_t, __thread_return: *void) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     pthread_tryjoin_np :: (__th: pthread_t, __thread_return: *void) -> s32 #foreign libpthread;
 }
 
@@ -52058,7 +54996,7 @@ off_t :: s64;
     putw :: (unknown0: s32, unknown1: *FILE) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pwrite :: (__fd: s32, __buf: *void, __n: u64, __offset: s64) -> s64 #foreign libc;
 }
 
@@ -52086,11 +55024,15 @@ off_t :: s64;
     pwrite :: (__fd: s32, __buf: *void, __nbytes: size_t, __offset: s64) -> ssize_t #foreign libc "pwrite64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    pwrite :: (__fd: s32, __buf: *void, __nbytes: size_t, __offset: s64) -> ssize_t #foreign libc "pwrite64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     pwrite :: (__fd: s32, __buf: *void, __nbytes: size_t, __offset: s64) -> ssize_t #foreign libc "pwrite64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pwrite64 :: (__fd: s32, __buf: *void, __n: u64, __offset: s64) -> s64 #foreign libc;
 }
 
@@ -52110,11 +55052,15 @@ off_t :: s64;
     pwrite64 :: (__fd: s32, __buf: *void, __n: size_t, __offset: s64) -> ssize_t #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    pwrite64 :: (__fd: s32, __buf: *void, __n: size_t, __offset: s64) -> ssize_t #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     pwrite64 :: (__fd: s32, __buf: *void, __n: size_t, __offset: s64) -> ssize_t #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pwritev :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> s64 #foreign libc;
 }
 
@@ -52126,11 +55072,15 @@ off_t :: s64;
     pwritev :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc "pwritev64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    pwritev :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc "pwritev64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     pwritev :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc "pwritev64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pwritev2 :: (__fd: s32, __iodev: *iovec, __count: s32, __offset: s64, __flags: s32) -> s64 #foreign libc;
 }
 
@@ -52142,11 +55092,15 @@ off_t :: s64;
     pwritev2 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64, __flags: s32) -> ssize_t #foreign libc "pwritev64v2";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    pwritev2 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64, __flags: s32) -> ssize_t #foreign libc "pwritev64v2";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     pwritev2 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64, __flags: s32) -> ssize_t #foreign libc "pwritev64v2";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pwritev64 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> s64 #foreign libc;
 }
 
@@ -52158,11 +55112,15 @@ off_t :: s64;
     pwritev64 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    pwritev64 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     pwritev64 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     pwritev64v2 :: (__fd: s32, __iodev: *iovec, __count: s32, __offset: s64, __flags: s32) -> s64 #foreign libc;
 }
 
@@ -52171,6 +55129,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    pwritev64v2 :: (__fd: s32, __iodev: *iovec, __count: s32, __offset: s64, __flags: s32) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     pwritev64v2 :: (__fd: s32, __iodev: *iovec, __count: s32, __offset: s64, __flags: s32) -> ssize_t #foreign libc;
 }
 
@@ -52230,7 +55192,7 @@ off_t :: s64;
     rcmd_af :: (unknown0: **u8, unknown1: s32, unknown2: *u8, unknown3: *u8, unknown4: *u8, unknown5: *s32, unknown6: s32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     read :: (__fd: s32, __buf: *void, __nbytes: u64) -> s64 #foreign libc;
 }
 
@@ -52258,11 +55220,15 @@ off_t :: s64;
     read :: (__fd: s32, __buf: *void, __nbytes: size_t) -> ssize_t #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    read :: (__fd: s32, __buf: *void, __nbytes: size_t) -> ssize_t #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     read :: (__fd: s32, __buf: *void, __nbytes: size_t) -> ssize_t #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     readahead :: (__fd: s32, __offset: s64, __count: u64) -> s64 #foreign libc;
 }
 
@@ -52282,11 +55248,15 @@ off_t :: s64;
     readahead :: (__fd: s32, __offset: s64, __count: size_t) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    readahead :: (__fd: s32, __offset: s64, __count: size_t) -> s64 #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     readahead :: (__fd: s32, __offset: s64, __count: size_t) -> s64 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     readdir :: (__dirp: *DIR) -> *dirent #foreign libc;
 }
 
@@ -52314,6 +55284,10 @@ off_t :: s64;
     readdir :: (__dirp: *DIR) -> *dirent #foreign libc "readdir64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    readdir :: (__dirp: *DIR) -> *dirent #foreign libc "readdir64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     readdir :: (__dirp: *DIR) -> *dirent #foreign libc "readdir64";
 }
@@ -52330,7 +55304,7 @@ off_t :: s64;
     readdir64 :: (__dir: *DIR) -> *dirent64 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     readdir64_r :: (__dirp: *DIR, __entry: *dirent64, __result: **dirent64) -> s32 #foreign libc;
 }
 
@@ -52350,11 +55324,15 @@ off_t :: s64;
     readdir64_r :: (__dirp: *DIR, __entry: *dirent64, __result: *void) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    readdir64_r :: (__dirp: *DIR, __entry: *dirent64, __result: *void) -> s32 #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     readdir64_r :: (__dirp: *DIR, __entry: *dirent64, __result: *void) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     readdir_r :: (__dirp: *DIR, __entry: *dirent, __result: **dirent) -> s32 #foreign libc;
 }
 
@@ -52382,11 +55360,15 @@ off_t :: s64;
     readdir_r :: (__dirp: *DIR, __entry: *dirent, __result: *void) -> s32 #foreign libc "readdir64_r";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    readdir_r :: (__dirp: *DIR, __entry: *dirent, __result: *void) -> s32 #foreign libc "readdir64_r";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     readdir_r :: (__dirp: *DIR, __entry: *dirent, __result: *void) -> s32 #foreign libc "readdir64_r";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     readlink :: (__path: *u8, __buf: *u8, __len: u64) -> s64 #foreign libc;
 }
 
@@ -52414,11 +55396,15 @@ off_t :: s64;
     readlink :: (__path: *u8, __buf: *u8, __len: size_t) -> ssize_t #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    readlink :: (__path: *u8, __buf: *u8, __len: size_t) -> ssize_t #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     readlink :: (__path: *u8, __buf: *u8, __len: size_t) -> ssize_t #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     readlinkat :: (__fd: s32, __path: *u8, __buf: *u8, __len: u64) -> s64 #foreign libc;
 }
 
@@ -52446,11 +55432,15 @@ off_t :: s64;
     readlinkat :: (__fd: s32, __path: *u8, __buf: *u8, __len: size_t) -> ssize_t #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    readlinkat :: (__fd: s32, __path: *u8, __buf: *u8, __len: size_t) -> ssize_t #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     readlinkat :: (__fd: s32, __path: *u8, __buf: *u8, __len: size_t) -> ssize_t #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     readv :: (__fd: s32, __iovec: *iovec, __count: s32) -> s64 #foreign libc;
 }
 
@@ -52459,6 +55449,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    readv :: (__fd: s32, __iovec: *iovec, __count: s32) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     readv :: (__fd: s32, __iovec: *iovec, __count: s32) -> ssize_t #foreign libc;
 }
 
@@ -52494,7 +55488,7 @@ off_t :: s64;
     reboot :: (unknown0: s32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     remap_file_pages :: (__start: *void, __size: u64, __prot: s32, __pgoff: u64, __flags: s32) -> s32 #foreign libc;
 }
 
@@ -52503,6 +55497,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    remap_file_pages :: (__start: *void, __size: size_t, __prot: s32, __pgoff: size_t, __flags: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     remap_file_pages :: (__start: *void, __size: size_t, __prot: s32, __pgoff: size_t, __flags: s32) -> s32 #foreign libc;
 }
 
@@ -52678,7 +55676,7 @@ off_t :: s64;
     sbrk :: (__delta: s32) -> *void #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     scandir :: (__dir: *u8, __namelist: ***dirent, __selector: #type (unknown0: *dirent) -> s32 #c_call, __cmp: #type (unknown0: **dirent, unknown1: **dirent) -> s32 #c_call) -> s32 #foreign libc;
 }
 
@@ -52706,11 +55704,15 @@ off_t :: s64;
     scandir :: (__dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc "scandir64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    scandir :: (__dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc "scandir64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     scandir :: (__dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc "scandir64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     scandir64 :: (__dir: *u8, __namelist: ***dirent64, __selector: #type (unknown0: *dirent64) -> s32 #c_call, __cmp: #type (unknown0: **dirent64, unknown1: **dirent64) -> s32 #c_call) -> s32 #foreign libc;
 }
 
@@ -52730,11 +55732,15 @@ off_t :: s64;
     scandir64 :: (__dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent64) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    scandir64 :: (__dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent64) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     scandir64 :: (__dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent64) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     scandirat :: (__dfd: s32, __dir: *u8, __namelist: ***dirent, __selector: #type (unknown0: *dirent) -> s32 #c_call, __cmp: #type (unknown0: **dirent, unknown1: **dirent) -> s32 #c_call) -> s32 #foreign libc;
 }
 
@@ -52754,11 +55760,15 @@ off_t :: s64;
     scandirat :: (__dfd: s32, __dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc "scandirat64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    scandirat :: (__dfd: s32, __dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc "scandirat64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     scandirat :: (__dfd: s32, __dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc "scandirat64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     scandirat64 :: (__dfd: s32, __dir: *u8, __namelist: ***dirent64, __selector: #type (unknown0: *dirent64) -> s32 #c_call, __cmp: #type (unknown0: **dirent64, unknown1: **dirent64) -> s32 #c_call) -> s32 #foreign libc;
 }
 
@@ -52775,6 +55785,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    scandirat64 :: (__dfd: s32, __dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent64) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     scandirat64 :: (__dfd: s32, __dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent64) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc;
 }
 
@@ -52842,7 +55856,7 @@ off_t :: s64;
     sched_get_priority_min :: (__policy: s32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     sched_getaffinity :: (__pid: s32, __cpusetsize: u64, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
@@ -52859,6 +55873,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    sched_getaffinity :: (__pid: s32, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     sched_getaffinity :: (__pid: s32, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
@@ -52922,7 +55940,7 @@ off_t :: s64;
     sched_rr_get_interval :: (__pid: s32, __t: *timespec) -> s32 #foreign libpthread "__sched_rr_get_interval64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     sched_setaffinity :: (__pid: s32, __cpusetsize: u64, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
@@ -52939,6 +55957,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    sched_setaffinity :: (__pid: s32, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     sched_setaffinity :: (__pid: s32, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
@@ -53218,7 +56240,7 @@ off_t :: s64;
     setbuf :: (__fp: *FILE, __buf: *u8) -> void #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     setbuffer :: (__stream: *FILE, __buf: *u8, __size: u64) -> void #foreign libc;
 }
 
@@ -53246,11 +56268,15 @@ off_t :: s64;
     setbuffer :: (__stream: *FILE, __buf: *u8, __size: size_t) -> void #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    setbuffer :: (__stream: *FILE, __buf: *u8, __size: size_t) -> void #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     setbuffer :: (__stream: *FILE, __buf: *u8, __size: size_t) -> void #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     setdomainname :: (__name: *u8, __len: u64) -> s32 #foreign libc;
 }
 
@@ -53275,6 +56301,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    setdomainname :: (__name: *u8, __len: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     setdomainname :: (__name: *u8, __len: size_t) -> s32 #foreign libc;
 }
 
@@ -53398,7 +56428,7 @@ off_t :: s64;
     sethostid :: (__id: s32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     sethostname :: (__name: *u8, __len: u64) -> s32 #foreign libc;
 }
 
@@ -53423,6 +56453,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    sethostname :: (__name: *u8, __len: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     sethostname :: (__name: *u8, __len: size_t) -> s32 #foreign libc;
 }
 
@@ -53466,7 +56500,7 @@ off_t :: s64;
     setitimer :: (__which: __itimer_which, __new: *itimerval, __old: *itimerval) -> s32 #foreign libc "__setitimer64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     setjmp :: (__env: *jmp_buf) -> s32 #foreign libpthread;
 }
 
@@ -53491,6 +56525,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    setjmp :: (unknown0: *__jmp_buf_tag) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     setjmp :: (unknown0: *__jmp_buf_tag) -> s32 #foreign libpthread;
 }
 
@@ -53606,7 +56644,7 @@ off_t :: s64;
     setpgrp :: () -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     setpriority :: (__which: PRIO, __who: id_t, __prio: s32) -> s32 #foreign libc;
 }
 
@@ -53631,6 +56669,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    setpriority :: (__which: __priority_which, __who: id_t, __prio: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     setpriority :: (__which: __priority_which, __who: id_t, __prio: s32) -> s32 #foreign libc;
 }
 
@@ -53730,7 +56772,7 @@ off_t :: s64;
     setrgid :: (unknown0: gid_t) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     setrlimit :: (__resource: RLIMIT_RESOURCE, __rlimits: *rlimit) -> s32 #foreign libc;
 }
 
@@ -53758,11 +56800,15 @@ off_t :: s64;
     setrlimit :: (__resource: __rlimit_resource, __rlimits: *rlimit) -> s32 #foreign libc "setrlimit64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    setrlimit :: (__resource: __rlimit_resource, __rlimits: *rlimit) -> s32 #foreign libc "setrlimit64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     setrlimit :: (__resource: __rlimit_resource, __rlimits: *rlimit) -> s32 #foreign libc "setrlimit64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     setrlimit64 :: (__resource: RLIMIT_RESOURCE, __rlimits: *rlimit64) -> s32 #foreign libc;
 }
 
@@ -53779,6 +56825,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    setrlimit64 :: (__resource: __rlimit_resource, __rlimits: *rlimit64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     setrlimit64 :: (__resource: __rlimit_resource, __rlimits: *rlimit64) -> s32 #foreign libc;
 }
 
@@ -53882,7 +56932,7 @@ off_t :: s64;
     setusershell :: () -> void #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     setvbuf :: (__stream: *FILE, __buf: *u8, __modes: s32, __n: u64) -> s32 #foreign libc;
 }
 
@@ -53907,6 +56957,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    setvbuf :: (__stream: *FILE, __buf: *u8, __modes: s32, __n: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     setvbuf :: (__stream: *FILE, __buf: *u8, __modes: s32, __n: size_t) -> s32 #foreign libc;
 }
 
@@ -54006,7 +57060,7 @@ off_t :: s64;
     shmdt :: (__addr: *void) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     shmget :: (__key: key_t, __size: u64, __shmflg: s32) -> s32 #foreign libc;
 }
 
@@ -54031,6 +57085,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    shmget :: (__key: key_t, __size: size_t, __shmflg: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     shmget :: (__key: key_t, __size: size_t, __shmflg: s32) -> s32 #foreign libc;
 }
 
@@ -54318,7 +57376,7 @@ off_t :: s64;
     sigismember64 :: (__set: *sigset64_t, __signal: s32) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     siglongjmp :: (__env: *sigjmp_buf, __val: s32) -> void #foreign libpthread;
 }
 
@@ -54346,11 +57404,15 @@ off_t :: s64;
     siglongjmp :: (unknown0: *__jmp_buf_tag, unknown1: s32) -> void #foreign libpthread;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    siglongjmp :: (unknown0: *__jmp_buf_tag, unknown1: s32) -> void #foreign libpthread;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     siglongjmp :: (unknown0: *__jmp_buf_tag, unknown1: s32) -> void #foreign libpthread;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     signal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
 }
 
@@ -54375,6 +57437,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    signal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     signal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
 }
 
@@ -54406,7 +57472,7 @@ off_t :: s64;
     sigorset :: (__set: *sigset_t, __left: *sigset_t, __right: *sigset_t) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     sigpause :: (__sig: s32) -> s32 #foreign libc "__xpg_sigpause";
 }
 
@@ -54431,6 +57497,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    sigpause :: (__sig: s32) -> s32 #foreign libc "__xpg_sigpause";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     sigpause :: (__sig: s32) -> s32 #foreign libc "__xpg_sigpause";
 }
 
@@ -54530,7 +57600,7 @@ off_t :: s64;
     sigreturn :: (__scp: *sigcontext) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     sigset :: (__sig: s32, __disp: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
 }
 
@@ -54555,6 +57625,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    sigset :: (__sig: s32, __disp: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     sigset :: (__sig: s32, __disp: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
 }
 
@@ -54750,7 +57824,7 @@ off_t :: s64;
     snprintf :: (unknown0: *u8, unknown1: u32, unknown2: *u8, __args: ..Any) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     splice :: (__fdin: s32, __offin: *s64, __fdout: s32, __offout: *s64, __len: u64, __flags: u32) -> s64 #foreign libc;
 }
 
@@ -54768,6 +57842,10 @@ off_t :: s64;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     splice :: (__fdin: s32, __offin: *s64, __fdout: s32, __offout: *s64, __len: size_t, __flags: u32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    splice :: (__fdin: s32, __offin: *s64, __fdout: s32, __offout: *s64, __len: size_t, __flags: u32) -> s64 #foreign libc;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -54814,7 +57892,7 @@ off_t :: s64;
     sscanf :: (__s: *u8, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     ssignal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
 }
 
@@ -54823,6 +57901,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    ssignal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     ssignal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
 }
 
@@ -54878,7 +57960,7 @@ off_t :: s64;
     statx_np :: (unknown0: *u8, unknown1: *stat_t, unknown2: filesec_t) -> s32 #foreign libc "statx_np$INODE64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     strftime :: (__s: *u8, __maxsize: u64, __format: *u8, __tp: *tm) -> u64 #foreign libc;
 }
 
@@ -54906,11 +57988,15 @@ off_t :: s64;
     strftime :: (__s: *u8, __maxsize: size_t, __format: *u8, __tp: *tm) -> size_t #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    strftime :: (__s: *u8, __maxsize: size_t, __format: *u8, __tp: *tm) -> size_t #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     strftime :: (__s: *u8, __maxsize: size_t, __format: *u8, __tp: *tm) -> size_t #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     strftime_l :: (__s: *u8, __maxsize: u64, __format: *u8, __tp: *tm, __loc: locale_t) -> u64 #foreign libc;
 }
 
@@ -54927,6 +58013,10 @@ off_t :: s64;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    strftime_l :: (__s: *u8, __maxsize: size_t, __format: *u8, __tp: *tm, __loc: locale_t) -> size_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     strftime_l :: (__s: *u8, __maxsize: size_t, __format: *u8, __tp: *tm, __loc: locale_t) -> size_t #foreign libc;
 }
 
@@ -54976,7 +58066,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     strtofflags :: (unknown0: **u8, unknown1: *u64, unknown2: *u64) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     swab :: (__from: *void, __to: *void, __n: s64) -> void #foreign libc;
 }
 
@@ -55001,6 +58091,10 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    swab :: (__from: *void, __to: *void, __n: ssize_t) -> void #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     swab :: (__from: *void, __to: *void, __n: ssize_t) -> void #foreign libc;
 }
 
@@ -55208,7 +58302,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     system :: (__command: *u8) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     sysv_signal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
 }
 
@@ -55217,6 +58311,10 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    sysv_signal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     sysv_signal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
 }
 
@@ -55264,7 +58362,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     tcsetpgrp :: (__fd: s32, __pid: pid_t) -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     tee :: (__fdin: s32, __fdout: s32, __len: u64, __flags: u32) -> s64 #foreign libc;
 }
 
@@ -55282,6 +58380,10 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     tee :: (__fdin: s32, __fdout: s32, __len: size_t, __flags: u32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    tee :: (__fdin: s32, __fdout: s32, __len: size_t, __flags: u32) -> s64 #foreign libc;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -55572,7 +58674,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     timespec_get :: (__ts: *timespec, __base: s32) -> s32 #foreign libc "__timespec_get64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     tmpfile :: () -> *FILE #foreign libc;
 }
 
@@ -55597,6 +58699,10 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    tmpfile :: () -> *FILE #foreign libc "tmpfile64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     tmpfile :: () -> *FILE #foreign libc "tmpfile64";
 }
 
@@ -55640,7 +58746,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     tmpnam_r :: (__s: *u8) -> *u8 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     truncate :: (__file: *u8, __length: s64) -> s32 #foreign libc;
 }
 
@@ -55665,6 +58771,10 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    truncate :: (__file: *u8, __length: s64) -> s32 #foreign libc "truncate64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     truncate :: (__file: *u8, __length: s64) -> s32 #foreign libc "truncate64";
 }
 
@@ -55704,7 +58814,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     ttyname :: (__fd: s32) -> *u8 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     ttyname_r :: (__fd: s32, __buf: *u8, __buflen: u64) -> s32 #foreign libc;
 }
 
@@ -55729,6 +58839,10 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    ttyname_r :: (__fd: s32, __buf: *u8, __buflen: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     ttyname_r :: (__fd: s32, __buf: *u8, __buflen: size_t) -> s32 #foreign libc;
 }
 
@@ -56028,7 +59142,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     valloc :: (unknown0: u64) -> *void #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     versionsort :: (__e1: **dirent, __e2: **dirent) -> s32 #foreign libc;
 }
 
@@ -56040,11 +59154,15 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     versionsort :: (__e1: *void, __e2: *void) -> s32 #foreign libc "versionsort64";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    versionsort :: (__e1: *void, __e2: *void) -> s32 #foreign libc "versionsort64";
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     versionsort :: (__e1: *void, __e2: *void) -> s32 #foreign libc "versionsort64";
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     versionsort64 :: (__e1: **dirent64, __e2: **dirent64) -> s32 #foreign libc;
 }
 
@@ -56053,6 +59171,10 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    versionsort64 :: (__e1: *void, __e2: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     versionsort64 :: (__e1: *void, __e2: *void) -> s32 #foreign libc;
 }
 
@@ -56084,7 +59206,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     vhangup :: () -> s32 #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     vmsplice :: (__fdout: s32, __iov: *iovec, __count: u64, __flags: u32) -> s64 #foreign libc;
 }
 
@@ -56102,6 +59224,10 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
     vmsplice :: (__fdout: s32, __iov: *iovec, __count: size_t, __flags: u32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    vmsplice :: (__fdout: s32, __iov: *iovec, __count: size_t, __flags: u32) -> s64 #foreign libc;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .S390X {
@@ -56216,7 +59342,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     waitpid :: (__pid: pid_t, __status: *s32, __options: s32) -> pid_t #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     write :: (__fd: s32, __buf: *void, __n: u64) -> s64 #foreign libc; @WritesOutput(0)
 }
 
@@ -56244,11 +59370,15 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     write :: (__fd: s32, __buf: *void, __n: size_t) -> ssize_t #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
+    write :: (__fd: s32, __buf: *void, __n: size_t) -> ssize_t #foreign libc;
+}
+
 #if OS == .LINUX && ARCHITECTURE == .S390X {
     write :: (__fd: s32, __buf: *void, __n: size_t) -> ssize_t #foreign libc;
 }
 
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     writev :: (__fd: s32, __iovec: *iovec, __count: s32) -> s64 #foreign libc;
 }
 
@@ -56257,6 +59387,10 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 }
 
 #if OS == .LINUX && ARCHITECTURE == .X86 {
+    writev :: (__fd: s32, __iovec: *iovec, __count: s32) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .POWERPC64 {
     writev :: (__fd: s32, __iovec: *iovec, __count: s32) -> ssize_t #foreign libc;
 }
 
