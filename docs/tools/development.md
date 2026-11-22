@@ -86,7 +86,7 @@ Cargo only selects crate versions published at least 14 days ago, direct and tra
 
 `.cargo/config.toml` enables `min-publish-age`, but cargo accepts young entries already in a lockfile, so `PYTHONPATH=tools python3 tools/ci/check_dependency_age.py [--lockfile PATH]` checks every locked crate against the crates.io sparse index (`index.crates.io`, which lists each version's publish time and yank state) and fails on unknown sources, yanked releases, young versions and versions the index doesn't list. It runs before any build in the workflows. It reads the index rather than the crates.io API because the API allows one request a second, which parallel CI jobs exceeded.
 
-`inkwell` comes from a pinned git commit until a crates.io release supports the LLVM version we build against; then switch back to `version = "..."` and drop `allowBuiltinFetchGit` in `nix/jaic.nix`. Put shared dependencies in `[workspace.dependencies]`, prefer exact versions, and never weaken the age policy to resolve a conflict.
+When a new LLVM is in no crates.io release of `inkwell` yet, pin it to a git commit at least 14 days old (`rev = "<full hash>"`) and set `cargoLock.allowBuiltinFetchGit = true` in `nix/jaic.nix`; switch back to a registry version once one is 14 days old. Put shared dependencies in `[workspace.dependencies]`, prefer exact versions, and never weaken the age policy to resolve a conflict.
 
 `cargo machete` and `cargo deny` run in the `dependency-hygiene` job; `deny.toml` holds the license and source policy.
 

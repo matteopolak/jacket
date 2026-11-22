@@ -1,6 +1,6 @@
 # LLVM setup
 
-`crates/jaic-llvm` uses Inkwell (from a pinned commit; see [development](development.md#dependency-policy)) over a separately installed LLVM 23.1, and `jaic` links with the host's Clang. Building `jaic-cli` needs LLVM; `jaic -check` and `-interp` don't use it at run time. `jai-wasm` doesn't depend on it.
+`crates/jaic-llvm` uses Inkwell ([dependency policy](development.md#dependency-policy)) over a separately installed LLVM 23.1, and `jaic` links with the host's Clang. Building `jaic-cli` needs LLVM; `jaic -check` and `-interp` don't use it at run time. `jai-wasm` doesn't depend on it.
 
 ```sh
 brew install llvm@23 lld   # lld: wasm-ld, only for `jaic -os wasm`
@@ -46,4 +46,4 @@ The release workflow strips packaged binaries, so their backtraces have no funct
 
 - **New target architecture:** an `Arch` variant in `crates/jaic/src/abi.rs`, the `target-<name>` inkwell feature, and `Target::initialize_<name>` in `target_machine`. Expect the binary to grow.
 - **New LLVM version:** change `llvm` in `.github/pins.json`; for a patch release that's the only edit. A new major or minor also changes the inkwell feature (`llvm23-1`; then `cargo update -p inkwell` and `check_dependency_age.py`), `crates/jacket-config/src/llvm/version.rs`, the apt key fingerprint in `install_ci_llvm_linux.sh`, the Homebrew formula in `release.yml`, `llvmPackages_NN` in `flake.nix` and `nix/jaic.nix`, and the Windows shim in `prepare.sh`. Recheck the workarounds in [LLVM backend](../native/llvm-backend.md). Search for `LLVM_SYS_`, `llvm@` and `llvm-[0-9]+` to find the rest.
-- Inkwell's `const_int` masks values to the type's width at the pinned revision, so sign-extended `u64` arguments for narrow types behave as before.
+- Inkwell's `const_int` masks values to the type's width, so sign-extended `u64` arguments for narrow types behave as before.

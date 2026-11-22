@@ -52,13 +52,7 @@ rustPlatform.buildRustPackage {
     ];
   };
 
-  cargoLock = {
-    lockFile = ../Cargo.lock;
-    # inkwell is a git dependency pinned to a full commit hash in Cargo.lock (LLVM 23 support
-    # predates its next crates.io release); `builtins.fetchGit` fetches that exact revision,
-    # so no separate output hash has to be kept in sync with the lock file.
-    allowBuiltinFetchGit = true;
-  };
+  cargoLock.lockFile = ../Cargo.lock;
   # jaic writes native code through `libjaic_backend`, a library it opens on the first build
   # that needs it, so `-check`, `-interp` and the other tools never load LLVM
   # (docs/compiler/lazy-backend.md). `--no-default-features` turns off jaic's in-process LLVM;
