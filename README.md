@@ -1,6 +1,6 @@
 <div align="center">
   <img src="docs/images/banner.svg" alt="Jacket" width="420">
-  <p>A compiler, standard library, language server, formatter and linter for the <a href="https://en.wikipedia.org/wiki/Jai_(programming_language)">Jai</a> programming language.<br>It builds for macOS, Linux, Windows and WebAssembly.</p>
+  <p>A compiler, standard library, language server, formatter and linter for the <a href="https://en.wikipedia.org/wiki/Jai_(programming_language)">Jai</a> programming language.<br>It builds for macOS, Linux, Windows, WebAssembly and bare-metal boards.</p>
   <p>
     <a href="https://github.com/matteopolak/jacket/actions/workflows/ci.yml"><img src="https://github.com/matteopolak/jacket/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
     <a href="https://github.com/matteopolak/jacket/releases/latest"><img src="https://img.shields.io/github/v/release/matteopolak/jacket" alt="Latest release"></a>
@@ -62,6 +62,16 @@ jacket doc               # build the API docs site
 ```
 
 `jacket build`, `check` and `run` take the same flags as the compiler, `jaic`, and also read your project's `jacket.toml`. `jaic hello.jai -o -os windows` is the direct form; run `jaic -help` for every option. See [jacket](docs/tools/jacket.md) and the [command-line reference](docs/reference/tools.md#compiling).
+
+## 32-bit and embedded
+
+The same code also builds for 32-bit WebAssembly, x86 and ARM Linux, and for microcontrollers with no operating system, which you can run in QEMU with one command:
+
+```sh
+jacket run hello.jai --target Mps2_An386    # a Cortex-M4 board, in QEMU
+```
+
+[32-bit and embedded targets](docs/guides/other-targets.md) walks through each one. 16-bit AVR is on the way.
 
 ## Contributing
 

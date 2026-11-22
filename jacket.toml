@@ -248,6 +248,10 @@ file = "docs/guides/documenting.md"
 name = "Documenting a library"
 
 [[doc.page]]
+file = "docs/guides/other-targets.md"
+name = "32-bit and embedded"
+
+[[doc.page]]
 file = "docs/language/context.md"
 name = "Implicit context"
 
