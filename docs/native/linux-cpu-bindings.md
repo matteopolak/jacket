@@ -24,7 +24,7 @@ PYTHONPATH=tools:tools/native_bindings python3 tools/native_bindings/vendor_linu
 PYTHONPATH=tools:tools/native_bindings python3 tools/native_bindings/generate.py --module POSIX
 ```
 
-Add a CPU in the `ARCHES` table of `vendor_linux_posix.py`. `--check` fails when the committed JSON is stale. Run it for `i686` and `s390x`; a record with `__attribute__((aligned(N)))` becomes `struct #align N`, and a `typedef union { ... } name` the spec declares as a pointer or scalar becomes a record.
+Add a CPU in the `ARCHES` table of `vendor_linux_posix.py`. `--check` fails when the committed JSON is stale. Run it for `i686`, `s390x` and `armv7`; a record with `__attribute__((aligned(N)))` becomes `struct #align N`, and a `typedef union { ... } name` the spec declares as a pointer or scalar becomes a record.
 
 ## Configuration
 
