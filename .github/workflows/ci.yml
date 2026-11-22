@@ -297,6 +297,7 @@ jobs:
         run: |
           bash tools/ci/apt_install.sh clang llvm cmake ninja-build
           tools/embedded/build-compiler-rt.sh thumbv7em-none-eabihf "$RUNNER_TEMP/compiler-rt"
+          tools/embedded/build-compiler-rt.sh thumbv8m.main-none-eabihf "$RUNNER_TEMP/compiler-rt"
           echo "JAIC_COMPILER_RT=$RUNNER_TEMP/compiler-rt" >> "$GITHUB_ENV"
       # The format and lint steps below run the Justfile's recipes (docs/tools/development.md).
       - uses: ./.github/actions/install-tool
