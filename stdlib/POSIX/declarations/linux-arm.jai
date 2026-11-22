@@ -1643,19 +1643,13 @@ getline :: (__lineptr: *void, __n: *size_t, __stream: *FILE) -> s32 #foreign lib
 
 getlogin_r :: (__name: *u8, __name_len: size_t) -> s32 #foreign libc;
 
-getpriority :: (__which: __priority_which, __who: id_t) -> s32 #foreign libc;
-
 getpwent_r :: (__resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
 
 getpwnam_r :: (__name: *u8, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
 
 getpwuid_r :: (__uid: u32, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
 
-getrlimit :: (__resource: __rlimit_resource, __rlimits: *rlimit) -> s32 #foreign libc "getrlimit64";
-
-getrlimit64 :: (__resource: __rlimit_resource, __rlimits: *rlimit64) -> s32 #foreign libc;
-
-getrusage :: (__who: __rusage_who, __usage: *rusage) -> s32 #foreign libc;
+getrlimit :: (__resource: RLIMIT_RESOURCE, __rlimits: *rlimit) -> s32 #foreign libc "getrlimit64";
 
 gettimeofday :: (__tv: *timeval, __tz: *void) -> s32 #foreign libc "__gettimeofday64";
 
@@ -1739,9 +1733,7 @@ preadv64 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t
 
 preadv64v2 :: (__fp: s32, __iovec: *iovec, __count: s32, __offset: s64, ___flags: s32) -> ssize_t #foreign libc;
 
-prlimit :: (__pid: s32, __resource: __rlimit_resource, __new_limit: *rlimit, __old_limit: *rlimit) -> s32 #foreign libc "prlimit64";
-
-prlimit64 :: (__pid: s32, __resource: __rlimit_resource, __new_limit: *rlimit64, __old_limit: *rlimit64) -> s32 #foreign libc;
+prlimit :: (__pid: s32, __resource: RLIMIT_RESOURCE, __new_limit: *rlimit, __old_limit: *rlimit) -> s32 #foreign libc "prlimit64";
 
 profil :: (__sample_buffer: *u16, __size: size_t, __offset: size_t, __scale: u32) -> s32 #foreign libc;
 
@@ -1857,11 +1849,7 @@ setitimer :: (__which: __itimer_which, __new: *itimerval, __old: *itimerval) -> 
 
 setjmp :: (unknown0: *__jmp_buf_tag) -> s32 #foreign libpthread;
 
-setpriority :: (__which: __priority_which, __who: id_t, __prio: s32) -> s32 #foreign libc;
-
-setrlimit :: (__resource: __rlimit_resource, __rlimits: *rlimit) -> s32 #foreign libc "setrlimit64";
-
-setrlimit64 :: (__resource: __rlimit_resource, __rlimits: *rlimit64) -> s32 #foreign libc;
+setrlimit :: (__resource: RLIMIT_RESOURCE, __rlimits: *rlimit) -> s32 #foreign libc "setrlimit64";
 
 settimeofday :: (__tv: *timeval, __tz: *timezone) -> s32 #foreign libc "__settimeofday64";
 

@@ -2926,10 +2926,6 @@ off_t :: s64;
 }
 
 #if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
-    getpriority :: (__which: PRIO, __who: id_t) -> s32 #foreign libc;
-}
-
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     getpwent_r :: (__resultbuf: *passwd, __buffer: *u8, __buflen: u64, __result: **passwd) -> s32 #foreign libc;
 }
 
@@ -2943,14 +2939,6 @@ off_t :: s64;
 
 #if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     getrlimit :: (__resource: RLIMIT_RESOURCE, __rlimits: *rlimit) -> s32 #foreign libc;
-}
-
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
-    getrlimit64 :: (__resource: RLIMIT_RESOURCE, __rlimits: *rlimit64) -> s32 #foreign libc;
-}
-
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
-    getrusage :: (__who: RUSAGE, __usage: *rusage) -> s32 #foreign libc;
 }
 
 #if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
@@ -3119,10 +3107,6 @@ off_t :: s64;
 
 #if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     prlimit :: (__pid: s32, __resource: RLIMIT_RESOURCE, __new_limit: *rlimit, __old_limit: *rlimit) -> s32 #foreign libc;
-}
-
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
-    prlimit64 :: (__pid: s32, __resource: RLIMIT_RESOURCE, __new_limit: *rlimit64, __old_limit: *rlimit64) -> s32 #foreign libc;
 }
 
 #if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
@@ -3354,15 +3338,7 @@ off_t :: s64;
 }
 
 #if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
-    setpriority :: (__which: PRIO, __who: id_t, __prio: s32) -> s32 #foreign libc;
-}
-
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
     setrlimit :: (__resource: RLIMIT_RESOURCE, __rlimits: *rlimit) -> s32 #foreign libc;
-}
-
-#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .POWERPC64 && ARCHITECTURE != .S390X {
-    setrlimit64 :: (__resource: RLIMIT_RESOURCE, __rlimits: *rlimit64) -> s32 #foreign libc;
 }
 
 #if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {

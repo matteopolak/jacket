@@ -57,6 +57,15 @@ class Context:
             elif kind == 'FunctionDecl' and name:
                 self.functions.setdefault(name, node)
 
+    def enum(self, name):
+        """The Jai type of the C enum `name`: the spec's name for it when it exports one, else its
+        integer type, since nothing declares the C name (`u32` unless a constant is negative,
+        the type C compilers give such an enum)."""
+        if name in self.keep:
+            return name
+        values = [folded(m) for m in self.enums[name].get('inner', []) if m['kind'] == 'EnumConstantDecl']
+        return 's32' if any(v is not None and v < 0 for v in values) else 'u32'
+
     def inline(self, name):
         """A record the spec does not export, written out where it is used."""
         for tag in ('struct', 'union'):
@@ -160,7 +169,7 @@ def render(ctx, text, desugared=None):
     text = TAGS.sub('', QUALIFIERS.sub('', text)).strip()
     text = re.sub(r'\s+', ' ', text)
     if tagged:
-        return ctx.exported(tag, text) or (text if text in ctx.enums else ctx.inline(text))
+        return ctx.exported(tag, text) or (ctx.enum(text) if text in ctx.enums else ctx.inline(text))
     if desugared is not None:
         desugared = re.sub(r'\s+', ' ', TAGS.sub('', QUALIFIERS.sub('', desugared)).strip())
     function = split_function(text)
@@ -190,8 +199,10 @@ def render(ctx, text, desugared=None):
         return '*' + render(ctx, spelled[:-1].strip() if tag_of(spelled[:-1]) else pointee, inner)
     if text == '...':
         return '..Any'
-    if text in ctx.keep or text in ctx.enums:
+    if text in ctx.keep:
         return text
+    if text in ctx.enums:
+        return ctx.enum(text)
     if any(text == n for (_, n) in ctx.records):
         return ctx.inline(text)
     if text in SCALARS or text in ('long', 'unsigned long'):
@@ -207,7 +218,9 @@ def render(ctx, text, desugared=None):
         return render(ctx, expanded)
     if desugared and desugared != text:
         return render(ctx, desugared)
-    if text in ctx.enums or any(text == n for (_, n) in ctx.records):
+    if text in ctx.enums:
+        return ctx.enum(text)
+    if any(text == n for (_, n) in ctx.records):
         return text
     raise Unsupported('type ' + text)
 

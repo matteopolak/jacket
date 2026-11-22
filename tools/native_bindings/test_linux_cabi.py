@@ -27,6 +27,16 @@ class FunctionTests(unittest.TestCase):
             self.assertEqual(cabi.function_declaration(ctx, 'seekdir'),
                              (['dirp: *DIR', 'pos: ' + spelled], 'void', 'seekdir'))
 
+    def test_an_enum_the_spec_does_not_name_is_its_32_bit_integer(self):
+        def enum(name, *values):
+            return {'kind': 'EnumDecl', 'name': name, 'inner': [
+                {'kind': 'EnumConstantDecl', 'name': 'V%d' % i,
+                 'inner': [{'kind': 'IntegerLiteral', 'value': str(v)}]} for i, v in enumerate(values)]}
+        node = self.function('getrlimit', 'int (enum __rlimit_resource, int)',
+                             [('r', 'enum __rlimit_resource'), ('w', 'enum __rusage_who')])
+        ctx = context([enum('__rlimit_resource', 0, 7), enum('__rusage_who', -1, 0), node])
+        self.assertEqual(cabi.function_declaration(ctx, 'getrlimit')[0], ['r: u32', 'w: s32'])
+
     def test_the_link_symbol_is_the_headers_own(self):
         node = self.function('clock_gettime', 'int (clockid_t, struct timespec *)',
                              [('id', 'clockid_t'), ('tp', 'struct timespec *')], '__clock_gettime64')

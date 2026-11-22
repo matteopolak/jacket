@@ -3126,6 +3126,8 @@ getpid :: () -> s32 #foreign libc;
 
 getppid :: () -> s32 #foreign libc;
 
+getpriority :: (__which: PRIO, __who: id_t) -> s32 #foreign libc;
+
 getpw :: (__uid: u32, __buffer: *u8) -> s32 #foreign libc;
 
 getpwent :: () -> *passwd #foreign libc;
@@ -3137,6 +3139,10 @@ getpwuid :: (__uid: u32) -> *passwd #foreign libc;
 getresgid :: (__rgid: *u32, __egid: *u32, __sgid: *u32) -> s32 #foreign libc;
 
 getresuid :: (__ruid: *u32, __euid: *u32, __suid: *u32) -> s32 #foreign libc;
+
+getrlimit64 :: (__resource: RLIMIT_RESOURCE, __rlimits: *rlimit64) -> s32 #foreign libc;
+
+getrusage :: (__who: RUSAGE, __usage: *rusage) -> s32 #foreign libc;
 
 getsid :: (__pid: s32) -> s32 #foreign libc;
 
@@ -3219,6 +3225,8 @@ posix_fadvise64 :: (__fd: s32, __offset: s64, __len: s64, __advise: s32) -> s32 
 posix_fallocate64 :: (__fd: s32, __offset: s64, __len: s64) -> s32 #foreign libc;
 
 printf :: (__format: *u8, __args: ..Any) -> s32 #foreign libc; @WritesOutput
+
+prlimit64 :: (__pid: s32, __resource: RLIMIT_RESOURCE, __new_limit: *rlimit64, __old_limit: *rlimit64) -> s32 #foreign libc;
 
 psiginfo :: (__pinfo: *siginfo_t, __s: *u8) -> void #foreign libc;
 
@@ -3500,6 +3508,8 @@ setpgid :: (__pid: s32, __pgid: s32) -> s32 #foreign libc;
 
 setpgrp :: () -> s32 #foreign libc;
 
+setpriority :: (__which: PRIO, __who: id_t, __prio: s32) -> s32 #foreign libc;
+
 setpwent :: () -> void #foreign libc;
 
 setregid :: (__rgid: u32, __egid: u32) -> s32 #foreign libc;
@@ -3509,6 +3519,8 @@ setresgid :: (__rgid: u32, __egid: u32, __sgid: u32) -> s32 #foreign libc;
 setresuid :: (__ruid: u32, __euid: u32, __suid: u32) -> s32 #foreign libc;
 
 setreuid :: (__ruid: u32, __euid: u32) -> s32 #foreign libc;
+
+setrlimit64 :: (__resource: RLIMIT_RESOURCE, __rlimits: *rlimit64) -> s32 #foreign libc;
 
 setsid :: () -> s32 #foreign libc;
 
