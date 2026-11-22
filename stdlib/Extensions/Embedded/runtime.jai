@@ -59,9 +59,13 @@ init_runtime :: () #c_call #no_context {
     data_load := cast(*u8) *__data_load;
     data_bytes := cast(s64) (cast(u64) *__data_end - cast(u64) data_start);
 
-    if data_load != data_start {
-        for index: 0..data_bytes - 1 {
-            data_start[index] = data_load[index];
+    // AVR's flash is another address space an ordinary load cannot read: its reset code copies
+    // `.data` with `lpm` before this runs.
+    #if ARCHITECTURE != .AVR {
+        if data_load != data_start {
+            for index: 0..data_bytes - 1 {
+                data_start[index] = data_load[index];
+            }
         }
     }
 

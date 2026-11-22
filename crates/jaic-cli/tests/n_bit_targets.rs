@@ -248,3 +248,23 @@ fn volatile_accesses_use_the_targets_byte_order() {
         );
     }
 }
+
+/// A program for the Arduino Uno board (2-byte pointers) passes compile-time checks: the
+/// compiler's own compile-time buffers fit the 16-bit address window.
+#[test]
+fn an_avr_program_checks_at_compile_time() {
+    let output = Command::new(JAIC)
+        .arg("-check")
+        .arg(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../tests/compiler/targets/avr-hello.jai"),
+        )
+        .arg("+Extensions/Embedded/Boards/Arduino_Uno")
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}

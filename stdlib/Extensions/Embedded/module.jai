@@ -28,6 +28,10 @@
     #if ARCHITECTURE == .ARM {
         #load "cortex-m.jai";
     }
+
+    #if ARCHITECTURE == .AVR {
+        #load "avr.jai";
+    }
 } else {
     #load "memory-map.jai";
     #load "binary.jai";
