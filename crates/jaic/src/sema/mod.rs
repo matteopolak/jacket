@@ -304,7 +304,7 @@ pub fn long_double_for(
         (TargetOs::Linux, TargetCpu::Arm64) | (_, TargetCpu::Wasm | TargetCpu::S390x) => {
             Some(WideFloat::Binary128)
         }
-        (_, TargetCpu::Arm64) | (_, TargetCpu::Arm) => None,
+        (_, TargetCpu::Arm64) | (_, TargetCpu::Arm) | (_, TargetCpu::Avr) => None,
         (_, TargetCpu::X86) => Some(WideFloat::X87),
     }
 }
@@ -321,7 +321,7 @@ mod long_double_tests {
     #[test]
     fn formats_follow_the_c_compiler() {
         use TargetCpu::*;
-        use TargetOs::*;
+        use TargetOs::{Linux, MacOS, Windows};
         assert_eq!(long_double_for(Linux, X64, true), Some(WideFloat::X87));
         assert_eq!(long_double_for(MacOS, X64, false), Some(WideFloat::X87));
         assert_eq!(long_double_for(Windows, X64, true), Some(WideFloat::X87));

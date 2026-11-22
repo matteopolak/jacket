@@ -10,6 +10,9 @@ pub enum TargetOs {
     Linux,
     MacOS,
     Wasm,
+    /// No operating system: a freestanding program with no libc and no system entry point
+    /// (`Operating_System_Tag.NONE`).
+    None,
 }
 
 /// The CPU a program is built for (`Wasm` is the CPU of a WebAssembly target).
@@ -23,11 +26,13 @@ pub enum TargetCpu {
     S390x,
     /// 32-bit ARM (armv7-a) with hard-float AAPCS.
     Arm,
+    /// 8-bit AVR with 16-bit pointers (Harvard: code and data are separate address spaces).
+    Avr,
     Wasm,
 }
 
 /// The names `-os` accepts.
-pub const OS_NAMES: [&str; 4] = ["linux", "windows", "macos", "wasm"];
+pub const OS_NAMES: [&str; 5] = ["linux", "windows", "macos", "wasm", "none"];
 
 pub fn parse_os(name: &str) -> Option<TargetOs> {
     match name {
@@ -35,6 +40,7 @@ pub fn parse_os(name: &str) -> Option<TargetOs> {
         "windows" => Some(TargetOs::Windows),
         "macos" => Some(TargetOs::MacOS),
         "wasm" => Some(TargetOs::Wasm),
+        "none" => Some(TargetOs::None),
         _ => None,
     }
 }
@@ -47,6 +53,7 @@ pub fn parse_cpu(name: &str) -> Option<TargetCpu> {
         "x86" | "i686" => Some(TargetCpu::X86),
         "s390x" => Some(TargetCpu::S390x),
         "arm" | "armv7" | "armhf" => Some(TargetCpu::Arm),
+        "avr" => Some(TargetCpu::Avr),
         "wasm" => Some(TargetCpu::Wasm),
         _ => None,
     }
@@ -58,6 +65,7 @@ pub fn os_name(os: TargetOs) -> &'static str {
         TargetOs::Linux => "linux",
         TargetOs::MacOS => "macos",
         TargetOs::Wasm => "wasm",
+        TargetOs::None => "none",
     }
 }
 
@@ -68,6 +76,7 @@ pub fn cpu_name(cpu: TargetCpu) -> &'static str {
         TargetCpu::X86 => "x86",
         TargetCpu::S390x => "s390x",
         TargetCpu::Arm => "arm",
+        TargetCpu::Avr => "avr",
         TargetCpu::Wasm => "wasm",
     }
 }
@@ -80,6 +89,7 @@ pub fn os_member(os: TargetOs) -> &'static str {
         TargetOs::Linux => "LINUX",
         TargetOs::MacOS => "MACOS",
         TargetOs::Wasm => "WASM",
+        TargetOs::None => "NONE",
     }
 }
 
@@ -88,7 +98,9 @@ pub fn cpu_member(cpu: TargetCpu) -> &'static str {
     match cpu {
         TargetCpu::X64 => "X64",
         TargetCpu::Arm64 => "ARM64",
-        TargetCpu::X86 | TargetCpu::S390x | TargetCpu::Arm | TargetCpu::Wasm => "CUSTOM",
+        TargetCpu::X86 | TargetCpu::S390x | TargetCpu::Arm | TargetCpu::Avr | TargetCpu::Wasm => {
+            "CUSTOM"
+        }
     }
 }
 
@@ -102,6 +114,7 @@ pub fn architecture_member(cpu: TargetCpu, pointer_bytes: u32) -> &'static str {
         (TargetCpu::X86, _) => "X86",
         (TargetCpu::S390x, _) => "S390X",
         (TargetCpu::Arm, _) => "ARM",
+        (TargetCpu::Avr, _) => "AVR",
         (TargetCpu::Wasm, 4) => "WASM32",
         (TargetCpu::Wasm, _) => "WASM64",
     }
@@ -120,7 +133,8 @@ pub enum TargetAbi {
     Apple,
     /// A WebAssembly System Interface command.
     Wasi,
-    /// Nothing named: freestanding WebAssembly, or a Linux environment jaic has no name for.
+    /// Nothing named: freestanding WebAssembly, bare metal (`*-none-elf`), or a Linux
+    /// environment jaic has no name for.
     Unknown,
 }
 
@@ -146,6 +160,7 @@ impl Target {
             TargetOs::Linux => TargetAbi::Gnu,
             TargetOs::MacOS => TargetAbi::Apple,
             TargetOs::Wasm => TargetAbi::Wasi,
+            TargetOs::None => TargetAbi::Unknown,
         };
         Target {
             os,
@@ -203,6 +218,7 @@ impl Target {
             "i686" | "i586" | "i486" | "i386" => (TargetCpu::X86, false),
             "s390x" => (TargetCpu::S390x, false),
             "arm" | "armv7" | "armv7a" | "armv7l" => (TargetCpu::Arm, false),
+            "avr" => (TargetCpu::Avr, false),
             "wasm32" => (TargetCpu::Wasm, true),
             "wasm64" => (TargetCpu::Wasm, false),
             _ => return Err(format!("unsupported target architecture in `{triple}`")),
@@ -236,6 +252,14 @@ impl Target {
                 _ => return Err(format!("unsupported WebAssembly target `{triple}`")),
             };
             (TargetOs::Wasm, abi)
+        } else if cpu == TargetCpu::Avr {
+            // `avr-none`, `avr-none-elf`: bare metal, the only kind of AVR target.
+            if !parts.contains(&"none") {
+                return Err(format!(
+                    "unsupported target OS in `{triple}`: AVR is built bare metal (`avr-none`)"
+                ));
+            }
+            (TargetOs::None, TargetAbi::Unknown)
         } else if parts
             .iter()
             .any(|p| matches!(*p, "windows" | "mingw32" | "w64"))
@@ -302,6 +326,17 @@ impl Target {
             layout.c.long = 4;
             layout.c.size_t = 4;
         }
+        if self.cpu == TargetCpu::Avr {
+            // avr-gcc: 16-bit pointers, `int` and `size_t`, and no alignment padding at all.
+            layout.pointer_size = 2;
+            layout.pointer_align = 1;
+            layout.int_align = [1, 1, 1, 1];
+            layout.float_align = [1, 1];
+            layout.stack_align = 1;
+            layout.c.int = 2;
+            layout.c.long = 4;
+            layout.c.size_t = 2;
+        }
         if self.cpu == TargetCpu::S390x {
             // z/Architecture ELF: big-endian, `long double` is a 16-byte binary128 aligned to 8.
             layout.endian = crate::layout::Endian::Big;
@@ -334,6 +369,11 @@ impl Target {
         self.os == TargetOs::Wasm
     }
 
+    /// A bare-metal target: no operating system, libc, threads or system entry point.
+    pub fn is_freestanding(self) -> bool {
+        self.os == TargetOs::None
+    }
+
     pub fn is_apple(self) -> bool {
         self.os == TargetOs::MacOS
     }
@@ -350,6 +390,7 @@ impl Target {
             (TargetCpu::X86, _) => Some(Arch::X86),
             (TargetCpu::S390x, _) => Some(Arch::S390x),
             (TargetCpu::Arm, _) => Some(Arch::Arm32),
+            (TargetCpu::Avr, _) => Some(Arch::Avr),
             (TargetCpu::Wasm, _) => Some(Arch::Wasm),
         }
     }
@@ -371,6 +412,7 @@ impl std::fmt::Display for Target {
             TargetCpu::X86 => "i686",
             TargetCpu::S390x => "s390x",
             TargetCpu::Arm => "armv7",
+            TargetCpu::Avr => return write!(f, "avr-none-elf"),
             TargetCpu::Wasm if self.memory32 => return write!(f, "wasm32-{}", self.wasm_system()),
             TargetCpu::Wasm => return write!(f, "wasm64-{}", self.wasm_system()),
         };
@@ -387,6 +429,7 @@ impl std::fmt::Display for Target {
             (TargetOs::Linux, TargetAbi::Gnu) => "unknown-linux-gnu",
             (TargetOs::Linux, TargetAbi::Musl) => "unknown-linux-musl",
             (TargetOs::Linux, _) => "unknown-linux",
+            (TargetOs::None, _) => "none-elf",
             (TargetOs::Wasm, _) => unreachable!("a wasm OS has a wasm CPU"),
         };
         write!(f, "{arch}-{rest}")

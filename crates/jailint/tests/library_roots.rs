@@ -355,6 +355,7 @@ fn program_skipped_on_the_host_is_compiled_for_another_system() {
         jaic::target::TargetOs::Linux => "LINUX",
         jaic::target::TargetOs::MacOS => "MACOS",
         jaic::target::TargetOs::Wasm => "WASM",
+        jaic::target::TargetOs::None => "NONE",
     };
     let file = root.join("app/not-here.jai");
     std::fs::write(

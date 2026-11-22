@@ -239,6 +239,7 @@ impl Workspaces {
                     OsTag::Linux => TargetOs::Linux,
                     OsTag::MacOS => TargetOs::MacOS,
                     OsTag::Wasm => TargetOs::Wasm,
+                    OsTag::None => TargetOs::None,
                 });
             }
             WorkspaceNumber::CpuTarget => {
@@ -251,6 +252,7 @@ impl Workspaces {
                         cpu @ (TargetCpu::X86
                         | TargetCpu::S390x
                         | TargetCpu::Arm
+                        | TargetCpu::Avr
                         | TargetCpu::Wasm) => cpu,
                         _ => TargetCpu::Wasm,
                     },

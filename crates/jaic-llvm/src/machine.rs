@@ -115,6 +115,31 @@ pub(super) fn baseline_cpu(target: BuildTarget) -> &'static str {
 }
 
 /// The target machine for `options`, and what it targets.
+/// Registers the AVR backend. Neither `inkwell` nor `llvm-sys` declares its initializers, but a
+/// release LLVM build that includes the target (`docs/tools/llvm-setup.md`) defines them.
+#[allow(
+    unsafe_code,
+    reason = "LLVM's C entry points for a backend the bindings omit"
+)]
+fn initialize_avr() {
+    unsafe extern "C" {
+        fn LLVMInitializeAVRTargetInfo();
+        fn LLVMInitializeAVRTarget();
+        fn LLVMInitializeAVRTargetMC();
+        fn LLVMInitializeAVRAsmPrinter();
+        fn LLVMInitializeAVRAsmParser();
+    }
+    // SAFETY: each takes no arguments and only fills LLVM's target registry; the caller holds
+    // the `Once` that serializes registration.
+    unsafe {
+        LLVMInitializeAVRTargetInfo();
+        LLVMInitializeAVRTarget();
+        LLVMInitializeAVRTargetMC();
+        LLVMInitializeAVRAsmPrinter();
+        LLVMInitializeAVRAsmParser();
+    }
+}
+
 pub(super) fn target_machine(
     options: &Options,
 ) -> Result<(TargetMachine, TargetTriple, BuildTarget, jaic::abi::Arch), String> {
@@ -133,6 +158,7 @@ pub(super) fn target_machine(
         Target::initialize_webassembly(&config);
         Target::initialize_system_z(&config);
         Target::initialize_arm(&config);
+        initialize_avr();
     });
     let (triple, build_target) = match options.target {
         Some(t) => (TargetTriple::create(&t.to_string()), t),
@@ -289,6 +315,7 @@ mod tests {
             "i686-unknown-linux-musl",
             "s390x-unknown-linux-gnu",
             "armv7-unknown-linux-gnueabihf",
+            "avr-none-elf",
         ] {
             let ours = BuildTarget::parse(triple).unwrap().data_layout();
             let llvm_triple =

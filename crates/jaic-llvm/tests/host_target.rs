@@ -11,11 +11,14 @@ fn host_constants_execute_native_and_wasm_at_o0_and_o2() {
         TargetOs::Linux => "LINUX",
         TargetOs::MacOS => "MACOS",
         TargetOs::Wasm => "WASM",
+        TargetOs::None => "NONE",
     };
     let cpu = match host.cpu {
         TargetCpu::X64 => "X64",
         TargetCpu::Arm64 => "ARM64",
-        TargetCpu::X86 | TargetCpu::S390x | TargetCpu::Arm | TargetCpu::Wasm => "CUSTOM",
+        TargetCpu::X86 | TargetCpu::S390x | TargetCpu::Arm | TargetCpu::Avr | TargetCpu::Wasm => {
+            "CUSTOM"
+        }
     };
     let source = format!(
         r#"

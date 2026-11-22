@@ -39,11 +39,16 @@ impl Target {
                 TargetOs::Linux => "LINUX",
                 TargetOs::MacOS => "MACOS",
                 TargetOs::Wasm => "WASM",
+                TargetOs::None => "NONE",
             },
             cpu: match cpu {
                 TargetCpu::X64 => "X64",
                 TargetCpu::Arm64 => "ARM64",
-                TargetCpu::X86 | TargetCpu::S390x | TargetCpu::Arm | TargetCpu::Wasm => "CUSTOM",
+                TargetCpu::X86
+                | TargetCpu::S390x
+                | TargetCpu::Arm
+                | TargetCpu::Avr
+                | TargetCpu::Wasm => "CUSTOM",
             },
         }
     }

@@ -260,6 +260,7 @@ fn get(cx: &Call, interp: &mut Interp, ws: i64, at: u64) -> Result<TypeId, Trap>
             crate::target::TargetOs::Linux => crate::builtin_keys::OsTag::Linux as u64,
             crate::target::TargetOs::MacOS => crate::builtin_keys::OsTag::MacOS as u64,
             crate::target::TargetOs::Wasm => crate::builtin_keys::OsTag::Wasm as u64,
+            crate::target::TargetOs::None => crate::builtin_keys::OsTag::None as u64,
         };
         let cpu = match cpu {
             crate::target::TargetCpu::X64 => crate::builtin_keys::CpuTag::X64 as u64,
@@ -267,6 +268,7 @@ fn get(cx: &Call, interp: &mut Interp, ws: i64, at: u64) -> Result<TypeId, Trap>
             crate::target::TargetCpu::X86
             | crate::target::TargetCpu::S390x
             | crate::target::TargetCpu::Arm
+            | crate::target::TargetCpu::Avr
             | crate::target::TargetCpu::Wasm => crate::builtin_keys::CpuTag::Custom as u64,
         };
         cx.set_number(interp, ty, at, "os_target", os)?;

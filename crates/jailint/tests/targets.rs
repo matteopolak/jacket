@@ -107,6 +107,7 @@ fn selected_target_branches_check_with_unchanged_compiler_host() {
         jaic::target::TargetOs::Linux => "LINUX",
         jaic::target::TargetOs::MacOS => "MACOS",
         jaic::target::TargetOs::Wasm => "WASM",
+        jaic::target::TargetOs::None => "NONE",
     };
     let host_cpu = match host.cpu {
         jaic::target::TargetCpu::X64 => "X64",
@@ -114,6 +115,7 @@ fn selected_target_branches_check_with_unchanged_compiler_host() {
         jaic::target::TargetCpu::X86
         | jaic::target::TargetCpu::S390x
         | jaic::target::TargetCpu::Arm
+        | jaic::target::TargetCpu::Avr
         | jaic::target::TargetCpu::Wasm => "CUSTOM",
     };
     for (flags, os, cpu) in [

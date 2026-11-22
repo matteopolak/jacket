@@ -26,6 +26,11 @@ pub enum Arch {
     /// 4- or 8-byte integers in core registers and then on the stack; a larger-than-4-byte
     /// result comes back through a hidden pointer in `r0`.
     Arm32,
+    /// 8-bit AVR, avr-gcc's convention as Clang lowers it: arguments take the 18 registers
+    /// `r8`-`r25` (each rounded up to an even number of bytes, so an 8-bit one takes two), a
+    /// whole aggregate in registers or on the stack by value, never split; a result of at most
+    /// 8 bytes comes back in registers, a larger one through a hidden pointer.
+    Avr,
     /// x86-64 with the Microsoft x64 calling convention (Windows, MSVC and MinGW alike).
     Win64,
     /// `AArch64` Windows (MSVC and MinGW alike): AAPCS64, except that a variadic procedure takes
@@ -133,7 +138,7 @@ pub fn sret_is_inreg(arch: Arch, forced: bool) -> bool {
 /// Whether the hidden result pointer takes the first integer argument register, leaving one
 /// fewer for the parameters (x86-64 always; arm64 only where it is `inreg`).
 pub fn sret_takes_int_register(arch: Arch, forced: bool) -> bool {
-    arch.is_x86_64() || arch == Arch::S390x || sret_is_inreg(arch, forced)
+    arch.is_x86_64() || matches!(arch, Arch::S390x | Arch::Avr) || sret_is_inreg(arch, forced)
 }
 
 /// Classify a by-value aggregate argument.
@@ -144,7 +149,9 @@ pub fn classify_arg(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Passin
             Arch::X86_64 | Arch::X86 | Arch::Wasm => Passing::ByVal,
             Arch::Aarch64 | Arch::Win64 | Arch::Win64Arm | Arch::S390x => Passing::Indirect,
             // AAPCS copies every aggregate into core registers and then the stack.
-            Arch::Arm32 => unreachable!("every ARM aggregate classifies as registers"),
+            Arch::Arm32 | Arch::Avr => {
+                unreachable!("every aggregate on this target classifies as registers")
+            }
         },
     }
 }
@@ -191,11 +198,17 @@ impl RegBudget {
             Arch::X86_64 => 6,
             Arch::X86 => 0,
             Arch::S390x => 5,
+            // Register bytes, not registers; the hidden result pointer takes two.
+            Arch::Avr => 18 - 2 * hidden_in_int as u32,
             _ => 8,
         };
         RegBudget {
             arch,
-            ints: ints - hidden_in_int as u32,
+            ints: if arch == Arch::Avr {
+                ints
+            } else {
+                ints - hidden_in_int as u32
+            },
             vectors: if arch == Arch::S390x {
                 4
             } else {
@@ -206,6 +219,17 @@ impl RegBudget {
 
     /// A scalar parameter of type `ty`.
     pub fn scalar(&mut self, ty: Ty) {
+        if self.arch == Arch::Avr {
+            let bytes: u32 = match ty {
+                Ty::I8 => 1,
+                Ty::I16 | Ty::Ptr => 2,
+                Ty::I32 | Ty::F32 => 4,
+                Ty::I64 | Ty::F64 => 8,
+                Ty::F80 | Ty::F128 => 16,
+            };
+            self.ints = self.ints.saturating_sub(bytes.next_multiple_of(2));
+            return;
+        }
         match ty {
             Ty::F80 => {}
             Ty::F128 => self.vectors = self.vectors.saturating_sub(1),
@@ -214,8 +238,34 @@ impl RegBudget {
         }
     }
 
+    /// AVR: a whole aggregate goes in the registers still free, each member rounded up to an
+    /// even number of bytes together, or on the stack by value; it is never split.
+    fn avr_aggregate(&mut self, passing: Passing) -> Passing {
+        let Passing::Registers(pieces) = &passing else {
+            return passing;
+        };
+        let bytes: u32 = pieces
+            .iter()
+            .map(|p| match p.ty {
+                PieceTy::Int(n) => n as u32,
+                PieceTy::F32 => 4,
+                _ => 8,
+            })
+            .sum();
+        let bytes = bytes.next_multiple_of(2);
+        if bytes <= self.ints {
+            self.ints -= bytes;
+            return passing;
+        }
+        self.ints = 0;
+        Passing::ByVal
+    }
+
     /// An aggregate parameter classified as `passing`; returns how it really travels.
     pub fn aggregate(&mut self, passing: Passing) -> Passing {
+        if self.arch == Arch::Avr {
+            return self.avr_aggregate(passing);
+        }
         // Only System V needs the count: Windows passes by position and has no multi-register
         // aggregates, WebAssembly has no registers, and AArch64's arrays are the backend's job.
         if self.arch != Arch::X86_64 {
@@ -255,6 +305,9 @@ pub fn classify_ret(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Option
     if arch == Arch::Arm32 && layout.size > 4 && hfa(layout).is_none() {
         return None;
     }
+    if arch == Arch::Avr && layout.size > 8 {
+        return None;
+    }
     classify_registers(arch, layout, data)
 }
 
@@ -282,6 +335,9 @@ fn classify_registers(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Opti
     }
     if arch == Arch::Arm32 {
         return Some(arm32_pieces(layout));
+    }
+    if arch == Arch::Avr {
+        return Some(avr_pieces(layout, data));
     }
     if layout.size > 16 && !(arch.is_aarch64() && hfa(layout).is_some()) {
         return None;
@@ -314,7 +370,7 @@ fn classify_registers(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Opti
             }
             Some(int_pieces(layout.size))
         }
-        Arch::Win64 | Arch::Wasm | Arch::X86 | Arch::S390x | Arch::Arm32 => {
+        Arch::Win64 | Arch::Wasm | Arch::X86 | Arch::S390x | Arch::Arm32 | Arch::Avr => {
             unreachable!("handled above")
         }
         Arch::X86_64 => {
@@ -427,6 +483,22 @@ fn arm32_int_pieces(layout: &AggLayout) -> Vec<Piece> {
         .map(|k| Piece {
             offset: k * step,
             ty,
+        })
+        .collect()
+}
+
+/// AVR: each scalar member is its own register group, in memory order (there is no padding).
+fn avr_pieces(layout: &AggLayout, data: &DataLayout) -> Vec<Piece> {
+    layout
+        .fields
+        .iter()
+        .map(|&(offset, ty)| Piece {
+            offset,
+            ty: match ty {
+                Ty::F32 => PieceTy::F32,
+                Ty::F64 => PieceTy::F64,
+                other => PieceTy::Int(other.size(data) as u8),
+            },
         })
         .collect()
 }
@@ -618,6 +690,49 @@ mod tests {
         assert!(classify_ret(Arch::Arm32, &floats, &data).is_some());
         // A variadic call uses core registers whatever the members are.
         assert_eq!(classify_vararg(Arch::Arm32, &floats, &data), words(2));
+    }
+
+    /// AVR (avr-gcc): members travel as register groups while 18 register bytes last, an
+    /// aggregate that does not fit goes on the stack whole, and a result over 8 bytes is returned
+    /// through a hidden pointer.
+    #[test]
+    fn avr_passes_aggregates_in_registers_while_they_fit() {
+        let target = crate::target::Target::parse("avr-none-elf").unwrap();
+        assert_eq!(target.arch(), Some(Arch::Avr));
+        let data = target.data_layout();
+        let l = |size, fields: &[(u64, Ty)]| AggLayout {
+            size,
+            align: 1,
+            fields: fields.to_vec(),
+        };
+        let pair = l(3, &[(0, Ty::I16), (2, Ty::I8)]);
+        let Passing::Registers(pieces) = classify_arg(Arch::Avr, &pair, &data) else {
+            panic!("a small aggregate travels in registers");
+        };
+        assert_eq!(
+            pieces.iter().map(|p| p.ty).collect::<Vec<_>>(),
+            [PieceTy::Int(2), PieceTy::Int(1)]
+        );
+        let mut budget = RegBudget::new(Arch::Avr, false);
+        // Nine 16-bit scalars use all 18 registers: the next aggregate goes on the stack.
+        for _ in 0..9 {
+            budget.scalar(Ty::I16);
+        }
+        assert_eq!(
+            budget.aggregate(classify_arg(Arch::Avr, &pair, &data)),
+            Passing::ByVal
+        );
+        let mut budget = RegBudget::new(Arch::Avr, false);
+        budget.scalar(Ty::I8);
+        assert!(matches!(
+            budget.aggregate(classify_arg(Arch::Avr, &pair, &data)),
+            Passing::Registers(_)
+        ));
+        let eight = l(8, &[(0, Ty::I32), (4, Ty::I32)]);
+        assert!(classify_ret(Arch::Avr, &eight, &data).is_some());
+        let nine = l(9, &[(0, Ty::I64), (8, Ty::I8)]);
+        assert!(classify_ret(Arch::Avr, &nine, &data).is_none());
+        assert!(sret_takes_int_register(Arch::Avr, false));
     }
 
     #[test]
