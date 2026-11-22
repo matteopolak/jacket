@@ -45,7 +45,7 @@ mimalloc = ["dep:mimalloc"]
 
 [dev-dependencies]
 test-support = { path = "../test-support" }
-serde_json = "=1.0.151"
+serde_json = "=1.0.154"
 
 [lints]
 workspace = true

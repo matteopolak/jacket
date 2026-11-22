@@ -165,7 +165,7 @@ impl Theme {
         for (name, bytes) in web {
             hash_part(&mut hash, &format!("Web/{name}"), bytes);
         }
-        format!("{:x}", hash.finalize())
+        crate::upgrade::checksum::hex(hash.finalize().as_slice())
     }
 
     pub fn prepare(&self, jaic: &Path, stdlib: &Path, timings: bool) -> Result<Prepared, String> {

@@ -4,7 +4,7 @@
 //! The steps, each of which can fail without touching the install: find the release, pick this
 //! platform's archive, download it and `SHA256SUMS`, check the hash, unpack beside the install,
 //! check the unpacked tree, then swap ([`swap`]).
-mod checksum;
+pub(crate) mod checksum;
 mod managed;
 mod net;
 mod swap;

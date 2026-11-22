@@ -12,12 +12,22 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
 
 /// The lower-case hex SHA-256 of a file, read in chunks.
 pub fn sha256_file(path: &Path) -> std::io::Result<String> {
+    use std::io::Read;
+    let mut file = std::fs::File::open(path)?;
     let mut hash = Sha256::new();
-    std::io::copy(&mut std::fs::File::open(path)?, &mut hash)?;
+    let mut chunk = vec![0; 1 << 16];
+    loop {
+        let read = file.read(&mut chunk)?;
+        if read == 0 {
+            break;
+        }
+        hash.update(&chunk[..read]);
+    }
     Ok(hex(hash.finalize().as_slice()))
 }
 
-fn hex(bytes: &[u8]) -> String {
+/// `bytes` as lower-case hex, two digits each.
+pub fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
