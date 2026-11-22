@@ -19,6 +19,8 @@ use crate::interp::Rets;
 use crate::interp::word_or_zero;
 #[cfg(target_arch = "x86_64")]
 use crate::ir::{Sig, Ty};
+#[cfg(target_arch = "x86_64")]
+use crate::layout::DataLayout;
 use crate::toolchain::{RuntimeDlls, Toolchain};
 use std::ffi::c_void;
 use std::sync::Mutex;
@@ -645,7 +647,7 @@ pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
     let forced_sret = cabi.is_some_and(|c| c.ret_indirect);
     let ret_pieces = ret_layout
         .filter(|_| !forced_sret)
-        .and_then(|l| abi::classify_ret(Arch::Win64, l));
+        .and_then(|l| abi::classify_ret(Arch::Win64, l, &DataLayout::host()));
     let out_index = ret_layout.map(|_| sig.out_index());
     let out_ptr = out_index.map_or(0, |i| word_or_zero(args, i));
     let mut slots: Vec<u64> = Vec::new();
@@ -669,7 +671,7 @@ pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
             slots.push(a);
             continue;
         };
-        match abi::classify_arg(Arch::Win64, layout) {
+        match abi::classify_arg(Arch::Win64, layout, &DataLayout::host()) {
             Passing::Registers(pieces) if pieces.is_empty() => {}
             // SAFETY: `a` points at the aggregate, `layout.size` (<= 8) bytes long.
             Passing::Registers(_) => slots.push(unsafe { read_bytes(a, layout.size) }),

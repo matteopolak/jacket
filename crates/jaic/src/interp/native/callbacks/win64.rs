@@ -21,6 +21,7 @@ use crate::abi::{self, Arch, Passing};
 use crate::interp::Trap;
 use crate::interp::native::{read_bytes, write_bytes};
 use crate::ir::{FuncId, Sig, Ty};
+use crate::layout::DataLayout;
 use std::sync::{Arc, Mutex};
 
 /// Interpreted procedures that can be handed to C at once.
@@ -209,7 +210,7 @@ fn invoke<S: Fn(usize) -> u64, X: Fn(usize) -> u64>(
     let forced_sret = cabi.is_some_and(|c| c.ret_indirect);
     let in_rax = ret_layout
         .filter(|_| !forced_sret)
-        .is_some_and(|l| abi::classify_ret(Arch::Win64, l).is_some());
+        .is_some_and(|l| abi::classify_ret(Arch::Win64, l, &DataLayout::host()).is_some());
     let sret = ret_layout.is_some() && !in_rax;
     // The hidden result pointer takes the first slot.
     let mut position = sret as usize;
@@ -224,7 +225,7 @@ fn invoke<S: Fn(usize) -> u64, X: Fn(usize) -> u64>(
             continue;
         };
         let mut buffer = vec![0u64; layout.size.div_ceil(8).max(1) as usize];
-        match abi::classify_arg(Arch::Win64, layout) {
+        match abi::classify_arg(Arch::Win64, layout, &DataLayout::host()) {
             // An empty struct takes no slot.
             Passing::Registers(pieces) if pieces.is_empty() => {}
             Passing::Registers(_) => {
