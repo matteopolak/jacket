@@ -953,7 +953,13 @@ impl<'ctx> Backend<'ctx, '_> {
         }
         let text = jaic::fiber::module_asm(self.arch, self.target.is_apple())
             .ok_or("fibers need a native target")?;
-        crate::emit::append_module_asm(&self.module, &text);
+        // One text defines both routines, so only the first one declared brings it.
+        if [jaic::fiber::SWITCH, jaic::fiber::PREPARE]
+            .iter()
+            .all(|other| self.module.get_function(other).is_none())
+        {
+            crate::emit::append_module_asm(&self.module, &text);
+        }
         Ok(self.module.add_function(name, ty, Some(Linkage::External)))
     }
 
