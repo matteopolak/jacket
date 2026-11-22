@@ -38,10 +38,13 @@ ERR_OPNOTSUPP :: 95;
 
 libc :: #system_library "libc"; @native(external)
 
-P :: #import "POSIX";
-
-// C's `long`: 8 bytes on x86-64 and arm64, 4 on i686.
-Long :: P.ssize_t;
+// C's `long`, which is pointer-sized on every Linux ABI (LP64 and ILP32): 8 bytes on x86-64 and
+// arm64, 4 on i686. Spelled without POSIX so the portable protocol tests load this file anywhere.
+#if size_of(*void) == 8 {
+    Long :: s64;
+} else {
+    Long :: s32;
+}
 
 // libc's variadic syscall() called with six fixed arguments, all `long`.
 raw_syscall :: (number: Long, a1: Long, a2: Long, a3: Long, a4: Long, a5: Long, a6: Long) -> Long #foreign libc "syscall";
