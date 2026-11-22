@@ -182,6 +182,15 @@ impl DataLayout {
         self.is_narrow() || matches!(self.endian, Endian::Big) != cfg!(target_endian = "big")
     }
 
+    /// The bytes a pointer can address: 64 KiB for a 2-byte pointer, 4 GiB for a 4-byte one, and
+    /// `u64::MAX` from 8 bytes up.
+    pub const fn address_space(&self) -> u64 {
+        match self.pointer_size {
+            1..=7 => 1 << (8 * self.pointer_size as u32),
+            _ => u64::MAX,
+        }
+    }
+
     /// The size in bytes of a pointer as a `u64`.
     pub const fn ptr_bytes(&self) -> u64 {
         self.pointer_size as u64
