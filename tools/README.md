@@ -87,6 +87,7 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | --- | --- | --- |
 | `announce_release.py` | Post a release to Zulip (.github/workflows/zulip-release.yml, docs/tools/community-chat.md). | CI |
 | `check_action_pins.py` | Check the SHA-pinned GitHub Actions in `.github/workflows` and `.github/actions` and update them. | CI, hook, tools |
+| `check_changelog.py` | Fail when CHANGELOG.md's unreleased notes are too long to read at a glance. | tools |
 | `check_ci_sources.py` | Check literal Rust includes against public checkout inputs before compiling. | tools |
 | `check_dependency_age.py` | Fail closed for every registry dependency, including existing lock entries. | CI, tools |
 | `check_diagnostics_covered.py` | Fail when a compiler diagnostic code has no test that expects it (docs/tools/diagnostic-coverage.md). | CI |
@@ -287,12 +288,11 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `configure_rpmalloc.py` | Select the reviewed raw heap source profile in an OWNED/staged stdlib tree. | tools |
 | `generate.py` | Generate native ABI facades exclusively from the reviewed public specs. | tools |
 | `generate_appkit.py` | Generate AppKit message forwarding from the reviewed public contract. | tools |
-| `linux_cabi.py` | Render a Linux target's C headers (clang JSON AST) as Jai types, records and signatures. | - |
 | `prepare_rpmalloc.py` | Build-only, hash-checked fixes to official pinned C sources. Never edit vendor. | tools |
 | `vendor_context.py` | Private contextual ABI types from hash-pinned official native C headers. | - |
 | `vendor_cpp.py` | Translate the NVTT member API expressly delegated to pinned vendor headers. | - |
-| `vendor_linux_posix.py` | Per-CPU Linux POSIX shapes, symbols and constants from that CPU's own libc headers (cross container). | tools |
 | `vendor_linux_arm64.py` | Private Linux ARM64 kernel ABI from complete pinned official UAPI C headers. | - |
+| `vendor_linux_posix.py` | Per-CPU Linux POSIX shapes, symbols and constants from that CPU's own libc headers. | tools |
 | `vendor_rpmalloc.py` | Generate a private, complete rpmalloc C SDK ABI from the pinned vendor header. | - |
 | `verify.py` | Run desktop checks and real host native tests with an explicit own compiler. | tools |
 
