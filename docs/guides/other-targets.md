@@ -1,6 +1,6 @@
 # 32-bit and embedded targets
 
-Jacket doesn't stop at 64-bit desktops. The same program can build for 32-bit WebAssembly, 32-bit x86 and ARM Linux, big-endian Linux, and microcontrollers with no operating system at all. This page gets you from nothing to a running program on each, then points you at the deeper docs.
+Jacket builds for 32-bit WebAssembly, 32-bit x86 and ARM Linux, big-endian Linux, and microcontrollers with no operating system. This page builds and runs a program on each, then links to the reference docs.
 
 ## What you can build for
 
@@ -17,13 +17,13 @@ Jacket doesn't stop at 64-bit desktops. The same program can build for 32-bit We
 
 ## Start here: a 32-bit program in WebAssembly
 
-WebAssembly needs no cross toolchain, so it's the quickest way to see a 32-bit build. Install [wasmtime](https://wasmtime.dev), then:
+WebAssembly needs no cross toolchain, only a runtime. Install [wasmtime](https://wasmtime.dev), then:
 
 ```jai
 #import "Basic";
 
 main :: () {
-    print("Hello from a %-bit pointer!\n", size_of(*void) * 8);
+    print("Pointers are % bits\n", size_of(*void) * 8);
 }
 ```
 
@@ -33,10 +33,10 @@ wasmtime hello.wasm
 ```
 
 ```text
-Hello from a 32-bit pointer!
+Pointers are 32 bits
 ```
 
-Nothing in the program changed. `print`, strings, arrays and allocators all follow the target's pointer size on their own.
+`print`, strings, arrays and allocators follow the target's pointer size.
 
 ## 32-bit Linux
 
@@ -53,9 +53,9 @@ JAIC_LINKER=arm-linux-gnueabihf-gcc jacket build hello.jai --target armv7-unknow
 qemu-arm -L /usr/arm-linux-gnueabihf ./hello
 ```
 
-For x86 on a 64-bit x86 Linux machine it's simpler: `sudo apt install gcc-multilib`, then `jacket build hello.jai --target i686-unknown-linux-gnu`, and the program runs directly.
+For x86 on 64-bit x86 Linux, install `gcc-multilib`, build with `--target i686-unknown-linux-gnu`, and run the program directly.
 
-Most of the standard library already works on these targets, but not all of it yet. The modules that pass their tests are listed per target in `tools/dev/` (`i686-roots.txt`, `armv7-roots.txt` and so on).
+Not all of the standard library works on these targets. The modules that pass their tests are listed per target in `tools/dev/` (`i686-roots.txt`, `armv7-roots.txt` and so on).
 
 ## Bare metal: a program with no operating system
 
@@ -79,7 +79,7 @@ Then the program:
 Board :: #import "Extensions/Embedded/Boards/Mps2_An386";
 
 main :: () {
-    print("Hello from a Cortex-M4!\n");
+    print("Hello, world!\n");
 }
 
 #program_export "jai_start"
