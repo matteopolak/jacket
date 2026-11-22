@@ -38,6 +38,7 @@ REPOSITORIES = (
     "kujukuju/KodaJai",
     "UnNabbo/no_api",
     "ahmedqarmout2/raylib-jai",
+    "DemonKingSwarn/josh",
 )
 # Libraries the projects above import from git submodules: pinned like the
 # projects but exempt from the recency cutoff.

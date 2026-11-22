@@ -131,6 +131,14 @@
       "file_count": 249
     },
     {
+      "repository": "DemonKingSwarn/josh",
+      "revision": "79c4eed18220d8b53c4807b79ef9c9184bb897db",
+      "latest_jai_change": "2026-11-15T16:37:33+05:30",
+      "source_of_truth": "https://github.com/DemonKingSwarn/josh/tree/79c4eed18220d8b53c4807b79ef9c9184bb897db",
+      "selection": "recent-source",
+      "file_count": 65
+    },
+    {
       "repository": "SogoCZE/jai_parser",
       "revision": "a06033e0f2a2e8f26c9129a58a7d67cbf28ff98a",
       "latest_jai_change": "2026-10-04T04:16:49+02:00",
