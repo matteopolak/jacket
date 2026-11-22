@@ -236,6 +236,17 @@ pub(super) struct RegPlace {
     pub(super) natural: bool,
 }
 
+impl RegPlace {
+    /// The integer register the operand is: a pointer variable is a 64-bit general register.
+    pub(super) fn width(self) -> Ty {
+        if self.storage == Ty::Ptr {
+            Ty::I64
+        } else {
+            self.storage
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub(super) enum Imm {
     Int(i128),

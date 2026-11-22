@@ -444,11 +444,7 @@ impl Compiler {
     ) -> Result<()> {
         match o {
             Opd::Reg(r) => {
-                let st = if r.storage == Ty::Ptr {
-                    Ty::I64
-                } else {
-                    r.storage
-                };
+                let st = r.width();
                 let new = if sz == st {
                     v
                 } else if sz.numeric_size() > st.numeric_size() {

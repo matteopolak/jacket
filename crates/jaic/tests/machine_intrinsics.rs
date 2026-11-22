@@ -374,6 +374,26 @@ mod xgetbv {
     }
 }
 
+mod pointer_operands {
+    //! A pointer variable is a 64-bit general register operand.
+    use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+    use jaic::target::TargetCpu;
+    use std::rc::Rc;
+
+    #[test]
+    fn unsized_instructions_take_their_size_from_a_pointer_operand() {
+        let mut options = Options::host();
+        options.cpu = TargetCpu::X64;
+        options.runtime_support = false;
+        let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+        let source =
+            "main :: () { value: u64; p := *value; q: *u64; #asm { mov q, p; add q, 8; } }";
+        if let Err(e) = c.compile_sources(&[ProgramSource::String(source.into())]) {
+            panic!("{}", e.render(&c.src.sources));
+        }
+    }
+}
+
 mod registers {
     //! Original register operand forwarding and scalar-result regressions.
     use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
