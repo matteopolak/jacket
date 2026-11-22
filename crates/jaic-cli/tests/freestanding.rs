@@ -516,3 +516,37 @@ fn a_board_plugin_configures_the_build_without_a_build_file() {
     assert_eq!(out.status.code(), Some(0), "{out:?}");
     assert_eq!(console(&out), "hello from 50 cells, last 2500\n");
 }
+
+/// A board's reset code is module assembly. An optimized build split into several objects
+/// assembles it once, in the first, so the link has one `_start`.
+#[test]
+fn module_assembly_lands_in_one_object_of_a_split_build() {
+    let dir = TempDir::new(&format!("freestanding-split-{}", std::process::id()));
+    std::fs::write(
+        dir.join("app.jai"),
+        r#"#import "Basic";
+Board :: #import "Extensions/Embedded/Boards/Qemu_Virt_Aarch64";
+
+main :: () {
+    print("hello\n");
+}
+
+#program_export "jai_start"
+reset :: () #c_call #no_context {
+    Board.start(main);
+}
+"#,
+    )
+    .unwrap();
+    let output = Command::new(JAIC)
+        .args(["-O2", "-dev_split_units", "2", "app.jai"])
+        .arg("+Extensions/Embedded/Boards/Qemu_Virt_Aarch64")
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if lld_missing(&stderr) {
+        return;
+    }
+    assert!(output.status.success(), "{stderr}");
+}
