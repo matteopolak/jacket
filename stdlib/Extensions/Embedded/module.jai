@@ -22,7 +22,13 @@
 
 #if OS == .NONE {
     #load "runtime.jai";
+    #load "semihosting.jai";
+
+    #if ARCHITECTURE == .ARM {
+        #load "cortex-m.jai";
+    }
 } else {
     #load "memory-map.jai";
     #load "binary.jai";
+    #load "board-plugin.jai";
 }

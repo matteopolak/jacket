@@ -155,10 +155,17 @@ no_heap_allocator_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_m
     return null;
 }
 
+// C's `size_t`: the compiler's calls to these functions pass it, so a 32-bit target passes 4 bytes.
+#if size_of(*void) == 4 {
+    Size :: u32;
+} else {
+    Size :: u64;
+}
+
 // The C memory functions the compiler's code calls for block copies and fills. There is no libc
 // to supply them. Plain byte loops: a board that wants faster ones defines its own `memcpy`.
 #program_export "memcpy"
-memcpy_symbol :: (to: *void, from: *void, count: u64) -> *void #c_call {
+memcpy_symbol :: (to: *void, from: *void, count: Size) -> *void #c_call {
     destination := cast(*u8) to;
     source := cast(*u8) from;
     for index: 0..cast(s64) count - 1 destination[index] = source[index];
@@ -166,7 +173,7 @@ memcpy_symbol :: (to: *void, from: *void, count: u64) -> *void #c_call {
 }
 
 #program_export "memmove"
-memmove_symbol :: (to: *void, from: *void, count: u64) -> *void #c_call {
+memmove_symbol :: (to: *void, from: *void, count: Size) -> *void #c_call {
     destination := cast(*u8) to;
     source := cast(*u8) from;
 
@@ -184,7 +191,7 @@ memmove_symbol :: (to: *void, from: *void, count: u64) -> *void #c_call {
 }
 
 #program_export "memset"
-memset_symbol :: (to: *void, value: s32, count: u64) -> *void #c_call {
+memset_symbol :: (to: *void, value: s32, count: Size) -> *void #c_call {
     destination := cast(*u8) to;
     byte := cast,no_check(u8) value;
     for index: 0..cast(s64) count - 1 destination[index] = byte;
@@ -192,7 +199,7 @@ memset_symbol :: (to: *void, value: s32, count: u64) -> *void #c_call {
 }
 
 #program_export "memcmp"
-memcmp_symbol :: (left: *void, right: *void, count: u64) -> s32 #c_call {
+memcmp_symbol :: (left: *void, right: *void, count: Size) -> s32 #c_call {
     a := cast(*u8) left;
     b := cast(*u8) right;
 
@@ -205,15 +212,15 @@ memcmp_symbol :: (left: *void, right: *void, count: u64) -> s32 #c_call {
 
 // What LLVM calls for a loop that counts bytes up to a zero.
 #program_export "strlen"
-strlen_symbol :: (text: *u8) -> u64 #c_call {
-    count: u64 = 0;
+strlen_symbol :: (text: *u8) -> Size #c_call {
+    count: Size = 0;
     while text[count] != 0 count += 1;
     return count;
 }
 
 // What LLVM calls for an equality-only `memcmp`.
 #program_export "bcmp"
-bcmp_symbol :: (left: *void, right: *void, count: u64) -> s32 #c_call {
+bcmp_symbol :: (left: *void, right: *void, count: Size) -> s32 #c_call {
     return memcmp_symbol(left, right, count);
 }
 
