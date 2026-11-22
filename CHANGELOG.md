@@ -4,6 +4,7 @@
 
 ### Fixes
 - Hovering a procedure or polymorphic struct whose parameters span several lines now shows every parameter on one line, not just the first line of the declaration.
+- On Windows, a window no longer aborts with "WGL context selection failed" when its OpenGL context is selected again while already current; the call is skipped. This fixes the `game2d` example on some drivers.
 
 ## [0.37.0] - 2026-11-21
 

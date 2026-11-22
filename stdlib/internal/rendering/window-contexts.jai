@@ -266,6 +266,9 @@ Lifecycle :: #import "internal/window/lifecycle";
         previous := W.wglGetCurrentContext();
         previous_dc := W.wglGetCurrentDC();
 
+        // Selecting what is already current changes nothing, and some drivers fail it.
+        if native != null && previous == native && previous_dc == dc return;
+
         native_clear_error(0);
         if W.wglMakeCurrent(dc, native) != 0 return;
 
