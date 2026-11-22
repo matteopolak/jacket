@@ -35,8 +35,8 @@ Jacket builds for 32-bit, big-endian and bare-metal targets, and Sound_Player no
 
 ### Fixes
 
-- GetRect no longer crashes on the first label when no font is set. Text uses a bundled Noto Sans sized to the widget.
-- A backtick on one loop name inside a `for_expansion` now declares only that name in the caller: ``for c, `it_index: text`` gives the body `it_index`, and ``for `it, i: xs`` no longer leaks `i`.
+- GetRect no longer crashes on the first label when no font is set. Text uses a bundled Noto Sans sized to the widget. (#80, @max3a3)
+- A backtick on one loop name inside a `for_expansion` now declares only that name in the caller: ``for c, `it_index: text`` gives the body `it_index`, and ``for `it, i: xs`` no longer leaks `i`. (#79, @max3a3)
 
 ## [0.36.1] - 2026-11-18
 
@@ -44,7 +44,7 @@ A false double free in `jacket lint` is gone, and calls may put a trailing comma
 
 ### Fixed
 
-- `jacket lint` no longer reports a double free when a wrapper calls `free_json` (or another procedure with a body and a `@FreesArgument` note) and the caller then frees the value: the linter reads that note only on a declaration without a body, as documented, and `free_json` no longer carries it.
+- `jacket lint` no longer reports a double free when a wrapper calls `free_json` (or another procedure with a body and a `@FreesArgument` note) and the caller then frees the value: the linter reads that note only on a declaration without a body, as documented, and `free_json` no longer carries it. (#76, @ctzcs)
 - A call may end its ordinary arguments with a trailing comma before `,,`: `f(a, b, ,, allocator = temp)`.
 - `jacket lint` reports a double free when a foreign release noted `@FreesArgument` takes a pointer to a struct (`freeaddrinfo(info)`) and the pointer is freed again; it took such a release to free only what the struct owns.
 - `jacket fmt` writes a trailing comma before `,,` apart from it, `f(a, b, ,, allocator = temp)`, instead of running the three together.
@@ -61,7 +61,7 @@ A false double free in `jacket lint` is gone, and calls may put a trailing comma
 
 ### New
 
-- `jacket lint` reports the compiler's warnings in the files it lints, as `jacket check` does, with the compiler's suggestions (`--fix` applies the safe ones). `-A`, `-W`, `-D`, `[lint.rules]` and `[[lint.overrides]]` take their codes, `leniencies` or `compiler` (all of them).
+- `jacket lint` reports the compiler's warnings in the files it lints, as `jacket check` does, with the compiler's suggestions (`--fix` applies the safe ones). `-A`, `-W`, `-D`, `[lint.rules]` and `[[lint.overrides]]` take their codes, `leniencies` or `compiler` (all of them). (#74, @zhylmzr)
 
 ### Fixed
 
@@ -75,8 +75,8 @@ A false double free in `jacket lint` is gone, and calls may put a trailing comma
 
 ### Fixed
 
-- An error a metaprogram reports with `compiler_report` at a location in a file this compile never loaded (a file of a workspace it created, or an input such as a `.proto` schema) now points at that location, not at the `compiler_report` call, and the underline leaves out a comment at the end of the line.
-- A build file with no `main` that creates its own workspace is told to add `set_build_options_dc(.{do_output = false});`.
+- An error a metaprogram reports with `compiler_report` at a location in a file this compile never loaded (a file of a workspace it created, or an input such as a `.proto` schema) now points at that location, not at the `compiler_report` call, and the underline leaves out a comment at the end of the line. (#70, #71, @karriszou)
+- A build file with no `main` that creates its own workspace is told to add `set_build_options_dc(.{do_output = false});`. (#73, @karriszou)
 - `Shared_Memory_Channel.reader_create_channel` logs which system call refused to create the channel, and its `errno`, on Linux and macOS.
 - `#asm` SSE4.2 string compares (`pcmpistri` and the rest) compile to one shared helper per control byte instead of an expansion at each use, so a function with many of them no longer takes minutes to build at `-O2` on Apple silicon; they also run faster in the interpreter.
 - `jailint --fix` and the language server's fix-all no longer delete a statement that is the whole body of a `for`, `if`, `while` or `defer` written without braces, which left the file unparsable; the `;` stays as an empty body.
@@ -91,7 +91,7 @@ A false double free in `jacket lint` is gone, and calls may put a trailing comma
 
 ### Fixed
 
-- `print` no longer stops a program that has no standard output, such as a Windows program linked with `/SUBSYSTEM:WINDOWS`; the text is dropped.
+- `print` no longer stops a program that has no standard output, such as a Windows program linked with `/SUBSYSTEM:WINDOWS`; the text is dropped. (#68, @zhylmzr)
 
 ## [0.35.1] - 2026-11-11
 
@@ -99,8 +99,8 @@ Fixes to calls through procedure values, `using` parameters in `#run` and aggreg
 
 ### Fixed
 
-- A call through a procedure value (`callback := report; callback(3, "%", "ERR")`) packs variadic arguments, as a direct call does.
-- A `#run` inside a procedure can read the struct parameters of a `using` parameter (`for value_types` in `Tagged_Union` code).
+- A call through a procedure value (`callback := report; callback(3, "%", "ERR")`) packs variadic arguments, as a direct call does. (#66, @max3a3)
+- A `#run` inside a procedure can read the struct parameters of a `using` parameter (`for value_types` in `Tagged_Union` code). (#67, @max3a3)
 - An aggregate parameter is read in place, so a pointer into it (`cast(*T) u.bytes.data`) stays valid after the call. Only `*p` of the whole parameter makes a copy.
 
 ## [0.35.0] - 2026-11-10
@@ -125,11 +125,11 @@ Faster leak reports, Csv, Json trees and language server, plus fixes to here-str
 
 ### Fixed
 
-- A `#string` terminator name may follow on a later line, after blank lines or comments. `Jai_Lexer`, `jaifmt`, `Extensions/String_Literal` and the VS Code and Neovim grammars read these headers too.
+- A `#string` terminator name may follow on a later line, after blank lines or comments. `Jai_Lexer`, `jaifmt`, `Extensions/String_Literal` and the VS Code and Neovim grammars read these headers too. (#62, @max3a3)
 - `jaifmt` drops trailing blanks on a here-string's header line.
-- An integer computed by `#run` is untyped, like a literal, so `u64_value * SIZE` compiles when `SIZE :: #run size()` returns `s64`.
-- Arithmetic on an untyped struct literal picks the overload whose parameter can hold the literal: `scale(m, .{1, 1, 1} * f(2.0))` takes the `Vector3` one.
-- `Extensions/SDL3` loads on Windows: `#library,no_dll` libraries are no longer loaded by compile-time code.
+- An integer computed by `#run` is untyped, like a literal, so `u64_value * SIZE` compiles when `SIZE :: #run size()` returns `s64`. (#63, @max3a3)
+- Arithmetic on an untyped struct literal picks the overload whose parameter can hold the literal: `scale(m, .{1, 1, 1} * f(2.0))` takes the `Vector3` one. (#65, @max3a3)
+- `Extensions/SDL3` loads on Windows: `#library,no_dll` libraries are no longer loaded by compile-time code. (#64, @max3a3)
 - The memory debugger records `Pool` and `Flat_Pool` blocks, so leak reports show pools that were never released.
 - `Extensions/Postgres` typed queries count `..values` of a fixed `[N] Any` as N arguments.
 - `jailint` warns (`lint-test-note`) about a `// test:` note that does not parse, including in `#load`ed files.
@@ -226,7 +226,7 @@ Faster leak reports, Csv, Json trees and language server, plus fixes to here-str
 - `Archive` rejects repeated ZIP64 records and handles empty pax values.
 - JPEG colours, invalid JPEG scans, incomplete QOI files, and ICO on WASI and Windows.
 - `Hash_Map` rebuild threshold, glTF skin validation and `jaifmt` setting migration.
-- Struct default overrides, declaration order in struct scopes and contextual expression types.
+- Struct default overrides, declaration order in struct scopes and contextual expression types. (#57, #58, #59, @ctzcs)
 
 ## [0.33.0] - 2026-11-04
 
@@ -351,8 +351,8 @@ Faster leak reports, Csv, Json trees and language server, plus fixes to here-str
 
 ### Fixed
 
-- Float literals below one no longer count their leading zeros as digits, so `x < 0.000000001` with a `float32` `x` compiles.
-- `*(float.[1.5, 3.5])` takes the address of an array literal instead of making an array of pointers.
+- Float literals below one no longer count their leading zeros as digits, so `x < 0.000000001` with a `float32` `x` compiles. (#44, @max3a3)
+- `*(float.[1.5, 3.5])` takes the address of an array literal instead of making an array of pointers. (#45, @max3a3)
 - `long double` math functions such as `sqrtl` link again on Windows.
 - Renaming an enum member also renames its uses through another enum's `using`.
 
@@ -360,7 +360,7 @@ Faster leak reports, Csv, Json trees and language server, plus fixes to here-str
 
 ### Fixed
 
-- On Windows, C libraries built against the DLL C runtime (`/MD`, the Visual Studio default) link again when Clang is on `PATH`, instead of failing with unresolved `__imp_` symbols.
+- On Windows, C libraries built against the DLL C runtime (`/MD`, the Visual Studio default) link again when Clang is on `PATH`, instead of failing with unresolved `__imp_` symbols. (#43, @max3a3)
 
 ## [0.30.0] - 2026-10-27
 
@@ -462,7 +462,7 @@ Faster leak reports, Csv, Json trees and language server, plus fixes to here-str
 - The `Extensions/Deflate` module compresses and decompresses raw DEFLATE, zlib and gzip data, with CRC-32 and Adler-32.
 - The `Extensions/Assets` module's `load_asset` reads a file shipped with a program, from disk natively or fetched from the page in the browser.
 - The `WebGPU` module's `webgpu_canvas_size` gives the size of the playground's canvas.
-- A spinning textured cube example (`examples/webgpu/textured_cube`) that runs natively and in the playground.
+- A spinning textured cube example (`examples/webgpu/textured_cube`) that runs natively and in the playground. (#41, @max3a3)
 
 ### Fixed
 
@@ -566,7 +566,7 @@ Faster leak reports, Csv, Json trees and language server, plus fixes to here-str
 - The language server accepts a request id written as a float with no fraction, such as `1.0`, and answers with the id as it was sent.
 - The language server treats a position past the end of a line or file, or inside an emoji, the same way in edits and in requests: it moves to the end or to the start of the character instead of rejecting the edit or request.
 - A trailing `/` on a `jaifmt` `ignore` glob, as in `generated/`, now ignores that directory, as it does for `jailint`'s `exclude`.
-- `just build` also builds the native libraries and `Bindings_Generator` helpers a release ships, and a missing one in a source checkout says to run it (#36).
+- `just build` also builds the native libraries and `Bindings_Generator` helpers a release ships, and a missing one in a source checkout says to run it. (#36, @Hkmori15)
 - A format string that disagrees with its arguments suggests the fix as an edit: remove the extra arguments, or write a `%` that has no argument as `\%`. A procedure that can end without a `return` points at its closing `}`.
 - Syntax errors suggest the fix as an edit and as an editor quick fix: a missing `;`, an unclosed `}` (with a note at the `{`), an unknown escape such as `\q`, and an unterminated comment or here-string.
 - Polymorphic calls that cannot infer a type now point at the parameter that declares it and the argument that did not match, and say how to pass the type by name; arrays of different lengths for one `$N` say which length each has, and a `.{...}` or `.[...]` literal that a parameter cannot take points at both.
@@ -582,8 +582,8 @@ Faster leak reports, Csv, Json trees and language server, plus fixes to here-str
 ### Fixed
 
 - In a cross build, a `Long_Double` computed by `#run` is converted to the target's `long double` format instead of failing with a type mismatch, and `#run` code in a file only the target program loads no longer tries to load the target's native libraries.
-- `Bindings_Generator` prints C++ virtual methods in the official layout: a `Name_VTable` record with `#cpp_method` slots, derived records that hold their base with `#as using,except(vtable)` and `#overlay`, and a `Record_method` wrapper for each method (#39).
-- `Bindings_Generator` lays out C bitfields like the C compiler does, in one `__bitfield` field per storage unit, and writes `set_member` and `get_member` procedures after the record; packed records and `#pragma pack` keep their layout (#38).
+- `Bindings_Generator` prints C++ virtual methods in the official layout: a `Name_VTable` record with `#cpp_method` slots, derived records that hold their base with `#as using,except(vtable)` and `#overlay`, and a `Record_method` wrapper for each method. (#39, @max3a3)
+- `Bindings_Generator` lays out C bitfields like the C compiler does, in one `__bitfield` field per storage unit, and writes `set_member` and `get_member` procedures after the record; packed records and `#pragma pack` keep their layout. (#38, @max3a3)
 - `d3d11`, `d3d12`, `ImGui` and `macOS` records that hold a union or bitfield have the size and field offsets of the C records: `D3D12_ROOT_PARAMETER`, `D3D12_BARRIER_GROUP`, the ray tracing and render pass descriptors, `D3D11_VIDEO_PROCESSOR_COLOR_SPACE`, `ImFontGlyph` and the `mach_msg_ool_*` descriptors.
 - `Bindings_Generator` prints a function that returns a procedure, such as `int (*XSynchronize(Display *, int))(Display *)`, so that it can be called; before, the declaration was read as a procedure type.
 - The X11 bindings declare `XSynchronize` and `XSetAfterFunction` with the right parameters and `_XGC` with a pointer to its extension data.
@@ -591,7 +591,7 @@ Faster leak reports, Csv, Json trees and language server, plus fixes to here-str
 - `SDL` has the complete C records for `SDL_RWops`, `SDL_UserEvent`, `SDL_SysWMEvent`, `SDL_TouchFingerEvent`, `SDL_MultiGestureEvent`, `SDL_DollarGestureEvent` and `SDL_AudioDeviceEvent`, `SDL_Keysym.unused` and the packed `SDL_AudioCVT` have the C layout, and `SDL_CreateRGBSurfaceFrom`, `SDL_CreateRGBSurfaceWithFormatFrom` and `SDL_ShowSimpleMessageBox` take and return `s32` like the C `int`.
 - `freetype`'s `FT_StreamDesc` is the union of `value` and `pointer` that FreeType defines, so a stream can set either.
 - `dxgi` error codes such as `DXGI_ERROR_DEVICE_REMOVED` are `HRESULT` values, so they compare equal to the `HRESULT` a call returns.
-- The language server no longer reports an error for compile-time code that calls something only a real build can run, such as `BuildCpp`'s `mkdtemp` (#37).
+- The language server no longer reports an error for compile-time code that calls something only a real build can run, such as `BuildCpp`'s `mkdtemp`. (#37, @Hkmori15)
 - `a, b = 1, 2, 3;` reports that it has too many values instead of ignoring the extra one.
 - `Bit_Array.deinit` empties the array, so a later loop or bit access no longer reaches freed storage.
 - `Subtitles` HTML output escapes `&`, `<`, `>` and `"` in titles, speaker names and lines, so text containing them no longer breaks the page.
@@ -652,7 +652,7 @@ Faster leak reports, Csv, Json trees and language server, plus fixes to here-str
 - `jailint` reports integer comparisons that can never pass together or always pass, such as `x > 5 && x < 3` and `x != 1 || x != 2`.
 - `jailint` has an opt-in `magic_number` lint for unexplained numbers in arithmetic, comparisons and assignments, tuned in `[lint]`.
 - The VS Code extension warns when `PATH` has an older toolchain than it expects, and can switch to its downloaded one.
-- `BuildCpp` builds C and C++ on Windows x64 and arm64, with MSVC or `clang-cl`.
+- `BuildCpp` builds C and C++ on Windows x64 and arm64, with MSVC or `clang-cl`. (#33, @max3a3)
 - `Autorun` runs workspaces on Windows.
 - `Deep_Copy` and `Overwriting_Allocator` work on wasm.
 - `Vulkan` works on macOS.
@@ -671,7 +671,7 @@ Faster leak reports, Csv, Json trees and language server, plus fixes to here-str
 - Settings in `jacket.toml`, `jaifmt.toml` and `jailint.toml` apply when the file is saved.
 - Typing in one program no longer makes the language server recheck other open programs that don't use the file.
 - Polymorphic procedure lenses update without waiting for unrelated programs to be rechecked.
-- Struct literal completion lists fields in declaration order and selects the first one left (#29).
+- Struct literal completion lists fields in declaration order and selects the first one left. (#29, @zhylmzr)
 
 ### Changed
 
@@ -680,7 +680,7 @@ Faster leak reports, Csv, Json trees and language server, plus fixes to here-str
 
 ### Fixed
 
-- A constant `#ifx` of untyped numbers can be assigned to an unsigned type (#35).
+- A constant `#ifx` of untyped numbers can be assigned to an unsigned type. (#35, @max3a3)
 - The language server and `jailint --fix` no longer run out of memory on a polymorphic procedure that instantiates itself with ever deeper pointer types.
 - An enum value with no name prints as `(enum out of range: N)`, not with the enum's own name.
 - `GetRect` and `GetRect_LeftHanded` take `Type_Indicator` as a program parameter, `#import "GetRect"()(Type_Indicator = T)`, shared by every import in the program.
@@ -696,11 +696,11 @@ Faster leak reports, Csv, Json trees and language server, plus fixes to here-str
 - Opening a module file on its own (such as `Extensions/SIMD/module.jai`) no longer reports `#module_parameters` as misplaced.
 - `BuildCpp` on Windows accepts `/bigobj` objects and finds Visual Studio's `clang-cl` for the host when targeting another CPU.
 - Hovers explain `using,only`, `using,except` and `using,map`.
-- `Vector3` and `Vector4` support componentwise `*` and `/`, and `Vector4` gains `multiply`, `distance_squared` and `unit_vector` (#34).
+- `Vector3` and `Vector4` support componentwise `*` and `/`, and `Vector4` gains `multiply`, `distance_squared` and `unit_vector`. (#34, @max3a3)
 - Copying or changing procedure code keeps the parentheses around casts.
 - An equally good fixed-arity overload is chosen over an empty variadic one, and `[]u8` over `[]$T`.
 - Nested `using` array fields no longer report a false recursive-size error.
-- Completion suggests struct fields inside generic call arguments, such as `array_add(*a, .{})`.
+- Completion suggests struct fields inside generic call arguments, such as `array_add(*a, .{})`. (#30, @zhylmzr)
 - Code after an empty `case` is no longer shown as unreachable.
 - Changing VS Code settings while the language server restarts no longer logs errors.
 - Restarting the language server no longer logs "document is not open" errors.
@@ -735,9 +735,9 @@ Faster leak reports, Csv, Json trees and language server, plus fixes to here-str
 
 ### New
 
-- `Math` has `Quaternion` arithmetic operators (#25).
-- Completion suggests the remaining fields inside struct literals, including `x: Foo = { }` (#24).
-- `for:` accepts a path to a `for_expansion`, like `Module.name` or `value.Walk` (#23).
+- `Math` has `Quaternion` arithmetic operators. (#25, @max3a3)
+- Completion suggests the remaining fields inside struct literals, including `x: Foo = { }`. (#24, @zhylmzr)
+- `for:` accepts a path to a `for_expansion`, like `Module.name` or `value.Walk`. (#23, @max3a3)
 - `Bindings_Generator` binds C++ virtual methods on Linux and Windows, so headers like Slang's generate there too.
 
 ### Improved
@@ -749,7 +749,7 @@ Faster leak reports, Csv, Json trees and language server, plus fixes to here-str
 
 ### Fixed
 
-- `Bindings_Generator` works from release installs, including on Windows, reads C++ headers as C++, and calls C++ methods from Windows DLLs (#26, #27).
+- `Bindings_Generator` works from release installs, including on Windows, reads C++ headers as C++, and calls C++ methods from Windows DLLs. (#26, #27, #28, @zhylmzr, @max3a3)
 - Go to definition no longer causes "document is not open" errors in folders reached through a symlink.
 - Opening a module's `module.jai` in the editor no longer reports `#module_parameters` errors.
 - A closed window no longer breaks buffer swaps or GL context selection.
@@ -758,7 +758,7 @@ Faster leak reports, Csv, Json trees and language server, plus fixes to here-str
 
 ### New
 
-- `Extensions/Hash_Map`: a faster hash map that never stores a key twice (#17).
+- `Extensions/Hash_Map`: a faster hash map that never stores a key twice. (#17, @xingxingtie)
 - Five new lints: `dropped_result`, `use_after_free`, `double_free`, `unpaired_lock` and `leaked_allocation` (off by default).
 - Many invalid programs are now compile errors, including:
   - ambiguous overloaded calls;
@@ -770,16 +770,16 @@ Faster leak reports, Csv, Json trees and language server, plus fixes to here-str
 
 ### Improved
 
-- Untyped values (`.{...}`, `.NAME`, `xx`, untyped `ifx` arms) take their type from the operand, branch or overload next to them (#20, #21).
-- Overload choice picks the closest match and reports ties as errors (#22).
+- Untyped values (`.{...}`, `.NAME`, `xx`, untyped `ifx` arms) take their type from the operand, branch or overload next to them. (#20, #21, @max3a3)
+- Overload choice picks the closest match and reports ties as errors. (#22, @max3a3)
 - The jailint declaration notes have clearer names: `@FreesArgument`, `@RemovesFromArray`, `@ReturnsSmaller`, `@ReturnsLarger`.
 - Much faster float parsing and printing, with identical results.
 - Faster integer printing, string hashing, UTF-8 decoding and hash table inserts.
 
 ### Fixed
 
-- `remove` in a `for` over a hash table drops the entry and keeps the count right (#18).
-- OpenGL windows on Windows pick a usable pixel format (#19), and the GL renderer no longer aborts on GL errors.
+- `remove` in a `for` over a hash table drops the entry and keeps the count right. (#18, @max3a3)
+- OpenGL windows on Windows pick a usable pixel format, and the GL renderer no longer aborts on GL errors. (#19, @max3a3)
 - A core dump when compile-time code aborts the compiler.
 - Bit-pattern constants and scalar elements in by-value `for` loops get the right values.
 - TLS reads from a fiber, and native cursor creation failures.
@@ -839,10 +839,10 @@ Faster leak reports, Csv, Json trees and language server, plus fixes to here-str
 
 ### Fixed
 
-- Release archives were missing native libraries, most visibly on Windows (#13).
-- Writing into a string literal at compile time is now an error instead of silently changing the literal everywhere (#14).
-- Multisampled OpenGL windows on Windows (#15).
-- `String.tprint` and other Basic procedures through `String` (#16).
+- Release archives were missing native libraries, most visibly on Windows. (#13, @max3a3)
+- Writing into a string literal at compile time is now an error instead of silently changing the literal everywhere. (#14, @xingxingtie)
+- Multisampled OpenGL windows on Windows. (#15, @max3a3)
+- `String.tprint` and other Basic procedures through `String`. (#16, @Hkmori15)
 - `jacket run` runs the executable the build actually produced.
 - Several error messages point at the right place, and a few invalid programs the reference compiler rejects are now rejected too.
 - An editor hang on structs that refer to `#this`.
@@ -865,7 +865,7 @@ Adds `jacket`, one front door and one config file for the toolchain, along with 
 - `jailsp` completes `if`, `for` and `while` at the start of a statement as a skeleton with the cursor in the body, and `case` inside the braces of `if x == {`.
 - `jailsp` fades code that can never run: statements after an exit, branches and loops a condition rules out (also by integer ranges and narrowing), `case`s a value cannot select, and `#if`/`ifx` arms that were not taken. They arrive as `unreachable` hints tagged `Unnecessary`, with no squiggle.
 - The browser formatter reads `jacket.toml`: the playground driver finds the nearest `jacket.toml` or `jaifmt.toml`, and `jaifmt.wasm --config-name jacket.toml` takes `jacket.toml` text.
-- A misplaced `remove` says why it cannot apply: the loop is over a fixed-size array (with the `[..]` and `[]` types that would work), a range of numbers or is a `while` loop, or there is no enclosing loop. It used to say only that `remove` is valid inside a for loop over an array.
+- A misplaced `remove` says why it cannot apply: the loop is over a fixed-size array (with the `[..]` and `[]` types that would work), a range of numbers or is a `while` loop, or there is no enclosing loop. It used to say only that `remove` is valid inside a for loop over an array. (#12, @zhylmzr)
 
 ### Performance
 
@@ -876,11 +876,11 @@ Adds `jacket`, one front door and one config file for the toolchain, along with 
 
 ### Fixes
 
-- In a polymorphic procedure that nothing calls, a declaration initialised by a call to another polymorphic procedure (`found, index := array_find(array.*, item)`) got the type hint `: ?` and a `?` hover, because the editor refused the call. The call now takes the callee's signature with the caller's own `$T`, so the hints read `: bool`, `: s64`, `: T`, `: [] T`; a hint is never `?`.
+- In a polymorphic procedure that nothing calls, a declaration initialised by a call to another polymorphic procedure (`found, index := array_find(array.*, item)`) got the type hint `: ?` and a `?` hover, because the editor refused the call. The call now takes the callee's signature with the caller's own `$T`, so the hints read `: bool`, `: s64`, `: T`, `: [] T`; a hint is never `?`. (#11, @zhylmzr)
 - `jailint --allow-incomplete` prints how many programs did not compile completely on the target instead of one line for each; `-v` lists them.
 - A baked `$xs: [$N] T` parameter takes `$N` from the element count of a constant array view (`xs :: #run make()`), where it used to say "array kind mismatch".
-- Assigning to an indexed expression (`=` and the compound assignments) on a type with `operator *[]` calls it and writes through the returned pointer, where it used to say "cannot assign to a value of type"; reads keep using `operator []`.
-- A `[$N] T` parameter takes `$N` from the element count of an untyped `.[...]` argument or default (`f(.["a", "b"])` makes `N` 2), where it used to say it could not infer `$N`. A default `.[...]` whose length differs from the inferred count is an error at the default; `[$N] $T` still cannot get `$T` from an untyped literal.
+- Assigning to an indexed expression (`=` and the compound assignments) on a type with `operator *[]` calls it and writes through the returned pointer, where it used to say "cannot assign to a value of type"; reads keep using `operator []`. (#8, @max3a3)
+- A `[$N] T` parameter takes `$N` from the element count of an untyped `.[...]` argument or default (`f(.["a", "b"])` makes `N` 2), where it used to say it could not infer `$N`. A default `.[...]` whose length differs from the inferred count is an error at the default; `[$N] $T` still cannot get `$T` from an untyped literal. (#7, @max3a3)
 - Vectors, quaternions and square matrices of the `Math` module compare with `==` and `!=`, where it used to say no `operator==` matched.
 - `a op= b` is `a = a op b` when no `operator op=` accepts the operands (`v /= 2.0` with only `operator /= (*Vector2, Vector2)` and a `Vector2 / float`), where it used to be a no-overload error.
 - A `for_expansion` taking `*T` iterates a `T` value through its address when other `for_expansion` overloads in scope have polymorphic first parameters that do not match, where it used to say none matched.
@@ -954,7 +954,7 @@ Faster default builds and compile-time string code, a much faster `jailsp` on la
 - `table_find_multiple` probes from the key's slot instead of scanning every entry, and a `REFILL_REMOVED = false` table no longer doubles under remove/add churn.
 - Substring search skips to the first byte of the substring, about ten times faster on large text.
 - A declaration whose initializer has an error still declares its name, so one mistake no longer causes a cascade of "unknown identifier" errors.
-- Completions rank named arguments first, then locals, the file's own names, the rest, internal names and auto-imports.
+- Completions rank named arguments first, then locals, the file's own names, the rest, internal names and auto-imports. (#5, @PowerUser64)
 - In auto-import, a workspace's own stdlib is offered only through its public modules.
 - `jailint` and `jaic` render diagnostics in linear time, so a file with thousands of findings no longer takes seconds to report. `jailint` also caches neighbouring files between runs.
 - The interpreter runs compile-time code faster: dead local setup is removed, jumps are straightened, and copies, fills and tests use dedicated operations.
@@ -978,7 +978,7 @@ The project has a new name: **Jacket** ("Jai kit"). This release also lets edito
 
 ### Highlights
 
-- **New name, same tools.** The repository is now [matteopolak/jacket](https://github.com/matteopolak/jacket). `jaic`, `jailsp`, `jaifmt` and `jailint` keep their names, and so do the crates.
+- **New name, same tools.** The repository is now [matteopolak/jacket](https://github.com/matteopolak/jacket). `jaic`, `jailsp`, `jaifmt` and `jailint` keep their names, and so do the crates. (#3, @fenginsc)
 - **Workspace trust.** In an untrusted folder, `jailsp` checks your code without running any of its compile-time code (`#run`, `#insert`, build metaprograms). VS Code follows its own workspace trust setting; in Neovim, pass `trusted = false` to `setup()`. See [workspace trust](https://github.com/matteopolak/jacket/blob/main/docs/tools/workspace-trust.md).
 - **`jailint` is several times faster on large trees.** It lints each file once and compiles programs in parallel (`-j`). `--allow-incomplete` lets you lint a tree where some modules only build on another OS.
 - **Better switch completion.** The "add missing cases" action now works on every kind of `if x == { case ...; }`, and its error covers the switch's header instead of the whole block.
@@ -1050,7 +1050,7 @@ Optimized builds of large programs, faster TLS and JSON encoding, and fixes in `
 
 ### Fixes
 
-- Windows `Input`: scrolling down, or a cursor or window left of or above the primary monitor, no longer crashes with a cast overflow ([#1](https://github.com/matteopolak/jacket/issues/1)).
+- Windows `Input`: scrolling down, or a cursor or window left of or above the primary monitor, no longer crashes with a cast overflow. (#1, @puchura)
 - `Http` client: an https body read until the connection closes ends normally when the server skips close_notify.
 - io_uring: a burst of over 128 connections could leave queued connections unaccepted.
 - epoll: timers no longer fire up to a millisecond late.
