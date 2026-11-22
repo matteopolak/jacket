@@ -30,6 +30,7 @@ DEVICE_CASES = [
     "concurrent-render-stop",
     "concurrent-factories",
     "region-lifetime",
+    "fill-shortfall",
 ]
 UNAVAILABLE = "native-device-unavailable\nok\n"
 

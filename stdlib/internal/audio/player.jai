@@ -54,11 +54,7 @@ sound_player_init :: (given_config: Sound_Player_Config) -> bool {
     async_exit = false;
     last_entity_time = audio_wall_time();
 
-    for 0..7 {
-        buffered, minimum := backend_count_buffered_bytes();
-        if buffered >= minimum break;
-        update_from_async_thread(false);
-    }
+    update_from_async_thread(false); // queues the whole fill-ahead before output starts
 
     if !start_output_if_possible() {
         #if VERBOSE context.logger("Sound_Player: output start failed\n", context.logger_data, Log_Info.{});
