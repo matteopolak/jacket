@@ -291,7 +291,6 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: {node-version: '24'}
       # Platform-neutral checks run once, on the Linux x64 `jai` leg.
-        if: ${{ matrix.runner == 'ubuntu-24.04' && contains(matrix.parts, ',jai,') }}
       - name: Validate dependency ages before building
         if: ${{ matrix.runner == 'ubuntu-24.04' && contains(matrix.parts, ',jai,') }}
         env:
