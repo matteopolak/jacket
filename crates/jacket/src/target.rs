@@ -11,12 +11,26 @@ pub const BOARDS: &str = "Extensions/Embedded/Boards";
 
 /// What jacket knows about a board of the standard library: the triple it builds for and the
 /// command that runs its programs. A test keeps this in step with [`BOARDS`].
-const BUILT_IN: &[(&str, &str, &str)] = &[(
-    "Qemu_Virt_Aarch64",
-    "aarch64-none-elf",
-    "qemu-system-aarch64 -M virt -cpu cortex-a53 -nographic \
-     -semihosting-config enable=on,target=native -kernel {exe} -append {args}",
-)];
+const BUILT_IN: &[(&str, &str, &str)] = &[
+    (
+        "Qemu_Virt_Aarch64",
+        "aarch64-none-elf",
+        "qemu-system-aarch64 -M virt -cpu cortex-a53 -nographic \
+         -semihosting-config enable=on,target=native -kernel {exe} -append {args}",
+    ),
+    (
+        "Mps2_An386",
+        "thumbv7em-none-eabihf",
+        "qemu-system-arm -M mps2-an386 -cpu cortex-m4 -nographic \
+         -semihosting-config enable=on,target=native -kernel {exe} -append {args}",
+    ),
+    (
+        "Mps2_An505",
+        "thumbv8m.main-none-eabihf",
+        "qemu-system-arm -M mps2-an505 -cpu cortex-m33 -nographic \
+         -semihosting-config enable=on,target=native -kernel {exe} -append {args}",
+    ),
+];
 
 /// A target `--target` can name.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -40,10 +54,12 @@ impl Target {
         }
     }
 
-    /// The jaic arguments that build for this target: its triple, then its board's plugin.
+    /// The jaic arguments that build for this target: its triple, then its board's plugin. A
+    /// board sets its own triple on the workspace it builds, so a target with one passes none:
+    /// `-target` would also make the metaprogram that runs the plugin a program for the board.
     fn flags(&self) -> (Vec<OsString>, Option<OsString>) {
         let mut flags = Vec::new();
-        if let Some(triple) = &self.triple {
+        if let (Some(triple), None) = (&self.triple, &self.board) {
             flags.extend(["-target".into(), triple.into()]);
         }
         let plugin = self
@@ -327,14 +343,21 @@ mod tests {
         let got = expand(&os(&["m.jai", "--target", "Qemu_Virt_Aarch64"]), None).unwrap();
         assert_eq!(
             got.args,
-            os(&[
-                "m.jai",
-                "-target",
-                "aarch64-none-elf",
-                "+Extensions/Embedded/Boards/Qemu_Virt_Aarch64"
-            ])
+            os(&["m.jai", "+Extensions/Embedded/Boards/Qemu_Virt_Aarch64"])
         );
         assert!(got.target.unwrap().runner.unwrap().contains("{exe}"));
+    }
+
+    #[test]
+    fn a_board_sets_its_own_triple_so_none_is_passed() {
+        let got = expand(&os(&["m.jai", "--target", "Mps2_An386"]), None).unwrap();
+        assert_eq!(
+            got.args,
+            os(&["m.jai", "+Extensions/Embedded/Boards/Mps2_An386"])
+        );
+        let table = "[target.m4]\nboard = \"Mps2_An386\"\ntriple = \"thumbv7em-none-eabihf\"\n";
+        let got = expand(&os(&["--target", "m4"]), Some(&config(table))).unwrap();
+        assert_eq!(got.args, os(&["+Extensions/Embedded/Boards/Mps2_An386"]));
     }
 
     #[test]
@@ -371,12 +394,7 @@ mod tests {
         let (flags, runner) = for_tests("Qemu_Virt_Aarch64", None).unwrap();
         assert_eq!(
             flags,
-            [
-                "-target",
-                "aarch64-none-elf",
-                "+Extensions/Embedded/Boards/Qemu_Virt_Aarch64",
-                "tests"
-            ]
+            ["+Extensions/Embedded/Boards/Qemu_Virt_Aarch64", "tests"]
         );
         assert!(runner.unwrap().contains("-append {args}"));
     }
@@ -413,7 +431,7 @@ mod tests {
         assert!(line("dev").contains("emu (not installed)") && line("dev").contains("project"));
         assert!(line("Qemu_Virt_Aarch64").contains("built in"));
         // The project's `dev` is listed once, and the built-in board it does not replace stays.
-        assert_eq!(text.lines().count(), 4);
+        assert_eq!(text.lines().count(), 3 + BUILT_IN.len());
     }
 
     #[test]
@@ -428,7 +446,8 @@ mod tests {
             .map(|e| e.file_name().to_string_lossy().into_owned())
             .collect();
         library.sort();
-        let known: Vec<&str> = BUILT_IN.iter().map(|b| b.0).collect();
+        let mut known: Vec<&str> = BUILT_IN.iter().map(|b| b.0).collect();
+        known.sort_unstable();
         assert_eq!(library, known);
     }
 }
