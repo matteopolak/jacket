@@ -58,7 +58,7 @@ pub fn used_libraries(program: &Program) -> Vec<Library> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::link::{LinkArg, order_link_groups, toolchain_for};
+    use crate::link::{LinkArg, order_link_groups, toolchain_for, uses_compiler_helpers};
     use crate::linker::{library_args, linker_command, mingw_cpu, render_link_arg};
     use jaic::target::Target as BuildTarget;
     use jaic::target::TargetCpu;
@@ -159,7 +159,8 @@ mod tests {
         };
         let msvc = BuildTarget::windows(TargetCpu::X64, true).toolchain();
         let mingw = BuildTarget::windows(TargetCpu::X64, false).toolchain();
-        let args = |name: &str, toolchain| library_args(&lib(name), toolchain, true).unwrap();
+        let args =
+            |name: &str, toolchain| library_args(&lib(name), toolchain, true, false).unwrap();
         assert_eq!(
             args("kernel32", mingw),
             vec![LinkArg::Lib("kernel32".into())]
@@ -176,6 +177,22 @@ mod tests {
     }
 
     #[test]
+    fn a_mac_target_on_a_mac_uses_the_compilers_universal_helpers() {
+        let target = |triple| BuildTarget::parse(triple).unwrap();
+        let mac_arm = target("aarch64-apple-darwin");
+        let mac_x64 = target("x86_64-apple-darwin");
+        let linux = target("x86_64-unknown-linux-gnu");
+        assert!(uses_compiler_helpers(None, mac_arm));
+        assert!(uses_compiler_helpers(Some(mac_arm), mac_arm));
+        assert!(uses_compiler_helpers(Some(mac_x64), mac_arm));
+        assert!(!uses_compiler_helpers(
+            Some(target("i686-unknown-linux-gnu")),
+            linux
+        ));
+        assert!(!uses_compiler_helpers(Some(linux), mac_arm));
+    }
+
+    #[test]
     fn a_cross_build_compiles_the_crash_runtime_from_source() {
         let stdlib =
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib/internal/runtime");
@@ -189,7 +206,7 @@ mod tests {
         let toolchain = BuildTarget::parse("i686-unknown-linux-gnu")
             .unwrap()
             .toolchain();
-        let args = library_args(&lib, toolchain, true).unwrap();
+        let args = library_args(&lib, toolchain, true, false).unwrap();
         // ARM's EABI unwinder finds no frame in code built without unwind tables, so the
         // runtime's own `backtrace` call would come back empty.
         let [LinkArg::Option(flag), LinkArg::File(source)] = args.as_slice() else {

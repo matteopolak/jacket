@@ -41,6 +41,14 @@ pub(super) fn order_link_groups(groups: &mut [Vec<LinkArg>]) {
     groups.sort_by_key(|group| !group.iter().any(|arg| matches!(arg, LinkArg::File(_))));
 }
 
+/// Whether a build for `target` (`None`: the host) links the helper libraries the compiler
+/// carries (`native/portable_watch`), which are found by file name in its library folders.
+/// They are built for the host, and on a Mac as universal binaries, so any Mac target can use
+/// them (crates/jaic-cli/build.rs).
+pub(crate) fn uses_compiler_helpers(target: Option<BuildTarget>, host: BuildTarget) -> bool {
+    target.is_none_or(|t| t == host || (t.is_apple() && host.is_apple()))
+}
+
 /// `library_args`, kept in the link when nothing references the library: with `--as-needed`
 /// (Ubuntu's default) the linker drops a shared library no symbol needs, and a
 /// `#library,link_always` one exists for its constructor.
@@ -48,8 +56,9 @@ fn library_group(
     lib: &Library,
     toolchain: &Toolchain,
     cross: bool,
+    helpers: bool,
 ) -> Result<Vec<LinkArg>, String> {
-    let mut args = library_args(lib, toolchain, cross)?;
+    let mut args = library_args(lib, toolchain, cross, helpers)?;
     if lib.link_always
         && toolchain.linker == Linker::Unix
         && !args.is_empty()
@@ -94,13 +103,14 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
     let toolchain = toolchain_for(target);
     let linker = toolchain.linker;
     let cross = target.is_some_and(|t| t != BuildTarget::host());
+    let helpers = uses_compiler_helpers(target, BuildTarget::host());
     if sanitize.any() {
         check_sanitizer_target(target)?;
     }
     // Each library's argument group is added once (`-framework X` is two arguments).
     let mut seen: Vec<Vec<LinkArg>> = Vec::new();
     for lib in libraries {
-        let args = library_group(lib, toolchain, cross)?;
+        let args = library_group(lib, toolchain, cross, helpers)?;
         if !args.is_empty() && !seen.contains(&args) {
             seen.push(args);
         }
@@ -250,9 +260,10 @@ pub fn link_inputs(
     let toolchain = toolchain_for(target);
     let linker = toolchain.linker;
     let cross = target.is_some_and(|t| t != BuildTarget::host());
+    let helpers = uses_compiler_helpers(target, BuildTarget::host());
     let mut seen: Vec<Vec<LinkArg>> = Vec::new();
     for lib in libraries {
-        let args = library_group(lib, toolchain, cross)?;
+        let args = library_group(lib, toolchain, cross, helpers)?;
         if !args.is_empty() && !seen.contains(&args) {
             seen.push(args);
         }

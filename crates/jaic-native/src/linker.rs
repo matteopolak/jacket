@@ -400,10 +400,14 @@ pub fn output_extension(target: Option<BuildTarget>, kind: OutputKind) -> Option
 
 /// Linker inputs for one Jai library reference. `cross`: the target is not the host, so the
 /// host's library directories (Homebrew, native-libs builds, frameworks) do not apply.
+/// `helpers`: the compiler's own helper libraries do ([`uses_compiler_helpers`]).
+///
+/// [`uses_compiler_helpers`]: crate::link::uses_compiler_helpers
 pub(super) fn library_args(
     lib: &Library,
     toolchain: &Toolchain,
     cross: bool,
+    helpers: bool,
 ) -> Result<Vec<LinkArg>, String> {
     let name = lib.name.as_str();
     // The C runtime is linked by the toolchain itself (see `link`); on Windows the POSIX-only
@@ -472,7 +476,7 @@ pub(super) fn library_args(
         }
         // Not beside the source: a helper the compiler provides (the crash runtime) is found
         // by file name in the library directories, as the interpreter does.
-        if name.contains('/') && !cross && linker == Linker::Unix {
+        if name.contains('/') && helpers && linker == Linker::Unix {
             for lib_dir in jaic::interp::library_dirs() {
                 for candidate in &candidates {
                     let full = lib_dir.join(candidate);
