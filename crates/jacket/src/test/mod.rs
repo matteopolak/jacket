@@ -353,6 +353,21 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: Option<&BenchArgs>) -> ExitCode {
     watch::run(args, cwd)
 }
 
+/// Whether the flags select a case of `kind`: benchmarks for `jacket bench`, doc examples
+/// for `--doc` (never for `--no-doc`), and on a board only the unit tests and benchmarks,
+/// since the other kinds build host programs.
+fn kind_selected(kind: Kind, args: &TestArgs, bench: bool, on_board: bool) -> bool {
+    let is_bench = kind == Kind::Bench;
+    if is_bench != bench && (bench || !args.list) {
+        return false;
+    }
+    if on_board && !matches!(kind, Kind::Test | Kind::Bench) {
+        return false;
+    }
+    let is_doc = kind == Kind::Doc;
+    !((args.doc && !is_doc) || (args.no_doc && is_doc))
+}
+
 /// One run of the selected tests. `watched` is told which folders and test files the run
 /// used; `only` narrows the run to the cases of these test files.
 fn run_once(
@@ -442,7 +457,7 @@ fn run_once(
         Some(Err(error)) => return fail(error),
         None => None,
     };
-    // On a board only the unit tests run: the other kinds build host programs.
+    // On a board only the unit tests run (`kind_selected`).
     let on_board = target_flags.iter().any(|flag| flag.starts_with('+'));
     let mut flags = target_flags;
     if let Some(os) = &args.os {
@@ -624,15 +639,7 @@ fn run_once(
     };
     let mut selected = Vec::new();
     for case in cases {
-        let is_bench = case.kind == Kind::Bench;
-        if is_bench != bench && (bench || !args.list) {
-            continue;
-        }
-        if on_board && !matches!(case.kind, Kind::Test | Kind::Bench) {
-            continue;
-        }
-        let is_doc = case.kind == Kind::Doc;
-        if (args.doc && !is_doc) || (args.no_doc && is_doc) {
+        if !kind_selected(case.kind, args, bench, on_board) {
             continue;
         }
         if !in_expr(&case)

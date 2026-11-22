@@ -958,7 +958,7 @@ impl<'ctx> Backend<'ctx, '_> {
             .iter()
             .all(|other| self.module.get_function(other).is_none())
         {
-            crate::emit::append_module_asm(&self.module, &text);
+            crate::emit::append_module_asm(self.module, &text);
         }
         Ok(self.module.add_function(name, ty, Some(Linkage::External)))
     }

@@ -98,7 +98,7 @@ impl<'ctx> Backend<'ctx, '_> {
         // The program's own assembly goes in one module only.
         if self.shard.is_none_or(|s| s.index == 0) {
             for text in &self.program.module_asm {
-                crate::emit::append_module_asm(&self.module, text);
+                crate::emit::append_module_asm(self.module, text);
             }
         }
         self.describe_globals();

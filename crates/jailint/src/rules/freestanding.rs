@@ -27,8 +27,7 @@
 //!   locals add up to more than `[lint.freestanding] max_frame_bytes` (1024 by default).
 //! - **Work the CPU cannot do.** `float64` arithmetic, or `s64` and `u64` division in a loop,
 //!   when the linted target is freestanding and its CPU has no double-precision float unit or
-//!   no 64-bit divide. The only freestanding CPU today, AArch64, has both, so this part never
-//!   fires yet.
+//!   no 64-bit divide: the Cortex-M and AVR targets. `AArch64` has both.
 //!
 //! Calls are followed through procedures of the program, in every file, and stop at the
 //! standard library: what it does inside is its own business, and the rule names only the
@@ -117,8 +116,11 @@ impl Kind {
             | ("runtime" | "runtime-freestanding", "write_string" | "write_strings") => {
                 Kind::Output
             }
-            ("thread", "lock" | "unlock" | "lock_registry" | "unlock_registry")
-            | ("thread", "csection_lock" | "csection_unlock") => Kind::Lock,
+            (
+                "thread",
+                "lock" | "unlock" | "lock_registry" | "unlock_registry" | "csection_lock"
+                | "csection_unlock",
+            ) => Kind::Lock,
             ("thread", "wait" | "wait_for" | "cvariable_wait")
             | ("basic", "sleep_milliseconds") => Kind::Block,
             _ => return None,
@@ -307,11 +309,9 @@ impl<'a, 'c> Graph<'a, 'c> {
         for site in self.cx.procs.iter().filter(|p| !p.is_macro) {
             let is_main = site.decl.is_some_and(|d| {
                 d.names.first().is_some_and(|n| n.name.as_str() == "main")
-                    && self
-                        .cx
-                        .stmts
-                        .iter()
-                        .any(|s| matches!(&s.kind, S::Decl(top) if std::ptr::eq(&**top, d)))
+                    && self.cx.stmts.iter().any(
+                        |s| matches!(&s.kind, S::Decl(top) if std::ptr::eq(&raw const **top, d)),
+                    )
             });
             for &id in &*self.cx.procs_with_header(site.header.span) {
                 if has_note(self.cx, id, "Interrupt") {
@@ -444,16 +444,15 @@ impl<'a, 'c> Graph<'a, 'c> {
                 continue;
             };
             let (span, label) = proc_label(&self.cx.procs[site]);
-            let message = match path.as_slice() {
-                [_] => format!("{label} calls itself, so its stack use has no bound"),
-                _ => {
-                    let names: Vec<&str> = path.iter().map(|&id| self.name(id)).collect();
-                    format!(
-                        "{label} is part of a call cycle ({} -> {}), so its stack use has no bound",
-                        names.join(" -> "),
-                        names[0]
-                    )
-                }
+            let message = if let [_] = path.as_slice() {
+                format!("{label} calls itself, so its stack use has no bound")
+            } else {
+                let names: Vec<&str> = path.iter().map(|&id| self.name(id)).collect();
+                format!(
+                    "{label} is part of a call cycle ({} -> {}), so its stack use has no bound",
+                    names.join(" -> "),
+                    names[0]
+                )
             };
             report.add(
                 span,
@@ -615,7 +614,7 @@ fn frames(cx: &Cx, report: &mut Report) {
     for site in cx.procs.iter().filter(|p| p.typed()) {
         let mut bytes = 0u64;
         large_stack_array::locals(cx, &site.body.stmts, &mut |_, ty| {
-            bytes += types.size_of(ty)
+            bytes += types.size_of(ty);
         });
         if bytes as usize <= cx.max_frame_bytes {
             continue;
@@ -645,7 +644,7 @@ struct CpuGaps {
 /// The gaps of the CPU the compile is for. Only a freestanding target has any: a hosted one has
 /// an operating system to make up for them.
 ///
-/// AArch64 has both. The freestanding 32-bit ARM CPUs are the Cortex-M4 and M33: their FPU is
+/// `AArch64` has both. The freestanding 32-bit ARM CPUs are the Cortex-M4 and M33: their FPU is
 /// single precision and they have no 64-bit divide, so both are software routines. A core without
 /// an FPU (Cortex-M0, M3) is not a target yet. AVR has no FPU or divider at all.
 fn cpu_gaps(options: &jaic::sema::Options) -> CpuGaps {

@@ -111,7 +111,7 @@ impl Interp {
                 slot,
             } => {
                 vals[dst.0 as usize] =
-                    self.program_addr(stack_base + frame.offsets[slot.0 as usize])
+                    self.program_addr(stack_base + frame.offsets[slot.0 as usize]);
             }
             Inst::GlobalAddr {
                 dst,
@@ -158,8 +158,8 @@ impl Interp {
                         self.host_addr(s) as *const u8,
                         self.host_addr(d) as *mut u8,
                         *size as usize,
-                    )
-                };
+                    );
+                }
             }
             Inst::Zero {
                 dst,

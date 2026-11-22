@@ -21,7 +21,7 @@ pub enum Arch {
     /// reference to a caller copy, and every aggregate result comes back through a hidden
     /// pointer in `r2`. Integer arguments take `r2`-`r6`, floating-point ones `f0`, `f2`, `f4`, `f6`.
     S390x,
-    /// 64-bit big-endian PowerPC, ELFv1 (powerpc64 Linux): every aggregate argument is passed
+    /// 64-bit big-endian PowerPC, `ELFv1` (powerpc64 Linux): every aggregate argument is passed
     /// by value (the backend assigns its doublewords to registers and the stack) and every
     /// aggregate result comes back through a hidden pointer in `r3`.
     PowerPc64,
@@ -645,7 +645,7 @@ mod tests {
         assert!(sret_takes_int_register(Arch::S390x, false));
     }
 
-    /// ELFv1 powerpc64: every aggregate argument goes by value on the stack image (the backend
+    /// `ELFv1` powerpc64: every aggregate argument goes by value on the stack image (the backend
     /// puts it in registers) and every aggregate result through a hidden pointer in `r3`.
     #[test]
     fn powerpc64_passes_aggregates_by_value_and_returns_them_in_memory() {

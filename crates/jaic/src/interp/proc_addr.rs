@@ -109,7 +109,7 @@ mod tests {
             assert!(proc_of(width, 0x1234).is_none());
             assert!(f >= data_limit(width) && e >= data_limit(width));
         }
-        assert!(func_word(4, FuncId(0x0FFF_FFFF)) <= u64::from(u32::MAX));
-        assert!(func_word(2, FuncId(0x1FFF)) <= u64::from(u16::MAX));
+        assert!(u32::try_from(func_word(4, FuncId(0x0FFF_FFFF))).is_ok());
+        assert!(u16::try_from(func_word(2, FuncId(0x1FFF))).is_ok());
     }
 }

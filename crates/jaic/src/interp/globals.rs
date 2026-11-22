@@ -80,12 +80,14 @@ impl ZeroedBlock {
 impl Drop for ZeroedBlock {
     fn drop(&mut self) {
         match &self.place {
-            // SAFETY: `ptr` came from `alloc_zeroed` with this `layout` in `new` and is freed
-            // once, here.
             Place::Host {
                 ptr,
                 layout,
-            } => unsafe { std::alloc::dealloc(ptr.as_ptr(), *layout) },
+            } => {
+                // SAFETY: `ptr` came from `alloc_zeroed` with this `layout` in `new` and is
+                // freed once, here.
+                unsafe { std::alloc::dealloc(ptr.as_ptr(), *layout) }
+            }
             Place::Window {
                 window,
                 offset,

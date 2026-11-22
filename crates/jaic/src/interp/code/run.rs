@@ -183,6 +183,7 @@ impl Interp {
                 v
             }
         };
+        // SAFETY: frame slots lie inside the live frame at `stack_base`, which `load_raw` reads.
         let load_frame =
             |ty: Ty, off: u32| in_order(ty, unsafe { load_raw(ty, stack_base + u64::from(off)) });
         // SAFETY: as for `load_frame`.
@@ -534,8 +535,8 @@ impl Interp {
                                 self.host_addr(s) as *const u8,
                                 self.host_addr(d) as *mut u8,
                                 n,
-                            )
-                        };
+                            );
+                        }
                     }
                 }
                 Op::MemSet {

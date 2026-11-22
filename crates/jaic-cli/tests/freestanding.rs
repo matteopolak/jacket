@@ -145,6 +145,8 @@ fn a_none_program_runs_on_qemu_and_exits_through_semihosting() {
 }
 
 #[test]
+// The ELF header of a file checked above to be little-endian, not program data.
+#[allow(clippy::disallowed_methods)]
 fn the_output_is_a_static_aarch64_elf_executable() {
     let Some(clang) = toolchain::require("clang") else {
         return;
@@ -434,10 +436,7 @@ fn run_on_board(program: &str) -> Option<Output> {
     for file in ["build.jai", program] {
         std::fs::copy(
             source.join(file),
-            dir.join(
-                file.replace(program, "prog.jai")
-                    .replace("build.jai", "build.jai"),
-            ),
+            dir.join(file.replace(program, "prog.jai")),
         )
         .unwrap();
     }

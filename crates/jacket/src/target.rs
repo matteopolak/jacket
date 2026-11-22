@@ -146,18 +146,15 @@ pub fn expand(args: &[OsString], config: Option<&Config>) -> Result<Expansion, S
             index += 1;
             continue;
         }
-        let value = match inline {
-            Some(value) => value,
-            None => {
-                index += 1;
-                args.get(index)
-                    .filter(|_| index < region_end)
-                    .and_then(|v| v.to_str())
-                    .ok_or_else(|| {
-                        format!("`{name}` needs a target name or an LLVM target triple")
-                    })?
-                    .to_string()
-            }
+        let value = if let Some(value) = inline {
+            value
+        } else {
+            index += 1;
+            args.get(index)
+                .filter(|_| index < region_end)
+                .and_then(|v| v.to_str())
+                .ok_or_else(|| format!("`{name}` needs a target name or an LLVM target triple"))?
+                .to_string()
         };
         index += 1;
         found = Some((out.len(), value));
@@ -236,8 +233,7 @@ pub fn installed(program: &str) -> bool {
     if program.contains(std::path::MAIN_SEPARATOR) {
         return is_exe(Path::new(program));
     }
-    std::env::var_os("PATH")
-        .is_some_and(|path| std::env::split_paths(&path).any(|dir| is_exe(&dir.join(program))))
+    jacket_config::tools::on_path(Path::new(program)).is_some()
 }
 
 /// The table `jacket targets` prints.

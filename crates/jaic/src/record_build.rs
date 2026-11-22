@@ -665,12 +665,11 @@ impl Builder {
                 image.put_int(target, *v as u64, size.min(8))
             }
             (Shape::String, Item::Str(s)) => {
-                let data = match interp.keep_narrow(s) {
-                    Some(data) => data,
-                    None => {
-                        fill.kept.push(s.clone());
-                        s.as_ptr() as u64
-                    }
+                let data = if let Some(data) = interp.keep_narrow(s) {
+                    data
+                } else {
+                    fill.kept.push(s.clone());
+                    s.as_ptr() as u64
                 };
                 image.put_view(target, s.len() as u64, data)
             }
