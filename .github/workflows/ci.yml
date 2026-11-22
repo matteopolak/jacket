@@ -553,6 +553,20 @@ jobs:
           grep -v '^#' ../tools/dev/armv7-roots.txt | while read -r root; do
             (cd "$root" && ../../target/debug/jacket test --runner "qemu-arm -L /usr/arm-linux-gnueabihf" -- -target armv7-unknown-linux-gnueabihf) || exit 1
           done
+      - name: Linux powerpc64 stdlib
+        id: powerpc64-stdlib
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',diff,') && runner.os == 'Linux' && matrix.architecture == 'x86_64' }}
+        # Big-endian ELFv1: the roots in tools/dev/powerpc64-roots.txt, cross-linked with gcc and
+        # run under qemu-user (docs/compiler/targets.md). Add a root there when it passes.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-user gcc-powerpc64-linux-gnu libc6-dev-ppc64-cross
+          cargo build --locked -p jaic-cli -p jacket
+          cd stdlib
+          export JAIC_LINKER=powerpc64-linux-gnu-gcc
+          grep -v '^#' ../tools/dev/powerpc64-roots.txt | while read -r root; do
+            (cd "$root" && ../../target/debug/jacket test --runner "qemu-ppc64 -L /usr/powerpc64-linux-gnu" -- -target powerpc64-unknown-linux-gnu) || exit 1
+          done
   vscode-extension:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.jobs), 'vscode-extension')

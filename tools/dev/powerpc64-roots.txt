@@ -1,0 +1,6 @@
+# Stdlib roots whose tests all pass on powerpc64 Linux under qemu-user; CI runs them (docs/native/n-bit-and-embedded.md).
+Adpcm
+Atomics
+Base64
+Bit_Array
+Bit_Operations

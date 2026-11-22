@@ -18,14 +18,19 @@ case "$arch" in
   i686) driver=(i686-linux-gnu-gcc) ;;
   s390x) driver=(s390x-linux-gnu-gcc) ;;
   armv7) driver=(arm-linux-gnueabihf-gcc) ;;
-  # Debian has no powerpc64 gcc for arm64 hosts: clang and lld against the glibc sysroot.
+  # Debian has no powerpc64 gcc for arm64 hosts: clang and GNU ld (built into the image; lld
+  # refuses ELFv1) against the glibc sysroot.
   powerpc64)
-    driver=(clang --target=powerpc64-linux-gnu --sysroot=/usr/powerpc64-linux-gnu -fuse-ld=lld -nostdlib
-      /usr/powerpc64-linux-gnu/lib/crt1.o /usr/powerpc64-linux-gnu/lib/crti.o)
+    sysroot=/usr/powerpc64-linux-gnu
+    driver=(clang --target=powerpc64-linux-gnu -isystem "$sysroot/include" -fuse-ld=/usr/local/bin/powerpc64-linux-gnu-ld -nostdlib
+      "$sysroot/lib/crt1.o" "$sysroot/lib/crti.o")
+    # No `--sysroot`: it would prefix the absolute paths in libc.so's linker script.
+    # What gcc's driver adds after the objects: libc, the ELFv1 loader and the end crt.
+    tail=("-L$sysroot/lib" -lc "-Wl,--dynamic-linker=/lib64/ld64.so.1" "$sysroot/lib/crtn.o")
     ;;
   *)
     echo "cross_link.sh: unknown JAIC_CROSS_ARCH \`$arch\`" >&2
     exit 2
     ;;
 esac
-exec "$here/linux_x64.sh" cross-exec -- "${driver[@]}" "$@"
+exec "$here/linux_x64.sh" cross-exec -- "${driver[@]}" "$@" ${tail[@]+"${tail[@]}"}
