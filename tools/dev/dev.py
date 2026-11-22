@@ -45,7 +45,7 @@ JAIFMT_SOURCES = ["jaifmt", "stdlib/Extensions/Jai_Format", "stdlib/Extensions/A
 JAILINT_SOURCES = ["crates/jailint", "crates/jaic", "crates/jaic-syntax", "crates/jaic-cli", "stdlib/prelude/module.jai", "Cargo.lock"]
 # Repository checks that read only the working tree (tools/ci/check_<name>.py), in `repo-checks` order.
 REPO_CHECKS = {"style": "check_source_style", "paths": "check_repo_paths", "ci-sources": "check_ci_sources",
-               "stdlib-docs": "check_stdlib_docs"}
+               "stdlib-docs": "check_stdlib_docs", "changelog": "check_changelog"}
 # Checks that need `jaic` built (they build it when it is not): `repo-checks` runs them, the pre-commit hook does not.
 BUILT_REPO_CHECKS = {"stdlib-docs"}
 

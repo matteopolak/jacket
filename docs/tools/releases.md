@@ -68,7 +68,17 @@ Our Rust code is built with profile-guided optimisation (`tools/dev/build_pgo.py
 
 ## Cutting a release
 
-1. Add `## [x.y.z] - YYYY-MM-DD` at the top of `CHANGELOG.md`: one or two sentences, `### Highlights` (2 to 6 one-liners), `### Breaking changes` (a Was/Now table, if any), `### Fixes`. Keep it for users; no internals. Use `###` or lower for subsections: the next level-two heading ends the extracted notes. Fenced examples do not define release sections. Inline code on its own line does not start a fence.
+1. Add `## [x.y.z] - YYYY-MM-DD` at the top of `CHANGELOG.md`: one or two sentences, `### Highlights` (up to 6 one-liners), `### Breaking changes` (a Was/Now table, if any), `### Fixes`. Keep it for users; no internals. End a line that comes from an issue with `(#N, @reporter)`. `tools/ci/check_changelog.py` (a repo check, and run by `just bump-version`) enforces the limits on unreleased notes:
+
+   | Part | Limit |
+   | --- | --- |
+   | summary | 2 sentences, 30 words |
+   | bullet | 20 words, not counting link targets or the attribution |
+   | table cell | 15 words |
+   | highlights | 6 bullets |
+   | sections | only Highlights, Breaking changes, Fixes, in that order |
+
+   Put the details in the linked docs. Use `###` or lower for subsections: the next level-two heading ends the extracted notes. Fenced examples do not define release sections. Inline code on its own line does not start a fence.
 2. Alternatively, prepare notes under `## Unreleased` or `## [Unreleased]` (trailing whitespace is allowed; suffixes are not). Run `just bump-version X.Y.Z`; either heading becomes `## [X.Y.Z] - YYYY-MM-DD`. A prewritten section for that exact version is kept, including its date and notes. It edits the workspace version in `Cargo.toml`, the lock files and `CHANGELOG.md`, and regenerates `jaifmt/version.jai` and `editors/nvim/lua/jai/version.lua`. Leave `editors/vscode/package.json` alone: the workflow stamps it.
 3. Commit, then `git tag -s vX.Y.Z -m 'Jacket X.Y.Z'` and `git push origin vX.Y.Z`.
 

@@ -49,11 +49,11 @@ class Bump(unittest.TestCase):
 
     def test_unreleased_heading_becomes_the_new_version(self):
         (self.root / "CHANGELOG.md").write_text(
-            "# Changelog\n\n## [Unreleased]\n\n### New\n\n- A thing.\n\n## [0.1.0] - 2026-01-01\n\nOld.\n")
+            "# Changelog\n\n## [Unreleased]\n\nA summary.\n\n### Highlights\n\n- A thing.\n\n## [0.1.0] - 2026-01-01\n\nOld.\n")
         bv.bump(self.root, "0.2.0", "2026-02-02")
         self.assertEqual(
             bv.read(self.root, "CHANGELOG.md"),
-            "# Changelog\n\n## [0.2.0] - 2026-02-02\n\n### New\n\n- A thing.\n\n## [0.1.0] - 2026-01-01\n\nOld.\n")
+            "# Changelog\n\n## [0.2.0] - 2026-02-02\n\nA summary.\n\n### Highlights\n\n- A thing.\n\n## [0.1.0] - 2026-01-01\n\nOld.\n")
 
     def test_unreleased_forms_preserve_notes_and_extract_only_new_release(self):
         for heading in ("## Unreleased", "## [Unreleased]", "## Unreleased   "):
@@ -95,6 +95,14 @@ class Bump(unittest.TestCase):
             before = heading + "\n\n## [0.1.0]\nOld.\n"
             self.assertEqual(bv.bump_changelog(before, "0.2.0", "today"),
                              heading + "\n\n## [0.2.0] - today\n\n## [0.1.0]\nOld.\n")
+
+    def test_notes_over_the_length_limits_are_refused(self):
+        before = "# Changelog\n\n## [Unreleased]\n\nOne. Two. Three.\n\n## [0.1.0] - 2026-01-01\n\nOld.\n"
+        (self.root / "CHANGELOG.md").write_text(before)
+        with self.assertRaisesRegex(SystemExit, "3 sentences"):
+            bv.bump(self.root, "0.2.0", "2026-02-02")
+        self.assertEqual(bv.read(self.root, "CHANGELOG.md"), before)
+        self.assertIn('version = "0.1.0"', bv.read(self.root, "Cargo.toml"))
 
     def test_bad_versions_are_refused(self):
         for bad in ("1.2", "v1.2.3", "1.2.3-rc1", "0.1.0"):

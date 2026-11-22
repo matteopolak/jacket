@@ -8,6 +8,7 @@
 Updates the root Cargo.toml `[workspace.package] version`, the path packages of Cargo.lock and
 fuzz/Cargo.lock that carry that version, and renames CHANGELOG.md's `## [Unreleased]` or `## Unreleased` heading to
 `## [X.Y.Z] - <today>` (or adds that header when there is no such section and none for X.Y.Z yet).
+It refuses notes that break tools/ci/check_changelog.py's length limits.
 The generated copies (jaifmt/version.jai, editors/nvim/lua/jai/version.lua) are rewritten by
 tools/generators/generate_version_files.py, which this runs last. editors/vscode/package.json is left
 alone: the release workflow stamps its version (docs/tools/releases.md).
@@ -17,6 +18,7 @@ import datetime
 import re
 import subprocess
 import sys
+from ci import check_changelog
 from generators import generate_version_files
 from toolkit.changelog import headings, release_name
 from toolkit.repo import ROOT
@@ -86,7 +88,10 @@ def bump(root, new, today=None):
     for lock in LOCKS:
         if (root / lock).exists():
             edits[lock] = bump_lock(read(root, lock), old, new)
-    edits["CHANGELOG.md"] = bump_changelog(read(root, "CHANGELOG.md"), new, today)
+    changelog = read(root, "CHANGELOG.md")
+    if problems := check_changelog.problems(changelog):
+        raise SystemExit("CHANGELOG.md notes are too long (tools/ci/check_changelog.py):\n  " + "\n  ".join(problems))
+    edits["CHANGELOG.md"] = bump_changelog(changelog, new, today)
     for rel, text in edits.items():
         (root / rel).write_text(text)
     generate_version_files.write(root)
