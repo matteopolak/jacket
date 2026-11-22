@@ -132,6 +132,7 @@ pub(super) fn target_machine(
         Target::initialize_aarch64(&config);
         Target::initialize_webassembly(&config);
         Target::initialize_system_z(&config);
+        Target::initialize_arm(&config);
     });
     let (triple, build_target) = match options.target {
         Some(t) => (TargetTriple::create(&t.to_string()), t),
@@ -287,6 +288,7 @@ mod tests {
             "i686-unknown-linux-gnu",
             "i686-unknown-linux-musl",
             "s390x-unknown-linux-gnu",
+            "armv7-unknown-linux-gnueabihf",
         ] {
             let ours = BuildTarget::parse(triple).unwrap().data_layout();
             let llvm_triple =

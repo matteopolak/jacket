@@ -121,11 +121,24 @@ fn a_wasm32_executable_runs_under_wasmtime() {
     assert_runtime_output(&output);
 }
 
+/// `armv7` pointers are 4 bytes and its `s64` aligns to 8, so `string` is 16 bytes there.
+#[test]
+fn an_armv7_program_has_4_byte_pointers() {
+    assert_eq!(
+        run("armv7-unknown-linux-gnueabihf", &pointer_sizes()),
+        "pointer 4\nstring 16\narray 32\nany 8\nallocator 8\npair 16 8\nheap-42\n"
+    );
+}
+
 /// A plugin that sets the workspace's options back (`jacket test`'s discovery does) keeps an
-/// i686 or s390x build as it was: the spec's `CPU_Tag.CUSTOM` names them and wasm alike.
+/// i686, s390x or armv7 build as it was: the spec's `CPU_Tag.CUSTOM` names them and wasm alike.
 #[test]
 fn a_plugin_setting_the_cpu_back_keeps_the_target() {
-    for target in ["i686-unknown-linux-gnu", "s390x-unknown-linux-gnu"] {
+    for target in [
+        "i686-unknown-linux-gnu",
+        "s390x-unknown-linux-gnu",
+        "armv7-unknown-linux-gnueabihf",
+    ] {
         let output = Command::new(JAIC)
             .arg("-check")
             .arg(
@@ -176,6 +189,7 @@ fn enum_names_in_type_information_use_the_targets_string_size() {
     for target in [
         "x86_64-unknown-linux-gnu",
         "i686-unknown-linux-gnu",
+        "armv7-unknown-linux-gnueabihf",
         "wasm32-unknown-unknown",
     ] {
         assert_eq!(

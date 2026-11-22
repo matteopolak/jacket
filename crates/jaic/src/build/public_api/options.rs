@@ -266,6 +266,7 @@ fn get(cx: &Call, interp: &mut Interp, ws: i64, at: u64) -> Result<TypeId, Trap>
             crate::target::TargetCpu::Arm64 => crate::builtin_keys::CpuTag::Arm64 as u64,
             crate::target::TargetCpu::X86
             | crate::target::TargetCpu::S390x
+            | crate::target::TargetCpu::Arm
             | crate::target::TargetCpu::Wasm => crate::builtin_keys::CpuTag::Custom as u64,
         };
         cx.set_number(interp, ty, at, "os_target", os)?;

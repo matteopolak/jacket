@@ -85,6 +85,7 @@ pub fn module_asm(arch: crate::abi::Arch, macho: bool) -> Option<String> {
         ),
         Arch::X86 => ("", include_str!("fiber/i386-sysv.s"), !macho),
         // No fiber switch for these yet: `fibers` is refused on them.
+        Arch::Arm32 => ("", include_str!("fiber/arm-aapcs32.s"), !macho),
         Arch::Wasm | Arch::S390x => return None,
     };
     let note = if elf {

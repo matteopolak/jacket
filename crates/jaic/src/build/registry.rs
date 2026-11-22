@@ -248,7 +248,10 @@ impl Workspaces {
                     // `.CUSTOM` names every CPU the enum lacks: keep the one this build has
                     // when it is one of them, so setting the options back changes nothing.
                     CpuTag::Custom => match s.cpu.unwrap_or(current_cpu) {
-                        cpu @ (TargetCpu::X86 | TargetCpu::S390x | TargetCpu::Wasm) => cpu,
+                        cpu @ (TargetCpu::X86
+                        | TargetCpu::S390x
+                        | TargetCpu::Arm
+                        | TargetCpu::Wasm) => cpu,
                         _ => TargetCpu::Wasm,
                     },
                 });

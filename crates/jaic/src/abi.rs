@@ -21,6 +21,11 @@ pub enum Arch {
     /// reference to a caller copy, and every aggregate result comes back through a hidden
     /// pointer in `r2`. Integer arguments take `r2`-`r6`, floating-point ones `f0`, `f2`, `f4`, `f6`.
     S390x,
+    /// 32-bit ARM, AAPCS with the VFP (hard-float) variant: an aggregate of at most 4 bytes
+    /// travels as one integer, a homogeneous float aggregate in VFP registers, any other as
+    /// 4- or 8-byte integers in core registers and then on the stack; a larger-than-4-byte
+    /// result comes back through a hidden pointer in `r0`.
+    Arm32,
     /// x86-64 with the Microsoft x64 calling convention (Windows, MSVC and MinGW alike).
     Win64,
     /// `AArch64` Windows (MSVC and MinGW alike): AAPCS64, except that a variadic procedure takes
@@ -113,7 +118,7 @@ impl Passing {
     /// `AArch64` does not for a variadic procedure, whose arguments straddle registers and the
     /// stack.
     pub fn as_array(&self, arch: Arch, variadic: bool) -> bool {
-        arch.is_aarch64()
+        (arch.is_aarch64() || arch == Arch::Arm32)
             && !(variadic && arch == Arch::Win64Arm)
             && matches!(self, Passing::Registers(p) if p.len() > 1)
     }
@@ -138,6 +143,8 @@ pub fn classify_arg(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Passin
         None => match arch {
             Arch::X86_64 | Arch::X86 | Arch::Wasm => Passing::ByVal,
             Arch::Aarch64 | Arch::Win64 | Arch::Win64Arm | Arch::S390x => Passing::Indirect,
+            // AAPCS copies every aggregate into core registers and then the stack.
+            Arch::Arm32 => unreachable!("every ARM aggregate classifies as registers"),
         },
     }
 }
@@ -151,6 +158,10 @@ pub fn classify_arg(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Passin
 /// larger ones by reference. (The backend itself moves scalar `float`/`double` arguments
 /// of a variadic call into the general registers.)
 pub fn classify_vararg(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Passing {
+    // AAPCS: a variadic call uses the base standard, so a float aggregate goes in core registers.
+    if arch == Arch::Arm32 {
+        return Passing::Registers(arm32_int_pieces(layout));
+    }
     if arch != Arch::Win64Arm {
         return classify_arg(arch, layout, data);
     }
@@ -240,6 +251,10 @@ pub fn classify_ret(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Option
     if arch == Arch::S390x && layout.size > 0 {
         return None;
     }
+    // AAPCS: only a float aggregate or one of at most 4 bytes comes back in registers.
+    if arch == Arch::Arm32 && layout.size > 4 && hfa(layout).is_none() {
+        return None;
+    }
     classify_registers(arch, layout, data)
 }
 
@@ -264,6 +279,9 @@ fn classify_registers(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Opti
     }
     if arch == Arch::S390x {
         return s390x_small(layout);
+    }
+    if arch == Arch::Arm32 {
+        return Some(arm32_pieces(layout));
     }
     if layout.size > 16 && !(arch.is_aarch64() && hfa(layout).is_some()) {
         return None;
@@ -296,7 +314,9 @@ fn classify_registers(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Opti
             }
             Some(int_pieces(layout.size))
         }
-        Arch::Win64 | Arch::Wasm | Arch::X86 | Arch::S390x => unreachable!("handled above"),
+        Arch::Win64 | Arch::Wasm | Arch::X86 | Arch::S390x | Arch::Arm32 => {
+            unreachable!("handled above")
+        }
         Arch::X86_64 => {
             // System V: an aggregate with a member that is not naturally aligned (a packed
             // struct, or `#no_padding`) is MEMORY, however small.
@@ -379,6 +399,36 @@ fn s390x_small(layout: &AggLayout) -> Option<Vec<Piece>> {
         offset: 0,
         ty,
     }])
+}
+
+/// AAPCS32 (VFP): a homogeneous float aggregate travels in VFP registers, any other as 4-byte
+/// integers, or 8-byte ones when it is 8-aligned (which makes it start at an even register).
+fn arm32_pieces(layout: &AggLayout) -> Vec<Piece> {
+    match hfa(layout) {
+        Some(ty @ (PieceTy::F32 | PieceTy::F64)) => layout
+            .fields
+            .iter()
+            .map(|&(offset, _)| Piece {
+                offset,
+                ty,
+            })
+            .collect(),
+        _ => arm32_int_pieces(layout),
+    }
+}
+
+fn arm32_int_pieces(layout: &AggLayout) -> Vec<Piece> {
+    let (step, ty) = if layout.align > 4 {
+        (8, PieceTy::I64)
+    } else {
+        (4, PieceTy::Int(4))
+    };
+    (0..layout.size.div_ceil(step))
+        .map(|k| Piece {
+            offset: k * step,
+            ty,
+        })
+        .collect()
 }
 
 fn int_pieces(size: u64) -> Vec<Piece> {
@@ -507,6 +557,67 @@ mod tests {
         }
         assert!(classify_ret(Arch::S390x, &layout(8, &[(0, Ty::I64)]), &data).is_none());
         assert!(sret_takes_int_register(Arch::S390x, false));
+    }
+
+    /// AAPCS32 (VFP): small aggregates are one integer, float aggregates use VFP registers,
+    /// the rest are core-register words (8-byte ones for an 8-aligned aggregate), and a result of
+    /// more than 4 bytes goes through a hidden pointer unless it is a float aggregate.
+    #[test]
+    fn arm32_follows_the_vfp_variant_of_aapcs() {
+        let target = crate::target::Target::parse("armv7-unknown-linux-gnueabihf").unwrap();
+        assert_eq!(target.arch(), Some(Arch::Arm32));
+        let data = target.data_layout();
+        let l = |size, align, fields: &[(u64, Ty)]| AggLayout {
+            size,
+            align,
+            fields: fields.to_vec(),
+        };
+        let words = |n: u64| {
+            Passing::Registers(
+                (0..n)
+                    .map(|k| Piece {
+                        offset: k * 4,
+                        ty: PieceTy::Int(4),
+                    })
+                    .collect(),
+            )
+        };
+        let small = l(2, 1, &[(0, Ty::I8), (1, Ty::I8)]);
+        assert_eq!(classify_arg(Arch::Arm32, &small, &data), words(1));
+        assert_eq!(
+            classify_ret(Arch::Arm32, &small, &data).map(|p| p.len()),
+            Some(1)
+        );
+        let triple = l(12, 4, &[(0, Ty::I32), (4, Ty::I32), (8, Ty::I32)]);
+        assert_eq!(classify_arg(Arch::Arm32, &triple, &data), words(3));
+        assert!(classify_ret(Arch::Arm32, &triple, &data).is_none());
+        let eight = l(8, 8, &[(0, Ty::I64)]);
+        assert_eq!(
+            classify_arg(Arch::Arm32, &eight, &data),
+            Passing::Registers(vec![Piece {
+                offset: 0,
+                ty: PieceTy::I64
+            }])
+        );
+        let floats = l(8, 4, &[(0, Ty::F32), (4, Ty::F32)]);
+        let in_vfp = |ty| {
+            Passing::Registers(
+                [0, 4]
+                    .iter()
+                    .map(|&offset| Piece {
+                        offset,
+                        ty,
+                    })
+                    .collect(),
+            )
+        };
+        assert_eq!(
+            classify_arg(Arch::Arm32, &floats, &data),
+            in_vfp(PieceTy::F32)
+        );
+        assert!(classify_ret(Arch::Arm32, &floats, &data).is_some());
+        // A variadic call uses core registers whatever the members are.
+        assert_eq!(classify_vararg(Arch::Arm32, &floats, &data), words(2));
     }
 
     #[test]

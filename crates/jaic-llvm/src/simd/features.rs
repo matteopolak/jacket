@@ -50,7 +50,7 @@ impl Family {
             Arch::X86_64 | Arch::Win64 | Arch::X86 => Family::X86,
             Arch::Aarch64 | Arch::Win64Arm => Family::Aarch64,
             Arch::Wasm => Family::Wasm,
-            Arch::S390x => Family::Other,
+            Arch::S390x | Arch::Arm32 => Family::Other,
         }
     }
 }

@@ -810,7 +810,7 @@ impl<'ctx> Backend<'ctx, '_> {
                         self.call_intrinsic("llvm.readcyclecounter", &[], &[])?
                     }
                     // No cycle counter is visible to wasm code or to s390x user code.
-                    Arch::Wasm | Arch::S390x => {
+                    Arch::Wasm | Arch::S390x | Arch::Arm32 => {
                         return Err(
                             "no architectural cycle counter is available on this target".into()
                         );
@@ -845,7 +845,7 @@ impl<'ctx> Backend<'ctx, '_> {
             }
             Intrinsic::Pause => {
                 let asm = match self.arch {
-                    Arch::Aarch64 | Arch::Win64Arm => "yield",
+                    Arch::Aarch64 | Arch::Win64Arm | Arch::Arm32 => "yield",
                     Arch::X86_64 | Arch::Win64 | Arch::X86 => "pause",
                     Arch::Wasm | Arch::S390x => return Ok(vec![]),
                 };
@@ -957,7 +957,7 @@ impl<'ctx> Backend<'ctx, '_> {
         let ty = value.get_type();
         let class = if ty.is_float_type() {
             match self.arch {
-                Arch::Aarch64 | Arch::Win64Arm => "w",
+                Arch::Aarch64 | Arch::Win64Arm | Arch::Arm32 => "w",
                 Arch::X86_64 | Arch::Win64 | Arch::X86 => "x",
                 Arch::S390x => "f",
                 Arch::Wasm => "r",
