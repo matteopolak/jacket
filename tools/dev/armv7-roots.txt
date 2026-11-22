@@ -1,5 +1,11 @@
 # Stdlib roots whose tests all pass on armv7 Linux under qemu-user; CI runs them (docs/native/n-bit-and-embedded.md).
 Adpcm
 Atomics
-Autorun
 Base64
+Basic
+Bit_Array
+Bit_Operations
+Bucket_Array
+Check
+Code_Visit
+Codex
