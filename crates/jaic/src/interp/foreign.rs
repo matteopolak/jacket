@@ -243,7 +243,7 @@ impl Interp {
                     foreign.symbol
                 ));
             }
-            None => proc_addr::foreign_word(self.window.is_some(), id),
+            None => proc_addr::foreign_word(self.proc_width(), id),
         };
         if self.foreign_addrs.len() <= id.0 as usize {
             self.foreign_addrs.resize(id.0 as usize + 1, 0);
@@ -348,7 +348,7 @@ impl Interp {
         }
         let addr = self.foreign_addr(program, id)?;
         if matches!(
-            proc_addr::proc_of(self.window.is_some(), addr),
+            proc_addr::proc_of(self.proc_width(), addr),
             Some(proc_addr::Proc::Foreign(_))
         ) {
             let foreign = &program.foreigns[id.0 as usize];
@@ -439,7 +439,7 @@ impl Interp {
         // A `#c_call` procedure handed to C is a native thunk already (`proc_value`), unless C
         // cannot call it: that stayed tagged, and asking for its thunk again says why.
         let mut thunked: Vec<u64>;
-        let narrow = self.window.is_some();
+        let narrow = self.proc_width();
         let func_of = |v: u64| match proc_addr::proc_of(narrow, v) {
             Some(proc_addr::Proc::Func(id)) => Some(id),
             _ => None,
@@ -537,7 +537,7 @@ impl Interp {
         {
             return v;
         }
-        let tagged = proc_addr::func_word(self.window.is_some(), id);
+        let tagged = proc_addr::func_word(self.proc_width(), id);
         // The signature is known from the moment the procedure is reserved, so the value is
         // the same whether it is taken before or after the body is lowered.
         let value = match program.func_sig(id) {
@@ -605,7 +605,7 @@ impl Interp {
     /// The interpreted procedure a procedure value names: a tagged id, or a thunk this
     /// interpreter made.
     pub fn func_of(&self, value: u64) -> Option<FuncId> {
-        if let Some(proc_addr::Proc::Func(id)) = proc_addr::proc_of(self.window.is_some(), value) {
+        if let Some(proc_addr::Proc::Func(id)) = proc_addr::proc_of(self.proc_width(), value) {
             return Some(id);
         }
         self.thunk_funcs.get(&value).copied()

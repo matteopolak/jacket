@@ -55,7 +55,7 @@ impl Interp {
         let stack = self
             .callback_stacks
             .pop()
-            .map_or_else(|| self.new_stack(STACK_SIZE / 8), Ok)?;
+            .map_or_else(|| self.new_stack(self.stack_bytes(STACK_SIZE) / 8), Ok)?;
         let outer = self.take_exec_state();
         self.put_exec_state(ExecState {
             stack,
@@ -85,7 +85,7 @@ impl Interp {
             self.load_required_libraries(program)?;
         }
         if self.stack.is_empty() {
-            self.stack = self.new_stack(STACK_SIZE / 8)?;
+            self.stack = self.new_stack(self.stack_bytes(STACK_SIZE) / 8)?;
             self.sp = 0;
         }
         let (sp, depth, calls) = (self.sp, self.depth, self.calls.len());
@@ -529,7 +529,7 @@ impl Interp {
             (
                 at.procedure_address,
                 word,
-                super::proc_addr::func_word(self.window.is_some(), id),
+                super::proc_addr::func_word(self.proc_width(), id),
             ),
         ] {
             // SAFETY: `addr` is a block of `at.size` bytes and every offset written lies

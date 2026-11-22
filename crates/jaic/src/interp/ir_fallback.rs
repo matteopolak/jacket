@@ -190,7 +190,7 @@ impl Interp {
                     }
                     Callee::Indirect(target, sig) => {
                         let addr = vals[target.0 as usize];
-                        match proc_addr::proc_of(self.window.is_some(), addr) {
+                        match proc_addr::proc_of(self.proc_width(), addr) {
                             Some(proc_addr::Proc::Func(id)) => self.exec(program, id, argv)?,
                             Some(proc_addr::Proc::Foreign(id)) => {
                                 self.call_foreign(program, id, argv, sig)?

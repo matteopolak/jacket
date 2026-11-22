@@ -175,6 +175,15 @@ pub(super) struct ExecState {
 }
 
 impl Interp {
+    /// The bytes of window a stack of `wanted` bytes takes: a 64 KiB window (2-byte pointers)
+    /// has room for a 16 KiB stack beside the program's data, not a megabytes-deep one.
+    pub(super) fn stack_bytes(&self, wanted: usize) -> usize {
+        match self.window.as_ref().map(|w| w.pointer_size()) {
+            Some(2) => wanted.min(4 << 10),
+            _ => wanted,
+        }
+    }
+
     /// A fresh interpreter stack of `words` words, in the program's window when it has one.
     pub(super) fn new_stack(&mut self, words: usize) -> Res<ValueStack> {
         match ValueStack::in_window(self.window.as_ref(), words) {
