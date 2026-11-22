@@ -33,7 +33,11 @@ rayon = "1.10"
 find-msvc-tools = "0.1.12"
 # Markdown parsing for doc comments (`jaic::docs`): intra-doc link discovery and rewriting.
 pulldown-cmark = { version = "0.13", default-features = false }
-inkwell = { version = "0.11.0", default-features = false, features = ["llvm23-1", "target-x86", "target-aarch64", "target-webassembly", "target-systemz", "target-arm", "target-powerpc"] }
+# The backends every LLVM release has. jaic-llvm registers the others (AVR, PowerPC, SystemZ)
+# itself when the linked LLVM was built with them.
+inkwell = { version = "0.11.0", default-features = false, features = ["llvm23-1", "target-x86", "target-aarch64", "target-webassembly", "target-arm"] }
+# Only for the build script of jaic-llvm, which reads `llvm-config` through it.
+llvm-sys = { version = "231.0.2", default-features = false }
 
 [workspace.lints.rust]
 # Raw pointer and FFI code is confined to a few modules, each opting in with a scoped

@@ -36,14 +36,21 @@ The Rust side takes the version from `crates/jacket-config/src/llvm/version.rs`;
 
 `jaic -os wasm` also needs LLD's `wasm-ld` (`lld`, `lld-<major>`; [wasm target](../native/wasm-target.md)).
 
-### Registered backends and binary size
+### Backends
 
-`jaic` registers only the x86-64, AArch64 and WebAssembly backends (`target_machine` in `crates/jaic-llvm/src/lib.rs`), not all twenty, which would make the binary huge. The root `Cargo.toml` enables inkwell's `target-x86`, `target-aarch64` and `target-webassembly`. The asm parser stays because inline asm is assembled by the backend. Other architectures are rejected before LLVM sees them.
+`jaic` registers only the backends its targets use (`target_machine` in `crates/jaic-llvm/src/machine.rs`), not all of LLVM's, which would make the binary huge. The asm parser stays because inline asm is assembled by the backend.
+
+| Backend | Registered by | Needs |
+| --- | --- | --- |
+| x86, AArch64, WebAssembly, ARM | inkwell's `target-*` features in the root `Cargo.toml` | nothing: every LLVM release has them |
+| SystemZ, PowerPC, AVR | `initialize_optional_backends` | an LLVM built with the backend |
+
+`crates/jaic-llvm/build.rs` runs the linked LLVM's `llvm-config --targets-built` and sets `llvm_backend = "systemz"`, `"powerpc"` or `"avr"` for each one present. The official Windows releases have none of the three, so a Windows `jaic` can't build for s390x, PowerPC64 or AVR: asking for one fails with "the LLVM this jaic was built with has no backend for '<target>'". `-interp -target <triple>` still works, since it needs no backend.
 
 The release workflow strips packaged binaries, so their backtraces have no function names; build from source for symbolised ones.
 
 ## How to change it
 
-- **New target architecture:** an `Arch` variant in `crates/jaic/src/abi.rs`, the `target-<name>` inkwell feature, and `Target::initialize_<name>` in `target_machine`. Expect the binary to grow.
+- **New target architecture:** an `Arch` variant in `crates/jaic/src/abi.rs`, then either the `target-<name>` inkwell feature and `Target::initialize_<name>` in `target_machine` (if every LLVM release has the backend), or an `OPTIONAL` entry in `crates/jaic-llvm/build.rs` and a `register_backend!` call in `initialize_optional_backends`. Expect the binary to grow.
 - **New LLVM version:** change `llvm` in `.github/pins.json`; for a patch release that's the only edit. A new major or minor also changes the inkwell feature (`llvm23-1`; then `cargo update -p inkwell` and `check_dependency_age.py`), `crates/jacket-config/src/llvm/version.rs`, the apt key fingerprint in `install_ci_llvm_linux.sh`, the Homebrew formula in `release.yml`, `llvmPackages_NN` in `flake.nix` and `nix/jaic.nix`, and the Windows shim in `prepare.sh`. Recheck the workarounds in [LLVM backend](../native/llvm-backend.md). Search for `LLVM_SYS_`, `llvm@` and `llvm-[0-9]+` to find the rest.
 - Inkwell's `const_int` masks values to the type's width, so sign-extended `u64` arguments for narrow types behave as before.

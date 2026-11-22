@@ -125,32 +125,54 @@ pub(super) fn baseline_cpu(target: BuildTarget) -> &'static str {
     }
 }
 
-/// The target machine for `options`, and what it targets.
-/// Registers the AVR backend. Neither `inkwell` nor `llvm-sys` declares its initializers, but a
-/// release LLVM build that includes the target (`docs/tools/llvm-setup.md`) defines them.
-#[allow(
-    unsafe_code,
-    reason = "LLVM's C entry points for a backend the bindings omit"
-)]
-fn initialize_avr() {
-    unsafe extern "C" {
-        fn LLVMInitializeAVRTargetInfo();
-        fn LLVMInitializeAVRTarget();
-        fn LLVMInitializeAVRTargetMC();
-        fn LLVMInitializeAVRAsmPrinter();
-        fn LLVMInitializeAVRAsmParser();
-    }
-    // SAFETY: each takes no arguments and only fills LLVM's target registry; the caller holds
-    // the `Once` that serializes registration.
-    unsafe {
-        LLVMInitializeAVRTargetInfo();
-        LLVMInitializeAVRTarget();
-        LLVMInitializeAVRTargetMC();
-        LLVMInitializeAVRAsmPrinter();
-        LLVMInitializeAVRAsmParser();
-    }
+/// Declares and calls LLVM's C initializers of one backend the bindings do not register: each
+/// is only linked when the LLVM jaic links against was built with it (`build.rs` sets the
+/// `llvm_backend` cfg from `llvm-config --targets-built`).
+macro_rules! register_backend {
+    ($($init:ident),+ $(,)?) => {{
+        #[allow(unsafe_code, reason = "LLVM's C entry points for a backend the bindings omit")]
+        {
+            unsafe extern "C" {
+                $(fn $init();)+
+            }
+            // SAFETY: each takes no arguments and only fills LLVM's target registry; the caller
+            // holds the `Once` that serializes registration.
+            unsafe {
+                $($init();)+
+            }
+        }
+    }};
 }
 
+/// Registers the backends that some LLVM builds leave out, those this one has.
+fn initialize_optional_backends() {
+    #[cfg(llvm_backend = "systemz")]
+    register_backend!(
+        LLVMInitializeSystemZTargetInfo,
+        LLVMInitializeSystemZTarget,
+        LLVMInitializeSystemZTargetMC,
+        LLVMInitializeSystemZAsmPrinter,
+        LLVMInitializeSystemZAsmParser,
+    );
+    #[cfg(llvm_backend = "powerpc")]
+    register_backend!(
+        LLVMInitializePowerPCTargetInfo,
+        LLVMInitializePowerPCTarget,
+        LLVMInitializePowerPCTargetMC,
+        LLVMInitializePowerPCAsmPrinter,
+        LLVMInitializePowerPCAsmParser,
+    );
+    #[cfg(llvm_backend = "avr")]
+    register_backend!(
+        LLVMInitializeAVRTargetInfo,
+        LLVMInitializeAVRTarget,
+        LLVMInitializeAVRTargetMC,
+        LLVMInitializeAVRAsmPrinter,
+        LLVMInitializeAVRAsmParser,
+    );
+}
+
+/// The target machine for `options`, and what it targets.
 pub(super) fn target_machine(
     options: &Options,
 ) -> Result<(TargetMachine, TargetTriple, BuildTarget, jaic::abi::Arch), String> {
@@ -167,10 +189,8 @@ pub(super) fn target_machine(
         Target::initialize_x86(&config);
         Target::initialize_aarch64(&config);
         Target::initialize_webassembly(&config);
-        Target::initialize_system_z(&config);
         Target::initialize_arm(&config);
-        Target::initialize_power_pc(&config);
-        initialize_avr();
+        initialize_optional_backends();
     });
     let (triple, build_target) = match options.target {
         Some(t) => (TargetTriple::create(&t.to_string()), t),
@@ -182,7 +202,12 @@ pub(super) fn target_machine(
     let arch = build_target
         .arch()
         .ok_or_else(|| format!("unsupported target architecture in '{build_target}'"))?;
-    let target = Target::from_triple(&triple).map_err(|e| e.to_string())?;
+    let target = Target::from_triple(&triple).map_err(|e| {
+        format!(
+            "{e}: the LLVM this jaic was built with has no backend for '{build_target}'; \
+             build jaic against an LLVM that has it (docs/tools/llvm-setup.md#backends)"
+        )
+    })?;
     let (cpu, features) = cpu_and_features(
         options.cpu.as_deref(),
         options.features.as_deref(),
@@ -312,7 +337,7 @@ mod tests {
         // Registers the targets.
         target_machine(&Options::default()).expect("a host target machine");
         let context = Context::create();
-        for triple in [
+        let mut triples = vec![
             "x86_64-unknown-linux-gnu",
             "x86_64-unknown-linux-musl",
             "aarch64-unknown-linux-gnu",
@@ -325,13 +350,21 @@ mod tests {
             "wasm32-unknown-unknown",
             "i686-unknown-linux-gnu",
             "i686-unknown-linux-musl",
-            "s390x-unknown-linux-gnu",
-            "powerpc64-unknown-linux-gnu",
             "armv7-unknown-linux-gnueabihf",
             "thumbv7em-none-eabihf",
             "thumbv8m.main-none-eabihf",
-            "avr-none-elf",
-        ] {
+        ];
+        // The backends some LLVM builds leave out (official Windows releases have none).
+        if cfg!(llvm_backend = "systemz") {
+            triples.push("s390x-unknown-linux-gnu");
+        }
+        if cfg!(llvm_backend = "powerpc") {
+            triples.push("powerpc64-unknown-linux-gnu");
+        }
+        if cfg!(llvm_backend = "avr") {
+            triples.push("avr-none-elf");
+        }
+        for triple in triples {
             let ours = BuildTarget::parse(triple).unwrap().data_layout();
             let llvm_triple =
                 TargetTriple::create(&BuildTarget::parse(triple).unwrap().to_string());

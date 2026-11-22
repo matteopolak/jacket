@@ -18,6 +18,8 @@ Jacket builds for 32-bit WebAssembly, 32-bit x86 and ARM Linux, big-endian Linux
 | Cortex-M33 board | `Mps2_An505` | 4 bytes | `qemu-system-arm` |
 | AArch64 bare metal | `Qemu_Virt_Aarch64` | 8 bytes | `qemu-system-aarch64` |
 
+The Windows `jaic` can't build for s390x or PowerPC64, because the LLVM it links has no backend for them ([backends](../tools/llvm-setup.md#backends)).
+
 ## Start here: a 32-bit program in WebAssembly
 
 WebAssembly needs no cross toolchain, only a runtime. Install [wasmtime](https://wasmtime.dev), then:

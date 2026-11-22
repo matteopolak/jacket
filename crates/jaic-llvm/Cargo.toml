@@ -11,6 +11,8 @@ jaic = { path = "../jaic" }
 jaic-native = { path = "../jaic-native" }
 jacket-config = { path = "../jacket-config" }
 inkwell.workspace = true
+# Linked through inkwell; a direct dependency so build.rs sees `DEP_LLVM_23_CONFIG_PATH`.
+llvm-sys.workspace = true
 
 [features]
 default = ["dynamic"]
