@@ -50,6 +50,10 @@ case "$TRIPLE" in
         CONFIG_TRIPLE=armv8m.main-none-eabi
         ARCH_FLAGS="-mcpu=cortex-m33 -mfloat-abi=soft"
         ;;
+    # The Arduino Uno's core: objects for another AVR ISA level are refused at link time.
+    avr-none-elf)
+        ARCH_FLAGS="-mmcu=atmega328p"
+        ;;
 esac
 
 WORK="$OUT/build-$TRIPLE"
