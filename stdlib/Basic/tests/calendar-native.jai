@@ -1,6 +1,5 @@
 // Reviewed basic.md: POSIX normalization and -1 sentinel collision.
 #import "Basic";
-P :: #import "POSIX";
 
 main :: () {
     #if OS == .MACOS || OS == .LINUX || OS == .ANDROID {
