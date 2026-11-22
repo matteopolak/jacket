@@ -1,4 +1,5 @@
-"""The platform tables of `toolkit.platforms` and `crates/jaic/src/target.rs` name the same targets."""
+"""Every platform `toolkit.platforms` builds for is a target `crates/jaic/src/target.rs` names (the compiler
+also targets CPUs and systems the tools never build for: i686, s390x, bare metal)."""
 
 import re
 import unittest
@@ -12,7 +13,7 @@ RUST_ARCH = {"x64": "x86_64", "arm64": "aarch64"}
 
 def rust_os_names():
     body = re.search(r"OS_NAMES: \[&str; \d+\] = \[(.*?)\];", SOURCE, re.S).group(1)
-    return set(re.findall(r'"(\w+)"', body)) - {"wasm"}
+    return set(re.findall(r'"(\w+)"', body))
 
 
 def rust_cpu_names():
@@ -31,9 +32,9 @@ class PlatformTables(unittest.TestCase):
         # Guards the regexes above against a refactor of target.rs.
         self.assertTrue(rust_os_names() and rust_cpu_names() and rust_display_suffixes())
 
-    def test_os_and_cpu_names_match(self):
-        self.assertEqual({p.split("-")[0] for p in PLATFORMS}, rust_os_names())
-        self.assertEqual({p.split("-")[1] for p in PLATFORMS}, rust_cpu_names())
+    def test_every_platform_names_a_compiler_os_and_cpu(self):
+        self.assertLessEqual({p.split("-")[0] for p in PLATFORMS}, rust_os_names())
+        self.assertLessEqual({p.split("-")[1] for p in PLATFORMS}, rust_cpu_names())
 
     def test_every_platform_is_a_rust_target(self):
         suffixes = rust_display_suffixes()
