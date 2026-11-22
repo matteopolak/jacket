@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixes
+- Hovering a procedure or polymorphic struct whose parameters span several lines now shows every parameter on one line, not just the first line of the declaration.
+
 ## [0.37.0] - 2026-11-21
 
 `jacket migrate` updates code written for an older Jai, and GetRect draws text without a font set up.

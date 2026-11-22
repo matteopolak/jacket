@@ -1,5 +1,5 @@
 //! Text that describes procedures, types and entities.
-use super::completion::clip;
+use super::completion::one_line;
 use super::facts::{IdeCall, IdeKind, IdeName};
 use crate::ast;
 use crate::intern::Sym;
@@ -14,7 +14,7 @@ const HOVER_FIELDS: usize = 32;
 
 impl Compiler {
     fn ide_proc_header(&self, name: Sym, p: ProcId) -> String {
-        format!("{name} :: {}", clip(&self.ide_header_text(p)))
+        format!("{name} :: {}", one_line(&self.ide_header_text(p)))
     }
 
     /// A procedure's header as written, less the parameters `#bake_arguments` fixed.
@@ -233,7 +233,10 @@ impl Compiler {
                 )
             }
             Some(Resolved::Library(_)) => format!("{name} :: #library"),
-            Some(Resolved::PolyStruct(_)) => format!("{name} :: struct (polymorphic)"),
+            Some(Resolved::PolyStruct(ps)) => {
+                let lit = &self.ty.poly_structs[ps.0 as usize].lit;
+                format!("{name} :: {}", one_line(self.ide_snippet(lit.span)))
+            }
             // A constant whose `#run` failed still has the type the run returns.
             None if let EntityKind::Decl {
                 decl, ..
@@ -325,7 +328,7 @@ impl Compiler {
                     },
                 ) => {
                     call = Some(IdeCall::of_headers([&*self.proc(*p).lit.header]));
-                    (IdeKind::Function, clip(&self.ide_header_text(*p)))
+                    (IdeKind::Function, one_line(&self.ide_header_text(*p)))
                 }
                 EntityState::Done(Resolved::ProcSet(procedures)) => {
                     call = Some(IdeCall::of_headers(
@@ -335,7 +338,7 @@ impl Compiler {
                         IdeKind::Function,
                         procedures
                             .iter()
-                            .map(|p| clip(&self.ide_header_text(*p)))
+                            .map(|p| one_line(&self.ide_header_text(*p)))
                             .collect::<Vec<_>>()
                             .join(" | "),
                     )
@@ -369,8 +372,8 @@ impl Compiler {
                         call = Some(IdeCall::of_headers([&*lit.header]));
                     }
                     let detail = match decl.value.as_ref().map(|v| &v.kind) {
-                        Some(E::Proc(lit)) => clip(self.src.sources.snippet(lit.header.span)),
-                        _ => clip(self.src.sources.snippet(e.span)),
+                        Some(E::Proc(lit)) => one_line(self.src.sources.snippet(lit.header.span)),
+                        _ => one_line(self.src.sources.snippet(e.span)),
                     };
                     (kind, detail)
                 }

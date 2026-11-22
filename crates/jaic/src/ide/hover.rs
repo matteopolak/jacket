@@ -1,5 +1,5 @@
 //! Hover text and struct layouts at a position.
-use super::completion::clip;
+use super::completion::one_line;
 use super::definition::IdeModuleName;
 use super::facts::{IdeFieldSite, IdeHover, IdeLayout, IdeRef, IdeWhat, same_what};
 use crate::intern::Sym;
@@ -210,7 +210,7 @@ impl Compiler {
             // under the name used.
             IdeWhat::Procs(ps) => ps
                 .iter()
-                .map(|&p| format!("{name} :: {}", clip(&self.ide_header_text(p))))
+                .map(|&p| format!("{name} :: {}", one_line(&self.ide_header_text(p))))
                 .collect::<Vec<_>>()
                 .join("\n"),
             IdeWhat::Module(m) => {

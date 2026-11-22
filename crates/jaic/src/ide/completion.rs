@@ -809,14 +809,83 @@ pub(super) fn field(name: &str, detail: &str) -> IdeName {
     }
 }
 
-/// First line of a snippet, bounded.
-pub(super) fn clip(text: &str) -> String {
-    let line = text.lines().next().unwrap_or("").trim();
-    let line = line.trim_end_matches('{').trim_end();
-    if line.len() > 160 {
-        let end = line.floor_char_boundary(160);
-        format!("{}…", &line[..end])
-    } else {
-        line.to_string()
+/// A declaration's header as one line, bounded: the text up to its body, with comments dropped
+/// and the line breaks and indentation of a header written over several lines collapsed.
+///
+/// ```text
+/// copy :: (
+///     using source: Bits, // the bits to copy
+///     extra := 0,
+/// ) -> Bits {             =>  copy :: (using source: Bits, extra := 0) -> Bits
+/// ```
+pub(super) fn one_line(text: &str) -> String {
+    const LIMIT: usize = 160;
+    let mut out = String::new();
+    let mut depth = 0usize;
+    let mut space = false;
+    let mut chars = text.trim().chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '/' if chars.peek() == Some(&'/') => {
+                while chars.next_if(|&c| c != '\n').is_some() {}
+                space = true;
+                continue;
+            }
+            '/' if chars.peek() == Some(&'*') => {
+                chars.next();
+                let mut open = 1;
+                while open > 0
+                    && let Some(c) = chars.next()
+                {
+                    if c == '/' && chars.next_if_eq(&'*').is_some() {
+                        open += 1;
+                    } else if c == '*' && chars.next_if_eq(&'/').is_some() {
+                        open -= 1;
+                    }
+                }
+                space = true;
+                continue;
+            }
+            c if c.is_whitespace() => {
+                space = true;
+                continue;
+            }
+            // The body, or the end of the declaration; `.{` is a literal.
+            '{' if depth == 0 && !out.ends_with('.') => break,
+            ';' if depth == 0 => break,
+            _ => {}
+        }
+        let closer = matches!(c, ')' | ']' | '}');
+        if closer && out.ends_with(',') {
+            out.pop();
+        }
+        // `(` and `[` hug what they enclose.
+        let hugged = out.ends_with(['(', '[']) || matches!(c, ')' | ']');
+        if space && !out.is_empty() && !hugged {
+            out.push(' ');
+        }
+        space = false;
+        out.push(c);
+        match c {
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth = depth.saturating_sub(1),
+            '"' => {
+                while let Some(c) = chars.next() {
+                    out.push(c);
+                    match c {
+                        '\\' => out.extend(chars.next()),
+                        '"' => break,
+                        _ => {}
+                    }
+                }
+            }
+            _ => {}
+        }
     }
+    if out.len() > LIMIT {
+        let end = out.floor_char_boundary(LIMIT);
+        out.truncate(end);
+        out.push('…');
+    }
+    out
 }
