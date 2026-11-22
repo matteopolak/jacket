@@ -65,7 +65,7 @@ jacket doc               # build the API docs site
 
 ## Other targets
 
-Besides macOS, Linux and Windows on x64 and arm64, Jacket builds for WebAssembly, 32-bit x86 and ARM Linux, big-endian s390x and PowerPC64 Linux, and bare-metal Cortex-M and AArch64 boards. The [32-bit and embedded guide](docs/guides/other-targets.md) shows how to build for each one and run it in QEMU.
+Besides macOS, Linux and Windows on x64 and arm64, Jacket builds for WebAssembly, 32-bit x86 and ARM Linux, big-endian s390x and PowerPC64 Linux, and bare-metal Cortex-M and AArch64 boards. The [32-bit and embedded guide](docs/guides/other-targets.md) shows how to build for each one and run it in QEMU. The 32-bit, big-endian and bare-metal targets are experimental.
 
 ## Contributing
 

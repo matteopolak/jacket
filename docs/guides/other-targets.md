@@ -2,6 +2,9 @@
 
 Jacket builds for 32-bit WebAssembly, 32-bit x86 and ARM Linux, big-endian Linux, and microcontrollers with no operating system. This page builds and runs a program on each, then links to the reference docs.
 
+> [!WARNING]
+> Experimental: these targets and their APIs may change in any release.
+
 ## What you can build for
 
 | Target | `--target` | Pointers | Run it with |

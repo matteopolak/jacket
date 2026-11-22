@@ -1,6 +1,7 @@
 // Freestanding programs: no operating system, no libc, no heap unless a board provides one
 // (`OS == .NONE`). The runtime is yours to start (`init_runtime`), and the board's console and
 // failure behaviour are hooks you set.
+// @experimental
 //
 // ```jai,ignore
 // #import "Basic";

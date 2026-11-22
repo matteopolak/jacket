@@ -2,6 +2,9 @@
 
 A freestanding target has no operating system: `Operating_System_Tag.NONE`, a triple such as `aarch64-none-elf`, no libc, no threads and no system entry point. The program supplies its own reset code, and the board supplies memory, console and heap.
 
+> [!WARNING]
+> Experimental: these targets and their APIs may change in any release.
+
 `aarch64-none-elf` and the Cortex-M triples `thumbv7em-none-eabihf` (Cortex-M4F) and `thumbv8m.main-none-eabihf` (Cortex-M33) build. They are 32-bit targets: 4-byte pointers, Thumb-2 code, the hard-float AAPCS. 16-bit AVR waits on the N-bit layout work.
 
 ## How it works

@@ -2,6 +2,8 @@
 
 `jaic::target::Target` (`crates/jaic/src/target.rs`) is the one value for what a program is built for: `os`, `cpu`, `abi` (`Msvc`, `Gnu`, `Musl`, `Apple`, `Wasi`, `Unknown`), plus `memory32` for `wasm32`. `Display` writes the LLVM triple.
 
+The 32-bit (`wasm32`, i686, armv7, Cortex-M), big-endian (s390x, powerpc64) and freestanding targets are experimental: their behaviour and APIs may change in any release.
+
 ```text
 x86_64-pc-windows-msvc   aarch64-unknown-linux-gnu   wasm64-unknown-wasi   wasm32-wasi
 ```

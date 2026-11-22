@@ -2,6 +2,9 @@
 
 `Extensions/Embedded` is what a program with no operating system (`os_target = .NONE`) needs: a runtime to start, memory maps and linker scripts, volatile access, the section and interrupt notes, CPU hints, flash image formats, and boards. [Embedded and freestanding targets](../native/embedded.md) covers the target itself.
 
+> [!WARNING]
+> Experimental: this module's API may change in any release.
+
 ```jai
 #import "Basic";
 #import "Extensions/Embedded";
