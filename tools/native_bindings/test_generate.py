@@ -291,7 +291,7 @@ class CommittedRecordLayoutTests(unittest.TestCase):
         # A union listed ahead of the members that precede it in the header
         # moves every later field, so the anchor must already be declared.
         bad = []
-        for path in sorted((ROOT / 'stdlib').rglob('declarations.jai')):
+        for path in sorted([*(ROOT / 'stdlib').rglob('declarations.jai'), *(ROOT / 'stdlib').rglob('declarations/*.jai')]):
             for name, members in self.records(path.read_text()):
                 seen = set()
                 for line in members:
@@ -310,7 +310,7 @@ class CommittedRecordLayoutTests(unittest.TestCase):
         # `get_x`/`set_x` read bits of `__bitfield`; a field named `x` as well
         # would add storage the C record does not have.
         bad = []
-        for path in sorted((ROOT / 'stdlib').rglob('declarations.jai')):
+        for path in sorted([*(ROOT / 'stdlib').rglob('declarations.jai'), *(ROOT / 'stdlib').rglob('declarations/*.jai')]):
             text = path.read_text()
             views = {}
             for m in re.finditer(r'^\s*(?:get|set)_(\w+) :: \(fields: \*?(\w+)', text, re.M):
@@ -320,6 +320,28 @@ class CommittedRecordLayoutTests(unittest.TestCase):
                 if '__bitfield' in fields:
                     bad += [f'{path.parent.name}.{name}.{v}' for v in sorted(views.get(name, set()) & fields)]
         self.assertEqual(bad, [])
+
+
+    def test_large_platform_groups_move_to_their_own_files(self):
+        from generate import split_platforms
+        import generate
+        body = '\n'.join('    f%d :: () -> s32 #foreign libc;' % n for n in range(generate.SPLIT_MIN_LINES))
+        code = ('// Generated.\n// Regenerate.\n\n#scope_file\nlibc :: #library,system "c";\n#scope_export\n\n'
+                'shared :: s32;\n\n#if OS == .LINUX && ARCHITECTURE == .X86 {\n' + body + '\n}\n\n'
+                '#if OS == .MACOS {\n    small :: s32;\n}\n\n'
+                '#if OS == .LINUX && ARCHITECTURE == .X86 {\n    chained :: s32;\n} else {\n    chained :: s64;\n}\n')
+        text, files = split_platforms(code)
+        self.assertEqual(list(files), ['linux-x86.jai'])
+        moved = files['linux-x86.jai']
+        # The loaded file repeats the file-scoped preamble and drops the `#if` wrapper.
+        self.assertIn('#scope_file\nlibc :: #library,system "c";\n#scope_export', moved)
+        self.assertIn('\nf0 :: () -> s32 #foreign libc;', moved)
+        self.assertNotIn('#if', moved)
+        self.assertIn('#if OS == .LINUX && ARCHITECTURE == .X86 { #load "declarations/linux-x86.jai"; }', text)
+        # A small group and an `else` chain stay in the loader.
+        self.assertIn('#if OS == .MACOS {\n    small :: s32;\n}', text)
+        self.assertIn('chained :: s64;', text)
+        self.assertNotIn('f0 ::', text)
 
 
 if __name__ == '__main__':

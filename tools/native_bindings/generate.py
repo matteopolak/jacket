@@ -27,6 +27,58 @@ MANUAL_FACADE_SOURCES = {
 }
 
 
+# A platform whose declarations run to at least this many lines gets a file of its own under
+# `declarations/`, loaded behind its `#if`: a `#load` under a false `#if` reads nothing, so a
+# compile for another platform never parses them.
+SPLIT_MIN_LINES = 400
+SINGLE_PLATFORM = re.compile(r'#if (OS == \.(\w+)(?: && (?:CPU|ARCHITECTURE) == \.(\w+))?) \{')
+
+
+def split_platforms(code):
+    """Move each large group of top-level single-platform `#if` blocks of a generated
+    `declarations.jai` into its own file. Returns the new text and `{file name: text}`; each file
+    repeats the file-scoped preamble, since a loaded file cannot see the loader's `#scope_file`.
+
+    A block is `#if OS == .X {` or `#if OS == .X && CPU == .Y {` at column 0, closed by a lone `}`
+    (an `else` chain stays where it is)."""
+    lines = code.split('\n')
+    export = lines.index('#scope_export')
+    header, preamble = lines[:3], lines[3:export + 1]
+    blocks = defaultdict(list)  # condition -> [(start, end)]
+    i = export + 1
+    while i < len(lines):
+        head = SINGLE_PLATFORM.fullmatch(lines[i])
+        if not head:
+            i += 1
+            continue
+        depth, j = 1, i + 1
+        while depth:
+            depth += lines[j].count('{') - lines[j].count('}')
+            j += 1
+        if not any(line.startswith('} else') for line in lines[i + 1:j]):
+            blocks[head[1]].append((i, j))
+        i = j
+    moved, files, conditions = set(), {}, {}
+    for condition, spans in blocks.items():
+        if sum(end - start for start, end in spans) < SPLIT_MIN_LINES:
+            continue
+        head = SINGLE_PLATFORM.fullmatch('#if ' + condition + ' {')
+        name = '-'.join(part.lower() for part in (head[2], head[3]) if part) + '.jai'
+        conditions[name] = condition
+        body = []
+        for start, end in spans:
+            moved.update(range(start, end))
+            body += [line.removeprefix('    ') for line in lines[start + 1:end - 1]] + ['']
+        files[name] = '\n'.join(header + ['// The declarations for `' + condition + '`, loaded by declarations.jai.', ''] +
+                                preamble + [''] + body).rstrip() + '\n'
+    kept = [line for index, line in enumerate(lines) if index not in moved]
+    loads = ['#if ' + condition + ' { #load "declarations/' + name + '"; }' for name, condition in sorted(conditions.items())]
+    text = '\n'.join(kept).rstrip() + '\n'
+    if loads:
+        text += '\n// Each platform\'s own declarations, parsed only when compiling for it.\n' + '\n'.join(loads) + '\n'
+    return text, files
+
+
 def format_source(code, formatter):
     if not formatter:
         return code
@@ -704,13 +756,21 @@ def main():
                 preamble.append(name + ' :: #library,system "' + LIBRARIES.get(name, name) + '";' + external_note(LIBRARIES.get(name, name)))
         preamble.append('#scope_export')
         code = ('// Generated from ' + str(page.relative_to(ROOT)) + '.\n// Regenerate with tools/native_bindings/generate.py; do not hand-edit.\n\n' + '\n'.join(preamble) + '\n\n' + code).rstrip()+'\n'
-        code = format_source(code, args.formatter)
+        code, platform_files = split_platforms(format_source(code, args.formatter))
+        outputs = {path: format_source(code, args.formatter) if platform_files else code}
+        outputs.update({path.parent / 'declarations' / name: format_source(text, args.formatter)
+                        for name, text in platform_files.items()})
+        obsolete = [old for old in sorted((path.parent / 'declarations').glob('*.jai')) if old not in outputs]
         if args.check:
-            if not path.exists() or path.read_text() != code:
-                stale.append(str(path.relative_to(ROOT)))
+            stale += [str(out.relative_to(ROOT)) for out, text in outputs.items()
+                      if not out.exists() or out.read_text() != text]
+            stale += [str(old.relative_to(ROOT)) for old in obsolete]
         else:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(code)
+            for out, text in outputs.items():
+                out.parent.mkdir(parents=True, exist_ok=True)
+                out.write_text(text)
+            for old in obsolete:
+                old.unlink()
         entry = ROOT / 'stdlib' / module / 'module.jai'
         entry_code = '\n'.join(spec.parameter_blocks or [PARAMETERS.get(module, '')]) + '\n'
         # A hand-written module doc comment (with its examples) leads the generated entry file.
