@@ -28,16 +28,13 @@ fn names_script(args: &[String]) -> bool {
         .any(|a| a == "-T" || a.starts_with("-T") || a == "--script" || a.starts_with("--script="))
 }
 
-/// The `-m` emulation of `ld.lld` for a freestanding CPU.
-fn emulation(cpu: TargetCpu) -> Result<&'static str, String> {
+/// The `-m` emulation of `ld.lld` for a freestanding CPU; `None` for AVR, which has no name
+/// and is read from the objects.
+fn emulation(cpu: TargetCpu) -> Result<Option<&'static str>, String> {
     match cpu {
-        TargetCpu::Arm64 => Ok("aarch64elf"),
-        TargetCpu::Arm => Ok("armelf"),
-        TargetCpu::Avr => Err(
-            "ld.lld cannot link AVR programs (it has no AVR backend), and jaic has no other \
-             linker for a freestanding target"
-                .into(),
-        ),
+        TargetCpu::Arm64 => Ok(Some("aarch64elf")),
+        TargetCpu::Arm => Ok(Some("armelf")),
+        TargetCpu::Avr => Ok(None),
         other => Err(format!("jaic cannot link a freestanding {other:?} program")),
     }
 }
@@ -55,8 +52,10 @@ fn lld_command(
             .into());
     }
     let mut cmd = Command::new(lld);
-    cmd.args(["-m", emulation(link.target.cpu)?])
-        .args(["-static", "-nostdlib", "--gc-sections"])
+    if let Some(emulation) = emulation(link.target.cpu)? {
+        cmd.args(["-m", emulation]);
+    }
+    cmd.args(["-static", "-nostdlib", "--gc-sections"])
         .arg("-o")
         .arg(link.output)
         .args(link.objects);
@@ -180,6 +179,18 @@ mod tests {
                 "board.ld"
             ]
         );
+    }
+
+    /// `ld.lld` has no `-m` name for AVR: it takes the machine from the objects.
+    #[test]
+    fn an_avr_link_names_no_emulation() {
+        let extra = ["-T".to_string(), "board.ld".to_string()];
+        let request = FreestandingLink {
+            target: Target::parse("avr-none-elf").unwrap(),
+            ..link(&[], &extra)
+        };
+        let cmd = lld_command(Path::new("ld.lld"), &request, None).unwrap();
+        assert!(!args(&cmd).contains(&"-m".to_string()), "{:?}", args(&cmd));
     }
 
     #[test]
