@@ -9,11 +9,12 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 arch="${JAIC_CROSS_ARCH:-}"
 guest=()
+floor=0
 case "$arch" in
   i686) qemu=qemu-i386 sysroot=/usr/i686-linux-gnu guest=(-R 3G) ;;
   s390x) qemu=qemu-s390x sysroot=/usr/s390x-linux-gnu ;;
   powerpc64) qemu=qemu-ppc64 sysroot=/usr/powerpc64-linux-gnu ;;
-  armv7) qemu=qemu-arm sysroot=/usr/arm-linux-gnueabihf guest=(-R 3G) ;;
+  armv7) qemu=qemu-arm sysroot=/usr/arm-linux-gnueabihf floor=5242880 ;;
   *)
     echo "qemu_run.sh: set JAIC_CROSS_ARCH to i686, s390x, powerpc64 or armv7" >&2
     exit 2
@@ -27,6 +28,8 @@ fi
 # (QEMU_MEMORY_KB, default 4 GiB; 32-bit guests also get a 3 GiB guest space) and it is killed after QEMU_TIMEOUT seconds (default 300),
 # qemu included, whether it ends or not.
 limit="${QEMU_MEMORY_KB:-4194304}"
+# qemu-arm reserves the whole 4 GiB guest space, so its address-space cap must be above that.
+[ "$limit" -ge "$floor" ] || limit=$floor
 seconds="${QEMU_TIMEOUT:-300}"
 exec "$here/linux_x64.sh" cross-exec -- sh -c "ulimit -v $limit; exec timeout -k 5 $seconds \"\$@\"" sh \
   env "QEMU_LD_PREFIX=$sysroot" "$qemu" ${guest[@]+"${guest[@]}"} -L "$sysroot" "$@"
