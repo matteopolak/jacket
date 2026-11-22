@@ -26,7 +26,7 @@ The `Qemu_Virt_Aarch64` and `Mps2_An386` boards in [Extensions/Embedded](../exte
 
 ```sh
 jaic build.jai    # writes prog.elf
-qemu-system-aarch64 -M virt -cpu cortex-a53 -nographic \
+qemu-system-aarch64 -M virt -cpu cortex-a53 -nographic -nic none \
     -semihosting-config enable=on,target=native -kernel prog.elf
 ```
 

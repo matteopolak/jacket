@@ -134,7 +134,15 @@ fn a_none_program_runs_on_qemu_and_exits_through_semihosting() {
         }
         assert!(built.status.success(), "jaic build.jai failed:\n{stderr}");
         let run = Command::new(&qemu)
-            .args(["-M", "virt", "-cpu", "cortex-a53", "-nographic"])
+            .args([
+                "-M",
+                "virt",
+                "-cpu",
+                "cortex-a53",
+                "-nographic",
+                "-nic",
+                "none",
+            ])
             .args(["-semihosting-config", "enable=on,target=native"])
             .arg("-kernel")
             .arg(dir.join("prog.elf"))
@@ -281,7 +289,15 @@ fn console(out: &Output) -> String {
 /// is a failure, not a hung test run.
 fn qemu_run(qemu: &Path, elf: &Path) -> Output {
     let mut child = Command::new(qemu)
-        .args(["-M", "virt", "-cpu", "cortex-a53", "-nographic"])
+        .args([
+            "-M",
+            "virt",
+            "-cpu",
+            "cortex-a53",
+            "-nographic",
+            "-nic",
+            "none",
+        ])
         .args(["-semihosting-config", "enable=on,target=native"])
         .arg("-kernel")
         .arg(elf)

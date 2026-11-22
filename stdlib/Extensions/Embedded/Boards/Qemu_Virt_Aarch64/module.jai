@@ -34,7 +34,7 @@
 // Run the result with
 //
 // ```sh
-// qemu-system-aarch64 -M virt -cpu cortex-a53 -nographic \
+// qemu-system-aarch64 -M virt -cpu cortex-a53 -nographic -nic none \
 //     -semihosting-config enable=on,target=native -kernel app.elf
 // ```
 //

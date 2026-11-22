@@ -15,7 +15,7 @@ const BUILT_IN: &[(&str, &str, &str)] = &[
     (
         "Qemu_Virt_Aarch64",
         "aarch64-none-elf",
-        "qemu-system-aarch64 -M virt -cpu cortex-a53 -nographic \
+        "qemu-system-aarch64 -M virt -cpu cortex-a53 -nographic -nic none \
          -semihosting-config enable=on,target=native -kernel {exe} -append {args}",
     ),
     (
