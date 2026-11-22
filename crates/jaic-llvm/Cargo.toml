@@ -26,3 +26,7 @@ test-support = { path = "../test-support", features = ["backend"] }
 
 [lints]
 workspace = true
+
+# build.rs reads `DEP_LLVM_23_CONFIG_PATH`, which only a direct dependent of llvm-sys gets.
+[package.metadata.cargo-machete]
+ignored = ["llvm-sys"]
