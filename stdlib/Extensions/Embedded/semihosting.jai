@@ -3,6 +3,7 @@
 // Cortex-M). A board that has no other console provides the trap as the symbol `semihost` (see
 // `Qemu_Virt_Aarch64`, `Mps2_An386`) and starts its program through `start_semihosted`.
 
+// The procedure a board's start function runs: the program's `main`.
 Program :: #type ();
 
 // Runs `program` as the machine starts it: sets up the runtime, sends output and panics to the

@@ -6,10 +6,12 @@
 // handler. The linker script puts `.vector_table` first (see `Memory_Map`), so the image must be
 // linked at the address the core boots from.
 //
-//     0x00  initial stack pointer     0x14  bus fault        0x2c  SVCall
-//     0x04  reset                     0x18  usage fault      0x38  PendSV
-//     0x08  NMI                       0x1c  (reserved)       0x3c  SysTick
-//     0x0c  hard fault                0x10  memory fault     0x40  device interrupts...
+// ```
+// 0x00  initial stack pointer     0x14  bus fault        0x2c  SVCall
+// 0x04  reset                     0x18  usage fault      0x38  PendSV
+// 0x08  NMI                       0x1c  (reserved)       0x3c  SysTick
+// 0x0c  hard fault                0x10  memory fault     0x40  device interrupts...
+// ```
 //
 // A program that uses interrupts places its own table with `@Section(".vector_table")` instead
 // and calls `start_semihosted` (or its own startup) from its reset handler.

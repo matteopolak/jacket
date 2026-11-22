@@ -29,8 +29,10 @@
 //
 // Run the result with
 //
-//     qemu-system-aarch64 -M virt -cpu cortex-a53 -nographic \
-//         -semihosting-config enable=on,target=native -kernel app.elf
+// ```sh
+// qemu-system-aarch64 -M virt -cpu cortex-a53 -nographic \
+//     -semihosting-config enable=on,target=native -kernel app.elf
+// ```
 //
 // The console goes to QEMU's standard output and the process exits with the program's status (a
 // returning `main` is 0, a panic is 1).

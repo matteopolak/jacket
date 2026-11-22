@@ -16,6 +16,7 @@ set_console_hook :: (hook: Console_Hook) #no_context {
     Impl.console_hook = hook;
 }
 
+// Calls `hook` when the program cannot continue (see `Panic_Hook`).
 set_panic_hook :: (hook: Panic_Hook) #no_context {
     Impl.panic_hook = hook;
 }
@@ -23,6 +24,7 @@ set_panic_hook :: (hook: Panic_Hook) #no_context {
 // Ends the run with a status: a debugger or an emulator reads it (semihosting's exit call).
 Exit_Hook :: Impl.Exit_Hook;
 
+// Ends the run through `hook` (see `Exit_Hook`).
 set_exit_hook :: (hook: Exit_Hook) #no_context {
     Impl.exit_hook = hook;
 }
@@ -33,13 +35,14 @@ exit :: (status: s32) #no_context {
     Impl.exit_program(status);
 }
 
-// The command line the board started the program with, the program's name first, as a hosted
-// `get_command_line_arguments` gives it. A board that can pass one (QEMU's semihosting command
-// line) sets it before `main`; otherwise it is empty.
+// Sets what `arguments` returns. A board that can pass a command line (QEMU's semihosting
+// command line) calls it before `main`.
 set_arguments :: (arguments: [] string) #no_context {
     Impl.program_arguments = arguments;
 }
 
+// The command line the board started the program with, the program's name first, as a hosted
+// `get_command_line_arguments` gives it. Empty when the board passes none.
 arguments :: () -> [] string {
     return Impl.program_arguments;
 }
@@ -114,6 +117,7 @@ make_heap :: () -> Heap #no_context {
     return .{ cast(*u8) *__heap_start, cast(*u8) *__heap_end, null };
 }
 
+// An `Allocator` over `heap`. The newest block resizes in place; anything else gets a fresh block.
 heap_allocator :: (heap: *Heap) -> Allocator #no_context {
     return .{ heap_allocator_proc, heap };
 }

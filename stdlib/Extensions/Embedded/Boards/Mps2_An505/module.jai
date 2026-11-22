@@ -31,8 +31,10 @@
 //
 // Run the result with
 //
-//     qemu-system-arm -M mps2-an505 -cpu cortex-m33 -nographic \
-//         -semihosting-config enable=on,target=native -kernel app.elf
+// ```sh
+// qemu-system-arm -M mps2-an505 -cpu cortex-m33 -nographic \
+//     -semihosting-config enable=on,target=native -kernel app.elf
+// ```
 //
 // The console goes to QEMU's standard output and the process exits with the program's status (a
 // returning `main` is 0, a panic or a fault is 1).

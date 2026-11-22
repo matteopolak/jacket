@@ -2,7 +2,6 @@
 // it configures the workspace for the board, and with the option `tests` also exports the reset
 // function that runs `jacket test`'s entry point (`+Extensions/Testing/Discovery` adds it), so the
 // tests need no `jai_start`. Runs in the metaprogram, on the host.
-
 Board_Plugin :: struct {
     #as using base: Metaprogram_Plugin;
     // The board's module, as an import path: `Extensions/Embedded/Boards/Qemu_Virt_Aarch64`.

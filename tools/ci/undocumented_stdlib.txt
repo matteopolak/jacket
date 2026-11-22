@@ -1694,7 +1694,6 @@ Runtime_Support.runtime_support_default_logger
 Runtime_Support.to_string
 Runtime_Support.write_nonnegative_number
 Runtime_Support.write_number
-Runtime_Support.write_string
 Runtime_Support.write_string_unsynchronized
 Runtime_Support.write_strings
 Runtime_Support_Crash_Handler

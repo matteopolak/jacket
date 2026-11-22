@@ -42,6 +42,7 @@ write_binary :: (elf_path: string, base: string, formats: Output_Formats, uf2_fa
     return true, "";
 }
 
+// The `size`-byte little-endian integer at `offset` in `bytes`.
 read_le :: (bytes: [] u8, offset: s64, size: s64) -> u64 {
     value: u64;
     for 0..size - 1 value |= (cast(u64) bytes[offset + it]) << cast(u64) (8 * it);
@@ -115,6 +116,7 @@ binary_image :: (segments: [] Segment) -> [] u8 {
 
 hex_digits :: "0123456789ABCDEF";
 
+// Appends `value` as `digits` upper-case hex digits, leading zeros kept.
 append_hex :: (builder: *String_Builder, value: u64, digits: s64) {
     shift := 4 * (digits - 1);
     while shift >= 0 {
@@ -175,6 +177,7 @@ intel_hex :: (segments: [] Segment, entry: u64) -> string {
 UF2_PAYLOAD :: 256;
 UF2_BLOCK :: 512;
 
+// Writes `value` as 4 little-endian bytes at `offset` in `bytes`.
 put_le :: (bytes: [] u8, offset: s64, value: u32) {
     for 0..3 bytes[offset + it] = cast,no_check(u8) (value >> cast(u32) (8 * it));
 }

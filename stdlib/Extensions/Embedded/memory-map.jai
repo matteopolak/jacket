@@ -12,8 +12,10 @@ Region :: struct {
 
 // Where the program lives. The image is laid out as
 //
-//     flash:  .vector_table  .text  .rodata  (initial values of .data)
-//     ram:    .data  .bss  heap ...  stack
+// ```
+// flash:  .vector_table  .text  .rodata  (initial values of .data)
+// ram:    .data  .bss  heap ...  stack
+// ```
 //
 // With no `flash` (length 0) code, constants and data all go in `ram`, as when a loader copies the
 // program into memory.
