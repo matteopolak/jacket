@@ -7,7 +7,7 @@ Jacket builds for 32-bit, big-endian and bare-metal targets, and Sound_Player no
 ### Highlights
 
 - New targets: WebAssembly (`wasm32-wasi`), i686, ARMv7, s390x and PowerPC64 Linux, run under qemu-user ([targets](docs/compiler/targets.md)).
-- Bare-metal AArch64 and Cortex-M programs, with QEMU boards in `Extensions/Embedded` ([embedded](docs/native/embedded.md)).
+- Bare-metal AArch64, Cortex-M and AVR (Arduino Uno) programs, with QEMU boards in `Extensions/Embedded` ([embedded](docs/native/embedded.md)).
 - `jacket build|run|test --target NAME` builds for a target or board and runs on its emulator. `jacket targets` lists them.
 - New lint rules, off by default: `freestanding` and `narrow_pointers`.
 - A new guide: [32-bit and embedded](docs/guides/other-targets.md).

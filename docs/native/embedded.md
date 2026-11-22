@@ -61,3 +61,22 @@ Build the builtins with `tools/embedded/build-compiler-rt.sh [TRIPLE] [OUT_DIR]`
 tools/embedded/build-compiler-rt.sh aarch64-none-elf
 export JAIC_COMPILER_RT=$PWD/target/compiler-rt
 ```
+
+## AVR (Arduino Uno)
+
+`Extensions/Embedded/Boards/Arduino_Uno` builds for `avr-none-elf` (ATmega328P, 2-byte pointers):
+
+```sh
+jaic app.jai +Extensions/Embedded/Boards/Arduino_Uno
+qemu-system-avr -M uno -bios app -nographic -serial stdio -monitor none
+```
+
+How it differs from the other boards:
+
+- Flash and RAM are separate address spaces, so ordinary loads cannot read flash. `.data` and `.rodata` live in RAM and the reset code in `Extensions/Embedded/avr.jai` copies them from flash with `lpm`.
+- Code pointers are word addresses in flash (address space 1). The compiler casts them to and from plain pointers and casts the callee back before an indirect call.
+- The linker script places flash at 0 and RAM at `0x800100`; lld truncates addresses to 16 bits. Link with `ld.lld`; it needs no `-m` for AVR.
+- `__mulsi3` and `abort` come from `avr.jai`. The rest of the runtime builtins come from `tools/embedded/build-compiler-rt.sh avr-none-elf <dir>`, which builds for `atmega328p`; point `JAIC_COMPILER_RT` at `<dir>`. At `-O0` the compiler raises AVR to `-O1`, because the fast register allocator cannot place 64-bit values.
+- The compile-time buffers shrink to fit the 16-bit window, so `-check` works for AVR programs.
+
+Limit: a program that imports `Basic` carries about 14 KB of code and 19 KB of data (type information and a 4 KB string builder), which does not fit the Uno's 32 KB flash and 2 KB RAM, so it links only into a larger memory map. Trimming that data is not done. Only the compile-time check is tested in CI; the Windows `jaic` has no AVR backend.

@@ -14,11 +14,12 @@ Jacket builds for 32-bit WebAssembly, 32-bit x86 and ARM Linux, big-endian Linux
 | 32-bit ARM Linux (Raspberry Pi and friends) | `armv7-unknown-linux-gnueabihf` | 4 bytes | the machine itself, or `qemu-arm` |
 | IBM Z Linux, big-endian | `s390x-unknown-linux-gnu` | 8 bytes | `qemu-s390x` |
 | POWER Linux, big-endian | `powerpc64-unknown-linux-gnu` | 8 bytes | `qemu-ppc64` |
+| Arduino Uno (AVR, 8-bit) | `Arduino_Uno` | 2 bytes | `qemu-system-avr` |
 | Cortex-M4F board | `Mps2_An386` | 4 bytes | `qemu-system-arm` |
 | Cortex-M33 board | `Mps2_An505` | 4 bytes | `qemu-system-arm` |
 | AArch64 bare metal | `Qemu_Virt_Aarch64` | 8 bytes | `qemu-system-aarch64` |
 
-The Windows `jaic` can't build for s390x or PowerPC64, because the LLVM it links has no backend for them ([backends](../tools/llvm-setup.md#backends)).
+The Windows `jaic` can't build for AVR, s390x or PowerPC64, because the LLVM it links has no backend for them ([backends](../tools/llvm-setup.md#backends)).
 
 ## Start here: a 32-bit program in WebAssembly
 
