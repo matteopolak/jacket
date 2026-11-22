@@ -22,7 +22,9 @@ class WindowsCrtProvider(unittest.TestCase):
 
     def test_all_reviewed_crt_signatures_preserved(self):
         reviewed = (ROOT / "docs/specs/stdlib/modules/windows.md").read_text()
-        source = (ROOT / "stdlib/Windows/declarations.jai").read_text()
+        # Large per-platform groups live in `declarations/`, loaded by declarations.jai.
+        files = [ROOT / "stdlib/Windows/declarations.jai", *sorted((ROOT / "stdlib/Windows/declarations").glob("*.jai"))]
+        source = "".join(f.read_text() for f in files)
         signatures = re.findall(r"`([^`\n]+#foreign Crt)`", reviewed)
         self.assertEqual({line.split(" ::", 1)[0] for line in signatures}, SYMBOLS)
         for signature in signatures:
