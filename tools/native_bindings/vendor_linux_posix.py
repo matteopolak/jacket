@@ -14,7 +14,6 @@ name the spec exports, and writes the differences to
 """
 import argparse
 import json
-from pathlib import Path
 import re
 import subprocess
 import sys
@@ -95,10 +94,10 @@ def evaluate_constants(arch, names, macros):
         text = PROBE_PRELUDE + ''.join('#include <%s>\n' % h for h in PROBE_HEADERS)
         text += 'enum {\n' + ''.join('    __v_%s = (%s),\n' % (n, n) for n in wanted) + '};\n'
         (directory/'constants.c').write_text(text)
-        out = subprocess.run([str(CONTAINER), 'cross-exec', '--', 'sh', '-c',
-                              'cd %s && clang --target=%s -isystem %s/include -Xclang -ast-dump=json '
-                              '-fsyntax-only constants.c 2> errors.txt > constants.json' % (directory, triple, sysroot)],
-                             capture_output=True, text=True)
+        subprocess.run([str(CONTAINER), 'cross-exec', '--', 'sh', '-c',
+                        'cd %s && clang --target=%s -isystem %s/include -Xclang -ast-dump=json '
+                        '-fsyntax-only constants.c 2> errors.txt > constants.json' % (directory, triple, sysroot)],
+                       capture_output=True, text=True)
         errors = (directory/'errors.txt').read_text()
         bad = {int(m[1]) for m in re.finditer(r'constants\.c:(\d+):\d+: error:', errors)}
         if not bad:
