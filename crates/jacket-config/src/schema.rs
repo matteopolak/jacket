@@ -23,6 +23,25 @@ pub struct Config {
     pub test: Test,
     #[serde(default, skip_serializing_if = "Doc::is_empty")]
     pub doc: Doc,
+    /// Named build targets (`[target.pico]`) that `--target` selects.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub target: BTreeMap<String, Target>,
+}
+
+/// One `[target.<name>]`: what `--target <name>` builds for and how it runs the result.
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+pub struct Target {
+    /// The LLVM target triple (`aarch64-none-elf`). A board supplies it when this is left out.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub triple: Option<String>,
+    /// A board module under `Extensions/Embedded/Boards` (`Qemu_Virt_Aarch64`) that configures
+    /// the build: memory map, linker script and startup code.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub board: Option<String>,
+    /// The command that runs the built program, with `{exe}` standing for its path
+    /// (`qemu-system-aarch64 -M virt -kernel {exe}`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runner: Option<String>,
 }
 
 /// A string or a list of strings (`entry = "main.jai"` is a list of one).
@@ -100,10 +119,22 @@ pub struct Lifetimes {
     pub mode: LifetimeMode,
 }
 
+/// Settings of the `freestanding` rule.
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+pub struct Freestanding {
+    /// How many bytes of fixed-size locals a procedure's stack frame may hold before
+    /// `freestanding` reports it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_frame_bytes: Option<usize>,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct Lint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lifetimes: Option<Lifetimes>,
+    /// Limits for the `freestanding` rule.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub freestanding: Option<Freestanding>,
     /// Patterns of paths not to lint, relative to the file.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub exclude: Vec<PathPattern>,
@@ -714,11 +745,13 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "postgres",
             "test",
             "doc",
+            "target",
         ],
         "project" => &["entry", "import_path"],
         "toolchain" => &["version"],
         "lint" => &[
             "lifetimes",
+            "freestanding",
             "exclude",
             "max_nesting",
             "max_complexity",
@@ -733,6 +766,7 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "portability",
         ],
         "lint.lifetimes" => &["mode"],
+        "lint.freestanding" => &["max_frame_bytes"],
         "lint.portability" => &["targets", "portable", "platforms"],
         "format" => FORMAT_KEYS,
         "experimental" => &["parse_threads", "serial_parse", "codegen_units"],
@@ -779,6 +813,7 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
         "doc.page" => &["file", "name"],
         "doc.section" => &["file", "name"],
         profile if profile.starts_with("test.profile.") => TEST_RUN_KEYS,
+        target if target.starts_with("target.") => &["triple", "board", "runner"],
         _ => &[],
     }
 }

@@ -4,15 +4,9 @@ use test_support::backend;
 #[test]
 fn host_constants_execute_native_and_wasm_at_o0_and_o2() {
     use jaic::sema::Options;
-    use jaic::target::{TargetCpu, TargetOs};
+    use jaic::target::TargetCpu;
     let host = Options::host();
-    let os = match host.os {
-        TargetOs::Windows => "WINDOWS",
-        TargetOs::Linux => "LINUX",
-        TargetOs::MacOS => "MACOS",
-        TargetOs::Wasm => "WASM",
-        TargetOs::None => "NONE",
-    };
+    let os = jaic::target::os_member(host.os);
     let cpu = match host.cpu {
         TargetCpu::X64 => "X64",
         TargetCpu::Arm64 => "ARM64",

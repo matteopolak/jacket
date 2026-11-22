@@ -7,6 +7,7 @@
 #[cfg(target_os = "macos")]
 mod apple_ld;
 pub mod backend;
+mod freestanding;
 mod link;
 mod link_options;
 mod linker;
@@ -20,6 +21,7 @@ use jaic::ir::{Library, Program};
 /// The LLVM prefix this build was made against (`build.rs`), searched after the environment.
 pub(crate) const BAKED_LLVM_PREFIX: Option<&str> = option_env!("LLVM_PREFIX_AT_BUILD");
 
+pub use self::freestanding::{FreestandingLink, find_lld, link_freestanding};
 pub use self::link::{LinkInputs, LinkRequest, link, link_inputs};
 pub use self::linker::{
     OutputKind, archive, check_sanitizer_target, link_failure, linker_not_run, output_extension,

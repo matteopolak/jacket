@@ -123,6 +123,20 @@ By default jaic builds a native executable. Options may come before or after the
 
 exit status: 0 success, 1 the program failed to compile, an input file cannot be read or a runtime error stopped it (`-interp` otherwise exits with the program's own status), 2 a command-line mistake, 3 a build found no `main` to make an executable from, 120 the memory limit, 121 native code crashed under the interpreter, 101 an internal compiler error
 
+`--target NAME` builds for a `[target.NAME]` of `jacket.toml` or a built-in board; `jacket targets` lists them ([targets](../tools/jacket.md#targets)).
+
+List the targets `--target` accepts: the project's `[target.*]` tables and the built-in boards, with their triple, board and whether the runner is installed
+
+```text
+jacket targets
+```
+
+##### Options
+
+| Option | Meaning |
+| --- | --- |
+| `-h, --help` | Print help |
+
 ### Creating a project
 
 `jacket new` makes a directory with a `jacket.toml` and a `main.jai`; `jacket init` does the same in the current directory.
@@ -376,6 +390,7 @@ jacket test [OPTIONS] [FILTER]... [-- <FLAGS>...]
 | `--os <OS>` | Target OS, as jaic's -os (also spelt `-os`) [possible values: linux, windows, macos, wasm] |
 | `--cpu <CPU>` | Target CPU, as jaic's -cpu (also spelt `-cpu`) |
 | `--runner <COMMAND>` | Command that runs test programs built for another target (`node tools/wasi_run.ts`) |
+| `--target <NAME>` | A `[target.NAME]` of jacket.toml or an LLVM triple: builds for it, and runs the tests with its runner unless `--runner` is given |
 | `--needs <LIST>` | Capabilities this machine has, for tests with `@needs` (`network,gpu`) |
 | `--profile <NAME>` | Use `[test.profile.NAME]` from jacket.toml |
 | `--path <DIR>` | Test the `tests/` of these folders instead of the project's |
@@ -441,6 +456,7 @@ jacket bench [OPTIONS] [FILTER]... [-- <FLAGS>...]
 | `--os <OS>` | Target OS, as jaic's -os (also spelt `-os`) [possible values: linux, windows, macos, wasm] |
 | `--cpu <CPU>` | Target CPU, as jaic's -cpu (also spelt `-cpu`) |
 | `--runner <COMMAND>` | Command that runs test programs built for another target (`node tools/wasi_run.ts`) |
+| `--target <NAME>` | A `[target.NAME]` of jacket.toml or an LLVM triple: builds for it, and runs the tests with its runner unless `--runner` is given |
 | `--needs <LIST>` | Capabilities this machine has, for tests with `@needs` (`network,gpu`) |
 | `--profile <NAME>` | Use `[test.profile.NAME]` from jacket.toml |
 | `--path <DIR>` | Test the `tests/` of these folders instead of the project's |
@@ -544,12 +560,14 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `JAIC_AR` | The program that archives object files into a static library. | the system `ar`, or `llvm-ar`, a MinGW `ar` or `lib.exe` where that is needed | jaic |
 | `JAIC_BACKEND` | The code generation library (`libjaic_backend`) a release `jaic` opens when a build writes native code. | the code generation library next to the `jaic` executable | jaic |
 | `JAIC_CACHE_DIR` | Where `jaic` unpacks the helpers it embeds (the crash runtime). | `$XDG_CACHE_HOME/jaic`, else the platform's user cache (`~/Library/Caches/jaic`, `~/.cache/jaic`) | jaic |
+| `JAIC_COMPILER_RT` | The compiler-rt builtins a freestanding build links: an archive, or a folder with a `<triple>/libclang_rt.builtins.a` per target (what `tools/embedded/build-compiler-rt.sh` writes). | `lib/clang/<version>/lib/<triple>/libclang_rt.builtins.a` in the build's LLVM | jaic |
 | `JAIC_CROSS_LIBS` | A path list of directories with libraries cross-built for a MinGW target; a cross build links from these instead of the host's native libraries. | unset | jaic |
 | `JAIC_DIAGNOSTICS` | The diagnostic layout: `plain`, `ascii` or `unicode`. | by terminal: `unicode` or `ascii` on one, `plain` otherwise | jaic, jailint |
 | `JAIC_DSYM` | When set, a macOS debug build writes a `.dSYM` bundle instead of keeping its object files. | unset: macOS debug builds keep their object files for the debugger | jaic |
 | `JAIC_HOST_TWIN_DEBUG` | When set, the host twin prints what it generates. | unset | jaic |
 | `JAIC_ID_SCRAMBLE` | The same as `JAIC_SYM_SCRAMBLE`, for AST ids. | unset | jaic |
 | `JAIC_LINKER` | The program that links executables and libraries. Empty counts as unset. | the linker found for the target | jaic |
+| `JAIC_LLD` | The `ld.lld` that links freestanding (`-os none`) output. | `ld.lld` next to the build's LLVM, an LLD install, then `PATH` | jaic |
 | `JAIC_MEMORY_LIMIT` | Stop with exit status 120 once this much memory is allocated: bytes, or a number with a `K`, `M` or `G` suffix. Child processes inherit it. | no limit | jaic |
 | `JAIC_NATIVE_LIBS` | A path list of directories holding the prebuilt third-party native libraries (SDL3, FreeType, ...), replacing the default search. | `native-libs/<os>-<cpu>` beside the library, else under `target/` | jaic |
 | `JAIC_NO_HOST_TWIN` | Any value but `0` turns the host twin off, which makes compile-time code with foreign calls fail the way it would without one. | unset: compile-time code that needs the host's types gets a host twin | jaic |

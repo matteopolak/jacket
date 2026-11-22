@@ -248,6 +248,15 @@ impl LlvmBackend {
         if os == TargetOs::Wasm {
             return Ok(Some(Target::wasm_module()));
         }
+        if os == TargetOs::None {
+            if cpu != TargetCpu::Arm64 {
+                return Err(
+                    "a freestanding workspace (`os_target = .NONE`) supports only the ARM64 CPU"
+                        .into(),
+                );
+            }
+            return Ok(Some(Target::new(os, cpu)));
+        }
         if cpu == TargetCpu::Wasm {
             return Err("a native workspace OS requires an X64 or ARM64 CPU".into());
         }
@@ -502,6 +511,7 @@ impl OutputBackend for LlvmBackend {
         let objects = timings::time("codegen", || generate::objects(program, &options, &object))?;
         let libraries = jaic_native::used_libraries(program);
         let wasm = target.is_some_and(jaic::target::Target::is_wasm);
+        let freestanding = target.filter(|t| t.is_freestanding());
         let mut link_args = settings.additional_linker_arguments.clone();
         link_args.extend(extra_link_args);
         let debug_info = options.debug_info;
@@ -516,6 +526,20 @@ impl OutputBackend for LlvmBackend {
                     output,
                     has_start: settings.output_type == OutputType::Executable
                         && program.funcs.iter().flatten().any(|f| f.linkage == start),
+                    strip_debug: !debug_info,
+                    extra_args: &settings.additional_linker_arguments,
+                })
+            }
+            OutputType::DynamicLibrary if freestanding.is_some() => Err(
+                "a freestanding target has no dynamic linking, so it cannot build a shared library"
+                    .into(),
+            ),
+            OutputType::Executable if let Some(target) = freestanding => {
+                jaic_native::link_freestanding(&jaic_native::FreestandingLink {
+                    objects: &objects,
+                    libraries: &libraries,
+                    output,
+                    target,
                     strip_debug: !debug_info,
                     extra_args: &settings.additional_linker_arguments,
                 })

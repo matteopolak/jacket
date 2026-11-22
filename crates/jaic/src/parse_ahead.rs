@@ -414,7 +414,10 @@ mod imp {
                                 TargetOs::Wasm => "WASM",
                                 TargetOs::None => "NONE",
                             },
-                            &["WINDOWS", "LINUX", "MACOS", "WASM", "ANDROID", "IOS", "PS5"],
+                            &[
+                                "WINDOWS", "LINUX", "MACOS", "WASM", "NONE", "ANDROID", "IOS",
+                                "PS5",
+                            ],
                         ),
                         "CPU" => (
                             match self.cpu {

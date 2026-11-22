@@ -3,6 +3,7 @@
 FILE :: struct {};
 DIR :: struct {};
 mode_t :: u32;
+size_t :: u64;
 
 SEEK_SET :: 0;
 SEEK_CUR :: 1;
@@ -11,8 +12,8 @@ SEEK_END :: 2;
 fopen :: (name: *u8, mode: *u8) -> *FILE #foreign libc;
 close :: (fd: s32) -> s32 #foreign libc; @FreesArgument
 fclose :: (file: *FILE) -> s32 #foreign libc; @FreesArgument
-fread :: (data: *void, size: u64, count: u64, file: *FILE) -> u64 #foreign libc;
-fwrite :: (data: *void, size: u64, count: u64, file: *FILE) -> u64 #foreign libc;
+fread :: (data: *void, size: size_t, count: size_t, file: *FILE) -> size_t #foreign libc;
+fwrite :: (data: *void, size: size_t, count: size_t, file: *FILE) -> size_t #foreign libc;
 fflush :: (file: *FILE) -> s32 #foreign libc;
 ferror :: (file: *FILE) -> s32 #foreign libc;
 fseeko :: (file: *FILE, offset: s64, origin: s32) -> s32 #foreign libc;

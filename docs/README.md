@@ -35,7 +35,7 @@ One page per topic in [language/](language/): [modules](language/modules-and-imp
 
 - [LLVM backend](native/llvm-backend.md), [C ABI](native/c-abi.md), [C++ vtables](native/cpp-vtables.md), [linking](native/native-linking.md), [debug info](native/debug-info.md), [sanitizers](native/sanitizers.md), [crash runtime build](native/crash-runtime-build.md)
 - [Windows](native/windows.md), [Windows console colors](native/windows-console-colors.md)
-- [WebAssembly](native/wasm-target.md), [per-CPU Linux POSIX bindings](native/linux-cpu-bindings.md)
+- [WebAssembly](native/wasm-target.md), [per-CPU Linux POSIX bindings](native/linux-cpu-bindings.md), [embedded and freestanding targets](native/embedded.md)
 - [Plan: N-bit, big-endian and embedded targets](native/n-bit-and-embedded.md)
 - [Browser build and playground](browser/playground.md)
 
@@ -49,6 +49,7 @@ Guides: [testing](guides/testing.md), [benchmarking](guides/benchmarking.md), [d
 
 - [Time](extensions/time.md): Civil time, exact instants, TZif zones and spans
 - [Archive](extensions/archive.md): bounded ZIP/ZIP64, TAR and safe extraction
+- [Embedded](extensions/embedded.md): runtime, memory maps, notes, volatile access, flash images and boards for programs with no OS
 - [VT parser](extensions/vt.md): streaming terminal actions without a grid
 
 - [TOML](extensions/toml.md): general values, semantic writing and formatter configuration

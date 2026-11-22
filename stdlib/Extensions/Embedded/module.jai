@@ -1,0 +1,34 @@
+// Freestanding programs: no operating system, no libc, no heap unless a board provides one
+// (`OS == .NONE`). The runtime is yours to start (`init_runtime`), and the board's console and
+// failure behaviour are hooks you set.
+//
+// ```jai,ignore
+// #import "Basic";
+// #import "Extensions/Embedded";
+//
+// reset :: () #c_call #no_context {
+//     init_runtime(); // .data, .bss, the static Context
+//     set_console_hook(uart_write);
+//     push_context static_context().* {
+//         main();
+//     }
+// }
+// ```
+//
+// Only what runs on the target is declared when `OS == .NONE`; the memory map, linker script and
+// output-format procedures run in the metaprogram, on the host.
+
+#load "intrinsics.jai";
+
+#if OS == .NONE {
+    #load "runtime.jai";
+    #load "semihosting.jai";
+
+    #if ARCHITECTURE == .ARM {
+        #load "cortex-m.jai";
+    }
+} else {
+    #load "memory-map.jai";
+    #load "binary.jai";
+    #load "board-plugin.jai";
+}

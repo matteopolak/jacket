@@ -325,6 +325,7 @@ impl Output {
                 relocs: Vec::new(),
                 read_only: true,
                 export: None,
+                section: None,
             });
             self.asm_aes_tables = Some(g);
             g

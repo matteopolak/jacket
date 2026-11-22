@@ -54,6 +54,8 @@ pub struct Func {
     /// or check). Native code gives it, and what only it reaches, an unoptimized module
     /// of its own (`jaic-llvm/src/partition.rs`).
     pub cold: bool,
+    /// The linker section the code is placed in (`@Section(".name")`), or the default one.
+    pub section: Option<String>,
     /// CPU features (`"avx2,bmi2"`) this function's native code may use beyond the build's,
     /// from `#target_features`. The interpreter ignores them.
     pub target_features: Option<String>,

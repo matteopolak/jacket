@@ -193,4 +193,26 @@ Cleanup :: struct {
 }
 
 #import "Basic";
-#import "File";
+#if OS != .NONE #import "File";
+
+// How the test program ends and reads its command line: a board has no `exit` or process
+// arguments of its own (`Extensions/Embedded`).
+#if OS == .NONE {
+    Embedded :: #import "Extensions/Embedded";
+
+    leave :: (status: s32) {
+        Embedded.exit(status);
+    }
+
+    command_line :: () -> [] string {
+        return Embedded.arguments();
+    }
+} else {
+    leave :: (status: s32) {
+        exit(status);
+    }
+
+    command_line :: () -> [] string {
+        return get_command_line_arguments();
+    }
+}

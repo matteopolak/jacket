@@ -388,6 +388,7 @@ impl Compiler {
             relocs: Vec::new(),
             read_only: false,
             export: None,
+            section: None,
         });
         self.ct.frozen.insert((p, bytes), g);
         let mut inner = Aggregate {

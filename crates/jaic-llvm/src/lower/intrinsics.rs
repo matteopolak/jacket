@@ -121,6 +121,8 @@ impl<'ctx> Backend<'ctx, '_> {
             | Intrinsic::CompareAndSwap
             | Intrinsic::AtomicLoad(..)
             | Intrinsic::AtomicStore(..)
+            | Intrinsic::VolatileLoad
+            | Intrinsic::VolatileStore
             | Intrinsic::AtomicRmw(..)
             | Intrinsic::AtomicCas(..) => self.intrinsic_memory(st, op, args, want),
             Intrinsic::DebugBreak
@@ -306,6 +308,31 @@ impl<'ctx> Backend<'ctx, '_> {
                 inst.set_alignment(int.get_bit_width() / 8)
                     .map_err(|e| Error(format!("atomic alignment: {e:?}")))?;
                 Ok(vec![self.coerce(load, ty)?])
+            }
+            Intrinsic::VolatileLoad => {
+                let ty = want
+                    .first()
+                    .copied()
+                    .ok_or("a volatile load has no result")?;
+                let int = self.atomic_int_ty(ty)?;
+                let load = b.build_load(int, ptr_arg(0)?, "")?;
+                let inst = load
+                    .as_instruction_value()
+                    .ok_or("a volatile load is not an instruction")?;
+                inst.set_volatile(true)
+                    .map_err(|e| Error(format!("volatile: {e:?}")))?;
+                inst.set_alignment(int.get_bit_width() / 8)
+                    .map_err(|e| Error(format!("volatile alignment: {e:?}")))?;
+                Ok(vec![self.coerce(load, ty)?])
+            }
+            Intrinsic::VolatileStore => {
+                let value = self.atomic_bits(args[1])?;
+                let inst = b.build_store(ptr_arg(0)?, value)?;
+                inst.set_volatile(true)
+                    .map_err(|e| Error(format!("volatile: {e:?}")))?;
+                inst.set_alignment(value.get_type().get_bit_width() / 8)
+                    .map_err(|e| Error(format!("volatile alignment: {e:?}")))?;
+                Ok(vec![])
             }
             Intrinsic::AtomicStore(order) => {
                 let value = self.atomic_bits(args[1])?;
@@ -926,7 +953,13 @@ impl<'ctx> Backend<'ctx, '_> {
         }
         let text = jaic::fiber::module_asm(self.arch, self.target.is_apple())
             .ok_or("fibers need a native target")?;
-        self.module.set_inline_assembly(&text);
+        // One text defines both routines, so only the first one declared brings it.
+        if [jaic::fiber::SWITCH, jaic::fiber::PREPARE]
+            .iter()
+            .all(|other| self.module.get_function(other).is_none())
+        {
+            crate::emit::append_module_asm(&self.module, &text);
+        }
         Ok(self.module.add_function(name, ty, Some(Linkage::External)))
     }
 

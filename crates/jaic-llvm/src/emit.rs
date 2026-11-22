@@ -252,17 +252,30 @@ pub(super) fn apply_abi_unwind_attributes<'ctx>(
     Ok(())
 }
 
-/// Put `function` in the section called `name`, as written. (inkwell's `set_section` prepends a
-/// comma to a name without one when the host is macOS, which is for Mach-O sections only.)
+/// Put a function or global in the section called `name`, as written. (inkwell's `set_section`
+/// prepends a comma to a name without one when the host is macOS, which is for Mach-O sections
+/// only.)
 #[allow(unsafe_code)]
-fn set_section_name(function: inkwell::values::FunctionValue<'_>, name: &str) {
-    use inkwell::values::AsValueRef;
+pub(super) fn set_section_name(value: impl inkwell::values::AsValueRef, name: &str) {
     let Ok(name) = std::ffi::CString::new(name) else {
         return;
     };
-    // SAFETY: `function` is a live function of the module and `name` is a NUL-terminated string
-    // that LLVM copies.
-    unsafe { inkwell::llvm_sys::core::LLVMSetSection(function.as_value_ref(), name.as_ptr()) };
+    // SAFETY: `value` is a live function or global of the module and `name` is a NUL-terminated
+    // string that LLVM copies.
+    unsafe { inkwell::llvm_sys::core::LLVMSetSection(value.as_value_ref(), name.as_ptr()) };
+}
+
+/// Adds `text` to the module's assembly (inkwell's `set_inline_assembly` replaces it).
+#[allow(unsafe_code)]
+pub(super) fn append_module_asm(module: &inkwell::module::Module<'_>, text: &str) {
+    // SAFETY: the module is live and LLVM copies the text, whose length is passed.
+    unsafe {
+        inkwell::llvm_sys::core::LLVMAppendModuleInlineAsm(
+            module.as_mut_ptr(),
+            text.as_ptr().cast(),
+            text.len(),
+        );
+    }
 }
 
 /// The function attributes `Build_Options` asks for, on every function with a body.

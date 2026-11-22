@@ -230,12 +230,15 @@ pub fn unit(
         "tests"
     });
     let report = work.join("exe.txt");
+    // A plugin takes the arguments that follow it up to the next flag, so the plugins a flag list
+    // names (a board's) move behind everything else.
+    let (plain, plugins) = split_plugins(&toolchain.flags);
     let mut command = toolchain.jaic_command();
     command
         .current_dir(work)
         .arg(&root)
         .arg("-quiet")
-        .args(&toolchain.flags)
+        .args(&plain)
         .args(root_flags)
         .arg("-exe")
         .arg(&exe)
@@ -243,7 +246,7 @@ pub fn unit(
     if toolchain.coverage {
         command.arg("-coverage");
     }
-    command.arg(PLUGIN);
+    command.args(&plugins).arg(PLUGIN);
     let found = records(&run_jaic(&mut command, toolchain)?);
     let program = reported_exe(&report, exe);
     if !wasm && toolchain.runner.is_empty() {
@@ -337,6 +340,26 @@ fn interpreted(
         });
     }
     Ok(result)
+}
+
+/// `flags` without the plugins (`+Name` and the options after it, up to the next flag), and the
+/// plugins.
+fn split_plugins(flags: &[String]) -> (Vec<String>, Vec<String>) {
+    let (mut plain, mut plugins) = (Vec::new(), Vec::new());
+    let mut in_plugin = false;
+    for flag in flags {
+        if flag.starts_with('+') {
+            in_plugin = true;
+        } else if flag.starts_with('-') {
+            in_plugin = false;
+        }
+        if in_plugin {
+            plugins.push(flag.clone());
+        } else {
+            plain.push(flag.clone());
+        }
+    }
+    (plain, plugins)
 }
 
 /// Runs a compile and returns what it printed on standard output.
@@ -487,9 +510,12 @@ pub fn invocation(
         args.push("--".into());
         (toolchain.jaic.clone(), args)
     } else {
-        program_and_args(&built.program, &toolchain.runner)
+        let extra = run_arguments(names, temp, run);
+        program_and_args(&built.program, &toolchain.runner, &extra)
     };
-    args.append(&mut run_arguments(names, temp, run));
+    if toolchain.interp {
+        args.append(&mut run_arguments(names, temp, run));
+    }
     Invocation {
         program,
         args,
@@ -519,16 +545,33 @@ pub fn warm_start(built: &Built, names: &[String], temp: &Path, run: &RunFlags) 
     Some(process)
 }
 
-/// `exe`, or the runner with `exe` as its first argument.
-pub fn program_and_args(exe: &Path, runner: &[String]) -> (PathBuf, Vec<String>) {
-    match runner.split_first() {
-        Some((first, rest)) => {
-            let mut args = rest.to_vec();
-            args.push(path_text(exe));
-            (PathBuf::from(first), args)
-        }
-        None => (exe.to_path_buf(), Vec::new()),
+/// What starts `exe` with `extra` as its arguments: `exe` itself, or the runner. A runner word may
+/// hold `{exe}`, where the program goes, and be exactly `{args}`, where the arguments go as one
+/// word, for an emulator that passes them through an option (`-append {args}`). Without `{exe}`
+/// the program follows the runner's words, and without `{args}` the arguments follow it.
+pub fn program_and_args(exe: &Path, runner: &[String], extra: &[String]) -> (PathBuf, Vec<String>) {
+    let Some((first, rest)) = runner.split_first() else {
+        return (exe.to_path_buf(), extra.to_vec());
+    };
+    let exe_text = path_text(exe);
+    let has = |placeholder: &str| runner.iter().any(|word| word.contains(placeholder));
+    let mut args: Vec<String> = rest
+        .iter()
+        .map(|word| {
+            if word == "{args}" {
+                extra.join(" ")
+            } else {
+                word.replace("{exe}", &exe_text)
+            }
+        })
+        .collect();
+    if !has("{exe}") {
+        args.push(exe_text);
     }
+    if !has("{args}") {
+        args.extend(extra.iter().cloned());
+    }
+    (PathBuf::from(first.replace("{exe}", &path_text(exe))), args)
 }
 
 #[cfg(test)]
@@ -777,10 +820,40 @@ mod tests {
     }
 
     #[test]
+    fn plugins_move_behind_the_other_flags() {
+        let flags: Vec<String> = ["-O2", "+Board", "tests", "-import_dir", "v", "-quiet"]
+            .map(String::from)
+            .to_vec();
+        let (plain, plugins) = split_plugins(&flags);
+        assert_eq!(plain, ["-O2", "-import_dir", "v", "-quiet"]);
+        assert_eq!(plugins, ["+Board", "tests"]);
+    }
+
+    #[test]
     fn a_runner_starts_the_program() {
         let runner = ["node".to_string(), "wasi_run.ts".to_string()];
-        let (program, args) = program_and_args(Path::new("/b/t.wasm"), &runner);
+        let (program, args) = program_and_args(
+            Path::new("/b/t.wasm"),
+            &runner,
+            &["--run".into(), "a".into()],
+        );
         assert_eq!(program, PathBuf::from("node"));
-        assert_eq!(args, ["wasi_run.ts", "/b/t.wasm"]);
+        assert_eq!(args, ["wasi_run.ts", "/b/t.wasm", "--run", "a"]);
+    }
+
+    #[test]
+    fn a_runner_places_the_program_and_the_arguments() {
+        let runner: Vec<String> = ["qemu", "-kernel", "{exe}", "-append", "{args}"]
+            .map(String::from)
+            .to_vec();
+        let (program, args) = program_and_args(
+            Path::new("/b/t.elf"),
+            &runner,
+            &["--run".into(), "a/b".into()],
+        );
+        assert_eq!(program, PathBuf::from("qemu"));
+        assert_eq!(args, ["-kernel", "/b/t.elf", "-append", "--run a/b"]);
+        let (_, args) = program_and_args(Path::new("/b/t.elf"), &runner, &[]);
+        assert_eq!(args, ["-kernel", "/b/t.elf", "-append", ""]);
     }
 }

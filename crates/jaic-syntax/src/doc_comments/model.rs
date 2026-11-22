@@ -39,17 +39,19 @@ const MAX_HOPS: usize = 8;
 const MAX_VALUE: usize = 160;
 
 /// The operating systems a declaration can be limited to by an enclosing `#if`, one bit each.
-const OSES: [(&str, u8); 6] = [
+const OSES: [(&str, u8); 7] = [
     ("MACOS", 1),
     ("LINUX", 2),
     ("WINDOWS", 4),
     ("ANDROID", 8),
     ("IOS", 16),
     ("WASM", 32),
+    ("NONE", 64),
 ];
 
-/// Every operating system: no `#if` limits the declaration.
-const EVERY_OS: u8 = 63;
+/// Every operating system, `NONE` (no operating system) included: no `#if` limits the
+/// declaration.
+const EVERY_OS: u8 = 127;
 
 /// Whether `expr` holds when `OS` is `os`: `None` when it depends on anything else (`CPU`, a
 /// constant), which counts as possible.
@@ -129,6 +131,39 @@ fn os_mask(names: &[String]) -> u8 {
     OSES.iter()
         .filter(|(name, _)| names.iter().any(|n| n == name))
         .fold(0, |acc, (_, bit)| acc | bit)
+}
+
+/// The systems a module-level `#assert` limits the module to (`OS == .MACOS || OS == .LINUX`);
+/// none when it says anything else about the system, as `OS_IS_UNIX || OS == .WINDOWS` does.
+fn asserted_systems(assert: &crate::ast::AssertStmt) -> Vec<String> {
+    let only_os = OSES
+        .iter()
+        .all(|(name, _)| holds_on(&assert.cond, name).is_some());
+    ide_facts::asserted_targets(assert)
+        .filter(|_| only_os)
+        .map(|targets| targets.iter().map(|t| t.as_str().to_owned()).collect())
+        .unwrap_or_default()
+}
+
+/// The systems the module whose entry file is `file` is limited to by its own `#assert`s, as
+/// `jacket doc` lists them; empty when it is not limited (or the file cannot be read). A module
+/// is unavailable on a system that is not in a non-empty list.
+pub fn module_platforms(file: &Path) -> Vec<String> {
+    let Ok(text) = std::fs::read_to_string(file) else {
+        return Vec::new();
+    };
+    let parse = parse_file_ide(FileId(0), &text);
+    let mut out: Vec<String> = Vec::new();
+    for top in ide_facts::top_level(&parse.file) {
+        if let TopLevelKind::Assert(assert) = top.kind {
+            for t in asserted_systems(assert) {
+                if !out.contains(&t) {
+                    out.push(t);
+                }
+            }
+        }
+    }
+    out
 }
 
 /// The names of the systems in `mask`; empty for every one.
@@ -798,16 +833,9 @@ pub fn module_expanding(
             match item.kind {
                 TopLevelKind::Load(path, _) => loads.push(base.join(path)),
                 TopLevelKind::Assert(assert) if file == module_file => {
-                    // `OS_IS_UNIX || OS == .WINDOWS` says more than the targets it names.
-                    let only_os = OSES
-                        .iter()
-                        .all(|(name, _)| holds_on(&assert.cond, name).is_some());
-                    if let Some(targets) = ide_facts::asserted_targets(assert).filter(|_| only_os) {
-                        for t in targets {
-                            let t = t.as_str().to_owned();
-                            if !out.platforms.contains(&t) {
-                                out.platforms.push(t);
-                            }
+                    for t in asserted_systems(assert) {
+                        if !out.platforms.contains(&t) {
+                            out.platforms.push(t);
                         }
                     }
                 }

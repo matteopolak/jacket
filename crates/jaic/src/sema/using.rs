@@ -114,6 +114,7 @@ impl Compiler {
             relocs: image.relocs,
             read_only: false,
             export: None,
+            section: None,
         });
         let addr = self
             .ct

@@ -42,7 +42,9 @@ __null_pointer_check_fail :: Impl.__null_pointer_check_fail;
 __arithmetic_overflow :: Impl.__arithmetic_overflow;
 one_time_init :: Impl.one_time_init;
 
-#if DEFINE_INITIALIZATION {
+// A freestanding program starts itself (`Embedded.init_runtime`): there is no `argc`/`argv`, and no
+// heap to allocate a context from.
+#if DEFINE_INITIALIZATION && OS != .NONE {
     __jai_runtime_init :: Impl.__jai_runtime_init;
     __jai_runtime_fini :: Impl.__jai_runtime_fini;
 }
@@ -60,14 +62,19 @@ runtime_support_assertion_failed :: Impl.runtime_support_assertion_failed;
 runtime_support_default_logger :: Impl.runtime_support_default_logger;
 debug_break :: Impl.debug_break;
 compile_time_debug_break :: Impl.compile_time_debug_break;
-runtime_support_default_allocator_proc :: Default_Allocator.allocator_proc;
+#if OS == .NONE runtime_support_default_allocator_proc :: Impl.no_heap_allocator_proc;
+else runtime_support_default_allocator_proc :: Default_Allocator.allocator_proc;
 
 #scope_file
 __jaic_check_failed :: Impl.report_native_check;
 __jaic_interpreter_assertion :: Impl.runtime_support_assertion_failed;
 
-Impl :: #import "internal/runtime";
-Default_Allocator :: #import "Default_Allocator";
+#if OS == .NONE Impl :: #import "internal/runtime-freestanding";
+
+else {
+    Impl :: #import "internal/runtime";
+    Default_Allocator :: #import "Default_Allocator";
+}
 
 program_entry :: () -> s32 #entry_point;
 

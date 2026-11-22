@@ -351,13 +351,7 @@ fn program_skipped_on_the_host_is_compiled_for_another_system() {
         "Operating_System_Tag :: enum u32 { WINDOWS; LINUX; MACOS; WASM; } CPU_Tag :: enum u32 { X64; ARM64; CUSTOM; }",
     )
     .unwrap();
-    let name = match jaic::sema::Options::host().os {
-        jaic::target::TargetOs::Windows => "WINDOWS",
-        jaic::target::TargetOs::Linux => "LINUX",
-        jaic::target::TargetOs::MacOS => "MACOS",
-        jaic::target::TargetOs::Wasm => "WASM",
-        jaic::target::TargetOs::None => "NONE",
-    };
+    let name = jaic::target::os_member(jaic::sema::Options::host().os);
     let file = root.join("app/not-here.jai");
     std::fs::write(
         &file,

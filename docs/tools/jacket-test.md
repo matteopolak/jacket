@@ -174,6 +174,14 @@ A test process that ends on its own (exit status, no crash) writes its coverage 
 
 Baselines keep coverage from dropping: `--coverage-record FILE` writes per-module numbers as JSON, `--coverage-baseline FILE` exits 1 when a module or the total falls more than `--coverage-margin` points (default 0.5) below it and runs more than 5 lines fewer than the baseline's share would (fewer is timing noise), and `--coverage-summary FILE` appends a markdown table. CI runs `tools/ci/stdlib_coverage.sh` against `tools/ci/coverage-baseline.json` with `--seed 1`, so property tests draw the same values every run; re-record with `tools/ci/stdlib_coverage.sh --record`. Native programs on Linux and other non-Apple targets keep every file's lines in their DWARF 5 line table only because the compile unit's file has a name of its own ([debug info](../native/debug-info.md)); if a module's whole `module.jai` reads 0%, look at the line table (`llvm-dwarfdump --debug-line`) for its folder.
 
+## Tests on a board
+
+`jacket test --target Qemu_Virt_Aarch64` (or a `[target.NAME]` with a `board`, [targets](jacket.md#targets)) builds the tests for the board and runs each group in an emulator. The result comes back as records on the board's semihosting console, whose standard output and standard error stay apart, and the arguments go in through the semihosting command line (`-append {args}`). Only unit tests run: doc, golden and compile-fail tests build host programs. Everything in the root has to compile for `OS == .NONE`: put such tests in a folder of their own and select it with `--path`. Benchmarks need a clock and do not run, snapshots and temporary folders need files and are unavailable, and `--args-from-stdin` does not apply.
+
+```sh
+jacket test --target Qemu_Virt_Aarch64 --path stdlib/Extensions/Embedded
+```
+
 ## Output formats
 
 `--format json` writes one JSON object per line as things happen:

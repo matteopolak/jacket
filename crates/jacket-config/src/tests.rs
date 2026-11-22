@@ -210,6 +210,7 @@ fn known_keys_match_the_structs() {
              magic_number_min = 4\nmagic_number_in_tests = true\n[lint.rules]\na = \"b\"\n\
              [[lint.overrides]]\npaths = [\"c\"]\n[lint.overrides.rules]\nd = \"e\"\n\
              [lint.lifetimes]\nmode = \"strict\"\n\
+             [lint.freestanding]\nmax_frame_bytes = 512\n\
              [lint.portability]\ntargets = [\"linux\"]\nportable = [\"p/**\"]\n[lint.portability.platforms]\n\"q/**\" = [\"linux\"]\n",
         ),
         (
@@ -252,6 +253,20 @@ fn known_keys_match_the_structs() {
         assert_eq!(keys, known, "[{name}]");
         tops.push(name);
     }
+    let config =
+        parse("[target.pico]\ntriple = \"t\"\nboard = \"b\"\nrunner = \"r {exe}\"\n").unwrap();
+    let value = toml::Value::try_from(&config).unwrap();
+    let mut keys: Vec<&str> = value["target"]["pico"]
+        .as_table()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    let mut known = schema::known_keys("target.pico").to_vec();
+    keys.sort_unstable();
+    known.sort_unstable();
+    assert_eq!(keys, known, "[target.<name>]");
+    tops.push("target");
     let mut known = schema::known_keys("").to_vec();
     tops.sort_unstable();
     known.sort_unstable();

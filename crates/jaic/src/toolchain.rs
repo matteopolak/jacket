@@ -8,6 +8,7 @@
 use crate::target::{Target, TargetAbi, TargetOs};
 
 pub mod discover;
+pub mod freestanding;
 mod linux;
 mod macos;
 mod wasm;
@@ -178,9 +179,8 @@ impl Toolchain {
             (TargetOs::Windows, _) => &windows_msvc::WINDOWS_MSVC,
             (TargetOs::MacOS, _) => &macos::MACOS,
             (TargetOs::Linux, _) => &linux::LINUX,
-            // A bare-metal program has no C runtime either; the embedded work replaces this with
-            // a toolchain that links with a linker script.
-            (TargetOs::Wasm | TargetOs::None, _) => &wasm::WASM,
+            (TargetOs::Wasm, _) => &wasm::WASM,
+            (TargetOs::None, _) => &freestanding::FREESTANDING,
         }
     }
 

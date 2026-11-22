@@ -7,6 +7,7 @@ use super::{
     err, ir, lambda, procs,
 };
 use crate::diagnostics::Code;
+use crate::sema::SECTION_NOTE;
 use crate::sema::speculative::FirstUse;
 use crate::types::{DistinctInfo, TypeKind};
 
@@ -606,6 +607,11 @@ impl Compiler {
             relocs: Vec::new(),
             read_only: false,
             export: None,
+            section: decl
+                .notes
+                .iter()
+                .find_map(|n| n.string_argument(SECTION_NOTE))
+                .map(str::to_string),
         });
         self.debug_global(global, name, ty, span);
         if self.meta.twin {

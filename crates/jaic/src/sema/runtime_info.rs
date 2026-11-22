@@ -346,6 +346,7 @@ impl Output {
             relocs,
             read_only: false,
             export: None,
+            section: None,
         })
     }
 }

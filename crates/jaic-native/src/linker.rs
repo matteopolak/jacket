@@ -8,6 +8,26 @@ use jaic::toolchain::{Linker, Toolchain};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
+/// A non-system `#library` with a static archive or object next to the declaring file
+/// (`name.a`, `libname.a`, `name.o`), for the targets that link no shared libraries: wasm and
+/// freestanding.
+pub(crate) fn static_library_file(lib: &Library) -> Option<PathBuf> {
+    if lib.system {
+        return None;
+    }
+    let path = Path::new(&lib.name);
+    let file = path.file_name()?.to_string_lossy().into_owned();
+    let dir = Path::new(&lib.base_dir).join(path.parent().unwrap_or(Path::new("")));
+    [
+        format!("{file}.a"),
+        format!("lib{file}.a"),
+        format!("{file}.o"),
+    ]
+    .into_iter()
+    .map(|name| dir.join(name))
+    .find(|p| p.is_file())
+}
+
 /// Runs a tool and collects its output. `Command::output` gives the child the null device as stdin,
 /// and a Windows `AppContainer` may not open it, so the child gets an empty pipe instead.
 pub(crate) fn run_captured(cmd: &mut Command) -> std::io::Result<Output> {

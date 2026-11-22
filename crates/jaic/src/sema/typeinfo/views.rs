@@ -175,6 +175,7 @@ impl Compiler {
                 relocs: data.relocs,
                 read_only: true,
                 export: None,
+                section: None,
             });
             agg.relocs.push(ir::Reloc {
                 offset: offset + view.data,

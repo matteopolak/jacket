@@ -46,7 +46,7 @@ run_tests :: (cases: [] Test_Case) {
 // - benches: the benchmarks to run.
 run_tests :: (cases: [] Test_Case, benches: [] Bench_Case) {
     runner_allocator = context.allocator;
-    arguments := get_command_line_arguments();
+    arguments := command_line();
 
     if arguments.count == 2 && arguments[1] == "--args-from-stdin" arguments = arguments_from_stdin(arguments[0]);
 
@@ -74,7 +74,7 @@ run_tests :: (cases: [] Test_Case, benches: [] Bench_Case) {
 
             if !ok {
                 print("--seed takes a whole number, not '%'\n", seed_text, to_standard_error = true);
-                exit(2);
+                leave(2);
             }
 
             run_seed = value;
@@ -89,7 +89,7 @@ run_tests :: (cases: [] Test_Case, benches: [] Bench_Case) {
 
             if !ok || value < 1 {
                 print("% takes a positive whole number, not '%'\n", argument, arguments[i], to_standard_error = true);
-                exit(2);
+                leave(2);
             }
 
             if argument == "--samples" bench_settings.samples = value;
@@ -101,13 +101,18 @@ run_tests :: (cases: [] Test_Case, benches: [] Bench_Case) {
             array_add(*names, argument);
         } else {
             print("unknown argument: %\nusage: [--list] [--accept] [--seed N] [--run NAME... [--temp DIR]]\n", argument, to_standard_error = true);
-            exit(2);
+            leave(2);
         }
 
         i += 1;
     }
 
-    if !seed_given run_seed = cast(u64) to_nanoseconds(current_time_consensus()) % 1_000_000_000;
+    #if OS == .NONE {
+        // There is no clock to start from: a fixed seed, which `--seed` changes.
+        if !seed_given run_seed = 1;
+    } else {
+        if !seed_given run_seed = cast(u64) to_nanoseconds(current_time_consensus()) % 1_000_000_000;
+    }
 
     if listing {
         // The body of a `@cases` test is `run_cases`, which names its cases instead of running them.
@@ -134,7 +139,12 @@ run_tests :: (cases: [] Test_Case, benches: [] Bench_Case) {
                 continue;
             }
 
-            run_bench(found, bench_settings);
+            #if OS == .NONE {
+                print("benchmarks need a clock, which this target has none of\n", to_standard_error = true);
+                leave(2);
+            } else {
+                run_bench(found, bench_settings);
+            }
         }
 
         return;
@@ -173,7 +183,7 @@ run_example :: (body: (t: *Test)) {
     example := Test_Case.{ name = "example", body = body, flags = .ALLOW_LEAKS };
     test := run_case(*example, "");
 
-    if test.failed exit(1);
+    if test.failed leave(1);
 }
 
 #scope_module
@@ -280,7 +290,7 @@ run_subtest :: (t: *Test, name: string, body: (t: *Test), body_with_data: (t: *T
     kernel32 :: #system_library "kernel32"; @native(external)
     GetStdHandle :: (identifier: s32) -> *void #foreign kernel32;
     ReadFile :: (handle: *void, buffer: *void, count: u32, read: *u32, overlapped: *void) -> s32 #foreign kernel32;
-} else #if OS != .WASM {
+} else #if OS != .WASM && OS != .NONE {
     libc :: #system_library "libc"; @native(external)
     read :: (fd: s32, buffer: *void, count: u64) -> s64 #foreign libc;
 }
@@ -288,8 +298,8 @@ run_subtest :: (t: *Test, name: string, body: (t: *Test), body_with_data: (t: *T
 // What standard input holds up to its end. The call blocks in the system until jacket writes the
 // arguments and closes the pipe, so a process that waits costs nothing.
 read_standard_input :: () -> string {
-    #if OS == .WASM {
-        assert(false, "`--args-from-stdin` is not available on wasm");
+    #if OS == .WASM || OS == .NONE {
+        assert(false, "`--args-from-stdin` is not available on this target");
         return "";
     } else {
         builder: String_Builder;
@@ -462,7 +472,7 @@ run_everything :: (cases: [] Test_Case) {
     }
 
     print("\n% passed, % failed, % skipped\n", passed, failed, skipped);
-    if failed exit(1);
+    if failed leave(1);
 }
 
 indented :: (message: string) -> string {

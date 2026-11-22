@@ -257,6 +257,7 @@ impl Compiler {
                         relocs: img.relocs.clone(),
                         read_only: true,
                         export: None,
+                        section: None,
                     });
                     self.ty.default_globals.insert(ty, g);
                     g

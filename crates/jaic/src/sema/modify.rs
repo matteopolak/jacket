@@ -238,6 +238,7 @@ impl Compiler {
             relocs: Vec::new(),
             read_only: false,
             export: None,
+            section: None,
         });
         let message_addr = f.b.global_addr(message);
         f.return_types = vec![TypeId::BOOL, TypeId::STRING];
@@ -259,6 +260,7 @@ impl Compiler {
                 relocs: Vec::new(),
                 read_only: false,
                 export: None,
+                section: None,
             });
             let addr = f.b.global_addr(global);
             let val = self.materialize(&mut f, &value, ty, span)?;

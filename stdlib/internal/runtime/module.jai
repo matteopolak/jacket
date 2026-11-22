@@ -160,7 +160,7 @@ runtime_support_assertion_failed :: (loc: Source_Code_Location, message: string)
         node = node.next;
     }
 
-    c_abort();
+    abort_program();
 
     return false;
 } @Cold
@@ -177,7 +177,7 @@ runtime_support_default_logger :: (message: string, data: *void, info: Log_Info)
 
 debug_break :: () #no_context {
     #if OS == .WINDOWS windows_debug_break();
-    else c_abort();
+    else abort_program();
 }
 
 compile_time_debug_break :: () #compiler #no_context {
@@ -201,11 +201,21 @@ libc :: #system_library "libc"; @native(external)
 Write_Lock :: #import "internal/runtime/output-lock";
 #if OS == .ANDROID Android_Output :: #import "internal/runtime/android-output";
 
+// What every failed check ends in, and so visible to the files loaded beside this one. The
+// freestanding runtime halts through a panic hook instead.
+#scope_module
+
+abort_program :: () #no_context {
+    c_abort();
+}
+
+#scope_file
+
 acquire_output_lock :: () #no_context {
     Write_Lock.acquire();
 }
 
 release_output_lock :: () #no_context {
     released := Write_Lock.release();
-    if !released c_abort();
+    if !released abort_program();
 }

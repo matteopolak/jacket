@@ -10,7 +10,9 @@ use crate::diagnostics::Code;
 use crate::ide::Recorder;
 use crate::lang_items;
 use crate::sema::Diagnostics;
+use crate::sema::MODULE_ASM_NOTE;
 use crate::sema::Output;
+use crate::target::TargetOs;
 use crate::types::TypeKind;
 use std::path::Path;
 
@@ -54,7 +56,7 @@ impl Compiler {
             let params = vec![
                 (
                     Sym::intern("DEFINE_SYSTEM_ENTRY_POINT"),
-                    Value::Bool(self.options.runtime_entry_point),
+                    Value::Bool(self.options.defines_system_entry_point()),
                     TypeId::BOOL,
                 ),
                 (
@@ -278,17 +280,24 @@ impl Compiler {
             return Ok(false);
         };
         let scope = self.ns.modules[m.0 as usize].scope;
-        if self
+        let has_entry = !self
             .lookup(scope, Sym::intern(&self.options.entry_point))?
-            .is_empty()
-        {
-            return Ok(false);
-        }
+            .is_empty();
         let mut i = 0;
         while i < self.ns.export_entities.len() {
             let e = self.ns.export_entities[i];
-            self.resolve_entity(e)?;
+            let resolved = self.resolve_entity(e)?;
+            self.module_asm_text(e, &resolved)?;
             i += 1;
+        }
+        self.collect_module_asm()?;
+        // A freestanding program with no entry point still has code to lower when it exports
+        // procedures: it starts at a symbol of its own. A hosted one starts at the runtime's
+        // `main`, which calls the entry point, so without one (only `#run` and `#assert`
+        // directives) there is nothing to lower.
+        let starts_by_itself = self.options.os == TargetOs::None && !self.pr.exports.is_empty();
+        if !has_entry && !starts_by_itself {
+            return Ok(false);
         }
         let mut i = 0;
         while i < self.pr.exports.len() {
@@ -750,12 +759,39 @@ impl Compiler {
         self.finalize_runtime_configuration()?;
         self.bake_no_reset_globals();
         self.out.drop_unreferenced_code();
+        self.reject_c_library_calls_without_a_c_library()?;
         self.enable_stack_traces(Span::NONE);
         if let Some(layout) = self.out.program.stack_trace {
             crate::stack_trace::instrument(&mut self.out.program, &layout, &self.options.layout);
         }
         if self.options.debug_info {
             self.collect_debug_types();
+        }
+        Ok(())
+    }
+
+    /// A freestanding target has no C library: a reachable `#foreign` procedure that a system
+    /// library provides (`write`, `malloc`) is a compile error naming it, not a link error or a
+    /// stub. Bind a board's own symbols with `#elsewhere`, or a static library of your own.
+    fn reject_c_library_calls_without_a_c_library(&self) -> Result<()> {
+        if self.options.os != TargetOs::None {
+            return Ok(());
+        }
+        let program = &self.out.program;
+        for foreign in &program.foreigns {
+            let Some(library) = foreign.library.and_then(|i| program.libraries.get(i)) else {
+                continue;
+            };
+            if library.system {
+                return err(
+                    Code::UnsupportedOperation,
+                    Span::NONE,
+                    format!(
+                        "cannot call `{}` on a freestanding target: it comes from the system library `{}`, and there is no operating system or C library",
+                        foreign.symbol, library.name
+                    ),
+                );
+            }
         }
         Ok(())
     }
@@ -913,7 +949,7 @@ impl Output {
             }
         }
         for (i, g) in program.globals.iter().enumerate() {
-            globals[i] |= g.export.is_some();
+            globals[i] |= g.export.is_some() || g.section.is_some();
         }
         // Native code calls the check reporter from its failure paths, not through an `Inst`.
         if let Some(handler) = program.check_failed {
@@ -984,5 +1020,47 @@ impl Output {
                 x.library = None;
             }
         }
+    }
+}
+
+impl Compiler {
+    /// The text of a string constant noted `@Module_Asm`; `None` for any other entity.
+    fn module_asm_text(&self, entity: EntityId, resolved: &Resolved) -> Result<Option<String>> {
+        let EntityKind::Decl {
+            decl, ..
+        } = &self.entity(entity).kind
+        else {
+            return Ok(None);
+        };
+        if !decl.notes.iter().any(|n| n.is(MODULE_ASM_NOTE)) {
+            return Ok(None);
+        }
+        let Resolved::Const {
+            value: Value::String(text),
+            ..
+        } = resolved
+        else {
+            return err(
+                Code::ModuleAsmNotString,
+                self.entity(entity).span,
+                "`@Module_Asm` goes on a constant string",
+            );
+        };
+        Ok(Some(String::from_utf8_lossy(text).into_owned()))
+    }
+
+    /// The module's assembly: every `@Module_Asm` constant, in source order.
+    fn collect_module_asm(&mut self) -> Result<()> {
+        let mut texts = Vec::new();
+        for i in 0..self.ns.export_entities.len() {
+            let entity = self.ns.export_entities[i];
+            if let EntityState::Done(resolved) = self.entity(entity).state.clone()
+                && let Some(text) = self.module_asm_text(entity, &resolved)?
+            {
+                texts.push(text);
+            }
+        }
+        self.out.program.module_asm = texts;
+        Ok(())
     }
 }

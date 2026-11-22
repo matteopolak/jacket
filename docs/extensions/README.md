@@ -9,6 +9,7 @@
 
 | Module | What it is for | Docs |
 | --- | --- | --- |
+| `Embedded` | The runtime, memory maps, `@Section`, volatile access, flash images and boards for programs with no OS | [embedded](embedded.md) |
 | `Time` | Civil time, exact instants, TZif zones and calendar-aware spans | [time](time.md) |
 | `Archive` | bounded ZIP/ZIP64 and TAR codecs, CRC checks and safe extraction | [archive](archive.md) |
 | `Environment` | reading environment variables, UTF-8 on every platform | [environment](environment.md) |

@@ -218,6 +218,7 @@ fn info_global(
                 relocs: Vec::new(),
                 read_only: true,
                 export: None,
+                section: None,
             });
             relocs.push(Reloc {
                 offset: offset as u64 + view.data,
@@ -242,6 +243,7 @@ fn info_global(
         relocs,
         read_only: true,
         export: None,
+        section: None,
     })
 }
 

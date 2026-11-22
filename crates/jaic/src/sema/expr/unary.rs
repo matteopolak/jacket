@@ -199,6 +199,7 @@ impl Compiler {
                         relocs: agg.relocs.clone(),
                         read_only: false,
                         export: None,
+                        section: None,
                     });
                     self.out.const_addr_globals.insert(key, g);
                     g

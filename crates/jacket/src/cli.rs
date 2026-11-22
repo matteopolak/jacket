@@ -82,6 +82,9 @@ pub enum Command {
     /// Rewrite code written for an older Jai to the current language (prints the diff; `--apply`
     /// writes it)
     Migrate(MigrateArgs),
+    /// List the targets `--target` accepts: the project's `[target.*]` tables and the built-in
+    /// boards, with their triple, board and whether the runner is installed
+    Targets,
     /// Remove the executable `jacket build` writes
     Clean,
     /// Explain a diagnostic code such as `type-mismatch`; without one, list them all
@@ -279,6 +282,10 @@ pub struct TestArgs {
     /// Command that runs test programs built for another target (`node tools/wasi_run.ts`)
     #[arg(long, value_name = "COMMAND")]
     pub runner: Option<String>,
+    /// A `[target.NAME]` of jacket.toml or an LLVM triple: builds for it, and runs the tests
+    /// with its runner unless `--runner` is given
+    #[arg(long, value_name = "NAME")]
+    pub target: Option<String>,
     /// Capabilities this machine has, for tests with `@needs` (`network,gpu`)
     #[arg(long, value_delimiter = ',', value_name = "LIST")]
     pub needs: Vec<String>,

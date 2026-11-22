@@ -140,9 +140,47 @@ pub enum TargetAbi {
     Apple,
     /// A WebAssembly System Interface command.
     Wasi,
+    /// A Cortex-M core with no operating system (`thumbv7em-none-eabihf`): Thumb-2 code, the
+    /// hard-float AAPCS, the core named by the triple.
+    CortexM(CortexM),
     /// Nothing named: freestanding WebAssembly, bare metal (`*-none-elf`), or a Linux
     /// environment jaic has no name for.
     Unknown,
+}
+
+/// The Arm-M architecture of a Cortex-M target, the first part of its triple.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CortexM {
+    /// `thumbv7em`: Armv7E-M (Cortex-M4 and M7).
+    V7em,
+    /// `thumbv8m.main`: Armv8-M mainline (Cortex-M33).
+    V8mMain,
+}
+
+impl CortexM {
+    /// The architecture name a triple starts with.
+    pub fn triple_arch(self) -> &'static str {
+        match self {
+            CortexM::V7em => "thumbv7em",
+            CortexM::V8mMain => "thumbv8m.main",
+        }
+    }
+
+    /// The name compiler-rt gives the builtins it builds for this architecture.
+    pub fn compiler_rt_arch(self) -> &'static str {
+        match self {
+            CortexM::V7em => "armv7em",
+            CortexM::V8mMain => "armv8m.main",
+        }
+    }
+
+    /// LLVM's name for the oldest core of this architecture that QEMU and boards use.
+    pub fn llvm_cpu(self) -> &'static str {
+        match self {
+            CortexM::V7em => "cortex-m4",
+            CortexM::V8mMain => "cortex-m33",
+        }
+    }
 }
 
 /// What a program is built for: OS, CPU and C environment, parsed once from `-os`/`-cpu`,
@@ -225,7 +263,9 @@ impl Target {
             "i686" | "i586" | "i486" | "i386" => (TargetCpu::X86, false),
             "s390x" => (TargetCpu::S390x, false),
             "powerpc64" | "ppc64" => (TargetCpu::PowerPc64, false),
-            "arm" | "armv7" | "armv7a" | "armv7l" => (TargetCpu::Arm, false),
+            "arm" | "armv7" | "armv7a" | "armv7l" | "thumbv7em" | "thumbv8m.main" => {
+                (TargetCpu::Arm, false)
+            }
             "avr" => (TargetCpu::Avr, false),
             "wasm32" => (TargetCpu::Wasm, true),
             "wasm64" => (TargetCpu::Wasm, false),
@@ -234,6 +274,25 @@ impl Target {
         let gnu = parts
             .iter()
             .any(|p| p.starts_with("gnu") || p.starts_with("mingw"));
+        let cortex_m = match parts[0] {
+            "thumbv7em" => Some(CortexM::V7em),
+            "thumbv8m.main" => Some(CortexM::V8mMain),
+            _ => None,
+        };
+        if let Some(core) = cortex_m {
+            if parts[1..] != ["none", "eabihf"] {
+                return Err(format!(
+                    "unsupported target in `{triple}`: a Cortex-M target is `{}-none-eabihf`",
+                    core.triple_arch()
+                ));
+            }
+            return Ok(Target {
+                os: TargetOs::None,
+                cpu,
+                abi: TargetAbi::CortexM(core),
+                memory32: false,
+            });
+        }
         if matches!(
             cpu,
             TargetCpu::X86 | TargetCpu::S390x | TargetCpu::PowerPc64 | TargetCpu::Arm
@@ -268,6 +327,14 @@ impl Target {
             if !parts.contains(&"none") {
                 return Err(format!(
                     "unsupported target OS in `{triple}`: AVR is built bare metal (`avr-none`)"
+                ));
+            }
+            (TargetOs::None, TargetAbi::Unknown)
+        } else if parts.contains(&"none") && parts.last() == Some(&"elf") {
+            // `aarch64-none-elf`: bare metal. Only the CPUs jaic has a freestanding ABI for.
+            if cpu != TargetCpu::Arm64 {
+                return Err(format!(
+                    "unsupported CPU for a freestanding target in `{triple}`: only aarch64 is supported"
                 ));
             }
             (TargetOs::None, TargetAbi::Unknown)
@@ -429,7 +496,10 @@ impl std::fmt::Display for Target {
             TargetCpu::X86 => "i686",
             TargetCpu::S390x => "s390x",
             TargetCpu::PowerPc64 => "powerpc64",
-            TargetCpu::Arm => "armv7",
+            TargetCpu::Arm => match self.abi {
+                TargetAbi::CortexM(core) => return write!(f, "{}-none-eabihf", core.triple_arch()),
+                _ => "armv7",
+            },
             TargetCpu::Avr => return write!(f, "avr-none-elf"),
             TargetCpu::Wasm if self.memory32 => return write!(f, "wasm32-{}", self.wasm_system()),
             TargetCpu::Wasm => return write!(f, "wasm64-{}", self.wasm_system()),
@@ -533,6 +603,8 @@ pub fn select_os_cpu(options: &mut Options, os: Option<TargetOs>, cpu: Option<Ta
     options.os = os.unwrap_or(options.os);
     options.cpu = match options.os {
         TargetOs::Wasm => TargetCpu::Wasm,
+        // The one CPU a freestanding build supports.
+        TargetOs::None => cpu.unwrap_or(TargetCpu::Arm64),
         os => cpu.unwrap_or(if os == host_os {
             options.cpu
         } else {
@@ -643,12 +715,58 @@ mod tests {
     }
 
     #[test]
+    fn a_freestanding_target_is_the_none_operating_system() {
+        let target = Target::parse("aarch64-none-elf").unwrap();
+        assert!(target.is_freestanding());
+        assert!(!Target::host().is_freestanding());
+        assert_eq!(os_member(TargetOs::None), "NONE");
+        assert_eq!(
+            Target::new(TargetOs::None, TargetCpu::Arm64),
+            target,
+            "the usual environment of a freestanding target"
+        );
+    }
+
+    #[test]
+    fn a_cortex_m_triple_is_a_freestanding_arm_target_with_the_hard_float_abi() {
+        for (triple, core, cpu) in [
+            ("thumbv7em-none-eabihf", CortexM::V7em, "cortex-m4"),
+            ("thumbv8m.main-none-eabihf", CortexM::V8mMain, "cortex-m33"),
+        ] {
+            let target = Target::parse(triple).unwrap();
+            assert_eq!(
+                (target.os, target.cpu, target.abi),
+                (TargetOs::None, TargetCpu::Arm, TargetAbi::CortexM(core)),
+                "{triple}"
+            );
+            assert_eq!(target.to_string(), triple);
+            assert_eq!(core.llvm_cpu(), cpu);
+            assert_eq!(target.arch(), Some(crate::abi::Arch::Arm32));
+            assert_eq!(target.data_layout().pointer_size, 4);
+        }
+        // Only the hard-float bare-metal triple is a target; Linux armv7 stays a different one.
+        for triple in [
+            "thumbv7em-none-eabi",
+            "thumbv7em-none-elf",
+            "thumbv7em-unknown-linux-gnueabihf",
+            "thumbv8m.main-none-eabihf-extra",
+        ] {
+            assert!(Target::parse(triple).is_err(), "{triple}");
+        }
+        assert_eq!(
+            Target::parse("armv7-unknown-linux-gnueabihf").unwrap().abi,
+            TargetAbi::Gnu
+        );
+    }
+
+    #[test]
     fn names_round_trip() {
         for os in [
             TargetOs::Windows,
             TargetOs::Linux,
             TargetOs::MacOS,
             TargetOs::Wasm,
+            TargetOs::None,
         ] {
             assert_eq!(parse_os(os_name(os)), Some(os));
         }
@@ -675,9 +793,15 @@ mod tests {
         let mut options = host.clone();
         select_os_cpu(&mut options, Some(TargetOs::Wasm), None);
         assert_eq!(options.cpu, TargetCpu::Wasm);
-        let mut options = host;
+        let mut options = host.clone();
         select_os_cpu(&mut options, Some(other), Some(TargetCpu::Arm64));
         assert_eq!(options.cpu, TargetCpu::Arm64);
+        let mut options = host;
+        select_os_cpu(&mut options, Some(TargetOs::None), None);
+        assert_eq!(
+            (options.os, options.cpu),
+            (TargetOs::None, TargetCpu::Arm64)
+        );
     }
 
     #[test]
@@ -726,6 +850,13 @@ mod tests {
                 "x86_64-unknown-linux-musl",
             ),
             (
+                "aarch64-none-elf",
+                TargetOs::None,
+                TargetCpu::Arm64,
+                TargetAbi::Unknown,
+                "aarch64-none-elf",
+            ),
+            (
                 "wasm32-unknown-unknown",
                 TargetOs::Wasm,
                 TargetCpu::Wasm,
@@ -751,6 +882,9 @@ mod tests {
         }
         assert!(Target::parse("riscv64-unknown-linux-gnu").is_err());
         assert!(Target::parse("x86_64-unknown-freebsd").is_err());
+        // A freestanding target needs a CPU jaic has an embedded ABI for.
+        assert!(Target::parse("x86_64-none-elf").is_err());
+        assert!(Target::parse("aarch64-none").is_err());
     }
 
     #[test]
@@ -761,6 +895,7 @@ mod tests {
             ("x86_64-w64-windows-gnu", Some(Arch::Win64)),
             ("aarch64-pc-windows-gnu", Some(Arch::Win64Arm)),
             ("aarch64-unknown-linux-gnu", Some(Arch::Aarch64)),
+            ("aarch64-none-elf", Some(Arch::Aarch64)),
             ("x86_64-unknown-linux-gnu", Some(Arch::X86_64)),
             ("wasm64-unknown-unknown", Some(Arch::Wasm)),
             ("wasm32-unknown-unknown", Some(Arch::Wasm)),

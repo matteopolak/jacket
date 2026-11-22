@@ -9,6 +9,7 @@ use crate::sema::{
     Arc, Compiler, Diagnostic, HashMap, InstanceKeyValue, ProcId, Result, Span, Sym, TypeId, Value,
     ast, err, ir,
 };
+use crate::sema::{INTERRUPT_NOTE, SECTION_NOTE};
 
 impl Compiler {
     /// Lower one procedure body to IR.
@@ -139,6 +140,8 @@ impl Compiler {
             ast::CallHintFlag::None => ir::InlineHint::Default,
         };
         f.b.func.cold = self.proc_has_note(id, "Cold");
+        f.b.func.section = self.proc_note_string(id, SECTION_NOTE);
+        self.check_interrupt_handler(id, span)?;
         f.b.func.target_features = header.flags.target_features.as_deref().map(str::to_string);
         if func_id.is_some() && self.options.null_pointer_check && !header.flags.no_abc() {
             f.b.func.null_checks = true;
@@ -621,5 +624,29 @@ impl Compiler {
             self.pr.proc_decl_notes.insert(inst, notes);
         }
         Ok(inst)
+    }
+}
+
+impl Compiler {
+    /// `@Interrupt`: the hardware enters the procedure, so it cannot take a context, parameters or
+    /// a result. (The arch's interrupt-entry code follows from the note where the architecture
+    /// has one; see docs/extensions/embedded.md.)
+    fn check_interrupt_handler(&mut self, id: ProcId, span: Span) -> Result<()> {
+        if !self.proc_has_note(id, INTERRUPT_NOTE) {
+            return Ok(());
+        }
+        let header = &self.proc(id).lit.header;
+        if header.flags.c_call()
+            && header.flags.no_context()
+            && header.params.is_empty()
+            && header.returns.is_empty()
+        {
+            return Ok(());
+        }
+        err(
+            Code::InterruptSignature,
+            span,
+            "an `@Interrupt` procedure must be `#c_call #no_context` with no parameters and no results",
+        )
     }
 }

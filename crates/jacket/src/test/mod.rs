@@ -389,10 +389,24 @@ fn run_once(
     };
     let config = loaded.as_ref().map(|l| &l.config.test);
     let config_dir = loaded.as_ref().map(jacket_config::Loaded::dir);
-    let (settings, runner) = match settings(args, config, cwd, config_dir) {
+    let (target_flags, target_runner) = match args
+        .target
+        .as_deref()
+        .map(|name| crate::target::for_tests(name, loaded.as_ref().map(|l| &l.config)))
+    {
+        Some(Ok(found)) => found,
+        Some(Err(error)) => return fail(error),
+        None => (Vec::new(), None),
+    };
+    let (settings, mut runner) = match settings(args, config, cwd, config_dir) {
         Ok(found) => found,
         Err(error) => return fail(error),
     };
+    if args.runner.is_none()
+        && let Some(words) = target_runner
+    {
+        runner = runner_words(&words, config_dir.unwrap_or(cwd));
+    }
     let project_dir = loaded.as_ref().map_or(cwd, |l| l.dir()).to_path_buf();
     let ignore: Vec<jacket_config::PathPattern> = loaded.as_ref().map_or_else(Vec::new, |l| {
         let format = l.config.format.ignore.iter().filter_map(|p| p.parse().ok());
@@ -428,7 +442,9 @@ fn run_once(
         Some(Err(error)) => return fail(error),
         None => None,
     };
-    let mut flags = Vec::new();
+    // On a board only the unit tests run: the other kinds build host programs.
+    let on_board = target_flags.iter().any(|flag| flag.starts_with('+'));
+    let mut flags = target_flags;
     if let Some(os) = &args.os {
         flags.extend(["-os".to_string(), os.clone()]);
     }
@@ -610,6 +626,9 @@ fn run_once(
     for case in cases {
         let is_bench = case.kind == Kind::Bench;
         if is_bench != bench && (bench || !args.list) {
+            continue;
+        }
+        if on_board && !matches!(case.kind, Kind::Test | Kind::Bench) {
             continue;
         }
         let is_doc = case.kind == Kind::Doc;

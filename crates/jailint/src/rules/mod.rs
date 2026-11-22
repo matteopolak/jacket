@@ -116,6 +116,7 @@ rules! {
     exit_in_module,
     format_push_string,
     float_equality,
+    freestanding,
     identical_branches,
     identical_case_bodies,
     identical_operands,

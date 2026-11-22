@@ -580,6 +580,7 @@ impl Compiler {
                     relocs: Vec::new(),
                     read_only: false,
                     export: None,
+                    section: None,
                 })
             });
             let p = f.b.global_addr(global);

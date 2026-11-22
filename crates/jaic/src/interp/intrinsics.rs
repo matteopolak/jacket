@@ -99,6 +99,20 @@ impl Interp {
                 }
                 result
             }
+            // Compile-time code reads and writes ordinary memory; an address that is not the
+            // program's (a device register) traps, because there is no device to answer.
+            I::VolatileLoad => {
+                let width = a[1] as usize;
+                let bytes = self.fetch(a[0], width)?;
+                let mut word = [0u8; 8];
+                word[..width].copy_from_slice(&bytes);
+                Rets::one(u64::from_le_bytes(word))
+            }
+            I::VolatileStore => {
+                let width = a[2] as usize;
+                self.put(a[0], &a[1].to_le_bytes()[..width])?;
+                Rets::default()
+            }
             I::DebugBreak => return self.trap("debug_break() was called"),
             I::Trap => {
                 let reason = a.first().copied().and_then(ir::CheckReason::from_raw);
