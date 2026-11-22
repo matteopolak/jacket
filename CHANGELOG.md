@@ -2,35 +2,28 @@
 
 ## [Unreleased]
 
-### New
+Jacket builds for 32-bit, big-endian and bare-metal targets, and Sound_Player no longer crackles on Windows.
 
-- Freestanding targets: `Operating_System_Tag.NONE` and `-target aarch64-none-elf` build programs with no OS, libc or system entry point, linked by `ld.lld` with a linker script. `Runtime_Support` has a NONE variant with console and panic hooks and no default heap ([embedded targets](docs/native/embedded.md)).
-- `Extensions/Embedded` for those programs: `init_runtime`, a heap allocator, `Memory_Map` and `link_for` (the linker script), `write_binary` (BIN, HEX and UF2), volatile access, CPU barriers, and a `Qemu_Virt_Aarch64` board. The compiler gains the `@Section(".name")`, `@Module_Asm` and `@Interrupt` notes and `volatile_load`/`volatile_store` ([Embedded](docs/extensions/embedded.md)).
-- `jacket build|check|run --target NAME` builds for a `[target.NAME]` table of `jacket.toml` (`triple`, `board`, `runner`) or a built-in board, `jacket run` starts the target's runner, and `jacket targets` lists them. An unknown name suggests the nearest. Boards are metaprogram plugins: `jaic app.jai +Extensions/Embedded/Boards/Qemu_Virt_Aarch64` ([targets](docs/tools/jacket.md#targets)).
-- `jacket test --target <board>` runs the tests on the board's emulator: `Extensions/Testing` builds for `OS == .NONE` (no benchmarks, snapshots or temporary folders), the `Qemu_Virt_Aarch64` board keeps standard output and standard error apart and passes the command line, and a runner may use `{exe}` and `{args}` ([tests on a board](docs/tools/jacket-test.md#tests-on-a-board)).
+### Highlights
 
-- `jaic` builds for Cortex-M: `-target thumbv7em-none-eabihf` (Cortex-M4F) and `thumbv8m.main-none-eabihf` (Cortex-M33), 32-bit freestanding Thumb-2 with the hard-float ABI. `Extensions/Embedded` has the `Mps2_An386` and `Mps2_An505` boards (QEMU `mps2-an386` and `mps2-an505`) with its vector table, FPU start-up and semihosting, the stdlib tests run on it with `jacket test --target Mps2_An386|Mps2_An505`, and `tools/embedded/build-compiler-rt.sh` builds the compiler-rt builtins it links. `JAIC_COMPILER_RT` may be a folder of per-target archives ([embedded targets](docs/native/embedded.md)).
-- `jacket lint` has a `freestanding` rule (`restriction`, off by default) for code meant to run with no operating system: OS-only imports, allocation with the default allocator, interrupt handlers that allocate, print, lock or block, recursion and large stack frames (`[lint.freestanding] max_frame_bytes`) ([jailint](docs/tools/jailint.md#freestanding)).
-- `jaic` builds for `wasm32-wasi` and `wasm32-unknown-unknown`: pointers, strings and views are 4 bytes wide in the program's memory, and `-interp` runs such programs in an address window. The stdlib test suite passes on `wasm32-wasi` under node. `-mwasm32` replaces the "wasm64 only" refusal.
-- `jaic` builds for `i686-unknown-linux-gnu`: 4-byte pointers, 4-aligned 64-bit integers and the i386 System V calling convention. Programs link with the cross C driver and run under qemu-user or natively; compile-time code runs in the interpreter's address window. Per-CPU POSIX declarations come from the target's own glibc headers (`docs/native/linux-cpu-bindings.md`). 93 stdlib roots pass; the rest are listed in `docs/native/n-bit-and-embedded.md`.
-- `jaic` builds for `s390x-unknown-linux-gnu`, the first big-endian target: the z/Architecture ABI, byte-swapping compile-time memory, and per-CPU POSIX declarations from glibc's headers. Programs link with the cross C driver and run under qemu-user (`docs/compiler/targets.md`); 69 stdlib roots pass. Fibers are not available on it yet.
-- `jaic` builds for `powerpc64-unknown-linux-gnu`: 64-bit big-endian ELFv1, aggregates by value and results through a hidden pointer, and per-CPU POSIX declarations from glibc's headers. Programs link with the cross container's GNU `ld` and run under `qemu-ppc64` (`docs/compiler/targets.md`); the stdlib roots that pass are in `tools/dev/powerpc64-roots.txt`. Fibers are not available on it yet. `long double` is treated as `double`, not IBM double-double.
-- `jaic` builds for `armv7-unknown-linux-gnueabihf`: 4-byte pointers, 8-aligned 64-bit integers, the hard-float AAPCS and fibers. Programs link with the cross C driver and run under `qemu-arm` (`docs/compiler/targets.md`); the stdlib roots that pass are in `tools/dev/armv7-roots.txt`.
-- `jaic` accepts `avr-none` (`TargetOs::None`, `Operating_System_Tag.NONE`): 2-byte pointers, byte alignment, 16-bit `int` and the register-pair calling convention. Compile-time code runs in a 48 KiB interpreter window. Linking and the freestanding toolchain arrive with the embedded work.
-- `jailint` has a `narrow_pointers` rule (restriction, off by default) that flags code assuming 8-byte pointers: high-bit pointer tagging, `cast(*u64)` over a `**T`, and constants of 2^32 or more cast to a pointer.
+- New targets: WebAssembly (`wasm32-wasi`), i686, ARMv7, s390x and PowerPC64 Linux, run under qemu-user ([targets](docs/compiler/targets.md)).
+- Bare-metal AArch64 and Cortex-M programs, with QEMU boards in `Extensions/Embedded` ([embedded](docs/native/embedded.md)).
+- `jacket build|run|test --target NAME` builds for a target or board and runs on its emulator. `jacket targets` lists them.
+- New lint rules, off by default: `freestanding` and `narrow_pointers`.
+- A new guide: [32-bit and embedded](docs/guides/other-targets.md).
 
-### Fixed
+### Breaking changes
 
-- The C library calls behind `Basic` pass `size_t` at the target's width, so `malloc`, `realloc` and `memmove` work on 32-bit ARM, where a 64-bit size after a pointer landed in the wrong registers.
-
-### Changed
-
-- The compiler lays out data from a per-target `DataLayout` (pointer size, byte order, scalar alignment) instead of assuming 8-byte little-endian pointers. Output for every supported target is unchanged. Compiler APIs that took `Ty::size()` or `layout::POINTER_SIZE` now take the layout.
+| Was | Now |
+| --- | --- |
+| `Ty::size()`, `layout::POINTER_SIZE` | take the target's `DataLayout` |
 
 ### Fixes
-- Hovering a procedure or polymorphic struct whose parameters span several lines now shows every parameter on one line, not just the first line of the declaration.
-- On Windows, a window no longer aborts with "WGL context selection failed" when its OpenGL context is selected again while already current; the call is skipped. This fixes the `game2d` example on some drivers.
-- Sound_Player no longer crackles on Windows: it counts a half-played buffer by what is left of it, refills the whole shortfall in one update, waits when every output buffer is queued instead of resetting the device, and keeps the audio thread's sleeps short. `game2d` now mixes on the audio thread.
+
+- Sound_Player no longer crackles on Windows. (#84, @spytheman)
+- On Windows, OpenGL windows no longer abort with "WGL context selection failed". (#83, @spytheman)
+- Hover shows every parameter of a multi-line declaration. (#82, @ElectronPie)
+- `malloc` and `memmove` work on 32-bit ARM.
 
 ## [0.37.0] - 2026-11-21
 
