@@ -6,13 +6,13 @@ check :: (condition: bool, loc := #caller_location) {
 
 main :: () {
     #assert !#exists(B.String_Builder.Buffer.ensured_count);
-    check(size_of(B.String_Builder.Buffer) == 2 * size_of(s64) + size_of(*void));
+    check(size_of(B.String_Builder.Buffer) == ((2 * size_of(s64) + size_of(*void)) + align_of(B.String_Builder.Buffer) - 1) / align_of(B.String_Builder.Buffer) * align_of(B.String_Builder.Buffer));
     check_combined_configuration();
     B.print("ok\n");
 }
 
 check_combined_configuration :: () {
-    check(size_of(B.String_Builder.Buffer) == 2 * size_of(s64) + size_of(*void));
+    check(size_of(B.String_Builder.Buffer) == ((2 * size_of(s64) + size_of(*void)) + align_of(B.String_Builder.Buffer) - 1) / align_of(B.String_Builder.Buffer) * align_of(B.String_Builder.Buffer));
     builder: B.String_Builder;
     bytes: [5000] u8;
 
