@@ -444,7 +444,10 @@ pub(super) fn library_args(
         if cross && linker == Linker::Unix && file == "portable_crash" {
             let source = dir.join("runtime.c");
             if source.exists() {
-                return Ok(vec![LinkArg::File(source.display().to_string())]);
+                return Ok(vec![
+                    LinkArg::Option("-funwind-tables".into()),
+                    LinkArg::File(source.display().to_string()),
+                ]);
             }
         }
         // Not beside the source: a helper the compiler provides (the crash runtime) is found

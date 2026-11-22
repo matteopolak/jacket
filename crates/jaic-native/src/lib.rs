@@ -188,9 +188,12 @@ mod tests {
             .unwrap()
             .toolchain();
         let args = library_args(&lib, toolchain, true).unwrap();
-        let [LinkArg::File(source)] = args.as_slice() else {
+        // ARM's EABI unwinder finds no frame in code built without unwind tables, so the
+        // runtime's own `backtrace` call would come back empty.
+        let [LinkArg::Option(flag), LinkArg::File(source)] = args.as_slice() else {
             panic!("{args:?}");
         };
+        assert_eq!(flag, "-funwind-tables");
         assert!(source.ends_with("crash-native/runtime.c"), "{source}");
     }
 
