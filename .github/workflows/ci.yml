@@ -539,6 +539,20 @@ jobs:
           grep -v '^#' ../tools/dev/s390x-roots.txt | while read -r root; do
             (cd "$root" && ../../target/debug/jacket test --runner "qemu-s390x -L /usr/s390x-linux-gnu" -- -target s390x-unknown-linux-gnu) || exit 1
           done
+      - name: Linux armv7 stdlib
+        id: armv7-stdlib
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',diff,') && runner.os == 'Linux' && matrix.architecture == 'x86_64' }}
+        # Hard-float AAPCS: the roots in tools/dev/armv7-roots.txt, cross-linked with gcc and run
+        # under qemu-user (docs/compiler/targets.md). Add a root there when it passes.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-user gcc-arm-linux-gnueabihf libc6-dev-armhf-cross
+          cargo build --locked -p jaic-cli -p jacket
+          cd stdlib
+          export JAIC_LINKER=arm-linux-gnueabihf-gcc
+          grep -v '^#' ../tools/dev/armv7-roots.txt | while read -r root; do
+            (cd "$root" && ../../target/debug/jacket test --runner "qemu-arm -L /usr/arm-linux-gnueabihf" -- -target armv7-unknown-linux-gnueabihf) || exit 1
+          done
   vscode-extension:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.jobs), 'vscode-extension')

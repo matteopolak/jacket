@@ -7,7 +7,13 @@
 - `jaic` builds for `wasm32-wasi` and `wasm32-unknown-unknown`: pointers, strings and views are 4 bytes wide in the program's memory, and `-interp` runs such programs in an address window. The stdlib test suite passes on `wasm32-wasi` under node. `-mwasm32` replaces the "wasm64 only" refusal.
 - `jaic` builds for `i686-unknown-linux-gnu`: 4-byte pointers, 4-aligned 64-bit integers and the i386 System V calling convention. Programs link with the cross C driver and run under qemu-user or natively; compile-time code runs in the interpreter's address window. Per-CPU POSIX declarations come from the target's own glibc headers (`docs/native/linux-cpu-bindings.md`). 93 stdlib roots pass; the rest are listed in `docs/native/n-bit-and-embedded.md`.
 - `jaic` builds for `s390x-unknown-linux-gnu`, the first big-endian target: the z/Architecture ABI, byte-swapping compile-time memory, and per-CPU POSIX declarations from glibc's headers. Programs link with the cross C driver and run under qemu-user (`docs/compiler/targets.md`); 69 stdlib roots pass. Fibers are not available on it yet.
+- `jaic` builds for `armv7-unknown-linux-gnueabihf`: 4-byte pointers, 8-aligned 64-bit integers, the hard-float AAPCS and fibers. Programs link with the cross C driver and run under `qemu-arm` (`docs/compiler/targets.md`); the stdlib roots that pass are in `tools/dev/armv7-roots.txt`.
+- `jaic` accepts `avr-none` (`TargetOs::None`, `Operating_System_Tag.NONE`): 2-byte pointers, byte alignment, 16-bit `int` and the register-pair calling convention. Compile-time code runs in a 48 KiB interpreter window. Linking and the freestanding toolchain arrive with the embedded work.
 - `jailint` has a `narrow_pointers` rule (restriction, off by default) that flags code assuming 8-byte pointers: high-bit pointer tagging, `cast(*u64)` over a `**T`, and constants of 2^32 or more cast to a pointer.
+
+### Fixed
+
+- The C library calls behind `Basic` pass `size_t` at the target's width, so `malloc`, `realloc` and `memmove` work on 32-bit ARM, where a 64-bit size after a pointer landed in the wrong registers.
 
 ### Changed
 

@@ -1,0 +1,5 @@
+# Stdlib roots whose tests all pass on armv7 Linux under qemu-user; CI runs them (docs/native/n-bit-and-embedded.md).
+Adpcm
+Atomics
+Autorun
+Base64
