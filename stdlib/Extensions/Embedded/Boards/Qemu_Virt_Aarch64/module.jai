@@ -2,8 +2,9 @@
 // 0x4000_0000, and ARM semihosting for the console and the exit code, so it needs no device
 // drivers and a run's exit status is the program's.
 //
-// ```jai
-// // build.jai
+// ```jai,ignore
+// // build.jai: the metaprogram, next to app.jai.
+// #import "Compiler";
 // Board :: #import "Extensions/Embedded/Boards/Qemu_Virt_Aarch64";
 //
 // #run {
@@ -13,8 +14,11 @@
 //     set_build_options(options, w);
 //     add_build_file("app.jai", w);
 // }
+// ```
 //
-// // app.jai
+// ```jai,ignore
+// // app.jai: builds only for the board (`OS == .NONE`).
+// #import "Basic";
 // Board :: #import "Extensions/Embedded/Boards/Qemu_Virt_Aarch64";
 //
 // main :: () {

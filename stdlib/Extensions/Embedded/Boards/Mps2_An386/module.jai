@@ -3,8 +3,9 @@
 // from, and 4 MiB of RAM at 0x2000_0000. ARM semihosting gives the console and the exit code, so
 // it needs no device drivers and a run's exit status is the program's.
 //
-// ```jai
-// // build.jai
+// ```jai,ignore
+// // build.jai: the metaprogram, next to app.jai.
+// #import "Compiler";
 // Board :: #import "Extensions/Embedded/Boards/Mps2_An386";
 //
 // #run {
@@ -14,8 +15,11 @@
 //     set_build_options(options, w);
 //     add_build_file("app.jai", w);
 // }
+// ```
 //
-// // app.jai
+// ```jai,ignore
+// // app.jai: builds only for the board (`OS == .NONE`).
+// #import "Basic";
 // Board :: #import "Extensions/Embedded/Boards/Mps2_An386";
 //
 // main :: () {
