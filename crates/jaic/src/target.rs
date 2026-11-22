@@ -126,9 +126,47 @@ pub enum TargetAbi {
     Apple,
     /// A WebAssembly System Interface command.
     Wasi,
+    /// A Cortex-M core with no operating system (`thumbv7em-none-eabihf`): Thumb-2 code, the
+    /// hard-float AAPCS, the core named by the triple.
+    CortexM(CortexM),
     /// Nothing named: freestanding WebAssembly, bare metal (`*-none-elf`), or a Linux
     /// environment jaic has no name for.
     Unknown,
+}
+
+/// The Arm-M architecture of a Cortex-M target, the first part of its triple.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CortexM {
+    /// `thumbv7em`: Armv7E-M (Cortex-M4 and M7).
+    V7em,
+    /// `thumbv8m.main`: Armv8-M mainline (Cortex-M33).
+    V8mMain,
+}
+
+impl CortexM {
+    /// The architecture name a triple starts with.
+    pub fn triple_arch(self) -> &'static str {
+        match self {
+            CortexM::V7em => "thumbv7em",
+            CortexM::V8mMain => "thumbv8m.main",
+        }
+    }
+
+    /// The name compiler-rt gives the builtins it builds for this architecture.
+    pub fn compiler_rt_arch(self) -> &'static str {
+        match self {
+            CortexM::V7em => "armv7em",
+            CortexM::V8mMain => "armv8m.main",
+        }
+    }
+
+    /// LLVM's name for the oldest core of this architecture that QEMU and boards use.
+    pub fn llvm_cpu(self) -> &'static str {
+        match self {
+            CortexM::V7em => "cortex-m4",
+            CortexM::V8mMain => "cortex-m33",
+        }
+    }
 }
 
 /// What a program is built for: OS, CPU and C environment, parsed once from `-os`/`-cpu`,
@@ -210,7 +248,9 @@ impl Target {
             "aarch64" | "arm64" => (TargetCpu::Arm64, false),
             "i686" | "i586" | "i486" | "i386" => (TargetCpu::X86, false),
             "s390x" => (TargetCpu::S390x, false),
-            "arm" | "armv7" | "armv7a" | "armv7l" => (TargetCpu::Arm, false),
+            "arm" | "armv7" | "armv7a" | "armv7l" | "thumbv7em" | "thumbv8m.main" => {
+                (TargetCpu::Arm, false)
+            }
             "wasm32" => (TargetCpu::Wasm, true),
             "wasm64" => (TargetCpu::Wasm, false),
             _ => return Err(format!("unsupported target architecture in `{triple}`")),
@@ -218,6 +258,25 @@ impl Target {
         let gnu = parts
             .iter()
             .any(|p| p.starts_with("gnu") || p.starts_with("mingw"));
+        let cortex_m = match parts[0] {
+            "thumbv7em" => Some(CortexM::V7em),
+            "thumbv8m.main" => Some(CortexM::V8mMain),
+            _ => None,
+        };
+        if let Some(core) = cortex_m {
+            if parts[1..] != ["none", "eabihf"] {
+                return Err(format!(
+                    "unsupported target in `{triple}`: a Cortex-M target is `{}-none-eabihf`",
+                    core.triple_arch()
+                ));
+            }
+            return Ok(Target {
+                os: TargetOs::None,
+                cpu,
+                abi: TargetAbi::CortexM(core),
+                memory32: false,
+            });
+        }
         if matches!(cpu, TargetCpu::X86 | TargetCpu::S390x | TargetCpu::Arm)
             && !parts.contains(&"linux")
         {
@@ -391,7 +450,10 @@ impl std::fmt::Display for Target {
             TargetCpu::Arm64 => "aarch64",
             TargetCpu::X86 => "i686",
             TargetCpu::S390x => "s390x",
-            TargetCpu::Arm => "armv7",
+            TargetCpu::Arm => match self.abi {
+                TargetAbi::CortexM(core) => return write!(f, "{}-none-eabihf", core.triple_arch()),
+                _ => "armv7",
+            },
             TargetCpu::Wasm if self.memory32 => return write!(f, "wasm32-{}", self.wasm_system()),
             TargetCpu::Wasm => return write!(f, "wasm64-{}", self.wasm_system()),
         };
@@ -615,6 +677,38 @@ mod tests {
             Target::new(TargetOs::None, TargetCpu::Arm64),
             target,
             "the usual environment of a freestanding target"
+        );
+    }
+
+    #[test]
+    fn a_cortex_m_triple_is_a_freestanding_arm_target_with_the_hard_float_abi() {
+        for (triple, core, cpu) in [
+            ("thumbv7em-none-eabihf", CortexM::V7em, "cortex-m4"),
+            ("thumbv8m.main-none-eabihf", CortexM::V8mMain, "cortex-m33"),
+        ] {
+            let target = Target::parse(triple).unwrap();
+            assert_eq!(
+                (target.os, target.cpu, target.abi),
+                (TargetOs::None, TargetCpu::Arm, TargetAbi::CortexM(core)),
+                "{triple}"
+            );
+            assert_eq!(target.to_string(), triple);
+            assert_eq!(core.llvm_cpu(), cpu);
+            assert_eq!(target.arch(), Some(crate::abi::Arch::Arm32));
+            assert_eq!(target.data_layout().pointer_size, 4);
+        }
+        // Only the hard-float bare-metal triple is a target; Linux armv7 stays a different one.
+        for triple in [
+            "thumbv7em-none-eabi",
+            "thumbv7em-none-elf",
+            "thumbv7em-unknown-linux-gnueabihf",
+            "thumbv8m.main-none-eabihf-extra",
+        ] {
+            assert!(Target::parse(triple).is_err(), "{triple}");
+        }
+        assert_eq!(
+            Target::parse("armv7-unknown-linux-gnueabihf").unwrap().abi,
+            TargetAbi::Gnu
         );
     }
 

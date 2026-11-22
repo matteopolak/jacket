@@ -49,8 +49,8 @@ fn raw_pointers_execute_native_and_wasm_at_o0_and_o2() {
 
 #[test]
 fn unsupported_32_bit_targets_are_not_targets_yet() {
-    // 32-bit x86 is a Linux target only; every other 32-bit CPU is not a target yet.
-    for target in ["armv7-unknown-linux-gnueabihf", "riscv32-unknown-none-elf"] {
+    // 32-bit x86 is a Linux target only; RISC-V 32 is not a target yet.
+    for target in ["riscv32-unknown-none-elf", "riscv32imac-unknown-none-elf"] {
         let error = jaic::target::Target::parse(target).unwrap_err();
         assert!(
             error.contains("unsupported target architecture"),

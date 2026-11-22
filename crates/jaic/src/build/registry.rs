@@ -478,6 +478,11 @@ pub(super) fn new_compiler(shared: &SharedWorkspaces, id: i64) -> Result<Box<Com
     if let Some(cpu) = settings.cpu {
         options.cpu = cpu;
     }
+    // The triple says the OS, CPU and data layout, and wins over `os_target` and `cpu_target`,
+    // which a metaprogram that only read the options back still holds at the host's values.
+    if let Some(target) = settings.llvm_target {
+        target.apply(&mut options);
+    }
     if let Some(size) = settings.temporary_storage_size {
         options.temporary_storage_size = size;
     }

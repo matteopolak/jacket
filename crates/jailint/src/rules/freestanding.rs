@@ -645,15 +645,21 @@ struct CpuGaps {
 /// The gaps of the CPU the compile is for. Only a freestanding target has any: a hosted one has
 /// an operating system to make up for them.
 ///
-/// There is no table of CPU features yet, and the only freestanding CPU is AArch64, which has
-/// both. This waits for the 32-bit microcontroller CPUs (Cortex-M0, M3, M4), which lack one or
-/// both, and will say so per CPU here.
+/// AArch64 has both. The freestanding 32-bit ARM CPUs are the Cortex-M4 and M33: their FPU is
+/// single precision and they have no 64-bit divide, so both are software routines. A core without
+/// an FPU (Cortex-M0, M3) is not a target yet.
 fn cpu_gaps(options: &jaic::sema::Options) -> CpuGaps {
     if options.os != TargetOs::None {
         return CpuGaps::default();
     }
     match options.cpu {
-        TargetCpu::Arm64 | TargetCpu::X64 | TargetCpu::Wasm => CpuGaps::default(),
+        TargetCpu::Arm => CpuGaps {
+            double_float: true,
+            wide_divide: true,
+        },
+        TargetCpu::Arm64 | TargetCpu::X64 | TargetCpu::X86 | TargetCpu::S390x | TargetCpu::Wasm => {
+            CpuGaps::default()
+        }
     }
 }
 

@@ -32,6 +32,7 @@ fn names_script(args: &[String]) -> bool {
 fn emulation(cpu: TargetCpu) -> Result<&'static str, String> {
     match cpu {
         TargetCpu::Arm64 => Ok("aarch64elf"),
+        TargetCpu::Arm => Ok("armelf"),
         other => Err(format!("jaic cannot link a freestanding {other:?} program")),
     }
 }

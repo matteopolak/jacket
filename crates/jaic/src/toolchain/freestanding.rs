@@ -22,7 +22,13 @@ pub(super) static FREESTANDING: Toolchain = Toolchain {
 fn builtins_file(target: Target) -> String {
     let arch = match target.cpu {
         crate::target::TargetCpu::Arm64 => "aarch64",
+        crate::target::TargetCpu::Arm => match target.abi {
+            crate::target::TargetAbi::CortexM(core) => core.compiler_rt_arch(),
+            _ => "armhf",
+        },
         crate::target::TargetCpu::X64 => "x86_64",
+        crate::target::TargetCpu::X86 => "i386",
+        crate::target::TargetCpu::S390x => "s390x",
         crate::target::TargetCpu::Wasm => "wasm",
     };
     format!("libclang_rt.builtins-{arch}.a")
@@ -30,7 +36,8 @@ fn builtins_file(target: Target) -> String {
 
 /// The compiler-rt builtins archive for the exact freestanding `target`.
 ///
-/// `JAIC_COMPILER_RT` names the file. Otherwise each LLVM install in `prefixes` is searched under
+/// `JAIC_COMPILER_RT` names the file, or a folder holding `<triple>/libclang_rt.builtins.a` for
+/// each target. Otherwise each LLVM install in `prefixes` is searched under
 /// `lib/clang/<version>/lib/`: the target's own directory (`aarch64-none-elf/libclang_rt.builtins.a`,
 /// where a `-DCOMPILER_RT_BAREMETAL_BUILD` build installs it) then `baremetal/`. A builtins
 /// archive built for an operating system (`linux/`, `darwin/`) is never used: its code may call
@@ -40,10 +47,18 @@ pub fn compiler_rt_builtins(
     explicit: Option<&Path>,
     prefixes: &[PathBuf],
 ) -> Option<PathBuf> {
-    if let Some(file) = explicit {
-        return Some(file.to_path_buf());
-    }
     let own = target.to_string();
+    if let Some(path) = explicit {
+        if !path.is_dir() {
+            return Some(path.to_path_buf());
+        }
+        // A folder of builtins, one per target as `tools/embedded/build-compiler-rt.sh` leaves
+        // them: it serves every target it has an archive for.
+        let file = path.join(&own).join("libclang_rt.builtins.a");
+        if file.is_file() {
+            return Some(file);
+        }
+    }
     for prefix in prefixes {
         let Ok(versions) = std::fs::read_dir(prefix.join("lib/clang")) else {
             continue;
@@ -140,6 +155,20 @@ mod tests {
         let file = install(dir.path(), "baremetal/libclang_rt.builtins-aarch64.a");
         let found = compiler_rt_builtins(target(), None, &[dir.path().to_path_buf()]);
         assert_eq!(found, Some(file));
+    }
+
+    #[test]
+    fn an_explicit_folder_holds_one_archive_per_target() {
+        let dir = Scratch::new("folder");
+        let file = dir.path().join("aarch64-none-elf/libclang_rt.builtins.a");
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, b"!<arch>\n").unwrap();
+        assert_eq!(
+            compiler_rt_builtins(target(), Some(dir.path()), &[]),
+            Some(file)
+        );
+        let other = Target::parse("thumbv7em-none-eabihf").unwrap();
+        assert_eq!(compiler_rt_builtins(other, Some(dir.path()), &[]), None);
     }
 
     #[test]

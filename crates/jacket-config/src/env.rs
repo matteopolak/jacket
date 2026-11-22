@@ -186,7 +186,7 @@ vars! {
     COMPILER_RT {
         name: "JAIC_COMPILER_RT", group: Settings, readers: [Jaic],
         default: "`lib/clang/<version>/lib/<triple>/libclang_rt.builtins.a` in the build's LLVM",
-        summary: "The compiler-rt builtins archive a freestanding build links.",
+        summary: "The compiler-rt builtins a freestanding build links: an archive, or a folder with a `<triple>/libclang_rt.builtins.a` per target (what `tools/embedded/build-compiler-rt.sh` writes).",
     }
     MEMORY_LIMIT {
         name: "JAIC_MEMORY_LIMIT", group: Settings, readers: [Jaic],
