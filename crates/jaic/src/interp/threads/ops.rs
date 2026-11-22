@@ -313,7 +313,7 @@ impl Interp {
         };
         if out != 0 {
             let handle = self.with_sched(|s| s.handle_of(id));
-            self.put(out, &handle.to_le_bytes())?;
+            self.put_ptr(out, handle)?;
         }
         Ok(0)
     }
@@ -349,7 +349,7 @@ impl Interp {
         };
         join_ended_worker(worker);
         if result_out != 0 {
-            self.put(result_out, &result.to_le_bytes())?;
+            self.put_ptr(result_out, result)?;
         }
         Ok(0)
     }

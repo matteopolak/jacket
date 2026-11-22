@@ -5139,6 +5139,65 @@ main :: () {
 
 A procedure, struct, enum or union declared at the top level of a file while the scope is exported (the default, until a `#scope_file` or `#scope_module`) needs a doc: the comment directly above it.
 
+### narrow_pointers
+
+Finds code that assumes 8-byte pointers (high-bit tagging, `*u64` over a pointer).
+
+Category `restriction`, `allow` by default.
+
+Off by default; the example is shown with the rule enabled.
+
+```jai example
+#import "Basic";
+
+Node :: struct {
+    next: *Node;
+    value: s32;
+}
+
+// A 16-bit tag in the top of the pointer.
+tag_of :: (node: *Node) -> u64 {
+    return (cast(u64) node) >> 48;
+}
+
+main :: () {
+    node: Node;
+    print("%\n", tag_of(*node));
+}
+```
+
+```diagnostic
+warning[narrow_pointers]: this changes the high half of a 64-bit pointer: the bits do not exist on 32-bit targets
+  --> example.jai:10:13
+   |
+10 |     return (cast(u64) node) >> 48;
+   |             ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: a pointer is 4 bytes on 32-bit targets: keep tags in the low bits, or store them next to the pointer
+```
+
+```jai fixed
+#import "Basic";
+
+Node :: struct {
+    next: *Node;
+    value: s32;
+    tag: u16;
+}
+
+// The tag lives next to the pointer.
+tag_of :: (node: *Node) -> u16 {
+    return node.tag;
+}
+
+main :: () {
+    node: Node;
+    print("%\n", tag_of(*node));
+}
+```
+
+Off by default; turn it on for a project that builds for a 32-bit or 16-bit CPU (`[lint.rules] narrow_pointers = "warn"`). It flags a bit operation that reaches bit 32 or above of a value made from a pointer, `cast(*u64)` or `cast(*s64)` of a `**T`, and an integer constant of 2³² or more cast to a pointer. It reads types only, so it does not depend on `--target`. It does not yet re-evaluate `size_of` constants under a 4-byte pointer, or compare `#foreign` integer widths with the C aliases; see [the plan](../native/n-bit-and-embedded.md).
+
 ### platform_leak
 
 Finds portable code imports something that asserts an operating system it is not built for.

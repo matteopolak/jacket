@@ -218,7 +218,7 @@ impl Compiler {
         };
         let fsigned = self.ty.types.int_info(from).is_some_and(|(_, s)| s);
         let tsigned = self.ty.types.int_info(to).is_some_and(|(_, s)| s);
-        let val = numeric_conv(f, v, ft, tt, fsigned, tsigned);
+        let val = numeric_conv(f, v, ft, tt, fsigned, tsigned, &self.options.layout);
         // A pointer, or an integer handle resized in passing, still names what it did before.
         let kept = |t| self.ty.types.is_pointer(t);
         let integers =

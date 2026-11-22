@@ -52,10 +52,13 @@ fn compiler(cross_os: bool, cross_cpu: bool) -> (Compiler, Rc<Cell<usize>>) {
     }
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
     let calls = Rc::new(Cell::new(0));
-    compiler.ct.interp = Interp::new(Box::new(Observer {
-        calls: calls.clone(),
-        value: Box::new(37),
-    }))
+    compiler.ct.interp = Interp::new(
+        Box::new(Observer {
+            calls: calls.clone(),
+            value: Box::new(37),
+        }),
+        jaic::layout::DataLayout::host(),
+    )
     .into();
     (compiler, calls)
 }

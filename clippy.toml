@@ -12,6 +12,18 @@ disallowed-methods = [
     { path = "std::env::var", reason = "declare the variable in `jacket_config::env` and read it through its constant" },
     { path = "std::env::var_os", reason = "declare the variable in `jacket_config::env` and read it through its constant" },
     { path = "std::env::vars", reason = "read the declared variables in `jacket_config::env` one by one" },
+    { path = "u16::from_le_bytes", reason = "read and write program data through `jaic::layout::DataLayout`, which respects the target's width and byte order; host-only code adds an `#[allow]` with a reason" },
+    { path = "u16::from_ne_bytes", reason = "read and write program data through `jaic::layout::DataLayout`, which respects the target's width and byte order; host-only code adds an `#[allow]` with a reason" },
+    { path = "u16::to_le_bytes", reason = "read and write program data through `jaic::layout::DataLayout`, which respects the target's width and byte order; host-only code adds an `#[allow]` with a reason" },
+    { path = "u16::to_ne_bytes", reason = "read and write program data through `jaic::layout::DataLayout`, which respects the target's width and byte order; host-only code adds an `#[allow]` with a reason" },
+    { path = "u32::from_le_bytes", reason = "read and write program data through `jaic::layout::DataLayout`, which respects the target's width and byte order; host-only code adds an `#[allow]` with a reason" },
+    { path = "u32::from_ne_bytes", reason = "read and write program data through `jaic::layout::DataLayout`, which respects the target's width and byte order; host-only code adds an `#[allow]` with a reason" },
+    { path = "u32::to_le_bytes", reason = "read and write program data through `jaic::layout::DataLayout`, which respects the target's width and byte order; host-only code adds an `#[allow]` with a reason" },
+    { path = "u32::to_ne_bytes", reason = "read and write program data through `jaic::layout::DataLayout`, which respects the target's width and byte order; host-only code adds an `#[allow]` with a reason" },
+    { path = "u64::from_le_bytes", reason = "read and write program data through `jaic::layout::DataLayout`, which respects the target's width and byte order; host-only code adds an `#[allow]` with a reason" },
+    { path = "u64::from_ne_bytes", reason = "read and write program data through `jaic::layout::DataLayout`, which respects the target's width and byte order; host-only code adds an `#[allow]` with a reason" },
+    { path = "u64::to_le_bytes", reason = "read and write program data through `jaic::layout::DataLayout`, which respects the target's width and byte order; host-only code adds an `#[allow]` with a reason" },
+    { path = "u64::to_ne_bytes", reason = "read and write program data through `jaic::layout::DataLayout`, which respects the target's width and byte order; host-only code adds an `#[allow]` with a reason" },
     { path = "std::env::vars_os", reason = "read the declared variables in `jacket_config::env` one by one" },
 ]
 

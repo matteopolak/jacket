@@ -38,6 +38,7 @@ pub mod line_cover;
 mod memory;
 mod native;
 mod probe;
+mod proc_addr;
 pub mod profile;
 mod read_only;
 mod rets;
@@ -49,6 +50,7 @@ mod threads_inline;
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod threads_inline_tests;
 mod trap;
+mod window;
 mod windows;
 mod windows_memory;
 mod windows_native;
@@ -61,8 +63,8 @@ pub(crate) use self::globals::ZeroedBlock;
 pub use self::host::{Hook, Host, LocationLayout, NativeHost, PendingDataGlobal};
 pub use self::rets::Rets;
 pub use self::trap::{Trap, TrapDetails, TrapFrame, TrapKind};
+pub use self::window::Window;
 use crate::fxhash::HashMap;
-#[cfg(not(target_arch = "wasm32"))]
 use crate::ir::Ty;
 use crate::ir::{self, FuncId, GlobalId, Program};
 #[cfg(target_os = "macos")]
@@ -131,6 +133,23 @@ pub struct MadeCode {
 }
 
 pub struct Interp {
+    /// How the program's data is laid out in memory.
+    layout: crate::layout::DataLayout,
+    /// The host region program addresses are offsets into, for a target whose pointers are
+    /// narrower than the host's; `None` when program addresses are host addresses.
+    window: Option<std::sync::Arc<Window>>,
+    /// What an interpreted pointer load or store moves: the target's pointer as an integer.
+    ptr_ty: Ty,
+    /// Whether program memory holds multi-byte values in the other byte order than the host:
+    /// loads and stores of integers and floats swap their bytes.
+    swap_bytes: bool,
+    /// The lowest address that is a procedure value, not data (`proc_addr::data_limit`).
+    data_limit: u64,
+    /// The host address of program address 0: the window's start, or 0 without a window.
+    base: u64,
+    /// Blocks of program memory the interpreter made for the program to read (names, tables)
+    /// and keeps until it is dropped.
+    kept: Vec<ZeroedBlock>,
     stack: ValueStack,
     sp: u64,
     globals: Vec<Option<GlobalMem>>,
@@ -154,7 +173,7 @@ pub struct Interp {
     pub hooks: Vec<Option<Hook>>,
     pub(crate) public_bindings: Vec<crate::build::public_api::Binding>,
     pub(crate) public_api_state: crate::build::public_api::State,
-    pub host: Box<dyn Host>,
+    pub(crate) host: Box<dyn Host>,
     depth: usize,
     /// The procedures running, outermost first, each with the location it was called from:
     /// what a crash in native code reports (`crash.rs`).
@@ -177,9 +196,8 @@ pub struct Interp {
     /// rest of the process, as the OS keeps its own.
     run_command_line: Option<u64>,
     /// The table `get_type_table()` gives compile-time code: address and count of descriptor
-    /// pointers, in a vector kept in `ct_type_tables` (earlier ones stay for runs still using them).
+    /// pointers, kept in program memory (earlier ones stay for runs still using them).
     pub ct_type_table: (u64, u64),
-    pub ct_type_tables: Vec<Vec<u64>>,
     /// `compiler_set_type_info_flags` calls (type descriptor global, flags) not applied yet.
     pub pending_type_flags: Vec<(GlobalId, u32)>,
     /// This interpreter belongs to a host twin. A `Compiler`-module operation that reads or
@@ -198,7 +216,6 @@ pub struct Interp {
     pub made_codes: Vec<MadeCode>,
     pub pending_data_globals: Vec<PendingDataGlobal>,
     data_segment_tags: HashMap<GlobalId, u16>,
-    runtime_data_snapshots: Vec<Box<[u64]>>,
     /// The codes the current compile-time run made, in order, and how many of them its
     /// current attempt has made again: a repeated run (`export_request`) replays the earlier
     /// attempt, so its `compiler_get_code` calls give the codes the earlier one got.
@@ -230,9 +247,6 @@ pub struct Interp {
     /// Stack trace node data per procedure (`Stack_Trace_Procedure_Info`), built on first call.
     /// `Stack_Trace_Procedure_Info` addresses by `FuncId` (0 = not made yet).
     trace_infos: Vec<u64>,
-    /// Answers `compile_time_service` handed to the program; they live as long as the
-    /// interpreter, like string literals.
-    service_replies: Vec<Box<[u8]>>,
     /// Threads of the running program and the gate C callbacks enter through: made by the
     /// first thread, lock or thunk (`threads::Shared`).
     #[cfg(not(target_arch = "wasm32"))]
@@ -300,13 +314,25 @@ pub struct Interp {
     lines: Option<Box<line_cover::Lines>>,
 }
 
-impl Default for Interp {
-    fn default() -> Self {
-        Self::new(Box::new(NativeHost))
-    }
+/// Empty read-only data for a program whose memory is `window` (or host memory).
+fn read_only_in(window: Option<&std::sync::Arc<Window>>) -> read_only::ReadOnlyData {
+    window.map_or_else(
+        read_only::ReadOnlyData::default,
+        read_only::ReadOnlyData::in_window,
+    )
 }
 
 impl Interp {
+    /// An interpreter that runs on this machine's own services.
+    pub fn native(layout: crate::layout::DataLayout) -> Self {
+        Self::new(Box::new(NativeHost), layout)
+    }
+
+    /// How the program's data is laid out in memory.
+    pub fn data_layout(&self) -> &crate::layout::DataLayout {
+        &self.layout
+    }
+
     /// A top-level compile-time evaluation starts: it gets its own `eval_steps` when the
     /// interpreter has them. Returns the blocks left, to measure the cost against.
     pub fn begin_evaluation(&mut self) -> Option<u64> {
@@ -333,16 +359,48 @@ impl Interp {
         self.budget_traps += other.budget_traps;
     }
 
-    pub fn new(host: Box<dyn Host>) -> Self {
+    /// Runs the program's host calls on `host`, which gets the program's address window.
+    pub fn set_host(&mut self, mut host: Box<dyn Host>) {
+        if let Some(window) = &self.window {
+            host.attach_window(window);
+        }
+        self.host = host;
+    }
+
+    /// An interpreter whose program memory is laid out as `layout` says.
+    pub fn new(mut host: Box<dyn Host>, layout: crate::layout::DataLayout) -> Self {
         if host.native_linking() {
             native::waits::prepare();
         }
+        let window = (usize::from(layout.pointer_size) < std::mem::size_of::<usize>()).then(|| {
+            Window::shared().expect(
+                "cannot reserve address space for a program with narrow pointers: it needs 3 GiB of virtual memory",
+            )
+        });
+        if let Some(window) = &window {
+            host.attach_window(window);
+        }
+        let narrow = window.is_some();
+        let read_only = read_only_in(window.as_ref());
+        let base = window.as_ref().map_or(0, |w| w.base());
         Self {
+            layout,
+            window,
+            data_limit: proc_addr::data_limit(narrow),
+            swap_bytes: matches!(layout.endian, crate::layout::Endian::Big)
+                != cfg!(target_endian = "big"),
+            ptr_ty: if narrow {
+                Ty::I32
+            } else {
+                Ty::Ptr
+            },
+            base,
+            kept: Vec::new(),
             stack: ValueStack::default(),
             sp: 0,
             globals: Vec::new(),
             ranges: BTreeMap::new(),
-            read_only: read_only::ReadOnlyData::default(),
+            read_only,
             frames: Vec::new(),
             retired: Vec::new(),
             foreign_addrs: Vec::new(),
@@ -362,7 +420,6 @@ impl Interp {
             run_arguments: Vec::new(),
             run_command_line: None,
             ct_type_table: (0, 0),
-            ct_type_tables: Vec::new(),
             pending_type_flags: Vec::new(),
             in_host_twin: false,
             twin_declined: false,
@@ -372,7 +429,6 @@ impl Interp {
             made_codes: Vec::new(),
             pending_data_globals: Vec::new(),
             data_segment_tags: HashMap::default(),
-            runtime_data_snapshots: Vec::new(),
             run_codes: (Vec::new(), 0),
             nodes_codes: Vec::new(),
             effects: 0,
@@ -387,7 +443,6 @@ impl Interp {
             code_export_cursor: HashMap::default(),
             forked_child: false,
             trace_infos: Vec::new(),
-            service_replies: Vec::new(),
             #[cfg(not(target_arch = "wasm32"))]
             shared: None,
             #[cfg(not(target_arch = "wasm32"))]
@@ -436,8 +491,11 @@ impl Interp {
         self.retired = Vec::new();
         self.globals = Vec::new();
         self.ranges = BTreeMap::new();
-        self.read_only = read_only::ReadOnlyData::default();
-        self.ct_type_tables = Vec::new();
+        if self.window.is_some() {
+            self.read_only.clear();
+        } else {
+            self.read_only = read_only::ReadOnlyData::default();
+        }
         self.ct_type_table = (0, 0);
         self.stack = ValueStack::default();
         self.sp = 0;

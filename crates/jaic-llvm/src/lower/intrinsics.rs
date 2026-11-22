@@ -268,6 +268,9 @@ impl<'ctx> Backend<'ctx, '_> {
                             };
                             Ok(b.build_bit_cast(f, int, "")?.into_int_value())
                         }
+                        BasicValueEnum::PointerValue(p) => {
+                            Ok(b.build_ptr_to_int(p, self.word_ty(), "")?)
+                        }
                         other => self.as_int(other),
                     }
                 };
@@ -825,21 +828,21 @@ impl<'ctx> Backend<'ctx, '_> {
             | Intrinsic::X86Pause
             | Intrinsic::X86Prefetch(_) => self.intrinsic_x86(op, args),
             Intrinsic::CycleCounter => {
-                let v =
-                    match self.arch {
-                        // The user-space virtual counter; PMCCNTR is not readable from EL0.
-                        Arch::Aarch64 | Arch::Win64Arm => {
-                            self.inline_asm("mrs $0, cntvct_el0", "=r", Some(i64t.into()))?
-                        }
-                        Arch::X86_64 | Arch::Win64 => {
-                            self.call_intrinsic("llvm.readcyclecounter", &[], &[])?
-                        }
-                        // No cycle counter is visible to wasm code.
-                        Arch::Wasm64 => return Err(
-                            "no architectural cycle counter is available on a WebAssembly target"
-                                .into(),
-                        ),
-                    };
+                let v = match self.arch {
+                    // The user-space virtual counter; PMCCNTR is not readable from EL0.
+                    Arch::Aarch64 | Arch::Win64Arm => {
+                        self.inline_asm("mrs $0, cntvct_el0", "=r", Some(i64t.into()))?
+                    }
+                    Arch::X86_64 | Arch::Win64 | Arch::X86 => {
+                        self.call_intrinsic("llvm.readcyclecounter", &[], &[])?
+                    }
+                    // No cycle counter is visible to wasm code or to s390x user code.
+                    Arch::Wasm | Arch::S390x | Arch::Arm32 => {
+                        return Err(
+                            "no architectural cycle counter is available on this target".into()
+                        );
+                    }
+                };
                 Ok(vec![v.ok_or("cycle counter produced no value")?])
             }
             Intrinsic::Syscall => {
@@ -869,9 +872,9 @@ impl<'ctx> Backend<'ctx, '_> {
             }
             Intrinsic::Pause => {
                 let asm = match self.arch {
-                    Arch::Aarch64 | Arch::Win64Arm => "yield",
-                    Arch::X86_64 | Arch::Win64 => "pause",
-                    Arch::Wasm64 => return Ok(vec![]),
+                    Arch::Aarch64 | Arch::Win64Arm | Arch::Arm32 => "yield",
+                    Arch::X86_64 | Arch::Win64 | Arch::X86 => "pause",
+                    Arch::Wasm | Arch::S390x => return Ok(vec![]),
                 };
                 self.inline_asm(asm, "", None)?;
                 Ok(vec![])
@@ -888,7 +891,6 @@ impl<'ctx> Backend<'ctx, '_> {
         _want: &[Ty],
     ) -> R<Vec<BasicValueEnum<'ctx>>> {
         let b = &self.builder;
-        let i64t = self.ctx.i64_type();
         let ptr_arg = |i: usize| {
             self.coerce(args[i], Ty::Ptr)
                 .map(|v| v.into_pointer_value())
@@ -914,10 +916,12 @@ impl<'ctx> Backend<'ctx, '_> {
                 // top of the stack; the context also records the stack's bounds, which Windows
                 // wants in the thread information block when it switches to the fiber.
                 let ptr = self.ptr_ty();
-                let ty = i64t.fn_type(&[i64t.into(), ptr.into(), ptr.into()], false);
+                let word = self.word_ty();
+                let ty = word.fn_type(&[word.into(), ptr.into(), ptr.into()], false);
                 let prepare = self.fiber_routine(jaic::fiber::PREPARE, ty)?;
-                let (fiber, stack, size) = (ptr_arg(0)?, ptr_arg(1)?, size_arg(2)?);
-                let low = b.build_ptr_to_int(stack, i64t, "")?;
+                let (fiber, stack) = (ptr_arg(0)?, ptr_arg(1)?);
+                let size = b.build_int_truncate_or_bit_cast(size_arg(2)?, word, "")?;
+                let low = b.build_ptr_to_int(stack, word, "")?;
                 let high = b.build_int_add(low, size, "")?;
                 let sp = basic(b.build_call(
                     prepare,
@@ -926,11 +930,12 @@ impl<'ctx> Backend<'ctx, '_> {
                 )?)
                 .ok_or("fiber prepare produced no value")?
                 .into_int_value();
+                let at = jaic::fiber::offsets(self.layout.pointer_size);
                 for (offset, value) in [
-                    (jaic::fiber::SP, sp),
-                    (jaic::fiber::STACK_LOW, low),
-                    (jaic::fiber::STACK_HIGH, high),
-                    (jaic::fiber::STACK_DEALLOC, low),
+                    (at.sp, sp),
+                    (at.stack_low, low),
+                    (at.stack_high, high),
+                    (at.stack_dealloc, low),
                 ] {
                     b.build_store(self.gep_const(fiber, offset)?, value)?;
                 }
@@ -979,9 +984,10 @@ impl<'ctx> Backend<'ctx, '_> {
         let ty = value.get_type();
         let class = if ty.is_float_type() {
             match self.arch {
-                Arch::Aarch64 | Arch::Win64Arm => "w",
-                Arch::X86_64 | Arch::Win64 => "x",
-                Arch::Wasm64 => "r",
+                Arch::Aarch64 | Arch::Win64Arm | Arch::Arm32 => "w",
+                Arch::X86_64 | Arch::Win64 | Arch::X86 => "x",
+                Arch::S390x => "f",
+                Arch::Wasm => "r",
             }
         } else {
             "r"

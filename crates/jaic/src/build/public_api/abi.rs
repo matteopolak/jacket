@@ -163,9 +163,7 @@ impl Schema {
         let bytes = interp
             .read(address, size)
             .ok_or_else(|| Trap::unreadable(address, size))?;
-        let mut value = [0; 8];
-        value[..size].copy_from_slice(&bytes);
-        Ok(u64::from_le_bytes(value))
+        Ok(interp.data_layout().read_uint(&bytes))
     }
 
     pub fn write_number(
@@ -179,7 +177,9 @@ impl Schema {
         if size > 8 {
             return Err(Trap::new("compiler API expected a scalar"));
         }
-        write(interp, address, &value.to_le_bytes()[..size])
+        let mut bytes = [0; 8];
+        interp.data_layout().write_uint(&mut bytes[..size], value);
+        write(interp, address, &bytes[..size])
     }
 }
 
@@ -198,9 +198,9 @@ pub(super) fn bytes(interp: &Interp, address: u64, size: usize) -> Result<Vec<u8
 }
 
 pub(super) fn view(interp: &Interp, address: u64) -> Result<(u64, u64), Trap> {
-    interp
-        .read_pair(address)
-        .ok_or_else(|| Trap::unreadable(address, 16))
+    interp.read_view(address).ok_or_else(|| {
+        Trap::unreadable(address, interp.data_layout().builtins().view.size as usize)
+    })
 }
 
 pub(super) fn string(interp: &Interp, address: u64) -> Result<String, Trap> {
@@ -219,8 +219,10 @@ pub(super) fn put_view(
     count: u64,
     data: u64,
 ) -> Result<(), Trap> {
-    write(interp, address, &count.to_le_bytes())?;
-    write(interp, address + 8, &data.to_le_bytes())
+    let layout = *interp.data_layout();
+    let mut bytes = vec![0; layout.builtins().view.size as usize];
+    layout.write_view(&mut bytes, count, data);
+    write(interp, address, &bytes)
 }
 
 pub(super) fn put_string(interp: &mut Interp, address: u64, text: &[u8]) -> Result<(), Trap> {

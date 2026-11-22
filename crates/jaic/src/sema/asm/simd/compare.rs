@@ -33,7 +33,7 @@ impl Compiler {
                 let lanes = if scalar {
                     1
                 } else {
-                    width / ty.size()
+                    width / ty.numeric_size()
                 };
                 let mut flags = Vec::new();
                 if scalar {
@@ -46,7 +46,7 @@ impl Compiler {
                     if matches!(dst, VOpd::Mask(_)) {
                         flags.push(c);
                     } else {
-                        let it = Ty::int(ty.size());
+                        let it = Ty::int(ty.numeric_size());
                         let v = all_ones_if(f, it, c);
                         store_lane(f, tmp, i, it, v);
                     }
@@ -74,7 +74,7 @@ impl Compiler {
                     None => self.simd_args(f, ops, 2, true, span)?,
                 };
                 let mut flags = Vec::new();
-                for i in 0..width / ty.size() {
+                for i in 0..width / ty.numeric_size() {
                     let a = load_lane(f, s[0], i, ty);
                     let b = load_lane(f, s[1], i, ty);
                     let (lt, le) = if unsigned {
@@ -167,7 +167,7 @@ impl Compiler {
             VOp::Testm(ty, not) => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
                 let mut flags = Vec::new();
-                for i in 0..width / ty.size() {
+                for i in 0..width / ty.numeric_size() {
                     let a = load_lane(f, s[0], i, ty);
                     let b = load_lane(f, s[1], i, ty);
                     let x = bin(f, BinOp::And, ty, a, b);
@@ -183,7 +183,7 @@ impl Compiler {
             VOp::VecToMask(ty) => {
                 let (s, _) = self.simd_args(f, ops, 1, false, span)?;
                 let mut flags = Vec::new();
-                for i in 0..width / ty.size() {
+                for i in 0..width / ty.numeric_size() {
                     let a = load_lane(f, s[0], i, ty);
                     flags.push(is_neg(f, ty, a));
                 }
@@ -205,7 +205,7 @@ impl Compiler {
                     );
                 }
                 let m = f.b.load(Ty::I64, p);
-                for i in 0..width / ty.size() {
+                for i in 0..width / ty.numeric_size() {
                     let v = if op == VOp::MaskToVec(ty) {
                         let b = mask_bit(f, m, i);
                         all_ones_if(f, ty, b)

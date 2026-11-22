@@ -6,7 +6,6 @@ use super::{
 };
 use crate::diagnostics::Code;
 
-use crate::layout;
 
 impl Compiler {
     /// The scope a baked parameter's type and default are read in: the definition scope, plus
@@ -217,8 +216,9 @@ impl Compiler {
                     t.into_message(),
                 ))
             })?;
-        let n = self.ct.program_u64(addr + layout::view::COUNT, span)?;
-        let data = self.ct.program_u64(addr + layout::view::DATA, span)?;
+        let view = self.ty.types.builtins().view;
+        let n = self.ct.program_u64(addr + view.count, span)?;
+        let data = self.ct.program_ptr(addr + view.data, span)?;
         let esize = self.size_of(elem, span)?;
         let total = count
             .checked_add(n)
@@ -293,15 +293,18 @@ impl Compiler {
             self.out.packs.insert(key, g);
             g
         };
+        let layout = *self.ty.types.builtins();
         let mut view = value::Aggregate {
-            bytes: vec![0; 16],
+            bytes: vec![0; layout.view.size as usize],
             relocs: vec![ir::Reloc {
-                offset: 8,
+                offset: layout.view.data,
                 target: ir::RelocTarget::Global(data),
                 addend: 0,
             }],
         };
-        view.bytes[..8].copy_from_slice(&count.to_le_bytes());
+        self.options
+            .layout
+            .write_u64(&mut view.bytes[layout.view.count as usize..], count);
         Ok(Value::Bytes(Arc::new(view)))
     }
 

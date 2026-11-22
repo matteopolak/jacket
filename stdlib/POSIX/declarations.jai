@@ -305,7 +305,28 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+    __fsid_t :: struct {
+        __val: [2] s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __fsid_t :: struct {
+        __val: [2] s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __fsid_t :: struct {
+        __val: [2] s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
     __fsid_t :: struct {
         __val: [2] s32;
     }
@@ -329,7 +350,34 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+    __jmp_buf_tag :: struct {
+        __jmpbuf: __jmp_buf;
+        __mask_was_saved: s32;
+        __saved_mask: __sigset_t;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __jmp_buf_tag :: struct {
+        __jmpbuf: __jmp_buf;
+        __mask_was_saved: s32;
+        __saved_mask: __sigset_t;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __jmp_buf_tag :: struct {
+        __jmpbuf: __jmp_buf;
+        __mask_was_saved: s32;
+        __saved_mask: __sigset_t;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
     __jmp_buf_tag :: struct {
         __jmpbuf: __jmp_buf;
         __mask_was_saved: s32;
@@ -388,7 +436,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     __locale_struct :: struct {
         __locale_data :: struct {}
         __locales: [13] *__locale_data;
@@ -397,6 +445,39 @@ librt :: #library,system "librt"; @native(external)
         __ctype_tolower: *s32;
         __ctype_toupper: *s32;
 
+        __names: [13] *u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __locale_struct :: struct {
+        __locales: [13] *void;
+        __ctype_b: *u16;
+        __ctype_tolower: *s32;
+        __ctype_toupper: *s32;
+        __names: [13] *u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __locale_struct :: struct {
+        __locales: [13] *void;
+        __ctype_b: *u16;
+        __ctype_tolower: *s32;
+        __ctype_toupper: *s32;
+        __names: [13] *u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    __locale_struct :: struct {
+        __locales: [13] *void;
+        __ctype_b: *u16;
+        __ctype_tolower: *s32;
+        __ctype_toupper: *s32;
         __names: [13] *u8;
     }
 
@@ -412,12 +493,45 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     __mbstate_t :: struct {
         __count: s32;
         __value: struct {
             __wch: u32;
 
+            #overlay (__wch) __wchb: [4] u8;
+        };
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __mbstate_t :: struct {
+        __count: s32;
+        __value: struct {
+            __wch: u32;
+            #overlay (__wch) __wchb: [4] u8;
+        };
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __mbstate_t :: struct {
+        __count: s32;
+        __value: struct {
+            __wch: u32;
+            #overlay (__wch) __wchb: [4] u8;
+        };
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    __mbstate_t :: struct {
+        __count: s32;
+        __value: struct {
+            __wch: u32;
             #overlay (__wch) __wchb: [4] u8;
         };
     }
@@ -439,7 +553,37 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+    __pthread_cleanup_frame :: struct {
+        __cancel_routine: #type (unknown0: *void) -> void #c_call;
+        __cancel_arg: *void;
+        __do_it: s32;
+        __cancel_type: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __pthread_cleanup_frame :: struct {
+        __cancel_routine: #type (unknown0: *void) -> void #c_call;
+        __cancel_arg: *void;
+        __do_it: s32;
+        __cancel_type: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __pthread_cleanup_frame :: struct {
+        __cancel_routine: #type (unknown0: *void) -> void #c_call;
+        __cancel_arg: *void;
+        __do_it: s32;
+        __cancel_type: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
     __pthread_cleanup_frame :: struct {
         __cancel_routine: #type (unknown0: *void) -> void #c_call;
         __cancel_arg: *void;
@@ -467,7 +611,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     __pthread_cond_s :: struct {
         struct {
             __wseq: u64;
@@ -496,7 +640,82 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __pthread_cond_s :: struct {
+        __wseq: struct {
+            __value64: u64;
+            #overlay (__value64) __value32: struct {
+                __low: u32;
+                __high: u32;
+            };
+        };
+        __g1_start: struct {
+            __value64: u64;
+            #overlay (__value64) __value32: struct {
+                __low: u32;
+                __high: u32;
+            };
+        };
+        __g_refs: [2] u32;
+        __g_size: [2] u32;
+        __g1_orig_size: u32;
+        __wrefs: u32;
+        __g_signals: [2] u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __pthread_cond_s :: struct {
+        __wseq: struct {
+            __value64: u64;
+            #overlay (__value64) __value32: struct {
+                __low: u32;
+                __high: u32;
+            };
+        };
+        __g1_start: struct {
+            __value64: u64;
+            #overlay (__value64) __value32: struct {
+                __low: u32;
+                __high: u32;
+            };
+        };
+        __g_refs: [2] u32;
+        __g_size: [2] u32;
+        __g1_orig_size: u32;
+        __wrefs: u32;
+        __g_signals: [2] u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    __pthread_cond_s :: struct {
+        __wseq: struct {
+            __value64: u64;
+            #overlay (__value64) __value32: struct {
+                __low: u32;
+                __high: u32;
+            };
+        };
+        __g1_start: struct {
+            __value64: u64;
+            #overlay (__value64) __value32: struct {
+                __low: u32;
+                __high: u32;
+            };
+        };
+        __g_refs: [2] u32;
+        __g_size: [2] u32;
+        __g1_orig_size: u32;
+        __wrefs: u32;
+        __g_signals: [2] u32;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     __pthread_internal_list :: struct {
         __prev: *__pthread_internal_list;
         __next: *__pthread_internal_list;
@@ -504,14 +723,59 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __pthread_internal_list :: struct {
+        __prev: *__pthread_internal_list;
+        __next: *__pthread_internal_list;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __pthread_internal_list :: struct {
+        __prev: *__pthread_internal_list;
+        __next: *__pthread_internal_list;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    __pthread_internal_list :: struct {
+        __prev: *__pthread_internal_list;
+        __next: *__pthread_internal_list;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     __pthread_internal_slist :: struct {
         __next: *__pthread_internal_slist;
     }
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __pthread_internal_slist :: struct {
+        __next: *__pthread_internal_slist;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __pthread_internal_slist :: struct {
+        __next: *__pthread_internal_slist;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    __pthread_internal_slist :: struct {
+        __next: *__pthread_internal_slist;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     __pthread_mutex_s :: struct {
         __lock: s32;
         __count: u32;
@@ -532,7 +796,61 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __pthread_mutex_s :: struct {
+        __lock: s32;
+        __count: u32;
+        __owner: s32;
+        __kind: s32;
+        __nusers: u32;
+        using __anonymous6: struct {
+            __spins: s32;
+            #overlay (__spins) __list: struct {
+                __next: *__pthread_internal_slist;
+            };
+        };
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __pthread_mutex_s :: struct {
+        __lock: s32;
+        __count: u32;
+        __owner: s32;
+        __kind: s32;
+        __nusers: u32;
+        using __anonymous6: struct {
+            using __elision_data: struct {
+                __espins: s16;
+                __eelision: s16;
+            };
+            #overlay (__elision_data) __list: struct {
+                __next: *__pthread_internal_slist;
+            };
+        };
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    __pthread_mutex_s :: struct {
+        __lock: s32;
+        __count: u32;
+        __owner: s32;
+        __nusers: u32;
+        __kind: s32;
+        __spins: s16;
+        __elision: s16;
+        __list: struct {
+            __prev: *__pthread_internal_list;
+            __next: *__pthread_internal_list;
+        };
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     __pthread_rwlock_arch_t :: struct {
         __readers: u32;
         __writers: u32;
@@ -554,13 +872,97 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __pthread_rwlock_arch_t :: struct {
+        __readers: u32;
+        __writers: u32;
+        __wrphase_futex: u32;
+        __writers_futex: u32;
+        __pad3: u32;
+        __pad4: u32;
+        __flags: u8;
+        __shared: u8;
+        __pad1: u8;
+        __pad2: u8;
+        __cur_writer: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __pthread_rwlock_arch_t :: struct {
+        __readers: u32;
+        __writers: u32;
+        __wrphase_futex: u32;
+        __writers_futex: u32;
+        __pad3: u32;
+        __pad4: u32;
+        __flags: u8;
+        __shared: u8;
+        __rwelision: s8;
+        __pad2: u8;
+        __cur_writer: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    __pthread_rwlock_arch_t :: struct {
+        __readers: u32;
+        __writers: u32;
+        __wrphase_futex: u32;
+        __writers_futex: u32;
+        __pad3: u32;
+        __pad4: u32;
+        __cur_writer: s32;
+        __shared: s32;
+        __pad1: u64;
+        __pad2: u64;
+        __flags: u32;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     __pthread_unwind_buf_t :: struct {
         __cancel_jmp_buf: [1] struct {
             __cancel_jmp_buf: __jmp_buf;
             __mask_was_saved: s32;
         };
 
+        __pad: [4] *void;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __pthread_unwind_buf_t :: struct {
+        __cancel_jmp_buf: [1] struct {
+            __cancel_jmp_buf: __jmp_buf;
+            __mask_was_saved: s32;
+        };
+        __pad: [4] *void;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __pthread_unwind_buf_t :: struct {
+        __cancel_jmp_buf: [1] struct {
+            __cancel_jmp_buf: __jmp_buf;
+            __mask_was_saved: s32;
+        };
+        __pad: [4] *void;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    __pthread_unwind_buf_t :: struct {
+        __cancel_jmp_buf: [1] struct {
+            __cancel_jmp_buf: __jmp_buf;
+            __mask_was_saved: s32;
+        };
         __pad: [4] *void;
     }
 
@@ -798,7 +1200,28 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+    __sigset_t :: struct {
+        __val: [16] u64;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __sigset_t :: struct {
+        __val: [32] u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __sigset_t :: struct {
+        __val: [32] u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
     __sigset_t :: struct {
         __val: [16] u64;
     }
@@ -815,7 +1238,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     _fpstate :: struct {
         cwd: u16;
         swd: u16;
@@ -828,6 +1251,31 @@ librt :: #library,system "librt"; @native(external)
         _st: [8] _fpxreg;
         _xmm: [16] _xmmreg;
         __glibc_reserved1: [24] u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    _fpstate :: struct {
+        cw: u32;
+        sw: u32;
+        tag: u32;
+        ipoff: u32;
+        cssel: u32;
+        dataoff: u32;
+        datasel: u32;
+        _st: [8] struct {
+            significand: [4] u16;
+            exponent: u16;
+        };
+        status: u16;
+        magic: u16;
+        _fxsr_env: [6] u32;
+        mxcsr: u32;
+        __glibc_reserved1: u32;
+        _fxsr_st: [8] _fpxreg;
+        _xmm: [8] _xmmreg;
+        __glibc_reserved2: [56] u32;
     }
 
 }
@@ -865,7 +1313,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     _fpxreg :: struct {
         significand: [4] u16;
         exponent: u16;
@@ -874,7 +1322,16 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    _fpxreg :: struct {
+        significand: [4] u16;
+        exponent: u16;
+        __glibc_reserved1: [3] u16;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     _G_fpos64_t :: struct {
         __pos: s64;
         __state: __mbstate_t;
@@ -882,7 +1339,31 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    _G_fpos64_t :: struct {
+        __pos: s64;
+        __state: __mbstate_t;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    _G_fpos64_t :: struct {
+        __pos: s64;
+        __state: __mbstate_t;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    _G_fpos64_t :: struct {
+        __pos: s64;
+        __state: __mbstate_t;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     _G_fpos_t :: struct {
         __pos: s64;
         __state: __mbstate_t;
@@ -890,7 +1371,31 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    _G_fpos_t :: struct {
+        __pos: s32;
+        __state: __mbstate_t;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    _G_fpos_t :: struct {
+        __pos: s32;
+        __state: __mbstate_t;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    _G_fpos_t :: struct {
+        __pos: s64;
+        __state: __mbstate_t;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     _IO_cookie_io_functions_t :: struct {
         read: cookie_read_function_t;
         write: cookie_write_function_t;
@@ -900,12 +1405,147 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    _IO_cookie_io_functions_t :: struct {
+        read: *cookie_read_function_t;
+        write: *cookie_write_function_t;
+        seek: *cookie_seek_function_t;
+        close: *cookie_close_function_t;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    _IO_cookie_io_functions_t :: struct {
+        read: *cookie_read_function_t;
+        write: *cookie_write_function_t;
+        seek: *cookie_seek_function_t;
+        close: *cookie_close_function_t;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    _IO_cookie_io_functions_t :: struct {
+        read: *cookie_read_function_t;
+        write: *cookie_write_function_t;
+        seek: *cookie_seek_function_t;
+        close: *cookie_close_function_t;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     _IO_FILE :: struct {}
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    _IO_FILE :: struct {
+        _flags: s32;
+        _IO_read_ptr: *u8;
+        _IO_read_end: *u8;
+        _IO_read_base: *u8;
+        _IO_write_base: *u8;
+        _IO_write_ptr: *u8;
+        _IO_write_end: *u8;
+        _IO_buf_base: *u8;
+        _IO_buf_end: *u8;
+        _IO_save_base: *u8;
+        _IO_backup_base: *u8;
+        _IO_save_end: *u8;
+        _markers: *void;
+        _chain: *_IO_FILE;
+        _fileno: s32;
+        _flags2: s32;
+        _old_offset: s32;
+        _cur_column: u16;
+        _vtable_offset: s8;
+        _shortbuf: [1] u8;
+        _lock: *void;
+        _offset: s64;
+        _codecvt: *void;
+        _wide_data: *void;
+        _freeres_list: *_IO_FILE;
+        _freeres_buf: *void;
+        __pad5: size_t;
+        _mode: s32;
+        _unused2: [40] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    _IO_FILE :: struct {
+        _flags: s32;
+        _IO_read_ptr: *u8;
+        _IO_read_end: *u8;
+        _IO_read_base: *u8;
+        _IO_write_base: *u8;
+        _IO_write_ptr: *u8;
+        _IO_write_end: *u8;
+        _IO_buf_base: *u8;
+        _IO_buf_end: *u8;
+        _IO_save_base: *u8;
+        _IO_backup_base: *u8;
+        _IO_save_end: *u8;
+        _markers: *void;
+        _chain: *_IO_FILE;
+        _fileno: s32;
+        _flags2: s32;
+        _old_offset: s32;
+        _cur_column: u16;
+        _vtable_offset: s8;
+        _shortbuf: [1] u8;
+        _lock: *void;
+        _offset: s64;
+        _codecvt: *void;
+        _wide_data: *void;
+        _freeres_list: *_IO_FILE;
+        _freeres_buf: *void;
+        __pad5: size_t;
+        _mode: s32;
+        _unused2: [40] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    _IO_FILE :: struct {
+        _flags: s32;
+        _IO_read_ptr: *u8;
+        _IO_read_end: *u8;
+        _IO_read_base: *u8;
+        _IO_write_base: *u8;
+        _IO_write_ptr: *u8;
+        _IO_write_end: *u8;
+        _IO_buf_base: *u8;
+        _IO_buf_end: *u8;
+        _IO_save_base: *u8;
+        _IO_backup_base: *u8;
+        _IO_save_end: *u8;
+        _markers: *void;
+        _chain: *_IO_FILE;
+        _fileno: s32;
+        _flags2: s32;
+        _old_offset: s64;
+        _cur_column: u16;
+        _vtable_offset: s8;
+        _shortbuf: [1] u8;
+        _lock: *void;
+        _offset: s64;
+        _codecvt: *void;
+        _wide_data: *void;
+        _freeres_list: *_IO_FILE;
+        _freeres_buf: *void;
+        __pad5: size_t;
+        _mode: s32;
+        _unused2: [20] u8;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     _libc_fpstate :: struct {
         cwd: u16;
         swd: u16;
@@ -939,7 +1579,25 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    _libc_fpstate :: struct {
+        cw: u32;
+        sw: u32;
+        tag: u32;
+        ipoff: u32;
+        cssel: u32;
+        dataoff: u32;
+        datasel: u32;
+        _st: [8] struct {
+            significand: [4] u16;
+            exponent: u16;
+        };
+        status: u32;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     _libc_fpxreg :: struct {
         significand: [4] u16;
         exponent: u16;
@@ -957,7 +1615,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     _libc_xmmreg :: struct {
         element: [4] u32;
     }
@@ -1143,7 +1801,37 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+    _pthread_cleanup_buffer :: struct {
+        __routine: #type (unknown0: *void) -> void #c_call;
+        __arg: *void;
+        __canceltype: s32;
+        __prev: *_pthread_cleanup_buffer;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    _pthread_cleanup_buffer :: struct {
+        __routine: #type (unknown0: *void) -> void #c_call;
+        __arg: *void;
+        __canceltype: s32;
+        __prev: *_pthread_cleanup_buffer;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    _pthread_cleanup_buffer :: struct {
+        __routine: #type (unknown0: *void) -> void #c_call;
+        __arg: *void;
+        __canceltype: s32;
+        __prev: *_pthread_cleanup_buffer;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
     _pthread_cleanup_buffer :: struct {
         __routine: #type (unknown0: *void) -> void #c_call;
         __arg: *void;
@@ -2230,7 +2918,14 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+    _xmmreg :: struct {
+        element: [4] u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
     _xmmreg :: struct {
         element: [4] u32;
     }
@@ -2272,7 +2967,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     aiocb :: struct {
         aio_fildes: s32;
         aio_lio_opcode: s32;
@@ -2325,7 +3020,64 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    aiocb :: struct {
+        aio_fildes: s32;
+        aio_lio_opcode: s32;
+        aio_reqprio: s32;
+        aio_buf: *void;
+        aio_nbytes: size_t;
+        aio_sigevent: sigevent;
+        __next_prio: *aiocb;
+        __abs_prio: s32;
+        __policy: s32;
+        __error_code: s32;
+        __return_value: s32;
+        aio_offset: s64;
+        __glibc_reserved: [32] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    aiocb :: struct {
+        aio_fildes: s32;
+        aio_lio_opcode: s32;
+        aio_reqprio: s32;
+        aio_buf: *void;
+        aio_nbytes: size_t;
+        aio_sigevent: sigevent;
+        __next_prio: *aiocb;
+        __abs_prio: s32;
+        __policy: s32;
+        __error_code: s32;
+        __return_value: s32;
+        aio_offset: s64;
+        __glibc_reserved: [32] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    aiocb :: struct {
+        aio_fildes: s32;
+        aio_lio_opcode: s32;
+        aio_reqprio: s32;
+        aio_buf: *void;
+        aio_nbytes: size_t;
+        aio_sigevent: sigevent;
+        __next_prio: *aiocb;
+        __abs_prio: s32;
+        __policy: s32;
+        __error_code: s32;
+        __return_value: s64;
+        aio_offset: s64;
+        __glibc_reserved: [32] u8;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     aiocb64 :: struct {
         aio_fildes: s32;
         aio_lio_opcode: s32;
@@ -2346,7 +3098,64 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    aiocb64 :: struct {
+        aio_fildes: s32;
+        aio_lio_opcode: s32;
+        aio_reqprio: s32;
+        aio_buf: *void;
+        aio_nbytes: size_t;
+        aio_sigevent: sigevent;
+        __next_prio: *aiocb;
+        __abs_prio: s32;
+        __policy: s32;
+        __error_code: s32;
+        __return_value: s32;
+        aio_offset: s64;
+        __glibc_reserved: [32] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    aiocb64 :: struct {
+        aio_fildes: s32;
+        aio_lio_opcode: s32;
+        aio_reqprio: s32;
+        aio_buf: *void;
+        aio_nbytes: size_t;
+        aio_sigevent: sigevent;
+        __next_prio: *aiocb;
+        __abs_prio: s32;
+        __policy: s32;
+        __error_code: s32;
+        __return_value: s32;
+        aio_offset: s64;
+        __glibc_reserved: [32] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    aiocb64 :: struct {
+        aio_fildes: s32;
+        aio_lio_opcode: s32;
+        aio_reqprio: s32;
+        aio_buf: *void;
+        aio_nbytes: size_t;
+        aio_sigevent: sigevent;
+        __next_prio: *aiocb;
+        __abs_prio: s32;
+        __policy: s32;
+        __error_code: s32;
+        __return_value: s64;
+        aio_offset: s64;
+        __glibc_reserved: [32] u8;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     aioinit :: struct {
         aio_threads: s32;
         aio_num: s32;
@@ -2357,6 +3166,48 @@ librt :: #library,system "librt"; @native(external)
 
         aio_idle_time: s32;
 
+        aio_reserved: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    aioinit :: struct {
+        aio_threads: s32;
+        aio_num: s32;
+        aio_locks: s32;
+        aio_usedba: s32;
+        aio_debug: s32;
+        aio_numusers: s32;
+        aio_idle_time: s32;
+        aio_reserved: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    aioinit :: struct {
+        aio_threads: s32;
+        aio_num: s32;
+        aio_locks: s32;
+        aio_usedba: s32;
+        aio_debug: s32;
+        aio_numusers: s32;
+        aio_idle_time: s32;
+        aio_reserved: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    aioinit :: struct {
+        aio_threads: s32;
+        aio_num: s32;
+        aio_locks: s32;
+        aio_usedba: s32;
+        aio_debug: s32;
+        aio_numusers: s32;
+        aio_idle_time: s32;
         aio_reserved: s32;
     }
 
@@ -3205,7 +4056,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     cpu_set_t :: struct {
         __bits: [16] __cpu_mask;
     }
@@ -3226,6 +4077,27 @@ librt :: #library,system "librt"; @native(external)
         cpu_set_t :: struct {
             __bits: [16] u64;
         }
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    cpu_set_t :: struct {
+        __bits: [32] __cpu_mask;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    cpu_set_t :: struct {
+        __bits: [32] __cpu_mask;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    cpu_set_t :: struct {
+        __bits: [16] __cpu_mask;
     }
 
 }
@@ -3557,7 +4429,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     dirent :: struct {
         d_ino: u64;
         d_off: s64;
@@ -3623,7 +4495,40 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    dirent :: struct {
+        d_ino: u64;
+        d_off: s64;
+        d_reclen: u16;
+        d_type: u8;
+        d_name: [256] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    dirent :: struct {
+        d_ino: u64;
+        d_off: s64;
+        d_reclen: u16;
+        d_type: u8;
+        d_name: [256] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    dirent :: struct {
+        d_ino: u64;
+        d_off: s64;
+        d_reclen: u16;
+        d_type: u8;
+        d_name: [256] u8;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     dirent64 :: struct {
         d_ino: u64;
         d_off: s64;
@@ -3660,6 +4565,39 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    dirent64 :: struct {
+        d_ino: u64;
+        d_off: s64;
+        d_reclen: u16;
+        d_type: u8;
+        d_name: [256] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    dirent64 :: struct {
+        d_ino: u64;
+        d_off: s64;
+        d_reclen: u16;
+        d_type: u8;
+        d_name: [256] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    dirent64 :: struct {
+        d_ino: u64;
+        d_off: s64;
+        d_reclen: u16;
+        d_type: u8;
+        d_name: [256] u8;
+    }
+
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     diskextent :: struct {
         startblock: u32;
@@ -3676,7 +4614,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     Dl_info :: struct {
         dli_fname: *u8;
         dli_fbase: *void;
@@ -3738,7 +4676,37 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    Dl_info :: struct {
+        dli_fname: *u8;
+        dli_fbase: *void;
+        dli_sname: *u8;
+        dli_saddr: *void;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    Dl_info :: struct {
+        dli_fname: *u8;
+        dli_fbase: *void;
+        dli_sname: *u8;
+        dli_saddr: *void;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    Dl_info :: struct {
+        dli_fname: *u8;
+        dli_fbase: *void;
+        dli_sname: *u8;
+        dli_saddr: *void;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     Dl_serinfo :: struct {
         dls_size: u64;
         dls_cnt: u32;
@@ -3752,7 +4720,67 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    Dl_serinfo :: struct {
+        dls_size: size_t;
+        dls_cnt: u32;
+        using __anonymous3: struct {
+            dls_serpath: [0] Dl_serpath;
+            #overlay (dls_serpath) __dls_serpath_pad: [1] Dl_serpath;
+        };
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    Dl_serinfo :: struct {
+        dls_size: size_t;
+        dls_cnt: u32;
+        using __anonymous3: struct {
+            dls_serpath: [0] Dl_serpath;
+            #overlay (dls_serpath) __dls_serpath_pad: [1] Dl_serpath;
+        };
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    Dl_serinfo :: struct {
+        dls_size: size_t;
+        dls_cnt: u32;
+        using __anonymous3: struct {
+            dls_serpath: [0] Dl_serpath;
+            #overlay (dls_serpath) __dls_serpath_pad: [1] Dl_serpath;
+        };
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+    Dl_serpath :: struct {
+        dls_name: *u8;
+        dls_flags: u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    Dl_serpath :: struct {
+        dls_name: *u8;
+        dls_flags: u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    Dl_serpath :: struct {
+        dls_name: *u8;
+        dls_flags: u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
     Dl_serpath :: struct {
         dls_name: *u8;
         dls_flags: u32;
@@ -4004,7 +5032,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     f_owner_ex :: struct {
         type: __pid_type;
         pid: s32;
@@ -4028,6 +5056,30 @@ librt :: #library,system "librt"; @native(external)
             type: s32;
             pid: s32;
         }
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    f_owner_ex :: struct {
+        type: __pid_type;
+        pid: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    f_owner_ex :: struct {
+        type: __pid_type;
+        pid: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    f_owner_ex :: struct {
+        type: __pid_type;
+        pid: s32;
     }
 
 }
@@ -4100,11 +5152,38 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     file_handle :: struct {
         handle_bytes: u32;
         handle_type: s32;
 
+        f_handle: [0] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    file_handle :: struct {
+        handle_bytes: u32;
+        handle_type: s32;
+        f_handle: [0] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    file_handle :: struct {
+        handle_bytes: u32;
+        handle_type: s32;
+        f_handle: [0] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    file_handle :: struct {
+        handle_bytes: u32;
+        handle_type: s32;
         f_handle: [0] u8;
     }
 
@@ -4160,7 +5239,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     flock :: struct {
         l_type: s16;
         l_whence: s16;
@@ -4199,7 +5278,73 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    flock :: struct {
+        l_type: s16;
+        l_whence: s16;
+        l_start: s64;
+        l_len: s64;
+        l_pid: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    flock :: struct {
+        l_type: s16;
+        l_whence: s16;
+        l_start: s64;
+        l_len: s64;
+        l_pid: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    flock :: struct {
+        l_type: s16;
+        l_whence: s16;
+        l_start: s64;
+        l_len: s64;
+        l_pid: s32;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+    flock64 :: struct {
+        l_type: s16;
+        l_whence: s16;
+        l_start: s64;
+        l_len: s64;
+        l_pid: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    flock64 :: struct {
+        l_type: s16;
+        l_whence: s16;
+        l_start: s64;
+        l_len: s64;
+        l_pid: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    flock64 :: struct {
+        l_type: s16;
+        l_whence: s16;
+        l_start: s64;
+        l_len: s64;
+        l_pid: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
     flock64 :: struct {
         l_type: s16;
         l_whence: s16;
@@ -4222,6 +5367,59 @@ librt :: #library,system "librt"; @native(external)
     flocktimeout :: struct {
         fl: flock;
         timeout: timespec;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    fpos64_t :: struct {
+        __pos: s64;
+        __state: __mbstate_t;
+    };
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    fpos64_t :: struct {
+        __pos: s64;
+        __state: __mbstate_t;
+    };
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    fpos64_t :: struct {
+        __pos: s64;
+        __state: __mbstate_t;
+    };
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    fpos_t :: struct {
+        __pos: s64;
+        __state: __mbstate_t;
+    };
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    fpos_t :: struct {
+        __pos: s64;
+        __state: __mbstate_t;
+    };
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    fpos_t :: struct {
+        __pos: s64;
+        __state: __mbstate_t;
+    };
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    fpregset_t :: struct {
+        fpc: u32;
+        fprs: [16] struct {
+            d: float64;
+            #overlay (d) f: float32;
+        };
     }
 
 }
@@ -4407,7 +5605,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     iovec :: struct {
         iov_base: *void;
         iov_len: u64;
@@ -4451,6 +5649,30 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    iovec :: struct {
+        iov_base: *void;
+        iov_len: size_t;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    iovec :: struct {
+        iov_base: *void;
+        iov_len: size_t;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    iovec :: struct {
+        iov_base: *void;
+        iov_len: size_t;
+    }
+
+}
+
 #if OS == .ANDROID && CPU == .ARM64 {
     ipc_kludge :: struct {
         msgbuf :: struct {}
@@ -4469,7 +5691,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     ipc_perm :: struct {
         __key: s32;
         uid: u32;
@@ -4511,7 +5733,55 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    ipc_perm :: struct {
+        __key: s32;
+        uid: u32;
+        gid: u32;
+        cuid: u32;
+        cgid: u32;
+        mode: u32;
+        __seq: u16;
+        __pad2: u16;
+        __glibc_reserved1: u32;
+        __glibc_reserved2: u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    ipc_perm :: struct {
+        __key: s32;
+        uid: u32;
+        gid: u32;
+        cuid: u32;
+        cgid: u32;
+        mode: u32;
+        __seq: u16;
+        __pad2: u16;
+        __glibc_reserved1: u32;
+        __glibc_reserved2: u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    ipc_perm :: struct {
+        __key: s32;
+        uid: u32;
+        gid: u32;
+        cuid: u32;
+        cgid: u32;
+        mode: u32;
+        __seq: u16;
+        __pad2: u16;
+        __glibc_reserved1: u64;
+        __glibc_reserved2: u64;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     itimerspec :: struct {
         it_interval: timespec;
         it_value: timespec;
@@ -4535,7 +5805,31 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    itimerspec :: struct {
+        it_interval: timespec;
+        it_value: timespec;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    itimerspec :: struct {
+        it_interval: timespec;
+        it_value: timespec;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    itimerspec :: struct {
+        it_interval: timespec;
+        it_value: timespec;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     itimerval :: struct {
 
         it_interval: timeval;
@@ -4570,6 +5864,30 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .ANDROID && CPU == .X64 {
+    itimerval :: struct {
+        it_interval: timeval;
+        it_value: timeval;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    itimerval :: struct {
+        it_interval: timeval;
+        it_value: timeval;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    itimerval :: struct {
+        it_interval: timeval;
+        it_value: timeval;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
     itimerval :: struct {
         it_interval: timeval;
         it_value: timeval;
@@ -4741,6 +6059,56 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    mcontext_t :: struct {
+        trap_no: u32;
+        error_code: u32;
+        oldmask: u32;
+        arm_r0: u32;
+        arm_r1: u32;
+        arm_r2: u32;
+        arm_r3: u32;
+        arm_r4: u32;
+        arm_r5: u32;
+        arm_r6: u32;
+        arm_r7: u32;
+        arm_r8: u32;
+        arm_r9: u32;
+        arm_r10: u32;
+        arm_fp: u32;
+        arm_ip: u32;
+        arm_sp: u32;
+        arm_lr: u32;
+        arm_pc: u32;
+        arm_cpsr: u32;
+        fault_address: u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    mcontext_t :: struct {
+        gregs: gregset_t;
+        fpregs: fpregset_t;
+        oldmask: u32;
+        cr2: u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    mcontext_t :: struct {
+        psw: struct #align 8 {
+            mask: u64;
+            addr: u64;
+        };
+        gregs: [16] u64;
+        aregs: [16] u32;
+        fpregs: fpregset_t;
+    }
+
+}
+
 #if OS == .LINUX {
     obstack :: struct {}
 
@@ -4788,7 +6156,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     passwd :: struct {
         pw_name: *u8;
 
@@ -4869,6 +6237,45 @@ librt :: #library,system "librt"; @native(external)
             pw_dir: *u8;
             pw_shell: *u8;
         }
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    passwd :: struct {
+        pw_name: *u8;
+        pw_passwd: *u8;
+        pw_uid: u32;
+        pw_gid: u32;
+        pw_gecos: *u8;
+        pw_dir: *u8;
+        pw_shell: *u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    passwd :: struct {
+        pw_name: *u8;
+        pw_passwd: *u8;
+        pw_uid: u32;
+        pw_gid: u32;
+        pw_gecos: *u8;
+        pw_dir: *u8;
+        pw_shell: *u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    passwd :: struct {
+        pw_name: *u8;
+        pw_passwd: *u8;
+        pw_uid: u32;
+        pw_gid: u32;
+        pw_gecos: *u8;
+        pw_dir: *u8;
+        pw_shell: *u8;
     }
 
 }
@@ -5102,7 +6509,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pollfd :: struct {
         fd: s32;
         events: s16;
@@ -5143,6 +6550,33 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .ANDROID && CPU == .X64 {
+    pollfd :: struct {
+        fd: s32;
+        events: s16;
+        revents: s16;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pollfd :: struct {
+        fd: s32;
+        events: s16;
+        revents: s16;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pollfd :: struct {
+        fd: s32;
+        events: s16;
+        revents: s16;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
     pollfd :: struct {
         fd: s32;
         events: s16;
@@ -5259,7 +6693,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_attr_t :: struct {
         #if CPU == .ARM64 {
             __size: [64] u8;
@@ -5304,7 +6738,31 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_attr_t :: struct {
+        __size: [36] u8;
+        #overlay (__size) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_attr_t :: struct {
+        __size: [36] u8;
+        #overlay (__size) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_attr_t :: struct {
+        __size: [56] u8;
+        #overlay (__size) __align: s64;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_barrier_t :: struct {
         __size: [32] u8;
 
@@ -5331,7 +6789,31 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_barrier_t :: struct {
+        __size: [20] u8;
+        #overlay (__size) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_barrier_t :: struct {
+        __size: [20] u8;
+        #overlay (__size) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_barrier_t :: struct {
+        __size: [32] u8;
+        #overlay (__size) __align: s64;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_barrierattr_t :: struct {
         #if CPU == .ARM64 {
             __size: [8] u8;
@@ -5339,6 +6821,30 @@ librt :: #library,system "librt"; @native(external)
             __size: [4] u8;
         }
 
+        #overlay (__size) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_barrierattr_t :: struct {
+        __size: [4] u8;
+        #overlay (__size) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_barrierattr_t :: struct {
+        __size: [4] u8;
+        #overlay (__size) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_barrierattr_t :: struct {
+        __size: [4] u8;
         #overlay (__size) __align: s32;
     }
 
@@ -5370,7 +6876,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_cond_t :: struct {
         __data: __pthread_cond_s;
 
@@ -5398,7 +6904,34 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_cond_t :: struct {
+        __data: __pthread_cond_s;
+        #overlay (__data) __size: [48] u8;
+        #overlay (__data) __align: s64;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_cond_t :: struct {
+        __data: __pthread_cond_s;
+        #overlay (__data) __size: [48] u8;
+        #overlay (__data) __align: s64;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_cond_t :: struct {
+        __data: __pthread_cond_s;
+        #overlay (__data) __size: [48] u8;
+        #overlay (__data) __align: s64;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_condattr_t :: struct {
         #if CPU == .ARM64 {
             __size: [8] u8;
@@ -5406,6 +6939,30 @@ librt :: #library,system "librt"; @native(external)
             __size: [4] u8;
         }
 
+        #overlay (__size) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_condattr_t :: struct {
+        __size: [4] u8;
+        #overlay (__size) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_condattr_t :: struct {
+        __size: [4] u8;
+        #overlay (__size) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_condattr_t :: struct {
+        __size: [4] u8;
         #overlay (__size) __align: s32;
     }
 
@@ -5518,7 +7075,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_mutex_t :: struct {
         __data: __pthread_mutex_s;
 
@@ -5550,11 +7107,62 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_mutex_t :: struct {
+        __data: __pthread_mutex_s;
+        #overlay (__data) __size: [24] u8;
+        #overlay (__data) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_mutex_t :: struct {
+        __data: __pthread_mutex_s;
+        #overlay (__data) __size: [24] u8;
+        #overlay (__data) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_mutex_t :: struct {
+        __data: __pthread_mutex_s;
+        #overlay (__data) __size: [40] u8;
+        #overlay (__data) __align: s64;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_mutexattr_t :: struct {
         #if CPU == .ARM64 __size: [8] u8;
         else __size: [4] u8;
 
+        #overlay (__size) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_mutexattr_t :: struct {
+        __size: [4] u8;
+        #overlay (__size) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_mutexattr_t :: struct {
+        __size: [4] u8;
+        #overlay (__size) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_mutexattr_t :: struct {
+        __size: [4] u8;
         #overlay (__size) __align: s32;
     }
 
@@ -5633,7 +7241,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_rwlock_t :: struct {
         __data: __pthread_rwlock_arch_t;
 
@@ -5661,10 +7269,61 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_rwlock_t :: struct {
+        __data: __pthread_rwlock_arch_t;
+        #overlay (__data) __size: [32] u8;
+        #overlay (__data) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_rwlock_t :: struct {
+        __data: __pthread_rwlock_arch_t;
+        #overlay (__data) __size: [32] u8;
+        #overlay (__data) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_rwlock_t :: struct {
+        __data: __pthread_rwlock_arch_t;
+        #overlay (__data) __size: [56] u8;
+        #overlay (__data) __align: s64;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_rwlockattr_t :: struct {
         __size: [8] u8;
 
+        #overlay (__size) __align: s64;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_rwlockattr_t :: struct {
+        __size: [8] u8;
+        #overlay (__size) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_rwlockattr_t :: struct {
+        __size: [8] u8;
+        #overlay (__size) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_rwlockattr_t :: struct {
+        __size: [8] u8;
         #overlay (__size) __align: s64;
     }
 
@@ -5899,7 +7558,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     rlimit :: struct {
         rlim_cur: rlim_t;
 
@@ -5948,7 +7607,31 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    rlimit :: struct {
+        rlim_cur: rlim_t;
+        rlim_max: rlim_t;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    rlimit :: struct {
+        rlim_cur: rlim_t;
+        rlim_max: rlim_t;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    rlimit :: struct {
+        rlim_cur: rlim_t;
+        rlim_max: rlim_t;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     rlimit64 :: struct {
         rlim_cur: rlim64_t;
 
@@ -5973,6 +7656,30 @@ librt :: #library,system "librt"; @native(external)
             rlim_cur: u64;
             rlim_max: u64;
         }
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    rlimit64 :: struct {
+        rlim_cur: rlim64_t;
+        rlim_max: rlim64_t;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    rlimit64 :: struct {
+        rlim_cur: rlim64_t;
+        rlim_max: rlim64_t;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    rlimit64 :: struct {
+        rlim_cur: rlim64_t;
+        rlim_max: rlim64_t;
     }
 
 }
@@ -6187,7 +7894,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     rusage :: struct {
         ru_utime: timeval;
 
@@ -6420,6 +8127,198 @@ librt :: #library,system "librt"; @native(external)
             ru_nvcsw: s64;
             ru_nivcsw: s64;
         }
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    rusage :: struct {
+        ru_utime: timeval;
+        ru_stime: timeval;
+        using __anonymous3: struct {
+            ru_maxrss: s32;
+            #overlay (ru_maxrss) __ru_maxrss_word: s32;
+        };
+        using __anonymous4: struct {
+            ru_ixrss: s32;
+            #overlay (ru_ixrss) __ru_ixrss_word: s32;
+        };
+        using __anonymous5: struct {
+            ru_idrss: s32;
+            #overlay (ru_idrss) __ru_idrss_word: s32;
+        };
+        using __anonymous6: struct {
+            ru_isrss: s32;
+            #overlay (ru_isrss) __ru_isrss_word: s32;
+        };
+        using __anonymous7: struct {
+            ru_minflt: s32;
+            #overlay (ru_minflt) __ru_minflt_word: s32;
+        };
+        using __anonymous8: struct {
+            ru_majflt: s32;
+            #overlay (ru_majflt) __ru_majflt_word: s32;
+        };
+        using __anonymous9: struct {
+            ru_nswap: s32;
+            #overlay (ru_nswap) __ru_nswap_word: s32;
+        };
+        using __anonymous10: struct {
+            ru_inblock: s32;
+            #overlay (ru_inblock) __ru_inblock_word: s32;
+        };
+        using __anonymous11: struct {
+            ru_oublock: s32;
+            #overlay (ru_oublock) __ru_oublock_word: s32;
+        };
+        using __anonymous12: struct {
+            ru_msgsnd: s32;
+            #overlay (ru_msgsnd) __ru_msgsnd_word: s32;
+        };
+        using __anonymous13: struct {
+            ru_msgrcv: s32;
+            #overlay (ru_msgrcv) __ru_msgrcv_word: s32;
+        };
+        using __anonymous14: struct {
+            ru_nsignals: s32;
+            #overlay (ru_nsignals) __ru_nsignals_word: s32;
+        };
+        using __anonymous15: struct {
+            ru_nvcsw: s32;
+            #overlay (ru_nvcsw) __ru_nvcsw_word: s32;
+        };
+        using __anonymous16: struct {
+            ru_nivcsw: s32;
+            #overlay (ru_nivcsw) __ru_nivcsw_word: s32;
+        };
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    rusage :: struct {
+        ru_utime: timeval;
+        ru_stime: timeval;
+        using __anonymous3: struct {
+            ru_maxrss: s32;
+            #overlay (ru_maxrss) __ru_maxrss_word: s32;
+        };
+        using __anonymous4: struct {
+            ru_ixrss: s32;
+            #overlay (ru_ixrss) __ru_ixrss_word: s32;
+        };
+        using __anonymous5: struct {
+            ru_idrss: s32;
+            #overlay (ru_idrss) __ru_idrss_word: s32;
+        };
+        using __anonymous6: struct {
+            ru_isrss: s32;
+            #overlay (ru_isrss) __ru_isrss_word: s32;
+        };
+        using __anonymous7: struct {
+            ru_minflt: s32;
+            #overlay (ru_minflt) __ru_minflt_word: s32;
+        };
+        using __anonymous8: struct {
+            ru_majflt: s32;
+            #overlay (ru_majflt) __ru_majflt_word: s32;
+        };
+        using __anonymous9: struct {
+            ru_nswap: s32;
+            #overlay (ru_nswap) __ru_nswap_word: s32;
+        };
+        using __anonymous10: struct {
+            ru_inblock: s32;
+            #overlay (ru_inblock) __ru_inblock_word: s32;
+        };
+        using __anonymous11: struct {
+            ru_oublock: s32;
+            #overlay (ru_oublock) __ru_oublock_word: s32;
+        };
+        using __anonymous12: struct {
+            ru_msgsnd: s32;
+            #overlay (ru_msgsnd) __ru_msgsnd_word: s32;
+        };
+        using __anonymous13: struct {
+            ru_msgrcv: s32;
+            #overlay (ru_msgrcv) __ru_msgrcv_word: s32;
+        };
+        using __anonymous14: struct {
+            ru_nsignals: s32;
+            #overlay (ru_nsignals) __ru_nsignals_word: s32;
+        };
+        using __anonymous15: struct {
+            ru_nvcsw: s32;
+            #overlay (ru_nvcsw) __ru_nvcsw_word: s32;
+        };
+        using __anonymous16: struct {
+            ru_nivcsw: s32;
+            #overlay (ru_nivcsw) __ru_nivcsw_word: s32;
+        };
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    rusage :: struct {
+        ru_utime: timeval;
+        ru_stime: timeval;
+        using __anonymous3: struct {
+            ru_maxrss: s64;
+            #overlay (ru_maxrss) __ru_maxrss_word: s64;
+        };
+        using __anonymous4: struct {
+            ru_ixrss: s64;
+            #overlay (ru_ixrss) __ru_ixrss_word: s64;
+        };
+        using __anonymous5: struct {
+            ru_idrss: s64;
+            #overlay (ru_idrss) __ru_idrss_word: s64;
+        };
+        using __anonymous6: struct {
+            ru_isrss: s64;
+            #overlay (ru_isrss) __ru_isrss_word: s64;
+        };
+        using __anonymous7: struct {
+            ru_minflt: s64;
+            #overlay (ru_minflt) __ru_minflt_word: s64;
+        };
+        using __anonymous8: struct {
+            ru_majflt: s64;
+            #overlay (ru_majflt) __ru_majflt_word: s64;
+        };
+        using __anonymous9: struct {
+            ru_nswap: s64;
+            #overlay (ru_nswap) __ru_nswap_word: s64;
+        };
+        using __anonymous10: struct {
+            ru_inblock: s64;
+            #overlay (ru_inblock) __ru_inblock_word: s64;
+        };
+        using __anonymous11: struct {
+            ru_oublock: s64;
+            #overlay (ru_oublock) __ru_oublock_word: s64;
+        };
+        using __anonymous12: struct {
+            ru_msgsnd: s64;
+            #overlay (ru_msgsnd) __ru_msgsnd_word: s64;
+        };
+        using __anonymous13: struct {
+            ru_msgrcv: s64;
+            #overlay (ru_msgrcv) __ru_msgrcv_word: s64;
+        };
+        using __anonymous14: struct {
+            ru_nsignals: s64;
+            #overlay (ru_nsignals) __ru_nsignals_word: s64;
+        };
+        using __anonymous15: struct {
+            ru_nvcsw: s64;
+            #overlay (ru_nvcsw) __ru_nvcsw_word: s64;
+        };
+        using __anonymous16: struct {
+            ru_nivcsw: s64;
+            #overlay (ru_nivcsw) __ru_nivcsw_word: s64;
+        };
     }
 
 }
@@ -6774,7 +8673,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     sched_param :: struct {
         sched_priority: s32;
     }
@@ -6815,6 +8714,27 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    sched_param :: struct {
+        sched_priority: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    sched_param :: struct {
+        sched_priority: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    sched_param :: struct {
+        sched_priority: s32;
+    }
+
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     searchstate :: struct {
         ss_union_flags: u32 #align 1;
@@ -6833,7 +8753,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     sem_t :: struct {
         __size: [32] u8;
 
@@ -6864,6 +8784,30 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    sem_t :: struct {
+        __size: [16] u8;
+        #overlay (__size) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    sem_t :: struct {
+        __size: [16] u8;
+        #overlay (__size) __align: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    sem_t :: struct {
+        __size: [32] u8;
+        #overlay (__size) __align: s64;
+    }
+
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     session :: struct {}
 
@@ -6887,7 +8831,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     shm_info :: struct {
         used_ids: s32;
         shm_tot: u64;
@@ -6923,7 +8867,43 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    shm_info :: struct {
+        used_ids: s32;
+        shm_tot: u32;
+        shm_rss: u32;
+        shm_swp: u32;
+        swap_attempts: u32;
+        swap_successes: u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    shm_info :: struct {
+        used_ids: s32;
+        shm_tot: u32;
+        shm_rss: u32;
+        shm_swp: u32;
+        swap_attempts: u32;
+        swap_successes: u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    shm_info :: struct {
+        used_ids: s32;
+        shm_tot: u64;
+        shm_rss: u64;
+        shm_swp: u64;
+        swap_attempts: u64;
+        swap_successes: u64;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     shmid_ds :: struct {
         shm_perm: ipc_perm;
 
@@ -6942,7 +8922,55 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    shmid_ds :: struct {
+        shm_perm: ipc_perm;
+        shm_segsz: size_t;
+        shm_atime: s64;
+        shm_dtime: s64;
+        shm_ctime: s64;
+        shm_cpid: s32;
+        shm_lpid: s32;
+        shm_nattch: shmatt_t;
+        __glibc_reserved5: u32;
+        __glibc_reserved6: u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    shmid_ds :: struct {
+        shm_perm: ipc_perm;
+        shm_segsz: size_t;
+        shm_atime: s64;
+        shm_dtime: s64;
+        shm_ctime: s64;
+        shm_cpid: s32;
+        shm_lpid: s32;
+        shm_nattch: shmatt_t;
+        __glibc_reserved5: u32;
+        __glibc_reserved6: u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    shmid_ds :: struct {
+        shm_perm: ipc_perm;
+        shm_segsz: size_t;
+        shm_atime: s64;
+        shm_dtime: s64;
+        shm_ctime: s64;
+        shm_cpid: s32;
+        shm_lpid: s32;
+        shm_nattch: shmatt_t;
+        __glibc_reserved5: u64;
+        __glibc_reserved6: u64;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     shminfo :: struct {
         shmmax: u64;
         shmmin: u64;
@@ -6983,6 +9011,51 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    shminfo :: struct {
+        shmmax: u32;
+        shmmin: u32;
+        shmmni: u32;
+        shmseg: u32;
+        shmall: u32;
+        __glibc_reserved1: u32;
+        __glibc_reserved2: u32;
+        __glibc_reserved3: u32;
+        __glibc_reserved4: u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    shminfo :: struct {
+        shmmax: u32;
+        shmmin: u32;
+        shmmni: u32;
+        shmseg: u32;
+        shmall: u32;
+        __glibc_reserved1: u32;
+        __glibc_reserved2: u32;
+        __glibc_reserved3: u32;
+        __glibc_reserved4: u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    shminfo :: struct {
+        shmmax: u64;
+        shmmin: u64;
+        shmmni: u64;
+        shmseg: u64;
+        shmall: u64;
+        __glibc_reserved1: u64;
+        __glibc_reserved2: u64;
+        __glibc_reserved3: u64;
+        __glibc_reserved4: u64;
+    }
+
+}
+
 #if OS == .ANDROID && CPU == .ARM64 {
     sigaction64_t :: struct {
         sa_flags: s32;
@@ -7011,7 +9084,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     sigaction_t :: struct {
         using __sigaction_handler: struct {
             sa_handler: #type (unknown0: s32) -> void #c_call;
@@ -7078,6 +9151,46 @@ librt :: #library,system "librt"; @native(external)
             sa_mask: sigset_t;
             sa_restorer: #type () -> void #c_call;
         }
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    sigaction_t :: struct {
+        using __sigaction_handler: struct {
+            sa_handler: #type (unknown0: s32) -> void #c_call;
+            #overlay (sa_handler) sa_sigaction: #type (unknown0: s32, unknown1: *siginfo_t, unknown2: *void) -> void #c_call;
+        };
+        sa_mask: __sigset_t;
+        sa_flags: s32;
+        sa_restorer: #type () -> void #c_call;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    sigaction_t :: struct {
+        using __sigaction_handler: struct {
+            sa_handler: #type (unknown0: s32) -> void #c_call;
+            #overlay (sa_handler) sa_sigaction: #type (unknown0: s32, unknown1: *siginfo_t, unknown2: *void) -> void #c_call;
+        };
+        sa_mask: __sigset_t;
+        sa_flags: s32;
+        sa_restorer: #type () -> void #c_call;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    sigaction_t :: struct {
+        using __sigaction_handler: struct {
+            sa_handler: #type (unknown0: s32) -> void #c_call;
+            #overlay (sa_handler) sa_sigaction: #type (unknown0: s32, unknown1: *siginfo_t, unknown2: *void) -> void #c_call;
+        };
+        __glibc_reserved0: s32;
+        sa_flags: s32;
+        sa_restorer: #type () -> void #c_call;
+        sa_mask: __sigset_t;
     }
 
 }
@@ -7203,7 +9316,90 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    sigcontext :: struct {
+        trap_no: u32;
+        error_code: u32;
+        oldmask: u32;
+        arm_r0: u32;
+        arm_r1: u32;
+        arm_r2: u32;
+        arm_r3: u32;
+        arm_r4: u32;
+        arm_r5: u32;
+        arm_r6: u32;
+        arm_r7: u32;
+        arm_r8: u32;
+        arm_r9: u32;
+        arm_r10: u32;
+        arm_fp: u32;
+        arm_ip: u32;
+        arm_sp: u32;
+        arm_lr: u32;
+        arm_pc: u32;
+        arm_cpsr: u32;
+        fault_address: u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    sigcontext :: struct {
+        gs: u16;
+        __gsh: u16;
+        fs: u16;
+        __fsh: u16;
+        es: u16;
+        __esh: u16;
+        ds: u16;
+        __dsh: u16;
+        edi: u32;
+        esi: u32;
+        ebp: u32;
+        esp: u32;
+        ebx: u32;
+        edx: u32;
+        ecx: u32;
+        eax: u32;
+        trapno: u32;
+        err: u32;
+        eip: u32;
+        cs: u16;
+        __csh: u16;
+        eflags: u32;
+        esp_at_signal: u32;
+        ss: u16;
+        __ssh: u16;
+        fpstate: *_fpstate;
+        oldmask: u32;
+        cr2: u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    sigcontext :: struct {
+        oldmask: [1] u64;
+        sregs: *struct {
+            regs: struct {
+                psw: struct #align 8 {
+                    mask: u64;
+                    addr: u64;
+                };
+                gprs: [16] u64;
+                acrs: [16] u32;
+            };
+            fpregs: struct {
+                fpc: u32;
+                pad: u32;
+                fprs: [16] float64;
+            };
+        };
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     sigevent :: struct {
         sigev_value: sigval;
         sigev_signo: s32;
@@ -7288,6 +9484,57 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    sigevent :: struct {
+        sigev_value: sigval;
+        sigev_signo: s32;
+        sigev_notify: s32;
+        _sigev_un: struct {
+            _pad: [13] s32;
+            #overlay (_pad) _tid: s32;
+            #overlay (_pad) _sigev_thread: struct {
+                _function: #type (unknown0: sigval) -> void #c_call;
+                _attribute: *pthread_attr_t;
+            };
+        };
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    sigevent :: struct {
+        sigev_value: sigval;
+        sigev_signo: s32;
+        sigev_notify: s32;
+        _sigev_un: struct {
+            _pad: [13] s32;
+            #overlay (_pad) _tid: s32;
+            #overlay (_pad) _sigev_thread: struct {
+                _function: #type (unknown0: sigval) -> void #c_call;
+                _attribute: *pthread_attr_t;
+            };
+        };
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    sigevent :: struct {
+        sigev_value: sigval;
+        sigev_signo: s32;
+        sigev_notify: s32;
+        _sigev_un: struct {
+            _pad: [12] s32;
+            #overlay (_pad) _tid: s32;
+            #overlay (_pad) _sigev_thread: struct {
+                _function: #type (unknown0: sigval) -> void #c_call;
+                _attribute: *pthread_attr_t;
+            };
+        };
+    }
+
+}
+
 #if OS == .ANDROID && CPU == .ARM64 {
     siginfo :: struct {
         struct {
@@ -7320,7 +9567,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     siginfo_t :: struct {
         si_signo: s32;
 
@@ -7381,7 +9628,167 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    siginfo_t :: struct {
+        si_signo: s32;
+        si_errno: s32;
+        si_code: s32;
+        _sifields: struct {
+            _pad: [29] s32;
+            #overlay (_pad) _kill: struct {
+                si_pid: s32;
+                si_uid: u32;
+            };
+            #overlay (_pad) _timer: struct {
+                si_tid: s32;
+                si_overrun: s32;
+                si_sigval: sigval;
+            };
+            #overlay (_pad) _rt: struct {
+                si_pid: s32;
+                si_uid: u32;
+                si_sigval: sigval;
+            };
+            #overlay (_pad) _sigchld: struct {
+                si_pid: s32;
+                si_uid: u32;
+                si_status: s32;
+                si_utime: s32;
+                si_stime: s32;
+            };
+            #overlay (_pad) _sigfault: struct {
+                si_addr: *void;
+                si_addr_lsb: s16;
+                _bounds: struct {
+                    _addr_bnd: struct {
+                        _lower: *void;
+                        _upper: *void;
+                    };
+                    #overlay (_addr_bnd) _pkey: u32;
+                };
+            };
+            #overlay (_pad) _sigpoll: struct {
+                si_band: s32;
+                si_fd: s32;
+            };
+            #overlay (_pad) _sigsys: struct {
+                _call_addr: *void;
+                _syscall: s32;
+                _arch: u32;
+            };
+        };
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    siginfo_t :: struct {
+        si_signo: s32;
+        si_errno: s32;
+        si_code: s32;
+        _sifields: struct {
+            _pad: [29] s32;
+            #overlay (_pad) _kill: struct {
+                si_pid: s32;
+                si_uid: u32;
+            };
+            #overlay (_pad) _timer: struct {
+                si_tid: s32;
+                si_overrun: s32;
+                si_sigval: sigval;
+            };
+            #overlay (_pad) _rt: struct {
+                si_pid: s32;
+                si_uid: u32;
+                si_sigval: sigval;
+            };
+            #overlay (_pad) _sigchld: struct {
+                si_pid: s32;
+                si_uid: u32;
+                si_status: s32;
+                si_utime: s32;
+                si_stime: s32;
+            };
+            #overlay (_pad) _sigfault: struct {
+                si_addr: *void;
+                si_addr_lsb: s16;
+                _bounds: struct {
+                    _addr_bnd: struct {
+                        _lower: *void;
+                        _upper: *void;
+                    };
+                    #overlay (_addr_bnd) _pkey: u32;
+                };
+            };
+            #overlay (_pad) _sigpoll: struct {
+                si_band: s32;
+                si_fd: s32;
+            };
+            #overlay (_pad) _sigsys: struct {
+                _call_addr: *void;
+                _syscall: s32;
+                _arch: u32;
+            };
+        };
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    siginfo_t :: struct {
+        si_signo: s32;
+        si_errno: s32;
+        si_code: s32;
+        __pad0: s32;
+        _sifields: struct {
+            _pad: [28] s32;
+            #overlay (_pad) _kill: struct {
+                si_pid: s32;
+                si_uid: u32;
+            };
+            #overlay (_pad) _timer: struct {
+                si_tid: s32;
+                si_overrun: s32;
+                si_sigval: sigval;
+            };
+            #overlay (_pad) _rt: struct {
+                si_pid: s32;
+                si_uid: u32;
+                si_sigval: sigval;
+            };
+            #overlay (_pad) _sigchld: struct {
+                si_pid: s32;
+                si_uid: u32;
+                si_status: s32;
+                si_utime: s64;
+                si_stime: s64;
+            };
+            #overlay (_pad) _sigfault: struct {
+                si_addr: *void;
+                si_addr_lsb: s16;
+                _bounds: struct {
+                    _addr_bnd: struct {
+                        _lower: *void;
+                        _upper: *void;
+                    };
+                    #overlay (_addr_bnd) _pkey: u32;
+                };
+            };
+            #overlay (_pad) _sigpoll: struct {
+                si_band: s64;
+                si_fd: s32;
+            };
+            #overlay (_pad) _sigsys: struct {
+                _call_addr: *void;
+                _syscall: s32;
+                _arch: u32;
+            };
+        };
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     signalfd_siginfo :: struct {
         ssi_signo: u32;
         ssi_errno: s32;
@@ -7438,6 +9845,90 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .ANDROID && CPU == .X64 {
+    signalfd_siginfo :: struct {
+        ssi_signo: u32;
+        ssi_errno: s32;
+        ssi_code: s32;
+        ssi_pid: u32;
+        ssi_uid: u32;
+        ssi_fd: s32;
+        ssi_tid: u32;
+        ssi_band: u32;
+        ssi_overrun: u32;
+        ssi_trapno: u32;
+        ssi_status: s32;
+        ssi_int: s32;
+        ssi_ptr: u64;
+        ssi_utime: u64;
+        ssi_stime: u64;
+        ssi_addr: u64;
+        ssi_addr_lsb: u16;
+        __pad2: u16;
+        ssi_syscall: s32;
+        ssi_call_addr: u64;
+        ssi_arch: u32;
+        __pad: [28] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    signalfd_siginfo :: struct {
+        ssi_signo: u32;
+        ssi_errno: s32;
+        ssi_code: s32;
+        ssi_pid: u32;
+        ssi_uid: u32;
+        ssi_fd: s32;
+        ssi_tid: u32;
+        ssi_band: u32;
+        ssi_overrun: u32;
+        ssi_trapno: u32;
+        ssi_status: s32;
+        ssi_int: s32;
+        ssi_ptr: u64;
+        ssi_utime: u64;
+        ssi_stime: u64;
+        ssi_addr: u64;
+        ssi_addr_lsb: u16;
+        __pad2: u16;
+        ssi_syscall: s32;
+        ssi_call_addr: u64;
+        ssi_arch: u32;
+        __pad: [28] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    signalfd_siginfo :: struct {
+        ssi_signo: u32;
+        ssi_errno: s32;
+        ssi_code: s32;
+        ssi_pid: u32;
+        ssi_uid: u32;
+        ssi_fd: s32;
+        ssi_tid: u32;
+        ssi_band: u32;
+        ssi_overrun: u32;
+        ssi_trapno: u32;
+        ssi_status: s32;
+        ssi_int: s32;
+        ssi_ptr: u64;
+        ssi_utime: u64;
+        ssi_stime: u64;
+        ssi_addr: u64;
+        ssi_addr_lsb: u16;
+        __pad2: u16;
+        ssi_syscall: s32;
+        ssi_call_addr: u64;
+        ssi_arch: u32;
+        __pad: [28] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
     signalfd_siginfo :: struct {
         ssi_signo: u32;
         ssi_errno: s32;
@@ -7472,7 +9963,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     sigval :: struct {
         sival_ptr: *void;
 
@@ -7517,6 +10008,30 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    sigval :: struct {
+        sival_int: s32;
+        #overlay (sival_int) sival_ptr: *void;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    sigval :: struct {
+        sival_int: s32;
+        #overlay (sival_int) sival_ptr: *void;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    sigval :: struct {
+        sival_int: s32;
+        #overlay (sival_int) sival_ptr: *void;
+    }
+
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     sigvec :: struct {
         sv_handler: #type (unknown0: s32) -> void #c_call;
@@ -7535,7 +10050,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     stack_t :: struct {
         ss_sp: *void;
         ss_flags: s32;
@@ -7562,6 +10077,33 @@ librt :: #library,system "librt"; @native(external)
             ss_size: u64;
             ss_flags: s32;
         }
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    stack_t :: struct {
+        ss_sp: *void;
+        ss_flags: s32;
+        ss_size: size_t;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    stack_t :: struct {
+        ss_sp: *void;
+        ss_flags: s32;
+        ss_size: size_t;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    stack_t :: struct {
+        ss_sp: *void;
+        ss_flags: s32;
+        ss_size: size_t;
     }
 
 }
@@ -7702,6 +10244,65 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    stat64_t :: struct {
+        st_dev: u64;
+        st_ino: u64;
+        st_mode: u32;
+        st_nlink: u32;
+        st_uid: u32;
+        st_gid: u32;
+        st_rdev: u64;
+        st_size: s64;
+        st_blksize: s32;
+        st_blocks: s64;
+        st_atime: timespec;
+        st_mtime: timespec;
+        st_ctime: timespec;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    stat64_t :: struct {
+        st_dev: u64;
+        st_ino: u64;
+        st_mode: u32;
+        st_nlink: u32;
+        st_uid: u32;
+        st_gid: u32;
+        st_rdev: u64;
+        st_size: s64;
+        st_blksize: s32;
+        st_blocks: s64;
+        st_atime: timespec;
+        st_mtime: timespec;
+        st_ctime: timespec;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    stat64_t :: struct {
+        st_dev: u64;
+        st_ino: u64;
+        st_nlink: u64;
+        st_mode: u32;
+        st_uid: u32;
+        st_gid: u32;
+        __glibc_reserved0: s32;
+        st_rdev: u64;
+        st_size: s64;
+        st_atime: timespec;
+        st_mtime: timespec;
+        st_ctime: timespec;
+        st_blksize: s64;
+        st_blocks: s64;
+        __glibc_reserved: [3] s64;
+    }
+
+}
+
 #if OS == .LINUX && CPU == .X64 {
     stat_t :: struct {
         st_dev: u64;
@@ -7888,7 +10489,66 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    stat_t :: struct {
+        st_dev: u64;
+        st_ino: u64;
+        st_mode: u32;
+        st_nlink: u32;
+        st_uid: u32;
+        st_gid: u32;
+        st_rdev: u64;
+        st_size: s64;
+        st_blksize: s32;
+        st_blocks: s64;
+        st_atime: timespec;
+        st_mtime: timespec;
+        st_ctime: timespec;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    stat_t :: struct {
+        st_dev: u64;
+        st_ino: u64;
+        st_mode: u32;
+        st_nlink: u32;
+        st_uid: u32;
+        st_gid: u32;
+        st_rdev: u64;
+        st_size: s64;
+        st_blksize: s32;
+        st_blocks: s64;
+        st_atime: timespec;
+        st_mtime: timespec;
+        st_ctime: timespec;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    stat_t :: struct {
+        st_dev: u64;
+        st_ino: u64;
+        st_nlink: u64;
+        st_mode: u32;
+        st_uid: u32;
+        st_gid: u32;
+        __glibc_reserved0: s32;
+        st_rdev: u64;
+        st_size: s64;
+        st_atime: timespec;
+        st_mtime: timespec;
+        st_ctime: timespec;
+        st_blksize: s64;
+        st_blocks: s64;
+        __glibc_reserved: [3] s64;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     statx_t :: struct {
         stx_mask: u32;
         stx_blksize: u32;
@@ -7984,7 +10644,97 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    statx_t :: struct {
+        stx_mask: u32;
+        stx_blksize: u32;
+        stx_attributes: u64;
+        stx_nlink: u32;
+        stx_uid: u32;
+        stx_gid: u32;
+        stx_mode: u16;
+        __spare0: [1] u16;
+        stx_ino: u64;
+        stx_size: u64;
+        stx_blocks: u64;
+        stx_attributes_mask: u64;
+        stx_atime: statx_timestamp;
+        stx_btime: statx_timestamp;
+        stx_ctime: statx_timestamp;
+        stx_mtime: statx_timestamp;
+        stx_rdev_major: u32;
+        stx_rdev_minor: u32;
+        stx_dev_major: u32;
+        stx_dev_minor: u32;
+        stx_mnt_id: u64;
+        stx_dio_mem_align: u32;
+        stx_dio_offset_align: u32;
+        __spare3: [12] u64;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    statx_t :: struct {
+        stx_mask: u32;
+        stx_blksize: u32;
+        stx_attributes: u64;
+        stx_nlink: u32;
+        stx_uid: u32;
+        stx_gid: u32;
+        stx_mode: u16;
+        __spare0: [1] u16;
+        stx_ino: u64;
+        stx_size: u64;
+        stx_blocks: u64;
+        stx_attributes_mask: u64;
+        stx_atime: statx_timestamp;
+        stx_btime: statx_timestamp;
+        stx_ctime: statx_timestamp;
+        stx_mtime: statx_timestamp;
+        stx_rdev_major: u32;
+        stx_rdev_minor: u32;
+        stx_dev_major: u32;
+        stx_dev_minor: u32;
+        stx_mnt_id: u64;
+        stx_dio_mem_align: u32;
+        stx_dio_offset_align: u32;
+        __spare3: [12] u64;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    statx_t :: struct {
+        stx_mask: u32;
+        stx_blksize: u32;
+        stx_attributes: u64;
+        stx_nlink: u32;
+        stx_uid: u32;
+        stx_gid: u32;
+        stx_mode: u16;
+        __spare0: [1] u16;
+        stx_ino: u64;
+        stx_size: u64;
+        stx_blocks: u64;
+        stx_attributes_mask: u64;
+        stx_atime: statx_timestamp;
+        stx_btime: statx_timestamp;
+        stx_ctime: statx_timestamp;
+        stx_mtime: statx_timestamp;
+        stx_rdev_major: u32;
+        stx_rdev_minor: u32;
+        stx_dev_major: u32;
+        stx_dev_minor: u32;
+        stx_mnt_id: u64;
+        stx_dio_mem_align: u32;
+        stx_dio_offset_align: u32;
+        __spare3: [12] u64;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     statx_timestamp :: struct {
         tv_sec: s64;
         tv_nsec: u32;
@@ -8003,6 +10753,33 @@ librt :: #library,system "librt"; @native(external)
 }
 
 #if OS == .ANDROID && CPU == .X64 {
+    statx_timestamp :: struct {
+        tv_sec: s64;
+        tv_nsec: u32;
+        __reserved: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    statx_timestamp :: struct {
+        tv_sec: s64;
+        tv_nsec: u32;
+        __reserved: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    statx_timestamp :: struct {
+        tv_sec: s64;
+        tv_nsec: u32;
+        __reserved: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
     statx_timestamp :: struct {
         tv_sec: s64;
         tv_nsec: u32;
@@ -8037,7 +10814,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     timespec :: struct {
         tv_sec: s64;
 
@@ -8088,7 +10865,33 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    timespec :: struct {
+        tv_sec: s64;
+        tv_nsec: s32;
+        #overlay (tv_nsec) __pad3: [8] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    timespec :: struct {
+        tv_sec: s64;
+        tv_nsec: s32;
+        #overlay (tv_nsec) __pad3: [8] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    timespec :: struct {
+        tv_sec: s64;
+        tv_nsec: s64;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     timeval :: struct {
         tv_sec: s64;
         tv_usec: s64;
@@ -8132,7 +10935,31 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    timeval :: struct {
+        tv_sec: s64;
+        tv_usec: s64;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    timeval :: struct {
+        tv_sec: s64;
+        tv_usec: s64;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    timeval :: struct {
+        tv_sec: s64;
+        tv_usec: s64;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     timex :: struct {
         modes: u32;
         offset: s64;
@@ -8162,7 +10989,94 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    timex :: struct {
+        modes: u32;
+        #overlay (modes) __pad2: [8] u8;
+        offset: s64;
+        freq: s64;
+        maxerror: s64;
+        esterror: s64;
+        status: s32;
+        #overlay (status) __pad8: [8] u8;
+        constant: s64;
+        precision: s64;
+        tolerance: s64;
+        time: timeval;
+        tick: s64;
+        ppsfreq: s64;
+        jitter: s64;
+        shift: s32;
+        #overlay (shift) __pad17: [8] u8;
+        stabil: s64;
+        jitcnt: s64;
+        calcnt: s64;
+        errcnt: s64;
+        stbcnt: s64;
+        tai: s32;
+        #overlay (tai) __pad24: [48] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    timex :: struct {
+        modes: u32;
+        #overlay (modes) __pad2: [8] u8;
+        offset: s64;
+        freq: s64;
+        maxerror: s64;
+        esterror: s64;
+        status: s32;
+        #overlay (status) __pad8: [8] u8;
+        constant: s64;
+        precision: s64;
+        tolerance: s64;
+        time: timeval;
+        tick: s64;
+        ppsfreq: s64;
+        jitter: s64;
+        shift: s32;
+        #overlay (shift) __pad17: [8] u8;
+        stabil: s64;
+        jitcnt: s64;
+        calcnt: s64;
+        errcnt: s64;
+        stbcnt: s64;
+        tai: s32;
+        #overlay (tai) __pad24: [48] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    timex :: struct {
+        modes: u32;
+        offset: s64;
+        freq: s64;
+        maxerror: s64;
+        esterror: s64;
+        status: s32;
+        constant: s64;
+        precision: s64;
+        tolerance: s64;
+        time: timeval;
+        tick: s64;
+        ppsfreq: s64;
+        jitter: s64;
+        shift: s32;
+        stabil: s64;
+        jitcnt: s64;
+        calcnt: s64;
+        errcnt: s64;
+        stbcnt: s64;
+        tai: s32;
+        #overlay (tai) __pad21: [48] u8;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     timezone :: struct {
         tz_minuteswest: s32;
         tz_dsttime: s32;
@@ -8210,7 +11124,31 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    timezone :: struct {
+        tz_minuteswest: s32;
+        tz_dsttime: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    timezone :: struct {
+        tz_minuteswest: s32;
+        tz_dsttime: s32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    timezone :: struct {
+        tz_minuteswest: s32;
+        tz_dsttime: s32;
+    }
+
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     tm :: struct {
         tm_sec: s32;
         tm_min: s32;
@@ -8324,6 +11262,57 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    tm :: struct {
+        tm_sec: s32;
+        tm_min: s32;
+        tm_hour: s32;
+        tm_mday: s32;
+        tm_mon: s32;
+        tm_year: s32;
+        tm_wday: s32;
+        tm_yday: s32;
+        tm_isdst: s32;
+        tm_gmtoff: s32;
+        tm_zone: *u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    tm :: struct {
+        tm_sec: s32;
+        tm_min: s32;
+        tm_hour: s32;
+        tm_mday: s32;
+        tm_mon: s32;
+        tm_year: s32;
+        tm_wday: s32;
+        tm_yday: s32;
+        tm_isdst: s32;
+        tm_gmtoff: s32;
+        tm_zone: *u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    tm :: struct {
+        tm_sec: s32;
+        tm_min: s32;
+        tm_hour: s32;
+        tm_mday: s32;
+        tm_mon: s32;
+        tm_year: s32;
+        tm_wday: s32;
+        tm_yday: s32;
+        tm_isdst: s32;
+        tm_gmtoff: s64;
+        tm_zone: *u8;
+    }
+
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     ttysize :: struct {
         ts_lines: u16;
@@ -8426,6 +11415,42 @@ librt :: #library,system "librt"; @native(external)
             uc_mcsize: u64;
             uc_mcontext: *__darwin_mcontext64;
         }
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    ucontext_t :: struct {
+        uc_flags: u32;
+        uc_link: *ucontext_t;
+        uc_stack: stack_t;
+        uc_mcontext: mcontext_t;
+        uc_sigmask: sigset_t;
+        uc_regspace: [128] u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    ucontext_t :: struct {
+        uc_flags: u32;
+        uc_link: *ucontext_t;
+        uc_stack: stack_t;
+        uc_mcontext: mcontext_t;
+        uc_sigmask: sigset_t;
+        __fpregs_mem: _libc_fpstate;
+        __ssp: [4] u32;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    ucontext_t :: struct {
+        uc_flags: u64;
+        uc_link: *ucontext_t;
+        uc_stack: stack_t;
+        uc_mcontext: mcontext_t;
+        uc_sigmask: sigset_t;
     }
 
 }
@@ -8534,7 +11559,7 @@ librt :: #library,system "librt"; @native(external)
 
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     utsname :: struct {
 
         sysname: [65] u8;
@@ -8614,6 +11639,42 @@ librt :: #library,system "librt"; @native(external)
 
             domainname: [65] u8;
         }
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    utsname :: struct {
+        sysname: [65] u8;
+        nodename: [65] u8;
+        release: [65] u8;
+        version: [65] u8;
+        machine: [65] u8;
+        domainname: [65] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    utsname :: struct {
+        sysname: [65] u8;
+        nodename: [65] u8;
+        release: [65] u8;
+        version: [65] u8;
+        machine: [65] u8;
+        domainname: [65] u8;
+    }
+
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    utsname :: struct {
+        sysname: [65] u8;
+        nodename: [65] u8;
+        release: [65] u8;
+        version: [65] u8;
+        machine: [65] u8;
+        domainname: [65] u8;
     }
 
 }
@@ -9004,8 +12065,16 @@ OS_Error_Code :: #type,isa s32;
     __BIT_TYPES_DEFINED__ :: 1;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     __cpu_mask :: u64;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __cpu_mask :: u32;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __cpu_mask :: u32;
 }
 
 #if OS == .LINUX {
@@ -9196,6 +12265,21 @@ OS_Error_Code :: #type,isa s32;
     __jmp_buf :: [22] s64;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __jmp_buf :: [64] s32;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __jmp_buf :: [6] s32;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    __jmp_buf :: [1] struct {
+        __gregs: [10] s64;
+        __fpregs: [8] s64;
+    };
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     __LP64_OFF64 :: 1;
 }
@@ -9212,8 +12296,16 @@ OS_Error_Code :: #type,isa s32;
     __LPBIG_OFFBIG :: 1;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     __NGREG :: 23;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __NGREG :: 19;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    __NGREG :: 27;
 }
 
 #if OS == .LINUX {
@@ -9228,6 +12320,18 @@ OS_Error_Code :: #type,isa s32;
     __O_DIRECT :: 0x10000;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __O_DIRECT :: 65536;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __O_DIRECT :: 16384;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    __O_DIRECT :: 16384;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     __O_DIRECTORY :: 0x10000;
 }
@@ -9236,12 +12340,32 @@ OS_Error_Code :: #type,isa s32;
     __O_DIRECTORY :: 0x4000;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __O_DIRECTORY :: 16384;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __O_DIRECTORY :: 65536;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    __O_DIRECTORY :: 65536;
+}
+
 #if OS == .LINUX {
     __O_DSYNC :: 0x1000;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     __O_LARGEFILE :: 0;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __O_LARGEFILE :: 131072;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __O_LARGEFILE :: 32768;
 }
 
 #if OS == .LINUX {
@@ -9254,6 +12378,18 @@ OS_Error_Code :: #type,isa s32;
 
 #if OS == .LINUX && CPU == .ARM64 {
     __O_NOFOLLOW :: 0x8000;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __O_NOFOLLOW :: 32768;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __O_NOFOLLOW :: 131072;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    __O_NOFOLLOW :: 131072;
 }
 
 #if OS == .LINUX {
@@ -9284,14 +12420,22 @@ OS_Error_Code :: #type,isa s32;
     __POSIX2_THIS_VERSION :: 200809;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .S390X {
     __POSIX_FADV_DONTNEED :: 4;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    __POSIX_FADV_DONTNEED :: 6;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .S390X {
     __POSIX_FADV_NOREUSE :: 5;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    __POSIX_FADV_NOREUSE :: 7;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     __PTHREAD_ATTR_SIZE__ :: 56;
 }
@@ -9316,8 +12460,16 @@ OS_Error_Code :: #type,isa s32;
     __PTHREAD_CONDATTR_SIZE__ :: 8;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     __PTHREAD_MUTEX_HAVE_PREV :: 1;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __PTHREAD_MUTEX_HAVE_PREV :: 0;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __PTHREAD_MUTEX_HAVE_PREV :: 0;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -9932,8 +13084,16 @@ OS_Error_Code :: #type,isa s32;
     _DELETE_OK :: 1 << 12;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     _DIRENT_MATCHES_DIRENT64 :: 1;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    _DIRENT_MATCHES_DIRENT64 :: 0;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    _DIRENT_MATCHES_DIRENT64 :: 0;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -10956,6 +14116,18 @@ OS_Error_Code :: #type,isa s32;
     blksize_t :: u64;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    blksize_t :: s32;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    blksize_t :: s32;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    blksize_t :: s64;
+}
+
 #if OS == .LINUX {
     BUFSIZ :: 8192;
 }
@@ -11152,7 +14324,7 @@ OS_Error_Code :: #type,isa s32;
     CLD_TRAPPED :: 4;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     clock_t :: s64;
 }
 
@@ -11170,6 +14342,14 @@ OS_Error_Code :: #type,isa s32;
 
 #if OS == .ANDROID && CPU == .X64 {
     clock_t :: s64;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    clock_t :: s32;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    clock_t :: s32;
 }
 
 #if OS == .ANDROID && CPU == .ARM64 {
@@ -14980,7 +18160,7 @@ OS_Error_Code :: #type,isa s32;
     F_GETLEASE :: F_LINUX_SPECIFIC_BASE + 1;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     F_GETLK :: 5;
 }
 
@@ -15000,7 +18180,15 @@ OS_Error_Code :: #type,isa s32;
     F_GETLK :: 5;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    F_GETLK :: 12;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    F_GETLK :: 12;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     F_GETLK64 :: 5;
 }
 
@@ -15010,6 +18198,14 @@ OS_Error_Code :: #type,isa s32;
 
 #if OS == .ANDROID && CPU == .X64 {
     F_GETLK64 :: F_GETLK;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    F_GETLK64 :: 12;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    F_GETLK64 :: 12;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -15504,7 +18700,7 @@ OS_Error_Code :: #type,isa s32;
     F_SETLEASE :: F_LINUX_SPECIFIC_BASE + 0;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     F_SETLK :: 6;
 }
 
@@ -15524,7 +18720,15 @@ OS_Error_Code :: #type,isa s32;
     F_SETLK :: 6;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    F_SETLK :: 13;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    F_SETLK :: 13;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     F_SETLK64 :: 6;
 }
 
@@ -15536,7 +18740,15 @@ OS_Error_Code :: #type,isa s32;
     F_SETLK64 :: F_SETLK;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    F_SETLK64 :: 13;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    F_SETLK64 :: 13;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     F_SETLKW :: 7;
 }
 
@@ -15556,7 +18768,15 @@ OS_Error_Code :: #type,isa s32;
     F_SETLKW :: 7;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    F_SETLKW :: 14;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    F_SETLKW :: 14;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     F_SETLKW64 :: 7;
 }
 
@@ -15566,6 +18786,14 @@ OS_Error_Code :: #type,isa s32;
 
 #if OS == .ANDROID && CPU == .X64 {
     F_SETLKW64 :: F_SETLKW;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    F_SETLKW64 :: 14;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    F_SETLKW64 :: 14;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -15980,7 +19208,7 @@ OS_Error_Code :: #type,isa s32;
     FIONREAD :: 0x541B;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .S390X {
     FIOQSIZE :: 0x5460;
 }
 
@@ -15990,6 +19218,14 @@ OS_Error_Code :: #type,isa s32;
 
 #if OS == .ANDROID && CPU == .X64 {
     FIOQSIZE :: 0x5460;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    FIOQSIZE :: 21598;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    FIOQSIZE :: 21598;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -16376,7 +19612,7 @@ OS_Error_Code :: #type,isa s32;
     FPE_NOOP :: 0;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     fpos64_t :: _G_fpos64_t;
 }
 
@@ -16388,7 +19624,7 @@ OS_Error_Code :: #type,isa s32;
     fpos64_t :: s64;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     fpos_t :: _G_fpos_t;
 }
 
@@ -16408,7 +19644,7 @@ OS_Error_Code :: #type,isa s32;
     fpos_t :: s64;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .S390X {
     fpregset_t :: *_libc_fpstate;
 }
 
@@ -16418,6 +19654,10 @@ OS_Error_Code :: #type,isa s32;
 
 #if OS == .ANDROID && CPU == .X64 {
     fpregset_t :: *_libc_fpstate;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    fpregset_t :: _libc_fpstate;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -16636,7 +19876,7 @@ OS_Error_Code :: #type,isa s32;
     gid_t :: u32;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     greg_t :: s64;
 }
 
@@ -16648,7 +19888,19 @@ OS_Error_Code :: #type,isa s32;
     greg_t :: s64;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    greg_t :: s32;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    greg_t :: s32;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    greg_t :: u64;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     gregset_t :: [23] greg_t;
 }
 
@@ -16658,6 +19910,18 @@ OS_Error_Code :: #type,isa s32;
 
 #if OS == .ANDROID && CPU == .X64 {
     gregset_t :: [23] greg_t;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    gregset_t :: [18] greg_t;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    gregset_t :: [19] greg_t;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    gregset_t :: [27] greg_t;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -18624,8 +21888,16 @@ OS_Error_Code :: #type,isa s32;
     LM_ID_NEWLM :: -1;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     Lmid_t :: s64;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    Lmid_t :: s32;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    Lmid_t :: s32;
 }
 
 #if OS == .LINUX {
@@ -19896,7 +23168,7 @@ OS_Error_Code :: #type,isa s32;
     MSGSND :: 11;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     nfds_t :: u64;
 }
 
@@ -19913,6 +23185,14 @@ OS_Error_Code :: #type,isa s32;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
+    nfds_t :: u32;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    nfds_t :: u32;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
     nfds_t :: u32;
 }
 
@@ -19946,6 +23226,18 @@ OS_Error_Code :: #type,isa s32;
 
 #if OS == .ANDROID && CPU == .X64 {
     nlink_t :: u32;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    nlink_t :: u32;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    nlink_t :: u32;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    nlink_t :: u64;
 }
 
 #if OS == .LINUX {
@@ -21698,7 +24990,7 @@ off_t :: s64;
     pthread_spinlock_t :: s32;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     pthread_t :: u64;
 }
 
@@ -21718,6 +25010,14 @@ off_t :: s64;
     pthread_t :: s64;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_t :: u32;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_t :: u32;
+}
+
 #if OS == .ANDROID && CPU == .ARM64 {
     ptrdiff_t :: s64;
 }
@@ -21762,8 +25062,16 @@ off_t :: s64;
     R_OK :: 4;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     register_t :: s64;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    register_t :: s32;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    register_t :: s32;
 }
 
 #if OS == .LINUX {
@@ -23606,7 +26914,7 @@ off_t :: s64;
     SHMAT :: 21;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     shmatt_t :: u64;
 }
 
@@ -23624,6 +26932,14 @@ off_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     shmatt_t :: u64;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    shmatt_t :: u32;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    shmatt_t :: u32;
 }
 
 #if OS == .ANDROID && CPU == .ARM64 {
@@ -24966,7 +28282,17 @@ off_t :: s64;
     SIOGIFINDEX :: SIOCGIFINDEX;
 }
 
-size_t :: u64;
+#if ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
+    size_t :: u64;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    size_t :: u32;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    size_t :: u32;
+}
 
 #if OS == .LINUX {
     SPLICE_F_GIFT :: 8;
@@ -25144,7 +28470,17 @@ size_t :: u64;
     SS_ONSTACK :: 1;
 }
 
-ssize_t :: s64;
+#if ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
+    ssize_t :: s64;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    ssize_t :: s32;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    ssize_t :: s32;
+}
 
 #if OS == .ANDROID && CPU == .ARM64 {
     stack_t :: sigaltstack_t;
@@ -25506,7 +28842,7 @@ ssize_t :: s64;
     STDOUT_FILENO :: 1;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     suseconds_t :: s64;
 }
 
@@ -25524,6 +28860,14 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     suseconds_t :: s64;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    suseconds_t :: s32;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    suseconds_t :: s32;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -25954,6 +29298,18 @@ ssize_t :: s64;
     SYS__sysctl :: 156;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS__sysctl :: 149;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS__sysctl :: 149;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS__sysctl :: 149;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_abort_with_payload :: 521;
 }
@@ -25982,6 +29338,10 @@ ssize_t :: s64;
     SYS_accept :: 43;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_accept :: 285;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_accept4 :: 288;
 }
@@ -25994,6 +29354,18 @@ ssize_t :: s64;
     SYS_accept4 :: 288;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_accept4 :: 366;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_accept4 :: 364;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_accept4 :: 364;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_accept_nocancel :: 404;
 }
@@ -26016,6 +29388,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_access :: 21;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_access :: 33;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_access :: 33;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_access :: 33;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -26046,6 +29430,18 @@ ssize_t :: s64;
     SYS_acct :: 163;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_acct :: 51;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_acct :: 51;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_acct :: 51;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_add_key :: 248;
 }
@@ -26056,6 +29452,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_add_key :: 248;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_add_key :: 309;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_add_key :: 286;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_add_key :: 278;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -26078,12 +29486,32 @@ ssize_t :: s64;
     SYS_adjtimex :: 159;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_adjtimex :: 124;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_adjtimex :: 124;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_adjtimex :: 124;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_afs_syscall :: 183;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_afs_syscall :: 183;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_afs_syscall :: 137;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_afs_syscall :: 137;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -26158,12 +29586,24 @@ ssize_t :: s64;
     SYS_alarm :: 37;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_alarm :: 27;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_alarm :: 27;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_arch_prctl :: 158;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_arch_prctl :: 158;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_arch_prctl :: 384;
 }
 
 #if (OS == .ANDROID || OS == .LINUX) && CPU == .ARM64 {
@@ -26238,6 +29678,18 @@ ssize_t :: s64;
     SYS_bind :: 49;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_bind :: 282;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_bind :: 361;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_bind :: 361;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_bpf :: 321;
 }
@@ -26250,6 +29702,18 @@ ssize_t :: s64;
     SYS_bpf :: 321;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_bpf :: 386;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_bpf :: 357;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_bpf :: 351;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_brk :: 12;
 }
@@ -26260,6 +29724,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_brk :: 12;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_brk :: 45;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_brk :: 45;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_brk :: 45;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -26306,6 +29782,18 @@ ssize_t :: s64;
     SYS_capget :: 125;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_capget :: 184;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_capget :: 184;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_capget :: 184;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_capset :: 126;
 }
@@ -26316,6 +29804,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_capset :: 126;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_capset :: 185;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_capset :: 185;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_capset :: 185;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -26346,6 +29846,18 @@ ssize_t :: s64;
     SYS_chdir :: 80;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_chdir :: 12;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_chdir :: 12;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_chdir :: 12;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_chflags :: 34;
 }
@@ -26370,6 +29882,18 @@ ssize_t :: s64;
     SYS_chmod :: 90;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_chmod :: 15;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_chmod :: 15;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_chmod :: 15;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_chmod_extended :: 282;
 }
@@ -26392,6 +29916,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_chown :: 92;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_chown :: 182;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_chown :: 182;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_chown :: 212;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -26414,6 +29950,18 @@ ssize_t :: s64;
     SYS_chroot :: 161;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_chroot :: 61;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_chroot :: 61;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_chroot :: 61;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_clock_adjtime :: 305;
 }
@@ -26424,6 +29972,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_clock_adjtime :: 305;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_clock_adjtime :: 372;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_clock_adjtime :: 343;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_clock_adjtime :: 337;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -26438,6 +29998,18 @@ ssize_t :: s64;
     SYS_clock_getres :: 229;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_clock_getres :: 264;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_clock_getres :: 266;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_clock_getres :: 261;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_clock_gettime :: 228;
 }
@@ -26448,6 +30020,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_clock_gettime :: 228;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_clock_gettime :: 263;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_clock_gettime :: 265;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_clock_gettime :: 260;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -26462,6 +30046,18 @@ ssize_t :: s64;
     SYS_clock_nanosleep :: 230;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_clock_nanosleep :: 265;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_clock_nanosleep :: 267;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_clock_nanosleep :: 262;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_clock_settime :: 227;
 }
@@ -26472,6 +30068,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_clock_settime :: 227;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_clock_settime :: 262;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_clock_settime :: 264;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_clock_settime :: 259;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -26486,6 +30094,18 @@ ssize_t :: s64;
     SYS_clone :: 56;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_clone :: 120;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_clone :: 120;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_clone :: 120;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_clone3 :: 435;
 }
@@ -26495,6 +30115,18 @@ ssize_t :: s64;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
+    SYS_clone3 :: 435;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_clone3 :: 435;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_clone3 :: 435;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_clone3 :: 435;
 }
 
@@ -26524,6 +30156,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_close :: 3;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_close :: 6;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_close :: 6;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_close :: 6;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -26582,6 +30226,18 @@ ssize_t :: s64;
     SYS_connect :: 42;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_connect :: 283;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_connect :: 362;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_connect :: 362;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_connect_nocancel :: 409;
 }
@@ -26610,6 +30266,18 @@ ssize_t :: s64;
     SYS_copy_file_range :: 326;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_copy_file_range :: 391;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_copy_file_range :: 377;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_copy_file_range :: 375;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_copyfile :: 227;
 }
@@ -26626,12 +30294,32 @@ ssize_t :: s64;
     SYS_creat :: 85;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_creat :: 8;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_creat :: 8;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_creat :: 8;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_create_module :: 174;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_create_module :: 174;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_create_module :: 127;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_create_module :: 127;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -26678,6 +30366,18 @@ ssize_t :: s64;
     SYS_delete_module :: 176;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_delete_module :: 129;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_delete_module :: 129;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_delete_module :: 129;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_disconnectx :: 448;
 }
@@ -26706,6 +30406,18 @@ ssize_t :: s64;
     SYS_dup :: 32;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_dup :: 41;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_dup :: 41;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_dup :: 41;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_dup2 :: 33;
 }
@@ -26722,6 +30434,18 @@ ssize_t :: s64;
     SYS_dup2 :: 33;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_dup2 :: 63;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_dup2 :: 63;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_dup2 :: 63;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_dup3 :: 292;
 }
@@ -26734,12 +30458,36 @@ ssize_t :: s64;
     SYS_dup3 :: 292;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_dup3 :: 358;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_dup3 :: 330;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_dup3 :: 326;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_epoll_create :: 213;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_epoll_create :: 213;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_epoll_create :: 250;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_epoll_create :: 254;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_epoll_create :: 249;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -26754,6 +30502,18 @@ ssize_t :: s64;
     SYS_epoll_create1 :: 291;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_epoll_create1 :: 357;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_epoll_create1 :: 329;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_epoll_create1 :: 327;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_epoll_ctl :: 233;
 }
@@ -26764,6 +30524,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_epoll_ctl :: 233;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_epoll_ctl :: 251;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_epoll_ctl :: 255;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_epoll_ctl :: 250;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -26786,6 +30558,18 @@ ssize_t :: s64;
     SYS_epoll_pwait :: 281;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_epoll_pwait :: 346;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_epoll_pwait :: 319;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_epoll_pwait :: 312;
+}
+
 #if (OS == .ANDROID || OS == .LINUX) && CPU == .ARM64 {
     SYS_epoll_pwait2 :: 441;
 }
@@ -26802,6 +30586,18 @@ ssize_t :: s64;
     SYS_epoll_wait :: 232;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_epoll_wait :: 252;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_epoll_wait :: 256;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_epoll_wait :: 251;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_epoll_wait_old :: 215;
 }
@@ -26816,6 +30612,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_eventfd :: 284;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_eventfd :: 351;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_eventfd :: 323;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_eventfd :: 318;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -26828,6 +30636,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_eventfd2 :: 290;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_eventfd2 :: 356;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_eventfd2 :: 328;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_eventfd2 :: 323;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -26858,6 +30678,18 @@ ssize_t :: s64;
     SYS_execve :: 59;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_execve :: 11;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_execve :: 11;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_execve :: 11;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_execveat :: 322;
 }
@@ -26868,6 +30700,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_execveat :: 322;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_execveat :: 387;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_execveat :: 358;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_execveat :: 354;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -26890,6 +30734,18 @@ ssize_t :: s64;
     SYS_exit :: 60;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_exit :: 1;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_exit :: 1;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_exit :: 1;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_exit_group :: 231;
 }
@@ -26900,6 +30756,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_exit_group :: 231;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_exit_group :: 248;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_exit_group :: 252;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_exit_group :: 248;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -26922,6 +30790,18 @@ ssize_t :: s64;
     SYS_faccessat :: 269;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_faccessat :: 334;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_faccessat :: 307;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_faccessat :: 300;
+}
+
 #if (OS == .ANDROID || OS == .LINUX) && CPU == .ARM64 {
     SYS_faccessat2 :: 439;
 }
@@ -26942,6 +30822,14 @@ ssize_t :: s64;
     SYS_fadvise64 :: 221;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fadvise64 :: 250;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_fadvise64 :: 253;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_fallocate :: 285;
 }
@@ -26952,6 +30840,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_fallocate :: 285;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_fallocate :: 352;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fallocate :: 324;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_fallocate :: 314;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -26966,6 +30866,18 @@ ssize_t :: s64;
     SYS_fanotify_init :: 300;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_fanotify_init :: 367;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fanotify_init :: 338;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_fanotify_init :: 332;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_fanotify_mark :: 301;
 }
@@ -26976,6 +30888,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_fanotify_mark :: 301;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_fanotify_mark :: 368;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fanotify_mark :: 339;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_fanotify_mark :: 333;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -26996,6 +30920,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_fchdir :: 81;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_fchdir :: 133;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fchdir :: 133;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_fchdir :: 133;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -27026,6 +30962,18 @@ ssize_t :: s64;
     SYS_fchmod :: 91;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_fchmod :: 94;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fchmod :: 94;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_fchmod :: 94;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_fchmod_extended :: 283;
 }
@@ -27054,6 +31002,18 @@ ssize_t :: s64;
     SYS_fchmodat :: 268;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_fchmodat :: 333;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fchmodat :: 306;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_fchmodat :: 299;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_fchown :: 93;
 }
@@ -27074,6 +31034,18 @@ ssize_t :: s64;
     SYS_fchown :: 93;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_fchown :: 95;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fchown :: 95;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_fchown :: 207;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_fchownat :: 260;
 }
@@ -27092,6 +31064,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_fchownat :: 260;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_fchownat :: 325;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fchownat :: 298;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_fchownat :: 291;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -27122,6 +31106,18 @@ ssize_t :: s64;
     SYS_fcntl :: 72;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_fcntl :: 55;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fcntl :: 55;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_fcntl :: 55;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_fcntl_nocancel :: 406;
 }
@@ -27148,6 +31144,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_fdatasync :: 75;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_fdatasync :: 148;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fdatasync :: 148;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_fdatasync :: 148;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -27186,6 +31194,18 @@ ssize_t :: s64;
     SYS_fgetxattr :: 193;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_fgetxattr :: 231;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fgetxattr :: 231;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_fgetxattr :: 229;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_fhopen :: 248;
 }
@@ -27222,6 +31242,18 @@ ssize_t :: s64;
     SYS_finit_module :: 313;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_finit_module :: 379;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_finit_module :: 350;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_finit_module :: 344;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_flistxattr :: 196;
 }
@@ -27240,6 +31272,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_flistxattr :: 196;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_flistxattr :: 234;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_flistxattr :: 234;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_flistxattr :: 232;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -27262,6 +31306,18 @@ ssize_t :: s64;
     SYS_flock :: 73;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_flock :: 143;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_flock :: 143;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_flock :: 143;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_fmount :: 526;
 }
@@ -27284,6 +31340,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_fork :: 57;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_fork :: 2;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fork :: 2;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_fork :: 2;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -27314,6 +31382,18 @@ ssize_t :: s64;
     SYS_fremovexattr :: 199;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_fremovexattr :: 237;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fremovexattr :: 237;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_fremovexattr :: 235;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_fs_snapshot :: 518;
 }
@@ -27331,6 +31411,18 @@ ssize_t :: s64;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
+    SYS_fsconfig :: 431;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_fsconfig :: 431;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fsconfig :: 431;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_fsconfig :: 431;
 }
 
@@ -27370,6 +31462,18 @@ ssize_t :: s64;
     SYS_fsetxattr :: 190;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_fsetxattr :: 228;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fsetxattr :: 228;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_fsetxattr :: 226;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_fsgetpath :: 427;
 }
@@ -27394,6 +31498,18 @@ ssize_t :: s64;
     SYS_fsmount :: 432;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_fsmount :: 432;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fsmount :: 432;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_fsmount :: 432;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_fsopen :: 430;
 }
@@ -27406,6 +31522,18 @@ ssize_t :: s64;
     SYS_fsopen :: 430;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_fsopen :: 430;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fsopen :: 430;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_fsopen :: 430;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_fspick :: 433;
 }
@@ -27415,6 +31543,18 @@ ssize_t :: s64;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
+    SYS_fspick :: 433;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_fspick :: 433;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fspick :: 433;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_fspick :: 433;
 }
 
@@ -27436,6 +31576,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_fstat :: 5;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_fstat :: 108;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fstat :: 108;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_fstat :: 108;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -27498,6 +31650,18 @@ ssize_t :: s64;
     SYS_fstatfs :: 138;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_fstatfs :: 100;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fstatfs :: 100;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_fstatfs :: 100;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_fstatfs64 :: 346;
 }
@@ -27524,6 +31688,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_fsync :: 74;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_fsync :: 118;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_fsync :: 118;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_fsync :: 118;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -27554,6 +31730,18 @@ ssize_t :: s64;
     SYS_ftruncate :: 77;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_ftruncate :: 93;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_ftruncate :: 93;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_ftruncate :: 93;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_futex :: 202;
 }
@@ -27564,6 +31752,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_futex :: 202;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_futex :: 240;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_futex :: 240;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_futex :: 238;
 }
 
 #if (OS == .ANDROID || OS == .LINUX) && CPU == .ARM64 {
@@ -27590,12 +31790,32 @@ ssize_t :: s64;
     SYS_futimesat :: 261;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_futimesat :: 326;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_futimesat :: 299;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_futimesat :: 292;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_get_kernel_syms :: 177;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_get_kernel_syms :: 177;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_get_kernel_syms :: 130;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_get_kernel_syms :: 130;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -27610,6 +31830,18 @@ ssize_t :: s64;
     SYS_get_mempolicy :: 239;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_get_mempolicy :: 320;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_get_mempolicy :: 275;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_get_mempolicy :: 269;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_get_robust_list :: 274;
 }
@@ -27622,12 +31854,28 @@ ssize_t :: s64;
     SYS_get_robust_list :: 274;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_get_robust_list :: 339;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_get_robust_list :: 312;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_get_robust_list :: 305;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_get_thread_area :: 211;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_get_thread_area :: 211;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_get_thread_area :: 244;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -27682,6 +31930,18 @@ ssize_t :: s64;
     SYS_getcpu :: 309;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_getcpu :: 345;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getcpu :: 318;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getcpu :: 311;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_getcwd :: 79;
 }
@@ -27694,12 +31954,36 @@ ssize_t :: s64;
     SYS_getcwd :: 79;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_getcwd :: 183;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getcwd :: 183;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getcwd :: 183;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_getdents :: 78;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_getdents :: 78;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_getdents :: 141;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getdents :: 141;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getdents :: 141;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -27712,6 +31996,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_getdents64 :: 217;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_getdents64 :: 217;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getdents64 :: 220;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getdents64 :: 220;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -27766,6 +32062,18 @@ ssize_t :: s64;
     SYS_getegid :: 108;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_getegid :: 50;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getegid :: 50;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getegid :: 202;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_getentropy :: 500;
 }
@@ -27792,6 +32100,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_geteuid :: 107;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_geteuid :: 49;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_geteuid :: 49;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_geteuid :: 201;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -27838,6 +32158,18 @@ ssize_t :: s64;
     SYS_getgid :: 104;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_getgid :: 47;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getgid :: 47;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getgid :: 200;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_getgroups :: 115;
 }
@@ -27856,6 +32188,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_getgroups :: 115;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_getgroups :: 80;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getgroups :: 80;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getgroups :: 205;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -27886,6 +32230,18 @@ ssize_t :: s64;
     SYS_getitimer :: 36;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_getitimer :: 105;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getitimer :: 105;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getitimer :: 105;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_getlogin :: 49;
 }
@@ -27914,6 +32270,18 @@ ssize_t :: s64;
     SYS_getpeername :: 52;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_getpeername :: 287;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getpeername :: 368;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getpeername :: 368;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_getpgid :: 121;
 }
@@ -27934,6 +32302,18 @@ ssize_t :: s64;
     SYS_getpgid :: 121;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_getpgid :: 132;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getpgid :: 132;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getpgid :: 132;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_getpgrp :: 111;
 }
@@ -27948,6 +32328,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_getpgrp :: 111;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_getpgrp :: 65;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getpgrp :: 65;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getpgrp :: 65;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -27970,12 +32362,32 @@ ssize_t :: s64;
     SYS_getpid :: 39;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_getpid :: 20;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getpid :: 20;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getpid :: 20;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_getpmsg :: 181;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_getpmsg :: 181;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getpmsg :: 188;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getpmsg :: 188;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -27998,6 +32410,18 @@ ssize_t :: s64;
     SYS_getppid :: 110;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_getppid :: 64;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getppid :: 64;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getppid :: 64;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_getpriority :: 140;
 }
@@ -28018,6 +32442,18 @@ ssize_t :: s64;
     SYS_getpriority :: 140;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_getpriority :: 96;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getpriority :: 96;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getpriority :: 96;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_getrandom :: 318;
 }
@@ -28028,6 +32464,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_getrandom :: 318;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_getrandom :: 384;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getrandom :: 355;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getrandom :: 349;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -28042,6 +32490,18 @@ ssize_t :: s64;
     SYS_getresgid :: 120;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_getresgid :: 171;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getresgid :: 171;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getresgid :: 211;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_getresuid :: 118;
 }
@@ -28052,6 +32512,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_getresuid :: 118;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_getresuid :: 165;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getresuid :: 165;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getresuid :: 209;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -28074,6 +32546,14 @@ ssize_t :: s64;
     SYS_getrlimit :: 97;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getrlimit :: 76;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getrlimit :: 191;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_getrusage :: 98;
 }
@@ -28092,6 +32572,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_getrusage :: 98;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_getrusage :: 77;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getrusage :: 77;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getrusage :: 77;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -28122,6 +32614,18 @@ ssize_t :: s64;
     SYS_getsid :: 124;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_getsid :: 147;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getsid :: 147;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getsid :: 147;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_getsockname :: 51;
 }
@@ -28140,6 +32644,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_getsockname :: 51;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_getsockname :: 286;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getsockname :: 367;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getsockname :: 367;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -28162,6 +32678,18 @@ ssize_t :: s64;
     SYS_getsockopt :: 55;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_getsockopt :: 295;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getsockopt :: 365;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getsockopt :: 365;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_gettid :: 186;
 }
@@ -28180,6 +32708,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_gettid :: 186;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_gettid :: 224;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_gettid :: 224;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_gettid :: 236;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -28202,6 +32742,18 @@ ssize_t :: s64;
     SYS_gettimeofday :: 96;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_gettimeofday :: 78;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_gettimeofday :: 78;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_gettimeofday :: 78;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_getuid :: 102;
 }
@@ -28220,6 +32772,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_getuid :: 102;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_getuid :: 24;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getuid :: 24;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getuid :: 199;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -28248,6 +32812,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_getxattr :: 191;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_getxattr :: 229;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_getxattr :: 229;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_getxattr :: 227;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -28334,6 +32910,18 @@ ssize_t :: s64;
     SYS_init_module :: 175;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_init_module :: 128;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_init_module :: 128;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_init_module :: 128;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_initgroups :: 243;
 }
@@ -28354,12 +32942,36 @@ ssize_t :: s64;
     SYS_inotify_add_watch :: 254;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_inotify_add_watch :: 317;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_inotify_add_watch :: 292;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_inotify_add_watch :: 285;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_inotify_init :: 253;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_inotify_init :: 253;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_inotify_init :: 316;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_inotify_init :: 291;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_inotify_init :: 284;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -28374,6 +32986,18 @@ ssize_t :: s64;
     SYS_inotify_init1 :: 294;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_inotify_init1 :: 360;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_inotify_init1 :: 332;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_inotify_init1 :: 324;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_inotify_rm_watch :: 255;
 }
@@ -28384,6 +33008,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_inotify_rm_watch :: 255;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_inotify_rm_watch :: 318;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_inotify_rm_watch :: 293;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_inotify_rm_watch :: 286;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -28406,6 +33042,18 @@ ssize_t :: s64;
     SYS_io_cancel :: 210;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_io_cancel :: 247;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_io_cancel :: 249;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_io_cancel :: 247;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_io_destroy :: 207;
 }
@@ -28416,6 +33064,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_io_destroy :: 207;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_io_destroy :: 244;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_io_destroy :: 246;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_io_destroy :: 244;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -28430,6 +33090,18 @@ ssize_t :: s64;
     SYS_io_getevents :: 208;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_io_getevents :: 245;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_io_getevents :: 247;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_io_getevents :: 245;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_io_pgetevents :: 333;
 }
@@ -28440,6 +33112,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_io_pgetevents :: 333;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_io_pgetevents :: 399;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_io_pgetevents :: 385;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_io_pgetevents :: 382;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -28454,6 +33138,18 @@ ssize_t :: s64;
     SYS_io_setup :: 206;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_io_setup :: 243;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_io_setup :: 245;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_io_setup :: 243;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_io_submit :: 209;
 }
@@ -28466,6 +33162,18 @@ ssize_t :: s64;
     SYS_io_submit :: 209;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_io_submit :: 246;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_io_submit :: 248;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_io_submit :: 246;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_io_uring_enter :: 426;
 }
@@ -28478,6 +33186,18 @@ ssize_t :: s64;
     SYS_io_uring_enter :: 426;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_io_uring_enter :: 426;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_io_uring_enter :: 426;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_io_uring_enter :: 426;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_io_uring_register :: 427;
 }
@@ -28487,6 +33207,18 @@ ssize_t :: s64;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
+    SYS_io_uring_register :: 427;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_io_uring_register :: 427;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_io_uring_register :: 427;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_io_uring_register :: 427;
 }
 
@@ -28499,6 +33231,18 @@ ssize_t :: s64;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
+    SYS_io_uring_setup :: 425;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_io_uring_setup :: 425;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_io_uring_setup :: 425;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_io_uring_setup :: 425;
 }
 
@@ -28522,6 +33266,18 @@ ssize_t :: s64;
     SYS_ioctl :: 16;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_ioctl :: 54;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_ioctl :: 54;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_ioctl :: 54;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_ioperm :: 173;
 }
@@ -28530,12 +33286,20 @@ ssize_t :: s64;
     SYS_ioperm :: 173;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_ioperm :: 101;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_iopl :: 172;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_iopl :: 172;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_iopl :: 110;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -28558,6 +33322,18 @@ ssize_t :: s64;
     SYS_ioprio_get :: 252;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_ioprio_get :: 315;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_ioprio_get :: 290;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_ioprio_get :: 283;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_ioprio_set :: 251;
 }
@@ -28568,6 +33344,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_ioprio_set :: 251;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_ioprio_set :: 314;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_ioprio_set :: 289;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_ioprio_set :: 282;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -28596,6 +33384,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_kcmp :: 312;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_kcmp :: 378;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_kcmp :: 349;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_kcmp :: 343;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -28674,6 +33474,14 @@ ssize_t :: s64;
     SYS_kexec_file_load :: 320;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_kexec_file_load :: 401;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_kexec_file_load :: 381;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_kexec_load :: 246;
 }
@@ -28686,6 +33494,18 @@ ssize_t :: s64;
     SYS_kexec_load :: 246;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_kexec_load :: 347;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_kexec_load :: 283;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_kexec_load :: 277;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_keyctl :: 250;
 }
@@ -28696,6 +33516,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_keyctl :: 250;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_keyctl :: 311;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_keyctl :: 288;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_keyctl :: 280;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -28716,6 +33548,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_kill :: 62;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_kill :: 37;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_kill :: 37;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_kill :: 37;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -28770,6 +33614,18 @@ ssize_t :: s64;
     SYS_lchown :: 94;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_lchown :: 16;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_lchown :: 16;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_lchown :: 198;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_ledger :: 373;
 }
@@ -28790,6 +33646,18 @@ ssize_t :: s64;
     SYS_lgetxattr :: 192;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_lgetxattr :: 230;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_lgetxattr :: 230;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_lgetxattr :: 228;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_link :: 86;
 }
@@ -28804,6 +33672,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_link :: 86;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_link :: 9;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_link :: 9;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_link :: 9;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -28824,6 +33704,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_linkat :: 265;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_linkat :: 330;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_linkat :: 303;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_linkat :: 296;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -28854,6 +33746,18 @@ ssize_t :: s64;
     SYS_listen :: 50;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_listen :: 284;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_listen :: 363;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_listen :: 363;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_listxattr :: 194;
 }
@@ -28874,6 +33778,18 @@ ssize_t :: s64;
     SYS_listxattr :: 194;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_listxattr :: 232;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_listxattr :: 232;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_listxattr :: 230;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_llistxattr :: 195;
 }
@@ -28884,6 +33800,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_llistxattr :: 195;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_llistxattr :: 233;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_llistxattr :: 233;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_llistxattr :: 231;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -28902,6 +33830,18 @@ ssize_t :: s64;
     SYS_lookup_dcookie :: 212;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_lookup_dcookie :: 249;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_lookup_dcookie :: 253;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_lookup_dcookie :: 110;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_lremovexattr :: 198;
 }
@@ -28912,6 +33852,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_lremovexattr :: 198;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_lremovexattr :: 236;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_lremovexattr :: 236;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_lremovexattr :: 234;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -28934,6 +33886,18 @@ ssize_t :: s64;
     SYS_lseek :: 8;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_lseek :: 19;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_lseek :: 19;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_lseek :: 19;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_lsetxattr :: 189;
 }
@@ -28944,6 +33908,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_lsetxattr :: 189;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_lsetxattr :: 227;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_lsetxattr :: 227;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_lsetxattr :: 225;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -28960,6 +33936,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_lstat :: 6;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_lstat :: 107;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_lstat :: 107;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_lstat :: 107;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -29018,6 +34006,18 @@ ssize_t :: s64;
     SYS_madvise :: 28;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_madvise :: 220;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_madvise :: 219;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_madvise :: 219;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_MAXSYSCALL :: 546;
 }
@@ -29038,6 +34038,18 @@ ssize_t :: s64;
     SYS_mbind :: 237;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_mbind :: 319;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_mbind :: 274;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_mbind :: 268;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_membarrier :: 324;
 }
@@ -29050,6 +34062,18 @@ ssize_t :: s64;
     SYS_membarrier :: 324;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_membarrier :: 389;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_membarrier :: 375;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_membarrier :: 356;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_memfd_create :: 319;
 }
@@ -29060,6 +34084,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_memfd_create :: 319;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_memfd_create :: 385;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_memfd_create :: 356;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_memfd_create :: 350;
 }
 
 #if (OS == .ANDROID || OS == .LINUX) && CPU == .ARM64 {
@@ -29110,6 +34146,18 @@ ssize_t :: s64;
     SYS_migrate_pages :: 256;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_migrate_pages :: 400;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_migrate_pages :: 294;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_migrate_pages :: 287;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_mincore :: 27;
 }
@@ -29130,6 +34178,18 @@ ssize_t :: s64;
     SYS_mincore :: 27;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_mincore :: 219;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_mincore :: 218;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_mincore :: 218;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_minherit :: 250;
 }
@@ -29152,6 +34212,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_mkdir :: 83;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_mkdir :: 39;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_mkdir :: 39;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_mkdir :: 39;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -29182,6 +34254,18 @@ ssize_t :: s64;
     SYS_mkdirat :: 258;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_mkdirat :: 323;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_mkdirat :: 296;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_mkdirat :: 289;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_mkfifo :: 132;
 }
@@ -29212,6 +34296,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_mknod :: 133;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_mknod :: 14;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_mknod :: 14;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_mknod :: 14;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -29224,6 +34320,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_mknodat :: 259;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_mknodat :: 324;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_mknodat :: 297;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_mknodat :: 290;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -29246,6 +34354,18 @@ ssize_t :: s64;
     SYS_mlock :: 149;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_mlock :: 150;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_mlock :: 150;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_mlock :: 150;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_mlock2 :: 325;
 }
@@ -29256,6 +34376,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_mlock2 :: 325;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_mlock2 :: 390;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_mlock2 :: 376;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_mlock2 :: 374;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -29278,6 +34410,18 @@ ssize_t :: s64;
     SYS_mlockall :: 151;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_mlockall :: 152;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_mlockall :: 152;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_mlockall :: 152;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_mmap :: 9;
 }
@@ -29298,12 +34442,24 @@ ssize_t :: s64;
     SYS_mmap :: 9;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_mmap :: 90;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_mmap :: 90;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_modify_ldt :: 154;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_modify_ldt :: 154;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_modify_ldt :: 123;
 }
 
 #if OS == .MACOS && CPU == .X64 {
@@ -29330,6 +34486,18 @@ ssize_t :: s64;
     SYS_mount :: 165;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_mount :: 21;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_mount :: 21;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_mount :: 21;
+}
+
 #if (OS == .ANDROID || OS == .LINUX) && CPU == .ARM64 {
     SYS_mount_setattr :: 442;
 }
@@ -29347,6 +34515,18 @@ ssize_t :: s64;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
+    SYS_move_mount :: 429;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_move_mount :: 429;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_move_mount :: 429;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_move_mount :: 429;
 }
 
@@ -29360,6 +34540,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_move_pages :: 279;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_move_pages :: 344;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_move_pages :: 317;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_move_pages :: 310;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -29382,6 +34574,18 @@ ssize_t :: s64;
     SYS_mprotect :: 10;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_mprotect :: 125;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_mprotect :: 125;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_mprotect :: 125;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_mq_getsetattr :: 245;
 }
@@ -29392,6 +34596,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_mq_getsetattr :: 245;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_mq_getsetattr :: 279;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_mq_getsetattr :: 282;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_mq_getsetattr :: 276;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -29406,6 +34622,18 @@ ssize_t :: s64;
     SYS_mq_notify :: 244;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_mq_notify :: 278;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_mq_notify :: 281;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_mq_notify :: 275;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_mq_open :: 240;
 }
@@ -29416,6 +34644,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_mq_open :: 240;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_mq_open :: 274;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_mq_open :: 277;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_mq_open :: 271;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -29430,6 +34670,18 @@ ssize_t :: s64;
     SYS_mq_timedreceive :: 243;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_mq_timedreceive :: 277;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_mq_timedreceive :: 280;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_mq_timedreceive :: 274;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_mq_timedsend :: 242;
 }
@@ -29440,6 +34692,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_mq_timedsend :: 242;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_mq_timedsend :: 276;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_mq_timedsend :: 279;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_mq_timedsend :: 273;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -29454,6 +34718,18 @@ ssize_t :: s64;
     SYS_mq_unlink :: 241;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_mq_unlink :: 275;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_mq_unlink :: 278;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_mq_unlink :: 272;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_mremap :: 25;
 }
@@ -29464,6 +34740,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_mremap :: 25;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_mremap :: 163;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_mremap :: 163;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_mremap :: 163;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -29494,6 +34782,18 @@ ssize_t :: s64;
     SYS_msgctl :: 71;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_msgctl :: 304;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_msgctl :: 402;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_msgctl :: 402;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_msgget :: 68;
 }
@@ -29514,6 +34814,18 @@ ssize_t :: s64;
     SYS_msgget :: 68;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_msgget :: 303;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_msgget :: 399;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_msgget :: 399;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_msgrcv :: 70;
 }
@@ -29532,6 +34844,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_msgrcv :: 70;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_msgrcv :: 302;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_msgrcv :: 401;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_msgrcv :: 401;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -29560,6 +34884,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_msgsnd :: 69;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_msgsnd :: 301;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_msgsnd :: 400;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_msgsnd :: 400;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -29598,6 +34934,18 @@ ssize_t :: s64;
     SYS_msync :: 26;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_msync :: 144;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_msync :: 144;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_msync :: 144;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_msync_nocancel :: 405;
 }
@@ -29626,6 +34974,18 @@ ssize_t :: s64;
     SYS_munlock :: 150;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_munlock :: 151;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_munlock :: 151;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_munlock :: 151;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_munlockall :: 152;
 }
@@ -29644,6 +35004,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_munlockall :: 152;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_munlockall :: 153;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_munlockall :: 153;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_munlockall :: 153;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -29666,6 +35038,18 @@ ssize_t :: s64;
     SYS_munmap :: 11;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_munmap :: 91;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_munmap :: 91;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_munmap :: 91;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_name_to_handle_at :: 303;
 }
@@ -29678,6 +35062,18 @@ ssize_t :: s64;
     SYS_name_to_handle_at :: 303;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_name_to_handle_at :: 370;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_name_to_handle_at :: 341;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_name_to_handle_at :: 335;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_nanosleep :: 35;
 }
@@ -29688,6 +35084,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_nanosleep :: 35;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_nanosleep :: 162;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_nanosleep :: 162;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_nanosleep :: 162;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -29758,6 +35166,10 @@ ssize_t :: s64;
     SYS_newfstatat :: 262;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_newfstatat :: 293;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_nfsclnt :: 247;
 }
@@ -29778,6 +35190,18 @@ ssize_t :: s64;
     SYS_nfsservctl :: 180;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_nfsservctl :: 169;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_nfsservctl :: 169;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_nfsservctl :: 169;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_nfssvc :: 155;
 }
@@ -29824,6 +35248,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_open :: 2;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_open :: 5;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_open :: 5;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_open :: 5;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -29838,6 +35274,18 @@ ssize_t :: s64;
     SYS_open_by_handle_at :: 304;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_open_by_handle_at :: 371;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_open_by_handle_at :: 342;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_open_by_handle_at :: 336;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_open_dprotected_np :: 216;
 }
@@ -29871,6 +35319,18 @@ ssize_t :: s64;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
+    SYS_open_tree :: 428;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_open_tree :: 428;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_open_tree :: 428;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_open_tree :: 428;
 }
 
@@ -29894,6 +35354,18 @@ ssize_t :: s64;
     SYS_openat :: 257;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_openat :: 322;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_openat :: 295;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_openat :: 288;
+}
+
 #if (OS == .ANDROID || OS == .LINUX) && CPU == .ARM64 {
     SYS_openat2 :: 437;
 }
@@ -29940,6 +35412,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_pause :: 34;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_pause :: 29;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_pause :: 29;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_pause :: 29;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -29962,6 +35446,18 @@ ssize_t :: s64;
     SYS_perf_event_open :: 298;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_perf_event_open :: 364;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_perf_event_open :: 336;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_perf_event_open :: 331;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_persona :: 494;
 }
@@ -29982,6 +35478,18 @@ ssize_t :: s64;
     SYS_personality :: 135;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_personality :: 136;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_personality :: 136;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_personality :: 136;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_pid_hibernate :: 435;
 }
@@ -30034,6 +35542,18 @@ ssize_t :: s64;
     SYS_pidfd_open :: 434;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_pidfd_open :: 434;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_pidfd_open :: 434;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_pidfd_open :: 434;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_pidfd_send_signal :: 424;
 }
@@ -30043,6 +35563,18 @@ ssize_t :: s64;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
+    SYS_pidfd_send_signal :: 424;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_pidfd_send_signal :: 424;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_pidfd_send_signal :: 424;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_pidfd_send_signal :: 424;
 }
 
@@ -30060,6 +35592,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_pipe :: 22;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_pipe :: 42;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_pipe :: 42;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_pipe :: 42;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -30072,6 +35616,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_pipe2 :: 293;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_pipe2 :: 359;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_pipe2 :: 331;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_pipe2 :: 325;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -30090,6 +35646,18 @@ ssize_t :: s64;
     SYS_pivot_root :: 155;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_pivot_root :: 218;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_pivot_root :: 217;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_pivot_root :: 217;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_pkey_alloc :: 330;
 }
@@ -30100,6 +35668,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_pkey_alloc :: 330;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_pkey_alloc :: 395;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_pkey_alloc :: 381;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_pkey_alloc :: 385;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -30114,6 +35694,18 @@ ssize_t :: s64;
     SYS_pkey_free :: 331;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_pkey_free :: 396;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_pkey_free :: 382;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_pkey_free :: 386;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_pkey_mprotect :: 329;
 }
@@ -30124,6 +35716,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_pkey_mprotect :: 329;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_pkey_mprotect :: 394;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_pkey_mprotect :: 380;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_pkey_mprotect :: 384;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -30140,6 +35744,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_poll :: 7;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_poll :: 168;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_poll :: 168;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_poll :: 168;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -30170,6 +35786,18 @@ ssize_t :: s64;
     SYS_ppoll :: 271;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_ppoll :: 336;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_ppoll :: 309;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_ppoll :: 302;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_prctl :: 157;
 }
@@ -30180,6 +35808,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_prctl :: 157;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_prctl :: 172;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_prctl :: 172;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_prctl :: 172;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -30200,6 +35840,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_pread64 :: 17;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_pread64 :: 180;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_pread64 :: 180;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_pread64 :: 180;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -30226,6 +35878,18 @@ ssize_t :: s64;
     SYS_preadv :: 295;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_preadv :: 361;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_preadv :: 333;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_preadv :: 328;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_preadv2 :: 327;
 }
@@ -30236,6 +35900,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_preadv2 :: 327;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_preadv2 :: 392;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_preadv2 :: 378;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_preadv2 :: 376;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -30252,6 +35928,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_prlimit64 :: 302;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_prlimit64 :: 369;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_prlimit64 :: 340;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_prlimit64 :: 334;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -30326,6 +36014,18 @@ ssize_t :: s64;
     SYS_process_vm_readv :: 310;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_process_vm_readv :: 376;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_process_vm_readv :: 347;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_process_vm_readv :: 340;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_process_vm_writev :: 311;
 }
@@ -30336,6 +36036,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_process_vm_writev :: 311;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_process_vm_writev :: 377;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_process_vm_writev :: 348;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_process_vm_writev :: 341;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -30356,6 +36068,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_pselect6 :: 270;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_pselect6 :: 335;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_pselect6 :: 308;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_pselect6 :: 301;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -30498,12 +36222,32 @@ ssize_t :: s64;
     SYS_ptrace :: 101;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_ptrace :: 26;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_ptrace :: 26;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_ptrace :: 26;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_putpmsg :: 182;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_putpmsg :: 182;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_putpmsg :: 189;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_putpmsg :: 189;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -30524,6 +36268,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_pwrite64 :: 18;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_pwrite64 :: 181;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_pwrite64 :: 181;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_pwrite64 :: 181;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -30550,6 +36306,18 @@ ssize_t :: s64;
     SYS_pwritev :: 296;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_pwritev :: 362;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_pwritev :: 334;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_pwritev :: 329;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_pwritev2 :: 328;
 }
@@ -30562,6 +36330,18 @@ ssize_t :: s64;
     SYS_pwritev2 :: 328;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_pwritev2 :: 393;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_pwritev2 :: 379;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_pwritev2 :: 377;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_pwritev_nocancel :: 543;
 }
@@ -30572,6 +36352,14 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_query_module :: 178;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_query_module :: 167;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_query_module :: 167;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -30592,6 +36380,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_quotactl :: 179;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_quotactl :: 131;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_quotactl :: 131;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_quotactl :: 131;
 }
 
 #if (OS == .ANDROID || OS == .LINUX) && CPU == .ARM64 {
@@ -30622,6 +36422,18 @@ ssize_t :: s64;
     SYS_read :: 0;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_read :: 3;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_read :: 3;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_read :: 3;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_read_nocancel :: 396;
 }
@@ -30642,6 +36454,18 @@ ssize_t :: s64;
     SYS_readahead :: 187;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_readahead :: 225;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_readahead :: 225;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_readahead :: 222;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_readlink :: 89;
 }
@@ -30656,6 +36480,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_readlink :: 89;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_readlink :: 85;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_readlink :: 85;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_readlink :: 85;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -30678,6 +36514,18 @@ ssize_t :: s64;
     SYS_readlinkat :: 267;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_readlinkat :: 332;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_readlinkat :: 305;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_readlinkat :: 298;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_readv :: 19;
 }
@@ -30696,6 +36544,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_readv :: 19;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_readv :: 145;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_readv :: 145;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_readv :: 145;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -30726,6 +36586,18 @@ ssize_t :: s64;
     SYS_reboot :: 169;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_reboot :: 88;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_reboot :: 88;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_reboot :: 88;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_recvfrom :: 45;
 }
@@ -30744,6 +36616,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_recvfrom :: 45;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_recvfrom :: 292;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_recvfrom :: 371;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_recvfrom :: 371;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -30766,6 +36650,18 @@ ssize_t :: s64;
     SYS_recvmmsg :: 299;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_recvmmsg :: 365;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_recvmmsg :: 337;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_recvmmsg :: 357;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_recvmsg :: 47;
 }
@@ -30784,6 +36680,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_recvmsg :: 47;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_recvmsg :: 297;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_recvmsg :: 372;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_recvmsg :: 372;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -30814,6 +36722,18 @@ ssize_t :: s64;
     SYS_remap_file_pages :: 216;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_remap_file_pages :: 253;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_remap_file_pages :: 257;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_remap_file_pages :: 267;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_removexattr :: 197;
 }
@@ -30834,6 +36754,18 @@ ssize_t :: s64;
     SYS_removexattr :: 197;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_removexattr :: 235;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_removexattr :: 235;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_removexattr :: 233;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_rename :: 82;
 }
@@ -30848,6 +36780,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_rename :: 82;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_rename :: 38;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_rename :: 38;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_rename :: 38;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -30870,6 +36814,18 @@ ssize_t :: s64;
     SYS_renameat :: 264;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_renameat :: 329;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_renameat :: 302;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_renameat :: 295;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_renameat2 :: 316;
 }
@@ -30880,6 +36836,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_renameat2 :: 316;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_renameat2 :: 382;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_renameat2 :: 353;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_renameat2 :: 347;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -30902,6 +36870,18 @@ ssize_t :: s64;
     SYS_request_key :: 249;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_request_key :: 310;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_request_key :: 287;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_request_key :: 279;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_restart_syscall :: 219;
 }
@@ -30914,6 +36894,18 @@ ssize_t :: s64;
     SYS_restart_syscall :: 219;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_restart_syscall :: 0;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_restart_syscall :: 0;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_restart_syscall :: 7;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_revoke :: 56;
 }
@@ -30936,6 +36928,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_rmdir :: 84;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_rmdir :: 40;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_rmdir :: 40;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_rmdir :: 40;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -30950,6 +36954,18 @@ ssize_t :: s64;
     SYS_rseq :: 334;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_rseq :: 398;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_rseq :: 386;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_rseq :: 383;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_rt_sigaction :: 13;
 }
@@ -30960,6 +36976,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_rt_sigaction :: 13;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_rt_sigaction :: 174;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_rt_sigaction :: 174;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_rt_sigaction :: 174;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -30974,6 +37002,18 @@ ssize_t :: s64;
     SYS_rt_sigpending :: 127;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_rt_sigpending :: 176;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_rt_sigpending :: 176;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_rt_sigpending :: 176;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_rt_sigprocmask :: 14;
 }
@@ -30984,6 +37024,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_rt_sigprocmask :: 14;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_rt_sigprocmask :: 175;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_rt_sigprocmask :: 175;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_rt_sigprocmask :: 175;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -30998,6 +37050,18 @@ ssize_t :: s64;
     SYS_rt_sigqueueinfo :: 129;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_rt_sigqueueinfo :: 178;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_rt_sigqueueinfo :: 178;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_rt_sigqueueinfo :: 178;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_rt_sigreturn :: 15;
 }
@@ -31008,6 +37072,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_rt_sigreturn :: 15;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_rt_sigreturn :: 173;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_rt_sigreturn :: 173;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_rt_sigreturn :: 173;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -31022,6 +37098,18 @@ ssize_t :: s64;
     SYS_rt_sigsuspend :: 130;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_rt_sigsuspend :: 179;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_rt_sigsuspend :: 179;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_rt_sigsuspend :: 179;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_rt_sigtimedwait :: 128;
 }
@@ -31032,6 +37120,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_rt_sigtimedwait :: 128;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_rt_sigtimedwait :: 177;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_rt_sigtimedwait :: 177;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_rt_sigtimedwait :: 177;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -31046,6 +37146,18 @@ ssize_t :: s64;
     SYS_rt_tgsigqueueinfo :: 297;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_rt_tgsigqueueinfo :: 363;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_rt_tgsigqueueinfo :: 335;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_rt_tgsigqueueinfo :: 330;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_sched_get_priority_max :: 146;
 }
@@ -31056,6 +37168,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_sched_get_priority_max :: 146;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_sched_get_priority_max :: 159;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sched_get_priority_max :: 159;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_sched_get_priority_max :: 159;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -31070,6 +37194,18 @@ ssize_t :: s64;
     SYS_sched_get_priority_min :: 147;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_sched_get_priority_min :: 160;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sched_get_priority_min :: 160;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_sched_get_priority_min :: 160;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_sched_getaffinity :: 204;
 }
@@ -31080,6 +37216,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_sched_getaffinity :: 204;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_sched_getaffinity :: 242;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sched_getaffinity :: 242;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_sched_getaffinity :: 240;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -31094,6 +37242,18 @@ ssize_t :: s64;
     SYS_sched_getattr :: 315;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_sched_getattr :: 381;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sched_getattr :: 352;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_sched_getattr :: 346;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_sched_getparam :: 143;
 }
@@ -31104,6 +37264,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_sched_getparam :: 143;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_sched_getparam :: 155;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sched_getparam :: 155;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_sched_getparam :: 155;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -31118,6 +37290,18 @@ ssize_t :: s64;
     SYS_sched_getscheduler :: 145;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_sched_getscheduler :: 157;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sched_getscheduler :: 157;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_sched_getscheduler :: 157;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_sched_rr_get_interval :: 148;
 }
@@ -31128,6 +37312,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_sched_rr_get_interval :: 148;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_sched_rr_get_interval :: 161;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sched_rr_get_interval :: 161;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_sched_rr_get_interval :: 161;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -31142,6 +37338,18 @@ ssize_t :: s64;
     SYS_sched_setaffinity :: 203;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_sched_setaffinity :: 241;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sched_setaffinity :: 241;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_sched_setaffinity :: 239;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_sched_setattr :: 314;
 }
@@ -31152,6 +37360,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_sched_setattr :: 314;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_sched_setattr :: 380;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sched_setattr :: 351;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_sched_setattr :: 345;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -31166,6 +37386,18 @@ ssize_t :: s64;
     SYS_sched_setparam :: 142;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_sched_setparam :: 154;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sched_setparam :: 154;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_sched_setparam :: 154;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_sched_setscheduler :: 144;
 }
@@ -31178,6 +37410,18 @@ ssize_t :: s64;
     SYS_sched_setscheduler :: 144;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_sched_setscheduler :: 156;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sched_setscheduler :: 156;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_sched_setscheduler :: 156;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_sched_yield :: 24;
 }
@@ -31188,6 +37432,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_sched_yield :: 24;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_sched_yield :: 158;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sched_yield :: 158;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_sched_yield :: 158;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -31218,6 +37474,18 @@ ssize_t :: s64;
     SYS_seccomp :: 317;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_seccomp :: 383;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_seccomp :: 354;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_seccomp :: 348;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_security :: 185;
 }
@@ -31240,6 +37508,14 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_select :: 23;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_select :: 82;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_select :: 142;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -31326,6 +37602,18 @@ ssize_t :: s64;
     SYS_semctl :: 66;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_semctl :: 300;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_semctl :: 394;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_semctl :: 394;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_semget :: 64;
 }
@@ -31344,6 +37632,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_semget :: 64;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_semget :: 299;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_semget :: 393;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_semget :: 393;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -31366,6 +37666,10 @@ ssize_t :: s64;
     SYS_semop :: 65;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_semop :: 298;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_semsys :: 251;
 }
@@ -31384,6 +37688,14 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_semtimedop :: 220;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_semtimedop :: 312;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_semtimedop :: 392;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -31406,6 +37718,18 @@ ssize_t :: s64;
     SYS_sendfile :: 40;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_sendfile :: 187;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sendfile :: 187;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_sendfile :: 187;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_sendmmsg :: 307;
 }
@@ -31416,6 +37740,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_sendmmsg :: 307;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_sendmmsg :: 374;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sendmmsg :: 345;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_sendmmsg :: 358;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -31436,6 +37772,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_sendmsg :: 46;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_sendmsg :: 296;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sendmsg :: 370;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_sendmsg :: 370;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -31474,6 +37822,18 @@ ssize_t :: s64;
     SYS_sendto :: 44;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_sendto :: 290;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sendto :: 369;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_sendto :: 369;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_sendto_nocancel :: 413;
 }
@@ -31492,6 +37852,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_set_mempolicy :: 238;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_set_mempolicy :: 321;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_set_mempolicy :: 276;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_set_mempolicy :: 270;
 }
 
 #if (OS == .ANDROID || OS == .LINUX) && CPU == .ARM64 {
@@ -31514,12 +37886,28 @@ ssize_t :: s64;
     SYS_set_robust_list :: 273;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_set_robust_list :: 338;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_set_robust_list :: 311;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_set_robust_list :: 304;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_set_thread_area :: 205;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_set_thread_area :: 205;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_set_thread_area :: 243;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -31532,6 +37920,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_set_tid_address :: 218;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_set_tid_address :: 256;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_set_tid_address :: 258;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_set_tid_address :: 252;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -31578,6 +37978,18 @@ ssize_t :: s64;
     SYS_setdomainname :: 171;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_setdomainname :: 121;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_setdomainname :: 121;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_setdomainname :: 121;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_setegid :: 182;
 }
@@ -31606,6 +38018,18 @@ ssize_t :: s64;
     SYS_setfsgid :: 123;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_setfsgid :: 139;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_setfsgid :: 139;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_setfsgid :: 216;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_setfsuid :: 122;
 }
@@ -31616,6 +38040,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_setfsuid :: 122;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_setfsuid :: 138;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_setfsuid :: 138;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_setfsuid :: 215;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -31638,6 +38074,18 @@ ssize_t :: s64;
     SYS_setgid :: 106;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_setgid :: 46;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_setgid :: 46;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_setgid :: 214;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_setgroups :: 116;
 }
@@ -31658,6 +38106,18 @@ ssize_t :: s64;
     SYS_setgroups :: 116;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_setgroups :: 81;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_setgroups :: 81;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_setgroups :: 206;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_sethostname :: 170;
 }
@@ -31668,6 +38128,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_sethostname :: 170;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_sethostname :: 74;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sethostname :: 74;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_sethostname :: 74;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -31690,6 +38162,18 @@ ssize_t :: s64;
     SYS_setitimer :: 38;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_setitimer :: 104;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_setitimer :: 104;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_setitimer :: 104;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_setlogin :: 50;
 }
@@ -31708,6 +38192,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_setns :: 308;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_setns :: 375;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_setns :: 346;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_setns :: 339;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -31730,6 +38226,18 @@ ssize_t :: s64;
     SYS_setpgid :: 109;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_setpgid :: 57;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_setpgid :: 57;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_setpgid :: 57;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_setpriority :: 141;
 }
@@ -31748,6 +38256,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_setpriority :: 141;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_setpriority :: 97;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_setpriority :: 97;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_setpriority :: 97;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -31778,6 +38298,18 @@ ssize_t :: s64;
     SYS_setregid :: 114;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_setregid :: 71;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_setregid :: 71;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_setregid :: 204;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_setresgid :: 119;
 }
@@ -31790,6 +38322,18 @@ ssize_t :: s64;
     SYS_setresgid :: 119;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_setresgid :: 170;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_setresgid :: 170;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_setresgid :: 210;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_setresuid :: 117;
 }
@@ -31800,6 +38344,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_setresuid :: 117;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_setresuid :: 164;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_setresuid :: 164;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_setresuid :: 208;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -31822,6 +38378,18 @@ ssize_t :: s64;
     SYS_setreuid :: 113;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_setreuid :: 70;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_setreuid :: 70;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_setreuid :: 203;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_setrlimit :: 160;
 }
@@ -31840,6 +38408,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_setrlimit :: 160;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_setrlimit :: 75;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_setrlimit :: 75;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_setrlimit :: 75;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -31870,6 +38450,18 @@ ssize_t :: s64;
     SYS_setsid :: 112;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_setsid :: 66;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_setsid :: 66;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_setsid :: 66;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_setsockopt :: 54;
 }
@@ -31888,6 +38480,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_setsockopt :: 54;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_setsockopt :: 294;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_setsockopt :: 366;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_setsockopt :: 366;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -31926,6 +38530,18 @@ ssize_t :: s64;
     SYS_settimeofday :: 164;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_settimeofday :: 79;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_settimeofday :: 79;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_settimeofday :: 79;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_setuid :: 105;
 }
@@ -31944,6 +38560,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_setuid :: 105;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_setuid :: 23;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_setuid :: 23;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_setuid :: 213;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -31972,6 +38600,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_setxattr :: 188;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_setxattr :: 226;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_setxattr :: 226;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_setxattr :: 224;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -32046,6 +38686,18 @@ ssize_t :: s64;
     SYS_shmat :: 30;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_shmat :: 305;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_shmat :: 397;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_shmat :: 397;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_shmctl :: 31;
 }
@@ -32064,6 +38716,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_shmctl :: 31;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_shmctl :: 308;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_shmctl :: 396;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_shmctl :: 396;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -32086,6 +38750,18 @@ ssize_t :: s64;
     SYS_shmdt :: 67;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_shmdt :: 306;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_shmdt :: 398;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_shmdt :: 398;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_shmget :: 29;
 }
@@ -32104,6 +38780,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_shmget :: 29;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_shmget :: 307;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_shmget :: 395;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_shmget :: 395;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -32134,6 +38822,18 @@ ssize_t :: s64;
     SYS_shutdown :: 48;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_shutdown :: 293;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_shutdown :: 373;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_shutdown :: 373;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_sigaction :: 46;
 }
@@ -32162,12 +38862,36 @@ ssize_t :: s64;
     SYS_sigaltstack :: 131;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_sigaltstack :: 186;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sigaltstack :: 186;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_sigaltstack :: 186;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_signalfd :: 282;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_signalfd :: 282;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_signalfd :: 349;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_signalfd :: 321;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_signalfd :: 316;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -32180,6 +38904,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_signalfd4 :: 289;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_signalfd4 :: 355;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_signalfd4 :: 327;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_signalfd4 :: 322;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -32242,6 +38978,18 @@ ssize_t :: s64;
     SYS_socket :: 41;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_socket :: 281;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_socket :: 359;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_socket :: 359;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_socket_delegate :: 450;
 }
@@ -32270,6 +39018,18 @@ ssize_t :: s64;
     SYS_socketpair :: 53;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_socketpair :: 288;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_socketpair :: 360;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_socketpair :: 360;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_splice :: 275;
 }
@@ -32282,6 +39042,18 @@ ssize_t :: s64;
     SYS_splice :: 275;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_splice :: 340;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_splice :: 313;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_splice :: 306;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_stack_snapshot_with_config :: 491;
 }
@@ -32304,6 +39076,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_stat :: 4;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_stat :: 106;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_stat :: 106;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_stat :: 106;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -32350,6 +39134,18 @@ ssize_t :: s64;
     SYS_statfs :: 137;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_statfs :: 99;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_statfs :: 99;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_statfs :: 99;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_statfs64 :: 345;
 }
@@ -32370,6 +39166,18 @@ ssize_t :: s64;
     SYS_statx :: 332;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_statx :: 397;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_statx :: 383;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_statx :: 379;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_swapoff :: 168;
 }
@@ -32380,6 +39188,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_swapoff :: 168;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_swapoff :: 115;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_swapoff :: 115;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_swapoff :: 115;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -32402,6 +39222,18 @@ ssize_t :: s64;
     SYS_swapon :: 167;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_swapon :: 87;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_swapon :: 87;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_swapon :: 87;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_symlink :: 88;
 }
@@ -32416,6 +39248,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_symlink :: 88;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_symlink :: 83;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_symlink :: 83;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_symlink :: 83;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -32438,6 +39282,18 @@ ssize_t :: s64;
     SYS_symlinkat :: 266;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_symlinkat :: 331;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_symlinkat :: 304;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_symlinkat :: 297;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_sync :: 162;
 }
@@ -32458,6 +39314,18 @@ ssize_t :: s64;
     SYS_sync :: 162;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_sync :: 36;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sync :: 36;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_sync :: 36;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_sync_file_range :: 277;
 }
@@ -32470,6 +39338,14 @@ ssize_t :: s64;
     SYS_sync_file_range :: 277;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sync_file_range :: 314;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_sync_file_range :: 307;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_syncfs :: 306;
 }
@@ -32480,6 +39356,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_syncfs :: 306;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_syncfs :: 373;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_syncfs :: 344;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_syncfs :: 338;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -32518,6 +39406,18 @@ ssize_t :: s64;
     SYS_sysfs :: 139;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_sysfs :: 135;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sysfs :: 135;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_sysfs :: 135;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_sysinfo :: 99;
 }
@@ -32530,6 +39430,18 @@ ssize_t :: s64;
     SYS_sysinfo :: 99;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_sysinfo :: 116;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_sysinfo :: 116;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_sysinfo :: 116;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_syslog :: 103;
 }
@@ -32539,6 +39451,18 @@ ssize_t :: s64;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
+    SYS_syslog :: 103;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_syslog :: 103;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_syslog :: 103;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
     SYS_syslog :: 103;
 }
 
@@ -32570,6 +39494,18 @@ ssize_t :: s64;
     SYS_tee :: 276;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_tee :: 342;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_tee :: 315;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_tee :: 308;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_telemetry :: 451;
 }
@@ -32598,6 +39534,18 @@ ssize_t :: s64;
     SYS_tgkill :: 234;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_tgkill :: 268;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_tgkill :: 270;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_tgkill :: 241;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_thread_selfcounts :: 186;
 }
@@ -32628,6 +39576,10 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_time :: 201;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_time :: 13;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -32642,6 +39594,18 @@ ssize_t :: s64;
     SYS_timer_create :: 222;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_timer_create :: 257;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_timer_create :: 259;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_timer_create :: 254;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_timer_delete :: 226;
 }
@@ -32652,6 +39616,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_timer_delete :: 226;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_timer_delete :: 261;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_timer_delete :: 263;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_timer_delete :: 258;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -32666,6 +39642,18 @@ ssize_t :: s64;
     SYS_timer_getoverrun :: 225;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_timer_getoverrun :: 260;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_timer_getoverrun :: 262;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_timer_getoverrun :: 257;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_timer_gettime :: 224;
 }
@@ -32676,6 +39664,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_timer_gettime :: 224;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_timer_gettime :: 259;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_timer_gettime :: 261;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_timer_gettime :: 256;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -32690,6 +39690,18 @@ ssize_t :: s64;
     SYS_timer_settime :: 223;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_timer_settime :: 258;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_timer_settime :: 260;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_timer_settime :: 255;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_timerfd_create :: 283;
 }
@@ -32700,6 +39712,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_timerfd_create :: 283;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_timerfd_create :: 350;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_timerfd_create :: 322;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_timerfd_create :: 319;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -32714,6 +39738,18 @@ ssize_t :: s64;
     SYS_timerfd_gettime :: 287;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_timerfd_gettime :: 354;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_timerfd_gettime :: 326;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_timerfd_gettime :: 321;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_timerfd_settime :: 286;
 }
@@ -32724,6 +39760,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_timerfd_settime :: 286;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_timerfd_settime :: 353;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_timerfd_settime :: 325;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_timerfd_settime :: 320;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -32738,6 +39786,18 @@ ssize_t :: s64;
     SYS_times :: 100;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_times :: 43;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_times :: 43;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_times :: 43;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_tkill :: 200;
 }
@@ -32748,6 +39808,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_tkill :: 200;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_tkill :: 238;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_tkill :: 238;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_tkill :: 237;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -32768,6 +39840,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_truncate :: 76;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_truncate :: 92;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_truncate :: 92;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_truncate :: 92;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -32818,6 +39902,18 @@ ssize_t :: s64;
     SYS_umask :: 95;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_umask :: 60;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_umask :: 60;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_umask :: 60;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_umask_extended :: 278;
 }
@@ -32838,6 +39934,18 @@ ssize_t :: s64;
     SYS_umount2 :: 166;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_umount2 :: 52;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_umount2 :: 52;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_umount2 :: 52;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_uname :: 63;
 }
@@ -32850,6 +39958,18 @@ ssize_t :: s64;
     SYS_uname :: 63;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_uname :: 122;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_uname :: 122;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_uname :: 122;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_undelete :: 205;
 }
@@ -32872,6 +39992,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_unlink :: 87;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_unlink :: 10;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_unlink :: 10;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_unlink :: 10;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -32894,6 +40026,18 @@ ssize_t :: s64;
     SYS_unlinkat :: 263;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_unlinkat :: 328;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_unlinkat :: 301;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_unlinkat :: 294;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_unmount :: 159;
 }
@@ -32914,12 +40058,36 @@ ssize_t :: s64;
     SYS_unshare :: 272;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_unshare :: 337;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_unshare :: 310;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_unshare :: 303;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_uselib :: 134;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_uselib :: 134;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_uselib :: 86;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_uselib :: 86;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_uselib :: 86;
 }
 
 #if (OS == .ANDROID || OS == .LINUX) && CPU == .ARM64 {
@@ -32942,6 +40110,18 @@ ssize_t :: s64;
     SYS_userfaultfd :: 323;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_userfaultfd :: 388;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_userfaultfd :: 374;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_userfaultfd :: 355;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_usrctl :: 445;
 }
@@ -32958,12 +40138,32 @@ ssize_t :: s64;
     SYS_ustat :: 136;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_ustat :: 62;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_ustat :: 62;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_ustat :: 62;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_utime :: 132;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_utime :: 132;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_utime :: 30;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_utime :: 30;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -32978,6 +40178,18 @@ ssize_t :: s64;
     SYS_utimensat :: 280;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_utimensat :: 348;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_utimensat :: 320;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_utimensat :: 315;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_utimes :: 235;
 }
@@ -32994,6 +40206,18 @@ ssize_t :: s64;
     SYS_utimes :: 235;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_utimes :: 269;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_utimes :: 271;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_utimes :: 313;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_vfork :: 58;
 }
@@ -33008,6 +40232,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_vfork :: 58;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_vfork :: 190;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_vfork :: 190;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_vfork :: 190;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -33030,6 +40266,18 @@ ssize_t :: s64;
     SYS_vhangup :: 153;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_vhangup :: 111;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_vhangup :: 111;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_vhangup :: 111;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_vm_pressure_monitor :: 296;
 }
@@ -33050,12 +40298,32 @@ ssize_t :: s64;
     SYS_vmsplice :: 278;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_vmsplice :: 343;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_vmsplice :: 316;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_vmsplice :: 309;
+}
+
 #if OS == .LINUX && CPU == .X64 {
     SYS_vserver :: 236;
 }
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_vserver :: 236;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_vserver :: 313;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_vserver :: 273;
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -33076,6 +40344,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_wait4 :: 61;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_wait4 :: 114;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_wait4 :: 114;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_wait4 :: 114;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -33108,6 +40388,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_waitid :: 247;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_waitid :: 280;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_waitid :: 284;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_waitid :: 281;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -33166,6 +40458,18 @@ ssize_t :: s64;
     SYS_write :: 1;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_write :: 4;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_write :: 4;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_write :: 4;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     SYS_write_nocancel :: 397;
 }
@@ -33192,6 +40496,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     SYS_writev :: 20;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    SYS_writev :: 146;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    SYS_writev :: 146;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    SYS_writev :: 146;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -35522,11 +42838,23 @@ ssize_t :: s64;
 
 // Native entry points
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     __asprintf :: (__ptr: **u8, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __asprintf :: (__ptr: *void, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __asprintf :: (__ptr: *void, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    __asprintf :: (__ptr: *void, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     __errno_location :: () -> *OS_Error_Code #foreign libc;
 }
 
@@ -35546,6 +42874,18 @@ ssize_t :: s64;
     __errno_location :: () -> *OS_Error_Code #foreign libc "__errno";
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __errno_location :: () -> *s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __errno_location :: () -> *s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    __errno_location :: () -> *s32 #foreign libc;
+}
+
 #if OS == .LINUX {
     __fxstat :: (__ver: s32, __fildes: s32, __stat_buf: *stat_t) -> s32 #foreign libc;
 }
@@ -35562,8 +42902,20 @@ ssize_t :: s64;
     __fxstatat64 :: (__ver: s32, __fildes: s32, __filename: *u8, __stat_buf: *stat64_t, __flag: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     __getdelim :: (__lineptr: **u8, __n: *u64, __delimiter: s32, __stream: *FILE) -> s64 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __getdelim :: (__lineptr: *void, __n: *size_t, __delimiter: s32, __stream: *FILE) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __getdelim :: (__lineptr: *void, __n: *size_t, __delimiter: s32, __stream: *FILE) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    __getdelim :: (__lineptr: *void, __n: *size_t, __delimiter: s32, __stream: *FILE) -> s64 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -35650,7 +43002,7 @@ ssize_t :: s64;
     __pthread_unwind_next :: (__buf: *__pthread_unwind_buf_t) -> void #foreign libpthread;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     __sched_cpualloc :: (__count: u64) -> *cpu_set_t #foreign libpthread;
 }
 
@@ -35662,7 +43014,19 @@ ssize_t :: s64;
     __sched_cpualloc :: (__count: u64) -> *cpu_set_t #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __sched_cpualloc :: (__count: size_t) -> *cpu_set_t #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __sched_cpualloc :: (__count: size_t) -> *cpu_set_t #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    __sched_cpualloc :: (__count: size_t) -> *cpu_set_t #foreign libpthread;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     __sched_cpucount :: (__setsize: u64, __setp: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
@@ -35672,6 +43036,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     __sched_cpucount :: (__set_size: u64, __set: *cpu_set_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __sched_cpucount :: (__setsize: size_t, __setp: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __sched_cpucount :: (__setsize: size_t, __setp: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    __sched_cpucount :: (__setsize: size_t, __setp: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
 #if OS == .LINUX {
@@ -35706,7 +43082,19 @@ ssize_t :: s64;
     __swbuf :: (unknown0: s32, unknown1: *FILE) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+    __sysv_signal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    __sysv_signal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    __sysv_signal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
     __sysv_signal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
 }
 
@@ -35870,7 +43258,7 @@ ssize_t :: s64;
     acct :: (__path: *u8) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     adjtime :: (__delta: *timeval, __olddelta: *timeval) -> s32 #foreign libc;
 }
 
@@ -35882,7 +43270,15 @@ ssize_t :: s64;
     adjtime :: (unknown0: *timeval, unknown1: *timeval) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    adjtime :: (__delta: *timeval, __olddelta: *timeval) -> s32 #foreign libc "__adjtime64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    adjtime :: (__delta: *timeval, __olddelta: *timeval) -> s32 #foreign libc "__adjtime64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     aio_cancel :: (__fildes: s32, __aiocbp: *aiocb) -> s32 #foreign librt;
 }
 
@@ -35894,11 +43290,23 @@ ssize_t :: s64;
     aio_cancel :: (fd: s32, aiocbp: *aiocb) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    aio_cancel :: (__fildes: s32, __aiocbp: *aiocb) -> s32 #foreign librt "aio_cancel64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    aio_cancel :: (__fildes: s32, __aiocbp: *aiocb) -> s32 #foreign librt "aio_cancel64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    aio_cancel :: (__fildes: s32, __aiocbp: *aiocb) -> s32 #foreign librt "aio_cancel64";
+}
+
 #if OS == .LINUX {
     aio_cancel64 :: (__fildes: s32, __aiocbp: *aiocb64) -> s32 #foreign librt;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     aio_error :: (__aiocbp: *aiocb) -> s32 #foreign librt;
 }
 
@@ -35910,11 +43318,23 @@ ssize_t :: s64;
     aio_error :: (aiocbp: *aiocb) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    aio_error :: (__aiocbp: *aiocb) -> s32 #foreign librt "aio_error64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    aio_error :: (__aiocbp: *aiocb) -> s32 #foreign librt "aio_error64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    aio_error :: (__aiocbp: *aiocb) -> s32 #foreign librt "aio_error64";
+}
+
 #if OS == .LINUX {
     aio_error64 :: (__aiocbp: *aiocb64) -> s32 #foreign librt;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     aio_fsync :: (__operation: s32, __aiocbp: *aiocb) -> s32 #foreign librt;
 }
 
@@ -35926,6 +43346,18 @@ ssize_t :: s64;
     aio_fsync :: (op: s32, aiocbp: *aiocb) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    aio_fsync :: (__operation: s32, __aiocbp: *aiocb) -> s32 #foreign librt "aio_fsync64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    aio_fsync :: (__operation: s32, __aiocbp: *aiocb) -> s32 #foreign librt "aio_fsync64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    aio_fsync :: (__operation: s32, __aiocbp: *aiocb) -> s32 #foreign librt "aio_fsync64";
+}
+
 #if OS == .LINUX {
     aio_fsync64 :: (__operation: s32, __aiocbp: *aiocb64) -> s32 #foreign librt;
 }
@@ -35934,7 +43366,7 @@ ssize_t :: s64;
     aio_init :: (__init: *aioinit) -> void #foreign librt;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     aio_read :: (__aiocbp: *aiocb) -> s32 #foreign librt;
 }
 
@@ -35946,11 +43378,23 @@ ssize_t :: s64;
     aio_read :: (aiocbp: *aiocb) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    aio_read :: (__aiocbp: *aiocb) -> s32 #foreign librt "aio_read64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    aio_read :: (__aiocbp: *aiocb) -> s32 #foreign librt "aio_read64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    aio_read :: (__aiocbp: *aiocb) -> s32 #foreign librt "aio_read64";
+}
+
 #if OS == .LINUX {
     aio_read64 :: (__aiocbp: *aiocb64) -> s32 #foreign librt;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     aio_return :: (__aiocbp: *aiocb) -> s64 #foreign librt;
 }
 
@@ -35962,11 +43406,31 @@ ssize_t :: s64;
     aio_return :: (aiocbp: *aiocb) -> s64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    aio_return :: (__aiocbp: *aiocb) -> s32 #foreign librt "aio_return64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    aio_return :: (__aiocbp: *aiocb) -> s32 #foreign librt "aio_return64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    aio_return :: (__aiocbp: *aiocb) -> s64 #foreign librt "aio_return64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     aio_return64 :: (__aiocbp: *aiocb64) -> s64 #foreign librt;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    aio_return64 :: (__aiocbp: *aiocb64) -> s32 #foreign librt;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    aio_return64 :: (__aiocbp: *aiocb64) -> s32 #foreign librt;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     aio_suspend :: (__list: **aiocb, __nent: s32, __timeout: *timespec) -> s32 #foreign librt;
 }
 
@@ -35978,11 +43442,35 @@ ssize_t :: s64;
     aio_suspend :: (aiocblist: **aiocb, nent: s32, timeoutp: *timespec) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    aio_suspend :: (__list: *void, __nent: s32, __timeout: *timespec) -> s32 #foreign librt "__aio_suspend_time64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    aio_suspend :: (__list: *void, __nent: s32, __timeout: *timespec) -> s32 #foreign librt "__aio_suspend_time64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    aio_suspend :: (__list: *void, __nent: s32, __timeout: *timespec) -> s32 #foreign librt "aio_suspend64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     aio_suspend64 :: (__list: **aiocb64, __nent: s32, __timeout: *timespec) -> s32 #foreign librt;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    aio_suspend64 :: (__list: *void, __nent: s32, __timeout: *timespec) -> s32 #foreign librt;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    aio_suspend64 :: (__list: *void, __nent: s32, __timeout: *timespec) -> s32 #foreign librt;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    aio_suspend64 :: (__list: *void, __nent: s32, __timeout: *timespec) -> s32 #foreign librt;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     aio_write :: (__aiocbp: *aiocb) -> s32 #foreign librt;
 }
 
@@ -35992,6 +43480,18 @@ ssize_t :: s64;
 
 #if OS == .MACOS && CPU == .X64 {
     aio_write :: (aiocbp: *aiocb) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    aio_write :: (__aiocbp: *aiocb) -> s32 #foreign librt "aio_write64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    aio_write :: (__aiocbp: *aiocb) -> s32 #foreign librt "aio_write64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    aio_write :: (__aiocbp: *aiocb) -> s32 #foreign librt "aio_write64";
 }
 
 #if OS == .LINUX {
@@ -36018,7 +43518,7 @@ ssize_t :: s64;
     alarm :: (__seconds: u32) -> u32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     alphasort :: (__e1: **dirent, __e2: **dirent) -> s32 #foreign libc;
 }
 
@@ -36038,7 +43538,19 @@ ssize_t :: s64;
     alphasort :: (__lhs: **dirent, __rhs: **dirent) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    alphasort :: (__e1: *void, __e2: *void) -> s32 #foreign libc "alphasort64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    alphasort :: (__e1: *void, __e2: *void) -> s32 #foreign libc "alphasort64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    alphasort :: (__e1: *void, __e2: *void) -> s32 #foreign libc "alphasort64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     alphasort64 :: (__e1: **dirent64, __e2: **dirent64) -> s32 #foreign libc;
 }
 
@@ -36048,6 +43560,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     alphasort64 :: (__lhs: **dirent64, __rhs: **dirent64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    alphasort64 :: (__e1: *void, __e2: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    alphasort64 :: (__e1: *void, __e2: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    alphasort64 :: (__e1: *void, __e2: *void) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -36090,7 +43614,7 @@ ssize_t :: s64;
     asctime_r :: (__tm: *tm, __buf: *u8) -> *u8 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     asprintf :: (__ptr: **u8, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
 }
 
@@ -36108,6 +43632,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     asprintf :: (__s_ptr: **u8, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    asprintf :: (__ptr: *void, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    asprintf :: (__ptr: *void, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    asprintf :: (__ptr: *void, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -36370,7 +43906,7 @@ ssize_t :: s64;
     clock_getcpuclockid :: (__pid: pid_t, __clock: *clockid_t) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     clock_getres :: (__clock_id: clockid_t, __res: *timespec) -> s32 #foreign libc;
 }
 
@@ -36390,7 +43926,15 @@ ssize_t :: s64;
     clock_getres :: (__clock: clockid_t, __resolution: *timespec) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    clock_getres :: (__clock_id: clockid_t, __res: *timespec) -> s32 #foreign libc "__clock_getres64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    clock_getres :: (__clock_id: clockid_t, __res: *timespec) -> s32 #foreign libc "__clock_getres64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     clock_gettime :: (__clock_id: clockid_t, __tp: *timespec) -> s32 #foreign libc;
 }
 
@@ -36410,6 +43954,14 @@ ssize_t :: s64;
     clock_gettime :: (__clock: clockid_t, __ts: *timespec) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    clock_gettime :: (__clock_id: clockid_t, __tp: *timespec) -> s32 #foreign libc "__clock_gettime64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    clock_gettime :: (__clock_id: clockid_t, __tp: *timespec) -> s32 #foreign libc "__clock_gettime64";
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     clock_gettime_nsec_np :: (__clock_id: clockid_t) -> u64 #foreign libc;
 }
@@ -36418,7 +43970,7 @@ ssize_t :: s64;
     clock_gettime_nsec_np :: (__clock_id: clockid_t) -> u64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     clock_nanosleep :: (__clock_id: clockid_t, __flags: s32, __req: *timespec, __rem: *timespec) -> s32 #foreign libc;
 }
 
@@ -36430,7 +43982,15 @@ ssize_t :: s64;
     clock_nanosleep :: (__clock: clockid_t, __flags: s32, __request: *timespec, __remainder: *timespec) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    clock_nanosleep :: (__clock_id: clockid_t, __flags: s32, __req: *timespec, __rem: *timespec) -> s32 #foreign libc "__clock_nanosleep_time64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    clock_nanosleep :: (__clock_id: clockid_t, __flags: s32, __req: *timespec, __rem: *timespec) -> s32 #foreign libc "__clock_nanosleep_time64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     clock_settime :: (__clock_id: clockid_t, __tp: *timespec) -> s32 #foreign libc;
 }
 
@@ -36450,7 +44010,15 @@ ssize_t :: s64;
     clock_settime :: (__clock: clockid_t, __ts: *timespec) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    clock_settime :: (__clock_id: clockid_t, __tp: *timespec) -> s32 #foreign libc "__clock_settime64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    clock_settime :: (__clock_id: clockid_t, __tp: *timespec) -> s32 #foreign libc "__clock_settime64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     clone :: (__fn: #type (__arg: *void) -> s32 #c_call, __child_stack: *void, __flags: s32, __arg: *void, __args: ..Any) -> s32 #foreign libpthread;
 }
 
@@ -36460,6 +44028,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     clone :: (__fn: #type (unknown0: *void) -> s32 #c_call, __child_stack: *void, __flags: s32, __arg: *void, __args: ..Any) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    clone :: (__fn: #type (unknown0: *void) -> s32 #c_call, __child_stack: *void, __flags: s32, __arg: *void, __args: ..Any) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    clone :: (__fn: #type (unknown0: *void) -> s32 #c_call, __child_stack: *void, __flags: s32, __arg: *void, __args: ..Any) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    clone :: (__fn: #type (unknown0: *void) -> s32 #c_call, __child_stack: *void, __flags: s32, __arg: *void, __args: ..Any) -> s32 #foreign libpthread;
 }
 
 #if OS == .LINUX {
@@ -36510,7 +44090,7 @@ ssize_t :: s64;
     closedir :: (__dir: *DIR) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     confstr :: (__name: s32, __buf: *u8, __len: u64) -> u64 #foreign libc;
 }
 
@@ -36522,7 +44102,19 @@ ssize_t :: s64;
     confstr :: (unknown0: s32, unknown1: *u8, unknown2: u64) -> u64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    confstr :: (__name: s32, __buf: *u8, __len: size_t) -> size_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    confstr :: (__name: s32, __buf: *u8, __len: size_t) -> size_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    confstr :: (__name: s32, __buf: *u8, __len: size_t) -> size_t #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     copy_file_range :: (__infd: s32, __pinoff: *s64, __outfd: s32, __poutoff: *s64, __length: u64, __flags: u32) -> s64 #foreign libc;
 }
 
@@ -36534,7 +44126,19 @@ ssize_t :: s64;
     copy_file_range :: (__fd_in: s32, __off_in: *s64, __fd_out: s32, __off_out: *s64, __length: u64, __flags: u32) -> s64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    copy_file_range :: (__infd: s32, __pinoff: *s64, __outfd: s32, __poutoff: *s64, __length: size_t, __flags: u32) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    copy_file_range :: (__infd: s32, __pinoff: *s64, __outfd: s32, __poutoff: *s64, __length: size_t, __flags: u32) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    copy_file_range :: (__infd: s32, __pinoff: *s64, __outfd: s32, __poutoff: *s64, __length: size_t, __flags: u32) -> ssize_t #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     creat :: (__file: *u8, __mode: mode_t) -> s32 #foreign libc;
 }
 
@@ -36552,6 +44156,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     creat :: (__path: *u8, __mode: mode_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    creat :: (__file: *u8, __mode: mode_t) -> s32 #foreign libc "creat64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    creat :: (__file: *u8, __mode: mode_t) -> s32 #foreign libc "creat64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    creat :: (__file: *u8, __mode: mode_t) -> s32 #foreign libc "creat64";
 }
 
 #if OS == .LINUX {
@@ -36598,7 +44214,7 @@ ssize_t :: s64;
     ctermid_r :: (unknown0: *u8) -> *u8 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     ctime :: (__timer: *time_t) -> *u8 #foreign libc;
 }
 
@@ -36618,7 +44234,15 @@ ssize_t :: s64;
     ctime :: (__t: *time_t) -> *u8 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    ctime :: (__timer: *time_t) -> *u8 #foreign libc "__ctime64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    ctime :: (__timer: *time_t) -> *u8 #foreign libc "__ctime64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     ctime_r :: (__timer: *time_t, __buf: *u8) -> *u8 #foreign libc;
 }
 
@@ -36638,6 +44262,14 @@ ssize_t :: s64;
     ctime_r :: (__t: *time_t, __buf: *u8) -> *u8 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    ctime_r :: (__timer: *time_t, __buf: *u8) -> *u8 #foreign libc "__ctime64_r";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    ctime_r :: (__timer: *time_t, __buf: *u8) -> *u8 #foreign libc "__ctime64_r";
+}
+
 #if OS == .LINUX {
     cuserid :: (__s: *u8) -> *u8 #foreign libc;
 }
@@ -36654,7 +44286,7 @@ ssize_t :: s64;
     daemon :: (__no_chdir: s32, __no_close: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     difftime :: (__time1: time_t, __time0: time_t) -> float64 #foreign libc;
 }
 
@@ -36672,6 +44304,14 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     difftime :: (__lhs: time_t, __rhs: time_t) -> float64 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    difftime :: (__time1: time_t, __time0: time_t) -> float64 #foreign libc "__difftime64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    difftime :: (__time1: time_t, __time0: time_t) -> float64 #foreign libc "__difftime64";
 }
 
 #if OS == .LINUX {
@@ -36714,8 +44354,20 @@ ssize_t :: s64;
     dladdr :: (__addr: *void, __info: *Dl_info) -> s32 #foreign libdl;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     dladdr1 :: (__address: *void, __info: *Dl_info, __extra_info: **void, __flags: s32) -> s32 #foreign libdl;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    dladdr1 :: (__address: *void, __info: *Dl_info, __extra_info: *void, __flags: s32) -> s32 #foreign libdl;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    dladdr1 :: (__address: *void, __info: *Dl_info, __extra_info: *void, __flags: s32) -> s32 #foreign libdl;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    dladdr1 :: (__address: *void, __info: *Dl_info, __extra_info: *void, __flags: s32) -> s32 #foreign libdl;
 }
 
 #if OS == .LINUX {
@@ -37054,7 +44706,7 @@ ssize_t :: s64;
     execlp :: (__file: *u8, __arg0: *u8, __args: ..Any) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     execv :: (__path: *u8, __argv: **u8) -> s32 #foreign libc;
 }
 
@@ -37074,7 +44726,19 @@ ssize_t :: s64;
     execv :: (__path: *u8, __argv: **u8) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    execv :: (__path: *u8, __argv: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    execv :: (__path: *u8, __argv: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    execv :: (__path: *u8, __argv: *void) -> s32 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     execve :: (__path: *u8, __argv: **u8, __envp: **u8) -> s32 #foreign libc;
 }
 
@@ -37094,7 +44758,19 @@ ssize_t :: s64;
     execve :: (__file: *u8, __argv: **u8, __envp: **u8) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    execve :: (__path: *u8, __argv: *void, __envp: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    execve :: (__path: *u8, __argv: *void, __envp: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    execve :: (__path: *u8, __argv: *void, __envp: *void) -> s32 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     execvp :: (__file: *u8, __argv: **u8) -> s32 #foreign libc;
 }
 
@@ -37122,7 +44798,19 @@ ssize_t :: s64;
     execvp :: (__file: *u8, __argv: **u8) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    execvp :: (__file: *u8, __argv: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    execvp :: (__file: *u8, __argv: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    execvp :: (__file: *u8, __argv: *void) -> s32 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     execvpe :: (__file: *u8, __argv: **u8, __envp: **u8) -> s32 #foreign libc;
 }
 
@@ -37132,6 +44820,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     execvpe :: (__file: *u8, __argv: **u8, __envp: **u8) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    execvpe :: (__file: *u8, __argv: *void, __envp: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    execvpe :: (__file: *u8, __argv: *void, __envp: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    execvpe :: (__file: *u8, __argv: *void, __envp: *void) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -37154,7 +44854,7 @@ ssize_t :: s64;
     faccessat :: (__dirfd: s32, __path: *u8, __mode: s32, __flags: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     fallocate :: (__fd: s32, __mode: s32, __offset: s64, __len: s64) -> s32 #foreign libc;
 }
 
@@ -37164,6 +44864,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     fallocate :: (__fd: s32, __mode: s32, __offset: s64, __length: s64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    fallocate :: (__fd: s32, __mode: s32, __offset: s64, __len: s64) -> s32 #foreign libc "fallocate64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    fallocate :: (__fd: s32, __mode: s32, __offset: s64, __len: s64) -> s32 #foreign libc "fallocate64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    fallocate :: (__fd: s32, __mode: s32, __offset: s64, __len: s64) -> s32 #foreign libc "fallocate64";
 }
 
 #if OS == .LINUX {
@@ -37318,7 +45030,7 @@ ssize_t :: s64;
     fcloseall :: () -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     fcntl :: (__fd: s32, __cmd: s32, __args: ..Any) -> s32 #foreign libc;
 }
 
@@ -37338,8 +45050,28 @@ ssize_t :: s64;
     fcntl :: (__fd: s32, __cmd: s32, __args: ..Any) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    fcntl :: (__fd: s32, __request: s32, __args: ..Any) -> s32 #foreign libc "__fcntl_time64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    fcntl :: (__fd: s32, __request: s32, __args: ..Any) -> s32 #foreign libc "__fcntl_time64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    fcntl :: (__fd: s32, __cmd: s32, __args: ..Any) -> s32 #foreign libc "fcntl64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     fcntl64 :: (__fd: s32, __cmd: s32, __args: ..Any) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    fcntl64 :: (__fd: s32, __request: s32, __args: ..Any) -> s32 #foreign libc "__fcntl_time64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    fcntl64 :: (__fd: s32, __request: s32, __args: ..Any) -> s32 #foreign libc "__fcntl_time64";
 }
 
 #if OS == .LINUX {
@@ -37458,7 +45190,7 @@ ssize_t :: s64;
     ferror_unlocked :: (__fp: *FILE) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     fexecve :: (__fd: s32, __argv: **u8, __envp: **u8) -> s32 #foreign libc;
 }
 
@@ -37468,6 +45200,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     fexecve :: (__fd: s32, __argv: **u8, __envp: **u8) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    fexecve :: (__fd: s32, __argv: *void, __envp: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    fexecve :: (__fd: s32, __argv: *void, __envp: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    fexecve :: (__fd: s32, __argv: *void, __envp: *void) -> s32 #foreign libc;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -37574,7 +45318,7 @@ ssize_t :: s64;
     fgetln :: (__fp: *FILE, __length_ptr: *u64) -> *u8 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     fgetpos :: (__stream: *FILE, __pos: *fpos_t) -> s32 #foreign libc;
 }
 
@@ -37594,6 +45338,18 @@ ssize_t :: s64;
     fgetpos :: (__fp: *FILE, __pos: *fpos_t) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    fgetpos :: (__stream: *FILE, __pos: *fpos_t) -> s32 #foreign libc "fgetpos64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    fgetpos :: (__stream: *FILE, __pos: *fpos_t) -> s32 #foreign libc "fgetpos64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    fgetpos :: (__stream: *FILE, __pos: *fpos_t) -> s32 #foreign libc "fgetpos64";
+}
+
 #if OS == .LINUX {
     fgetpos64 :: (__stream: *FILE, __pos: *fpos64_t) -> s32 #foreign libc;
 }
@@ -37610,8 +45366,20 @@ ssize_t :: s64;
     fgetpwent :: (__stream: *FILE) -> *passwd #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     fgetpwent_r :: (__stream: *FILE, __resultbuf: *passwd, __buffer: *u8, __buflen: u64, __result: **passwd) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    fgetpwent_r :: (__stream: *FILE, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    fgetpwent_r :: (__stream: *FILE, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    fgetpwent_r :: (__stream: *FILE, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -37762,7 +45530,7 @@ ssize_t :: s64;
     flockfile :: (__fp: *FILE) -> void #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     fmemopen :: (__s: *void, __len: u64, __modes: *u8) -> *FILE #foreign libc;
 }
 
@@ -37780,6 +45548,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     fmemopen :: (__buf: *void, __size: u64, __mode: *u8) -> *FILE #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    fmemopen :: (__s: *void, __len: size_t, __modes: *u8) -> *FILE #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    fmemopen :: (__s: *void, __len: size_t, __modes: *u8) -> *FILE #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    fmemopen :: (__s: *void, __len: size_t, __modes: *u8) -> *FILE #foreign libc;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -37866,7 +45646,7 @@ ssize_t :: s64;
     fork :: () -> pid_t #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     fpathconf :: (__fd: s32, __name: PC) -> s64 #foreign libc;
 }
 
@@ -37884,6 +45664,14 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     fpathconf :: (__fd: s32, __name: PC) -> s64 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    fpathconf :: (__fd: s32, __name: PC) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    fpathconf :: (__fd: s32, __name: PC) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -37986,7 +45774,7 @@ ssize_t :: s64;
     fputs_unlocked :: (__s: *u8, __fp: *FILE) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     fread :: (__ptr: *void, __size: u64, __n: u64, __stream: *FILE) -> u64 #foreign libc;
 }
 
@@ -38006,7 +45794,15 @@ ssize_t :: s64;
     fread :: (__buf: *void, __size: u64, __count: u64, __fp: *FILE) -> u64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    fread :: (unknown0: *void, unknown1: u32, unknown2: u32, unknown3: *FILE) -> u32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    fread :: (unknown0: *void, unknown1: u32, unknown2: u32, unknown3: *FILE) -> u32 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     fread_unlocked :: (__ptr: *void, __size: u64, __n: u64, __stream: *FILE) -> u64 #foreign libc;
 }
 
@@ -38018,7 +45814,19 @@ ssize_t :: s64;
     fread_unlocked :: (__buf: *void, __size: u64, __count: u64, __fp: *FILE) -> u64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    fread_unlocked :: (__ptr: *void, __size: size_t, __n: size_t, __stream: *FILE) -> size_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    fread_unlocked :: (__ptr: *void, __size: size_t, __n: size_t, __stream: *FILE) -> size_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    fread_unlocked :: (__ptr: *void, __size: size_t, __n: size_t, __stream: *FILE) -> size_t #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     freopen :: (__filename: *u8, __modes: *u8, __stream: *FILE) -> *FILE #foreign libc;
 }
 
@@ -38036,6 +45844,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     freopen :: (__path: *u8, __mode: *u8, __fp: *FILE) -> *FILE #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    freopen :: (__filename: *u8, __modes: *u8, __stream: *FILE) -> *FILE #foreign libc "freopen64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    freopen :: (__filename: *u8, __modes: *u8, __stream: *FILE) -> *FILE #foreign libc "freopen64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    freopen :: (__filename: *u8, __modes: *u8, __stream: *FILE) -> *FILE #foreign libc "freopen64";
 }
 
 #if OS == .LINUX {
@@ -38078,7 +45898,7 @@ ssize_t :: s64;
     fsctl :: (unknown0: *u8, unknown1: u64, unknown2: *void, unknown3: u32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     fseek :: (__stream: *FILE, __off: s64, __whence: s32) -> s32 #foreign libc;
 }
 
@@ -38098,7 +45918,15 @@ ssize_t :: s64;
     fseek :: (__fp: *FILE, __offset: s64, __whence: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    fseek :: (__stream: *FILE, __off: s32, __whence: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    fseek :: (__stream: *FILE, __off: s32, __whence: s32) -> s32 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     fseeko :: (__stream: *FILE, __off: s64, __whence: s32) -> s32 #foreign libc;
 }
 
@@ -38116,6 +45944,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     fseeko :: (__fp: *FILE, __offset: s64, __whence: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    fseeko :: (__stream: *FILE, __off: s64, __whence: s32) -> s32 #foreign libc "fseeko64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    fseeko :: (__stream: *FILE, __off: s64, __whence: s32) -> s32 #foreign libc "fseeko64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    fseeko :: (__stream: *FILE, __off: s64, __whence: s32) -> s32 #foreign libc "fseeko64";
 }
 
 #if OS == .LINUX {
@@ -38138,7 +45978,7 @@ ssize_t :: s64;
     fsetattrlist :: (unknown0: s32, unknown1: *void, unknown2: *void, unknown3: u64, unknown4: u32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     fsetpos :: (__stream: *FILE, __pos: *fpos_t) -> s32 #foreign libc;
 }
 
@@ -38156,6 +45996,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     fsetpos :: (__fp: *FILE, __pos: *fpos_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    fsetpos :: (__stream: *FILE, __pos: *fpos_t) -> s32 #foreign libc "fsetpos64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    fsetpos :: (__stream: *FILE, __pos: *fpos_t) -> s32 #foreign libc "fsetpos64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    fsetpos :: (__stream: *FILE, __pos: *fpos_t) -> s32 #foreign libc "fsetpos64";
 }
 
 #if OS == .LINUX {
@@ -38262,7 +46114,7 @@ ssize_t :: s64;
     fsync_volume_np :: (unknown0: s32, unknown1: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     ftell :: (__stream: *FILE) -> s64 #foreign libc;
 }
 
@@ -38282,7 +46134,15 @@ ssize_t :: s64;
     ftell :: (__fp: *FILE) -> s64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    ftell :: (__stream: *FILE) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    ftell :: (__stream: *FILE) -> s32 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     ftello :: (__stream: *FILE) -> s64 #foreign libc;
 }
 
@@ -38300,6 +46160,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     ftello :: (__fp: *FILE) -> s64 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    ftello :: (__stream: *FILE) -> s64 #foreign libc "ftello64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    ftello :: (__stream: *FILE) -> s64 #foreign libc "ftello64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    ftello :: (__stream: *FILE) -> s64 #foreign libc "ftello64";
 }
 
 #if OS == .LINUX {
@@ -38334,7 +46206,7 @@ ssize_t :: s64;
     ftok :: (__path: *u8, __id: s32) -> key_t #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     ftruncate :: (__fd: s32, __length: s64) -> s32 #foreign libc;
 }
 
@@ -38352,6 +46224,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     ftruncate :: (__fd: s32, __length: s64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    ftruncate :: (__fd: s32, __length: s64) -> s32 #foreign libc "ftruncate64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    ftruncate :: (__fd: s32, __length: s64) -> s32 #foreign libc "ftruncate64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    ftruncate :: (__fd: s32, __length: s64) -> s32 #foreign libc "ftruncate64";
 }
 
 #if OS == .LINUX {
@@ -38430,7 +46314,7 @@ ssize_t :: s64;
     funopen64 :: (__cookie: *void, __read_fn: #type (unknown0: *void, unknown1: *u8, unknown2: s32) -> s32 #c_call, __write_fn: #type (unknown0: *void, unknown1: *u8, unknown2: s32) -> s32 #c_call, __seek_fn: #type (unknown0: *void, unknown1: fpos64_t, unknown2: s32) -> fpos64_t #c_call, __close_fn: #type (unknown0: *void) -> s32 #c_call) -> *FILE #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     futimens :: (__fd: s32, __times: *[2] timespec) -> s32 #foreign libc;
 }
 
@@ -38450,7 +46334,15 @@ ssize_t :: s64;
     futimens :: (__fd: s32, __times: *[2] timespec) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    futimens :: (fd: s32, __times: *[2] timespec) -> s32 #foreign libc "__futimens64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    futimens :: (fd: s32, __times: *[2] timespec) -> s32 #foreign libc "__futimens64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     futimes :: (__fd: s32, __tvp: *[2] timeval) -> s32 #foreign libc;
 }
 
@@ -38470,7 +46362,15 @@ ssize_t :: s64;
     futimes :: (__fd: s32, __times: *[2] timeval) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    futimes :: (__fd: s32, __tvp: *[2] timeval) -> s32 #foreign libc "__futimes64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    futimes :: (__fd: s32, __tvp: *[2] timeval) -> s32 #foreign libc "__futimes64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     futimesat :: (__fd: s32, __file: *u8, __tvp: *[2] timeval) -> s32 #foreign libc;
 }
 
@@ -38482,7 +46382,15 @@ ssize_t :: s64;
     futimesat :: (__dir_fd: s32, __path: *u8, __times: *[2] timeval) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    futimesat :: (__fd: s32, __file: *u8, __tvp: *[2] timeval) -> s32 #foreign libc "__futimesat64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    futimesat :: (__fd: s32, __file: *u8, __tvp: *[2] timeval) -> s32 #foreign libc "__futimesat64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     fwrite :: (__ptr: *void, __size: u64, __n: u64, __s: *FILE) -> u64 #foreign libc;
 }
 
@@ -38502,7 +46410,15 @@ ssize_t :: s64;
     fwrite :: (__buf: *void, __size: u64, __count: u64, __fp: *FILE) -> u64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    fwrite :: (unknown0: *void, unknown1: u32, unknown2: u32, unknown3: *FILE) -> u32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    fwrite :: (unknown0: *void, unknown1: u32, unknown2: u32, unknown3: *FILE) -> u32 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     fwrite_unlocked :: (__ptr: *void, __size: u64, __n: u64, __stream: *FILE) -> u64 #foreign libc;
 }
 
@@ -38512,6 +46428,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     fwrite_unlocked :: (__buf: *void, __size: u64, __count: u64, __fp: *FILE) -> u64 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    fwrite_unlocked :: (__ptr: *void, __size: size_t, __n: size_t, __stream: *FILE) -> size_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    fwrite_unlocked :: (__ptr: *void, __size: size_t, __n: size_t, __stream: *FILE) -> size_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    fwrite_unlocked :: (__ptr: *void, __size: size_t, __n: size_t, __stream: *FILE) -> size_t #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -38626,7 +46554,7 @@ ssize_t :: s64;
     getcpu :: (unknown0: *u32, unknown1: *u32) -> s32 #foreign libpthread;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     getcwd :: (__buf: *u8, __size: u64) -> *u8 #foreign libc;
 }
 
@@ -38646,6 +46574,18 @@ ssize_t :: s64;
     getcwd :: (__buf: *u8, __size: u64) -> *u8 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    getcwd :: (__buf: *u8, __size: size_t) -> *u8 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    getcwd :: (__buf: *u8, __size: size_t) -> *u8 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    getcwd :: (__buf: *u8, __size: size_t) -> *u8 #foreign libc;
+}
+
 #if OS == .LINUX {
     getdate :: (__string: *u8) -> *tm #foreign libc;
 }
@@ -38662,7 +46602,7 @@ ssize_t :: s64;
     getdate_r :: (__string: *u8, __resbufp: *tm) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     getdelim :: (__lineptr: **u8, __n: *u64, __delimiter: s32, __stream: *FILE) -> s64 #foreign libc;
 }
 
@@ -38682,12 +46622,48 @@ ssize_t :: s64;
     getdelim :: (__line_ptr: **u8, __line_length_ptr: *u64, __delimiter: s32, __fp: *FILE) -> s64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    getdelim :: (__lineptr: *void, __n: *size_t, __delimiter: s32, __stream: *FILE) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    getdelim :: (__lineptr: *void, __n: *size_t, __delimiter: s32, __stream: *FILE) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    getdelim :: (__lineptr: *void, __n: *size_t, __delimiter: s32, __stream: *FILE) -> s64 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     getdirentries :: (__fd: s32, __buf: *u8, __nbytes: u64, __basep: *s64) -> s64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    getdirentries :: (__fd: s32, __buf: *u8, __nbytes: size_t, __basep: *s64) -> s32 #foreign libc "getdirentries64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    getdirentries :: (__fd: s32, __buf: *u8, __nbytes: size_t, __basep: *s64) -> s32 #foreign libc "getdirentries64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    getdirentries :: (__fd: s32, __buf: *u8, __nbytes: size_t, __basep: *s64) -> s64 #foreign libc "getdirentries64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     getdirentries64 :: (__fd: s32, __buf: *u8, __nbytes: u64, __basep: *s64) -> s64 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    getdirentries64 :: (__fd: s32, __buf: *u8, __nbytes: size_t, __basep: *s64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    getdirentries64 :: (__fd: s32, __buf: *u8, __nbytes: size_t, __basep: *s64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    getdirentries64 :: (__fd: s32, __buf: *u8, __nbytes: size_t, __basep: *s64) -> s64 #foreign libc;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -38698,7 +46674,7 @@ ssize_t :: s64;
     getdirentriesattr :: (unknown0: s32, unknown1: *void, unknown2: *void, unknown3: u64, unknown4: *u32, unknown5: *u32, unknown6: *u32, unknown7: u32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     getdomainname :: (__name: *u8, __len: u64) -> s32 #foreign libc;
 }
 
@@ -38716,6 +46692,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     getdomainname :: (__buf: *u8, __buf_size: u64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    getdomainname :: (__name: *u8, __len: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    getdomainname :: (__name: *u8, __len: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    getdomainname :: (__name: *u8, __len: size_t) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -38750,8 +46738,20 @@ ssize_t :: s64;
     getegid :: () -> gid_t #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     getentropy :: (__buffer: *void, __length: u64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    getentropy :: (__buffer: *void, __length: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    getentropy :: (__buffer: *void, __length: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    getentropy :: (__buffer: *void, __length: size_t) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -38842,7 +46842,7 @@ ssize_t :: s64;
     getgroups :: (__size: s32, __list: *gid_t) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     gethostid :: () -> s64 #foreign libc;
 }
 
@@ -38854,7 +46854,15 @@ ssize_t :: s64;
     gethostid :: () -> s64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    gethostid :: () -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    gethostid :: () -> s32 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     gethostname :: (__name: *u8, __len: u64) -> s32 #foreign libc;
 }
 
@@ -38874,6 +46882,18 @@ ssize_t :: s64;
     gethostname :: (_buf: *u8, __buf_size: u64) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    gethostname :: (__name: *u8, __len: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    gethostname :: (__name: *u8, __len: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    gethostname :: (__name: *u8, __len: size_t) -> s32 #foreign libc;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     getiopolicy_np :: (unknown0: s32, unknown1: s32) -> s32 #foreign libc;
 }
@@ -38882,7 +46902,7 @@ ssize_t :: s64;
     getiopolicy_np :: (unknown0: s32, unknown1: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     getitimer :: (__which: __itimer_which, __value: *itimerval) -> s32 #foreign libc;
 }
 
@@ -38902,7 +46922,15 @@ ssize_t :: s64;
     getitimer :: (__which: s32, __current_value: *itimerval) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    getitimer :: (__which: __itimer_which, __value: *itimerval) -> s32 #foreign libc "__getitimer64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    getitimer :: (__which: __itimer_which, __value: *itimerval) -> s32 #foreign libc "__getitimer64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     getline :: (__lineptr: **u8, __n: *u64, __stream: *FILE) -> s64 #foreign libc;
 }
 
@@ -38922,6 +46950,18 @@ ssize_t :: s64;
     getline :: (__line_ptr: **u8, __line_length_ptr: *u64, __fp: *FILE) -> s64 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    getline :: (__lineptr: *void, __n: *size_t, __stream: *FILE) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    getline :: (__lineptr: *void, __n: *size_t, __stream: *FILE) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    getline :: (__lineptr: *void, __n: *size_t, __stream: *FILE) -> s64 #foreign libc;
+}
+
 #if OS == .LINUX {
     getlogin :: () -> *u8 #foreign libc;
 }
@@ -38942,7 +46982,7 @@ ssize_t :: s64;
     getlogin :: () -> *u8 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     getlogin_r :: (__name: *u8, __name_len: u64) -> s32 #foreign libc;
 }
 
@@ -38960,6 +47000,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     getlogin_r :: (__buffer: *u8, __buffer_size: u64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    getlogin_r :: (__name: *u8, __name_len: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    getlogin_r :: (__name: *u8, __name_len: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    getlogin_r :: (__name: *u8, __name_len: size_t) -> s32 #foreign libc;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -39098,7 +47150,7 @@ ssize_t :: s64;
     getppid :: () -> pid_t #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     getpriority :: (__which: PRIO, __who: id_t) -> s32 #foreign libc;
 }
 
@@ -39116,6 +47168,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     getpriority :: (__which: PRIO, __who: id_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    getpriority :: (__which: __priority_which, __who: id_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    getpriority :: (__which: __priority_which, __who: id_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    getpriority :: (__which: __priority_which, __who: id_t) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -39142,8 +47206,20 @@ ssize_t :: s64;
     getpwent :: () -> *passwd #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     getpwent_r :: (__resultbuf: *passwd, __buffer: *u8, __buflen: u64, __result: **passwd) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    getpwent_r :: (__resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    getpwent_r :: (__resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    getpwent_r :: (__resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -39166,7 +47242,7 @@ ssize_t :: s64;
     getpwnam :: (__name: *u8) -> *passwd #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     getpwnam_r :: (__name: *u8, __resultbuf: *passwd, __buffer: *u8, __buflen: u64, __result: **passwd) -> s32 #foreign libc;
 }
 
@@ -39184,6 +47260,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     getpwnam_r :: (__name: *u8, __pwd: *passwd, __buf: *u8, __n: u64, __result: **passwd) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    getpwnam_r :: (__name: *u8, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    getpwnam_r :: (__name: *u8, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    getpwnam_r :: (__name: *u8, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -39206,7 +47294,7 @@ ssize_t :: s64;
     getpwuid :: (__uid: uid_t) -> *passwd #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     getpwuid_r :: (__uid: u32, __resultbuf: *passwd, __buffer: *u8, __buflen: u64, __result: **passwd) -> s32 #foreign libc;
 }
 
@@ -39224,6 +47312,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     getpwuid_r :: (__uid: uid_t, __pwd: *passwd, __buf: *u8, __n: u64, __result: **passwd) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    getpwuid_r :: (__uid: u32, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    getpwuid_r :: (__uid: u32, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    getpwuid_r :: (__uid: u32, __resultbuf: *passwd, __buffer: *u8, __buflen: size_t, __result: *void) -> s32 #foreign libc;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -39266,7 +47366,7 @@ ssize_t :: s64;
     getresuid :: (__ruid: *uid_t, __euid: *uid_t, __suid: *uid_t) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     getrlimit :: (__resource: RLIMIT_RESOURCE, __rlimits: *rlimit) -> s32 #foreign libc;
 }
 
@@ -39286,7 +47386,19 @@ ssize_t :: s64;
     getrlimit :: (__resource: RLIMIT_RESOURCE, __limit: *rlimit) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    getrlimit :: (__resource: __rlimit_resource, __rlimits: *rlimit) -> s32 #foreign libc "getrlimit64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    getrlimit :: (__resource: __rlimit_resource, __rlimits: *rlimit) -> s32 #foreign libc "getrlimit64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    getrlimit :: (__resource: __rlimit_resource, __rlimits: *rlimit) -> s32 #foreign libc "getrlimit64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     getrlimit64 :: (__resource: RLIMIT_RESOURCE, __rlimits: *rlimit64) -> s32 #foreign libc;
 }
 
@@ -39298,7 +47410,19 @@ ssize_t :: s64;
     getrlimit64 :: (__resource: RLIMIT_RESOURCE, __limit: *rlimit64) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    getrlimit64 :: (__resource: __rlimit_resource, __rlimits: *rlimit64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    getrlimit64 :: (__resource: __rlimit_resource, __rlimits: *rlimit64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    getrlimit64 :: (__resource: __rlimit_resource, __rlimits: *rlimit64) -> s32 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     getrusage :: (__who: RUSAGE, __usage: *rusage) -> s32 #foreign libc;
 }
 
@@ -39316,6 +47440,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     getrusage :: (__who: RUSAGE, __usage: *rusage) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    getrusage :: (__who: __rusage_who, __usage: *rusage) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    getrusage :: (__who: __rusage_who, __usage: *rusage) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    getrusage :: (__who: __rusage_who, __usage: *rusage) -> s32 #foreign libc;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -39370,7 +47506,7 @@ ssize_t :: s64;
     gettid :: () -> pid_t #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     gettimeofday :: (__tv: *timeval, __tz: *void) -> s32 #foreign libc;
 }
 
@@ -39388,6 +47524,14 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     gettimeofday :: (__tv: *timeval, __tz: *timezone) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    gettimeofday :: (__tv: *timeval, __tz: *void) -> s32 #foreign libc "__gettimeofday64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    gettimeofday :: (__tv: *timeval, __tz: *void) -> s32 #foreign libc "__gettimeofday64";
 }
 
 #if OS == .LINUX {
@@ -39454,7 +47598,7 @@ ssize_t :: s64;
     getwgroups_np :: (unknown0: *s32, unknown1: *uuid_t) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     gmtime :: (__timer: *time_t) -> *tm #foreign libc;
 }
 
@@ -39474,7 +47618,15 @@ ssize_t :: s64;
     gmtime :: (__t: *time_t) -> *tm #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    gmtime :: (__timer: *time_t) -> *tm #foreign libc "__gmtime64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    gmtime :: (__timer: *time_t) -> *tm #foreign libc "__gmtime64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     gmtime_r :: (__timer: *time_t, __tp: *tm) -> *tm #foreign libc;
 }
 
@@ -39494,6 +47646,14 @@ ssize_t :: s64;
     gmtime_r :: (__t: *time_t, __tm: *tm) -> *tm #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    gmtime_r :: (__timer: *time_t, __tp: *tm) -> *tm #foreign libc "__gmtime64_r";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    gmtime_r :: (__timer: *time_t, __tp: *tm) -> *tm #foreign libc "__gmtime64_r";
+}
+
 #if OS == .LINUX {
     group_member :: (__gid: u32) -> s32 #foreign libc;
 }
@@ -39510,7 +47670,7 @@ ssize_t :: s64;
     initgroups :: (unknown0: *u8, unknown1: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     ioctl :: (__fd: s32, __request: u64, __args: ..Any) -> s32 #foreign libc;
 }
 
@@ -39520,6 +47680,14 @@ ssize_t :: s64;
 
 #if OS == .MACOS && CPU == .X64 {
     ioctl :: (unknown0: s32, unknown1: u64, __args: ..Any) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    ioctl :: (__fd: s32, __request: u32, __args: ..Any) -> s32 #foreign libc "__ioctl_time64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    ioctl :: (__fd: s32, __request: u32, __args: ..Any) -> s32 #foreign libc "__ioctl_time64";
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -39686,7 +47854,7 @@ ssize_t :: s64;
     linkat :: (__old_dir_fd: s32, __old_path: *u8, __new_dir_fd: s32, __new_path: *u8, __flags: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     lio_listio :: (__mode: s32, __list: **aiocb, __nent: s32, __sig: *sigevent) -> s32 #foreign librt;
 }
 
@@ -39698,11 +47866,35 @@ ssize_t :: s64;
     lio_listio :: (mode: s32, aiocblist: **aiocb, nent: s32, sigp: *sigevent) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    lio_listio :: (__mode: s32, __list: *void, __nent: s32, __sig: *sigevent) -> s32 #foreign librt "lio_listio64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    lio_listio :: (__mode: s32, __list: *void, __nent: s32, __sig: *sigevent) -> s32 #foreign librt "lio_listio64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    lio_listio :: (__mode: s32, __list: *void, __nent: s32, __sig: *sigevent) -> s32 #foreign librt "lio_listio64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     lio_listio64 :: (__mode: s32, __list: **aiocb64, __nent: s32, __sig: *sigevent) -> s32 #foreign librt;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    lio_listio64 :: (__mode: s32, __list: *void, __nent: s32, __sig: *sigevent) -> s32 #foreign librt;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    lio_listio64 :: (__mode: s32, __list: *void, __nent: s32, __sig: *sigevent) -> s32 #foreign librt;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    lio_listio64 :: (__mode: s32, __list: *void, __nent: s32, __sig: *sigevent) -> s32 #foreign librt;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     localtime :: (__timer: *time_t) -> *tm #foreign libc;
 }
 
@@ -39722,7 +47914,15 @@ ssize_t :: s64;
     localtime :: (__t: *time_t) -> *tm #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    localtime :: (__timer: *time_t) -> *tm #foreign libc "__localtime64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    localtime :: (__timer: *time_t) -> *tm #foreign libc "__localtime64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     localtime_r :: (__timer: *time_t, __tp: *tm) -> *tm #foreign libc;
 }
 
@@ -39742,7 +47942,15 @@ ssize_t :: s64;
     localtime_r :: (__t: *time_t, __tm: *tm) -> *tm #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    localtime_r :: (__t: *time_t, __tp: *tm) -> *tm #foreign libc "__localtime64_r";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    localtime_r :: (__t: *time_t, __tp: *tm) -> *tm #foreign libc "__localtime64_r";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     lockf :: (__fd: s32, __cmd: s32, __len: s64) -> s32 #foreign libc;
 }
 
@@ -39752,6 +47960,18 @@ ssize_t :: s64;
 
 #if OS == .MACOS && CPU == .X64 {
     lockf :: (unknown0: s32, unknown1: s32, unknown2: s64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    lockf :: (__fd: s32, __cmd: s32, __len: s64) -> s32 #foreign libc "lockf64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    lockf :: (__fd: s32, __cmd: s32, __len: s64) -> s32 #foreign libc "lockf64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    lockf :: (__fd: s32, __cmd: s32, __len: s64) -> s32 #foreign libc "lockf64";
 }
 
 #if OS == .LINUX {
@@ -39782,7 +48002,7 @@ ssize_t :: s64;
     longjmperror :: () -> void #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     lseek :: (__fd: s32, __offset: s64, __whence: s32) -> s64 #foreign libc;
 }
 
@@ -39800,6 +48020,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     lseek :: (__fd: s32, __offset: s64, __whence: s32) -> s64 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    lseek :: (__fd: s32, __offset: s64, __whence: s32) -> s64 #foreign libc "lseek64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    lseek :: (__fd: s32, __offset: s64, __whence: s32) -> s64 #foreign libc "lseek64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    lseek :: (__fd: s32, __offset: s64, __whence: s32) -> s64 #foreign libc "lseek64";
 }
 
 #if OS == .LINUX {
@@ -39854,7 +48086,7 @@ ssize_t :: s64;
     lstatx_np :: (unknown0: *u8, unknown1: *stat_t, unknown2: filesec_t) -> s32 #foreign libc "lstatx_np$INODE64";
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     lutimes :: (__file: *u8, __tvp: *[2] timeval) -> s32 #foreign libc;
 }
 
@@ -39874,7 +48106,15 @@ ssize_t :: s64;
     lutimes :: (__path: *u8, __times: *[2] timeval) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    lutimes :: (__file: *u8, __tvp: *[2] timeval) -> s32 #foreign libc "__lutimes64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    lutimes :: (__file: *u8, __tvp: *[2] timeval) -> s32 #foreign libc "__lutimes64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     madvise :: (__addr: *void, __len: u64, __advice: s32) -> s32 #foreign libc;
 }
 
@@ -39894,6 +48134,18 @@ ssize_t :: s64;
     madvise :: (__addr: *void, __size: u64, __advice: s32) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    madvise :: (__addr: *void, __len: size_t, __advice: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    madvise :: (__addr: *void, __len: size_t, __advice: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    madvise :: (__addr: *void, __len: size_t, __advice: s32) -> s32 #foreign libc;
+}
+
 #if OS == .ANDROID && CPU == .ARM64 {
     memfd_create :: (__name: *u8, __flags: u32) -> s32 #foreign libc;
 }
@@ -39902,7 +48154,7 @@ ssize_t :: s64;
     memfd_create :: (__name: *u8, __flags: u32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     mincore :: (__start: *void, __len: u64, __vec: *u8) -> s32 #foreign libc;
 }
 
@@ -39920,6 +48172,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     mincore :: (__addr: *void, __size: u64, __vector: *u8) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    mincore :: (__start: *void, __len: size_t, __vec: *u8) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    mincore :: (__start: *void, __len: size_t, __vec: *u8) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    mincore :: (__start: *void, __len: size_t, __vec: *u8) -> s32 #foreign libc;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -40070,7 +48334,7 @@ ssize_t :: s64;
     mknodat :: (__dir_fd: s32, __path: *u8, __mode: mode_t, __dev: dev_t) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     mkostemp :: (__template: *u8, __flags: s32) -> s32 #foreign libc;
 }
 
@@ -40090,7 +48354,19 @@ ssize_t :: s64;
     mkostemp :: (__template: *u8, __flags: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    mkostemp :: (__template: *u8, __flags: s32) -> s32 #foreign libc "mkostemp64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    mkostemp :: (__template: *u8, __flags: s32) -> s32 #foreign libc "mkostemp64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    mkostemp :: (__template: *u8, __flags: s32) -> s32 #foreign libc "mkostemp64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     mkostemps :: (__template: *u8, __suffixlen: s32, __flags: s32) -> s32 #foreign libc;
 }
 
@@ -40110,6 +48386,18 @@ ssize_t :: s64;
     mkostemps :: (__template: *u8, __suffix_length: s32, __flags: s32) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    mkostemps :: (__template: *u8, __suffixlen: s32, __flags: s32) -> s32 #foreign libc "mkostemps64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    mkostemps :: (__template: *u8, __suffixlen: s32, __flags: s32) -> s32 #foreign libc "mkostemps64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    mkostemps :: (__template: *u8, __suffixlen: s32, __flags: s32) -> s32 #foreign libc "mkostemps64";
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     mkostempsat_np :: (dfd: s32, path: *u8, slen: s32, oflags: s32) -> s32 #foreign libc;
 }
@@ -40134,7 +48422,7 @@ ssize_t :: s64;
     mkpathat_np :: (dfd: s32, path: *u8, omode: mode_t) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     mkstemp :: (__template: *u8) -> s32 #foreign libc;
 }
 
@@ -40154,6 +48442,18 @@ ssize_t :: s64;
     mkstemp :: (__template: *u8) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    mkstemp :: (__template: *u8) -> s32 #foreign libc "mkstemp64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    mkstemp :: (__template: *u8) -> s32 #foreign libc "mkstemp64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    mkstemp :: (__template: *u8) -> s32 #foreign libc "mkstemp64";
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     mkstemp_dprotected_np :: (path: *u8, dpclass: s32, dpflags: s32) -> s32 #foreign libc;
 }
@@ -40162,7 +48462,7 @@ ssize_t :: s64;
     mkstemp_dprotected_np :: (path: *u8, dpclass: s32, dpflags: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     mkstemps :: (__template: *u8, __suffixlen: s32) -> s32 #foreign libc;
 }
 
@@ -40182,6 +48482,18 @@ ssize_t :: s64;
     mkstemps :: (__template: *u8, __flags: s32) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    mkstemps :: (__template: *u8, __suffixlen: s32) -> s32 #foreign libc "mkstemps64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    mkstemps :: (__template: *u8, __suffixlen: s32) -> s32 #foreign libc "mkstemps64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    mkstemps :: (__template: *u8, __suffixlen: s32) -> s32 #foreign libc "mkstemps64";
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     mkstempsat_np :: (dfd: s32, path: *u8, slen: s32) -> s32 #foreign libc;
 }
@@ -40210,7 +48522,7 @@ ssize_t :: s64;
     mktemp :: (__template: *u8) -> *u8 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     mktime :: (__tp: *tm) -> time_t #foreign libc;
 }
 
@@ -40230,7 +48542,15 @@ ssize_t :: s64;
     mktime :: (__tm: *tm) -> time_t #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    mktime :: (__tp: *tm) -> time_t #foreign libc "__mktime64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    mktime :: (__tp: *tm) -> time_t #foreign libc "__mktime64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     mlock :: (__addr: *void, __len: u64) -> s32 #foreign libc;
 }
 
@@ -40250,6 +48570,18 @@ ssize_t :: s64;
     mlock :: (__addr: *void, __size: u64) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    mlock :: (__addr: *void, __len: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    mlock :: (__addr: *void, __len: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    mlock :: (__addr: *void, __len: size_t) -> s32 #foreign libc;
+}
+
 #if OS == .ANDROID && CPU == .ARM64 {
     mlock2 :: (__addr: *void, __size: u64, __flags: s32) -> s32 #foreign libc;
 }
@@ -40278,7 +48610,7 @@ ssize_t :: s64;
     mlockall :: (__flags: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     mmap :: (__addr: *void, __len: u64, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc;
 }
 
@@ -40298,7 +48630,19 @@ ssize_t :: s64;
     mmap :: (__addr: *void, __size: u64, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    mmap :: (__addr: *void, __len: size_t, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc "mmap64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    mmap :: (__addr: *void, __len: size_t, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc "mmap64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    mmap :: (__addr: *void, __len: size_t, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc "mmap64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     mmap64 :: (__addr: *void, __len: u64, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc;
 }
 
@@ -40310,7 +48654,19 @@ ssize_t :: s64;
     mmap64 :: (__addr: *void, __size: u64, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    mmap64 :: (__addr: *void, __len: size_t, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    mmap64 :: (__addr: *void, __len: size_t, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    mmap64 :: (__addr: *void, __len: size_t, __prot: s32, __flags: s32, __fd: s32, __offset: s64) -> *void #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     mprotect :: (__addr: *void, __len: u64, __prot: s32) -> s32 #foreign libc;
 }
 
@@ -40330,7 +48686,19 @@ ssize_t :: s64;
     mprotect :: (__addr: *void, __size: u64, __prot: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    mprotect :: (__addr: *void, __len: size_t, __prot: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    mprotect :: (__addr: *void, __len: size_t, __prot: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    mprotect :: (__addr: *void, __len: size_t, __prot: s32) -> s32 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     mremap :: (__addr: *void, __old_len: u64, __new_len: u64, __flags: s32, __args: ..Any) -> *void #foreign libc;
 }
 
@@ -40342,7 +48710,19 @@ ssize_t :: s64;
     mremap :: (__old_addr: *void, __old_size: u64, __new_size: u64, __flags: s32, __args: ..Any) -> *void #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    mremap :: (__addr: *void, __old_len: size_t, __new_len: size_t, __flags: s32, __args: ..Any) -> *void #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    mremap :: (__addr: *void, __old_len: size_t, __new_len: size_t, __flags: s32, __args: ..Any) -> *void #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    mremap :: (__addr: *void, __old_len: size_t, __new_len: size_t, __flags: s32, __args: ..Any) -> *void #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     msync :: (__addr: *void, __len: u64, __flags: s32) -> s32 #foreign libc;
 }
 
@@ -40362,7 +48742,19 @@ ssize_t :: s64;
     msync :: (__addr: *void, __size: u64, __flags: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    msync :: (__addr: *void, __len: size_t, __flags: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    msync :: (__addr: *void, __len: size_t, __flags: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    msync :: (__addr: *void, __len: size_t, __flags: s32) -> s32 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     munlock :: (__addr: *void, __len: u64) -> s32 #foreign libc;
 }
 
@@ -40382,6 +48774,18 @@ ssize_t :: s64;
     munlock :: (__addr: *void, __size: u64) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    munlock :: (__addr: *void, __len: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    munlock :: (__addr: *void, __len: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    munlock :: (__addr: *void, __len: size_t) -> s32 #foreign libc;
+}
+
 #if OS == .LINUX {
     munlockall :: () -> s32 #foreign libc;
 }
@@ -40402,7 +48806,7 @@ ssize_t :: s64;
     munlockall :: () -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     munmap :: (__addr: *void, __len: u64) -> s32 #foreign libc; @MaybeFreesArgument
 }
 
@@ -40422,11 +48826,23 @@ ssize_t :: s64;
     munmap :: (__addr: *void, __size: u64) -> s32 #foreign libc; @MaybeFreesArgument
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    munmap :: (__addr: *void, __len: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    munmap :: (__addr: *void, __len: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    munmap :: (__addr: *void, __len: size_t) -> s32 #foreign libc;
+}
+
 #if OS == .LINUX {
     name_to_handle_at :: (__dfd: s32, __name: *u8, __handle: *file_handle, __mnt_id: *s32, __flags: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     nanosleep :: (__requested_time: *timespec, __remaining: *timespec) -> s32 #foreign libc;
 }
 
@@ -40444,6 +48860,14 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     nanosleep :: (__request: *timespec, __remainder: *timespec) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    nanosleep :: (__requested_time: *timespec, __remaining: *timespec) -> s32 #foreign libc "__nanosleep64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    nanosleep :: (__requested_time: *timespec, __remaining: *timespec) -> s32 #foreign libc "__nanosleep64";
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -40478,7 +48902,7 @@ ssize_t :: s64;
     obstack_printf :: (__obstack: *obstack, __format: *u8, __args: ..Any) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     open :: (__file: *u8, __oflag: s32, __args: ..Any) -> s32 #foreign libc;
 }
 
@@ -40496,6 +48920,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     open :: (__path: *u8, __flags: s32, __args: ..Any) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    open :: (__file: *u8, __oflag: s32, __args: ..Any) -> s32 #foreign libc "open64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    open :: (__file: *u8, __oflag: s32, __args: ..Any) -> s32 #foreign libc "open64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    open :: (__file: *u8, __oflag: s32, __args: ..Any) -> s32 #foreign libc "open64";
 }
 
 #if OS == .LINUX {
@@ -40522,7 +48958,7 @@ ssize_t :: s64;
     open_dprotected_np :: (unknown0: *u8, unknown1: s32, unknown2: s32, unknown3: s32, __args: ..Any) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     open_memstream :: (__bufloc: **u8, __sizeloc: *u64) -> *FILE #foreign libc;
 }
 
@@ -40542,7 +48978,19 @@ ssize_t :: s64;
     open_memstream :: (__ptr: **u8, __size_ptr: *u64) -> *FILE #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    open_memstream :: (__bufloc: *void, __sizeloc: *size_t) -> *FILE #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    open_memstream :: (__bufloc: *void, __sizeloc: *size_t) -> *FILE #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    open_memstream :: (__bufloc: *void, __sizeloc: *size_t) -> *FILE #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     openat :: (__fd: s32, __file: *u8, __oflag: s32, __args: ..Any) -> s32 #foreign libc;
 }
 
@@ -40560,6 +49008,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     openat :: (__dir_fd: s32, __path: *u8, __flags: s32, __args: ..Any) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    openat :: (__fd: s32, __file: *u8, __oflag: s32, __args: ..Any) -> s32 #foreign libc "openat64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    openat :: (__fd: s32, __file: *u8, __oflag: s32, __args: ..Any) -> s32 #foreign libc "openat64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    openat :: (__fd: s32, __file: *u8, __oflag: s32, __args: ..Any) -> s32 #foreign libc "openat64";
 }
 
 #if OS == .LINUX {
@@ -40602,7 +49062,7 @@ ssize_t :: s64;
     openx_np :: (unknown0: *u8, unknown1: s32, unknown2: filesec_t) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     pathconf :: (__path: *u8, __name: PC) -> s64 #foreign libc;
 }
 
@@ -40620,6 +49080,14 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     pathconf :: (__path: *u8, __name: PC) -> s64 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pathconf :: (__path: *u8, __name: PC) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pathconf :: (__path: *u8, __name: PC) -> s32 #foreign libc;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -40750,7 +49218,7 @@ ssize_t :: s64;
     posix2time :: (unknown0: time_t) -> time_t #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     posix_fadvise :: (__fd: s32, __offset: s64, __len: s64, __advise: s32) -> s32 #foreign libc;
 }
 
@@ -40760,6 +49228,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     posix_fadvise :: (__fd: s32, __offset: s64, __length: s64, __advice: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    posix_fadvise :: (__fd: s32, __offset: s64, __len: s64, __advise: s32) -> s32 #foreign libc "posix_fadvise64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    posix_fadvise :: (__fd: s32, __offset: s64, __len: s64, __advise: s32) -> s32 #foreign libc "posix_fadvise64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    posix_fadvise :: (__fd: s32, __offset: s64, __len: s64, __advise: s32) -> s32 #foreign libc "posix_fadvise64";
 }
 
 #if OS == .LINUX {
@@ -40774,7 +49254,7 @@ ssize_t :: s64;
     posix_fadvise64 :: (__fd: s32, __offset: s64, __length: s64, __advice: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     posix_fallocate :: (__fd: s32, __offset: s64, __len: s64) -> s32 #foreign libc;
 }
 
@@ -40784,6 +49264,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     posix_fallocate :: (__fd: s32, __offset: s64, __length: s64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    posix_fallocate :: (__fd: s32, __offset: s64, __len: s64) -> s32 #foreign libc "posix_fallocate64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    posix_fallocate :: (__fd: s32, __offset: s64, __len: s64) -> s32 #foreign libc "posix_fallocate64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    posix_fallocate :: (__fd: s32, __offset: s64, __len: s64) -> s32 #foreign libc "posix_fallocate64";
 }
 
 #if OS == .LINUX {
@@ -40798,7 +49290,7 @@ ssize_t :: s64;
     posix_fallocate64 :: (__fd: s32, __offset: s64, __length: s64) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     posix_madvise :: (__addr: *void, __len: u64, __advice: s32) -> s32 #foreign libc;
 }
 
@@ -40818,7 +49310,19 @@ ssize_t :: s64;
     posix_madvise :: (__addr: *void, __size: u64, __advice: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    posix_madvise :: (__addr: *void, __len: size_t, __advice: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    posix_madvise :: (__addr: *void, __len: size_t, __advice: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    posix_madvise :: (__addr: *void, __len: size_t, __advice: s32) -> s32 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     ppoll :: (__fds: *pollfd, __nfds: nfds_t, __timeout: *timespec, __ss: *sigset_t) -> s32 #foreign libc;
 }
 
@@ -40830,6 +49334,18 @@ ssize_t :: s64;
     ppoll :: (__fds: *pollfd, __count: nfds_t, __timeout: *timespec, __mask: *sigset_t) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    ppoll :: (__fds: *pollfd, __nfds: nfds_t, __timeout: *timespec, __ss: *__sigset_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    ppoll :: (__fds: *pollfd, __nfds: nfds_t, __timeout: *timespec, __ss: *__sigset_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    ppoll :: (__fds: *pollfd, __nfds: nfds_t, __timeout: *timespec, __ss: *__sigset_t) -> s32 #foreign libc;
+}
+
 #if OS == .ANDROID && CPU == .ARM64 {
     ppoll64 :: (__fds: *pollfd, __count: nfds_t, __timeout: *timespec, __mask: *sigset64_t) -> s32 #foreign libc;
 }
@@ -40838,7 +49354,7 @@ ssize_t :: s64;
     ppoll64 :: (__fds: *pollfd, __count: nfds_t, __timeout: *timespec, __mask: *sigset64_t) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pread :: (__fd: s32, __buf: *void, __nbytes: u64, __offset: s64) -> s64 #foreign libc;
 }
 
@@ -40858,7 +49374,19 @@ ssize_t :: s64;
     pread :: (__fd: s32, __buf: *void, __count: u64, __offset: s64) -> s64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pread :: (__fd: s32, __buf: *void, __nbytes: size_t, __offset: s64) -> ssize_t #foreign libc "pread64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pread :: (__fd: s32, __buf: *void, __nbytes: size_t, __offset: s64) -> ssize_t #foreign libc "pread64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pread :: (__fd: s32, __buf: *void, __nbytes: size_t, __offset: s64) -> ssize_t #foreign libc "pread64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pread64 :: (__fd: s32, __buf: *void, __nbytes: u64, __offset: s64) -> s64 #foreign libc;
 }
 
@@ -40870,20 +49398,80 @@ ssize_t :: s64;
     pread64 :: (__fd: s32, __buf: *void, __count: u64, __offset: s64) -> s64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pread64 :: (__fd: s32, __buf: *void, __nbytes: size_t, __offset: s64) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pread64 :: (__fd: s32, __buf: *void, __nbytes: size_t, __offset: s64) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pread64 :: (__fd: s32, __buf: *void, __nbytes: size_t, __offset: s64) -> ssize_t #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     preadv :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> s64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    preadv :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc "preadv64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    preadv :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc "preadv64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    preadv :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc "preadv64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     preadv2 :: (__fp: s32, __iovec: *iovec, __count: s32, __offset: s64, ___flags: s32) -> s64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    preadv2 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64, __flags: s32) -> ssize_t #foreign libc "preadv64v2";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    preadv2 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64, __flags: s32) -> ssize_t #foreign libc "preadv64v2";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    preadv2 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64, __flags: s32) -> ssize_t #foreign libc "preadv64v2";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     preadv64 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> s64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    preadv64 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    preadv64 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    preadv64 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     preadv64v2 :: (__fp: s32, __iovec: *iovec, __count: s32, __offset: s64, ___flags: s32) -> s64 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    preadv64v2 :: (__fp: s32, __iovec: *iovec, __count: s32, __offset: s64, ___flags: s32) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    preadv64v2 :: (__fp: s32, __iovec: *iovec, __count: s32, __offset: s64, ___flags: s32) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    preadv64v2 :: (__fp: s32, __iovec: *iovec, __count: s32, __offset: s64, ___flags: s32) -> ssize_t #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -40906,7 +49494,7 @@ ssize_t :: s64;
     printf :: (__fmt: *u8, __args: ..Any) -> s32 #foreign libc; @WritesOutput
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     prlimit :: (__pid: s32, __resource: RLIMIT_RESOURCE, __new_limit: *rlimit, __old_limit: *rlimit) -> s32 #foreign libc;
 }
 
@@ -40918,7 +49506,19 @@ ssize_t :: s64;
     prlimit :: (__pid: pid_t, __resource: RLIMIT_RESOURCE, __new_limit: *rlimit, __old_limit: *rlimit) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    prlimit :: (__pid: s32, __resource: __rlimit_resource, __new_limit: *rlimit, __old_limit: *rlimit) -> s32 #foreign libc "prlimit64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    prlimit :: (__pid: s32, __resource: __rlimit_resource, __new_limit: *rlimit, __old_limit: *rlimit) -> s32 #foreign libc "prlimit64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    prlimit :: (__pid: s32, __resource: __rlimit_resource, __new_limit: *rlimit, __old_limit: *rlimit) -> s32 #foreign libc "prlimit64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     prlimit64 :: (__pid: s32, __resource: RLIMIT_RESOURCE, __new_limit: *rlimit64, __old_limit: *rlimit64) -> s32 #foreign libc;
 }
 
@@ -40930,6 +49530,18 @@ ssize_t :: s64;
     prlimit64 :: (__pid: pid_t, __resource: RLIMIT_RESOURCE, __new_limit: *rlimit64, __old_limit: *rlimit64) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    prlimit64 :: (__pid: s32, __resource: __rlimit_resource, __new_limit: *rlimit64, __old_limit: *rlimit64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    prlimit64 :: (__pid: s32, __resource: __rlimit_resource, __new_limit: *rlimit64, __old_limit: *rlimit64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    prlimit64 :: (__pid: s32, __resource: __rlimit_resource, __new_limit: *rlimit64, __old_limit: *rlimit64) -> s32 #foreign libc;
+}
+
 #if OS == .ANDROID && CPU == .ARM64 {
     process_madvise :: (__pid_fd: s32, __iov: *iovec, __count: u64, __advice: s32, __flags: u32) -> s64 #foreign libc;
 }
@@ -40938,8 +49550,20 @@ ssize_t :: s64;
     process_madvise :: (__pid_fd: s32, __iov: *iovec, __count: u64, __advice: s32, __flags: u32) -> s64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     profil :: (__sample_buffer: *u16, __size: u64, __offset: u64, __scale: u32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    profil :: (__sample_buffer: *u16, __size: size_t, __offset: size_t, __scale: u32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    profil :: (__sample_buffer: *u16, __size: size_t, __offset: size_t, __scale: u32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    profil :: (__sample_buffer: *u16, __size: size_t, __offset: size_t, __scale: u32) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -41018,8 +49642,20 @@ ssize_t :: s64;
     pthread_attr_get_qos_class_np :: (__attr: *pthread_attr_t, __qos_class: *qos_class_t, __relative_priority: *s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_attr_getaffinity_np :: (__attr: *pthread_attr_t, __cpusetsize: u64, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_attr_getaffinity_np :: (__attr: *pthread_attr_t, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_attr_getaffinity_np :: (__attr: *pthread_attr_t, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_attr_getaffinity_np :: (__attr: *pthread_attr_t, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
 #if OS == .LINUX {
@@ -41042,7 +49678,7 @@ ssize_t :: s64;
     pthread_attr_getdetachstate :: (__attr: *pthread_attr_t, __state: *s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_attr_getguardsize :: (__attr: *pthread_attr_t, __guardsize: *u64) -> s32 #foreign libpthread;
 }
 
@@ -41060,6 +49696,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     pthread_attr_getguardsize :: (__attr: *pthread_attr_t, __size: *u64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_attr_getguardsize :: (__attr: *pthread_attr_t, __guardsize: *size_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_attr_getguardsize :: (__attr: *pthread_attr_t, __guardsize: *size_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_attr_getguardsize :: (__attr: *pthread_attr_t, __guardsize: *size_t) -> s32 #foreign libpthread;
 }
 
 #if OS == .LINUX {
@@ -41142,7 +49790,7 @@ ssize_t :: s64;
     pthread_attr_getscope :: (__attr: *pthread_attr_t, __scope: *s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_attr_getstack :: (__attr: *pthread_attr_t, __stackaddr: **void, __stacksize: *u64) -> s32 #foreign libpthread;
 }
 
@@ -41162,7 +49810,19 @@ ssize_t :: s64;
     pthread_attr_getstack :: (__attr: *pthread_attr_t, __addr: **void, __size: *u64) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_attr_getstack :: (__attr: *pthread_attr_t, __stackaddr: *void, __stacksize: *size_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_attr_getstack :: (__attr: *pthread_attr_t, __stackaddr: *void, __stacksize: *size_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_attr_getstack :: (__attr: *pthread_attr_t, __stackaddr: *void, __stacksize: *size_t) -> s32 #foreign libpthread;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_attr_getstackaddr :: (__attr: *pthread_attr_t, __stackaddr: **void) -> s32 #foreign libpthread;
 }
 
@@ -41174,7 +49834,19 @@ ssize_t :: s64;
     pthread_attr_getstackaddr :: (unknown0: *pthread_attr_t, unknown1: **void) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_attr_getstackaddr :: (__attr: *pthread_attr_t, __stackaddr: *void) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_attr_getstackaddr :: (__attr: *pthread_attr_t, __stackaddr: *void) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_attr_getstackaddr :: (__attr: *pthread_attr_t, __stackaddr: *void) -> s32 #foreign libpthread;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_attr_getstacksize :: (__attr: *pthread_attr_t, __stacksize: *u64) -> s32 #foreign libpthread;
 }
 
@@ -41192,6 +49864,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     pthread_attr_getstacksize :: (__attr: *pthread_attr_t, __size: *u64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_attr_getstacksize :: (__attr: *pthread_attr_t, __stacksize: *size_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_attr_getstacksize :: (__attr: *pthread_attr_t, __stacksize: *size_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_attr_getstacksize :: (__attr: *pthread_attr_t, __stacksize: *size_t) -> s32 #foreign libpthread;
 }
 
 #if OS == .LINUX {
@@ -41222,8 +49906,20 @@ ssize_t :: s64;
     pthread_attr_set_qos_class_np :: (__attr: *pthread_attr_t, __qos_class: qos_class_t, __relative_priority: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_attr_setaffinity_np :: (__attr: *pthread_attr_t, __cpusetsize: u64, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_attr_setaffinity_np :: (__attr: *pthread_attr_t, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_attr_setaffinity_np :: (__attr: *pthread_attr_t, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_attr_setaffinity_np :: (__attr: *pthread_attr_t, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
 #if OS == .LINUX {
@@ -41246,7 +49942,7 @@ ssize_t :: s64;
     pthread_attr_setdetachstate :: (__attr: *pthread_attr_t, __state: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_attr_setguardsize :: (__attr: *pthread_attr_t, __guardsize: u64) -> s32 #foreign libpthread;
 }
 
@@ -41264,6 +49960,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     pthread_attr_setguardsize :: (__attr: *pthread_attr_t, __size: u64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_attr_setguardsize :: (__attr: *pthread_attr_t, __guardsize: size_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_attr_setguardsize :: (__attr: *pthread_attr_t, __guardsize: size_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_attr_setguardsize :: (__attr: *pthread_attr_t, __guardsize: size_t) -> s32 #foreign libpthread;
 }
 
 #if OS == .LINUX {
@@ -41346,7 +50054,7 @@ ssize_t :: s64;
     pthread_attr_setscope :: (__attr: *pthread_attr_t, __scope: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_attr_setstack :: (__attr: *pthread_attr_t, __stackaddr: *void, __stacksize: u64) -> s32 #foreign libpthread;
 }
 
@@ -41366,6 +50074,18 @@ ssize_t :: s64;
     pthread_attr_setstack :: (__attr: *pthread_attr_t, __addr: *void, __size: u64) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_attr_setstack :: (__attr: *pthread_attr_t, __stackaddr: *void, __stacksize: size_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_attr_setstack :: (__attr: *pthread_attr_t, __stackaddr: *void, __stacksize: size_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_attr_setstack :: (__attr: *pthread_attr_t, __stackaddr: *void, __stacksize: size_t) -> s32 #foreign libpthread;
+}
+
 #if OS == .LINUX {
     pthread_attr_setstackaddr :: (__attr: *pthread_attr_t, __stackaddr: *void) -> s32 #foreign libpthread;
 }
@@ -41378,7 +50098,7 @@ ssize_t :: s64;
     pthread_attr_setstackaddr :: (unknown0: *pthread_attr_t, unknown1: *void) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_attr_setstacksize :: (__attr: *pthread_attr_t, __stacksize: u64) -> s32 #foreign libpthread;
 }
 
@@ -41396,6 +50116,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     pthread_attr_setstacksize :: (__addr: *pthread_attr_t, __size: u64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_attr_setstacksize :: (__attr: *pthread_attr_t, __stacksize: size_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_attr_setstacksize :: (__attr: *pthread_attr_t, __stacksize: size_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_attr_setstacksize :: (__attr: *pthread_attr_t, __stacksize: size_t) -> s32 #foreign libpthread;
 }
 
 #if OS == .LINUX {
@@ -41494,8 +50226,20 @@ ssize_t :: s64;
     pthread_cancel :: (unknown0: pthread_t) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_clockjoin_np :: (__th: pthread_t, __thread_return: **void, __clockid: clockid_t, __abstime: *timespec) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_clockjoin_np :: (__th: pthread_t, __thread_return: *void, __clockid: clockid_t, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_clockjoin_np64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_clockjoin_np :: (__th: pthread_t, __thread_return: *void, __clockid: clockid_t, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_clockjoin_np64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_clockjoin_np :: (__th: pthread_t, __thread_return: *void, __clockid: clockid_t, __abstime: *timespec) -> s32 #foreign libpthread;
 }
 
 #if OS == .LINUX {
@@ -41518,7 +50262,7 @@ ssize_t :: s64;
     pthread_cond_broadcast :: (__cond: *pthread_cond_t) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     pthread_cond_clockwait :: (__cond: *pthread_cond_t, __mutex: *pthread_mutex_t, __clock_id: s32, __abstime: *timespec) -> s32 #foreign libpthread;
 }
 
@@ -41528,6 +50272,14 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     pthread_cond_clockwait :: (__cond: *pthread_cond_t, __mutex: *pthread_mutex_t, __clock: clockid_t, __timeout: *timespec) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_cond_clockwait :: (__cond: *pthread_cond_t, __mutex: *pthread_mutex_t, __clock_id: s32, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_cond_clockwait64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_cond_clockwait :: (__cond: *pthread_cond_t, __mutex: *pthread_mutex_t, __clock_id: s32, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_cond_clockwait64";
 }
 
 #if OS == .LINUX {
@@ -41598,7 +50350,7 @@ ssize_t :: s64;
     pthread_cond_signal_thread_np :: (unknown0: *pthread_cond_t, unknown1: pthread_t) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     pthread_cond_timedwait :: (__cond: *pthread_cond_t, __mutex: *pthread_mutex_t, __abstime: *timespec) -> s32 #foreign libpthread;
 }
 
@@ -41616,6 +50368,14 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     pthread_cond_timedwait :: (__cond: *pthread_cond_t, __mutex: *pthread_mutex_t, __timeout: *timespec) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_cond_timedwait :: (__cond: *pthread_cond_t, __mutex: *pthread_mutex_t, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_cond_timedwait64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_cond_timedwait :: (__cond: *pthread_cond_t, __mutex: *pthread_mutex_t, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_cond_timedwait64";
 }
 
 #if OS == .ANDROID && CPU == .ARM64 {
@@ -41890,8 +50650,20 @@ ssize_t :: s64;
     pthread_get_stacksize_np :: (unknown0: pthread_t) -> u64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_getaffinity_np :: (__th: pthread_t, __cpusetsize: u64, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_getaffinity_np :: (__th: pthread_t, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_getaffinity_np :: (__th: pthread_t, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_getaffinity_np :: (__th: pthread_t, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
 #if OS == .LINUX {
@@ -41934,7 +50706,7 @@ ssize_t :: s64;
     pthread_getcpuclockid :: (__pthread: pthread_t, __clock: *clockid_t) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_getname_np :: (__target_thread: pthread_t, __buf: *u8, __buflen: u64) -> s32 #foreign libpthread;
 }
 
@@ -41952,6 +50724,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     pthread_getname_np :: (__pthread: pthread_t, __buf: *u8, __n: u64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_getname_np :: (__target_thread: pthread_t, __buf: *u8, __buflen: size_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_getname_np :: (__target_thread: pthread_t, __buf: *u8, __buflen: size_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_getname_np :: (__target_thread: pthread_t, __buf: *u8, __buflen: size_t) -> s32 #foreign libpthread;
 }
 
 #if OS == .LINUX {
@@ -42018,7 +50802,7 @@ ssize_t :: s64;
     pthread_jit_write_protect_supported_np :: () -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_join :: (__th: pthread_t, __thread_return: **void) -> s32 #foreign libpthread;
 }
 
@@ -42036,6 +50820,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     pthread_join :: (__pthread: pthread_t, __return_value_ptr: **void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_join :: (__th: pthread_t, __thread_return: *void) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_join :: (__th: pthread_t, __thread_return: *void) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_join :: (__th: pthread_t, __thread_return: *void) -> s32 #foreign libpthread;
 }
 
 #if OS == .LINUX {
@@ -42102,7 +50898,7 @@ ssize_t :: s64;
     pthread_main_np :: () -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     pthread_mutex_clocklock :: (__mutex: *pthread_mutex_t, __clockid: clockid_t, __abstime: *timespec) -> s32 #foreign libpthread;
 }
 
@@ -42112,6 +50908,14 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     pthread_mutex_clocklock :: (__mutex: *pthread_mutex_t, __clock: clockid_t, __abstime: *timespec) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_mutex_clocklock :: (__mutex: *pthread_mutex_t, __clockid: clockid_t, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_mutex_clocklock64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_mutex_clocklock :: (__mutex: *pthread_mutex_t, __clockid: clockid_t, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_mutex_clocklock64";
 }
 
 #if OS == .LINUX {
@@ -42202,7 +51006,7 @@ ssize_t :: s64;
     pthread_mutex_setprioceiling :: (unknown0: *pthread_mutex_t, unknown1: s32, unknown2: *s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     pthread_mutex_timedlock :: (__mutex: *pthread_mutex_t, __abstime: *timespec) -> s32 #foreign libpthread;
 }
 
@@ -42212,6 +51016,14 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     pthread_mutex_timedlock :: (__mutex: *pthread_mutex_t, __timeout: *timespec) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_mutex_timedlock :: (__mutex: *pthread_mutex_t, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_mutex_timedlock64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_mutex_timedlock :: (__mutex: *pthread_mutex_t, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_mutex_timedlock64";
 }
 
 #if OS == .ANDROID && CPU == .ARM64 {
@@ -42506,7 +51318,7 @@ ssize_t :: s64;
     pthread_override_qos_class_start_np :: (__pthread: pthread_t, __qos_class: qos_class_t, __relative_priority: s32) -> pthread_override_t #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     pthread_rwlock_clockrdlock :: (__rwlock: *pthread_rwlock_t, __clockid: clockid_t, __abstime: *timespec) -> s32 #foreign libpthread;
 }
 
@@ -42518,7 +51330,15 @@ ssize_t :: s64;
     pthread_rwlock_clockrdlock :: (__rwlock: *pthread_rwlock_t, __clock: clockid_t, __timeout: *timespec) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_rwlock_clockrdlock :: (__rwlock: *pthread_rwlock_t, __clockid: clockid_t, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_rwlock_clockrdlock64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_rwlock_clockrdlock :: (__rwlock: *pthread_rwlock_t, __clockid: clockid_t, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_rwlock_clockrdlock64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     pthread_rwlock_clockwrlock :: (__rwlock: *pthread_rwlock_t, __clockid: clockid_t, __abstime: *timespec) -> s32 #foreign libpthread;
 }
 
@@ -42528,6 +51348,14 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     pthread_rwlock_clockwrlock :: (__rwlock: *pthread_rwlock_t, __clock: clockid_t, __timeout: *timespec) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_rwlock_clockwrlock :: (__rwlock: *pthread_rwlock_t, __clockid: clockid_t, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_rwlock_clockwrlock64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_rwlock_clockwrlock :: (__rwlock: *pthread_rwlock_t, __clockid: clockid_t, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_rwlock_clockwrlock64";
 }
 
 #if OS == .LINUX {
@@ -42590,7 +51418,7 @@ ssize_t :: s64;
     pthread_rwlock_rdlock :: (__rwlock: *pthread_rwlock_t) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     pthread_rwlock_timedrdlock :: (__rwlock: *pthread_rwlock_t, __abstime: *timespec) -> s32 #foreign libpthread;
 }
 
@@ -42602,6 +51430,14 @@ ssize_t :: s64;
     pthread_rwlock_timedrdlock :: (__rwlock: *pthread_rwlock_t, __timeout: *timespec) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_rwlock_timedrdlock :: (__rwlock: *pthread_rwlock_t, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_rwlock_timedrdlock64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_rwlock_timedrdlock :: (__rwlock: *pthread_rwlock_t, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_rwlock_timedrdlock64";
+}
+
 #if OS == .ANDROID && CPU == .ARM64 {
     pthread_rwlock_timedrdlock_monotonic_np :: (__rwlock: *pthread_rwlock_t, __timeout: *timespec) -> s32 #foreign libc;
 }
@@ -42610,7 +51446,7 @@ ssize_t :: s64;
     pthread_rwlock_timedrdlock_monotonic_np :: (__rwlock: *pthread_rwlock_t, __timeout: *timespec) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     pthread_rwlock_timedwrlock :: (__rwlock: *pthread_rwlock_t, __abstime: *timespec) -> s32 #foreign libpthread;
 }
 
@@ -42620,6 +51456,14 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     pthread_rwlock_timedwrlock :: (__rwlock: *pthread_rwlock_t, __timeout: *timespec) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_rwlock_timedwrlock :: (__rwlock: *pthread_rwlock_t, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_rwlock_timedwrlock64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_rwlock_timedwrlock :: (__rwlock: *pthread_rwlock_t, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_rwlock_timedwrlock64";
 }
 
 #if OS == .ANDROID && CPU == .ARM64 {
@@ -42842,8 +51686,20 @@ ssize_t :: s64;
     pthread_set_qos_class_self_np :: (__qos_class: qos_class_t, __relative_priority: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_setaffinity_np :: (__th: pthread_t, __cpusetsize: u64, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_setaffinity_np :: (__th: pthread_t, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_setaffinity_np :: (__th: pthread_t, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_setaffinity_np :: (__th: pthread_t, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
 #if OS == .LINUX {
@@ -43046,12 +51902,36 @@ ssize_t :: s64;
     pthread_threadid_np :: (unknown0: pthread_t, unknown1: *u64) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_timedjoin_np :: (__th: pthread_t, __thread_return: **void, __abstime: *timespec) -> s32 #foreign libpthread;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_timedjoin_np :: (__th: pthread_t, __thread_return: *void, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_timedjoin_np64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_timedjoin_np :: (__th: pthread_t, __thread_return: *void, __abstime: *timespec) -> s32 #foreign libpthread "__pthread_timedjoin_np64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_timedjoin_np :: (__th: pthread_t, __thread_return: *void, __abstime: *timespec) -> s32 #foreign libpthread;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pthread_tryjoin_np :: (__th: pthread_t, __thread_return: **void) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pthread_tryjoin_np :: (__th: pthread_t, __thread_return: *void) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pthread_tryjoin_np :: (__th: pthread_t, __thread_return: *void) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pthread_tryjoin_np :: (__th: pthread_t, __thread_return: *void) -> s32 #foreign libpthread;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -43178,7 +52058,7 @@ ssize_t :: s64;
     putw :: (unknown0: s32, unknown1: *FILE) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pwrite :: (__fd: s32, __buf: *void, __n: u64, __offset: s64) -> s64 #foreign libc;
 }
 
@@ -43198,7 +52078,19 @@ ssize_t :: s64;
     pwrite :: (__fd: s32, __buf: *void, __count: u64, __offset: s64) -> s64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pwrite :: (__fd: s32, __buf: *void, __nbytes: size_t, __offset: s64) -> ssize_t #foreign libc "pwrite64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pwrite :: (__fd: s32, __buf: *void, __nbytes: size_t, __offset: s64) -> ssize_t #foreign libc "pwrite64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pwrite :: (__fd: s32, __buf: *void, __nbytes: size_t, __offset: s64) -> ssize_t #foreign libc "pwrite64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pwrite64 :: (__fd: s32, __buf: *void, __n: u64, __offset: s64) -> s64 #foreign libc;
 }
 
@@ -43210,20 +52102,80 @@ ssize_t :: s64;
     pwrite64 :: (__fd: s32, __buf: *void, __count: u64, __offset: s64) -> s64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pwrite64 :: (__fd: s32, __buf: *void, __n: size_t, __offset: s64) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pwrite64 :: (__fd: s32, __buf: *void, __n: size_t, __offset: s64) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pwrite64 :: (__fd: s32, __buf: *void, __n: size_t, __offset: s64) -> ssize_t #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pwritev :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> s64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pwritev :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc "pwritev64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pwritev :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc "pwritev64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pwritev :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc "pwritev64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pwritev2 :: (__fd: s32, __iodev: *iovec, __count: s32, __offset: s64, __flags: s32) -> s64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pwritev2 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64, __flags: s32) -> ssize_t #foreign libc "pwritev64v2";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pwritev2 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64, __flags: s32) -> ssize_t #foreign libc "pwritev64v2";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pwritev2 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64, __flags: s32) -> ssize_t #foreign libc "pwritev64v2";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pwritev64 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> s64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pwritev64 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pwritev64 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pwritev64 :: (__fd: s32, __iovec: *iovec, __count: s32, __offset: s64) -> ssize_t #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     pwritev64v2 :: (__fd: s32, __iodev: *iovec, __count: s32, __offset: s64, __flags: s32) -> s64 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    pwritev64v2 :: (__fd: s32, __iodev: *iovec, __count: s32, __offset: s64, __flags: s32) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    pwritev64v2 :: (__fd: s32, __iodev: *iovec, __count: s32, __offset: s64, __flags: s32) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    pwritev64v2 :: (__fd: s32, __iodev: *iovec, __count: s32, __offset: s64, __flags: s32) -> ssize_t #foreign libc;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -43278,7 +52230,7 @@ ssize_t :: s64;
     rcmd_af :: (unknown0: **u8, unknown1: s32, unknown2: *u8, unknown3: *u8, unknown4: *u8, unknown5: *s32, unknown6: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     read :: (__fd: s32, __buf: *void, __nbytes: u64) -> s64 #foreign libc;
 }
 
@@ -43298,7 +52250,19 @@ ssize_t :: s64;
     read :: (__fd: s32, __buf: *void, __count: u64) -> s64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    read :: (__fd: s32, __buf: *void, __nbytes: size_t) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    read :: (__fd: s32, __buf: *void, __nbytes: size_t) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    read :: (__fd: s32, __buf: *void, __nbytes: size_t) -> ssize_t #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     readahead :: (__fd: s32, __offset: s64, __count: u64) -> s64 #foreign libc;
 }
 
@@ -43310,7 +52274,19 @@ ssize_t :: s64;
     readahead :: (__fd: s32, __offset: s64, __length: u64) -> s64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    readahead :: (__fd: s32, __offset: s64, __count: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    readahead :: (__fd: s32, __offset: s64, __count: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    readahead :: (__fd: s32, __offset: s64, __count: size_t) -> s64 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     readdir :: (__dirp: *DIR) -> *dirent #foreign libc;
 }
 
@@ -43330,6 +52306,18 @@ ssize_t :: s64;
     readdir :: (__dir: *DIR) -> *dirent #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    readdir :: (__dirp: *DIR) -> *dirent #foreign libc "readdir64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    readdir :: (__dirp: *DIR) -> *dirent #foreign libc "readdir64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    readdir :: (__dirp: *DIR) -> *dirent #foreign libc "readdir64";
+}
+
 #if OS == .LINUX {
     readdir64 :: (__dirp: *DIR) -> *dirent64 #foreign libc;
 }
@@ -43342,7 +52330,7 @@ ssize_t :: s64;
     readdir64 :: (__dir: *DIR) -> *dirent64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     readdir64_r :: (__dirp: *DIR, __entry: *dirent64, __result: **dirent64) -> s32 #foreign libc;
 }
 
@@ -43354,7 +52342,19 @@ ssize_t :: s64;
     readdir64_r :: (__dir: *DIR, __entry: *dirent64, __buffer: **dirent64) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    readdir64_r :: (__dirp: *DIR, __entry: *dirent64, __result: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    readdir64_r :: (__dirp: *DIR, __entry: *dirent64, __result: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    readdir64_r :: (__dirp: *DIR, __entry: *dirent64, __result: *void) -> s32 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     readdir_r :: (__dirp: *DIR, __entry: *dirent, __result: **dirent) -> s32 #foreign libc;
 }
 
@@ -43374,7 +52374,19 @@ ssize_t :: s64;
     readdir_r :: (__dir: *DIR, __entry: *dirent, __buffer: **dirent) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    readdir_r :: (__dirp: *DIR, __entry: *dirent, __result: *void) -> s32 #foreign libc "readdir64_r";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    readdir_r :: (__dirp: *DIR, __entry: *dirent, __result: *void) -> s32 #foreign libc "readdir64_r";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    readdir_r :: (__dirp: *DIR, __entry: *dirent, __result: *void) -> s32 #foreign libc "readdir64_r";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     readlink :: (__path: *u8, __buf: *u8, __len: u64) -> s64 #foreign libc;
 }
 
@@ -43394,7 +52406,19 @@ ssize_t :: s64;
     readlink :: (__path: *u8, __buf: *u8, __buf_size: u64) -> s64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    readlink :: (__path: *u8, __buf: *u8, __len: size_t) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    readlink :: (__path: *u8, __buf: *u8, __len: size_t) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    readlink :: (__path: *u8, __buf: *u8, __len: size_t) -> ssize_t #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     readlinkat :: (__fd: s32, __path: *u8, __buf: *u8, __len: u64) -> s64 #foreign libc;
 }
 
@@ -43414,8 +52438,32 @@ ssize_t :: s64;
     readlinkat :: (__dir_fd: s32, __path: *u8, __buf: *u8, __buf_size: u64) -> s64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    readlinkat :: (__fd: s32, __path: *u8, __buf: *u8, __len: size_t) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    readlinkat :: (__fd: s32, __path: *u8, __buf: *u8, __len: size_t) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    readlinkat :: (__fd: s32, __path: *u8, __buf: *u8, __len: size_t) -> ssize_t #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     readv :: (__fd: s32, __iovec: *iovec, __count: s32) -> s64 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    readv :: (__fd: s32, __iovec: *iovec, __count: s32) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    readv :: (__fd: s32, __iovec: *iovec, __count: s32) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    readv :: (__fd: s32, __iovec: *iovec, __count: s32) -> ssize_t #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -43446,8 +52494,20 @@ ssize_t :: s64;
     reboot :: (unknown0: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     remap_file_pages :: (__start: *void, __size: u64, __prot: s32, __pgoff: u64, __flags: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    remap_file_pages :: (__start: *void, __size: size_t, __prot: s32, __pgoff: size_t, __flags: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    remap_file_pages :: (__start: *void, __size: size_t, __prot: s32, __pgoff: size_t, __flags: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    remap_file_pages :: (__start: *void, __size: size_t, __prot: s32, __pgoff: size_t, __flags: s32) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -43590,7 +52650,7 @@ ssize_t :: s64;
     ruserok :: (unknown0: *u8, unknown1: s32, unknown2: *u8, unknown3: *u8) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     sbrk :: (__delta: s64) -> *void #foreign libc;
 }
 
@@ -43610,7 +52670,15 @@ ssize_t :: s64;
     sbrk :: (__increment: ptrdiff_t) -> *void #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    sbrk :: (__delta: s32) -> *void #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    sbrk :: (__delta: s32) -> *void #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     scandir :: (__dir: *u8, __namelist: ***dirent, __selector: #type (unknown0: *dirent) -> s32 #c_call, __cmp: #type (unknown0: **dirent, unknown1: **dirent) -> s32 #c_call) -> s32 #foreign libc;
 }
 
@@ -43630,7 +52698,19 @@ ssize_t :: s64;
     scandir :: (__path: *u8, __name_list: ***dirent, __filter: #type (unknown0: *dirent) -> s32 #c_call, __comparator: #type (unknown0: **dirent, unknown1: **dirent) -> s32 #c_call) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    scandir :: (__dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc "scandir64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    scandir :: (__dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc "scandir64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    scandir :: (__dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc "scandir64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     scandir64 :: (__dir: *u8, __namelist: ***dirent64, __selector: #type (unknown0: *dirent64) -> s32 #c_call, __cmp: #type (unknown0: **dirent64, unknown1: **dirent64) -> s32 #c_call) -> s32 #foreign libc;
 }
 
@@ -43642,7 +52722,19 @@ ssize_t :: s64;
     scandir64 :: (__path: *u8, __name_list: ***dirent64, __filter: #type (unknown0: *dirent64) -> s32 #c_call, __comparator: #type (unknown0: **dirent64, unknown1: **dirent64) -> s32 #c_call) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    scandir64 :: (__dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent64) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    scandir64 :: (__dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent64) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    scandir64 :: (__dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent64) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     scandirat :: (__dfd: s32, __dir: *u8, __namelist: ***dirent, __selector: #type (unknown0: *dirent) -> s32 #c_call, __cmp: #type (unknown0: **dirent, unknown1: **dirent) -> s32 #c_call) -> s32 #foreign libc;
 }
 
@@ -43654,7 +52746,19 @@ ssize_t :: s64;
     scandirat :: (__dir_fd: s32, __path: *u8, __name_list: ***dirent, __filter: #type (unknown0: *dirent) -> s32 #c_call, __comparator: #type (unknown0: **dirent, unknown1: **dirent) -> s32 #c_call) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    scandirat :: (__dfd: s32, __dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc "scandirat64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    scandirat :: (__dfd: s32, __dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc "scandirat64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    scandirat :: (__dfd: s32, __dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc "scandirat64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     scandirat64 :: (__dfd: s32, __dir: *u8, __namelist: ***dirent64, __selector: #type (unknown0: *dirent64) -> s32 #c_call, __cmp: #type (unknown0: **dirent64, unknown1: **dirent64) -> s32 #c_call) -> s32 #foreign libc;
 }
 
@@ -43664,6 +52768,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     scandirat64 :: (__dir_fd: s32, __path: *u8, __name_list: ***dirent64, __filter: #type (unknown0: *dirent64) -> s32 #c_call, __comparator: #type (unknown0: **dirent64, unknown1: **dirent64) -> s32 #c_call) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    scandirat64 :: (__dfd: s32, __dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent64) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    scandirat64 :: (__dfd: s32, __dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent64) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    scandirat64 :: (__dfd: s32, __dir: *u8, __namelist: *void, __selector: #type (unknown0: *dirent64) -> s32 #c_call, __cmp: #type (unknown0: *void, unknown1: *void) -> s32 #c_call) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -43726,7 +52842,7 @@ ssize_t :: s64;
     sched_get_priority_min :: (__policy: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     sched_getaffinity :: (__pid: s32, __cpusetsize: u64, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
@@ -43736,6 +52852,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     sched_getaffinity :: (__pid: pid_t, __set_size: u64, __set: *cpu_set_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    sched_getaffinity :: (__pid: s32, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    sched_getaffinity :: (__pid: s32, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    sched_getaffinity :: (__pid: s32, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
 #if OS == .LINUX {
@@ -43774,7 +52902,7 @@ ssize_t :: s64;
     sched_getscheduler :: (__pid: pid_t) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     sched_rr_get_interval :: (__pid: s32, __t: *timespec) -> s32 #foreign libpthread;
 }
 
@@ -43786,7 +52914,15 @@ ssize_t :: s64;
     sched_rr_get_interval :: (__pid: pid_t, __quantum: *timespec) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    sched_rr_get_interval :: (__pid: s32, __t: *timespec) -> s32 #foreign libpthread "__sched_rr_get_interval64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    sched_rr_get_interval :: (__pid: s32, __t: *timespec) -> s32 #foreign libpthread "__sched_rr_get_interval64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     sched_setaffinity :: (__pid: s32, __cpusetsize: u64, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
@@ -43796,6 +52932,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     sched_setaffinity :: (__pid: pid_t, __set_size: u64, __set: *cpu_set_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    sched_setaffinity :: (__pid: s32, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    sched_setaffinity :: (__pid: s32, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    sched_setaffinity :: (__pid: s32, __cpusetsize: size_t, __cpuset: *cpu_set_t) -> s32 #foreign libpthread;
 }
 
 #if OS == .LINUX {
@@ -43850,7 +52998,7 @@ ssize_t :: s64;
     searchfs :: (unknown0: *u8, unknown1: *fssearchblock, unknown2: *u64, unknown3: u32, unknown4: u32, unknown5: *searchstate) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     seekdir :: (__dirp: *DIR, __pos: s64) -> void #foreign libc;
 }
 
@@ -43870,7 +53018,15 @@ ssize_t :: s64;
     seekdir :: (__dir: *DIR, __location: s64) -> void #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    seekdir :: (__dirp: *DIR, __pos: s32) -> void #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    seekdir :: (__dirp: *DIR, __pos: s32) -> void #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     sem_clockwait :: (__sem: *sem_t, clock: clockid_t, __abstime: *timespec) -> s32 #foreign libpthread;
 }
 
@@ -43880,6 +53036,14 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     sem_clockwait :: (__sem: *sem_t, __clock: clockid_t, __ts: *timespec) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    sem_clockwait :: (__sem: *sem_t, clock: clockid_t, __abstime: *timespec) -> s32 #foreign libpthread "__sem_clockwait64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    sem_clockwait :: (__sem: *sem_t, clock: clockid_t, __abstime: *timespec) -> s32 #foreign libpthread "__sem_clockwait64";
 }
 
 #if OS == .LINUX {
@@ -43954,7 +53118,7 @@ ssize_t :: s64;
     sem_post :: (__sem: *sem_t) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     sem_timedwait :: (__sem: *sem_t, __abstime: *timespec) -> s32 #foreign libpthread;
 }
 
@@ -43964,6 +53128,14 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     sem_timedwait :: (__sem: *sem_t, __ts: *timespec) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    sem_timedwait :: (__sem: *sem_t, __abstime: *timespec) -> s32 #foreign libpthread "__sem_timedwait64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    sem_timedwait :: (__sem: *sem_t, __abstime: *timespec) -> s32 #foreign libpthread "__sem_timedwait64";
 }
 
 #if OS == .ANDROID && CPU == .ARM64 {
@@ -44046,7 +53218,7 @@ ssize_t :: s64;
     setbuf :: (__fp: *FILE, __buf: *u8) -> void #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     setbuffer :: (__stream: *FILE, __buf: *u8, __size: u64) -> void #foreign libc;
 }
 
@@ -44066,7 +53238,19 @@ ssize_t :: s64;
     setbuffer :: (__fp: *FILE, __buf: *u8, __size: s32) -> void #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    setbuffer :: (__stream: *FILE, __buf: *u8, __size: size_t) -> void #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    setbuffer :: (__stream: *FILE, __buf: *u8, __size: size_t) -> void #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    setbuffer :: (__stream: *FILE, __buf: *u8, __size: size_t) -> void #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     setdomainname :: (__name: *u8, __len: u64) -> s32 #foreign libc;
 }
 
@@ -44084,6 +53268,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     setdomainname :: (__name: *u8, __n: u64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    setdomainname :: (__name: *u8, __len: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    setdomainname :: (__name: *u8, __len: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    setdomainname :: (__name: *u8, __len: size_t) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -44182,7 +53378,7 @@ ssize_t :: s64;
     setgroups :: (__size: u64, __list: *gid_t) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     sethostid :: (__id: s64) -> s32 #foreign libc;
 }
 
@@ -44194,7 +53390,15 @@ ssize_t :: s64;
     sethostid :: (unknown0: s64) -> void #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    sethostid :: (__id: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    sethostid :: (__id: s32) -> s32 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     sethostname :: (__name: *u8, __len: u64) -> s32 #foreign libc;
 }
 
@@ -44214,6 +53418,18 @@ ssize_t :: s64;
     sethostname :: (__name: *u8, __n: u64) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    sethostname :: (__name: *u8, __len: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    sethostname :: (__name: *u8, __len: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    sethostname :: (__name: *u8, __len: size_t) -> s32 #foreign libc;
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     setiopolicy_np :: (unknown0: s32, unknown1: s32, unknown2: s32) -> s32 #foreign libc;
 }
@@ -44222,7 +53438,7 @@ ssize_t :: s64;
     setiopolicy_np :: (unknown0: s32, unknown1: s32, unknown2: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     setitimer :: (__which: __itimer_which, __new: *itimerval, __old: *itimerval) -> s32 #foreign libc;
 }
 
@@ -44242,7 +53458,15 @@ ssize_t :: s64;
     setitimer :: (__which: s32, __new_value: *itimerval, __old_value: *itimerval) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    setitimer :: (__which: __itimer_which, __new: *itimerval, __old: *itimerval) -> s32 #foreign libc "__setitimer64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    setitimer :: (__which: __itimer_which, __new: *itimerval, __old: *itimerval) -> s32 #foreign libc "__setitimer64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     setjmp :: (__env: *jmp_buf) -> s32 #foreign libpthread;
 }
 
@@ -44260,6 +53484,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     setjmp :: (__env: *jmp_buf) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    setjmp :: (unknown0: *__jmp_buf_tag) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    setjmp :: (unknown0: *__jmp_buf_tag) -> s32 #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    setjmp :: (unknown0: *__jmp_buf_tag) -> s32 #foreign libpthread;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -44370,7 +53606,7 @@ ssize_t :: s64;
     setpgrp :: () -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     setpriority :: (__which: PRIO, __who: id_t, __prio: s32) -> s32 #foreign libc;
 }
 
@@ -44388,6 +53624,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     setpriority :: (__which: PRIO, __who: id_t, __priority: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    setpriority :: (__which: __priority_which, __who: id_t, __prio: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    setpriority :: (__which: __priority_which, __who: id_t, __prio: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    setpriority :: (__which: __priority_which, __who: id_t, __prio: s32) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -44482,7 +53730,7 @@ ssize_t :: s64;
     setrgid :: (unknown0: gid_t) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     setrlimit :: (__resource: RLIMIT_RESOURCE, __rlimits: *rlimit) -> s32 #foreign libc;
 }
 
@@ -44502,7 +53750,19 @@ ssize_t :: s64;
     setrlimit :: (__resource: RLIMIT_RESOURCE, __limit: *rlimit) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    setrlimit :: (__resource: __rlimit_resource, __rlimits: *rlimit) -> s32 #foreign libc "setrlimit64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    setrlimit :: (__resource: __rlimit_resource, __rlimits: *rlimit) -> s32 #foreign libc "setrlimit64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    setrlimit :: (__resource: __rlimit_resource, __rlimits: *rlimit) -> s32 #foreign libc "setrlimit64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     setrlimit64 :: (__resource: RLIMIT_RESOURCE, __rlimits: *rlimit64) -> s32 #foreign libc;
 }
 
@@ -44512,6 +53772,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     setrlimit64 :: (__resource: RLIMIT_RESOURCE, __limit: *rlimit64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    setrlimit64 :: (__resource: __rlimit_resource, __rlimits: *rlimit64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    setrlimit64 :: (__resource: __rlimit_resource, __rlimits: *rlimit64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    setrlimit64 :: (__resource: __rlimit_resource, __rlimits: *rlimit64) -> s32 #foreign libc;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -44550,7 +53822,7 @@ ssize_t :: s64;
     setsid :: () -> pid_t #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     settimeofday :: (__tv: *timeval, __tz: *timezone) -> s32 #foreign libc;
 }
 
@@ -44568,6 +53840,14 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     settimeofday :: (__tv: *timeval, __tz: *timezone) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    settimeofday :: (__tv: *timeval, __tz: *timezone) -> s32 #foreign libc "__settimeofday64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    settimeofday :: (__tv: *timeval, __tz: *timezone) -> s32 #foreign libc "__settimeofday64";
 }
 
 #if OS == .LINUX {
@@ -44602,7 +53882,7 @@ ssize_t :: s64;
     setusershell :: () -> void #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     setvbuf :: (__stream: *FILE, __buf: *u8, __modes: s32, __n: u64) -> s32 #foreign libc;
 }
 
@@ -44620,6 +53900,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     setvbuf :: (__fp: *FILE, __buf: *u8, __mode: s32, __size: u64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    setvbuf :: (__stream: *FILE, __buf: *u8, __modes: s32, __n: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    setvbuf :: (__stream: *FILE, __buf: *u8, __modes: s32, __n: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    setvbuf :: (__stream: *FILE, __buf: *u8, __modes: s32, __n: size_t) -> s32 #foreign libc;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -44674,7 +53966,7 @@ ssize_t :: s64;
     shmat :: (__shm_id: s32, __addr: *void, __flags: s32) -> *void #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     shmctl :: (__shmid: s32, __cmd: s32, __buf: *shmid_ds) -> s32 #foreign libc;
 }
 
@@ -44684,6 +53976,14 @@ ssize_t :: s64;
 
 #if OS == .MACOS && CPU == .X64 {
     shmctl :: (unknown0: s32, unknown1: s32, unknown2: *__shmid_ds_new) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    shmctl :: (__shmid: s32, __cmd: s32, __buf: *shmid_ds) -> s32 #foreign libc "__shmctl64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    shmctl :: (__shmid: s32, __cmd: s32, __buf: *shmid_ds) -> s32 #foreign libc "__shmctl64";
 }
 
 #if OS == .LINUX {
@@ -44706,7 +54006,7 @@ ssize_t :: s64;
     shmdt :: (__addr: *void) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     shmget :: (__key: key_t, __size: u64, __shmflg: s32) -> s32 #foreign libc;
 }
 
@@ -44724,6 +54024,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     shmget :: (key: key_t, __size: u64, __flags: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    shmget :: (__key: key_t, __size: size_t, __shmflg: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    shmget :: (__key: key_t, __size: size_t, __shmflg: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    shmget :: (__key: key_t, __size: size_t, __shmflg: s32) -> s32 #foreign libc;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -45006,7 +54318,7 @@ ssize_t :: s64;
     sigismember64 :: (__set: *sigset64_t, __signal: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     siglongjmp :: (__env: *sigjmp_buf, __val: s32) -> void #foreign libpthread;
 }
 
@@ -45026,7 +54338,19 @@ ssize_t :: s64;
     siglongjmp :: (__env: *sigjmp_buf, __value: s32) -> void #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    siglongjmp :: (unknown0: *__jmp_buf_tag, unknown1: s32) -> void #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    siglongjmp :: (unknown0: *__jmp_buf_tag, unknown1: s32) -> void #foreign libpthread;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    siglongjmp :: (unknown0: *__jmp_buf_tag, unknown1: s32) -> void #foreign libpthread;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     signal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
 }
 
@@ -45044,6 +54368,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     signal :: (__signal: s32, __handler: sighandler_t) -> sighandler_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    signal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    signal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    signal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -45070,7 +54406,7 @@ ssize_t :: s64;
     sigorset :: (__set: *sigset_t, __left: *sigset_t, __right: *sigset_t) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     sigpause :: (__sig: s32) -> s32 #foreign libc "__xpg_sigpause";
 }
 
@@ -45088,6 +54424,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     sigpause :: (__signal: s32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    sigpause :: (__sig: s32) -> s32 #foreign libc "__xpg_sigpause";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    sigpause :: (__sig: s32) -> s32 #foreign libc "__xpg_sigpause";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    sigpause :: (__sig: s32) -> s32 #foreign libc "__xpg_sigpause";
 }
 
 #if OS == .LINUX {
@@ -45182,7 +54530,7 @@ ssize_t :: s64;
     sigreturn :: (__scp: *sigcontext) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     sigset :: (__sig: s32, __disp: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
 }
 
@@ -45200,6 +54548,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     sigset :: (__signal: s32, __handler: sighandler_t) -> sighandler_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    sigset :: (__sig: s32, __disp: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    sigset :: (__sig: s32, __disp: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    sigset :: (__sig: s32, __disp: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -45258,7 +54618,7 @@ ssize_t :: s64;
     sigsuspend64 :: (__mask: *sigset64_t) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     sigtimedwait :: (__set: *sigset_t, __info: *siginfo_t, __timeout: *timespec) -> s32 #foreign libc;
 }
 
@@ -45268,6 +54628,14 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     sigtimedwait :: (__set: *sigset_t, __info: *siginfo_t, __timeout: *timespec) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    sigtimedwait :: (__set: *sigset_t, __info: *siginfo_t, __timeout: *timespec) -> s32 #foreign libc "__sigtimedwait64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    sigtimedwait :: (__set: *sigset_t, __info: *siginfo_t, __timeout: *timespec) -> s32 #foreign libc "__sigtimedwait64";
 }
 
 #if OS == .ANDROID && CPU == .ARM64 {
@@ -45354,7 +54722,7 @@ ssize_t :: s64;
     sleep :: (__seconds: u32) -> u32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     snprintf :: (__s: *u8, __maxlen: u64, __format: *u8, __args: ..Any) -> s32 #foreign libc;
 }
 
@@ -45374,7 +54742,15 @@ ssize_t :: s64;
     snprintf :: (__buf: *u8, __size: u64, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    snprintf :: (unknown0: *u8, unknown1: u32, unknown2: *u8, __args: ..Any) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    snprintf :: (unknown0: *u8, unknown1: u32, unknown2: *u8, __args: ..Any) -> s32 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     splice :: (__fdin: s32, __offin: *s64, __fdout: s32, __offout: *s64, __len: u64, __flags: u32) -> s64 #foreign libc;
 }
 
@@ -45384,6 +54760,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     splice :: (__in_fd: s32, __in_offset: *s64, __out_fd: s32, __out_offset: *s64, __length: u64, __flags: u32) -> s64 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    splice :: (__fdin: s32, __offin: *s64, __fdout: s32, __offout: *s64, __len: size_t, __flags: u32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    splice :: (__fdin: s32, __offin: *s64, __fdout: s32, __offout: *s64, __len: size_t, __flags: u32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    splice :: (__fdin: s32, __offin: *s64, __fdout: s32, __offout: *s64, __len: size_t, __flags: u32) -> s64 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -45426,7 +54814,19 @@ ssize_t :: s64;
     sscanf :: (__s: *u8, __fmt: *u8, __args: ..Any) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+    ssignal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    ssignal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    ssignal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
     ssignal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
 }
 
@@ -45478,7 +54878,7 @@ ssize_t :: s64;
     statx_np :: (unknown0: *u8, unknown1: *stat_t, unknown2: filesec_t) -> s32 #foreign libc "statx_np$INODE64";
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     strftime :: (__s: *u8, __maxsize: u64, __format: *u8, __tp: *tm) -> u64 #foreign libc;
 }
 
@@ -45498,7 +54898,19 @@ ssize_t :: s64;
     strftime :: (__buf: *u8, __n: u64, __fmt: *u8, __tm: *tm) -> u64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    strftime :: (__s: *u8, __maxsize: size_t, __format: *u8, __tp: *tm) -> size_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    strftime :: (__s: *u8, __maxsize: size_t, __format: *u8, __tp: *tm) -> size_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    strftime :: (__s: *u8, __maxsize: size_t, __format: *u8, __tp: *tm) -> size_t #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     strftime_l :: (__s: *u8, __maxsize: u64, __format: *u8, __tp: *tm, __loc: locale_t) -> u64 #foreign libc;
 }
 
@@ -45508,6 +54920,18 @@ ssize_t :: s64;
 
 #if OS == .ANDROID && CPU == .X64 {
     strftime_l :: (__buf: *u8, __n: u64, __fmt: *u8, __tm: *tm, __l: locale_t) -> u64 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    strftime_l :: (__s: *u8, __maxsize: size_t, __format: *u8, __tp: *tm, __loc: locale_t) -> size_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    strftime_l :: (__s: *u8, __maxsize: size_t, __format: *u8, __tp: *tm, __loc: locale_t) -> size_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    strftime_l :: (__s: *u8, __maxsize: size_t, __format: *u8, __tp: *tm, __loc: locale_t) -> size_t #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -45552,7 +54976,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     strtofflags :: (unknown0: **u8, unknown1: *u64, unknown2: *u64) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     swab :: (__from: *void, __to: *void, __n: s64) -> void #foreign libc;
 }
 
@@ -45570,6 +54994,18 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 
 #if OS == .ANDROID && CPU == .X64 {
     swab :: (__src: *void, __dst: *void, __byte_count: s64) -> void #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    swab :: (__from: *void, __to: *void, __n: ssize_t) -> void #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    swab :: (__from: *void, __to: *void, __n: ssize_t) -> void #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    swab :: (__from: *void, __to: *void, __n: ssize_t) -> void #foreign libc;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -45672,7 +55108,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     syncfs :: (__fd: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     syscall :: (__sysno: s64, __args: ..Any) -> s64 #foreign libc;
 }
 
@@ -45692,7 +55128,15 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     syscall :: (__number: s64, __args: ..Any) -> s64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    syscall :: (__sysno: s32, __args: ..Any) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    syscall :: (__sysno: s32, __args: ..Any) -> s32 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     sysconf :: (name: _SC_definitions) -> s64 #foreign libc;
 }
 
@@ -45710,6 +55154,14 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 
 #if OS == .ANDROID && CPU == .X64 {
     sysconf :: (name: _SC_definitions) -> s64 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    sysconf :: (__name: _SC_definitions) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    sysconf :: (__name: _SC_definitions) -> s32 #foreign libc;
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -45756,7 +55208,19 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     system :: (__command: *u8) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
+    sysv_signal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    sysv_signal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    sysv_signal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
     sysv_signal :: (__sig: s32, __handler: #type (unknown0: s32) -> void #c_call) -> ((unknown0: s32) -> void #c_call) #foreign libc;
 }
 
@@ -45800,7 +55264,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     tcsetpgrp :: (__fd: s32, __pid: pid_t) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     tee :: (__fdin: s32, __fdout: s32, __len: u64, __flags: u32) -> s64 #foreign libc;
 }
 
@@ -45812,7 +55276,19 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     tee :: (__in_fd: s32, __out_fd: s32, __length: u64, __flags: u32) -> s64 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    tee :: (__fdin: s32, __fdout: s32, __len: size_t, __flags: u32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    tee :: (__fdin: s32, __fdout: s32, __len: size_t, __flags: u32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    tee :: (__fdin: s32, __fdout: s32, __len: size_t, __flags: u32) -> s64 #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     telldir :: (__dirp: *DIR) -> s64 #foreign libc;
 }
 
@@ -45830,6 +55306,14 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 
 #if OS == .ANDROID && CPU == .X64 {
     telldir :: (__dir: *DIR) -> s64 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    telldir :: (__dirp: *DIR) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    telldir :: (__dirp: *DIR) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -45860,7 +55344,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     tgkill :: (__tgid: s32, __tid: s32, __signal: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     time :: (__timer: *time_t) -> time_t #foreign libc;
 }
 
@@ -45880,6 +55364,14 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     time :: (__t: *time_t) -> time_t #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    time :: (__timer: *time_t) -> time_t #foreign libc "__time64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    time :: (__timer: *time_t) -> time_t #foreign libc "__time64";
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     time2posix :: (unknown0: time_t) -> time_t #foreign libc;
 }
@@ -45888,7 +55380,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     time2posix :: (unknown0: time_t) -> time_t #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     timegm :: (__tp: *tm) -> time_t #foreign libc;
 }
 
@@ -45908,7 +55400,15 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     timegm :: (__tm: *tm) -> time_t #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    timegm :: (__tp: *tm) -> time_t #foreign libc "__timegm64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    timegm :: (__tp: *tm) -> time_t #foreign libc "__timegm64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     timelocal :: (__tp: *tm) -> time_t #foreign libc;
 }
 
@@ -45926,6 +55426,14 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 
 #if OS == .ANDROID && CPU == .X64 {
     timelocal :: (__tm: *tm) -> time_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    timelocal :: (__tp: *tm) -> time_t #foreign libc "__mktime64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    timelocal :: (__tp: *tm) -> time_t #foreign libc "__mktime64";
 }
 
 #if OS == .LINUX {
@@ -45964,7 +55472,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     timer_getoverrun :: (__timer: timer_t) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     timer_gettime :: (__timerid: timer_t, __value: *itimerspec) -> s32 #foreign librt;
 }
 
@@ -45976,7 +55484,15 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     timer_gettime :: (_timer: timer_t, __ts: *itimerspec) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    timer_gettime :: (__timerid: timer_t, __value: *itimerspec) -> s32 #foreign librt "__timer_gettime64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    timer_gettime :: (__timerid: timer_t, __value: *itimerspec) -> s32 #foreign librt "__timer_gettime64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     timer_settime :: (__timerid: timer_t, __flags: s32, __value: *itimerspec, __ovalue: *itimerspec) -> s32 #foreign librt;
 }
 
@@ -45986,6 +55502,14 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 
 #if OS == .ANDROID && CPU == .X64 {
     timer_settime :: (__timer: timer_t, __flags: s32, __new_value: *itimerspec, __old_value: *itimerspec) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    timer_settime :: (__timerid: timer_t, __flags: s32, __value: *itimerspec, __ovalue: *itimerspec) -> s32 #foreign librt "__timer_settime64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    timer_settime :: (__timerid: timer_t, __flags: s32, __value: *itimerspec, __ovalue: *itimerspec) -> s32 #foreign librt "__timer_settime64";
 }
 
 #if OS == .LINUX {
@@ -46024,7 +55548,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     timerfd_settime :: (__fd: s32, __flags: s32, __new_value: *itimerspec, __old_value: *itimerspec) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     timespec_get :: (__ts: *timespec, __base: s32) -> s32 #foreign libc;
 }
 
@@ -46040,7 +55564,15 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     timespec_get :: (__ts: *timespec, __base: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    timespec_get :: (__ts: *timespec, __base: s32) -> s32 #foreign libc "__timespec_get64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    timespec_get :: (__ts: *timespec, __base: s32) -> s32 #foreign libc "__timespec_get64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     tmpfile :: () -> *FILE #foreign libc;
 }
 
@@ -46058,6 +55590,18 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 
 #if OS == .ANDROID && CPU == .X64 {
     tmpfile :: () -> *FILE #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    tmpfile :: () -> *FILE #foreign libc "tmpfile64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    tmpfile :: () -> *FILE #foreign libc "tmpfile64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    tmpfile :: () -> *FILE #foreign libc "tmpfile64";
 }
 
 #if OS == .LINUX {
@@ -46096,7 +55640,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     tmpnam_r :: (__s: *u8) -> *u8 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     truncate :: (__file: *u8, __length: s64) -> s32 #foreign libc;
 }
 
@@ -46114,6 +55658,18 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 
 #if OS == .ANDROID && CPU == .X64 {
     truncate :: (__path: *u8, __length: s64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    truncate :: (__file: *u8, __length: s64) -> s32 #foreign libc "truncate64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    truncate :: (__file: *u8, __length: s64) -> s32 #foreign libc "truncate64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    truncate :: (__file: *u8, __length: s64) -> s32 #foreign libc "truncate64";
 }
 
 #if OS == .LINUX {
@@ -46148,7 +55704,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     ttyname :: (__fd: s32) -> *u8 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     ttyname_r :: (__fd: s32, __buf: *u8, __buflen: u64) -> s32 #foreign libc;
 }
 
@@ -46166,6 +55722,18 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 
 #if OS == .ANDROID && CPU == .X64 {
     ttyname_r :: (__fd: s32, __buf: *u8, __buf_size: u64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    ttyname_r :: (__fd: s32, __buf: *u8, __buflen: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    ttyname_r :: (__fd: s32, __buf: *u8, __buflen: size_t) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    ttyname_r :: (__fd: s32, __buf: *u8, __buflen: size_t) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -46396,7 +55964,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     usleep :: (__microseconds: useconds_t) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     utimensat :: (__fd: s32, __path: *u8, __times: *[2] timespec, __flags: s32) -> s32 #foreign libc;
 }
 
@@ -46416,7 +55984,15 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     utimensat :: (__dir_fd: s32, __path: *u8, __times: *[2] timespec, __flags: s32) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    utimensat :: (fd: s32, __path: *u8, __times: *[2] timespec, flags: s32) -> s32 #foreign libc "__utimensat64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    utimensat :: (fd: s32, __path: *u8, __times: *[2] timespec, flags: s32) -> s32 #foreign libc "__utimensat64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     utimes :: (__file: *u8, __tvp: *[2] timeval) -> s32 #foreign libc;
 }
 
@@ -46436,6 +56012,14 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     utimes :: (__path: *u8, __times: *[2] timeval) -> s32 #foreign libc;
 }
 
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    utimes :: (__file: *u8, __tvp: *[2] timeval) -> s32 #foreign libc "__utimes64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    utimes :: (__file: *u8, __tvp: *[2] timeval) -> s32 #foreign libc "__utimes64";
+}
+
 #if OS == .MACOS && CPU == .ARM64 {
     valloc :: (unknown0: u64) -> *void #foreign libc;
 }
@@ -46444,12 +56028,36 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     valloc :: (unknown0: u64) -> *void #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     versionsort :: (__e1: **dirent, __e2: **dirent) -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    versionsort :: (__e1: *void, __e2: *void) -> s32 #foreign libc "versionsort64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    versionsort :: (__e1: *void, __e2: *void) -> s32 #foreign libc "versionsort64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    versionsort :: (__e1: *void, __e2: *void) -> s32 #foreign libc "versionsort64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     versionsort64 :: (__e1: **dirent64, __e2: **dirent64) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    versionsort64 :: (__e1: *void, __e2: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    versionsort64 :: (__e1: *void, __e2: *void) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    versionsort64 :: (__e1: *void, __e2: *void) -> s32 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -46476,7 +56084,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     vhangup :: () -> s32 #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     vmsplice :: (__fdout: s32, __iov: *iovec, __count: u64, __flags: u32) -> s64 #foreign libc;
 }
 
@@ -46486,6 +56094,18 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 
 #if OS == .ANDROID && CPU == .X64 {
     vmsplice :: (__fd: s32, __iov: *iovec, __count: u64, __flags: u32) -> s64 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    vmsplice :: (__fdout: s32, __iov: *iovec, __count: size_t, __flags: u32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    vmsplice :: (__fdout: s32, __iov: *iovec, __count: size_t, __flags: u32) -> s32 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    vmsplice :: (__fdout: s32, __iov: *iovec, __count: size_t, __flags: u32) -> s64 #foreign libc;
 }
 
 #if OS == .LINUX {
@@ -46508,7 +56128,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     wait :: (__status: *s32) -> pid_t #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     wait3 :: (__stat_loc: *s32, __options: s32, __usage: *rusage) -> s32 #foreign libc;
 }
 
@@ -46520,7 +56140,15 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     wait3 :: (unknown0: *s32, unknown1: s32, unknown2: *rusage) -> pid_t #foreign libc;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    wait3 :: (__stat_loc: *s32, __options: s32, __usage: *rusage) -> s32 #foreign libc "__wait3_time64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    wait3 :: (__stat_loc: *s32, __options: s32, __usage: *rusage) -> s32 #foreign libc "__wait3_time64";
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 {
     wait4 :: (__pid: s32, __stat_loc: *s32, __options: s32, __usage: *rusage) -> s32 #foreign libc;
 }
 
@@ -46538,6 +56166,14 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
 
 #if OS == .ANDROID && CPU == .X64 {
     wait4 :: (__pid: pid_t, __status: *s32, __options: s32, __rusage: *rusage) -> pid_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    wait4 :: (__pid: s32, __stat_loc: *s32, __options: s32, __usage: *rusage) -> s32 #foreign libc "__wait4_time64";
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    wait4 :: (__pid: s32, __stat_loc: *s32, __options: s32, __usage: *rusage) -> s32 #foreign libc "__wait4_time64";
 }
 
 #if OS == .LINUX {
@@ -46580,7 +56216,7 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     waitpid :: (__pid: pid_t, __status: *s32, __options: s32) -> pid_t #foreign libc;
 }
 
-#if OS == .LINUX {
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     write :: (__fd: s32, __buf: *void, __n: u64) -> s64 #foreign libc; @WritesOutput(0)
 }
 
@@ -46600,8 +56236,32 @@ strsignal :: (sig: s32) -> *u8 #foreign libc;
     write :: (__fd: s32, __buf: *void, __count: u64) -> s64 #foreign libc; @WritesOutput(0)
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    write :: (__fd: s32, __buf: *void, __n: size_t) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    write :: (__fd: s32, __buf: *void, __n: size_t) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    write :: (__fd: s32, __buf: *void, __n: size_t) -> ssize_t #foreign libc;
+}
+
+#if (OS == .LINUX) && ARCHITECTURE != .ARM && ARCHITECTURE != .X86 && ARCHITECTURE != .S390X {
     writev :: (__fd: s32, __iovec: *iovec, __count: s32) -> s64 #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .ARM {
+    writev :: (__fd: s32, __iovec: *iovec, __count: s32) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .X86 {
+    writev :: (__fd: s32, __iovec: *iovec, __count: s32) -> ssize_t #foreign libc;
+}
+
+#if OS == .LINUX && ARCHITECTURE == .S390X {
+    writev :: (__fd: s32, __iovec: *iovec, __count: s32) -> ssize_t #foreign libc;
 }
 
 // Convenience operations

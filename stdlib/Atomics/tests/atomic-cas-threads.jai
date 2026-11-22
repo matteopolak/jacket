@@ -4,14 +4,15 @@ A :: #import "Atomics";
 T :: #import "Thread";
 
 Shared :: struct {
-    sequence: s64;
+    // 64-bit atomic members are 8-aligned: a 64-bit integer is only 4-aligned in a 32-bit x86 struct.
+    sequence: s64 #align 8;
     narrow: u16;
-    bits: u64;
-    toggles: u64;
+    bits: u64 #align 8;
+    toggles: u64 #align 8;
     set: u32;
     clear: u32 = 0xffffffff;
     decrement: s32 = 4000;
-    zeros: s64;
+    zeros: s64 #align 8;
 }
 
 Worker :: struct {

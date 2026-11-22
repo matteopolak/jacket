@@ -20,15 +20,24 @@ custom :: (allocator: Allocator) {
 }
 
 // A custom allocator under a pool starts the debugger like any other, so the pool's first block is seen even though
-// nothing has gone through `alloc` yet.
+// nothing has gone through `alloc` yet. The debugger runs only in programs built for the machine that builds them
+// (`Preamble` returns early otherwise), so a cross-built program has nothing to see.
 main :: () {
     pool: P.Pool;
 
     P.set_allocators(*pool, context.allocator);
     custom(.{ P.pool_allocator_proc, *pool });
     P.get(*pool, 16);
-    assert(live() == 1);
+
+    #if OS == BUILD_OS && CPU == BUILD_CPU {
+        assert(live() == 1);
+    }
+
     P.release(*pool);
-    assert(live() == 0);
+
+    #if OS == BUILD_OS && CPU == BUILD_CPU {
+        assert(live() == 0);
+    }
+
     print("ok\n");
 }

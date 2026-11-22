@@ -1,4 +1,9 @@
-size_t :: u64;
+#if size_of(*void) == 4 {
+    size_t :: u32;
+} else {
+    size_t :: u64;
+}
+
 clock_t :: s64;
 libexecinfo :: libc;
 SIGQUIT :: 3;

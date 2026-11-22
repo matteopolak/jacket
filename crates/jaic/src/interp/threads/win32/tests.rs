@@ -1,11 +1,10 @@
 use super::*;
-use crate::interp::NativeHost;
 #[cfg(windows)]
 use crate::interp::native;
 
 #[test]
 fn waiting_on_a_closed_scheduler_handle_fails_instead_of_reaching_native() {
-    let mut interp = Interp::default();
+    let mut interp = Interp::native(crate::layout::DataLayout::host());
     let program = Program::default();
     let closed = interp.new_object(Object::Semaphore {
         count: 0,
@@ -34,7 +33,7 @@ fn waiting_on_a_closed_scheduler_handle_fails_instead_of_reaching_native() {
 
 #[test]
 fn closing_a_closed_scheduler_handle_fails_instead_of_reaching_native() {
-    let mut interp = Interp::default();
+    let mut interp = Interp::native(crate::layout::DataLayout::host());
     let program = Program::default();
     let handle = interp.new_object(Object::Semaphore {
         count: 0,
@@ -54,7 +53,7 @@ fn closing_a_closed_scheduler_handle_fails_instead_of_reaching_native() {
 #[cfg(windows)]
 #[test]
 fn emulated_errors_survive_the_next_native_foreign_call() {
-    let mut interp = Interp::new(Box::new(NativeHost));
+    let mut interp = Interp::native(crate::layout::DataLayout::host());
     let sig = crate::ir::Sig {
         params: vec![],
         returns: vec![Ty::I32],
@@ -79,7 +78,7 @@ fn emulated_errors_survive_the_next_native_foreign_call() {
 
 #[test]
 fn managed_thread_lookup_accepts_native_handle_range_without_events() {
-    let mut interp = Interp::new(Box::new(NativeHost));
+    let mut interp = Interp::native(crate::layout::DataLayout::host());
     // Registry-only test: no OS call or ownership of this numeric fixture handle.
     interp.new_object_at(4, Object::Thread(0));
     assert!(
@@ -141,7 +140,7 @@ fn suspend_only_aliases_are_identified_without_query_rights() {
     assert_ne!(duplicated, 0);
     // SAFETY: DuplicateHandle transferred one native thread handle to alias.
     let alias = unsafe { OwnedHandle::from_raw_handle(alias as *mut _) };
-    let mut interp = Interp::new(Box::new(NativeHost));
+    let mut interp = Interp::native(crate::layout::DataLayout::host());
     let stop_worker = done; // Drop before interp on a failed assertion; join cannot hang.
     let shared = interp.shared();
     let mut thread = GThread::new(false, None);
@@ -171,7 +170,7 @@ fn suspend_only_aliases_are_identified_without_query_rights() {
 #[test]
 fn interpreter_teardown_closes_its_owned_thread_handle() {
     use std::os::windows::io::{AsRawHandle, OwnedHandle};
-    let mut interp = Interp::new(Box::new(NativeHost));
+    let mut interp = Interp::native(crate::layout::DataLayout::host());
     let shared = interp.shared();
     let handle = OwnedHandle::from(std::thread::spawn(|| {}));
     let raw = handle.as_raw_handle() as usize;

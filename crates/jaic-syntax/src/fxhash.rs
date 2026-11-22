@@ -33,6 +33,10 @@ impl FxHasher {
 /// both ends do what a copy into a zeroed buffer would, without the call to `memcpy` that a
 /// copy of unknown length makes (names are mostly shorter than eight bytes past their last
 /// whole word).
+#[allow(
+    clippy::disallowed_methods,
+    reason = "hashes host bytes, not program data"
+)]
 #[inline]
 fn tail_word(rest: &[u8]) -> u64 {
     let n = rest.len();
@@ -50,6 +54,10 @@ fn tail_word(rest: &[u8]) -> u64 {
 }
 
 impl Hasher for FxHasher {
+    #[allow(
+        clippy::disallowed_methods,
+        reason = "hashes host bytes, not program data"
+    )]
     #[inline]
     fn write(&mut self, bytes: &[u8]) {
         let (words, rest) = bytes.as_chunks::<8>();
@@ -113,6 +121,10 @@ mod tests {
         assert_eq!(of("same text"), of("same text"));
     }
 
+    #[allow(
+        clippy::disallowed_methods,
+        reason = "hashes host bytes, not program data"
+    )]
     #[test]
     fn a_tail_reads_as_a_zero_padded_word() {
         let bytes = *b"\x01\x02\x03\x04\x05\x06\x07";

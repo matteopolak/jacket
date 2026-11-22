@@ -48,10 +48,12 @@ impl Compiler {
             }
         };
         let info = self.type_info_global(ty, span)?;
-        let any = f.b.alloca(16, 8);
+        let layout = self.ty.types.builtins().any;
+        let any = f.b.alloca(layout.size, layout.align);
         let ti = f.b.global_addr(info);
-        f.b.store(Ty::Ptr, any, ti);
-        let vp = f.b.ptr_offset(any, 8);
+        let tp = f.b.ptr_offset(any, layout.type_);
+        f.b.store(Ty::Ptr, tp, ti);
+        let vp = f.b.ptr_offset(any, layout.value_pointer);
         f.b.store(Ty::Ptr, vp, addr);
         if !f.type_only
             && let Some(record) = &mut f.lifetimes
@@ -117,6 +119,7 @@ pub fn numeric_conv(
     tt: Ty,
     fsigned: bool,
     tsigned: bool,
+    layout: &crate::layout::DataLayout,
 ) -> ir::Val {
     let _ = tsigned;
     if ft == tt {
@@ -124,7 +127,7 @@ pub fn numeric_conv(
     }
     match (ft.is_float(), tt.is_float()) {
         (true, true) => f.b.conv(
-            if tt.size() > ft.size() {
+            if tt.size(layout) > ft.size(layout) {
                 ConvOp::FExt
             } else {
                 ConvOp::FTrunc
@@ -173,7 +176,8 @@ pub fn numeric_conv(
         }
         (false, false) => {
             if ft == Ty::Ptr || tt == Ty::Ptr {
-                // Pointers are 64-bit: widen/narrow through I64.
+                // A pointer converts through I64: `ptrtoint` and `inttoptr` widen or narrow it to the
+                // target's pointer width.
                 let (v, ft) = if ft == Ty::Ptr {
                     (f.b.conv(ConvOp::Bitcast, Ty::Ptr, Ty::I64, v), Ty::I64)
                 } else {
@@ -190,6 +194,7 @@ pub fn numeric_conv(
                     },
                     fsigned,
                     tsigned,
+                    layout,
                 );
                 return if tt == Ty::Ptr {
                     f.b.conv(ConvOp::Bitcast, Ty::I64, Ty::Ptr, v)
@@ -197,7 +202,7 @@ pub fn numeric_conv(
                     v
                 };
             }
-            if tt.size() < ft.size() {
+            if tt.size(layout) < ft.size(layout) {
                 f.b.conv(ConvOp::Trunc, ft, tt, v)
             } else if fsigned {
                 f.b.conv(ConvOp::SExt, ft, tt, v)

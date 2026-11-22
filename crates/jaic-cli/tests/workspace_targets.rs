@@ -5,10 +5,18 @@ use std::path::Path;
 use std::process::Command;
 use test_support::TempDir;
 
+#[allow(
+    clippy::disallowed_methods,
+    reason = "reads fields of an object file written for the host"
+)]
 fn u16_at(bytes: &[u8], offset: usize) -> u16 {
     u16::from_le_bytes(bytes[offset..offset + 2].try_into().unwrap())
 }
 
+#[allow(
+    clippy::disallowed_methods,
+    reason = "reads fields of an object file written for the host"
+)]
 fn u32_at(bytes: &[u8], offset: usize) -> u32 {
     u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap())
 }

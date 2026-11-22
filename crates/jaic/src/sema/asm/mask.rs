@@ -141,7 +141,7 @@ impl Compiler {
                 want(3)?;
                 let dst = need_mask(opds[0])?;
                 let src_ty = if op == KOp::Unpack {
-                    Ty::int(ty.size() / 2)
+                    Ty::int(ty.numeric_size() / 2)
                 } else {
                     ty
                 };

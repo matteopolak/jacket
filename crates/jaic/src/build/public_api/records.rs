@@ -208,12 +208,17 @@ pub(super) fn call(cx: &Call, interp: &mut Interp) -> Result<Rets, Trap> {
             let (root, expressions) = engine::code_nodes(&cx.shared, interp, cx.arg(0))?;
             let root_type = cx.schema().pointed(cx.binding.returns[0].0)?;
             let pointer = build(cx, interp, root, root_type)?;
+            let layout = *interp.data_layout();
+            let word = layout.ptr_bytes() as usize;
             let mut values = Vec::new();
             for id in expressions {
-                values.extend_from_slice(&build(cx, interp, id, root_type)?.to_le_bytes());
+                let mut pointer = [0; 8];
+                layout.write_ptr(&mut pointer, build(cx, interp, id, root_type)?);
+                values.extend_from_slice(&pointer[..word]);
             }
-            let data = interp.register_data_global(&values, 8, false, 1)?;
-            put_view(interp, cx.result(1)?.0, values.len() as u64 / 8, data)?;
+            let data =
+                interp.register_data_global(&values, layout.pointer_align as u64, false, 1)?;
+            put_view(interp, cx.result(1)?.0, (values.len() / word) as u64, data)?;
             Ok(Rets::one(pointer))
         }
         RootType => {

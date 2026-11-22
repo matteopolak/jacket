@@ -40,14 +40,17 @@ pub enum Family {
     X86,
     Aarch64,
     Wasm,
+    /// A CPU with no vector feature the compiler names (s390x).
+    Other,
 }
 
 impl Family {
     pub fn of(arch: Arch) -> Family {
         match arch {
-            Arch::X86_64 | Arch::Win64 => Family::X86,
+            Arch::X86_64 | Arch::Win64 | Arch::X86 => Family::X86,
             Arch::Aarch64 | Arch::Win64Arm => Family::Aarch64,
-            Arch::Wasm64 => Family::Wasm,
+            Arch::Wasm => Family::Wasm,
+            Arch::S390x | Arch::Arm32 => Family::Other,
         }
     }
 }
@@ -234,6 +237,7 @@ fn known_extra(family: Family, name: &str) -> bool {
         Family::X86 => X86,
         Family::Aarch64 => AARCH64,
         Family::Wasm => WASM,
+        Family::Other => &[],
     }
     .contains(&name)
 }
@@ -368,6 +372,7 @@ fn cpu_features(family: Family, cpu: &str) -> &'static [Feature] {
             "bleeding-edge" => &[Simd128],
             _ => &[],
         },
+        Family::Other => &[],
     }
 }
 
@@ -394,7 +399,7 @@ mod tests {
         assert_eq!(all(Arch::Aarch64, "", "avx2"), None);
         assert_eq!(all(Arch::X86_64, "", "sve,avx2").as_deref(), Some("+avx2"));
         assert_eq!(
-            all(Arch::Wasm64, "+bulk-memory", "simd128").as_deref(),
+            all(Arch::Wasm, "+bulk-memory", "simd128").as_deref(),
             Some("+bulk-memory,+simd128")
         );
         assert_eq!(all(Arch::X86_64, "", "nonsense"), None);
@@ -457,7 +462,7 @@ mod tests {
     #[test]
     fn features_of_other_families_are_ignored() {
         assert!(!x86("x86-64", "+neon,+simd128,+sve").has(Feature::Neon));
-        let wasm = Target::resolve(Arch::Wasm64, "generic", "+avx2");
+        let wasm = Target::resolve(Arch::Wasm, "generic", "+avx2");
         assert!(!wasm.has(Feature::Avx2));
     }
 
@@ -479,7 +484,7 @@ mod tests {
 
     #[test]
     fn wasm() {
-        let w = |cpu, f| Target::resolve(Arch::Wasm64, cpu, f);
+        let w = |cpu, f| Target::resolve(Arch::Wasm, cpu, f);
         assert!(!w("generic", "+bulk-memory").has(Feature::Simd128));
         assert!(w("generic", "+simd128").has(Feature::Simd128));
         assert!(w("generic", "+relaxed-simd").has(Feature::Simd128));

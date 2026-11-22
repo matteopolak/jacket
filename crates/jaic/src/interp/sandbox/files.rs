@@ -44,12 +44,12 @@ impl SandboxHost {
                     self.set_errno(EBADF)
                 }
             }
-            LibcFn::Stat | LibcFn::Lstat => {
+            LibcFn::Stat | LibcFn::Lstat | LibcFn::StatTime64 | LibcFn::LstatTime64 => {
                 let path = self.path(arg(0));
                 let result = self.fill_stat(&path, arg(1)).map(|()| 0);
                 self.libc_result(result)
             }
-            LibcFn::Fstat => {
+            LibcFn::Fstat | LibcFn::FstatTime64 => {
                 let fd = arg(0) as i32 as i64;
                 match self.fds.get(&fd).map(|f| f.path.clone()) {
                     Some(path) => {

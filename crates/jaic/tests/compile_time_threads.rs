@@ -65,7 +65,7 @@ fn code_parsed_on_a_started_thread_keeps_its_names() {
         backend: None,
         unwritten_output_hint: None,
         command_line: Vec::new(),
-        make_host: Box::new(|_| Box::new(jaic::interp::NativeHost)),
+        make_host: Box::new(|_, _| Box::new(jaic::interp::NativeHost)),
         report: Box::new(|_, message| panic!("unexpected diagnostic: {message}")),
         observer: None,
     });

@@ -12,7 +12,7 @@ pub enum Storage {
     Foreign(ForeignId),
 }
 
-/// A relocation inside a global's initial bytes: an 8-byte pointer slot at
+/// A relocation inside a global's initial bytes: a pointer slot (the target's pointer width) at
 /// `offset` that must hold the address of `target` plus `addend`.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Reloc {

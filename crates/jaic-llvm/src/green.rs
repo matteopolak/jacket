@@ -61,7 +61,7 @@ enum Reach {
 
 /// The program with its blocking procedures rewritten, or `None` when nothing needs it: the
 /// program cannot start a thread, or it has no `Wasi_Runtime`.
-pub fn instrument(program: &Program) -> Option<Program> {
+pub fn instrument(program: &Program, layout: &jaic::layout::DataLayout) -> Option<Program> {
     let exports: HashMap<&str, usize> = program
         .funcs
         .iter()
@@ -197,7 +197,7 @@ pub fn instrument(program: &Program) -> Option<Program> {
         .init
         .resize(global.init.len().max(CONTROL_SIZE as usize), 0);
     let enabled = ENABLED as usize;
-    global.init[enabled..enabled + 8].copy_from_slice(&1u64.to_le_bytes());
+    layout.write_u64(&mut global.init[enabled..], 1);
     let may_block = |callee: &Callee| match callee {
         Callee::Func(f) => blocks[f.0 as usize],
         Callee::Foreign(f) => bound[f.0 as usize].is_some_and(|f| blocks[f]),

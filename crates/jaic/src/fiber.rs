@@ -34,12 +34,26 @@ pub struct Context {
     pub stack_dealloc: u64,
 }
 
-/// Byte offsets of `Context`'s fields.
-pub const SP: u64 = 0;
+/// Byte offsets of `Context`'s fields in a program whose pointers are `pointer_size` bytes
+/// (`Fiber_Context` holds four pointers).
+pub const fn offsets(pointer_size: u8) -> FieldOffsets {
+    let step = pointer_size as u64;
+    FieldOffsets {
+        sp: 0,
+        stack_low: step,
+        stack_high: 2 * step,
+        stack_dealloc: 3 * step,
+    }
+}
 
-pub const STACK_LOW: u64 = 8;
-pub const STACK_HIGH: u64 = 16;
-pub const STACK_DEALLOC: u64 = 24;
+/// Where `Fiber_Context` keeps each field.
+#[derive(Clone, Copy, Debug)]
+pub struct FieldOffsets {
+    pub sp: u64,
+    pub stack_low: u64,
+    pub stack_high: u64,
+    pub stack_dealloc: u64,
+}
 
 /// The symbols the assembly defines (without the Mach-O underscore).
 pub const SWITCH: &str = "jaic_fiber_switch";
@@ -69,7 +83,10 @@ pub fn module_asm(arch: crate::abi::Arch, macho: bool) -> Option<String> {
             include_str!("fiber/aarch64-aapcs64.s"),
             false,
         ),
-        Arch::Wasm64 => return None,
+        Arch::X86 => ("", include_str!("fiber/i386-sysv.s"), !macho),
+        // No fiber switch for these yet: `fibers` is refused on them.
+        Arch::Arm32 => ("", include_str!("fiber/arm-aapcs32.s"), !macho),
+        Arch::Wasm | Arch::S390x => return None,
     };
     let note = if elf {
         ELF_NOTE
@@ -212,6 +229,7 @@ mod tests {
             (Arch::Aarch64, false),
             (Arch::Aarch64, true),
             (Arch::Win64Arm, false),
+            (Arch::X86, false),
         ] {
             let text = super::module_asm(arch, macho).unwrap();
             for routine in [super::SWITCH, super::PREPARE] {
@@ -222,9 +240,9 @@ mod tests {
             }
             assert_eq!(
                 text.contains(".note.GNU-stack"),
-                matches!(arch, Arch::X86_64 | Arch::Aarch64) && !macho
+                matches!(arch, Arch::X86_64 | Arch::Aarch64 | Arch::X86) && !macho
             );
         }
-        assert!(super::module_asm(Arch::Wasm64, false).is_none());
+        assert!(super::module_asm(Arch::Wasm, false).is_none());
     }
 }

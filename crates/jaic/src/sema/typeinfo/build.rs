@@ -477,7 +477,9 @@ impl Compiler {
                     relocs: Vec::new(),
                 };
                 for (_, v) in &info.members {
-                    values.bytes.extend_from_slice(&(*v as i64).to_le_bytes());
+                    values
+                        .bytes
+                        .extend_from_slice(&self.options.layout.s64_bytes(*v as i64));
                 }
                 self.set_view(
                     agg,

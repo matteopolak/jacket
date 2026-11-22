@@ -56,7 +56,7 @@ impl Compiler {
             }
             XOp::WidenA(to) => {
                 want(1, 1)?;
-                let from = Ty::int(to.size() / 2);
+                let from = Ty::int(to.numeric_size() / 2);
                 let v = self.asm_read(f, opds[0], from, span)?;
                 let v = resize(f, v, from, to, true);
                 self.asm_write(f, opds[0], to, v, span)?;
@@ -301,7 +301,7 @@ impl Compiler {
                 let acc = self.asm_read(f, opds[0], Ty::I32, span)?;
                 let data = self.asm_read(f, opds[1], src_sz, span)?;
                 let data = resize(f, data, src_sz, Ty::I64, false);
-                let crc = crc32c(f, acc, data, src_sz.size());
+                let crc = crc32c(f, acc, data, src_sz.numeric_size());
                 self.asm_write(f, opds[0], Ty::I32, crc, span)?;
             }
             _ => unreachable!("dispatched only for this group's operations"),

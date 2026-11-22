@@ -159,6 +159,8 @@ impl Compiler {
         options.os = os;
         options.cpu = cpu;
         options.long_double = host.long_double;
+        options.layout = host.layout;
+        let layout = options.layout;
         let mut twin = Box::new(Compiler::new(options, self.src.fs.clone()));
         twin.meta.twin = true;
         twin.meta.workspace = self.meta.workspace;
@@ -175,7 +177,7 @@ impl Compiler {
                 ))
             })?,
         };
-        twin.ct.interp = crate::interp::Interp::new(provider).into();
+        twin.ct.interp = crate::interp::Interp::new(provider, layout).into();
         twin.ct.interp.in_host_twin = true;
         if let Some(shared) = workspaces {
             twin.attach_workspaces(shared);

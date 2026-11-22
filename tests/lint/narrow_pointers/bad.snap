@@ -1,0 +1,47 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[narrow_pointers]: this changes the high half of a 64-bit pointer: the bits do not exist on 32-bit targets
+  --> tests/lint/narrow_pointers/bad.jai:10:13
+   |
+10 |     return (cast(u64) node) >> 48;
+   |             ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: a pointer is 4 bytes on 32-bit targets: keep tags in the low bits, or store them next to the pointer
+   = note: see https://jacket.matteopolak.com/lint-rules/narrow_pointers
+
+warning[narrow_pointers]: this changes the high half of a 64-bit pointer: the bits do not exist on 32-bit targets
+  --> tests/lint/narrow_pointers/bad.jai:14:13
+   |
+14 |     return (cast(u64) node) & 0x0000_ffff_ffff_ffff;
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: a pointer is 4 bytes on 32-bit targets: keep tags in the low bits, or store them next to the pointer
+   = note: see https://jacket.matteopolak.com/lint-rules/narrow_pointers
+
+warning[narrow_pointers]: this changes the high half of a 64-bit pointer: the bits do not exist on 32-bit targets
+  --> tests/lint/narrow_pointers/bad.jai:18:13
+   |
+18 |     return (cast(u64) node) | 0x8000_0000_0000_0000;
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: a pointer is 4 bytes on 32-bit targets: keep tags in the low bits, or store them next to the pointer
+   = note: see https://jacket.matteopolak.com/lint-rules/narrow_pointers
+
+warning[narrow_pointers]: this reads a pointer as a 64-bit integer: it is 4 bytes on 32-bit targets
+  --> tests/lint/narrow_pointers/bad.jai:23:12
+   |
+23 |     return cast(*u64) slot;
+   |            ^^^^^^^^^^^^^^^
+   |
+   = help: read the pointer through its own type
+   = note: see https://jacket.matteopolak.com/lint-rules/narrow_pointers
+
+warning[narrow_pointers]: the address 0x100000000 does not fit in a 32-bit pointer
+  --> tests/lint/narrow_pointers/bad.jai:27:12
+   |
+27 |     return cast(*Node) cast(u64) 0x1_0000_0000;
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use a value below 2^32, or build the pointer from a variable
+   = note: see https://jacket.matteopolak.com/lint-rules/narrow_pointers

@@ -37,6 +37,8 @@ struct Backend<'ctx, 'p> {
     program: &'p Program,
     arch: Arch,
     target: jaic::target::Target,
+    /// How the target lays out data.
+    layout: jaic::layout::DataLayout,
     shard: Option<Shard<'p>>,
     /// Functions of other modules this one holds a copy of (empty without a shard).
     imported: Vec<bool>,

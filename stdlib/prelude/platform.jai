@@ -23,6 +23,20 @@ CPU_Tag :: enum u32 {
     ARM64 :: 4;
 }
 
+// The CPU family `CPU_Tag` cannot name: every CPU it lacks is `.CUSTOM`. `ARCHITECTURE` is the
+// compiler's constant of this type.
+Architecture :: enum u32 {
+    X64 :: 0;
+    ARM64 :: 1;
+    X86 :: 2;
+    ARM :: 3;
+    S390X :: 4;
+    POWERPC64 :: 5;
+    WASM32 :: 6;
+    WASM64 :: 7;
+    AVR :: 8;
+}
+
 Workspace :: s64;
 
 get_current_workspace :: () -> Workspace #compiler;

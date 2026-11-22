@@ -1,5 +1,6 @@
 //! The register-word arithmetic against native Rust integer and float operations.
 use super::*;
+use crate::interp::FUNC_TAG;
 
 const INTS: [Ty; 4] = [Ty::I8, Ty::I16, Ty::I32, Ty::I64];
 const AMOUNTS: [u64; 16] = [0, 1, 2, 7, 8, 9, 15, 16, 17, 31, 32, 33, 63, 64, 65, 200];
@@ -27,7 +28,7 @@ const WORDS: [u64; 19] = [
 ];
 
 fn bits(ty: Ty) -> u32 {
-    ty.size() as u32 * 8
+    ty.numeric_size() as u32 * 8
 }
 
 /// `v` as a value of `ty`: the low bits, zero-extended.
@@ -224,13 +225,13 @@ fn only_division_and_remainder_can_fail() {
 
 #[test]
 fn addresses_below_the_first_page_and_tagged_procedures_are_not_plain() {
-    assert!(!plain_address(0));
-    assert!(!plain_address(4095));
-    assert!(plain_address(4096));
-    assert!(plain_address(0x7fff_0000_0000));
-    assert!(plain_address(FUNC_TAG - 1));
-    assert!(!plain_address(FUNC_TAG));
-    assert!(!plain_address(u64::MAX));
+    assert!(!plain_address(0, FUNC_TAG));
+    assert!(!plain_address(4095, FUNC_TAG));
+    assert!(plain_address(4096, FUNC_TAG));
+    assert!(plain_address(0x7fff_0000_0000, FUNC_TAG));
+    assert!(plain_address(FUNC_TAG - 1, FUNC_TAG));
+    assert!(!plain_address(FUNC_TAG, FUNC_TAG));
+    assert!(!plain_address(u64::MAX, FUNC_TAG));
 }
 
 #[test]

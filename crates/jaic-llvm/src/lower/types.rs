@@ -10,6 +10,14 @@ use jaic::abi::{self, Passing, PieceTy};
 use jaic::ir::{Conv, Sig, Ty, WideFloat};
 
 impl<'ctx> Backend<'ctx, '_> {
+    /// The integer as wide as a pointer.
+    pub(super) fn word_ty(&self) -> inkwell::types::IntType<'ctx> {
+        match self.layout.pointer_size {
+            4 => self.ctx.i32_type(),
+            _ => self.ctx.i64_type(),
+        }
+    }
+
     pub(super) fn ptr_ty(&self) -> PointerType<'ctx> {
         self.ctx.ptr_type(AddressSpace::default())
     }
@@ -44,6 +52,11 @@ impl<'ctx> Backend<'ctx, '_> {
             PieceTy::V2F32 => self.ctx.f32_type().vec_type(2).into(),
             PieceTy::X87 => self.ctx.x86_f80_type().into(),
             PieceTy::F128 => self.ctx.f128_type().into(),
+            PieceTy::Int(bytes) => self
+                .ctx
+                .custom_width_int_type(std::num::NonZeroU32::new(u32::from(bytes) * 8).unwrap())
+                .expect("an integer of 8 to 64 bits")
+                .into(),
         }
     }
 
@@ -66,7 +79,8 @@ impl<'ctx> Backend<'ctx, '_> {
         let forced_sret = cabi.is_some_and(|c| c.ret_indirect);
         let ret = match &ret_agg {
             Some(layout) => {
-                if let Some(pieces) = abi::classify_ret(self.arch, layout).filter(|_| !forced_sret)
+                if let Some(pieces) =
+                    abi::classify_ret(self.arch, layout, &self.layout).filter(|_| !forced_sret)
                 {
                     RetPlan::Registers(layout.clone(), pieces)
                 } else {
@@ -108,9 +122,9 @@ impl<'ctx> Backend<'ctx, '_> {
             let layout = cabi.and_then(|c| c.params.get(i).cloned().flatten());
             if let Some(layout) = layout {
                 let passing = if sig.c_varargs {
-                    abi::classify_vararg(self.arch, &layout)
+                    abi::classify_vararg(self.arch, &layout, &self.layout)
                 } else {
-                    abi::classify_arg(self.arch, &layout)
+                    abi::classify_arg(self.arch, &layout, &self.layout)
                 };
                 let passing = budget.aggregate(passing);
                 let array = passing.as_array(self.arch, sig.c_varargs);

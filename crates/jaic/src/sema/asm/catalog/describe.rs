@@ -33,7 +33,7 @@ fn float_lanes(ty: Ty, scalar: bool) -> String {
 }
 
 fn bits_of(ty: Ty) -> u64 {
-    ty.size() * 8
+    ty.numeric_size() * 8
 }
 
 fn condition(c: Cond) -> &'static str {

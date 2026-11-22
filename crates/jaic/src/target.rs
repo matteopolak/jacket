@@ -1,5 +1,6 @@
 //! Target selection shared by the command-line tools: `-os`, `-cpu` and `-target` names, and
 //! the `Options` they imply when a program is only checked.
+use crate::layout::DataLayout;
 use crate::sema::{Options, long_double_for};
 
 /// The operating system a program is built for.
@@ -19,6 +20,12 @@ pub enum TargetOs {
 pub enum TargetCpu {
     X64,
     Arm64,
+    /// 32-bit x86 (i686).
+    X86,
+    /// IBM z/Architecture (s390x), 64-bit big-endian.
+    S390x,
+    /// 32-bit ARM (armv7-a) with hard-float AAPCS.
+    Arm,
     Wasm,
 }
 
@@ -41,6 +48,9 @@ pub fn parse_cpu(name: &str) -> Option<TargetCpu> {
     match name {
         "x64" | "x86_64" => Some(TargetCpu::X64),
         "arm64" | "aarch64" => Some(TargetCpu::Arm64),
+        "x86" | "i686" => Some(TargetCpu::X86),
+        "s390x" => Some(TargetCpu::S390x),
+        "arm" | "armv7" | "armhf" => Some(TargetCpu::Arm),
         "wasm" => Some(TargetCpu::Wasm),
         _ => None,
     }
@@ -60,6 +70,9 @@ pub fn cpu_name(cpu: TargetCpu) -> &'static str {
     match cpu {
         TargetCpu::X64 => "x64",
         TargetCpu::Arm64 => "arm64",
+        TargetCpu::X86 => "x86",
+        TargetCpu::S390x => "s390x",
+        TargetCpu::Arm => "arm",
         TargetCpu::Wasm => "wasm",
     }
 }
@@ -81,7 +94,22 @@ pub fn cpu_member(cpu: TargetCpu) -> &'static str {
     match cpu {
         TargetCpu::X64 => "X64",
         TargetCpu::Arm64 => "ARM64",
-        TargetCpu::Wasm => "CUSTOM",
+        TargetCpu::X86 | TargetCpu::S390x | TargetCpu::Arm | TargetCpu::Wasm => "CUSTOM",
+    }
+}
+
+/// The `Architecture` member that names a target's CPU family, which `CPU_Tag` cannot: every
+/// CPU the spec enum lacks is `.CUSTOM`. A WebAssembly target's memory width tells wasm32 from
+/// wasm64.
+pub fn architecture_member(cpu: TargetCpu, pointer_bytes: u32) -> &'static str {
+    match (cpu, pointer_bytes) {
+        (TargetCpu::X64, _) => "X64",
+        (TargetCpu::Arm64, _) => "ARM64",
+        (TargetCpu::X86, _) => "X86",
+        (TargetCpu::S390x, _) => "S390X",
+        (TargetCpu::Arm, _) => "ARM",
+        (TargetCpu::Wasm, 4) => "WASM32",
+        (TargetCpu::Wasm, _) => "WASM64",
     }
 }
 
@@ -180,6 +208,9 @@ impl Target {
         let (cpu, memory32) = match parts[0] {
             "x86_64" | "x64" | "amd64" => (TargetCpu::X64, false),
             "aarch64" | "arm64" => (TargetCpu::Arm64, false),
+            "i686" | "i586" | "i486" | "i386" => (TargetCpu::X86, false),
+            "s390x" => (TargetCpu::S390x, false),
+            "arm" | "armv7" | "armv7a" | "armv7l" => (TargetCpu::Arm, false),
             "wasm32" => (TargetCpu::Wasm, true),
             "wasm64" => (TargetCpu::Wasm, false),
             _ => return Err(format!("unsupported target architecture in `{triple}`")),
@@ -187,6 +218,23 @@ impl Target {
         let gnu = parts
             .iter()
             .any(|p| p.starts_with("gnu") || p.starts_with("mingw"));
+        if matches!(cpu, TargetCpu::X86 | TargetCpu::S390x | TargetCpu::Arm)
+            && !parts.contains(&"linux")
+        {
+            return Err(format!(
+                "unsupported target OS in `{triple}`: {} is built for Linux only",
+                match cpu {
+                    TargetCpu::X86 => "32-bit x86",
+                    TargetCpu::Arm => "32-bit ARM",
+                    _ => "s390x",
+                }
+            ));
+        }
+        if cpu == TargetCpu::Arm && !parts.iter().any(|p| p.ends_with("eabihf")) {
+            return Err(format!(
+                "unsupported target environment in `{triple}`: 32-bit ARM is built for hard-float (`gnueabihf`, `musleabihf`)"
+            ));
+        }
         let (os, abi) = if cpu == TargetCpu::Wasm {
             // `wasm64-unknown-wasi`, `wasm32-wasi`, `wasm32-unknown-unknown`.
             let system = parts.get(2).or(parts.get(1)).copied();
@@ -241,10 +289,51 @@ impl Target {
         })
     }
 
+    /// How this target lays out data. The one place a layout is chosen. `wasm32` has 4-byte
+    /// pointers; the rest are 64-bit little-endian.
+    pub fn data_layout(self) -> DataLayout {
+        let mut layout = DataLayout::lp64_little();
+        if self.cpu == TargetCpu::Wasm && self.memory32 {
+            layout.pointer_size = 4;
+            layout.pointer_align = 4;
+            layout.c.long = 4;
+            layout.c.size_t = 4;
+        }
+        if self.cpu == TargetCpu::X86 {
+            // System V i386: `s64` and `float64` align to 4, and `long double` is 12 bytes.
+            layout.pointer_size = 4;
+            layout.pointer_align = 4;
+            layout.int_align = [1, 2, 4, 4];
+            layout.float_align = [4, 4];
+            layout.f80_size = 12;
+            layout.f80_align = 4;
+            layout.c.long = 4;
+            layout.c.size_t = 4;
+        }
+        if self.cpu == TargetCpu::Arm {
+            // AAPCS: 4-byte pointers and `long`, 8-byte `s64` and `float64` alignment, and a
+            // `long double` that is a plain `double`.
+            layout.pointer_size = 4;
+            layout.pointer_align = 4;
+            layout.c.long = 4;
+            layout.c.size_t = 4;
+        }
+        if self.cpu == TargetCpu::S390x {
+            // z/Architecture ELF: big-endian, `long double` is a 16-byte binary128 aligned to 8.
+            layout.endian = crate::layout::Endian::Big;
+        }
+        // LLP64: `long` stays 32 bits on 64-bit Windows.
+        if self.os == TargetOs::Windows {
+            layout.c.long = 4;
+        }
+        layout
+    }
+
     /// Make `options` target this.
     pub fn apply(self, options: &mut Options) {
         options.os = self.os;
         options.cpu = self.cpu;
+        options.layout = self.data_layout();
         options.long_double = long_double_for(self.os, self.cpu, self.abi == TargetAbi::Gnu);
     }
 
@@ -279,8 +368,10 @@ impl Target {
             (TargetCpu::Arm64, _) => Some(Arch::Aarch64),
             (TargetCpu::X64, TargetOs::Windows) => Some(Arch::Win64),
             (TargetCpu::X64, _) => Some(Arch::X86_64),
-            (TargetCpu::Wasm, _) if !self.memory32 => Some(Arch::Wasm64),
-            (TargetCpu::Wasm, _) => None,
+            (TargetCpu::X86, _) => Some(Arch::X86),
+            (TargetCpu::S390x, _) => Some(Arch::S390x),
+            (TargetCpu::Arm, _) => Some(Arch::Arm32),
+            (TargetCpu::Wasm, _) => Some(Arch::Wasm),
         }
     }
 }
@@ -298,6 +389,9 @@ impl std::fmt::Display for Target {
         let arch = match self.cpu {
             TargetCpu::X64 => "x86_64",
             TargetCpu::Arm64 => "aarch64",
+            TargetCpu::X86 => "i686",
+            TargetCpu::S390x => "s390x",
+            TargetCpu::Arm => "armv7",
             TargetCpu::Wasm if self.memory32 => return write!(f, "wasm32-{}", self.wasm_system()),
             TargetCpu::Wasm => return write!(f, "wasm64-{}", self.wasm_system()),
         };
@@ -305,6 +399,12 @@ impl std::fmt::Display for Target {
             (TargetOs::Windows, TargetAbi::Gnu) => "pc-windows-gnu",
             (TargetOs::Windows, _) => "pc-windows-msvc",
             (TargetOs::MacOS, _) => "apple-darwin",
+            (TargetOs::Linux, TargetAbi::Gnu) if self.cpu == TargetCpu::Arm => {
+                "unknown-linux-gnueabihf"
+            }
+            (TargetOs::Linux, TargetAbi::Musl) if self.cpu == TargetCpu::Arm => {
+                "unknown-linux-musleabihf"
+            }
             (TargetOs::Linux, TargetAbi::Gnu) => "unknown-linux-gnu",
             (TargetOs::Linux, TargetAbi::Musl) => "unknown-linux-musl",
             (TargetOs::Linux, _) => "unknown-linux",
@@ -402,6 +502,11 @@ pub fn select_os_cpu(options: &mut Options, os: Option<TargetOs>, cpu: Option<Ta
             TargetCpu::X64
         }),
     };
+    options.layout = Target {
+        memory32: false,
+        ..Target::new(options.os, options.cpu)
+    }
+    .data_layout();
     options.long_double = long_double_for(
         options.os,
         options.cpu,
@@ -651,10 +756,39 @@ mod tests {
             ("aarch64-unknown-linux-gnu", Some(Arch::Aarch64)),
             ("aarch64-none-elf", Some(Arch::Aarch64)),
             ("x86_64-unknown-linux-gnu", Some(Arch::X86_64)),
-            ("wasm64-unknown-unknown", Some(Arch::Wasm64)),
-            ("wasm32-unknown-unknown", None),
+            ("wasm64-unknown-unknown", Some(Arch::Wasm)),
+            ("wasm32-unknown-unknown", Some(Arch::Wasm)),
         ] {
             assert_eq!(Target::parse(triple).unwrap().arch(), arch, "{triple}");
         }
+    }
+
+    /// `i686` is 32-bit x86 on Linux with 4-byte pointers, `s64` and `float64` aligned to 4 and
+    /// a 12-byte `long double`; any other OS is refused.
+    #[test]
+    fn i686_linux_is_a_32_bit_x86_target() {
+        for triple in [
+            "i686-unknown-linux-gnu",
+            "i686-unknown-linux-musl",
+            "i386-linux-gnu",
+        ] {
+            let target = Target::parse(triple).unwrap();
+            assert_eq!((target.os, target.cpu), (TargetOs::Linux, TargetCpu::X86));
+            let layout = target.data_layout();
+            assert_eq!(
+                (layout.pointer_size, layout.c.long, layout.c.size_t),
+                (4, 4, 4)
+            );
+            assert_eq!((layout.int_align_of(8), layout.float_align_of(8)), (4, 4));
+            assert_eq!((layout.f80_size, layout.f80_align), (12, 4));
+        }
+        assert_eq!(
+            Target::parse("i686-unknown-linux-musl")
+                .unwrap()
+                .to_string(),
+            "i686-unknown-linux-musl"
+        );
+        assert!(Target::parse("i686-pc-windows-msvc").is_err());
+        assert!(Target::parse("i686-apple-darwin").is_err());
     }
 }

@@ -164,6 +164,7 @@ pub fn callback_addr(
     sig: &Sig,
 ) -> Result<u64, String> {
     let arch = Arch::host().ok_or("native callbacks are not available on this CPU")?;
+    let host = crate::layout::DataLayout::host();
     if sig.c_varargs {
         return Err("a variadic procedure cannot be called from C in the interpreter".into());
     }
@@ -192,7 +193,7 @@ pub fn callback_addr(
         None if sig.returns.first().is_some_and(|t| t.is_float()) => (FLOAT, false),
         None => (INT, false),
         Some(layout) => match (!forced_sret)
-            .then(|| abi::classify_ret(arch, layout))
+            .then(|| abi::classify_ret(arch, layout, &host))
             .flatten()
         {
             Some(pieces) => (shape_of(&pieces)?, false),
@@ -583,6 +584,8 @@ fn invoke(
 ) -> Result<Vec<u64>, Trap> {
     // `callback_addr` makes thunks only on CPUs it knows.
     let arch = Arch::host().expect("a thunk on an unknown CPU");
+    // A callback from C follows the host's C ABI, whatever the program's own layout.
+    let host = crate::layout::DataLayout::host();
     let cabi = sig.c_abi.as_deref();
     let ret_layout = cabi.and_then(|c| c.ret.as_ref());
     // x86-64 has six integer argument registers (the hidden result pointer takes the first).
@@ -612,8 +615,8 @@ fn invoke(
             } else {
                 incoming.ni == incoming.ints.len()
             };
-            if full && super::PACKED_STACK && param.size() < 8 {
-                args.push(incoming.packed(param.size() as usize));
+            if full && super::PACKED_STACK && param.size(&host) < 8 {
+                args.push(incoming.packed(param.size(&host) as usize));
                 continue;
             }
             args.push(if param.is_float() {
@@ -625,7 +628,7 @@ fn invoke(
         };
         let mut buffer = vec![0u64; layout.size.div_ceil(8).max(1) as usize];
         let base = buffer.as_mut_ptr() as u64;
-        match abi::classify_arg(arch, layout) {
+        match abi::classify_arg(arch, layout, &host) {
             Passing::Registers(pieces) if incoming.fits(&pieces) => {
                 for p in &pieces {
                     let v = if p.ty == PieceTy::I64 {
@@ -673,7 +676,7 @@ fn invoke(
         };
         return Ok(vec![out]);
     }
-    let pieces = abi::classify_ret(arch, layout).unwrap_or_default();
+    let pieces = abi::classify_ret(arch, layout, &host).unwrap_or_default();
     // SAFETY: `result` holds `layout.size` bytes.
     Ok(pieces
         .iter()

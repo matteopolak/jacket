@@ -514,6 +514,42 @@ jobs:
           target/debug/jaic jaifmt/wasm.jai -os wasm -O2 -no_debug_info -exe target/jaifmt.wasm
           ls -l target/jaifmt.wasm
           node --no-warnings tools/browser/check_jaifmt_wasm.ts wasi target/jaifmt.wasm target/jaifmt
+      - name: WebAssembly 32-bit stdlib
+        id: wasm32-stdlib
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',diff,') && runner.os == 'Linux' && matrix.architecture == 'x86_64' }}
+        # Every stdlib test built for wasm32-wasi (4-byte pointers) and run under node.
+        run: |
+          cargo build --locked -p jaic-cli -p jacket
+          cd stdlib
+          ../target/debug/jacket test --runner "node --no-warnings $PWD/../tools/wasi_run.ts" -- -target wasm32-wasi
+      - name: Linux i686 stdlib
+        id: i686-stdlib
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',diff,') && runner.os == 'Linux' && matrix.architecture == 'x86_64' }}
+        # The stdlib roots that are fully green on i686 (4-byte pointers, 4-aligned 64-bit integers),
+        # linked with gcc -m32 and run natively: an x86-64 kernel runs 32-bit programs
+        # (docs/compiler/targets.md). Add a root to tools/dev/i686-roots.txt when it passes; docs/native/n-bit-and-embedded.md.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-multilib
+          cargo build --locked -p jaic-cli -p jacket
+          cd stdlib
+          grep -v '^#' ../tools/dev/i686-roots.txt | while read -r root; do
+            (cd "$root" && ../../target/debug/jacket test -- -target i686-unknown-linux-gnu) || exit 1
+          done
+      - name: Linux s390x stdlib
+        id: s390x-stdlib
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',diff,') && runner.os == 'Linux' && matrix.architecture == 'x86_64' }}
+        # Big-endian: the roots in tools/dev/s390x-roots.txt, cross-linked with gcc and run under
+        # qemu-user (docs/compiler/targets.md). Add a root there when it passes.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-user gcc-s390x-linux-gnu libc6-dev-s390x-cross
+          cargo build --locked -p jaic-cli -p jacket
+          cd stdlib
+          export JAIC_LINKER=s390x-linux-gnu-gcc
+          grep -v '^#' ../tools/dev/s390x-roots.txt | while read -r root; do
+            (cd "$root" && ../../target/debug/jacket test --runner "qemu-s390x -L /usr/s390x-linux-gnu" -- -target s390x-unknown-linux-gnu) || exit 1
+          done
   vscode-extension:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.jobs), 'vscode-extension')

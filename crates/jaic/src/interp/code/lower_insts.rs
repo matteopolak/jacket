@@ -258,7 +258,7 @@ impl Builder<'_> {
             } => self.push(
                 Op::Const {
                     dst: self.v(dst),
-                    value: super::super::FUNC_TAG | func.0 as u64,
+                    value: super::super::proc_addr::func_word(self.layout.pointer_size < 8, func),
                 },
                 None,
             ),

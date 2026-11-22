@@ -442,14 +442,18 @@ impl Compiler {
                 if self.ty.types.is_float(r) {
                     return self.write_value(agg, offset, &Value::float(*i as f64), ty, span);
                 }
-                let bytes = (*i as u128).to_le_bytes();
-                agg.bytes[o..o + size as usize].copy_from_slice(&bytes[..size as usize]);
+                let n = size.min(8) as usize;
+                self.options
+                    .layout
+                    .write_uint(&mut agg.bytes[o..o + n], *i as u64);
             }
             Value::Float(x, _) => {
                 if r == TypeId::F32 {
-                    agg.bytes[o..o + 4].copy_from_slice(&(*x as f32).to_le_bytes());
+                    self.options
+                        .layout
+                        .write_f32(&mut agg.bytes[o..], *x as f32);
                 } else {
-                    agg.bytes[o..o + 8].copy_from_slice(&x.to_le_bytes());
+                    self.options.layout.write_f64(&mut agg.bytes[o..], *x);
                 }
             }
             Value::Bool(b) => agg.bytes[o] = *b as u8,
@@ -467,11 +471,14 @@ impl Compiler {
                         ),
                     );
                 }
-                agg.bytes[o..o + 8].copy_from_slice(&(s.len() as u64).to_le_bytes());
+                let view = self.ty.types.builtins().view;
+                self.options
+                    .layout
+                    .write_u64(&mut agg.bytes[o + view.count as usize..], s.len() as u64);
                 if !s.is_empty() {
                     let g = self.out.string_global(s);
                     agg.relocs.push(ir::Reloc {
-                        offset: offset + 8,
+                        offset: offset + view.data,
                         target: ir::RelocTarget::Global(g),
                         addend: 0,
                     });
@@ -497,7 +504,10 @@ impl Compiler {
                 });
             }
             Value::Bytes(inner) => write_agg(agg, offset, inner),
-            Value::Code(c) => agg.bytes[o..o + 8].copy_from_slice(&(c.0 as u64).to_le_bytes()),
+            Value::Code(c) => self
+                .options
+                .layout
+                .write_ptr(&mut agg.bytes[o..], c.0 as u64),
         }
         Ok(())
     }

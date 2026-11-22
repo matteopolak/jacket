@@ -30,6 +30,10 @@ pub struct StringCompare {
 /// assert_eq!(r.result, 0b11100);
 /// assert!(r.b_ends && r.a_ends);
 /// ```
+#[allow(
+    clippy::disallowed_methods,
+    reason = "compares UTF-16LE text, whose byte order is part of the format"
+)]
 pub fn string_compare(
     ctl: u8,
     explicit: bool,

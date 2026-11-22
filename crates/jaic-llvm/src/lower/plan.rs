@@ -80,6 +80,7 @@ pub fn lower_program<'ctx>(
         builder: context.create_builder(),
         program,
         arch,
+        layout: target.data_layout(),
         target,
         shard,
         imported: shard.map_or_else(Vec::new, |s| {

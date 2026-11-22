@@ -32,7 +32,13 @@ impl Interp {
                     // Like a load or store, a copy goes through the program's pointers directly,
                     // so a bad one faults as it would natively.
                     // SAFETY: the program's own memmove.
-                    unsafe { std::ptr::copy(a[1] as *const u8, a[0] as *mut u8, len) };
+                    unsafe {
+                        std::ptr::copy(
+                            self.host_addr(a[1]) as *const u8,
+                            self.host_addr(a[0]) as *mut u8,
+                            len,
+                        )
+                    };
                 }
                 Rets::default()
             }
@@ -46,7 +52,9 @@ impl Interp {
                     };
                     self.check_writable(a[0], len)?;
                     // SAFETY: the program's own memset, as for memcpy.
-                    unsafe { std::ptr::write_bytes(a[0] as *mut u8, a[1] as u8, len) };
+                    unsafe {
+                        std::ptr::write_bytes(self.host_addr(a[0]) as *mut u8, a[1] as u8, len)
+                    };
                 }
                 Rets::default()
             }
@@ -66,8 +74,9 @@ impl Interp {
                     }
                     // SAFETY: the program's own memcmp, as for memcpy.
                     let ordering = unsafe {
-                        std::slice::from_raw_parts(a[0] as *const u8, n)
-                            .cmp(std::slice::from_raw_parts(a[1] as *const u8, n))
+                        std::slice::from_raw_parts(self.host_addr(a[0]) as *const u8, n).cmp(
+                            std::slice::from_raw_parts(self.host_addr(a[1]) as *const u8, n),
+                        )
                     };
                     match ordering {
                         std::cmp::Ordering::Less => -1,

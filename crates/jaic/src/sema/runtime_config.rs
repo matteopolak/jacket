@@ -180,8 +180,8 @@ impl Compiler {
             let global = self.out.program.add_global(ir::Global {
                 name: super::private_names::TEMPORARY_STORAGE_SIZE_LABEL.into(),
                 size: 8,
-                align: 8,
-                init: size.to_le_bytes().to_vec(),
+                align: self.options.layout.int_align_of(8),
+                init: self.options.layout.s64_bytes(size),
                 relocs: Vec::new(),
                 read_only: true,
                 export: None,
@@ -398,7 +398,7 @@ impl Compiler {
             ))));
         }
         if let Some(global) = self.out.runtime_storage_global {
-            self.out.program.globals[global.0 as usize].init = size.to_le_bytes().to_vec();
+            self.out.program.globals[global.0 as usize].init = self.options.layout.s64_bytes(size);
             self.ct
                 .interp
                 .refresh_global(&self.out.program, global)

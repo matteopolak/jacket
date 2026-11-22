@@ -719,6 +719,8 @@ impl Compiler {
             .preload_type(PreludeType::StackTraceProcedureInfo, span)
             .ok()?;
         let location = self.location_layout(span).ok()?;
+        let layout = self.options.layout;
+        let (pointer, view) = (layout.ptr_bytes(), layout.builtins().view.size);
         let field = |s: &mut Self, ty: TypeId, name: &str, size: u64| -> Option<u64> {
             let (offset, fty) = s.member_offset(ty, name, span).ok()??;
             (s.size_of(fty, span).ok()? == size).then_some(offset)
@@ -731,22 +733,22 @@ impl Compiler {
             return None;
         }
         Some(ir::TraceLayout {
-            context: field(self, context, "stack_trace", 8)?,
+            context: field(self, context, "stack_trace", pointer)?,
             node: ir::TraceNodeLayout {
                 size: self.size_of(node, span).ok()?,
-                next: field(self, node, "next", 8)?,
-                info: field(self, node, "info", 8)?,
+                next: field(self, node, "next", pointer)?,
+                info: field(self, node, "info", pointer)?,
                 hash: field(self, node, "hash", 8)?,
                 call_depth: field(self, node, "call_depth", 4)?,
                 line_number: field(self, node, "line_number", 4)?,
             },
             info: ir::TraceInfoLayout {
                 size: self.size_of(info, span).ok()?,
-                name: field(self, info, "name", 16)?,
+                name: field(self, info, "name", view)?,
                 path: location_at + location.path,
                 line: location_at + location.line,
                 column: location_at + location.column,
-                procedure_address: field(self, info, "procedure_address", 8)?,
+                procedure_address: field(self, info, "procedure_address", pointer)?,
             },
         })
     }
@@ -760,7 +762,7 @@ impl Compiler {
         self.reject_c_library_calls_without_a_c_library()?;
         self.enable_stack_traces(Span::NONE);
         if let Some(layout) = self.out.program.stack_trace {
-            crate::stack_trace::instrument(&mut self.out.program, &layout);
+            crate::stack_trace::instrument(&mut self.out.program, &layout, &self.options.layout);
         }
         if self.options.debug_info {
             self.collect_debug_types();
@@ -826,16 +828,28 @@ impl Compiler {
         let (argc, argv) = if args.is_empty() {
             (0, 0)
         } else {
-            let pointers: Vec<u64> = args
-                .iter()
-                .map(|arg| {
-                    let mut bytes = arg.as_bytes().to_vec();
-                    bytes.push(0);
-                    Box::leak(bytes.into_boxed_slice()).as_ptr() as u64
-                })
-                .chain(std::iter::once(0))
-                .collect();
-            let argv = Box::leak(pointers.into_boxed_slice()).as_ptr() as u64;
+            let interp = &mut self.ct.interp;
+            let mut pointers = Vec::with_capacity(args.len() + 1);
+            for arg in args {
+                let mut bytes = arg.as_bytes().to_vec();
+                bytes.push(0);
+                let Some(address) = interp.keep(&bytes, 1) else {
+                    return err(
+                        Code::RuntimeConfigurationInvalid,
+                        Span::NONE,
+                        "cannot allocate the program's arguments",
+                    );
+                };
+                pointers.push(address);
+            }
+            pointers.push(0);
+            let Some(argv) = interp.keep_pointers(&pointers) else {
+                return err(
+                    Code::RuntimeConfigurationInvalid,
+                    Span::NONE,
+                    "cannot allocate the program's arguments",
+                );
+            };
             (args.len() as u64, argv)
         };
         let Some(main) = self.exported_func("main") else {

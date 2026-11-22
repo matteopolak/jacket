@@ -131,7 +131,7 @@ mod tests {
         unsafe extern "C" {
             fn dlerror() -> *const std::ffi::c_char;
         }
-        let _interp = crate::interp::Interp::default();
+        let _interp = crate::interp::Interp::native(crate::layout::DataLayout::host());
         let system = library("libc", true);
         let symbol = "sem_wait";
         let address = host_address(symbol).unwrap();

@@ -326,6 +326,10 @@ mod native {
             }
         }
 
+        #[allow(
+            clippy::disallowed_methods,
+            reason = "the service frame is a host-side length prefix, not program data"
+        )]
         fn answer(&mut self, request: Vec<u8>) -> ServiceReply {
             if request.len() as u64 > MAX_FRAME {
                 return ServiceReply::failed("the request is larger than 256 MiB");
@@ -498,6 +502,10 @@ mod native {
         }
     }
 
+    #[allow(
+        clippy::disallowed_methods,
+        reason = "the service frame is a host-side length prefix, not program data"
+    )]
     fn read_answer(from: &mut impl Read) -> Result<ServiceReply, String> {
         let mut length = [0u8; 8];
         from.read_exact(&mut length)

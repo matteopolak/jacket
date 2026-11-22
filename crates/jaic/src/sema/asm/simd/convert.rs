@@ -207,7 +207,7 @@ impl Compiler {
         match conv {
             Conv::IntToFloat(from, to, unsigned) => {
                 let (s, _) = self.simd_args(f, ops, 1, false, span)?;
-                let n = width / from.size().max(to.size());
+                let n = width / from.numeric_size().max(to.numeric_size());
                 for i in 0..n {
                     let x = load_lane(f, s[0], i, from);
                     let op = if unsigned {
@@ -218,7 +218,7 @@ impl Compiler {
                     let r = f.b.conv(op, from, to, x);
                     store_lane(f, tmp, i, to, r);
                 }
-                self.simd_out(f, cx, dst, tmp, n * to.size(), span)
+                self.simd_out(f, cx, dst, tmp, n * to.numeric_size(), span)
             }
             Conv::FloatToInt(from, to, trunc, unsigned) => {
                 let (s, _) = self.simd_args(f, ops, 1, false, span)?;
@@ -227,17 +227,17 @@ impl Compiler {
                     (None, true) => 'z',
                     _ => 'n',
                 };
-                let n = width / from.size().max(to.size());
+                let n = width / from.numeric_size().max(to.numeric_size());
                 for i in 0..n {
                     let x = load_lane(f, s[0], i, from);
                     let r = float_to_int(f, from, x, to, mode, unsigned);
                     store_lane(f, tmp, i, to, r);
                 }
-                self.simd_out(f, cx, dst, tmp, n * to.size(), span)
+                self.simd_out(f, cx, dst, tmp, n * to.numeric_size(), span)
             }
             Conv::FloatToFloat(from, to) => {
                 let (s, _) = self.simd_args(f, ops, 1, false, span)?;
-                let n = width / from.size().max(to.size());
+                let n = width / from.numeric_size().max(to.numeric_size());
                 for i in 0..n {
                     let x = load_lane(f, s[0], i, from);
                     let op = if from == Ty::F32 {
@@ -248,7 +248,7 @@ impl Compiler {
                     let r = f.b.conv(op, from, to, x);
                     store_lane(f, tmp, i, to, r);
                 }
-                self.simd_out(f, cx, dst, tmp, n * to.size(), span)
+                self.simd_out(f, cx, dst, tmp, n * to.numeric_size(), span)
             }
             Conv::ScalarFloat(from, to) => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;

@@ -218,6 +218,36 @@ fn fibers_switch_stacks_like_the_interpreter() {
     }
 }
 
+/// The same stack switching in a 32-bit x86 Linux executable, run under `qemu-i386`. Skipped
+/// unless `qemu-i386` is installed (`JAIC_REQUIRE_TOOLCHAIN=qemu-i386` makes that an error);
+/// building needs an i686 C toolchain, see docs/compiler/targets.md.
+#[test]
+fn fibers_switch_stacks_on_i686() {
+    let Some(qemu) = toolchain::optional("qemu-i386") else {
+        return;
+    };
+    let dir = TempDir::new("fibers-i686");
+    let source = repo_root().join("tests/compiler/native/fibers/switch.jai");
+    let exe = dir.join("switch-i686");
+    let build = jaic()
+        .arg(&source)
+        .args(["-target", "i686-unknown-linux-gnu", "-exe"])
+        .arg(&exe)
+        .current_dir(source.parent().unwrap())
+        .output()
+        .unwrap();
+    assert!(
+        build.status.success(),
+        "{}",
+        String::from_utf8_lossy(&build.stderr)
+    );
+    let run = Command::new(qemu).arg(&exe).output().unwrap();
+    assert!(run.status.success());
+    let stdout = String::from_utf8_lossy(&run.stdout);
+    assert!(stdout.ends_with("hops 3\nok\n"), "{stdout}");
+    assert!(stdout.starts_with("mismatches 0\n"), "{stdout}");
+}
+
 /// A fiber that runs off its stack stops the program with a message naming the problem, and
 /// the interpreter reports its own stack limit.
 #[test]

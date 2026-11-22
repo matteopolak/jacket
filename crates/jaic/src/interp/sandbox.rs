@@ -280,6 +280,9 @@ pub struct SandboxHost {
     /// Write order across the two streams: `(to_stderr, bytes)` runs, adjacent runs merged.
     pub order: Vec<(bool, usize)>,
     allocations: HashMap<u64, (ZeroedBlock, usize)>,
+    /// The program's window, when its pointers are narrower than the host's: where everything
+    /// the stand-ins hand the program comes from.
+    window: Option<std::sync::Arc<super::Window>>,
     #[cfg(unix)]
     mappings: BTreeMap<u64, virtual_memory::Mapping>,
     /// Bytes held by `mappings`, capped at `virtual_memory::MAX_MAPPED_BYTES`.
@@ -301,6 +304,8 @@ pub struct SandboxHost {
     dirs: HashMap<u64, DirStream>,
     /// Darwin POSIX layouts and configuration query numbers for host-target metaprograms.
     darwin_files: bool,
+    /// Linux i686 file records (`struct stat` with 4-byte alignment for 8-byte fields).
+    i686_files: bool,
     errno_cell: u64,
     /// Windows' `GetLastError`.
     windows: super::windows::WindowsCalls,
@@ -332,6 +337,12 @@ impl SandboxHost {
     /// Call before running a different target's code.
     pub fn set_file_target(&mut self, os: crate::target::TargetOs) {
         self.darwin_files = os == crate::target::TargetOs::MacOS;
+    }
+
+    /// Select the CPU whose C records the guest uses. Only 32-bit x86 differs from the
+    /// 64-bit Linux records the sandbox writes by default.
+    pub fn set_cpu(&mut self, cpu: crate::target::TargetCpu) {
+        self.i686_files = cpu == crate::target::TargetCpu::X86;
     }
 
     /// Stop all code running on this host `limit` from now: the check it belongs to has a
@@ -400,7 +411,7 @@ impl SandboxHost {
     /// A zeroed 16-byte aligned block, or null when the request cannot be met (like `malloc`;
     /// an infallible allocation would abort the whole compiler on `alloc(1 << 60)`).
     fn alloc(&mut self, size: usize) -> u64 {
-        let Some(block) = ZeroedBlock::new(size, 16) else {
+        let Some(block) = ZeroedBlock::in_window(self.window.as_ref(), size, 16) else {
             return 0;
         };
         let addr = block.addr();
@@ -545,6 +556,10 @@ impl SandboxHost {
         Some(target)
     }
 
+    #[allow(
+        clippy::disallowed_methods,
+        reason = "the sandbox writes interpreter memory, which is host memory"
+    )]
     fn fill_stat(&self, path: &str, out: u64) -> Result<(), u64> {
         let links = 1 + self
             .fs
@@ -559,8 +574,16 @@ impl SandboxHost {
         } else {
             return Err(ENOENT);
         };
-        // Both supported records occupy 144 bytes, but their fields differ.
-        fill(out, 0, 144);
+        // The 64-bit records occupy 144 bytes, but their fields differ; i686's takes 108.
+        fill(
+            out,
+            0,
+            if self.i686_files {
+                108
+            } else {
+                144
+            },
+        );
         let put = |off: u64, v: u64, width: usize| {
             write_bytes(out + off, &v.to_le_bytes()[..width]);
         };
@@ -576,6 +599,20 @@ impl SandboxHost {
             put(96, size as u64, 8);
             put(104, (size as u64).div_ceil(512), 8);
             put(112, 4096, 4);
+            return Ok(());
+        }
+        if self.i686_files {
+            // 8-byte fields sit on 4-byte boundaries and `timespec` is 16 bytes.
+            put(0, 1, 8); // st_dev
+            put(8, self.fs.inode(path), 8); // st_ino
+            put(16, mode as u64, 4);
+            put(20, links, 4); // st_nlink
+            put(40, size as u64, 8);
+            put(48, 4096, 4); // st_blksize
+            put(52, (size as u64).div_ceil(512), 8); // st_blocks
+            for off in [60, 76, 92] {
+                put(off, mtime, 8);
+            }
             return Ok(());
         }
         // Linux x86-64 `struct stat` (also the stdlib's wasm record).
@@ -631,6 +668,10 @@ fn cstr(ptr: u64) -> String {
 }
 
 impl Host for SandboxHost {
+    fn attach_window(&mut self, window: &std::sync::Arc<super::Window>) {
+        self.window = Some(window.clone());
+    }
+
     fn stop_requested(&mut self) -> bool {
         self.has_stopped()
     }
@@ -726,6 +767,10 @@ impl Host for SandboxHost {
 pub struct SharedHost(pub Rc<RefCell<SandboxHost>>);
 
 impl Host for SharedHost {
+    fn attach_window(&mut self, window: &std::sync::Arc<super::Window>) {
+        self.0.borrow_mut().attach_window(window);
+    }
+
     fn write(&mut self, bytes: &[u8], to_stderr: bool) {
         self.0.borrow_mut().write(bytes, to_stderr);
     }

@@ -8,6 +8,7 @@
 //! Jai calling convention (`Conv::Jai`): an optional leading context pointer,
 //! then each parameter (aggregates by pointer to a caller-owned copy), then one
 //! out-pointer per aggregate result. Scalar results are returned directly.
+use crate::layout::DataLayout;
 mod analysis;
 mod builder;
 mod checks;
@@ -74,13 +75,48 @@ pub enum Ty {
 }
 
 impl Ty {
-    pub fn size(self) -> u64 {
+    /// Bytes in memory on a target laid out as `layout`: a pointer is the target's, and an x87
+    /// `long double` is 12 bytes on i686 and 16 on x86-64.
+    pub fn size(self, layout: &DataLayout) -> u64 {
         match self {
             Ty::I8 => 1,
             Ty::I16 => 2,
             Ty::I32 | Ty::F32 => 4,
-            Ty::I64 | Ty::F64 | Ty::Ptr => 8,
-            Ty::F80 | Ty::F128 => 16,
+            Ty::I64 | Ty::F64 => 8,
+            Ty::Ptr => layout.ptr_bytes(),
+            Ty::F80 => layout.f80_size as u64,
+            Ty::F128 => 16,
+        }
+    }
+
+    /// Bytes of a class whose size is the same on every target: the integers and `float32` and
+    /// `float64` (the lanes of vector code and the widths of arithmetic). A pointer or an x87
+    /// `long double` has no such size, so asking one is a bug: use [`Ty::size`].
+    pub fn numeric_size(self) -> u64 {
+        match self {
+            Ty::I8 => 1,
+            Ty::I16 => 2,
+            Ty::I32 | Ty::F32 => 4,
+            Ty::I64 | Ty::F64 => 8,
+            Ty::F128 => 16,
+            Ty::Ptr | Ty::F80 => {
+                unreachable!("the size of {self:?} depends on the target's data layout")
+            }
+        }
+    }
+
+    /// The alignment in bytes on a target laid out as `layout`.
+    pub fn align(self, layout: &DataLayout) -> u64 {
+        match self {
+            Ty::I8 => layout.int_align_of(1),
+            Ty::I16 => layout.int_align_of(2),
+            Ty::I32 => layout.int_align_of(4),
+            Ty::I64 => layout.int_align_of(8),
+            Ty::F32 => layout.float_align_of(4),
+            Ty::F64 => layout.float_align_of(8),
+            Ty::Ptr => layout.pointer_align as u64,
+            Ty::F80 => layout.f80_align as u64,
+            Ty::F128 => 16,
         }
     }
 

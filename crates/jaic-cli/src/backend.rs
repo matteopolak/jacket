@@ -521,6 +521,7 @@ impl OutputBackend for LlvmBackend {
                 let start = jaic::ir::Linkage::Export("_start".into());
                 jaic_native::link_wasm(&jaic_native::WasmLink {
                     objects: &objects,
+                    memory64: target.is_none_or(|t| !t.memory32),
                     libraries: &libraries,
                     output,
                     has_start: settings.output_type == OutputType::Executable

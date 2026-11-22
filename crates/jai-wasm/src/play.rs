@@ -284,7 +284,7 @@ fn run_styled(
         options: program_options(&*fs, &workspace_main(main), &stdlib),
         backend: None,
         command_line: Vec::new(),
-        make_host: Box::new(move |_| Box::new(SharedHost(workspace_host.clone()))),
+        make_host: Box::new(move |_, _| Box::new(SharedHost(workspace_host.clone()))),
         report: Box::new(move |_, text| {
             reports
                 .borrow_mut()
@@ -293,10 +293,13 @@ fn run_styled(
         observer: None,
     });
     let mut compiler = Compiler::new(program_options(&*fs, &workspace_main(main), &stdlib), fs);
-    compiler.ct.interp.host = Box::new(crate::host_bridge::PlayHost::new(
-        SharedHost(host.clone()),
-        limits.budget,
-    ));
+    compiler
+        .ct
+        .interp
+        .set_host(Box::new(crate::host_bridge::PlayHost::new(
+            SharedHost(host.clone()),
+            limits.budget,
+        )));
     compiler.ct.interp.block_budget = limits.budget;
     compiler.attach_workspaces(workspaces.clone());
     let entry = PathBuf::from(format!("{WORKSPACE_ROOT}/{}", main.trim_start_matches('/')));

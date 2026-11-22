@@ -41,15 +41,15 @@ pub(in crate::sema::asm) fn elem_size(op: VOp) -> u64 {
         | Expand(t)
         | Ternlog(t)
         | Dp(t)
-        | MaskMov(t) => t.size(),
-        Horizontal(_, _, t) => t.size(),
+        | MaskMov(t) => t.numeric_size(),
+        Horizontal(_, _, t) => t.numeric_size(),
         Pmaddwd | DotAcc(_) => 4,
         Pmaddubsw | ShufHalf(_) | Mpsadbw => 2,
         Psadbw | MulEven(_) | Shufpd | Pclmul(_) | MovHalf(_) | Madd52(_) => 8,
-        Pack(from, _) => from.size() / 2,
+        Pack(from, _) => from.numeric_size() / 2,
         Cvt(c) => match c {
-            Conv::IntToFloat(_, to, _) | Conv::FloatToInt(_, to, _, _) => to.size(),
-            Conv::FloatToFloat(_, to) | Conv::ScalarFloat(_, to) => to.size(),
+            Conv::IntToFloat(_, to, _) | Conv::FloatToInt(_, to, _, _) => to.numeric_size(),
+            Conv::FloatToFloat(_, to) | Conv::ScalarFloat(_, to) => to.numeric_size(),
             _ => 4,
         },
         Palignr | ByteShift(_) | Pshufb | Aes(_) | Gf(_) => 1,
@@ -489,7 +489,7 @@ fn lane_conversion(name: &str) -> Option<VOp> {
         if let Some(rest) = name.strip_prefix(prefix) {
             let mut c = rest.chars();
             let (from, to) = (size_letter(c.next()?)?, size_letter(c.next()?)?);
-            if c.next().is_some() || from.size() >= to.size() {
+            if c.next().is_some() || from.numeric_size() >= to.numeric_size() {
                 return None;
             }
             return Some(VOp::Extend(from, to, signed));
@@ -509,7 +509,7 @@ fn lane_conversion(name: &str) -> Option<VOp> {
             let (Some(from), Some(to)) = (size_letter(a), size_letter(b)) else {
                 continue;
             };
-            if from.size() <= to.size() {
+            if from.numeric_size() <= to.numeric_size() {
                 continue;
             }
             return Some(VOp::Narrow(from, to, sat));

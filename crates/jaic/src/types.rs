@@ -3,7 +3,7 @@
 use crate::ast::AstId;
 use crate::fxhash::HashMap;
 use crate::intern::Sym;
-use crate::layout::{self, POINTER_SIZE};
+use crate::layout::{BuiltinLayouts, DataLayout};
 use crate::source::Span;
 use std::sync::Arc;
 
@@ -161,6 +161,9 @@ pub struct Types {
     pub structs: Vec<StructInfo>,
     pub enums: Vec<EnumInfo>,
     pub distincts: Vec<DistinctInfo>,
+    /// How the target lays out data; every size and alignment here follows it.
+    layout: DataLayout,
+    builtins: BuiltinLayouts,
 }
 
 macro_rules! builtin {
@@ -194,18 +197,12 @@ builtin! {
     POLY_PARAM = 20 => TypeKind::PolyParam,
 }
 
-impl Default for Types {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 /// Largest size in bytes of any type: a 48-bit address space, which is what 64-bit hosts
 /// actually map. Bigger arrays and structs are compile errors, so size arithmetic cannot overflow.
 pub const MAX_SIZE: u64 = 1 << 48;
 
 impl Types {
-    pub fn new() -> Self {
+    pub fn new(layout: DataLayout) -> Self {
         let kinds = builtin_kinds();
         let intern = kinds
             .iter()
@@ -218,7 +215,19 @@ impl Types {
             structs: Vec::new(),
             enums: Vec::new(),
             distincts: Vec::new(),
+            builtins: layout.builtins(),
+            layout,
         }
+    }
+
+    /// The data layout of the target the types are laid out for.
+    pub fn data_layout(&self) -> &DataLayout {
+        &self.layout
+    }
+
+    /// Offsets and sizes of the builtin aggregates.
+    pub fn builtins(&self) -> &BuiltinLayouts {
+        &self.builtins
     }
 
     pub fn intern(&mut self, kind: TypeKind) -> TypeId {
@@ -384,7 +393,6 @@ impl Types {
     /// Size in bytes. Structs must already be laid out. Saturates instead of overflowing; sema
     /// rejects types larger than `MAX_SIZE` when it lays them out.
     pub fn size_of(&self, ty: TypeId) -> u64 {
-        let p = POINTER_SIZE;
         match self.kind(ty) {
             TypeKind::Void
             | TypeKind::CompileTimeOnly
@@ -399,18 +407,19 @@ impl Types {
             | TypeKind::Float {
                 bits,
             } => *bits as u64 / 8,
-            TypeKind::WideFloat(_) => 16,
-            TypeKind::String => layout::view::SIZE,
-            TypeKind::Type | TypeKind::Code => POINTER_SIZE,
-            TypeKind::Any => layout::any::SIZE,
-            TypeKind::Pointer(_) | TypeKind::Proc(_) | TypeKind::Null => p,
+            TypeKind::WideFloat(crate::wide_float::WideFloat::X87) => self.layout.f80_size as u64,
+            TypeKind::WideFloat(crate::wide_float::WideFloat::Binary128) => 16,
+            TypeKind::String => self.builtins.view.size,
+            TypeKind::Type | TypeKind::Code => self.layout.ptr_bytes(),
+            TypeKind::Any => self.builtins.any.size,
+            TypeKind::Pointer(_) | TypeKind::Proc(_) | TypeKind::Null => self.layout.ptr_bytes(),
             TypeKind::Array {
                 elem,
                 kind,
             } => match kind {
                 ArrayKind::Fixed(n) => self.size_of(*elem).saturating_mul(*n),
-                ArrayKind::View => layout::view::SIZE,
-                ArrayKind::Resizable => layout::resizable::SIZE,
+                ArrayKind::View => self.builtins.view.size,
+                ArrayKind::Resizable => self.builtins.resizable.size,
             },
             TypeKind::Struct(s) => {
                 debug_assert!(
@@ -435,19 +444,25 @@ impl Types {
             TypeKind::Bool => 1,
             TypeKind::Int {
                 bits, ..
-            }
-            | TypeKind::Float {
+            } => self.layout.int_align_of(*bits as u64 / 8),
+            TypeKind::Float {
                 bits,
-            } => *bits as u64 / 8,
-            TypeKind::WideFloat(_) => 16,
-            TypeKind::String | TypeKind::Any | TypeKind::Type | TypeKind::Code => POINTER_SIZE,
-            TypeKind::Pointer(_) | TypeKind::Proc(_) | TypeKind::Null => POINTER_SIZE,
+            } => self.layout.float_align_of(*bits as u64 / 8),
+            TypeKind::WideFloat(crate::wide_float::WideFloat::X87) => self.layout.f80_align as u64,
+            TypeKind::WideFloat(crate::wide_float::WideFloat::Binary128) => 16,
+            TypeKind::String => self.builtins.view.align,
+            TypeKind::Any => self.builtins.any.align,
+            TypeKind::Type | TypeKind::Code => self.layout.pointer_align as u64,
+            TypeKind::Pointer(_) | TypeKind::Proc(_) | TypeKind::Null => {
+                self.layout.pointer_align as u64
+            }
             TypeKind::Array {
                 elem,
                 kind,
             } => match kind {
                 ArrayKind::Fixed(_) => self.align_of(*elem),
-                _ => POINTER_SIZE,
+                ArrayKind::View => self.builtins.view.align,
+                ArrayKind::Resizable => self.builtins.resizable.align,
             },
             TypeKind::Struct(s) => self.structs[s.0 as usize].align.max(1),
             TypeKind::Enum(e) => self.align_of(self.enums[e.0 as usize].base),

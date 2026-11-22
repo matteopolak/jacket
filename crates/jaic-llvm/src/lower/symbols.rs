@@ -254,7 +254,8 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
 
     /// Initial-value layout of a global: runs of plain bytes interleaved with
     /// pointer relocations.
-    fn segments(g: &Global) -> Vec<Segment> {
+    fn segments(&self, g: &Global) -> Vec<Segment> {
+        let slot = u64::from(self.layout.pointer_size);
         let size = g.size.max(g.init.len() as u64);
         let mut relocs: Vec<usize> = (0..g.relocs.len()).collect();
         relocs.sort_by_key(|&i| g.relocs[i].offset);
@@ -262,14 +263,14 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         let mut pos = 0u64;
         for i in relocs {
             let off = g.relocs[i].offset;
-            if off < pos || off + 8 > size {
+            if off < pos || off + slot > size {
                 continue;
             }
             if off > pos {
                 segs.push(Segment::Bytes(pos, off));
             }
             segs.push(Segment::Reloc(i));
-            pos = off + 8;
+            pos = off + slot;
         }
         if size > pos || segs.is_empty() {
             segs.push(Segment::Bytes(pos, size.max(1)));
@@ -281,7 +282,8 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
     pub(super) fn global(&self, i: usize) -> GlobalValue<'ctx> {
         *self.globals[i].get_or_init(|| {
             let g = &self.program.globals[i];
-            let fields: Vec<BasicTypeEnum> = Self::segments(g)
+            let fields: Vec<BasicTypeEnum> = self
+                .segments(g)
                 .iter()
                 .map(|s| match s {
                     Segment::Bytes(a, b) => self.bytes_ty(b - a),
@@ -342,7 +344,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
 
     fn initializer(&self, g: &Global) -> R<inkwell::values::StructValue<'ctx>> {
         let mut fields: Vec<BasicValueEnum> = Vec::new();
-        for seg in Self::segments(g) {
+        for seg in self.segments(g) {
             match seg {
                 Segment::Bytes(a, b) => {
                     // `init` may be shorter than the global: the rest is zero. Bytes go in as
@@ -372,10 +374,13 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     let ptr = if reloc.addend == 0 {
                         base
                     } else {
-                        let i64t = self.ctx.i64_type();
+                        let word = match self.layout.pointer_size {
+                            4 => self.ctx.i32_type(),
+                            _ => self.ctx.i64_type(),
+                        };
                         let sum = base
-                            .const_to_int(i64t)
-                            .const_add(i64t.const_int(reloc.addend as u64, true));
+                            .const_to_int(word)
+                            .const_add(word.const_int(reloc.addend as u64, true));
                         sum.const_to_pointer(self.ptr_ty())
                     };
                     fields.push(ptr.into());

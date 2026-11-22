@@ -1,15 +1,14 @@
 //! Entering, running and leaving procedures, trace hooks and runtime hooks.
 #[cfg(not(target_arch = "wasm32"))]
 use super::frames::ExecState;
+use super::frames::Frame;
 #[cfg(debug_assertions)]
 use super::frames::poison_registers;
-use super::frames::{Frame, ValueStack};
 use super::host::Hook;
 use super::rets::Rets;
 use super::trap::{Trap, TrapKind};
 use super::{
-    COMPILE_TIME_CALLS, COMPILE_TIME_NANOS, FUNC_TAG, Interp, MAX_DEPTH, Res, STACK_SIZE,
-    exit_forked_child,
+    COMPILE_TIME_CALLS, COMPILE_TIME_NANOS, Interp, MAX_DEPTH, Res, STACK_SIZE, exit_forked_child,
 };
 use crate::ir::{self, FuncId, Program};
 use std::sync::atomic::Ordering;
@@ -56,7 +55,7 @@ impl Interp {
         let stack = self
             .callback_stacks
             .pop()
-            .unwrap_or_else(|| ValueStack::heap(STACK_SIZE / 8));
+            .map_or_else(|| self.new_stack(STACK_SIZE / 8), Ok)?;
         let outer = self.take_exec_state();
         self.put_exec_state(ExecState {
             stack,
@@ -86,7 +85,7 @@ impl Interp {
             self.load_required_libraries(program)?;
         }
         if self.stack.is_empty() {
-            self.stack = ValueStack::heap(STACK_SIZE / 8);
+            self.stack = self.new_stack(STACK_SIZE / 8)?;
             self.sp = 0;
         }
         let (sp, depth, calls) = (self.sp, self.depth, self.calls.len());
@@ -368,7 +367,7 @@ impl Interp {
                     func,
                     frame,
                     args,
-                    entered.stack_base + frame.size,
+                    self.program_addr(entered.stack_base + frame.size),
                 );
                 self.trace_loc = None;
             } else if self.trace_loc.is_none() {
@@ -424,7 +423,7 @@ impl Interp {
         if let Some((slot, previous)) = exit.pushed {
             // SAFETY: `slot` is the stack-trace context word `trace_enter` wrote through, in the
             // program's live context memory, and `previous` is the node it held before.
-            unsafe { std::ptr::write_unaligned(slot as *mut u64, previous) };
+            unsafe { self.poke(slot, self.layout.pointer_size as usize, previous) };
         }
         self.loc = exit.saved_loc;
         if let Some(trace_loc) = exit.saved_trace_loc {
@@ -465,13 +464,13 @@ impl Interp {
         // word; `previous` and `node` point at stack-trace nodes laid out as `layout.node`
         // describes, `node` inside the frame being entered.
         unsafe {
-            let previous = std::ptr::read_unaligned(slot as *const u64);
+            let word = self.layout.pointer_size as usize;
+            let previous = self.peek(slot, word);
             let (mut depth, mut hash) = (1u32, 0xcbf2_9ce4_8422_2325u64);
             if previous != 0 {
-                std::ptr::write_unaligned((previous + n.line_number) as *mut u32, line);
-                depth = std::ptr::read_unaligned((previous + n.call_depth) as *const u32)
-                    .wrapping_add(1);
-                hash = std::ptr::read_unaligned((previous + n.hash) as *const u64);
+                self.poke(previous + n.line_number, 4, u64::from(line));
+                depth = (self.peek(previous + n.call_depth, 4) as u32).wrapping_add(1);
+                hash = self.peek(previous + n.hash, 8);
             }
             hash = (hash ^ (id.0 as u64) ^ ((line as u64) << 32)).wrapping_mul(0x0100_0000_01b3);
             let info_addr = match frame.trace_info.get() {
@@ -482,12 +481,12 @@ impl Interp {
                 }
                 addr => addr,
             };
-            std::ptr::write_unaligned((node + n.next) as *mut u64, previous);
-            std::ptr::write_unaligned((node + n.info) as *mut u64, info_addr);
-            std::ptr::write_unaligned((node + n.hash) as *mut u64, hash);
-            std::ptr::write_unaligned((node + n.call_depth) as *mut u32, depth);
-            std::ptr::write_unaligned((node + n.line_number) as *mut u32, info.line);
-            std::ptr::write_unaligned(slot as *mut u64, node);
+            self.poke(node + n.next, word, previous);
+            self.poke(node + n.info, word, info_addr);
+            self.poke(node + n.hash, 8, hash);
+            self.poke(node + n.call_depth, 4, u64::from(depth));
+            self.poke(node + n.line_number, 4, u64::from(info.line));
+            self.poke(slot, word, node);
             Some((slot, previous))
         }
     }
@@ -499,9 +498,6 @@ impl Interp {
         {
             return addr;
         }
-        fn leak(text: &str) -> u64 {
-            Box::leak(text.as_bytes().to_vec().into_boxed_slice()).as_ptr() as u64
-        }
         let path = program
             .file_paths
             .get(info.file as usize)
@@ -510,21 +506,35 @@ impl Interp {
             return 0;
         };
         let at = &layout.info;
-        let words = vec![0u64; at.size.div_ceil(8) as usize];
-        let addr = Box::leak(words.into_boxed_slice()).as_mut_ptr() as u64;
-        // A string is {count, data}.
-        for (offset, value) in [
-            (at.name, info.name.len() as u64),
-            (at.name + 8, leak(&info.name)),
-            (at.path, path.len() as u64),
-            (at.path + 8, leak(path)),
-            (at.line, info.line as u64),
-            (at.column, info.col as u64),
-            (at.procedure_address, FUNC_TAG | id.0 as u64),
+        let Some(addr) = self.keep(&vec![0; at.size as usize], 16) else {
+            return 0;
+        };
+        let (Some(name), Some(path_data)) = (
+            self.keep(info.name.as_bytes(), 1),
+            self.keep(path.as_bytes(), 1),
+        ) else {
+            return 0;
+        };
+        let (word, data) = (
+            self.layout.pointer_size as usize,
+            self.layout.builtins().view.data,
+        );
+        for (offset, size, value) in [
+            (at.name, 8, info.name.len() as u64),
+            (at.name + data, word, name),
+            (at.path, 8, path.len() as u64),
+            (at.path + data, word, path_data),
+            (at.line, 8, info.line as u64),
+            (at.column, 8, info.col as u64),
+            (
+                at.procedure_address,
+                word,
+                super::proc_addr::func_word(self.window.is_some(), id),
+            ),
         ] {
-            // SAFETY: `addr` is a freshly leaked block of `at.size` bytes and every offset written
-            // lies within the `Stack_Trace_Procedure_Info` layout.
-            unsafe { std::ptr::write_unaligned((addr + offset) as *mut u64, value) };
+            // SAFETY: `addr` is a block of `at.size` bytes and every offset written lies
+            // within the `Stack_Trace_Procedure_Info` layout.
+            unsafe { self.poke(addr + offset, size, value) };
         }
         if self.trace_infos.len() <= id.0 as usize {
             self.trace_infos.resize(id.0 as usize + 1, 0);
@@ -547,8 +557,7 @@ impl Interp {
             }
             Hook::WriteString => {
                 let s = args[0];
-                let count = self.fetch_u64(s)? as usize;
-                let data = self.fetch_u64(s + 8)?;
+                let (count, data) = self.fetch_view(s)?;
                 let bytes = self.fetch(data, count)?;
                 self.effects += 1;
                 self.host
@@ -556,14 +565,12 @@ impl Interp {
             }
             Hook::WriteStrings => {
                 let view = args[0];
-                let count = self.fetch_u64(view)? as usize;
-                let data = self.fetch_u64(view + 8)?;
+                let (count, data) = self.fetch_view(view)?;
                 let to_stderr = args.get(1).is_some_and(|&v| v & 1 != 0);
                 self.effects += 1;
                 for i in 0..count {
-                    let s = data + i as u64 * 16;
-                    let n = self.fetch_u64(s)? as usize;
-                    let p = self.fetch_u64(s + 8)?;
+                    let s = data + i as u64 * self.layout.builtins().view.size;
+                    let (n, p) = self.fetch_view(s)?;
                     let bytes = self.fetch(p, n)?;
                     self.host.write(&bytes, to_stderr);
                 }
@@ -571,8 +578,7 @@ impl Interp {
             Hook::DebugBreak => return self.trap("debug_break() was called"),
             Hook::Service => {
                 let read = |this: &Self, s: u64| -> Res<Vec<u8>> {
-                    let count = this.fetch_u64(s)? as usize;
-                    let data = this.fetch_u64(s + 8)?;
+                    let (count, data) = this.fetch_view(s)?;
                     this.fetch(data, count)
                 };
                 let service = String::from_utf8_lossy(&read(self, args[0])?).into_owned();
@@ -580,19 +586,27 @@ impl Interp {
                 let response = args[2];
                 self.effects += 1;
                 let reply = self.host.service(&service, &request);
-                let body = reply.body.into_boxed_slice();
-                let (count, data) = (body.len() as u64, body.as_ptr() as u64);
-                self.service_replies.push(body);
+                let count = reply.body.len() as u64;
+                let Some(data) = self.keep(&reply.body, 1) else {
+                    return self.trap("cannot allocate the service reply");
+                };
                 if response != 0 {
-                    self.store(ir::Ty::I64, response, count)?;
-                    self.store(ir::Ty::Ptr, response + 8, data)?;
+                    self.store(
+                        ir::Ty::I64,
+                        response + self.layout.builtins().view.count,
+                        count,
+                    )?;
+                    self.store(
+                        ir::Ty::Ptr,
+                        response + self.layout.builtins().view.data,
+                        data,
+                    )?;
                 }
                 return Ok(Rets::one(reply.status as u64));
             }
             Hook::Unknown => {
                 let s = args[0];
-                let count = self.fetch_u64(s)? as usize;
-                let data = self.fetch_u64(s + 8)?;
+                let (count, data) = self.fetch_view(s)?;
                 let message = String::from_utf8_lossy(&self.fetch(data, count)?).into_owned();
                 return self.trap_of(TrapKind::Unknown, message);
             }
@@ -611,8 +625,7 @@ impl Interp {
             } => {
                 let args = &args[usize::from(context)..];
                 let string = |s: &Self, at: u64| -> Res<String> {
-                    let count = s.fetch_u64(at)? as usize;
-                    let data = s.fetch_u64(at + 8)?;
+                    let (count, data) = s.fetch_view(at)?;
                     Ok(String::from_utf8_lossy(&s.fetch(data, count)?).into_owned())
                 };
                 let (loc, message) = (args[0], args[1]);

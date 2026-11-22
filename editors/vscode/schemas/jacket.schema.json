@@ -715,6 +715,16 @@
               "default": "warn",
               "markdownDescription": "a variable bounding a `for` range assigned in the loop, which does not change it (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#modified_range_bound)"
             },
+            "narrow_pointers": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "code that assumes 8-byte pointers (high-bit tagging, `*u64` over a pointer) (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#narrow_pointers)"
+            },
             "needless_bool": {
               "type": "string",
               "enum": [
