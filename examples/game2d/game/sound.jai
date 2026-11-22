@@ -19,7 +19,7 @@ current_audio: *Audio;
 audio_init :: (audio: *Audio, assets: *Assets) {
     config: SP.Sound_Player_Config;
 
-    config.update_from_a_thread = false;
+    // Mixing stays on the player's audio thread, so a slow frame cannot starve the output.
     config.release_asset = audio_stream_released;
     current_audio = audio;
 

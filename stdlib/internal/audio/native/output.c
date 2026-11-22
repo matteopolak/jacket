@@ -39,6 +39,10 @@ struct AudioOutput {
 #if defined(_WIN32)
     HWAVEOUT device;
     WAVEHDR buffers[SLOT_COUNT];
+    /* Bytes written since the device opened, modulo 2^32 like waveOutGetPosition. */
+    uint32_t submitted;
+    /* The timer period begun at open, so the producer's short sleeps are short; 0 for none. */
+    UINT timer_period;
     uint8_t storage[SLOT_COUNT][SLOT_BYTES];
 #elif defined(__APPLE__)
     AudioQueueRef queue;
@@ -231,6 +235,7 @@ JAI_AUDIO_API int audio_output_close(AudioOutput *output) {
     }
     int result = (int)waveOutClose(output->device);
     if (result) return result; /* Native headers can still refer to our buffers. */
+    if (output->timer_period) timeEndPeriod(output->timer_period);
 #elif defined(__APPLE__)
     if (output->queue) error = (int)AudioQueueDispose(output->queue, true);
     if (error) return error; /* Do not free callback state after failed disposal. */
@@ -275,6 +280,13 @@ JAI_AUDIO_API AudioOutput *audio_output_open(int rate, int channels, int *error)
     }
     *error = (int)waveOutOpen(&output->device, WAVE_MAPPER, &format.Format, 0, 0, CALLBACK_NULL);
     if (!*error) *error = (int)waveOutPause(output->device);
+    /* Sleep rounds up to the timer period (15.6 ms by default), longer than the
+       few milliseconds of audio queued ahead. Ask for the finest period the
+       system supports while the device is open. */
+    TIMECAPS timer;
+    if (!*error && timeGetDevCaps(&timer, sizeof(timer)) == TIMERR_NOERROR &&
+        timeBeginPeriod(timer.wPeriodMin) == TIMERR_NOERROR)
+        output->timer_period = timer.wPeriodMin;
 #elif defined(__APPLE__)
     AudioObjectPropertyAddress address = {kAudioHardwarePropertyDefaultOutputDevice,
                                          kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain};
@@ -379,6 +391,14 @@ JAI_AUDIO_API int64_t audio_output_buffered(AudioOutput *output) {
         WAVEHDR *buffer = &output->buffers[i];
         if ((buffer->dwFlags & WHDR_PREPARED) && !(buffer->dwFlags & WHDR_DONE)) bytes += buffer->dwBufferLength;
     }
+    /* A header stays queued until its last byte plays, so the sum above counts a
+       half-played buffer whole. The playback position says how much of it is left. */
+    MMTIME position = {0};
+    position.wType = TIME_BYTES;
+    if (bytes > 0 && !waveOutGetPosition(output->device, &position, sizeof(position)) && position.wType == TIME_BYTES) {
+        uint32_t unplayed = output->submitted - (uint32_t)position.u.cb;
+        if ((int64_t)unplayed < bytes) bytes = unplayed;
+    }
     return bytes;
 #elif defined(__APPLE__)
     return atomic_load(&output->queued);
@@ -388,6 +408,22 @@ JAI_AUDIO_API int64_t audio_output_buffered(AudioOutput *output) {
     if (result < 0) return result;
     return frames > 0 ? frames * output->channels * 2 : 0;
 #endif
+}
+
+JAI_AUDIO_API int audio_output_free_slots(AudioOutput *output) {
+    if (!output) return -1;
+    int free_slots = 0;
+#if defined(_WIN32)
+    for (int i = 0; i < SLOT_COUNT; ++i) {
+        DWORD flags = output->buffers[i].dwFlags;
+        if (!(flags & WHDR_PREPARED) || (flags & WHDR_DONE)) free_slots += 1;
+    }
+#elif defined(__APPLE__)
+    for (int i = 0; i < SLOT_COUNT; ++i) free_slots += !atomic_load(&output->occupied[i]);
+#else
+    free_slots = SLOT_COUNT; /* ALSA copies each write into its own ring. */
+#endif
+    return free_slots;
 }
 
 JAI_AUDIO_API int audio_output_submit(AudioOutput *output, const void *bytes, int count) {
@@ -406,7 +442,9 @@ JAI_AUDIO_API int audio_output_submit(AudioOutput *output, const void *bytes, in
         buffer->dwBufferLength = (DWORD)count;
         int result = (int)waveOutPrepareHeader(output->device, buffer, sizeof(*buffer));
         if (result) return result;
-        return (int)waveOutWrite(output->device, buffer, sizeof(*buffer));
+        result = (int)waveOutWrite(output->device, buffer, sizeof(*buffer));
+        if (!result) output->submitted += (uint32_t)count;
+        return result;
     }
     return -2;
 #elif defined(__APPLE__)

@@ -240,6 +240,19 @@ backend_can_fill :: () -> bool {
     return output_handle != null && !device_lost && !device_paused && !region_locked;
 }
 
+// How many more fill regions the output takes before one plays out. A full queue is
+// backpressure, not a lost device: the producer waits for its next turn.
+backend_free_slots :: () -> s64 {
+    lock_producer();
+    defer unlock_producer();
+    if !output_handle || device_lost return 0;
+
+    slots := audio_output_free_slots(output_handle);
+    if slots < 0 return 0;
+
+    return slots;
+}
+
 backend_current_rate :: () -> s64 {
     if !output_handle || device_lost return 0;
     return properties.output_sampling_rate;
@@ -285,6 +298,7 @@ audio_output_open :: (rate: s32, channels: s32, error: *s32) -> *void #foreign n
 audio_output_close :: (output: *void) -> s32 #foreign native;
 audio_output_device :: (index: s32, name: *u8, capacity: s32) -> s32 #foreign native;
 audio_output_buffered :: (output: *void) -> s64 #foreign native;
+audio_output_free_slots :: (output: *void) -> s32 #foreign native;
 audio_output_submit :: (output: *void, bytes: *u8, count: s32) -> s32 #foreign native;
 audio_output_play :: (output: *void) -> s32 #foreign native;
 audio_output_clock :: () -> float64 #foreign native;

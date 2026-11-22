@@ -15,6 +15,8 @@ JAI_AUDIO_API int audio_output_rate(AudioOutput *output);
 JAI_AUDIO_API int audio_output_channels(AudioOutput *output);
 JAI_AUDIO_API int64_t audio_output_capacity(AudioOutput *output);
 JAI_AUDIO_API int64_t audio_output_buffered(AudioOutput *output);
+/* How many more submits fit right now; a submit with none free fails with -2. */
+JAI_AUDIO_API int audio_output_free_slots(AudioOutput *output);
 JAI_AUDIO_API int audio_output_submit(AudioOutput *output, const void *bytes, int count);
 JAI_AUDIO_API int audio_output_play(AudioOutput *output);
 JAI_AUDIO_API double audio_output_clock(void);

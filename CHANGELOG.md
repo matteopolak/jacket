@@ -5,6 +5,7 @@
 ### Fixes
 - Hovering a procedure or polymorphic struct whose parameters span several lines now shows every parameter on one line, not just the first line of the declaration.
 - On Windows, a window no longer aborts with "WGL context selection failed" when its OpenGL context is selected again while already current; the call is skipped. This fixes the `game2d` example on some drivers.
+- Sound_Player no longer crackles on Windows: it counts a half-played buffer by what is left of it, refills the whole shortfall in one update, waits when every output buffer is queued instead of resetting the device, and keeps the audio thread's sleeps short. `game2d` now mixes on the audio thread.
 
 ## [0.37.0] - 2026-11-21
 

@@ -42,6 +42,11 @@ int main(int argc, char **argv) {
         count -= count % 4;
         CHECK(audio_output_submit(output, silence, count) == 0);
         CHECK(audio_output_play(output) == 0);
+#if !defined(__APPLE__)
+        /* A buffer that has started playing is no longer counted whole. */
+        for (int i = 0; i < 4; ++i) wait_ms();
+        CHECK(audio_output_buffered(output) < count);
+#endif
         int pause_status = audio_output_set_active(output, 0);
 #if defined(_WIN32) || defined(__APPLE__)
         CHECK(pause_status == 0);
@@ -52,6 +57,14 @@ int main(int argc, char **argv) {
             CHECK(paused >= 0);
             wait_ms();
             CHECK(audio_output_buffered(output) == paused);
+#if defined(_WIN32) || defined(__APPLE__)
+            /* Paused, nothing finishes: fill every free slot, then a full queue is refused. */
+            int slots = audio_output_free_slots(output);
+            CHECK(slots > 0);
+            for (int i = 0; i < slots; ++i) CHECK(audio_output_submit(output, silence, 4096) == 0);
+            CHECK(audio_output_free_slots(output) == 0);
+            CHECK(audio_output_submit(output, silence, 4096) == -2);
+#endif
             CHECK(audio_output_set_active(output, 1) == 0);
         } else printf("native-manual-pause-unsupported (%d)\n", pause_status);
         CHECK(audio_output_poll(output, 1) == 0);

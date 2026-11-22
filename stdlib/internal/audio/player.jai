@@ -451,24 +451,27 @@ update_from_async_thread :: (actually_async: bool) {
 
     buffered, minimum := backend_count_buffered_bytes();
 
-    if !backend_can_fill() return;
-    if buffered >= minimum return;
-
     // Only the producer owns native regions. Native polling/copy/commit do not
     // hold the stream lock; rendering acquires it for each bounded chunk.
     chunk := max(cast(s64) 4096, (minimum + 7) / 8);
     chunk = (chunk + alignment - 1) / alignment * alignment;
-    bytes := min(chunk, minimum - buffered);
-    bytes -= bytes % alignment;
-    if bytes == 0 return;
 
-    regions, success := backend_lock_fill_regions(bytes);
+    // Refill the whole deficit, a chunk per output slot, so one late update does
+    // not leave the queue short until the next one.
+    while buffered < minimum && backend_can_fill() && backend_free_slots() > 0 {
+        bytes := min(chunk, minimum - buffered);
+        bytes -= bytes % alignment;
+        if bytes == 0 return;
 
-    assert(success, "audio output buffer unavailable");
-    fill_sample_buffer(regions.buffer0);
-    if regions.buffer1.count > 0 fill_sample_buffer(regions.buffer1);
+        regions, success := backend_lock_fill_regions(bytes);
 
-    backend_release_fill_regions(regions);
+        assert(success, "audio output buffer unavailable");
+        fill_sample_buffer(regions.buffer0);
+        if regions.buffer1.count > 0 fill_sample_buffer(regions.buffer1);
+
+        backend_release_fill_regions(regions);
+        buffered += bytes;
+    }
 }
 
 // The body of the audio thread.
