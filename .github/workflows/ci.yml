@@ -180,6 +180,7 @@ jobs:
         with: {persist-credentials: false, fetch-depth: 0}
       - uses: ./.github/actions/setup-unix
         with:
+          leg: ${{ strategy.job-index }}
           native-libs: 'false'
           font: 'false'
       - name: Build the compiler and test runner
@@ -282,6 +283,7 @@ jobs:
         with: {persist-credentials: false}
       - uses: ./.github/actions/setup-unix
         with:
+          leg: ${{ strategy.job-index }}
           lld: 'true'
           font: 'false'
       # The format and lint steps below run the Justfile's recipes (docs/tools/development.md).
@@ -659,6 +661,7 @@ jobs:
       - uses: ./.github/actions/setup-unix
         if: runner.os == 'Linux'
         with:
+          leg: ${{ strategy.job-index }}
           native-libs: 'false'
           font: 'false'
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -666,6 +669,7 @@ jobs:
       - uses: ./.github/actions/setup-windows
         if: runner.os == 'Windows'
         with:
+          leg: ${{ strategy.job-index }}
           cpu: x64
           triple: x86_64-pc-windows-msvc
       - uses: ./.github/actions/rust-cache
@@ -750,6 +754,7 @@ jobs:
         with: {persist-credentials: false}
       - uses: ./.github/actions/setup-unix
         with:
+          leg: ${{ strategy.job-index }}
           lld: 'true'
           # The stdlib's FreeType is built by tools/native/build_native_libs.py and found first;
           # Homebrew's stays for projects that link it themselves. SDL2 is not built there:
@@ -939,6 +944,7 @@ jobs:
         with: {persist-credentials: false}
       - uses: ./.github/actions/setup-unix
         with:
+          leg: ${{ strategy.job-index }}
           lld: 'true'
           brew: freetype sdl2 mingw-w64
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -986,6 +992,7 @@ jobs:
         with: {persist-credentials: false}
       - uses: ./.github/actions/setup-unix
         with:
+          leg: ${{ strategy.job-index }}
           lld: 'true'
           native-libs: 'false'
           font: 'false'
@@ -1043,6 +1050,7 @@ jobs:
         with: {persist-credentials: false}
       - uses: ./.github/actions/setup-unix
         with:
+          leg: ${{ strategy.job-index }}
           brew: freetype
           alsa: 'true'
       - name: Install bubblewrap
@@ -1110,6 +1118,7 @@ jobs:
         with: {persist-credentials: false}
       - uses: ./.github/actions/setup-unix
         with:
+          leg: ${{ strategy.job-index }}
           # stdlib/SDL/tests/geometry-timer.jai links the installed SDL2.
           brew: sdl2 freetype
           alsa: 'true'
@@ -1190,6 +1199,7 @@ jobs:
       - uses: ./.github/actions/setup-unix
         if: matrix.platform == 'linux-x64'
         with:
+          leg: ${{ strategy.job-index }}
           native-libs: 'false'
       - name: Generated bindings are current
         if: matrix.platform == 'linux-x64'
@@ -1212,6 +1222,7 @@ jobs:
         with: {persist-credentials: false}
       - uses: ./.github/actions/setup-unix
         with:
+          leg: ${{ strategy.job-index }}
           native-libs: 'false'
       - name: Install the X11 build and display dependencies
         run: |
@@ -1459,6 +1470,7 @@ jobs:
         with: {persist-credentials: false}
       - uses: ./.github/actions/setup-unix
         with:
+          leg: ${{ strategy.job-index }}
           font: 'false'
           # Its own package cache, so the MinGW packages are kept between runs too.
           apt-label: -mingw-${{ matrix.cpu }}
@@ -1552,6 +1564,7 @@ jobs:
         with: {persist-credentials: false}
       - uses: ./.github/actions/setup-windows
         with:
+          leg: ${{ strategy.job-index }}
           cpu: ${{ matrix.cpu }}
           triple: ${{ matrix.triple }}
       - uses: ./.github/actions/native-libs-cache
@@ -1713,6 +1726,7 @@ jobs:
           fi
       - uses: ./.github/actions/setup-windows
         with:
+          leg: ${{ strategy.job-index }}
           cpu: ${{ matrix.cpu }}
           triple: ${{ matrix.triple }}
       - uses: ./.github/actions/native-libs-cache
@@ -1800,6 +1814,7 @@ jobs:
         with: {persist-credentials: false}
       - uses: ./.github/actions/setup-windows
         with:
+          leg: ${{ strategy.job-index }}
           cpu: x64
           triple: x86_64-pc-windows-msvc
       - uses: ./.github/actions/native-libs-cache

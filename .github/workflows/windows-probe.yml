@@ -82,6 +82,7 @@ jobs:
       - uses: ./.github/actions/setup-windows
         if: inputs.source != 'release'
         with:
+          leg: ${{ strategy.job-index }}
           cpu: ${{ matrix.arch }}
           triple: ${{ env.TRIPLE }}
       - uses: ./.github/actions/native-libs-cache

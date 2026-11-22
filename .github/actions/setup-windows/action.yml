@@ -1,6 +1,9 @@
 name: Set up Windows
 description: Pinned Rust toolchain, Node, and the official LLVM release (the version .github/pins.json pins) with the static CRT.
 inputs:
+  leg:
+    description: The calling matrix leg (`strategy.job-index`), which keeps its own pinned-downloads cache
+    default: '0'
   cpu:
     description: x64 or arm64
     required: true
@@ -49,4 +52,6 @@ runs:
     # The dependencies' build output, restored everywhere and saved from main.
     # The pinned downloads the generators and the stdlib test data read (./.github/actions/pinned-downloads-cache).
     - uses: ./.github/actions/pinned-downloads-cache
+      with:
+        leg: ${{ inputs.leg }}
     - uses: ./.github/actions/rust-cache

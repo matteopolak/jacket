@@ -40,6 +40,7 @@ jobs:
         with: {persist-credentials: false}
       - uses: ./.github/actions/setup-unix
         with:
+          leg: ${{ strategy.job-index }}
           native-libs: 'false'
           font: 'false'
       - name: Build the release tools

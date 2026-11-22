@@ -1,6 +1,9 @@
 name: Set up Linux or macOS
 description: Pinned Rust toolchain, Python, LLVM and the native libraries the CI jobs link.
 inputs:
+  leg:
+    description: The calling matrix leg (`strategy.job-index`), which keeps its own pinned-downloads cache
+    default: '0'
   lld:
     description: Install wasm-ld (macOS)
     default: 'false'
@@ -75,4 +78,6 @@ runs:
     # key sees the RUSTFLAGS the LLVM steps set.
     # The pinned downloads the generators and the stdlib test data read (./.github/actions/pinned-downloads-cache).
     - uses: ./.github/actions/pinned-downloads-cache
+      with:
+        leg: ${{ inputs.leg }}
     - uses: ./.github/actions/rust-cache

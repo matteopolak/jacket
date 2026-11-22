@@ -33,6 +33,7 @@ jobs:
         with: {persist-credentials: false}
       - uses: ./.github/actions/setup-unix
         with:
+          leg: ${{ strategy.job-index }}
           lld: 'true'
           font: 'false'
       # node 24: Memory64 without a flag, for the wasm64 modules `jaic -os wasm` writes.

@@ -30,10 +30,12 @@ jobs:
       - uses: ./.github/actions/setup-unix
         if: runner.os == 'Linux'
         with:
+          leg: ${{ strategy.job-index }}
           alsa: 'true'
       - uses: ./.github/actions/setup-windows
         if: runner.os == 'Windows'
         with:
+          leg: ${{ strategy.job-index }}
           cpu: x64
           triple: x86_64-pc-windows-msvc
       - uses: ./.github/actions/native-libs-cache

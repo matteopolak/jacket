@@ -31,6 +31,7 @@ jobs:
         with: {persist-credentials: false}
       - uses: ./.github/actions/setup-unix
         with:
+          leg: ${{ strategy.job-index }}
           alsa: 'true'
       - name: Build jaic, jaifmt and the oracle
         run: |
@@ -58,6 +59,7 @@ jobs:
         with: {persist-credentials: false}
       - uses: ./.github/actions/setup-unix
         with:
+          leg: ${{ strategy.job-index }}
           alsa: 'true'
       - name: Build jaic and the audit
         run: |
