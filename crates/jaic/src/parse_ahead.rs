@@ -422,6 +422,7 @@ mod imp {
                                 TargetCpu::Arm64 => "ARM64",
                                 TargetCpu::X86 => "X86",
                                 TargetCpu::S390x => "S390X",
+                                TargetCpu::PowerPc64 => "POWERPC64",
                                 TargetCpu::Arm => "ARM",
                                 TargetCpu::Avr => "AVR",
                                 TargetCpu::Wasm => "WASM",

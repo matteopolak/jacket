@@ -17,9 +17,12 @@ fn cpu_name(cpu: TargetCpu) -> &'static str {
     match cpu {
         TargetCpu::X64 => "X64",
         TargetCpu::Arm64 => "ARM64",
-        TargetCpu::X86 | TargetCpu::S390x | TargetCpu::Arm | TargetCpu::Avr | TargetCpu::Wasm => {
-            "CUSTOM"
-        }
+        TargetCpu::X86
+        | TargetCpu::S390x
+        | TargetCpu::PowerPc64
+        | TargetCpu::Arm
+        | TargetCpu::Avr
+        | TargetCpu::Wasm => "CUSTOM",
     }
 }
 

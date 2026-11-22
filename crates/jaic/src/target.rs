@@ -24,6 +24,7 @@ pub enum TargetCpu {
     X86,
     /// IBM z/Architecture (s390x), 64-bit big-endian.
     S390x,
+    PowerPc64,
     /// 32-bit ARM (armv7-a) with hard-float AAPCS.
     Arm,
     /// 8-bit AVR with 16-bit pointers (Harvard: code and data are separate address spaces).
@@ -52,6 +53,7 @@ pub fn parse_cpu(name: &str) -> Option<TargetCpu> {
         "arm64" | "aarch64" => Some(TargetCpu::Arm64),
         "x86" | "i686" => Some(TargetCpu::X86),
         "s390x" => Some(TargetCpu::S390x),
+        "ppc64" | "powerpc64" => Some(TargetCpu::PowerPc64),
         "arm" | "armv7" | "armhf" => Some(TargetCpu::Arm),
         "avr" => Some(TargetCpu::Avr),
         "wasm" => Some(TargetCpu::Wasm),
@@ -75,6 +77,7 @@ pub fn cpu_name(cpu: TargetCpu) -> &'static str {
         TargetCpu::Arm64 => "arm64",
         TargetCpu::X86 => "x86",
         TargetCpu::S390x => "s390x",
+        TargetCpu::PowerPc64 => "ppc64",
         TargetCpu::Arm => "arm",
         TargetCpu::Avr => "avr",
         TargetCpu::Wasm => "wasm",
@@ -98,9 +101,12 @@ pub fn cpu_member(cpu: TargetCpu) -> &'static str {
     match cpu {
         TargetCpu::X64 => "X64",
         TargetCpu::Arm64 => "ARM64",
-        TargetCpu::X86 | TargetCpu::S390x | TargetCpu::Arm | TargetCpu::Avr | TargetCpu::Wasm => {
-            "CUSTOM"
-        }
+        TargetCpu::X86
+        | TargetCpu::S390x
+        | TargetCpu::PowerPc64
+        | TargetCpu::Arm
+        | TargetCpu::Avr
+        | TargetCpu::Wasm => "CUSTOM",
     }
 }
 
@@ -113,6 +119,7 @@ pub fn architecture_member(cpu: TargetCpu, pointer_bytes: u32) -> &'static str {
         (TargetCpu::Arm64, _) => "ARM64",
         (TargetCpu::X86, _) => "X86",
         (TargetCpu::S390x, _) => "S390X",
+        (TargetCpu::PowerPc64, _) => "POWERPC64",
         (TargetCpu::Arm, _) => "ARM",
         (TargetCpu::Avr, _) => "AVR",
         (TargetCpu::Wasm, 4) => "WASM32",
@@ -217,6 +224,7 @@ impl Target {
             "aarch64" | "arm64" => (TargetCpu::Arm64, false),
             "i686" | "i586" | "i486" | "i386" => (TargetCpu::X86, false),
             "s390x" => (TargetCpu::S390x, false),
+            "powerpc64" | "ppc64" => (TargetCpu::PowerPc64, false),
             "arm" | "armv7" | "armv7a" | "armv7l" => (TargetCpu::Arm, false),
             "avr" => (TargetCpu::Avr, false),
             "wasm32" => (TargetCpu::Wasm, true),
@@ -226,14 +234,17 @@ impl Target {
         let gnu = parts
             .iter()
             .any(|p| p.starts_with("gnu") || p.starts_with("mingw"));
-        if matches!(cpu, TargetCpu::X86 | TargetCpu::S390x | TargetCpu::Arm)
-            && !parts.contains(&"linux")
+        if matches!(
+            cpu,
+            TargetCpu::X86 | TargetCpu::S390x | TargetCpu::PowerPc64 | TargetCpu::Arm
+        ) && !parts.contains(&"linux")
         {
             return Err(format!(
                 "unsupported target OS in `{triple}`: {} is built for Linux only",
                 match cpu {
                     TargetCpu::X86 => "32-bit x86",
                     TargetCpu::Arm => "32-bit ARM",
+                    TargetCpu::PowerPc64 => "powerpc64",
                     _ => "s390x",
                 }
             ));
@@ -337,6 +348,11 @@ impl Target {
             layout.c.long = 4;
             layout.c.size_t = 2;
         }
+        if self.cpu == TargetCpu::PowerPc64 {
+            // ELFv1 powerpc64 is big-endian LP64; its `long double` is IBM double-double, which
+            // `long_double_for` does not model.
+            layout.endian = crate::layout::Endian::Big;
+        }
         if self.cpu == TargetCpu::S390x {
             // z/Architecture ELF: big-endian, `long double` is a 16-byte binary128 aligned to 8.
             layout.endian = crate::layout::Endian::Big;
@@ -389,6 +405,7 @@ impl Target {
             (TargetCpu::X64, _) => Some(Arch::X86_64),
             (TargetCpu::X86, _) => Some(Arch::X86),
             (TargetCpu::S390x, _) => Some(Arch::S390x),
+            (TargetCpu::PowerPc64, _) => Some(Arch::PowerPc64),
             (TargetCpu::Arm, _) => Some(Arch::Arm32),
             (TargetCpu::Avr, _) => Some(Arch::Avr),
             (TargetCpu::Wasm, _) => Some(Arch::Wasm),
@@ -411,6 +428,7 @@ impl std::fmt::Display for Target {
             TargetCpu::Arm64 => "aarch64",
             TargetCpu::X86 => "i686",
             TargetCpu::S390x => "s390x",
+            TargetCpu::PowerPc64 => "powerpc64",
             TargetCpu::Arm => "armv7",
             TargetCpu::Avr => return write!(f, "avr-none-elf"),
             TargetCpu::Wasm if self.memory32 => return write!(f, "wasm32-{}", self.wasm_system()),

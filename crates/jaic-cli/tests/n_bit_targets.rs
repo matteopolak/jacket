@@ -138,6 +138,7 @@ fn a_plugin_setting_the_cpu_back_keeps_the_target() {
         "i686-unknown-linux-gnu",
         "s390x-unknown-linux-gnu",
         "armv7-unknown-linux-gnueabihf",
+        "powerpc64-unknown-linux-gnu",
     ] {
         let output = Command::new(JAIC)
             .arg("-check")
@@ -190,6 +191,7 @@ fn enum_names_in_type_information_use_the_targets_string_size() {
         "x86_64-unknown-linux-gnu",
         "i686-unknown-linux-gnu",
         "armv7-unknown-linux-gnueabihf",
+        "powerpc64-unknown-linux-gnu",
         "wasm32-unknown-unknown",
     ] {
         assert_eq!(
@@ -210,8 +212,20 @@ fn a_big_endian_program_sees_its_own_byte_order() {
         run("x86_64-unknown-linux-gnu", &source),
         "4 3 2 1\n84281096\n1069547520\n"
     );
+    for target in ["s390x-unknown-linux-gnu", "powerpc64-unknown-linux-gnu"] {
+        assert_eq!(
+            run(target, &source),
+            "1 2 3 4\n16909060\n1069547520\n",
+            "{target}"
+        );
+    }
+}
+
+/// `powerpc64` keeps 8-byte pointers and runs the same program.
+#[test]
+fn a_powerpc64_program_has_8_byte_pointers() {
     assert_eq!(
-        run("s390x-unknown-linux-gnu", &source),
-        "1 2 3 4\n16909060\n1069547520\n"
+        run("powerpc64-unknown-linux-gnu", &pointer_sizes()),
+        "pointer 8\nstring 16\narray 40\nany 16\nallocator 16\npair 24 8\nheap-42\n"
     );
 }

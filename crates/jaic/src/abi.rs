@@ -21,6 +21,10 @@ pub enum Arch {
     /// reference to a caller copy, and every aggregate result comes back through a hidden
     /// pointer in `r2`. Integer arguments take `r2`-`r6`, floating-point ones `f0`, `f2`, `f4`, `f6`.
     S390x,
+    /// 64-bit big-endian PowerPC, ELFv1 (powerpc64 Linux): every aggregate argument is passed
+    /// by value (the backend assigns its doublewords to registers and the stack) and every
+    /// aggregate result comes back through a hidden pointer in `r3`.
+    PowerPc64,
     /// 32-bit ARM, AAPCS with the VFP (hard-float) variant: an aggregate of at most 4 bytes
     /// travels as one integer, a homogeneous float aggregate in VFP registers, any other as
     /// 4- or 8-byte integers in core registers and then on the stack; a larger-than-4-byte
@@ -138,7 +142,9 @@ pub fn sret_is_inreg(arch: Arch, forced: bool) -> bool {
 /// Whether the hidden result pointer takes the first integer argument register, leaving one
 /// fewer for the parameters (x86-64 always; arm64 only where it is `inreg`).
 pub fn sret_takes_int_register(arch: Arch, forced: bool) -> bool {
-    arch.is_x86_64() || matches!(arch, Arch::S390x | Arch::Avr) || sret_is_inreg(arch, forced)
+    arch.is_x86_64()
+        || matches!(arch, Arch::S390x | Arch::PowerPc64 | Arch::Avr)
+        || sret_is_inreg(arch, forced)
 }
 
 /// Classify a by-value aggregate argument.
@@ -148,6 +154,7 @@ pub fn classify_arg(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Passin
         None => match arch {
             Arch::X86_64 | Arch::X86 | Arch::Wasm => Passing::ByVal,
             Arch::Aarch64 | Arch::Win64 | Arch::Win64Arm | Arch::S390x => Passing::Indirect,
+            Arch::PowerPc64 => Passing::ByVal,
             // AAPCS copies every aggregate into core registers and then the stack.
             Arch::Arm32 | Arch::Avr => {
                 unreachable!("every aggregate on this target classifies as registers")
@@ -323,8 +330,9 @@ fn classify_registers(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Opti
     }
     // i386 System V (Linux): no argument or result travels in a register but a scalar one. An
     // aggregate is copied onto the stack as an argument and returned through a hidden pointer,
-    // whatever its size or members (`-fno-reg-struct-return`, the Linux default).
-    if arch == Arch::X86 {
+    // whatever its size or members (`-fno-reg-struct-return`, the Linux default). ELFv1
+    // powerpc64 is the same by Clang's lowering: by-value arguments, results in memory.
+    if arch == Arch::X86 || arch == Arch::PowerPc64 {
         return None;
     }
     if arch == Arch::Wasm {
@@ -370,7 +378,13 @@ fn classify_registers(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Opti
             }
             Some(int_pieces(layout.size))
         }
-        Arch::Win64 | Arch::Wasm | Arch::X86 | Arch::S390x | Arch::Arm32 | Arch::Avr => {
+        Arch::Win64
+        | Arch::Wasm
+        | Arch::X86
+        | Arch::S390x
+        | Arch::PowerPc64
+        | Arch::Arm32
+        | Arch::Avr => {
             unreachable!("handled above")
         }
         Arch::X86_64 => {
@@ -629,6 +643,28 @@ mod tests {
         }
         assert!(classify_ret(Arch::S390x, &layout(8, &[(0, Ty::I64)]), &data).is_none());
         assert!(sret_takes_int_register(Arch::S390x, false));
+    }
+
+    /// ELFv1 powerpc64: every aggregate argument goes by value on the stack image (the backend
+    /// puts it in registers) and every aggregate result through a hidden pointer in `r3`.
+    #[test]
+    fn powerpc64_passes_aggregates_by_value_and_returns_them_in_memory() {
+        let target = crate::target::Target::parse("powerpc64-unknown-linux-gnu").unwrap();
+        assert_eq!(target.arch(), Some(Arch::PowerPc64));
+        let data = target.data_layout();
+        for l in [
+            layout(4, &[(0, Ty::F32)]),
+            layout(8, &[(0, Ty::I64)]),
+            layout(16, &[(0, Ty::F64), (8, Ty::F64)]),
+        ] {
+            assert_eq!(
+                classify_arg(Arch::PowerPc64, &l, &data),
+                Passing::ByVal,
+                "{l:?}"
+            );
+            assert!(classify_ret(Arch::PowerPc64, &l, &data).is_none(), "{l:?}");
+        }
+        assert!(sret_takes_int_register(Arch::PowerPc64, false));
     }
 
     /// AAPCS32 (VFP): small aggregates are one integer, float aggregates use VFP registers,

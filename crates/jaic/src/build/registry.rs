@@ -251,6 +251,7 @@ impl Workspaces {
                     CpuTag::Custom => match s.cpu.unwrap_or(current_cpu) {
                         cpu @ (TargetCpu::X86
                         | TargetCpu::S390x
+                        | TargetCpu::PowerPc64
                         | TargetCpu::Arm
                         | TargetCpu::Avr
                         | TargetCpu::Wasm) => cpu,

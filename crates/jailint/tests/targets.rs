@@ -114,6 +114,7 @@ fn selected_target_branches_check_with_unchanged_compiler_host() {
         jaic::target::TargetCpu::Arm64 => "ARM64",
         jaic::target::TargetCpu::X86
         | jaic::target::TargetCpu::S390x
+        | jaic::target::TargetCpu::PowerPc64
         | jaic::target::TargetCpu::Arm
         | jaic::target::TargetCpu::Avr
         | jaic::target::TargetCpu::Wasm => "CUSTOM",

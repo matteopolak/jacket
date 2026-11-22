@@ -158,6 +158,7 @@ pub(super) fn target_machine(
         Target::initialize_webassembly(&config);
         Target::initialize_system_z(&config);
         Target::initialize_arm(&config);
+        Target::initialize_power_pc(&config);
         initialize_avr();
     });
     let (triple, build_target) = match options.target {
@@ -314,6 +315,7 @@ mod tests {
             "i686-unknown-linux-gnu",
             "i686-unknown-linux-musl",
             "s390x-unknown-linux-gnu",
+            "powerpc64-unknown-linux-gnu",
             "armv7-unknown-linux-gnueabihf",
             "avr-none-elf",
         ] {

@@ -46,6 +46,7 @@ impl Target {
                 TargetCpu::Arm64 => "ARM64",
                 TargetCpu::X86
                 | TargetCpu::S390x
+                | TargetCpu::PowerPc64
                 | TargetCpu::Arm
                 | TargetCpu::Avr
                 | TargetCpu::Wasm => "CUSTOM",
