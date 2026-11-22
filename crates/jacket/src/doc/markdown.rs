@@ -1,7 +1,9 @@
 //! Markdown to HTML for doc comments and the guide pages. Code blocks are not rendered here:
 //! they come back as segments, so a page can turn a ```` ```jai ```` block into an example with
 //! its own buttons.
-use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
+use pulldown_cmark::{
+    BlockQuoteKind, CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd,
+};
 
 /// One block of rendered HTML (a paragraph, a list, a heading, a table), or a fenced code block.
 #[derive(Clone, Debug)]
@@ -126,8 +128,21 @@ pub fn indented_blocks(md: &str) -> Vec<String> {
     out
 }
 
+/// The title GitHub shows on an alert (`> [!WARNING]`).
+fn alert_title(kind: BlockQuoteKind) -> &'static str {
+    match kind {
+        BlockQuoteKind::Note => "Note",
+        BlockQuoteKind::Tip => "Tip",
+        BlockQuoteKind::Important => "Important",
+        BlockQuoteKind::Warning => "Warning",
+        BlockQuoteKind::Caution => "Caution",
+    }
+}
+
+/// `md` as HTML blocks and code blocks. Alerts (`> [!NOTE]`, `> [!WARNING]`, ...) render as
+/// GitHub does: a `markdown-alert-<kind>` block quote that starts with its title.
 pub fn segments(md: &str, settings: &Settings<'_>) -> Vec<Segment> {
-    let options = Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH;
+    let options = Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH | Options::ENABLE_GFM;
     let events: Vec<Event<'_>> = Parser::new_ext(md, options).collect();
     let mut out = Vec::new();
     let mut buf: Vec<Event<'_>> = Vec::new();
@@ -190,6 +205,16 @@ pub fn segments(md: &str, settings: &Settings<'_>) -> Vec<Segment> {
                 }
             }
             Event::Html(text) | Event::InlineHtml(text) => buf.push(Event::Text(text)),
+            Event::Start(Tag::BlockQuote(Some(kind))) => {
+                buf.push(Event::Start(Tag::BlockQuote(Some(kind))));
+                buf.push(Event::Html(
+                    format!(
+                        "<p class=\"markdown-alert-title\">{}</p>\n",
+                        alert_title(kind)
+                    )
+                    .into(),
+                ));
+            }
             Event::Start(Tag::Heading {
                 level: base,
                 id: _,
@@ -277,6 +302,24 @@ mod tests {
     #[test]
     fn anchors_follow_githubs_rule() {
         assert_eq!(slug("Per-test options (v2)"), "per-test-options-v2");
+    }
+
+    #[test]
+    fn github_alerts_render_with_their_title() {
+        let parts = render("> [!WARNING]\n> Experimental: this may change.\n");
+        let Segment::Html(html) = &parts[0] else {
+            panic!("{parts:?}");
+        };
+        assert!(
+            html.contains("<blockquote class=\"markdown-alert-warning\">"),
+            "{html}"
+        );
+        assert!(
+            html.contains("<p class=\"markdown-alert-title\">Warning</p>"),
+            "{html}"
+        );
+        assert!(html.contains("Experimental: this may change."), "{html}");
+        assert!(!html.contains("[!WARNING]"), "{html}");
     }
 
     #[test]

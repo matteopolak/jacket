@@ -2688,3 +2688,36 @@ html.loading main {
   color: var(--fg2);
   max-width: 60ch;
 }
+
+/* GitHub alerts in doc text (`> [!WARNING]`): a coloured rule and title per kind. */
+main blockquote[class^='markdown-alert-'] {
+  --alert: var(--link);
+
+  margin: 1rem 0;
+  padding: 0.5rem 1rem;
+  border-left: 3px solid var(--alert);
+  border-radius: 0 6px 6px 0;
+  background: color-mix(in oklch, var(--alert) var(--tint), transparent);
+}
+
+main blockquote.markdown-alert-tip {
+  --alert: var(--ok);
+}
+
+main blockquote.markdown-alert-important {
+  --alert: var(--kw);
+}
+
+main blockquote.markdown-alert-warning {
+  --alert: var(--warn);
+}
+
+main blockquote.markdown-alert-caution {
+  --alert: var(--err);
+}
+
+main .markdown-alert-title {
+  margin: 0 0 0.25rem;
+  color: var(--alert);
+  font-weight: 600;
+}
