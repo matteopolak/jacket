@@ -917,6 +917,14 @@
         "linux-x64": "src/backend.jai's Linux path uses an undeclared `info` (upstream bug)",
         "linux-arm64": "src/backend.jai's Linux path uses an undeclared `info` (upstream bug)"
       }
+    },
+    {
+      "id": "josh",
+      "project": "DemonKingSwarn--josh",
+      "skip": {
+        "*": "needs libghostty-vt (a prebuilt library the repository does not ship), system FreeType, HarfBuzz, Fontconfig and librsvg, a PTY and a window; Linux only; checked by the upstream sweep cases josh-*-check"
+      },
+      "steps": []
     }
   ]
 }
