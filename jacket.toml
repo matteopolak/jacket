@@ -391,3 +391,7 @@ modules = [
     "stdlib/Windows_Registry", "stdlib/Windows_Resources", "stdlib/Windows_Utf8",
     "stdlib/Wasi_Numeric_Runtime", "stdlib/Extensions/Wasi_Runtime",
 ]
+
+[[doc.group]]
+name = "Embedded and bare metal"
+modules = ["stdlib/Extensions/Embedded", "stdlib/Extensions/Embedded/**"]
