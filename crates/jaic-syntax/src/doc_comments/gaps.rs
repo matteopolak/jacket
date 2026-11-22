@@ -76,8 +76,8 @@ pub fn gaps(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Vec<Entry> {
     let module_file = super::canonical(&crate::paths::module_entry(dir));
     let mut queue: Vec<PathBuf> = own;
     let mut seen = BTreeSet::new();
-    let mut files = Files::new(stdlib).with_import_dirs(import_dirs);
-    let mut out = Vec::new();
+    // Every file of the library and the files they load, parsed once.
+    let mut parsed_files = Vec::new();
     while let Some(file) = queue.pop() {
         let file = super::canonical(&file);
         if !seen.insert(file.clone()) {
@@ -88,43 +88,69 @@ pub fn gaps(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Vec<Entry> {
         };
         let parsed = crate::parser::parse_file_ide(FileId(0), &text);
         let base = file.parent().unwrap_or(Path::new("."));
-        // A file that declares bodiless procedures mirrors a native API or the compiler's
-        // built-ins: its types and procedures are documented elsewhere, and are not listed.
-        let binding = declares_bodiless_procs(&parsed.file);
+        let loads: Vec<PathBuf> = ide_facts::top_level(&parsed.file)
+            .iter()
+            .filter_map(|item| match item.kind {
+                TopLevelKind::Load(path, _) => Some(super::canonical(&base.join(path))),
+                _ => None,
+            })
+            .collect();
+        queue.extend(loads.iter().cloned());
+        parsed_files.push((file, text, parsed, loads));
+    }
+    // A file that declares bodiless procedures mirrors a native API or the compiler's
+    // built-ins: its types and procedures are documented elsewhere, and are not listed. So are
+    // the files it loads (a generated binding's per-platform parts).
+    let mut bindings: BTreeSet<PathBuf> = parsed_files
+        .iter()
+        .filter(|(_, _, parsed, _)| declares_bodiless_procs(&parsed.file))
+        .map(|(file, ..)| file.clone())
+        .collect();
+    let mut changed = true;
+    while changed {
+        changed = false;
+        for (file, _, _, loads) in &parsed_files {
+            if bindings.contains(file) {
+                for load in loads {
+                    changed |= bindings.insert(load.clone());
+                }
+            }
+        }
+    }
+    let mut files = Files::new(stdlib).with_import_dirs(import_dirs);
+    let mut out = Vec::new();
+    for (file, text, parsed, _) in &parsed_files {
+        let binding = bindings.contains(file);
         let mut first_statement = None;
         for item in ide_facts::top_level(&parsed.file) {
             first_statement.get_or_insert(item.span.start as usize);
-            match item.kind {
-                TopLevelKind::Decl(decl) => {
-                    let (Some(kind), Some(name)) = (kind_of(decl), decl.names.first()) else {
-                        continue;
-                    };
-                    let start = item.span.start as usize;
-                    if binding || item.visibility != Visibility::Export {
-                        continue;
-                    }
-                    let (site, at) =
-                        docs::docs_site(&mut files, file.clone(), name.span.start as usize);
-                    let doc = docs::Resolver::text(&mut files, &site)
-                        .and_then(|t| docs::declaration(&t, at));
-                    out.push(Entry {
-                        file: file.clone(),
-                        line: text[..start].matches('\n').count() + 1,
-                        kind,
-                        symbol: name.name.as_str().to_owned(),
-                        documented: doc.is_some(),
-                        example: doc.as_deref().is_some_and(has_example),
-                    });
-                }
-                TopLevelKind::Load(path, _) => queue.push(base.join(path)),
-                _ => {}
+            let TopLevelKind::Decl(decl) = item.kind else {
+                continue;
+            };
+            let (Some(kind), Some(name)) = (kind_of(decl), decl.names.first()) else {
+                continue;
+            };
+            let start = item.span.start as usize;
+            if binding || item.visibility != Visibility::Export {
+                continue;
             }
+            let (site, at) = docs::docs_site(&mut files, file.clone(), name.span.start as usize);
+            let doc =
+                docs::Resolver::text(&mut files, &site).and_then(|t| docs::declaration(&t, at));
+            out.push(Entry {
+                file: file.clone(),
+                line: text[..start].matches('\n').count() + 1,
+                kind,
+                symbol: name.name.as_str().to_owned(),
+                documented: doc.is_some(),
+                example: doc.as_deref().is_some_and(has_example),
+            });
         }
-        if file == module_file {
+        if *file == module_file {
             // A comment directly above the first statement documents that, not the module.
-            let opening = docs::opening(&text).filter(|o| {
+            let opening = docs::opening(text).filter(|o| {
                 first_statement
-                    .and_then(|at| docs::located_above(&text, at))
+                    .and_then(|at| docs::located_above(text, at))
                     .is_none_or(|first| first.line != o.line)
             });
             out.push(Entry {
@@ -272,6 +298,24 @@ mod tests {
                 ("procedure", "wrapper", false, false)
             ]
         );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn files_a_binding_loads_are_part_of_the_binding() {
+        let dir = library(
+            "split",
+            &[
+                ("module.jai", "// Binding.\n\n#load \"native.jai\";\n"),
+                (
+                    "native.jai",
+                    "native_call :: (x: int) -> int #foreign lib;\n#if OS == .LINUX { #load \"native/linux.jai\"; }\n",
+                ),
+                ("native/linux.jai", "Linux_Struct :: struct { x: int; }\n"),
+            ],
+        );
+        let found = gaps(&dir, Path::new("/nowhere"), &[]);
+        assert_eq!(rows(&found), [("module", "", true, false)]);
         let _ = std::fs::remove_dir_all(dir);
     }
 
