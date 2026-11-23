@@ -222,13 +222,156 @@ main :: () {
     assert!(shown.contains("nothing to migrate"), "{shown}");
 }
 
+/// `old` migrates to `new`, and `new` is then left alone.
+fn assert_migrates(name: &str, old: &str, new: &str) {
+    let (after, shown) = migrated(name, old);
+    assert_eq!(after, new, "{shown}");
+    let (again, shown) = migrated(&format!("{name}-again"), new);
+    assert_eq!(again, new, "second run changed the code: {shown}");
+    assert!(shown.contains("nothing to migrate"), "{shown}");
+}
+
 #[test]
-fn a_removed_procedure_gets_a_note_and_no_rewrite() {
-    let old = "#import \"Basic\";\nmain :: () { t := get_time(); }\n";
-    let (after, shown) = migrated("migrate-manual", old);
+fn renamed_basic_procedures_take_their_new_names() {
+    assert_migrates(
+        "migrate-renamed",
+        r#"#import "Basic";
+#import "Sort";
+main :: () {
+    a := 1;
+    b := 2;
+    Swap(*a, *b);
+    t := get_time();
+    words := string.["b", "a"];
+    bubble_sort(words, compare_strings);
+    context.allocator = __temporary_allocator;
+    args := compiler_get_command_line_arguments();
+}
+"#,
+        r#"#import "Basic";
+#import "Sort";
+main :: () {
+    a := 1;
+    b := 2;
+    swap(*a, *b);
+    t := seconds_since_init();
+    words := string.["b", "a"];
+    quick_sort(words, compare_strings);
+    context.allocator = temp;
+    args := get_command_line_arguments();
+}
+"#,
+    );
+}
+
+#[test]
+fn a_procedure_the_program_declares_keeps_its_name() {
+    let old = r#"#import "Basic";
+Swap :: (a: *int, b: *int) { t := a.*; a.* = b.*; b.* = t; }
+get_time :: () -> float64 { return 1; }
+main :: () {
+    a := 1;
+    b := 2;
+    Swap(*a, *b);
+    t := get_time();
+}
+"#;
+    let (after, shown) = migrated("migrate-own-names", old);
+    assert_eq!(after, old, "{shown}");
+}
+
+#[test]
+fn the_build_options_output_type_and_message_kind_are_renamed() {
+    assert_migrates(
+        "migrate-compiler-names",
+        r#"#import "Compiler";
+main :: () {
+    options := get_build_options();
+    options.output_type = Build_Output_Type.NO_OUTPUT;
+}
+handle :: (message: *Message) {
+    if message.kind == .COMPILATION_PHASE return;
+}
+"#,
+        r#"#import "Compiler";
+main :: () {
+    options := get_build_options();
+    options.output_type = Build_Options.Output_Type.NO_OUTPUT;
+}
+handle :: (message: *Message) {
+    if message.kind == .PHASE return;
+}
+"#,
+    );
+}
+
+#[test]
+fn file_list_follows_directory_symlinks_by_its_new_name() {
+    assert_migrates(
+        "migrate-file-list",
+        "#import \"File_Utilities\";\nmain :: () {\n    files := file_list(\".\", recursive = true, follow_symlinks = false);\n}\n",
+        "#import \"File_Utilities\";\nmain :: () {\n    files := file_list(\".\", recursive = true, follow_directory_symlinks = false);\n}\n",
+    );
+}
+
+#[test]
+fn an_assert_message_is_positional() {
+    assert_migrates(
+        "migrate-assert-message",
+        "#assert(OS == .MACOS || OS != .MACOS, message = \"unreachable\");\nmain :: () {}\n",
+        "#assert(OS == .MACOS || OS != .MACOS, \"unreachable\");\nmain :: () {}\n",
+    );
+}
+
+#[test]
+fn vector_arguments_that_start_with_a_cast_are_rewritten() {
+    assert_migrates(
+        "migrate-vector-cast",
+        r#"#import "Math";
+main :: () {
+    w := 640;
+    a := make_vector2(cast(float) w / 2, cast(float) w / 2);
+    b := make_vector2(xx (w / 2), xx (w / 2));
+    f := (v: Vector2) -> Vector2 { return v; };
+    c := f(make_vector2(cast(float) w, 1));
+}
+"#,
+        r#"#import "Math";
+main :: () {
+    w := 640;
+    a := Vector2.{cast(float) w / 2, cast(float) w / 2};
+    b := Vector2.{xx (w / 2), xx (w / 2)};
+    f := (v: Vector2) -> Vector2 { return v; };
+    c := f(Vector2.{cast(float) w, 1});
+}
+"#,
+    );
+}
+
+#[test]
+fn a_removed_module_gets_a_note_and_no_rewrite() {
+    let old = "#import \"Basic\";\n#import \"Render\";\nmain :: () {}\n";
+    let (after, shown) = migrated("migrate-removed-module", old);
     assert_eq!(after, old);
     assert!(
-        shown.contains("main.jai:2:19: removed-basic-procedures: `get_time` was removed"),
+        shown.contains("main.jai:2:1: removed-modules: the `Render` module was removed"),
         "{shown}"
+    );
+}
+
+#[test]
+fn arguments_after_the_allocator_stay_ordinary_arguments() {
+    assert_migrates(
+        "migrate-allocator-order",
+        r#"#import "Basic";
+main :: () {
+    p := New(int, allocator = temp, initialized = false);
+}
+"#,
+        r#"#import "Basic";
+main :: () {
+    p := New(int, initialized = false,, allocator = temp);
+}
+"#,
     );
 }
