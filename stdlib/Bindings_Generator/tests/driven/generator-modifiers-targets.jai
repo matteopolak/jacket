@@ -19,7 +19,7 @@ main :: () {
     defer free_buffers(*builder);
 
     push_context {
-        context.generator = *windows_generator;
+        context.generator = cast(*B.Generator) *windows_generator;
         context._bindings_generator_options = *windows_options;
         W.append_calling_convention_directives(*builder, *windows_signature);
         result := builder_to_string(*builder);
