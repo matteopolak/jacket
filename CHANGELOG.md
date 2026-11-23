@@ -2,12 +2,13 @@
 
 ## [Unreleased]
 
-`jailsp` uses less memory, most on Windows.
+`jailsp` uses less memory, most on Windows. Compile-fail test output no longer depends on where the repository is checked out.
 
 ### Fixes
 
 - On Windows, `jailsp` gives freed memory back to the system after each compile. (#85, @ctzcs)
 - `jailsp` counts compiles for other operating systems toward its kept-compile limit. (#85, @ctzcs)
+- Compile-fail `.stderr` files write project paths as `$ROOT/...`, so they no longer differ between machines ([testing](docs/tools/jacket-test.md)).
 
 ## [0.38.0] - 2026-11-22
 

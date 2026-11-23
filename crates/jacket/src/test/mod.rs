@@ -127,6 +127,8 @@ struct Plan {
     settings: Settings,
     work: PathBuf,
     stdlib: PathBuf,
+    /// The folder with `jacket.toml`, written `$ROOT` in compile-fail output.
+    project: PathBuf,
     temp_counter: AtomicUsize,
     stop: AtomicBool,
     coverage: Option<coverage::Coverage>,
@@ -738,6 +740,7 @@ fn run_once(
         root_flags,
         built,
         stdlib,
+        project: project_dir.clone(),
         toolchain,
         settings,
         work,
