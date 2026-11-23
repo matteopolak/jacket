@@ -54,6 +54,9 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                         help='repo: a temp copy of this repository\'s Jai sources; gen-*: a generated program (default: %(default)s)')
     parser.add_argument('--seed', type=int, default=1, help='the session is a function of this (default: %(default)s)')
     parser.add_argument('--steps', type=int, default=300, help='actions in the session (default: %(default)s)')
+    parser.add_argument('--minutes', type=float, default=0,
+                        help='run this long instead of --steps (a long-run session: 30+ minutes shows leaks)')
+    parser.add_argument('--large-pause', type=float, default=2, help='seconds a large file stays open after its request (default: %(default)s)')
     parser.add_argument('--idle-every', type=int, default=50, help='an idle gap after this many actions (default: %(default)s)')
     parser.add_argument('--idle-seconds', type=float, default=8, help='length of an idle gap (default: %(default)s)')
     parser.add_argument('--settle-seconds', type=float, default=40,
@@ -66,28 +69,31 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--max-peak', type=float, default=0, help='fail when the peak private memory passes this many MiB')
     parser.add_argument('--max-slope', type=float, default=0,
                         help='fail when memory after the idle gaps grows by more than this many MiB per gap')
-    parser.add_argument('--actions', default='', help='comma-separated subset of open,close,type,fix,query,os,files (default: all)')
+    parser.add_argument('--actions', default='', help='comma-separated subset of open,close,type,fix,query,os,files,large (default: all)')
     parser.add_argument('--keep', action='store_true', help='keep the temporary workspace')
     parser.add_argument('--out', type=Path, default=output_dir('bench', 'stress.json'), help='JSON results (default: %(default)s)')
 
 
 # ---------------------------------------------------------------------------------------- workspace
 
-def make_workspace(name: str, scratch: Path) -> tuple[Path, list[Path]]:
-    """A writable workspace in `scratch` and the Jai files an editor could open in it."""
+def make_workspace(name: str, scratch: Path) -> tuple[Path, list[Path], list[Path]]:
+    """A writable workspace in `scratch`, the Jai files an editor could open in it, and the large ones (over
+    100 KB: binding declarations, generated data) the `large` action opens one after another."""
     if name == 'repo':
-        files = subprocess.run(['git', 'ls-files', '-z', 'stdlib/Extensions', 'stdlib/Basic', 'tests/compiler'],
-                               cwd=ROOT, capture_output=True, check=True).stdout.decode().split('\0')
+        listed = subprocess.run(['git', 'ls-files', '-z', 'stdlib', 'tests/compiler'],
+                                cwd=ROOT, capture_output=True, check=True).stdout.decode().split('\0')
         root = scratch / 'repo'
-        for rel in files:
-            if rel.endswith(('.jai', '.toml')):
+        for rel in listed:
+            near = rel.startswith(('stdlib/Extensions', 'stdlib/Basic', 'tests/compiler'))
+            if rel.endswith(('.jai', '.toml')) and (near or (ROOT / rel).stat().st_size > 100_000):
                 (root / rel).parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(ROOT / rel, root / rel)
-        pool = [p for p in sorted(root.glob('stdlib/Extensions/**/*.jai')) if 2_000 < p.stat().st_size < 150_000]
-        return root, pool
+        pool = [p for p in sorted(root.glob('stdlib/Extensions/**/*.jai')) if 2_000 < p.stat().st_size < 100_000]
+        large = sorted((p for p in root.glob('**/*.jai') if p.stat().st_size > 100_000), key=lambda p: str(p))
+        return root, pool, large
     workload = next(w for w in WORKLOADS if w.name == name)
     prepared = workload.prepare(scratch)
-    return prepared.workspace, sorted(prepared.workspace.glob('*.jai'))
+    return prepared.workspace, sorted(prepared.workspace.glob('*.jai')), []
 
 
 # ---------------------------------------------------------------------------------------- the model
@@ -169,11 +175,14 @@ class Sampler(threading.Thread):
 
 
 class Run:
-    def __init__(self, args: argparse.Namespace, workspace: Path, pool: list[Path]):
+    def __init__(self, args: argparse.Namespace, workspace: Path, pool: list[Path], large: list[Path]):
         self.args = args
         self.rng = random.Random(args.seed)
         self.workspace = workspace
         self.pool = pool
+        self.large = list(large)
+        self.rng.shuffle(self.large)
+        self.large_next = 0
         self.client = Client(common.split_command(args.server))
         self.stats = Stats()
         self.docs: dict[Path, Doc] = {}
@@ -362,6 +371,26 @@ class Run:
         self.request_at(doc, self.rng.choice(kinds), line, column)
         self.count('os_branch')
 
+    def open_large(self) -> None:
+        """Open the next large file in turn (each one once per round), ask about it, and usually close it."""
+        if not self.large:
+            return
+        path = self.large[self.large_next % len(self.large)]
+        self.large_next += 1
+        if path in self.docs:
+            return
+        doc = Doc(path, path.read_text(encoding='utf-8', errors='replace').split('\n'), unpublished=True)
+        self.docs[path] = doc
+        self.send('textDocument/didOpen', {'textDocument': {'uri': doc.uri, 'languageId': 'jai', 'version': 1, 'text': doc.text}})
+        self.count('open_large')
+        self.query_in(doc)
+        time.sleep(self.args.large_pause)
+        if self.rng.random() < 0.8:
+            self.docs.pop(path)
+            self.send('textDocument/didClose', {'textDocument': {'uri': doc.uri}})
+        elif len(self.docs) > MAX_OPEN:
+            self.close_doc()
+
     def watch(self, *changes: tuple[Path, int]) -> None:
         self.send('workspace/didChangeWatchedFiles', {'changes': [{'uri': file_uri(p), 'type': t} for p, t in changes]})
 
@@ -431,14 +460,19 @@ class Run:
         self.open_doc()
         every = {'open': (self.open_doc, 3), 'close': (self.close_doc, 2), 'type': (self.type_burst, 8),
                  'fix': (self.fix_errors, 4), 'query': (self.query, 8), 'os': (self.os_branch, 4),
-                 'files': (self.file_event, 4)}
+                 'files': (self.file_event, 4), 'large': (self.open_large, 3)}
         chosen = [n.strip() for n in self.args.actions.split(',') if n.strip()] or list(every)
         unknown = [n for n in chosen if n not in every]
         if unknown:
             raise Failure(f'--actions: unknown {unknown}; choose from {list(every)}')
+        if not self.large:
+            chosen = [n for n in chosen if n != 'large']
         actions = [every[n] for n in chosen]
         weights = [w for _, w in actions]
-        for step in range(1, self.args.steps + 1):
+        ends = time.perf_counter() + self.args.minutes * 60
+        step = 0
+        while step < self.args.steps if not self.args.minutes else time.perf_counter() < ends:
+            step += 1
             self.rng.choices([a for a, _ in actions], weights)[0]()
             if step % self.args.idle_every == 0:
                 self.idle()
@@ -492,6 +526,7 @@ def summarize(run: Run, failure: str | None, peak_rss: float | None) -> dict:
         'after_idle': gaps,
         'slope_per_minute_mib': round(slope([(t / 60, p) for t, _, p in series]), 1),
         # The first gap is the server warming up; the trend is judged from the gaps after it.
+        'slope_second_half_per_minute_mib': round(slope([(t / 60, p) for t, _, p in series[len(series) // 2:]]), 2),
         'slope_per_gap_mib': round(slope(list(enumerate(private[1:] if len(private) > 3 else private))), 1),
         'latency_ms': {kind: {'n': len(s), 'p50': percentile_ms(s, 0.5), 'p99': percentile_ms(s, 0.99)}
                        for kind, s in sorted(run.stats.latency.items())},
@@ -509,7 +544,7 @@ def render(result: dict) -> str:
     lines = [f"# Language server stress session (seed {result['seed']}, {result['steps']} steps, {result['workspace']})", '']
     lines.append(f"- result: {'FAILED: ' + result['failure'] if result['failure'] else 'ok'}")
     lines.append(f"- peak: {result['peak_rss_mib']} MiB resident, {result['peak_private_mib']} MiB private")
-    lines.append(f"- slope: {result['slope_per_minute_mib']} MiB/min over the run, {result['slope_per_gap_mib']} MiB per idle gap")
+    lines.append(f"- slope: {result['slope_per_minute_mib']} MiB/min over the run ({result['slope_second_half_per_minute_mib']} in its second half), {result['slope_per_gap_mib']} MiB per idle gap")
     lines.append(f"- actions: {', '.join(f'{k} {v}' for k, v in sorted(result['actions'].items()))}")
     lines += ['', 'After each idle gap (MiB private): ' + ', '.join(str(g['private_mib']) for g in result['after_idle']), '']
     rows = [[kind, str(v['n']), f"{v['p50']:.1f}", f"{v['p99']:.1f}"] for kind, v in result['latency_ms'].items()]
@@ -526,8 +561,8 @@ def run(args: argparse.Namespace) -> int:
     os.environ.setdefault('JAIC_STDLIB', str(ROOT / 'stdlib'))
     scratch = Path(tempfile.mkdtemp(prefix='bench-stress-'))
     try:
-        workspace, pool = make_workspace(args.workspace, scratch)
-        session = Run(args, workspace, pool)
+        workspace, pool, large = make_workspace(args.workspace, scratch)
+        session = Run(args, workspace, pool, large)
         failure = None
         try:
             session.run()
