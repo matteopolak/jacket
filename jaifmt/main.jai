@@ -1,7 +1,7 @@
 // jaifmt: a token-based formatter for Jai source. See docs/tools/jaifmt.md.
 //
 //     jaic jaifmt/build.jai    (or: jaic jaifmt/main.jai -O2 -exe target/jaifmt)
-//     jaifmt [--check] [--config file] [--verbose] paths...
+//     jaifmt [--check] [--config file] [--verbose] [-j N] paths...
 //     jaifmt --stdin [--config file] < in.jai > out.jai
 //     jaifmt --stdin --range START:END [--config file] < in.jai > out.jai    (byte offsets)
 //     jaifmt --is-ignored file [--config file]    (exit 0 ignored, 1 formatted, 2 error)
@@ -18,6 +18,7 @@
 Args :: #import "Extensions/Args";
 
 #load "version.jai";
+#load "batch.jai";
 
 Options :: struct {
     paths: [..] string; @positional @conflicts=stdin
@@ -29,6 +30,7 @@ Options :: struct {
     set: [..] string; @value=KEY=VALUE
     no_config: bool;
     verbose: bool; @short=v
+    jobs: int; @short=j @value=N
     color: Args.Color_Mode = .AUTO;
 }
 
@@ -43,6 +45,7 @@ HELP :: Args.Help(Options).{
     config = "Use this jacket.toml instead of the nearest one",
     set = "Set one [format] key, written as in jacket.toml (--set indent_width=2); implies --no-config. `jacket fmt` passes every resolved setting this way",
     no_config = "Read no jacket.toml: start from the defaults, then --config and --set. Nothing is ignored, since the caller chooses the files",
+    jobs = "Format this many files at once [default: the number of cores]",
     verbose = "Report every file, a summary, and lines over max_width",
     color = "Colour errors; auto means on a terminal, unless NO_COLOR is set",
 };
@@ -121,8 +124,20 @@ main :: () {
 
     quick_sort(files, compare_strings);
 
-    for path: files {
-        format_file(path, explicit_config, options, *totals);
+    if options.jobs < 0 fatal_usage("--jobs must be at least 1");
+
+    outcomes := NewArray(files.count, Outcome);
+
+    for *outcomes {
+        it.path = files[it_index];
+        it.config = config_for(it.path, explicit_config, *totals);
+        it.write = !options.check;
+    }
+
+    format_batch(outcomes, ifx options.jobs then options.jobs else default_workers());
+
+    for outcomes {
+        report_outcome(it, options, *totals);
         reset_temporary_storage();
     }
 
@@ -272,64 +287,47 @@ collect_files :: (directory: string, explicit_config: *Format_Config, files: *[.
     visit_files(directory, true, *walk, visitor, visit_directories = true, follow_directory_symlinks = false);
 }
 
-format_file :: (path: string, explicit_config: *Format_Config, options: Options, totals: *Totals) {
-    config := config_for(path, explicit_config, totals);
-    if !config return;
+// Prints what happened to one file and adds it to the totals. Called in file order, so output
+// does not depend on how the files were scheduled.
+report_outcome :: (outcome: Outcome, options: Options, totals: *Totals) {
+    path := outcome.path;
 
-    source, ok := read_entire_file(path, log_errors = false);
-    if !ok {
+    if outcome.status == .READ_FAILED {
         report_error(tprint("could not read `%`", shown(path)), "check that the file is readable");
         totals.errors += 1;
         return;
     }
 
-    defer free(source);
     totals.checked += 1;
 
-    output, formatted, error := format_source(source, config.*);
-    if !formatted {
-        report_format_error(path, error);
+    if outcome.status == .FORMAT_FAILED {
+        report_format_error(path, outcome.error);
         totals.errors += 1;
         return;
     }
 
-    defer free(output);
-    long_lines := format_count_long_lines(output, config.max_width);
+    totals.long_lines += outcome.long_lines;
 
-    totals.long_lines += long_lines;
-
-    if options.verbose && long_lines {
-        print_error("jaifmt: %: % lines over % columns (%#max_width)\n", shown(path), long_lines, config.max_width, RULES_URL);
+    if options.verbose && outcome.long_lines {
+        print_error("jaifmt: %: % lines over % columns (%#max_width)\n", shown(path), outcome.long_lines, outcome.config.max_width, RULES_URL);
     }
 
-    if output == source return;
+    if outcome.status == .UNCHANGED return;
 
     totals.changed += 1;
 
     if options.check {
-        line := first_difference_line(source, output);
-        print("%:%\n", shown(path), line);
+        print("%:%\n", shown(path), outcome.diff_line);
         return;
     }
 
-    if !write_entire_file(path, output.data, output.count) {
+    if outcome.status == .WRITE_FAILED {
         report_error(tprint("could not write `%`", shown(path)), "check that the file and its directory are writable");
         totals.errors += 1;
         return;
     }
 
     if options.verbose print_error("jaifmt: formatted %\n", shown(path));
-}
-
-first_difference_line :: (a: string, b: string) -> int {
-    line := 1;
-
-    for i: 0..min(a.count, b.count) - 1 {
-        if a[i] != b[i] return line;
-        if a[i] == #char "\n" line += 1;
-    }
-
-    return line;
 }
 
 // The `--is-ignored` answer for one file: 0 ignored, 1 not ignored, 2 when the config is unreadable.

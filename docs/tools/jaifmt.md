@@ -15,6 +15,8 @@ In a project use `jacket fmt`. For each file it finds the nearest `jacket.toml`,
 
 Paths are files or directories (searched for `*.jai`, skipping dot-directories and symlinks). Flags are declared at the top of `jaifmt/main.jai` and parsed by [`Extensions/Args`](../extensions/args.md). Exit status: 0 success, 1 `--check` found files to change, 2 errors (usage, unreadable file, input that doesn't lex, failed token check). `--check` lists `path:line` on stdout and, when anything would change, a hint with the rules page (`RULES_URL` in `jaifmt/main.jai`) on stderr; `-v` links the `max_width` page next to long lines.
 
+Files are formatted in parallel, one worker per logical core, or `-j N` workers (`-j 1` stays on one thread). Each file is read, formatted and written independently by `format_batch` (`jaifmt/batch.jai`); the main thread then reports the results in sorted path order, so output, totals and exit status are the same for any `-j`. Config files are resolved before the workers start, because the config cache and its warnings are not thread-safe. `jaifmt/tests/batch-order.jai` checks that a parallel run gives the same results as a serial one. The wasm build formats one input from stdin and uses no threads.
+
 `jaifmt/build.jai` builds with `set_optimization(.OPTIMIZED)` and needs real `jaic`, not `-check`. CI, Nix and the tests use `jaic jaifmt/main.jai -O2`, which keeps the checks.
 
 [Format rules](jaifmt-rules.md) shows every rule and setting with the code before and after. Its ```` ```jai after ```` blocks are checked: the golden test (`Jai_Format/tests/golden.jai`) formats each ```` ```jai before ```` block with the settings named after `after` and fails if the output differs, so change the page when you change the output.
