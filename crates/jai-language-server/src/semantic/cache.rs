@@ -200,19 +200,43 @@ impl Cache {
     /// small ones. The one kept is the newest that checked of `root` (what completion falls
     /// back to while its text does not parse), else the costliest that checked (a project's
     /// compile, not a stray file's that takes milliseconds to redo), else the newest. A compile
-    /// for another target makes room only among those (one is kept), so asking about a skipped
-    /// branch does not cost the program's own compile.
+    /// for another target makes room only among the other targets' (the oldest goes, and the
+    /// program's own compiles stay), so asking about a skipped branch does not cost the
+    /// program's own compile. Large compiles for other targets share the `CACHED` budget with
+    /// the program's own, so a large program is not held in memory once per target.
     fn make_room(&mut self, os: Option<TargetOs>, root: &Path) {
+        let small = |a: &Analysis| a.cost <= SMALL_COST;
+        // Large compiles alive, whatever their target: at most `CACHED` of them, the one
+        // about to be built included.
+        let large_alive = |entries: &[Analysis]| entries.iter().filter(|a| !small(a)).count();
+        let oldest_large_alternate =
+            |entries: &[Analysis]| entries.iter().position(|a| a.os.is_some() && !small(a));
         if os.is_some() {
             // The oldest compile for another target goes; the newest stays, so hovers that go
-            // back and forth between a Windows and a Linux branch do not recompile each time.
-            while self.entries.iter().filter(|a| a.os.is_some()).count() >= ALTERNATES {
-                let oldest = self.entries.iter().position(|a| a.os.is_some());
-                self.entries.remove(oldest.expect("counted"));
+            // back and forth between a Windows and a Linux branch do not recompile each time
+            // (unless the program is large enough that two would not fit).
+            loop {
+                let alternates = self.entries.iter().filter(|a| a.os.is_some()).count();
+                let victim = if alternates >= ALTERNATES {
+                    self.entries.iter().position(|a| a.os.is_some())
+                } else if large_alive(&self.entries) >= CACHED {
+                    oldest_large_alternate(&self.entries)
+                } else {
+                    None
+                };
+                let Some(victim) = victim else {
+                    return;
+                };
+                self.entries.remove(victim);
             }
-            return;
         }
-        let small = |a: &Analysis| a.cost <= SMALL_COST;
+        // Another target's large compile makes way for the program's own.
+        while large_alive(&self.entries) >= CACHED {
+            let Some(victim) = oldest_large_alternate(&self.entries) else {
+                break;
+            };
+            self.entries.remove(victim);
+        }
         loop {
             let (light, heavy): (Vec<usize>, Vec<usize>) = (0..self.entries.len())
                 .filter(|&i| self.entries[i].os.is_none())
