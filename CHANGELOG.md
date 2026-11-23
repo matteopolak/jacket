@@ -10,7 +10,7 @@ Jacket builds for 16- and 32-bit, big-endian and bare-metal targets, and Sound_P
 - Bare-metal AArch64, Cortex-M and AVR (Arduino Uno): `OS == .NONE`, volatile accesses, interrupt and section notes ([embedded](docs/native/embedded.md)).
 - `jacket build|run|test --target NAME` builds and runs on a target, board or `[target.NAME]` table; `jacket targets` lists them.
 - New lint rules, off by default: `freestanding` and `narrow_pointers`.
-- A new guide: [32-bit and embedded](docs/guides/other-targets.md).
+- A new guide: [other targets](docs/guides/other-targets.md), from WebAssembly to the Arduino Uno.
 - `jacket doc` renders GitHub alerts, and runs guides' `console` blocks, failing on drift and showing their colours.
 
 ### Breaking changes

@@ -249,7 +249,7 @@ name = "Documenting a library"
 
 [[doc.page]]
 file = "docs/guides/other-targets.md"
-name = "32-bit and embedded"
+name = "Other targets"
 
 [[doc.page]]
 file = "docs/language/context.md"
