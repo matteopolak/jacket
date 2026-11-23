@@ -6,6 +6,7 @@ mod imports;
 mod loading;
 mod not_found;
 mod parameters;
+pub(super) use self::parameters::INFERRED_PARAM;
 
 pub(super) use self::declare::file_scope_for_eval;
 pub(super) use self::filesystem::module_listed;

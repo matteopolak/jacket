@@ -4,6 +4,7 @@ use super::{int_constant_fits, int_to_float};
 use crate::diagnostics::Code;
 use crate::sema::TypeState;
 use crate::sema::lower::{FnCtx, Operand, Origin};
+use crate::sema::modules::INFERRED_PARAM;
 use crate::sema::{Compiler, Diagnostic, ProcId, Result, Span, TypeId, Value, err};
 use crate::types::TypeKind;
 
@@ -197,8 +198,8 @@ impl Compiler {
                 span,
                 format!(
                     "type mismatch: expected `{}`, found `{}`",
-                    self.ty.types.name(to),
-                    self.ty.types.name(from)
+                    self.mismatch_name(to, from),
+                    self.mismatch_name(from, to)
                 ),
             );
             if to == TypeId::U8
@@ -355,5 +356,56 @@ impl Compiler {
             .with_label("float32 cannot hold these digits")
             .with_help("make it a float64, or write the float32 value"),
         );
+    }
+}
+
+impl Compiler {
+    /// `ty` spelled for a mismatch with `other`. Two instances of one parameterized module
+    /// declare distinct types with the same name; when `ty` and `other` differ only there, the
+    /// struct is followed by `in` and its module instance, e.g. `*Generator in Bindings_Generator(TARGET_OS = .LINUX)`.
+    fn mismatch_name(&self, ty: TypeId, other: TypeId) -> String {
+        let name = self.ty.types.name(ty);
+        if name != self.ty.types.name(other) {
+            return name;
+        }
+        let (mut a, mut b) = (ty, other);
+        while let (Some(x), Some(y)) = (self.ty.types.pointee(a), self.ty.types.pointee(b)) {
+            (a, b) = (x, y);
+        }
+        match self.struct_instance(a) {
+            Some(instance) => format!("{name} in {instance}"),
+            None => name,
+        }
+    }
+
+    /// The module instance that declares struct type `ty`, spelled with its parameters.
+    fn struct_instance(&self, ty: TypeId) -> Option<String> {
+        let TypeKind::Struct(id) = self.ty.types.kind(ty) else {
+            return None;
+        };
+        let source = self.ty.struct_asts.get(id)?;
+        let module = &self.ns.modules[self.scope(source.scope).module.0 as usize];
+        let mut text = module.name.clone();
+        if !module.params.is_empty() {
+            let args: Vec<String> = module
+                .params
+                .iter()
+                .map(|(name, value, _)| {
+                    // An enum member written bare (`.LINUX`) is stored behind a marker.
+                    let bare = match value {
+                        Value::String(s) => std::str::from_utf8(s)
+                            .ok()
+                            .and_then(|t| t.strip_prefix(INFERRED_PARAM)),
+                        _ => None,
+                    };
+                    match bare {
+                        Some(member) => format!("{name} = .{member}"),
+                        None => format!("{name} = {}", value.render(&self.ty.types, true)),
+                    }
+                })
+                .collect();
+            text.push_str(&format!("({})", args.join(", ")));
+        }
+        Some(text)
     }
 }
