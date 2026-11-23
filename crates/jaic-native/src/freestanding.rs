@@ -89,6 +89,13 @@ fn lld_command(
 pub fn link_freestanding(link: &FreestandingLink) -> Result<(), String> {
     let lld = find_lld()?;
     let explicit = jacket_config::env::COMPILER_RT.os().map(PathBuf::from);
+    if let Some(path) = explicit.as_deref().filter(|path| !path.exists()) {
+        return Err(format!(
+            "JAIC_COMPILER_RT names `{}`, which does not exist\nhelp: {}",
+            path.display(),
+            freestanding::compiler_rt_install(link.target)
+        ));
+    }
     let prefixes = jacket_config::llvm::prefixes(crate::BAKED_LLVM_PREFIX);
     let builtins = freestanding::compiler_rt_builtins(link.target, explicit.as_deref(), &prefixes);
     let mut cmd = lld_command(&lld, link, builtins.as_deref())?;
