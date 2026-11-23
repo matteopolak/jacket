@@ -1,0 +1,4 @@
+logged once=true text=value = -42 (s64)
+builder text: value = -42  (s64)
+flag  = true (bool)
+ok

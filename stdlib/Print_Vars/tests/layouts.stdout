@@ -1,0 +1,8 @@
+default:
+count = 7    (s32)
+big   = 1234 (s32)
+small = 3    (u8)
+expression: (count + 1) = 8 (s32)
+custom: [<   ab> 7; | <longer> 42; | ]
+type only: type=u8
+ok
