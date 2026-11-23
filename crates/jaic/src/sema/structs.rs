@@ -13,5 +13,7 @@ mod poly;
 mod using_members;
 
 pub use self::literals::write_agg;
+pub use self::model::{
+    CollectedFields, MemberAlias, PathStep, PolyStruct, StructMembers, StructSource,
+};
 pub(super) use self::model::{FieldUsing, UsingFilters};
-pub use self::model::{MemberAlias, PathStep, PolyStruct, StructSource};

@@ -1,6 +1,7 @@
 //! Laying a struct out: offsets, alignment and `using` clashes.
 use super::model::{
-    FieldDecl, FieldItem, FieldUsing, LayoutItem, OffsetNode, PathStep, StructSource, UsingFilters,
+    CollectedFields, FieldDecl, FieldItem, FieldUsing, LayoutItem, OffsetNode, PathStep,
+    StructMembers, StructSource, UsingFilters,
 };
 use crate::diagnostics::Code;
 use crate::sema::{
@@ -85,7 +86,15 @@ impl Compiler {
     }
 
     fn layout_struct_with_runtime_dependencies(&mut self, s: StructId, span: Span) -> Result<()> {
-        match self.ty.types.struct_info(s).layout {
+        // A struct whose members a member query is collecting is as far into its layout as one
+        // being laid out.
+        let layout = match self.ty.types.struct_info(s).layout {
+            LayoutState::Pending if self.ty.members_collecting.contains(&s) => {
+                LayoutState::InProgress
+            }
+            layout => layout,
+        };
+        match layout {
             LayoutState::Done => return Ok(()),
             LayoutState::InProgress => {
                 crate::sema::body_probe::write(crate::sema::body_probe::W::EpochsInProgressMisses);
@@ -106,6 +115,34 @@ impl Compiler {
             self.ty.types.struct_info_mut(s).layout = LayoutState::Pending;
         }
         result
+    }
+
+    /// The members of struct `s`, collected without laying out its storage if nothing has yet.
+    /// `None` while they are being collected (the caller is part of that) or for a struct with
+    /// no declaration.
+    pub(in crate::sema) fn struct_members(
+        &mut self,
+        s: StructId,
+    ) -> Result<Option<Arc<StructMembers>>> {
+        if let Some(members) = self.ty.struct_members.get(&s) {
+            return Ok(Some(members.clone()));
+        }
+        if self.ty.types.struct_info(s).layout != LayoutState::Pending
+            || self.ty.members_collecting.contains(&s)
+        {
+            return Ok(None);
+        }
+        let Some(src) = self.ty.struct_asts.get(&s).cloned() else {
+            return Ok(None);
+        };
+        self.ty.members_collecting.insert(s);
+        let items = self.struct_field_items(&src);
+        self.ty.members_collecting.remove(&s);
+        let items = items?;
+        let members = Arc::new(StructMembers::of(&items));
+        self.ty.struct_members.insert(s, members.clone());
+        self.ty.collected_fields.insert(s, CollectedFields(items));
+        Ok(Some(members))
     }
 
     /// The members of a struct in declaration order: its fields, aliases and layout directives,
@@ -221,7 +258,15 @@ impl Compiler {
             .get(&s)
             .cloned()
             .expect("struct without source");
-        let items = self.struct_field_items(&src)?;
+        let items = match self.ty.collected_fields.remove(&s) {
+            Some(collected) => collected.0,
+            None => {
+                let items = self.struct_field_items(&src)?;
+                let members = Arc::new(StructMembers::of(&items));
+                self.ty.struct_members.insert(s, members);
+                items
+            }
+        };
         let is_union = src.lit.kind == ast::StructKind::Union && src.lit.tag.is_none();
         let no_padding = src.lit.flags.has(ast::StructBits::NO_PADDING);
         let mut fields = Vec::new();

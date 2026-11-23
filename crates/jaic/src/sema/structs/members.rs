@@ -264,19 +264,21 @@ impl Compiler {
         // Constants of `using` fields are reachable too (`context.default_allocator`). A struct
         // being laid out has no fields yet: a name looked up from its own field types finds
         // only its declared constants.
-        if self.ty.types.struct_info(s).layout == LayoutState::InProgress {
-            return Ok(None);
-        }
-        self.layout_struct(s, Span::NONE)?;
-        let usings: Vec<TypeId> = self
-            .ty
-            .types
-            .struct_info(s)
-            .fields
-            .iter()
-            .filter(|f| f.using)
-            .map(|f| f.ty)
-            .collect();
+        // A struct being laid out has no fields yet; its collected members say which are `using`.
+        let usings: Vec<TypeId> = if self.ty.types.struct_info(s).layout == LayoutState::Done {
+            let fields = &self.ty.types.struct_info(s).fields;
+            fields.iter().filter(|f| f.using).map(|f| f.ty).collect()
+        } else {
+            match self.struct_members(s)? {
+                Some(members) => members
+                    .fields
+                    .iter()
+                    .filter(|f| f.using)
+                    .map(|f| f.ty)
+                    .collect(),
+                None => return Ok(None),
+            }
+        };
         for field_ty in usings {
             let inner = self.ty.types.pointee(field_ty).unwrap_or(field_ty);
             if let Some(ids) = self.struct_constant_in(inner, name, searched)? {
@@ -317,14 +319,20 @@ impl Compiler {
         if self.struct_constant(target, name)?.is_some() {
             return Ok(true);
         }
-        // A name looked up while this struct is being laid out, through a `using g;` of a
-        // global of its type (no_api's `using gpu_context;`), from its own body. Layout goes
-        // through declarations independently of offsets; asking only whether a declared
-        // field exists must not request storage layout recursively.
+        // Whether a member exists needs the struct's declarations, not its storage: laying it out
+        // could need the struct asking, when a field type of that one is looked up through a
+        // `using g;` of a global of this struct (no_api's `using gpu_context;`).
         if let Some(s) = self.ty.types.as_struct(self.ty.types.repr_struct(target))
-            && self.ty.types.struct_info(s).layout == LayoutState::InProgress
-            && let Some(src) = self.ty.struct_asts.get(&s)
+            && self.ty.types.struct_info(s).layout != LayoutState::Done
+            && self.ty.struct_asts.contains_key(&s)
         {
+            if self.struct_members(s)?.is_some() {
+                return Ok(self
+                    .declared_member_type(target, name, Span::NONE, &mut Vec::new())?
+                    .is_some());
+            }
+            // Its members are being collected: only what is declared so far.
+            let src = &self.ty.struct_asts[&s];
             let tag = src.lit.tag.as_ref().map(|t| t.name.name);
             let declared = self
                 .ty

@@ -108,6 +108,46 @@ pub(super) struct FieldDecl {
     pub(super) filter: Option<ast::UsingFilter>,
 }
 
+/// A struct's members as its body declares them, with `#if` and `#insert` expanded and declared
+/// types resolved: known before its storage is laid out, which may need other structs.
+pub struct StructMembers {
+    pub(super) fields: Vec<MemberField>,
+    pub(super) aliases: Vec<MemberAlias>,
+}
+
+pub(super) struct MemberField {
+    pub(super) name: Option<Sym>,
+    pub(super) ty: TypeId,
+    pub(super) using: bool,
+    pub(super) filter: ast::UsingFilter,
+}
+
+impl StructMembers {
+    pub(super) fn of(items: &[FieldItem]) -> Self {
+        let mut members = StructMembers {
+            fields: Vec::new(),
+            aliases: Vec::new(),
+        };
+        for item in items {
+            match item {
+                FieldItem::Field(d) => members.fields.push(MemberField {
+                    name: d.name,
+                    ty: d.ty,
+                    using: d.using,
+                    filter: d.filter.clone().unwrap_or(ast::UsingFilter::None),
+                }),
+                FieldItem::Alias(alias) => members.aliases.push(alias.clone()),
+                _ => {}
+            }
+        }
+        members
+    }
+}
+
+/// The field items of a struct whose members are collected and whose storage is not laid out
+/// yet: layout takes them, so `#insert` and `#if` in the body run once.
+pub struct CollectedFields(pub(super) Vec<FieldItem>);
+
 pub(super) enum FieldItem {
     Default(ast::Stmt, ScopeId),
     Declaration(ScopeId, Arc<ast::Decl>),

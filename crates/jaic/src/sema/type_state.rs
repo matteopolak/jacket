@@ -91,6 +91,15 @@ pub struct TypeState {
     /// `using,only(..)`/`using,except(..)` on struct members: field index and filter.
     pub(in crate::sema) using_filters:
         Probed<HashMap<StructId, structs::UsingFilters>, { W::TyUsingFilters as usize }>,
+    /// Each struct's members, collected once, before its storage is laid out.
+    pub(in crate::sema) struct_members:
+        Probed<HashMap<StructId, Arc<structs::StructMembers>>, { W::TyStructMembers as usize }>,
+    /// Field items of structs whose members are collected but whose storage is not laid out.
+    pub(in crate::sema) collected_fields:
+        Probed<HashMap<StructId, structs::CollectedFields>, { W::TyCollectedFields as usize }>,
+    /// Structs whose members are being collected for a member query, outside a layout.
+    pub(in crate::sema) members_collecting:
+        Probed<HashSet<StructId>, { W::TyMembersCollecting as usize }>,
     pub default_images:
         Probed<HashMap<TypeId, Option<Arc<value::Aggregate>>>, { W::TyDefaultImages as usize }>,
     pub default_globals: Probed<HashMap<TypeId, ir::GlobalId>, { W::TyDefaultGlobals as usize }>,
@@ -137,6 +146,9 @@ impl TypeState {
             enum_member_entities: Probed::default(),
             member_aliases: Probed::default(),
             using_filters: Probed::default(),
+            struct_members: Probed::default(),
+            collected_fields: Probed::default(),
+            members_collecting: Probed::default(),
             default_images: Probed::default(),
             default_globals: Probed::default(),
             initializers: Probed::default(),

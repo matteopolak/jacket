@@ -1,5 +1,5 @@
 //! Member access expressions and the types of promoted and pending members.
-use super::model::FieldUsing;
+use super::model::{FieldUsing, StructMembers};
 use crate::diagnostics::Code;
 use crate::ide::Recorder;
 use crate::sema::lower::{FnCtx, Operand, Origin};
@@ -365,6 +365,12 @@ impl Compiler {
                 .map(|(_, ty, _)| ty));
         };
         searched.push((ty, name));
+        if let Some(members) = self.struct_members(record)? {
+            let result = self.collected_member_type(ty, &members, name, span, searched);
+            searched.pop();
+            return result;
+        }
+        // Its members are being collected: only what is declared so far.
         let scope = self.ty.struct_asts[&record].scope;
         let result = if let Some(decl) = self
             .ty
@@ -379,6 +385,45 @@ impl Compiler {
         };
         searched.pop();
         result
+    }
+
+    /// `declared_member_type` in a struct whose members are collected: its fields, then what its
+    /// `using` fields and member aliases reach, in the order a member access looks.
+    fn collected_member_type(
+        &mut self,
+        owner: TypeId,
+        members: &StructMembers,
+        name: Sym,
+        span: Span,
+        searched: &mut Vec<(TypeId, Sym)>,
+    ) -> Result<Option<TypeId>> {
+        if let Some(field) = members.fields.iter().find(|f| f.name == Some(name)) {
+            return Ok(Some(field.ty));
+        }
+        for field in members.fields.iter().filter(|f| f.using) {
+            let Some(target) = crate::sema::using::filter_target(&field.filter, name) else {
+                continue;
+            };
+            if let Some(ty) = self.declared_member_type(field.ty, target, span, searched)? {
+                return Ok(Some(ty));
+            }
+        }
+        'aliases: for alias in &members.aliases {
+            let Some(target) = alias.target_name(name) else {
+                continue;
+            };
+            let mut at = owner;
+            for &step in &alias.path {
+                match self.declared_member_type(at, step, span, &mut Vec::new())? {
+                    Some(ty) => at = ty,
+                    None => continue 'aliases,
+                }
+            }
+            if let Some(ty) = self.declared_member_type(at, target, span, &mut Vec::new())? {
+                return Ok(Some(ty));
+            }
+        }
+        Ok(None)
     }
 
     pub(in crate::sema) fn pending_struct_field_type(
