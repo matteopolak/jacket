@@ -26,7 +26,7 @@ pub(super) enum ParameterContractState {
 }
 
 /// Marks an import argument `.Member` whose type comes from the module parameter.
-pub(super) const INFERRED_PARAM: &str = "\0inferred.";
+pub(in crate::sema) const INFERRED_PARAM: &str = "\0inferred.";
 
 impl Compiler {
     /// Record the named parameters of an import so a program parameter among them reaches

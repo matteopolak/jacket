@@ -50,7 +50,7 @@ main :: () {
     other.tab_depth = 3;
 
     push_context {
-        context.generator = *other;
+        context.generator = cast(*B.Generator) *other;
         Other.append_indentation(*builder);
         text := extract(*builder);
 

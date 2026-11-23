@@ -1,8 +1,6 @@
 # Changelog
 
-## [Unreleased]
-
-The language server, linter, formatter and interpreter are faster, and `jailsp` uses less memory, most on Windows.
+## [Unreleased] The language server, linter, formatter and interpreter are faster, and `jailsp` uses less memory, most on Windows.
 
 ### Highlights
 
@@ -13,6 +11,7 @@ The language server, linter, formatter and interpreter are faster, and `jailsp` 
 - On Windows, `jailsp` gives freed memory back to the system after each compile. (#85, @ctzcs)
 - `jailsp` counts compiles for other operating systems toward its kept-compile limit. (#85, @ctzcs)
 - Compile-fail `.stderr` files write project paths as `$ROOT/...`, so they no longer differ between machines ([testing](docs/tools/jacket-test.md)).
+- A mismatch between same-named types of two module instances names each instance, e.g. `*Generator in Bindings_Generator(TARGET_OS = .LINUX)`.
 
 ## [0.38.0] - 2026-11-22
 
