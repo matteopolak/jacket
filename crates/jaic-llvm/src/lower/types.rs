@@ -158,6 +158,11 @@ impl<'ctx> Backend<'ctx, '_> {
                 sret_at = llvm_params.len() as u32;
                 let size = ret_agg.as_ref().map_or(0, |l| l.size);
                 attrs.push((sret_at, ParamAttr::Sret(size)));
+                // AArch64 passes an `sret` pointer in x8 unless it is `inreg`; after `this` it is an
+                // ordinary argument (x1).
+                if self.arch.is_aarch64() {
+                    attrs.push((sret_at, ParamAttr::InReg));
+                }
                 llvm_params.push(self.ptr_ty().into());
             }
             if sig.c_varargs && i == sig.c_fixed as usize {

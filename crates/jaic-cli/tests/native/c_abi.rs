@@ -1047,10 +1047,11 @@ fn msvc_cpp_methods_take_the_result_pointer_after_this() {
          main :: () {\n    vtable := Heap_Vtable.{ start };\n    heap := Heap.{ *vtable };\n    handle := heap.vtable.start(*heap);\n}\n",
     )
     .unwrap();
-    for (target, method) in [
-        ("x86_64-pc-windows-msvc", true),
-        ("aarch64-pc-windows-msvc", true),
-        ("x86_64-w64-windows-gnu", false),
+    // On arm64 the pointer is also `inreg`: LLVM puts any other `sret` pointer in x8, not x1.
+    for (target, method, result) in [
+        ("x86_64-pc-windows-msvc", true, "ptr sret([8 x i8])"),
+        ("aarch64-pc-windows-msvc", true, "ptr inreg sret([8 x i8])"),
+        ("x86_64-w64-windows-gnu", false, ""),
     ] {
         // Only the IR matters: the link needs a Windows toolchain this host may lack.
         jaic()
@@ -1071,11 +1072,11 @@ fn msvc_cpp_methods_take_the_result_pointer_after_this() {
             .unwrap_or_else(|| panic!("{target}: no call through the vtable\n{ir}"));
         if method {
             assert!(
-                definition.contains("(ptr %0, ptr sret([8 x i8]) %1)"),
+                definition.contains(&format!("(ptr %0, {result} %1)")),
                 "{target}: {definition}"
             );
             assert!(
-                call.contains("call void") && call.contains(", ptr sret([8 x i8])"),
+                call.contains("call void") && call.contains(&format!(", {result} ")),
                 "{target}: {call}"
             );
         } else {
