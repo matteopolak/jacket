@@ -361,12 +361,9 @@ mod tests {
             y.as_ptr() as u64,
             out.as_mut_ptr() as u64,
         ];
-        super::super::call_with(
-            x87_sum as *const () as u64,
-            &args,
-            &sig(Ty::F80, &[false, true, true]),
-        )
-        .unwrap();
+        let signature = sig(Ty::F80, &[false, true, true]);
+        let plan = super::super::Plan::new(&signature);
+        super::super::call_with(x87_sum as *const () as u64, &args, &signature, &plan).unwrap();
         let sum = wide_float::arith(fmt, wide_float::Arith::Add, &x, &y);
         let want = wide_float::arith(
             fmt,
