@@ -48,8 +48,9 @@ arguments :: () -> [] string {
 }
 
 // Starts the runtime: copies `.data` from its load address, zeroes `.bss`, and sets up the static
-// `Context` (see `static_context`) with `TEMPORARY_STORAGE_SIZE` bytes of temporary storage. Call
-// it first from the reset handler, before anything that uses a global.
+// `Context` (see `static_context`) with `TEMPORARY_STORAGE_SIZE` bytes of temporary storage. Its
+// `context_info` stays empty until `describe_context`. Call it first from the reset handler,
+// before anything that uses a global.
 //
 // The linker script defines `__data_load`, `__data_start`, `__data_end`, `__bss_start` and
 // `__bss_end`; `link_for` writes them. A program that runs from RAM puts `__data_load` equal to
@@ -76,10 +77,6 @@ init_runtime :: () #c_call #no_context {
         bss_start[index] = 0;
     }
 
-    context_info := type_info(#Context);
-
-    context_storage.context_info = context_info;
-
     storage := *temporary_storage;
     storage.* = .{};
     storage.size = TEMPORARY_STORAGE_SIZE;
@@ -88,6 +85,15 @@ init_runtime :: () #c_call #no_context {
     storage.original_size = storage.size;
     storage.overflow_allocator = context_storage.allocator;
     context_storage.temporary_storage = *storage.base;
+}
+
+// Fills the static context's `context_info` with the type information of `Context`, which
+// `Remap_Context` and code that reads the context by reflection need. It is not part of
+// `init_runtime`: the descriptor pulls in the type information of everything `Context` refers
+// to, about 17 KB of read-only data that on a board with 2 KiB of RAM does not fit. Call it
+// after `init_runtime`.
+describe_context :: () #c_call #no_context {
+    context_storage.context_info = type_info(#Context);
 }
 
 // The context `init_runtime` set up: `push_context static_context().* { ... }`. Copy it
