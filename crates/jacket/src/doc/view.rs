@@ -302,6 +302,8 @@ pub enum DocSegment {
         code_html: String,
         /// Not Jai (a usage line, shell output): long lines wrap instead of scrolling.
         wrap: bool,
+        /// Commands and what they printed (a `console` block): shown as a terminal.
+        console: bool,
     },
     /// Code with what came of it: an example, the diagnostic it draws, the fixed code.
     Group {

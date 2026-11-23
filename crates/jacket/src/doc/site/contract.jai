@@ -263,6 +263,7 @@ DocSegment_Example :: struct {
 DocSegment_Code :: struct {
     code_html: string;
     wrap: bool;
+    console: bool;
 }
 
 Group_Part :: struct {

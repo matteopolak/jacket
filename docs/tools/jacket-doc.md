@@ -120,6 +120,21 @@ The standard library's `[doc]` sits in the root `jacket.toml`: categories "Stand
 
 **Before and after.** Two fences in a row, ```` ```jai before ```` then ```` ```jai after ````, render as one block split by a line ("Before", "After"), stacked under 700px. Words after `after` are shown as the settings used (`indent_width=2` reads "After, with `indent_width = 2`"). **Example, finding and fix.** A ```` ```jai example ```` fence, then optionally a ```` ```diagnostic ```` fence and a ```` ```jai fixed ```` fence directly after it, render as one card with a caption over each block ("Example", "Diagnostic", "Fixed"). `docs/reference/lint-rules.md` is written that way (`crates/jailint/examples/lint_reference.rs`). In a diagnostic, `-` marks a removed line of a fix preview. Jai fences on these pages are highlighted and scroll sideways; other fences are plain and wrap long lines (usage lines, shell output).
 
+**Console blocks.** A ```` ```console ```` fence holds commands, each on a line starting with `$ `, and the lines each one prints. `jacket doc` (with `--check` too) runs them and fails when the output differs from the block, so a guide can't drift from the tools. `--no-test-examples` skips them.
+
+````text
+```console cwd=../examples/testing/slugs
+$ jacket test
+    Starting 4 tests
+```
+````
+
+- **What runs.** `jacket` (this one), `jaic` and `cat`, without a shell: quotes group words, and `|`, `>`, `$` and globs are errors. Commands run in `cwd=` (from the guide's folder; the guide's own folder without it), in turn, with stdout and stderr merged in order, colour forced, and `CI`, `NO_COLOR`, `JAIC_PROGRESS`, `JAIC_DIAGNOSTICS` and `COLUMNS` unset. Files they make are removed afterwards; changing a file that was there is an error.
+- **Comparing.** Line ends, trailing spaces and blank lines at the end are ignored, and times in brackets (`[   0.057s]`) match any time. The diff names the guide's line.
+- **Colours.** The markdown holds plain text. What the commands printed, escapes and all, is kept beside the guide in `<guide>.console.json`; the site renders its SGR colours (bold, dim, the 16 colours) as `ansi-*` spans under a "Terminal" caption. A block whose capture is missing or stale is an error, and renders as plain text: colours never come from guessing.
+- **`jacket doc --accept`** writes what the commands printed into the guides and the captures. A block whose text still matches, apart from times, is left alone.
+- **Example projects.** The folders the guides run in live in `docs/examples/`. Set `[test] jobs = 1` in their `jacket.toml` so tests print in a fixed order.
+
 ## Page metadata
 
 Every page gets a title made from `[doc] name` (`String.trim — Jacket`, `String — Jacket`; the index is the name alone; `breadcrumb` only starts the breadcrumb trail), a description from the summary (plain text, at most 155 characters), `lang`, `theme-color` for both schemes, a favicon, Open Graph and Twitter tags. Item pages carry `TechArticle` JSON-LD, and pages with a breadcrumb a `BreadcrumbList`. Without `[doc] url` there is no canonical, `og:url`, sitemap or `robots.txt`, and `jacket doc` warns once. A page with an empty description gets no description tags, and `404.html` has no canonical or `og:url`.

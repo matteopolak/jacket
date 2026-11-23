@@ -515,8 +515,9 @@ jacket doc [OPTIONS] [PATH] [-- <FLAGS>...]
 | `--playground-url <URL>` | Where "open in playground" and the Playground link go, over `[doc] playground` [default: none, and no links] |
 | `--source-ref <REF>` | The tag, branch or commit Source links point at [default: the checkout's commit] |
 | `--module <NAME>` | Document only these modules (`String`, `Extensions/Http`); repeatable |
-| `--check` | Build and check the links without writing the site or running the examples |
-| `--no-test-examples` | Don't run the examples. By default each one with a Run button is run the way the browser runs it (WebAssembly target), and the build fails when one fails |
+| `--check` | Build and check the links without writing the site or running the examples (the commands of the guides' `console` blocks still run) |
+| `--accept` | Write what the commands of the guides' `console` blocks printed into the guides, and their colours beside them |
+| `--no-test-examples` | Don't run the examples or the guides' `console` blocks. By default each example with a Run button is run the way the browser runs it (WebAssembly target), each console command is run, and the build fails when one fails or prints something else |
 | `--allow-broken-links` | Report broken intra-doc links as warnings instead of failing |
 | `-h, --help` | Print help |
 

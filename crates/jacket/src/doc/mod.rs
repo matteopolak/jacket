@@ -5,6 +5,7 @@
 //! say as JSON; this module turns that into HTML, a search index and the files the pages load
 //! (style, script, the example programs, and optionally the browser compiler that runs them).
 mod categories;
+mod console;
 mod example;
 mod example_check;
 mod highlight;
@@ -692,20 +693,10 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
             args.runtime.is_some(),
         );
         site.categories = layout.categories;
-        site.name = args
-            .name
-            .clone()
-            .or_else(|| doc.name.clone())
-            .unwrap_or_else(|| {
-                lib.file_name()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .unwrap_or_default()
-            });
-        site.breadcrumb = doc.breadcrumb.clone().unwrap_or_else(|| {
-            lib.file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_default()
-        });
+        let folder = lib.file_name().map(|n| n.to_string_lossy().into_owned());
+        let folder = folder.unwrap_or_default();
+        site.name = (args.name.clone().or_else(|| doc.name.clone())).unwrap_or(folder.clone());
+        site.breadcrumb = doc.breadcrumb.clone().unwrap_or(folder);
         site.description = doc
             .description
             .clone()
@@ -725,6 +716,15 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
             .map(|(name, _)| name.clone());
         if !doc.page.is_empty() {
             site.pages_title = doc.pages_title.clone().unwrap_or_else(|| "Guides".into());
+        }
+        if !check_consoles(
+            args,
+            &doc,
+            (&config_dir, cwd),
+            (&jaic, &stdlib),
+            &mut accounted,
+        )? {
+            return Ok(ExitCode::from(1));
         }
         let prefix = guide_prefix(&doc, &config_dir);
         let extra = view::guide::collect(&site, &config_dir, &prefix, &doc)?;
@@ -897,6 +897,48 @@ fn auxiliary_files(
         );
     }
     files
+}
+
+/// Runs the commands of the guides' `console` blocks and reports each block whose output is not
+/// what it shows (see [`console`]); with `--accept`, writes what they printed instead. False when
+/// a block is out of date. Nothing runs with `--no-test-examples`.
+fn check_consoles(
+    args: &DocArgs,
+    doc: &Doc,
+    (config_dir, cwd): (&Path, &Path),
+    (jaic, stdlib): (&Path, &Path),
+    accounted: &mut std::time::Duration,
+) -> Result<bool, String> {
+    if args.no_test_examples {
+        return Ok(true);
+    }
+    let started = std::time::Instant::now();
+    let jacket = std::env::current_exe().map_err(|e| format!("cannot find this jacket: {e}"))?;
+    let tools = console::Tools {
+        jacket: &jacket,
+        jaic,
+        stdlib,
+    };
+    let files = doc
+        .home
+        .iter()
+        .chain(doc.page.iter().map(|p| &p.file))
+        .chain(doc.section.iter().map(|s| &s.file));
+    let mut ok = true;
+    for file in files {
+        let path = config_dir.join(file);
+        let shown = path
+            .strip_prefix(cwd)
+            .unwrap_or(&path)
+            .display()
+            .to_string();
+        for problem in console::check(&path, &shown, &tools, args.accept)? {
+            eprintln!("jacket: error: {problem}");
+            ok = false;
+        }
+    }
+    *accounted += timing(args, "console blocks", started);
+    Ok(ok)
 }
 
 fn timing(args: &DocArgs, label: &str, start: std::time::Instant) -> std::time::Duration {

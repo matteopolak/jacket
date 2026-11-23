@@ -383,11 +383,17 @@ pub struct DocArgs {
     /// Document only these modules (`String`, `Extensions/Http`); repeatable
     #[arg(long = "module", value_name = "NAME")]
     pub modules: Vec<String>,
-    /// Build and check the links without writing the site or running the examples
+    /// Build and check the links without writing the site or running the examples (the commands
+    /// of the guides' `console` blocks still run)
     #[arg(long)]
     pub check: bool,
-    /// Don't run the examples. By default each one with a Run button is run the way the browser
-    /// runs it (WebAssembly target), and the build fails when one fails
+    /// Write what the commands of the guides' `console` blocks printed into the guides, and
+    /// their colours beside them
+    #[arg(long)]
+    pub accept: bool,
+    /// Don't run the examples or the guides' `console` blocks. By default each example with a Run
+    /// button is run the way the browser runs it (WebAssembly target), each console command is
+    /// run, and the build fails when one fails or prints something else
     #[arg(long)]
     pub no_test_examples: bool,
     /// Report broken intra-doc links as warnings instead of failing

@@ -116,12 +116,21 @@ Segments :: (out: *Out, segments: [] Doc_Segment) {
         d3 := get_pointer(s, DocSegment_Compare);
         if h0 append_html(out, cast(Html) h0.prose_html);
         else if e1 ExampleBlock(out, *e1.example);
+        else if c2 && c2.console Console(out, c2);
         else if c2 {
             class := ifx c2.wrap then "code wrap" else "code";
             html(out, "<pre class=\"{class}\"><code>{cast(Html) c2.code_html}</code></pre>\n");
         } else if g4 Group(out, g4);
         else if d3 Compare(out, d3);
     }
+}
+
+// Commands and what they printed, under a terminal caption.
+Console :: (out: *Out, c: *DocSegment_Code) {
+    html(out, #string HTML
+<figure class="console"><figcaption><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>Terminal</figcaption><pre class="code"><code>{cast(Html) c.code_html}</code></pre></figure>
+HTML
+    );
 }
 
 // An example with the finding it draws and the fixed code: one card, each block under a caption.

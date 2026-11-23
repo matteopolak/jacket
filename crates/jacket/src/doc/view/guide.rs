@@ -1,8 +1,8 @@
 //! Extra Markdown pages: `[[doc.page]]` files under one sidebar heading, and `[[doc.section]]`
 //! files split into an overview and one page per `###` heading, each its own sidebar heading.
-use super::super::highlight;
 use super::super::markdown::{self, Segment, Settings, esc};
 use super::super::site::Site;
+use super::super::{console, highlight};
 use super::{
     Content, DocSegment, GroupPart, NavCategory, NavGroup, NavLink, Outline, PageHead, PageView,
     Sidebar,
@@ -37,7 +37,11 @@ struct Page {
     path: String,
     /// The sidebar heading it is under.
     heading: String,
+    /// The coloured HTML of its `console` blocks, by their text.
+    consoles: Consoles,
 }
+
+type Consoles = HashMap<String, String>;
 
 /// The path of the `[doc] home` page among the guides, until it takes the front page's place.
 pub const HOME: &str = "index.html";
@@ -149,9 +153,13 @@ fn link(href: &str, label: &str) -> NavLink {
     }
 }
 
-fn read(dir: &Path, file: &str) -> Result<String, String> {
+/// A page's markdown, and the colours its `console` blocks were captured in.
+fn read(dir: &Path, file: &str) -> Result<(String, Consoles), String> {
     let path = dir.join(file);
-    std::fs::read_to_string(&path).map_err(|e| format!("cannot read {}: {e}", path.display()))
+    let md = std::fs::read_to_string(&path)
+        .map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+    let consoles = console::rendered(&path, &md);
+    Ok((md, consoles))
 }
 
 /// A `###` entry's body as a page of its own: `####` headings become `##`, `#####` become `###`.
@@ -185,12 +193,14 @@ pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guide
     if let Some(file) = home {
         let repo = repo_path(&format!("{prefix}x"), file);
         out.files.insert(repo.clone(), site.href(""));
+        let (md, consoles) = read(dir, file)?;
         out.pages.push(Page {
             name: site.name.clone(),
-            md: read(dir, file)?,
+            md,
             repo,
             path: HOME.into(),
             heading: String::new(),
+            consoles,
         });
     }
     if !pages.is_empty() {
@@ -203,12 +213,14 @@ pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guide
             let repo = repo_path(&format!("{prefix}x"), &page.file);
             out.files.insert(repo.clone(), site.href(&folder));
             links.push(link(&site.href(&folder), &page.name));
+            let (md, consoles) = read(dir, &page.file)?;
             out.pages.push(Page {
                 name: page.name.clone(),
-                md: read(dir, &page.file)?,
+                md,
                 repo,
                 path: format!("{folder}.html"),
                 heading: site.pages_title.clone(),
+                consoles,
             });
         }
         out.nav.push(NavCategory {
@@ -222,7 +234,7 @@ pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guide
         });
     }
     for section in sections {
-        let md = read(dir, &section.file)?;
+        let (md, consoles) = read(dir, &section.file)?;
         let repo = repo_path(&format!("{prefix}x"), &section.file);
         let folder = markdown::slug(&section.name);
         let (intro, groups) = split(&md);
@@ -267,6 +279,7 @@ pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guide
                     repo: repo.clone(),
                     path: format!("{page}.html"),
                     heading: section.name.clone(),
+                    consoles: consoles.clone(),
                 });
             }
             summary.push('\n');
@@ -285,6 +298,7 @@ pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guide
             repo,
             path: format!("{folder}.html"),
             heading: section.name.clone(),
+            consoles,
         });
         out.nav.push(nav);
     }
@@ -334,10 +348,17 @@ fn outline(md: &str) -> Vec<Outline> {
     out
 }
 
-/// A fence's code, coloured when it is Jai.
-fn code_html(info: &str, code: &str) -> String {
-    let code = code.trim_end();
+/// A fence's code, coloured when it is Jai. A `console` block takes its colours from what its
+/// commands printed (`consoles`), and is plain text without a capture.
+fn code_html(info: &str, code: &str, consoles: &Consoles) -> String {
     let lang = info.split([' ', ',']).next().unwrap_or("");
+    if lang == "console" {
+        return consoles
+            .get(code)
+            .cloned()
+            .unwrap_or_else(|| esc(code.trim_end()));
+    }
+    let code = code.trim_end();
     if lang == "jai" {
         highlight::jai(code, &|_| None)
     } else if lang == "diagnostic" {
@@ -350,7 +371,7 @@ fn code_html(info: &str, code: &str) -> String {
 /// A `jai example` fence and the fences after it that say what came of it, one group: a
 /// `diagnostic` fence is the finding, a `jai fixed` fence the corrected code. Returns the group
 /// and how many segments it took, starting at `at`.
-fn group(segs: &[Segment], at: usize) -> (DocSegment, usize) {
+fn group(segs: &[Segment], at: usize, consoles: &Consoles) -> (DocSegment, usize) {
     let mut parts = Vec::new();
     let mut used = 0;
     while let Some(Segment::Code {
@@ -367,7 +388,7 @@ fn group(segs: &[Segment], at: usize) -> (DocSegment, usize) {
         };
         parts.push(GroupPart {
             label: label.to_owned(),
-            code_html: code_html(info, code),
+            code_html: code_html(info, code, consoles),
         });
         used += 1;
     }
@@ -381,7 +402,7 @@ fn group(segs: &[Segment], at: usize) -> (DocSegment, usize) {
 
 /// `jai before` and `jai after` fences next to each other become one side-by-side block. Words
 /// after `after` (`indent_width=2`) are the settings the after side was formatted with.
-fn segments(segs: &[Segment]) -> Vec<DocSegment> {
+fn segments(segs: &[Segment], consoles: &Consoles) -> Vec<DocSegment> {
     let mut out = Vec::new();
     let mut i = 0;
     while i < segs.len() {
@@ -403,7 +424,7 @@ fn segments(segs: &[Segment]) -> Vec<DocSegment> {
                 });
                 match (words.get(1), next) {
                     (Some(&"example"), _) => {
-                        let (group, used) = group(segs, i);
+                        let (group, used) = group(segs, i, consoles);
                         out.push(group);
                         i += used - 1;
                     }
@@ -412,15 +433,16 @@ fn segments(segs: &[Segment]) -> Vec<DocSegment> {
                     {
                         let settings: Vec<&str> = after_info.split_whitespace().skip(2).collect();
                         out.push(DocSegment::Compare {
-                            before_html: code_html(info, code),
-                            after_html: code_html(after_info, after),
+                            before_html: code_html(info, code, consoles),
+                            after_html: code_html(after_info, after, consoles),
                             settings: settings.join(" ").replace('=', " = "),
                         });
                         i += 1;
                     }
                     _ => out.push(DocSegment::Code {
-                        code_html: code_html(info, code),
-                        wrap: !matches!(words.first(), Some(&("jai" | "diagnostic"))),
+                        code_html: code_html(info, code, consoles),
+                        wrap: !matches!(words.first(), Some(&("jai" | "diagnostic" | "console"))),
+                        console: info.split([' ', ',']).next() == Some("console"),
                     }),
                 }
             }
@@ -526,7 +548,7 @@ impl Guides {
                     },
                     outline: outline(&page.md),
                     content: Content::Guide {
-                        segments: segments(&segs),
+                        segments: segments(&segs, &page.consoles),
                     },
                 }
             })
@@ -553,7 +575,7 @@ mod tests {
             code("jai fixed"),
             code("jai"),
         ];
-        let out = segments(&segs);
+        let out = segments(&segs, &super::Consoles::default());
         assert_eq!(out.len(), 2);
         let DocSegment::Group {
             parts,
@@ -566,7 +588,7 @@ mod tests {
         assert!(matches!(out[1], DocSegment::Code { .. }));
         // Without an example before it, a diagnostic is a plain block.
         assert!(matches!(
-            segments(&[code("diagnostic")])[0],
+            segments(&[code("diagnostic")], &super::Consoles::default())[0],
             DocSegment::Code { .. }
         ));
     }
