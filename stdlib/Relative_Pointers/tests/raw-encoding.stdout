@@ -1,0 +1,8 @@
+forward raw=-124 decoded_offset=4
+self raw=-128
+null raw=0
+backward raw=122 decoded=true
+ref 0 original=10 copied=99
+ref 1 original=20 copied=20
+ref 2 original=30 copied=30
+ok
