@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+Compile-fail test output no longer depends on where the repository is checked out.
+
+### Fixes
+
+- Compile-fail `.stderr` files write project paths as `$ROOT/...`, so they no longer differ between machines ([testing](docs/tools/jacket-test.md)).
+
 ## [0.38.0] - 2026-11-22
 
 Jacket builds for 16- and 32-bit, big-endian and bare-metal targets, and Sound_Player no longer crackles on Windows. The new targets are experimental, and their APIs may change.

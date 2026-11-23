@@ -508,6 +508,7 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
             &plan.root_flags[case.root],
             &plan.toolchain,
             &plan.stdlib,
+            &plan.project,
             plan.settings.accept,
             // A missing golden is a first run's to write; CI must never write what it checks.
             !jacket_config::env::CI.is_set(),

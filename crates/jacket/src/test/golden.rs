@@ -2,8 +2,8 @@
 //! compile-fail tests (`tests/compile_fail/name.jai` with `name.stderr`).
 //!
 //! Output is compared after `\r\n` becomes `\n`. In a compile-fail test's diagnostics the
-//! test's folder is written `$DIR` and the standard library's `$STDLIB`, so expected files do not
-//! depend on where the repository is. `--accept` writes what the program printed into the
+//! test's folder is written `$DIR`, the standard library's `$STDLIB` and the project folder's
+//! `$ROOT`, so expected files do not depend on where the repository is. `--accept` writes what the program printed into the
 //! expected files instead of comparing (for a golden test, into those that exist, `.stdout` at
 //! least).
 use super::build::{Toolchain, compile_output, path_text, program_and_args, stage_dlls};
@@ -454,10 +454,11 @@ pub fn golden(
     checked
 }
 
-/// `text` with `dir` written `$DIR` and `stdlib` written `$STDLIB`, separators as `/`.
-pub fn normalize_paths(text: &str, dir: &Path, stdlib: &Path) -> String {
+/// `text` with `dir` written `$DIR`, `stdlib` `$STDLIB` and `project` (the folder with
+/// `jacket.toml`) `$ROOT`, separators as `/`. Paths outside all three stay as printed.
+pub fn normalize_paths(text: &str, dir: &Path, stdlib: &Path, project: &Path) -> String {
     let mut text = text.replace("\r\n", "\n");
-    for (path, name) in [(stdlib, "$STDLIB"), (dir, "$DIR")] {
+    for (path, name) in [(stdlib, "$STDLIB"), (dir, "$DIR"), (project, "$ROOT")] {
         // The compiler prints resolved paths, so `a/../stdlib` must match its canonical form too.
         let real = path.canonicalize().ok();
         for path in [Some(path), real.as_deref()].into_iter().flatten() {
@@ -466,15 +467,18 @@ pub fn normalize_paths(text: &str, dir: &Path, stdlib: &Path) -> String {
             let forward = jacket_config::to_slash(&plain);
             for form in [plain, forward] {
                 if !form.is_empty() {
-                    text = text.replace(&form, name);
+                    text = replace_path(&text, &form, name);
                 }
             }
         }
     }
-    // Paths after `$DIR` and `$STDLIB` keep their own separators on Windows; make them alike.
+    // Paths after `$DIR`, `$STDLIB` and `$ROOT` keep their own separators on Windows; make them alike.
     text.lines()
         .map(|line| {
-            if line.contains("$DIR\\") || line.contains("$STDLIB\\") {
+            if ["$DIR\\", "$STDLIB\\", "$ROOT\\"]
+                .iter()
+                .any(|p| line.contains(p))
+            {
                 return jacket_config::to_slash(line);
             }
             // A relative location such as `..\..\layout.jai:67:13:` gets `/` in its path only.
@@ -492,6 +496,29 @@ pub fn normalize_paths(text: &str, dir: &Path, stdlib: &Path) -> String {
         } else {
             ""
         }
+}
+
+/// `text` with each whole-path occurrence of `path` replaced by `name`: `/s` is not found in
+/// `/src`, only where a path ends (a separator, the end, or punctuation) and starts (not inside a
+/// longer name).
+fn replace_path(text: &str, path: &str, name: &str) -> String {
+    let name_char = |c: char| c.is_alphanumeric() || matches!(c, '_' | '-' | '.');
+    let mut out = String::with_capacity(text.len());
+    let mut last = 0;
+    for (at, _) in text.match_indices(path) {
+        let whole = !text[..at].chars().next_back().is_some_and(name_char)
+            && !text[at + path.len()..]
+                .chars()
+                .next()
+                .is_some_and(name_char);
+        if whole && at >= last {
+            out.push_str(&text[last..at]);
+            out.push_str(name);
+            last = at + path.len();
+        }
+    }
+    out.push_str(&text[last..]);
+    out
 }
 
 /// Where the path of the location starting `line` ends (`path:line:`): the first `:` followed by a
@@ -513,6 +540,7 @@ pub fn compile_fail(
     root_flags: &[String],
     toolchain: &Toolchain,
     stdlib: &Path,
+    project: &Path,
     accept: bool,
     create_missing: bool,
 ) -> Checked {
@@ -546,7 +574,7 @@ pub fn compile_fail(
             .push("it compiled; a compile-fail test must not".into());
         return checked;
     }
-    let got = normalize_paths(&compile_output(&output), dir, stdlib);
+    let got = normalize_paths(&compile_output(&output), dir, stdlib, project);
     let expected = source.with_extension("stderr");
     if let Some(part) = &options.diagnostic_contains {
         if !got.contains(part.as_str()) {
@@ -582,14 +610,20 @@ mod tests {
     fn paths_become_placeholders() {
         let text = "/r/tests/compile_fail/bad.jai:3:1: error: x\n/s/Basic/module.jai:9: note\n";
         assert_eq!(
-            normalize_paths(text, Path::new("/r/tests/compile_fail"), Path::new("/s")),
+            normalize_paths(
+                text,
+                Path::new("/r/tests/compile_fail"),
+                Path::new("/s"),
+                Path::new("/r")
+            ),
             "$DIR/bad.jai:3:1: error: x\n$STDLIB/Basic/module.jai:9: note\n"
         );
         assert_eq!(
             normalize_paths(
                 "C:\\r\\t\\bad.jai:1: e\r\n",
                 Path::new("C:\\r\\t"),
-                Path::new("C:\\s")
+                Path::new("C:\\s"),
+                Path::new("C:\\r")
             ),
             "$DIR/bad.jai:1: e\n"
         );
@@ -597,7 +631,8 @@ mod tests {
             normalize_paths(
                 "..\\..\\layout.jai:67:13: error: a\\b\n",
                 Path::new("C:\\r\\t"),
-                Path::new("C:\\s")
+                Path::new("C:\\s"),
+                Path::new("C:\\r")
             ),
             "../../layout.jai:67:13: error: a\\b\n"
         );
@@ -606,9 +641,30 @@ mod tests {
             normalize_paths(
                 "..\\fixtures/clash.proto:3:15: error: a\\b\nnote: C:\\x 1:2\n",
                 Path::new("C:\\r\\t"),
-                Path::new("C:\\s")
+                Path::new("C:\\s"),
+                Path::new("C:\\r")
             ),
             "../fixtures/clash.proto:3:15: error: a\\b\nnote: C:\\x 1:2\n"
+        );
+    }
+
+    #[test]
+    fn project_files_outside_the_test_folder_are_relative_to_root() {
+        let dir = Path::new("/r/tests/compile_fail");
+        let text = "/r/src/lib.jai:4:2: error: x\n/r/tests/other/a.jai:1:1: note\n/r/tests/compile_fail/bad.jai:3:1: e\n/s/Basic/module.jai:9: note\n/elsewhere/f.jai:1:1: e\n";
+        assert_eq!(
+            normalize_paths(text, dir, Path::new("/s"), Path::new("/r")),
+            "$ROOT/src/lib.jai:4:2: error: x\n$ROOT/tests/other/a.jai:1:1: note\n$DIR/bad.jai:3:1: e\n$STDLIB/Basic/module.jai:9: note\n/elsewhere/f.jai:1:1: e\n"
+        );
+        // The stdlib inside the project stays `$STDLIB`, and `\` after `$ROOT` becomes `/`.
+        assert_eq!(
+            normalize_paths(
+                "C:\\r\\stdlib\\B\\m.jai:1: e\nC:\\r\\src\\lib.jai:2: e\n",
+                Path::new("C:\\r\\t"),
+                Path::new("C:\\r\\stdlib"),
+                Path::new("C:\\r")
+            ),
+            "$STDLIB/B/m.jai:1: e\n$ROOT/src/lib.jai:2: e\n"
         );
     }
 
@@ -630,10 +686,10 @@ mod tests {
         let linked = base.join("link/stdlib");
         let dotted = base.join("real/case/../stdlib");
         for stdlib in [&canonical, &linked, &dotted] {
-            assert_eq!(normalize_paths(&printed, &dir, stdlib), want);
+            assert_eq!(normalize_paths(&printed, &dir, stdlib, &base), want);
         }
         let through_link = format!("{}/Basic/module.jai:9: note\n", linked.display());
-        assert_eq!(normalize_paths(&through_link, &dir, &linked), want);
+        assert_eq!(normalize_paths(&through_link, &dir, &linked, &base), want);
         let _ = std::fs::remove_dir_all(&base);
     }
 
