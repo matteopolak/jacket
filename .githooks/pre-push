@@ -1,5 +1,6 @@
 #!/bin/sh
-# Pre-push hook: pinned GitHub Actions, then clippy on the crates the pushed commits change.
+# Pre-push hook: pinned GitHub Actions, then a check that clippy passed for the pushed commits.
+# Run `python3 tools/dev/pre_push_clippy.py check` before pushing; the hook never runs cargo.
 # See docs/tools/development.md#pre-push-hook and docs/tools/action-pins.md.
 #
 # Skip once with `git push --no-verify`, or always with JAI_HOOK_SKIP="actions clippy" (either word).

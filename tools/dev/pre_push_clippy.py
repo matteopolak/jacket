@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""Clippy for the crates a push changes. Called by .githooks/pre-push with git's ref lines on stdin.
+"""Clippy for the crates a push changes.
 
-Runs CI's lint (`cargo clippy --all-targets --locked -- -D warnings`) on just the workspace packages
-whose files differ between each pushed commit and what the remote already has. Clippy reads the
-working tree, so uncommitted Rust changes are linted too (a warning says so).
+`check` runs CI's lint (`cargo clippy --all-targets --locked -- -D warnings`) on the workspace
+packages whose files differ between HEAD and the default branch, then records that HEAD's tree
+passed. Run it before pushing: a cold build takes minutes, and git holds the SSH connection to the
+remote while its pre-push hook runs, so a slow lint there gets the connection closed.
+
+With no argument this is the pre-push hook, called by .githooks/pre-push with git's ref lines on
+stdin. It never runs cargo: it fails when a pushed commit changes Rust and its tree has no record
+of a passing `check` covering those packages.
 """
 
 import json
@@ -20,6 +25,7 @@ RUSTUP = "https://rustup.rs"
 ZERO = "0" * 40
 # Code gated to x86-64 is not compiled, so not linted, on an arm64 Mac.
 X86_TARGET = "x86_64-apple-darwin"
+KEPT_STAMPS = 20
 X86_ONLY_TEST = re.compile(r'#!?\[cfg\(target_arch = "x86_64"\)\]')
 
 
@@ -41,6 +47,47 @@ def changed_files(lines: list[str]) -> set[str]:
                 continue
         files.update(git("diff", "--name-only", f"{remote}...{local}").split())
     return files
+
+
+def stamp_file() -> Path:
+    path = Path(git("rev-parse", "--git-path", "jacket-clippy-ok").strip())
+    return path if path.is_absolute() else ROOT / path
+
+
+def read_stamps(path: Path) -> dict[str, set[str]]:
+    """Trees that passed clippy, each with the packages linted: lines of `<tree> <package>...`."""
+    stamps: dict[str, set[str]] = {}
+    try:
+        lines = path.read_text().splitlines()
+    except OSError:
+        return stamps
+    for line in lines:
+        tree, *names = line.split()
+        stamps[tree] = set(names)
+    return stamps
+
+
+def write_stamp(path: Path, tree: str, selected: list[str]) -> None:
+    """Records `tree` as linted, keeping the most recent trees only."""
+    stamps = read_stamps(path)
+    stamps.pop(tree, None)
+    stamps[tree] = set(selected)
+    recent = list(stamps.items())[-KEPT_STAMPS:]
+    path.write_text("".join(f"{t} {' '.join(sorted(n))}\n" for t, n in recent))
+
+
+def tree_of(commit: str) -> str:
+    return git("rev-parse", f"{commit}^{{tree}}").strip()
+
+
+def unlinted(lines: list[str], stamps: dict[str, set[str]]) -> list[tuple[str, list[str]]]:
+    """The pushed refs whose changed packages have no passing `check`, as (local commit, packages)."""
+    missing = []
+    for line in lines:
+        selected = packages(changed_files([line]))
+        if selected and not set(selected) <= stamps.get(tree_of(line.split()[1]), set()):
+            missing.append((line.split()[1], selected))
+    return missing
 
 
 def packages(files: set[str]) -> list[str]:
@@ -103,15 +150,25 @@ def lint_x86_tests(selected: list[str]) -> int:
     return result.returncode
 
 
-def main() -> int:
+def dirty_rust() -> bool:
+    return any(
+        line[3:].endswith((".rs", "Cargo.toml", "Cargo.lock")) for line in git("status", "--porcelain").splitlines()
+    )
+
+
+def check() -> int:
+    """Lints what HEAD changes against the default branch and records HEAD's tree when it passes."""
     if os.environ.get("JACKET_HOOKS_NO_CARGO"):
         print("pre-push: JACKET_HOOKS_NO_CARGO is set; skipping clippy", file=sys.stderr)
         return 0
-    selected = packages(changed_files(sys.stdin.read().splitlines()))
+    head = git("rev-parse", "HEAD").strip()
+    selected = packages(changed_files([f"HEAD {head} HEAD {ZERO}"]))
     if not selected:
+        print("pre-push: no Rust changes to lint", file=sys.stderr)
         return 0
-    if any(f.endswith(".rs") for f in git("status", "--porcelain").split()):
-        print("pre-push: warning: clippy also sees uncommitted Rust changes", file=sys.stderr)
+    dirty = dirty_rust()
+    if dirty:
+        print("pre-push: warning: clippy also sees uncommitted Rust changes, so this run is not recorded", file=sys.stderr)
     print(f"pre-push: clippy {' '.join(selected)}", file=sys.stderr)
     command = ["cargo", "clippy", "--all-targets", "--locked", "--message-format", "short"]
     command += [arg for name in selected for arg in ("-p", name)]
@@ -119,7 +176,26 @@ def main() -> int:
     if result.returncode:
         print("pre-push: clippy failed; fix it or push with --no-verify", file=sys.stderr)
         return result.returncode
-    return lint_x86_tests(selected)
+    code = lint_x86_tests(selected)
+    if code == 0 and not dirty:
+        write_stamp(stamp_file(), tree_of("HEAD"), selected)
+    return code
+
+
+def main() -> int:
+    if sys.argv[1:] == ["check"]:
+        return check()
+    if os.environ.get("JACKET_HOOKS_NO_CARGO"):
+        print("pre-push: JACKET_HOOKS_NO_CARGO is set; skipping clippy", file=sys.stderr)
+        return 0
+    missing = unlinted(sys.stdin.read().splitlines(), read_stamps(stamp_file()))
+    for commit, selected in missing:
+        print(
+            f"pre-push: clippy has not passed for {commit[:10]} ({' '.join(selected)})."
+            " Run `python3 tools/dev/pre_push_clippy.py check`, then push again",
+            file=sys.stderr,
+        )
+    return 1 if missing else 0
 
 
 if __name__ == "__main__":
