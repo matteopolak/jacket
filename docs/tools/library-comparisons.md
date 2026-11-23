@@ -11,7 +11,7 @@ PYTHONPATH=tools python3 tools/bench/library_compare.py regex --libraries jacket
 
 - **Sandbox.** The community sources are third-party and unreviewed, so every build and run goes inside `bench.sandbox.Sandbox`: no network, limited reads, writes to a scratch folder. Postgres uses the `loopback` setting. Libraries are imported from `corpus/upstream` through `-import_dir`, never copied.
 - **Naming.** Benchmarks are called `WORKLOAD__LIBRARY` (`decode_api__jaison`). The driver makes one row per workload, one column per library, with ratios to the first `--libraries` entry. `--per-item` divides by `set_items`.
-- **The loop.** Input is prepared before the timer, then `reset_timer(b)`, then a loop with input and result through `black_box`. Allocation is the same for every library, and a benchmark exits when a library rejects the input or returns a different count, so a failure path is never timed.
+- **The loop.** Input is prepared before the timer, then a `for b` loop with input and result through `black_box`. Allocation is the same for every library, and a benchmark exits when a library rejects the input or returns a different count, so a failure path is never timed.
 - **Database.** Postgres needs a server on `127.0.0.1:54329` (`PG_BENCH_URL` changes it) with a `bench` database loaded from `benchmarks/compare/postgres/setup.sql`, and `libpq` (`LIBPQ_DIR`).
 
 ```sh

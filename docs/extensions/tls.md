@@ -43,5 +43,5 @@ reply, _ := Io.read_all(Tls.reader_of(stream));
 - Build-time knob: `MBEDTLS_SSL_OUT_CONTENT_LEN` (8192). Environment: `SSL_CERT_FILE`, `SSL_CERT_DIR`.
 - Tests: `stdlib/Extensions/Tls/tests/` (`tls.jai` runs per backend natively and under `-interp`; `interop.jai` talks to `openssl s_client`/`s_server` and is skipped without OpenSSL 3 or on Windows). Test certificates are string constants in `tests/fixtures/certs.jai` regenerated with `fixtures/make_certs.sh`; they are valid 2020 to 2120 and for tests only.
 
-Run benchmarks with `jacket bench --path stdlib/Extensions/Tls`. Cases live in `benches/`; setup precedes `reset_timer`, and inputs/results use `black_box`.
+Run benchmarks with `jacket bench --path stdlib/Extensions/Tls`. Cases live in `benches/`; setup precedes the `for b` loop, and inputs/results use `black_box`.
 The TCP, TLS upload/download and handshake cases start their own loopback peer using the committed test certificates.

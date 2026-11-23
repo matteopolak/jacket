@@ -107,4 +107,4 @@ jaison walks `Type_Info` on every call. Contiguous is close on typed decode beca
 
 Beyond speed: Jacket's parser follows RFC 8259 with positioned errors, handles surrogate pairs, tells absent from null, has tagged unions, maps, `flatten`, depth limits and query-string decoding. Neither community library has these.
 
-`json_benches` emits one selectable procedure for each input, type, scan mode and operation. Extend that matrix when adding a workload; keep input generation, file reads and pre-decoding before `reset_timer`.
+`json_benches` emits one selectable procedure for each input, type, scan mode and operation. Extend that matrix when adding a workload; keep input generation, file reads and pre-decoding before the `for b` loop.

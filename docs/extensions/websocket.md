@@ -67,7 +67,7 @@ jacket test --path stdlib/Extensions/WebSocket --os wasm --runner 'node tools/wa
 jacket bench --path stdlib/Extensions/WebSocket
 ```
 
-The benchmark starts its own loopback echo server for ws/wss and plain/Deflate modes using the committed TLS certificates. Setup precedes `reset_timer`; message contents and replies pass through `black_box`. These cases do not run external Python or Autobahn conformance.
+The benchmark starts its own loopback echo server for ws/wss and plain/Deflate modes using the committed TLS certificates. Setup precedes the `for b` loop; message contents and replies pass through `black_box`. These cases do not run external Python or Autobahn conformance.
 
 The external Python conformance driver uses a separate echo peer:
 
