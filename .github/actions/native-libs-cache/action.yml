@@ -15,7 +15,8 @@ runs:
   using: composite
   steps:
     # The key covers everything that decides the libraries' contents: the manifest (hash-pinned
-    # sources, compile flags), the local sources and the scripts that build them. There are no
+    # sources, compile flags), the local sources (every `local` folder of the manifest;
+    # tools/native/test_native_libs_cache_key.py checks) and the scripts that build them. There are no
     # restore-keys: the build script only looks for missing libraries, so an older set would be
     # reused as it is. The helper libraries are separate entries (`-helpers`) so a job that does not
     # build them never saves an incomplete one; their stamps, not this key, decide whether each is
@@ -23,7 +24,7 @@ runs:
     - id: key
       shell: bash
       run: |
-        key="native-libs-$RUNNER_OS-$RUNNER_ARCH-${{ inputs.variant }}-llvm$(PYTHONPATH=tools python3 tools/ci/pins.py get llvm)-${{ hashFiles('tools/native/native-libs.json', 'tools/native/**', '!tools/native/test_*.py', '!tools/native/windows_cross.py', '!tools/native/provided_libs.py', '!tools/native/package_native_libs.py', 'tools/native/build_native_libs.py', 'tools/bindings/sdl3_native.py', 'tools/repo_output.py') }}"
+        key="native-libs-$RUNNER_OS-$RUNNER_ARCH-${{ inputs.variant }}-llvm$(PYTHONPATH=tools python3 tools/ci/pins.py get llvm)-${{ hashFiles('tools/native/native-libs.json', 'tools/native/**', '!tools/native/test_*.py', '!tools/native/windows_cross.py', '!tools/native/provided_libs.py', '!tools/native/package_native_libs.py', 'tools/native/build_native_libs.py', 'tools/bindings/sdl3_native.py', 'tools/repo_output.py', 'stdlib/internal/bindings/callback-context/**', 'stdlib/internal/audio/native/**', 'stdlib/internal/clipboard/native/**') }}"
         if [ "${{ inputs.helpers }}" = true ]; then
           key="$key-helpers-${{ hashFiles('tools/window_render/**', 'tools/native_bindings/**', 'tools/portable/**', 'tools/toolkit/**', 'stdlib/Clipboard/**', 'stdlib/GL/tests/native/**', 'stdlib/Unmapping_Allocator/tests/native/**', 'stdlib/Thread/tests/sdk-identity.c', 'stdlib/Bindings_Generator/tests/driven/sdk/**', 'stdlib/internal/**') }}"
         fi
