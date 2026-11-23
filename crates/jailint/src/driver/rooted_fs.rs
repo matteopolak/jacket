@@ -14,7 +14,7 @@ pub(super) struct RootedFs {
     pub(super) overlay: BTreeMap<PathBuf, Arc<[u8]>>,
     /// Paths that exist, resolved: the compiler asks about the same few hundred files for
     /// every access check and import.
-    pub(super) resolved: CanonCache,
+    pub(super) resolved: Arc<CanonCache>,
 }
 
 impl RootedFs {

@@ -1,7 +1,7 @@
 //! Lint one compiled root: check every program it built and lint the files it owns.
 use super::asserts::{AssertFailure, failures_of};
 use super::claims::{Claims, Release};
-use super::compile::{Compiled, compile_root};
+use super::compile::{Compiled, RunCaches, compile_root};
 use super::marked_target::{Marked, marked_target};
 use super::plan::{Notes, canonical};
 use super::{CheckedContext, CompileError, Options};
@@ -35,6 +35,7 @@ pub(super) struct Shared<'a> {
     pub(super) report: &'a BTreeSet<PathBuf>,
     pub(super) notes: &'a Notes,
     pub(super) canon: &'a CanonCache,
+    pub(super) caches: &'a RunCaches,
     pub(super) claims: &'a Claims,
 }
 
@@ -47,6 +48,7 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
         report,
         notes,
         canon,
+        caches,
         claims,
     } = *shared;
     let _release = Release {
@@ -73,7 +75,7 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
         error,
         stopping,
         host,
-    } = compile_root(root, options, os, cpu, Some(report), canon, limits);
+    } = compile_root(root, options, os, cpu, Some(report), canon, caches, limits);
     let mut error = error;
     let top_complete = error.is_none();
     if top_complete

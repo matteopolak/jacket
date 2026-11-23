@@ -36,7 +36,9 @@ pub use crate::lexer::PlatformTarget;
 use crate::lexer::{P, Tok, Token, lex};
 use crate::source::{Applicability, FileId, Span, Suggestion};
 pub use directive_stmt::GENERIC_DIRECTIVES;
-pub use ide::{IdeParse, ParseReuse, SharedParse, parse_file_ide, parse_tokens_ide};
+pub use ide::{
+    IdeParse, ParseReuse, SharedParse, SharedParseReuse, parse_file_ide, parse_tokens_ide,
+};
 pub use ide::{parse_callee_ide, parse_callees_ide};
 pub use stmt::check_bits;
 

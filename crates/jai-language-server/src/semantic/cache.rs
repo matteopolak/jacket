@@ -21,7 +21,7 @@ pub struct Cache {
     compiles: usize,
     /// Parsed files compiles share: most files are the same from one compile to the next.
     /// Every session on a thread shares one (`shared_parses`).
-    parses: Rc<RefCell<jaic::parser::ParseReuse>>,
+    parses: jaic::parser::SharedParseReuse,
     /// Workspace trust is withheld: compiles run no compile-time code (see
     /// `IdeFacts::untrusted`). Survives `reset`; change it with `set_trusted`.
     untrusted: bool,
@@ -57,11 +57,11 @@ impl Default for Cache {
 /// under the same path and file id, and a tree is never changed after parsing, so a session
 /// gets what it would have parsed itself; the stdlib is then parsed once for all of them
 /// instead of once per session.
-fn shared_parses() -> Rc<RefCell<jaic::parser::ParseReuse>> {
+fn shared_parses() -> jaic::parser::SharedParseReuse {
     thread_local! {
-        static PARSES: Rc<RefCell<jaic::parser::ParseReuse>> = Rc::default();
+        static PARSES: jaic::parser::SharedParseReuse = jaic::parser::SharedParseReuse::default();
     }
-    PARSES.with(Rc::clone)
+    PARSES.with(Clone::clone)
 }
 
 /// A compile's open texts by canonical path, with the keys they are known by.

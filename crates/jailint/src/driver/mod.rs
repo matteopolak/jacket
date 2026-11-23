@@ -154,6 +154,7 @@ fn run_planned(options: &Options, entries: Option<&[PathBuf]>) -> Outcome {
     let next = std::sync::atomic::AtomicUsize::new(0);
     let collected = std::sync::Mutex::new(Vec::new());
     let canon = CanonCache::new();
+    let caches = compile::RunCaches::default();
     let claims = Claims::new(roots.len());
     let wanted = options.workers();
     let jobs = wanted.min(roots.len().max(1));
@@ -169,6 +170,7 @@ fn run_planned(options: &Options, entries: Option<&[PathBuf]>) -> Outcome {
                 report: &report,
                 notes: &notes,
                 canon: &canon,
+                caches: &caches,
                 claims: &claims,
             };
             s.spawn(move |_| {

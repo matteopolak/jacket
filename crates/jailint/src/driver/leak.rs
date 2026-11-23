@@ -1,7 +1,7 @@
 //! The `platform_leak` pass: compile portable roots once per target system.
 use super::Options;
 use super::asserts::{AssertFailure, failures_of};
-use super::compile::{Compiled, compile_root};
+use super::compile::{Compiled, RunCaches, compile_root};
 use crate::config::Configs;
 use crate::{Level, Lint};
 use jaic::fxhash::HashSet;
@@ -80,7 +80,16 @@ pub(super) fn leak_pass(
                         done,
                         error,
                         ..
-                    } = compile_root(root, options, Some(os), None, None, canon, options.limits);
+                    } = compile_root(
+                        root,
+                        options,
+                        Some(os),
+                        None,
+                        None,
+                        canon,
+                        &RunCaches::default(),
+                        options.limits,
+                    );
                     if error.is_none() {
                         let _ = jaic::build::finish_all(
                             &workspaces,
