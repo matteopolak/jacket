@@ -21,7 +21,7 @@ A program that compiles without these warnings also compiles with the official c
 |---|---|---|
 | `operator-out-of-scope` | `u + v` on `Math.Vector2` behind `Math :: #import "Math"` | `Math.operator +(u, v)`, or `using Math;` |
 | `declaration-hides-import` | a program declaration named like something an import exports (`errno: s32;` beside `#import "Sys"`), or a procedure with the same parameter types as an imported one | rename it, or import the module under a name; overloads with different parameters are fine |
-| `namespaced-for-expansion` | `for x` over a type whose `for_expansion` only its module's namespace holds | `using HT;` or a plain `#import` |
+| `namespaced-for-expansion` | `for x` over a type whose `for_expansion` only its module's namespace holds; a visible `for_expansion` for other types does not hide it | `using HT;` or a plain `#import` |
 | `place-directive` | `#place a; b: T;` | `#overlay(a) b: T;` |
 | `loose-enum` | `Enum.loose` as a type | the enum's integer type, and `cast(Enum)` |
 | `foreign-library-directive` | `#foreign_library`, `#foreign_system_library` | `#library`, `#system_library` |

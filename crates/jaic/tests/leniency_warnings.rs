@@ -88,6 +88,22 @@ fn for_over_a_type_reached_through_a_namespace_warns() {
     );
 }
 
+/// A visible `for_expansion` for some other type (Testing's for `*Bench`) does not hide the one
+/// declared with the collection's type.
+#[test]
+fn for_over_a_namespaced_type_skips_a_visible_expansion_for_another_type() {
+    let other = "Other :: struct { y: int; }
+For_Flags :: u32;
+for_expansion :: (o: *Other, body: Code, flags: For_Flags) #expand { #insert body; }";
+    let text = the_warning(
+        "#import \"Other\"; M :: #import \"Coll\";
+        main :: () { c: M.Coll; for c {} }",
+        &[("Coll", COLL), ("Other", other)],
+        Code::NamespacedForExpansion,
+    );
+    assert!(text.contains("add `using M;` to this scope"), "{text}");
+}
+
 #[test]
 fn for_with_the_module_imported_by_name_does_not_warn() {
     for header in ["#import \"Coll\";", "M :: #import \"Coll\"; using M;"] {

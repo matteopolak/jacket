@@ -505,32 +505,46 @@ impl Compiler {
         let mut by_value = false;
         let mut by_pointer = false;
         for &p in procs {
-            let Some(t) = self
-                .proc(p)
-                .lit
-                .header
-                .params
-                .first()
-                .and_then(|q| q.ty.clone())
-            else {
-                continue;
-            };
-            if matches!(t.kind, E::Unary(ast::UnOp::Star, _)) {
-                by_pointer = true;
-            } else {
-                let home = self.proc(p).scope;
-                let takes_it = if procs::has_poly(&t)
-                    || self.mentions_poly_struct(home, &t).unwrap_or(false)
-                {
-                    // A polymorphic pattern counts only when it matches this very type.
-                    self.match_pattern(&t, cty, &mut Vec::new(), home).is_ok()
-                } else {
-                    self.eval_type(home, &t).ok() == Some(cty)
-                };
-                by_value |= takes_it;
+            match self.first_param_takes(p, cty) {
+                Some((true, _)) => by_pointer = true,
+                Some((false, takes_it)) => by_value |= takes_it,
+                None => {}
             }
         }
         by_pointer && !by_value
+    }
+
+    /// Whether some overload in `procs` takes `cty` as its first parameter, by value or
+    /// through a pointer.
+    fn for_expansion_takes(&mut self, procs: &[ProcId], cty: TypeId) -> bool {
+        procs.iter().any(|&p| {
+            self.first_param_takes(p, cty)
+                .is_some_and(|(_, takes)| takes)
+        })
+    }
+
+    /// `p`'s first parameter as (is a pointer, accepts `cty`): a pointer parameter `*T` accepts
+    /// `cty` when `T` does. None when the parameter has no written type.
+    fn first_param_takes(&mut self, p: ProcId, cty: TypeId) -> Option<(bool, bool)> {
+        let t = self
+            .proc(p)
+            .lit
+            .header
+            .params
+            .first()
+            .and_then(|q| q.ty.clone())?;
+        let (pointer, t) = match &t.kind {
+            E::Unary(ast::UnOp::Star, inner) => (true, (**inner).clone()),
+            _ => (false, t),
+        };
+        let home = self.proc(p).scope;
+        let takes = if procs::has_poly(&t) || self.mentions_poly_struct(home, &t).unwrap_or(false) {
+            // A polymorphic pattern counts only when it matches this very type.
+            self.match_pattern(&t, cty, &mut Vec::new(), home).is_ok()
+        } else {
+            self.eval_type(home, &t).ok() == Some(cty)
+        };
+        Some((pointer, takes))
     }
 
     /// Select the iterator's address or its per-iteration scalar copy.
@@ -852,7 +866,7 @@ impl Compiler {
         collection: &Operand,
         span: Span,
     ) -> Result<Vec<ProcId>> {
-        let mut procs = Vec::new();
+        let mut procs: Vec<ProcId>;
         let macro_name = match &for_.iterator {
             // A dotted path resolves like a callee: `value.Constant`, `Module.name`, `Type.name`.
             Some(path) if !matches!(path.kind, ast::ExprKind::Ident(_)) => {
@@ -880,19 +894,17 @@ impl Compiler {
                     }) => *name,
                     _ => Sym::intern("for_expansion"),
                 };
-                let mut ids = self.lookup(scope, macro_name)?;
-                if ids.is_empty()
-                    && for_.iterator.is_none()
+                procs = self.procs_named(scope, macro_name)?;
+                // A visible `for_expansion` for other types only (Testing's for `*Bench`) does
+                // not hide the one declared with the collection's type.
+                if for_.iterator.is_none()
                     && let Some(home) = self.ty.struct_home_scope(collection.ty())
+                    && !self.for_expansion_takes(&procs, collection.ty())
                 {
-                    ids = self.lookup(home, macro_name)?;
-                    if !ids.is_empty() {
+                    let found = self.procs_named(home, macro_name)?;
+                    if !found.is_empty() {
                         self.warn_lenient_for_expansion(scope, span, collection.ty(), home);
-                    }
-                }
-                for id in ids {
-                    if let Resolved::Proc(p) = self.resolve_entity(id)? {
-                        procs.push(p);
+                        procs = found;
                     }
                 }
                 if let Some(ast::Expr {
@@ -921,6 +933,17 @@ impl Compiler {
                     "define `{macro_name}` for `{ty}` in a visible scope, or iterate over one of its array members"
                 )),
             ));
+        }
+        Ok(procs)
+    }
+
+    /// The procedures `name` resolves to from `scope`.
+    fn procs_named(&mut self, scope: ScopeId, name: Sym) -> Result<Vec<ProcId>> {
+        let mut procs = Vec::new();
+        for id in self.lookup(scope, name)? {
+            if let Resolved::Proc(p) = self.resolve_entity(id)? {
+                procs.push(p);
+            }
         }
         Ok(procs)
     }
