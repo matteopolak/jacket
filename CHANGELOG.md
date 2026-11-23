@@ -25,6 +25,7 @@ Jacket builds for 32-bit, big-endian and bare-metal targets, and Sound_Player no
 - On Windows, OpenGL windows no longer abort with "WGL context selection failed". (#83, @spytheman)
 - Hover shows every parameter of a multi-line declaration. (#82, @ElectronPie)
 - `malloc` and `memmove` work on 32-bit ARM.
+- `jacket test` colours its report under `FORCE_COLOR`, and shows nearby paths relative, as jaic does.
 
 ## [0.37.0] - 2026-11-21
 

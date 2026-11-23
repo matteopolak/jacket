@@ -129,8 +129,7 @@ impl Reporter {
         capture: bool,
         quiet: bool,
     ) -> Reporter {
-        use std::io::IsTerminal;
-        let color = std::io::stderr().is_terminal() && jacket_config::env::NO_COLOR.os().is_none();
+        let color = jaic::render::detect(jaic::render::ColorChoice::Auto).color;
         Reporter {
             format,
             junit,
@@ -149,11 +148,7 @@ impl Reporter {
     }
 
     fn shown(&self, file: &str) -> String {
-        let path = Path::new(file);
-        path.strip_prefix(&self.cwd)
-            .unwrap_or(path)
-            .display()
-            .to_string()
+        jaic::display_path_from(&self.cwd, Path::new(file))
     }
 
     fn paint(&self, code: &str, text: &str) -> String {

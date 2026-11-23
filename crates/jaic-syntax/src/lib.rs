@@ -155,9 +155,22 @@ pub fn set_display_base(dir: std::path::PathBuf) {
 /// `path` as the user would type it: relative to the display base when inside it or up to two
 /// directories above it.
 pub fn display_path(path: &std::path::Path) -> String {
-    let Some(base) = DISPLAY_BASE.get() else {
-        return path.display().to_string();
-    };
+    match DISPLAY_BASE.get() {
+        Some(base) => display_path_from(base, path),
+        None => path.display().to_string(),
+    }
+}
+
+/// `path` as shown from `base`: relative when inside it or up to two directories above it
+/// (`../lib/module.jai`), else as it is.
+///
+/// ```
+/// use std::path::Path;
+/// let base = Path::new("/work/app");
+/// assert_eq!(jaic_syntax::display_path_from(base, Path::new("/work/lib/a.jai")), "../lib/a.jai");
+/// assert_eq!(jaic_syntax::display_path_from(base, Path::new("/opt/a.jai")), "/opt/a.jai");
+/// ```
+pub fn display_path_from(base: &std::path::Path, path: &std::path::Path) -> String {
     if path == base {
         return ".".to_string();
     }

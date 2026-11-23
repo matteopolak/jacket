@@ -685,7 +685,7 @@ fn run_once(
         for root in &roots {
             eprintln!(
                 "jacket: root {}{}",
-                root.dir.display(),
+                jaic::display_path_from(cwd, &root.dir),
                 if root.library {
                     " (library)"
                 } else {
