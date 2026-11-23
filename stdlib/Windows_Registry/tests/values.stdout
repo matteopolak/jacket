@@ -1,0 +1,8 @@
+product name: Windows
+major version: 10
+missing key: file not found
+string: hello registry
+dword: 0x1badcafe
+wide dword: 0x1badcafe type 4
+child key: child
+deleted
