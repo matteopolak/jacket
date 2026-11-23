@@ -4,6 +4,7 @@
     python3 tools/bench/main.py compile [--compiler NAME=PATH ...] [--only TEXT] [--repeat N]
     python3 tools/bench/main.py compare --baseline OLD_BINARY --candidate NEW_BINARY [--sizes N,N] [--rounds N]
     python3 tools/bench/main.py lsp     [--server NAME=COMMAND ...]
+    python3 tools/bench/main.py stress  [--workspace repo|gen-60k] [--seed N] [--steps N]
     python3 tools/bench/main.py lint
     python3 tools/bench/main.py fmt
     python3 tools/bench/main.py probe [--reference PATH] [--x64] [--json] FILE.jai...
@@ -24,11 +25,12 @@ from bench import cmd_fmt
 from bench import cmd_lint
 from bench import cmd_lsp
 from bench import cmd_probe
+from bench import cmd_stress
 from bench import cmd_wsb
 from bench.measure import SandboxError
 
 COMMANDS = {'compile': cmd_compile, 'compare': cmd_compare, 'lsp': cmd_lsp, 'lint': cmd_lint, 'fmt': cmd_fmt,
-            'probe': cmd_probe, 'wsb': cmd_wsb}
+            'probe': cmd_probe, 'wsb': cmd_wsb, 'stress': cmd_stress}
 
 
 def build_parser() -> argparse.ArgumentParser:

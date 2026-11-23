@@ -5,6 +5,7 @@
 ```sh
 PYTHONPATH=tools python3 tools/bench/main.py compile --compiler jaic=target/release/jaic
 PYTHONPATH=tools python3 tools/bench/main.py lsp
+PYTHONPATH=tools python3 tools/bench/main.py stress --workspace repo --seed 1
 PYTHONPATH=tools python3 tools/bench/main.py lint
 PYTHONPATH=tools python3 tools/bench/main.py fmt
 PYTHONPATH=tools python3 tools/bench/main.py compile --compare target/bench/old.json   # exit 1 on regressions
@@ -27,6 +28,7 @@ Common options: `--only A,B` (substrings of result keys), `--list`, `--timeout`,
 
 - **`compile`**: result keys are `<workload>/<mode>/<compiler>`; modes are `check`, `build`, `optimized`, `interp`. Workloads (`tools/bench/workloads.py`) cover startup (`hello`), generated programs (`gen-2k` to `gen-60k` from `tools/benchgen.py`), real projects from the [upstream corpus](upstream-corpus.md), compile-time-heavy programs in `benchmarks/compile/`, and generated-code speed in `benchmarks/runtime/`. A stage table (front end, compile-time execution, codegen, link) comes from `jaic -timings`; `-profile` adds the interpreted instruction count, which is nearly deterministic.
 - **`lsp`**: starts a fresh server over stdio per session and times a fixed script of requests (`lsp_session.py` lists the probes). A null or empty answer is counted as `empty_answers`. `--server NAME=COMMAND` times another server.
+- **`stress`**: one long, seeded editing session against `jailsp` (`cmd_stress.py`), for memory growth and high-water marks. Same seed, same session. `--workspace repo` works in a temp copy of this repository's stdlib and compiler tests; `gen-60k` and `gen-240k` use a generated program. The session mixes open and close, bursts of one-character `didChange` edits (some break a line and a later action fixes it), hover, completion, definition and references, edits and hovers inside `#if OS == .LINUX` and `#if OS == .WINDOWS` blocks, files created, renamed, changed and deleted on disk and reported with `workspace/didChangeWatchedFiles`, and idle gaps (`--idle-every`, `--idle-seconds`). A sampler reads the server's resident and private memory every `--sample-seconds` (`procmem.py`: psutil if installed, else `proc_pid_rusage` on macOS, `smaps_rollup` on Linux, `GetProcessMemoryInfo` on Windows). The report has peak memory, memory after each idle gap, the slope (per minute over the run, and per idle gap after the first, which is warm-up), and p50 and p99 latency per request kind. It exits 1 on a crash, a panic on stderr, a protocol error (cancelled and content-modified answers are counted, not failures), a request unanswered after `--timeout`, or `--max-peak` / `--max-slope` being passed. Output: `target/bench/stress.json` (with the per-second samples) and the summary on stdout.
 - **`lint` and `fmt`**: `jailint` and `jaifmt` on generated and repository inputs. `lint --only repo` runs the whole repository (about five minutes of ten cores).
 - **`probe`**: runs files under `jaic` and a reference compiler (`--reference` or `$JAI_REFERENCE`) in a sandbox and diffs the outcome. Output is for reading; do not commit it.
 - **`compare`**: the fair A/B of two binaries. Generated programs of several sizes plus the corpus projects are built in check, build and optimized modes. Both binaries must succeed with the same output before anything is timed. Warm rounds alternate which binary goes first; cold rounds use fresh output folders, an empty `JAIC_CACHE_DIR` and (on macOS, if `sudo -n /usr/sbin/purge` is allowed) a purged file cache. The ratio is candidate over baseline per round, with a bootstrap 95% interval, and the verdict is only given when the interval excludes 1. Build modes also record the executable's size, instruction count and hardware counters. Results go to `playground/bench/<timestamp>/` (`summary.md`, `results.json`, `raw.csv`, `inputs.json`, `command.txt`).
@@ -36,7 +38,7 @@ Common options: `--only A,B` (substrings of result keys), `--list`, `--timeout`,
 
 ### Windows
 
-`compile`, `compare`, `lsp`, `lint` and `fmt` run on Windows 10 or 11 (x64 or arm64). You need Python 3.11+, the MSVC Build Tools, jaic, and any other compiler you compare. Plug in, use the best-performance power mode, and exclude the benchmark folders from Defender, which is the largest noise source and cannot be detected.
+`compile`, `compare`, `lsp`, `stress`, `lint` and `fmt` run on Windows 10 or 11 (x64 or arm64). You need Python 3.11+, the MSVC Build Tools, jaic, and any other compiler you compare. Plug in, use the best-performance power mode, and exclude the benchmark folders from Defender, which is the largest noise source and cannot be detected.
 
 ```powershell
 $env:PYTHONPATH = "tools"
@@ -54,6 +56,7 @@ python tools\bench\main.py compare --baseline C:\jai\bin\jai.exe --candidate C:\
 - **New compile workload:** add it to `all_workloads()` in `workloads.py` (source, category, a `Plan` per mode). Set `compare_output` when output is deterministic and `runtime` to time the executable.
 - **New jaic phase:** wrap the code in `timings::time("name", ...)` in `crates/jaic-cli/src/main.rs`, add it to `JaicTimings` in `stages.py`, and update `timings_report_phases` in `crates/jaic-cli/tests/cli.rs`.
 - **New LSP probe:** add a function and a `Probe` in `lsp_session.py`.
+- **New stress action:** add a method to `Run` in `cmd_stress.py` and a weight in `Run.run`. Keep the model of each open document (`Doc`) in step with every edit it sends, or later positions drift.
 - **New lint or fmt scenario:** add a `Scenario` in `cmd_lint.py` or `cmd_fmt.py`.
 - **A compiler with another command line:** subclass `Dialect` in `dialects.py`.
 - **`compare` internals:** workloads in `cmd_compare.py`, noise thresholds in `quiet.py`, statistics in `pairing.py`.

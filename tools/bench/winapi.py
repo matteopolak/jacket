@@ -231,6 +231,15 @@ def process_memory(handle) -> tuple[int, int] | None:
     return counters.WorkingSetSize, counters.PeakWorkingSetSize
 
 
+def process_memory_private(handle) -> tuple[int, int] | None:
+    """(working set, private bytes) of the process; private bytes are what it has committed for itself."""
+    counters = PROCESS_MEMORY_COUNTERS()
+    counters.cb = ctypes.sizeof(counters)
+    if not api().GetProcessMemoryInfo(handle, ctypes.byref(counters), counters.cb):
+        return None
+    return counters.WorkingSetSize, counters.PagefileUsage
+
+
 def process_cpu_seconds(handle) -> tuple[float, float] | None:
     """(user, kernel) CPU seconds of the process alone."""
     created, exited, kernel, user = FILETIME(), FILETIME(), FILETIME(), FILETIME()
