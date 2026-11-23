@@ -555,7 +555,13 @@ pub fn compile_fail(
                 .push(format!("the diagnostics do not contain `{part}`:\n{got}"));
         }
     } else if expected.is_file() || accept {
-        expect_text(&expected, &got, "the diagnostics", accept, &mut checked);
+        expect_text(
+            &expected,
+            &got,
+            "the diagnostic output",
+            accept,
+            &mut checked,
+        );
     } else if create_missing && std::fs::write(&expected, &got).is_ok() {
         checked.created.push(expected);
     } else {
