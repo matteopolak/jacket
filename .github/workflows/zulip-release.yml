@@ -1,7 +1,8 @@
 name: announce release on Zulip
 # Posts a release's notes to Zulip. release.yml calls this once, right after its `publish` job
 # creates the GitHub release: a release made with the workflow token fires no `release` event for
-# other workflows. A manual run previews a past release in another channel (default `test`).
+# other workflows. A manual run previews a past release in another channel (default `test`), or with
+# `update` rewrites the earlier post after the release notes change.
 on:
   workflow_call:
     inputs:
@@ -24,6 +25,10 @@ on:
       channel:
         description: Zulip channel
         default: test
+      update:
+        description: Rewrite the earlier post for this tag instead of posting a new one
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -44,4 +49,5 @@ jobs:
           ZULIP_BOT_KEY: ${{ secrets.ZULIP_BOT_KEY }}
           TAG: ${{ inputs.tag }}
           CHANNEL: ${{ inputs.channel }}
-        run: python3 tools/ci/announce_release.py --tag "$TAG" --channel "$CHANNEL"
+          UPDATE: ${{ inputs.update && '--update' || '' }}
+        run: python3 tools/ci/announce_release.py --tag "$TAG" --channel "$CHANNEL" $UPDATE

@@ -16,6 +16,8 @@ The `announce` job in `.github/workflows/release.yml` posts each stable release 
 
 Preview a past release without publishing anything: run the workflow by hand (Actions, "announce release on Zulip") with a tag; it posts to `test` by default. Locally, `GITHUB_REPOSITORY=matteopolak/jacket tools/ci/announce_release.py --tag v0.33.0 --dry-run` prints the message.
 
+After editing a release's notes, run the same workflow with `channel` set to `announcements` and `update` ticked. It finds the bot's earlier post for that tag in the topic and rewrites it.
+
 ## Configuration
 
 - Repository secrets `ZULIP_BOT_EMAIL` and `ZULIP_BOT_KEY`: the Zulip bot "Releases" (a generic bot). Rotate the key in Zulip (Settings, Bots) and update the secret with `gh secret set ZULIP_BOT_KEY`.

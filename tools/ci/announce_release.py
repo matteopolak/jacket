@@ -2,11 +2,13 @@
 """Post a release to Zulip (.github/workflows/zulip-release.yml, docs/tools/community-chat.md).
 
 Usage:
-  announce_release.py --tag vX.Y.Z [--channel announcements] [--topic Releases] [--dry-run]
+  announce_release.py --tag vX.Y.Z [--channel announcements] [--topic Releases] [--update] [--dry-run]
 
 Reads the release with `gh api` (GH_TOKEN, GITHUB_REPOSITORY) and posts its notes and download
 links as one message. Zulip credentials come from ZULIP_SITE, ZULIP_BOT_EMAIL and ZULIP_BOT_KEY.
 `--dry-run` prints the message instead. A different `--channel` previews a past release.
+`--update` rewrites the bot's earlier post for the tag in that channel and topic, after the
+release notes change.
 """
 
 import argparse
@@ -65,21 +67,46 @@ def message(rel: dict) -> str:
     return "\n\n".join(parts)
 
 
-def post(channel: str, topic: str, content: str) -> None:
+def zulip(method: str, path: str, fields: dict) -> dict:
     site = os.environ["ZULIP_SITE"].rstrip("/")
     auth = base64.b64encode(
         f"{os.environ['ZULIP_BOT_EMAIL']}:{os.environ['ZULIP_BOT_KEY']}".encode()
     ).decode()
-    data = urllib.parse.urlencode(
-        {"type": "channel", "to": channel, "topic": topic, "content": content}
-    ).encode()
-    request = urllib.request.Request(
-        f"{site}/api/v1/messages", data, {"Authorization": f"Basic {auth}"}
-    )
+    query = urllib.parse.urlencode(fields)
+    url, data = (f"{site}/api/v1/{path}?{query}", None) if method == "GET" else (f"{site}/api/v1/{path}", query.encode())
+    request = urllib.request.Request(url, data, {"Authorization": f"Basic {auth}"}, method=method)
     with urllib.request.urlopen(request) as response:
         result = json.load(response)
     if result.get("result") != "success":
-        sys.exit(f"Zulip refused the message: {result}")
+        sys.exit(f"Zulip refused the request: {result}")
+    return result
+
+
+def post(channel: str, topic: str, content: str) -> None:
+    zulip("POST", "messages", {"type": "channel", "to": channel, "topic": topic, "content": content})
+
+
+def earlier_post(channel: str, topic: str, first_line: str) -> int:
+    """The id of the bot's newest message in `channel` > `topic` that starts with `first_line`."""
+    narrow = [
+        {"operator": "channel", "operand": channel},
+        {"operator": "topic", "operand": topic},
+        {"operator": "sender", "operand": os.environ["ZULIP_BOT_EMAIL"]},
+    ]
+    found = zulip(
+        "GET",
+        "messages",
+        {"anchor": "newest", "num_before": 100, "num_after": 0, "narrow": json.dumps(narrow), "apply_markdown": "false"},
+    )
+    for msg in reversed(found["messages"]):
+        if msg["content"].startswith(first_line):
+            return msg["id"]
+    sys.exit(f"no earlier post in {channel} > {topic} starts with {first_line!r}")
+
+
+def update(channel: str, topic: str, content: str) -> None:
+    msg_id = earlier_post(channel, topic, content.split("\n", 1)[0])
+    zulip("PATCH", f"messages/{msg_id}", {"content": content})
 
 
 def main() -> None:
@@ -87,11 +114,14 @@ def main() -> None:
     parser.add_argument("--tag", required=True)
     parser.add_argument("--channel", default="announcements")
     parser.add_argument("--topic", default="Releases")
+    parser.add_argument("--update", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     content = message(release(args.tag))
     if args.dry_run:
         print(content)
+    elif args.update:
+        update(args.channel, args.topic, content)
     else:
         post(args.channel, args.topic, content)
 
