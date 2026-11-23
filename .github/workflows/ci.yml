@@ -291,11 +291,16 @@ jobs:
         if: ${{ matrix.runner == 'ubuntu-24.04' }}
         run: bash tools/ci/apt_install.sh qemu-system-arm qemu-system-misc
       - name: Build compiler-rt for the Cortex-M and AVR boards
-        # The builtins a Cortex-M program links (64-bit division, double-precision floats); the
-        # board tests below and the `board_tests` suite find them through JAIC_COMPILER_RT.
-        if: ${{ matrix.runner == 'ubuntu-24.04' }}
+        # The builtins a board program links (64-bit division, double-precision floats); the
+        # board tests below and the `board_tests` suite find them through JAIC_COMPILER_RT. macOS
+        # has no QEMU for the boards, but the AVR image size test still links the Uno program.
+        if: ${{ matrix.runner == 'ubuntu-24.04' || startsWith(matrix.runner, 'macos') }}
         run: |
-          bash tools/ci/apt_install.sh clang llvm cmake ninja-build
+          if [ "$RUNNER_OS" = Linux ]; then
+            bash tools/ci/apt_install.sh clang llvm cmake ninja-build
+          else
+            command -v ninja >/dev/null || brew install ninja
+          fi
           tools/embedded/build-compiler-rt.sh thumbv7em-none-eabihf "$RUNNER_TEMP/compiler-rt"
           tools/embedded/build-compiler-rt.sh thumbv8m.main-none-eabihf "$RUNNER_TEMP/compiler-rt"
           tools/embedded/build-compiler-rt.sh avr-none-elf "$RUNNER_TEMP/compiler-rt"
