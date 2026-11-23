@@ -30,6 +30,7 @@ The language server, linter, formatter and interpreter are faster. `jailsp` uses
 - A procedure nothing calls can use a name that another uncalled procedure declares with `#insert,scope`.
 - A type mismatch between two module instances names each one, e.g. `*Generator in Bindings_Generator(TARGET_OS = .LINUX)`.
 - Compile-fail `.stderr` files write project paths as `$ROOT/...`, so they match across machines ([testing](docs/tools/jacket-test.md)).
+- Doc pages render `<kbd>` keys instead of showing the tags as text.
 
 ## [0.38.0] - 2026-11-22
 

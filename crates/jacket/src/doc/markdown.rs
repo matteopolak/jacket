@@ -147,6 +147,8 @@ pub fn segments(md: &str, settings: &Settings<'_>) -> Vec<Segment> {
     let mut out = Vec::new();
     let mut buf: Vec<Event<'_>> = Vec::new();
     let mut kept_links: Vec<bool> = Vec::new();
+    // `<kbd>` elements open in the current paragraph, heading, cell or item.
+    let mut open_keys = 0usize;
     // How many tags are open: a block ends when this is back to 0.
     let mut depth = 0usize;
     let mut i = 0;
@@ -160,6 +162,18 @@ pub fn segments(md: &str, settings: &Settings<'_>) -> Vec<Segment> {
             _ => {}
         }
         let block_ends = depth == 0 && matches!(event, Event::End(_) | Event::Rule);
+        if open_keys > 0
+            && matches!(
+                event,
+                Event::End(
+                    TagEnd::Paragraph | TagEnd::Heading(_) | TagEnd::TableCell | TagEnd::Item
+                )
+            )
+        {
+            for _ in 0..std::mem::take(&mut open_keys) {
+                buf.push(Event::Html("</kbd>".into()));
+            }
+        }
         match event {
             Event::Start(Tag::CodeBlock(kind)) => {
                 flush(&mut buf, &mut out);
@@ -203,6 +217,15 @@ pub fn segments(md: &str, settings: &Settings<'_>) -> Vec<Segment> {
                 if kept_links.pop().unwrap_or(true) {
                     buf.push(Event::End(TagEnd::Link));
                 }
+            }
+            // Raw HTML is text, except a bare `<kbd>` for a key (`Press <kbd>/</kbd>`).
+            Event::InlineHtml(text) if &*text == "<kbd>" => {
+                open_keys += 1;
+                buf.push(Event::InlineHtml(text));
+            }
+            Event::InlineHtml(text) if &*text == "</kbd>" && open_keys > 0 => {
+                open_keys -= 1;
+                buf.push(Event::InlineHtml(text));
             }
             Event::Html(text) | Event::InlineHtml(text) => buf.push(Event::Text(text)),
             Event::Start(Tag::BlockQuote(Some(kind))) => {
@@ -291,6 +314,28 @@ mod tests {
             matches!(&parts[1], Segment::Code { info, code } if info == "jai,no_run" && code == "a := 1;\n")
         );
         assert!(matches!(&parts[2], Segment::Html(h) if h.contains("<h3>Title</h3>")));
+    }
+
+    #[test]
+    fn keys_render_and_close_with_their_paragraph() {
+        let parts = render(
+            "Press <kbd>/</kbd> to search.\n\nThen <kbd>Esc\n\nand <kbd class=\"x\">k</kbd>.",
+        );
+        let html: String = parts
+            .iter()
+            .filter_map(|part| match part {
+                Segment::Html(html) => Some(html.as_str()),
+                Segment::Code {
+                    ..
+                } => None,
+            })
+            .collect();
+        assert!(html.contains("Press <kbd>/</kbd> to search."), "{html}");
+        assert!(html.contains("Then <kbd>Esc</kbd></p>"), "{html}");
+        assert!(
+            html.contains("&lt;kbd class=\"x\"&gt;k&lt;/kbd&gt;"),
+            "{html}"
+        );
     }
 
     #[test]
