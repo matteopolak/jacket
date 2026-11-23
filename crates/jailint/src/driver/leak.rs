@@ -88,7 +88,6 @@ pub(super) fn leak_pass(
                         None,
                         canon,
                         &RunCaches::default(),
-                        options.limits,
                     );
                     if error.is_none() {
                         let _ = jaic::build::finish_all(

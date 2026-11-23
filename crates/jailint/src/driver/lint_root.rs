@@ -75,7 +75,7 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
         error,
         stopping,
         host,
-    } = compile_root(root, options, os, cpu, Some(report), canon, caches, limits);
+    } = compile_root(root, options, os, cpu, Some(report), canon, caches);
     let mut error = error;
     let top_complete = error.is_none();
     if top_complete

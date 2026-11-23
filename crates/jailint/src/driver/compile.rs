@@ -4,7 +4,7 @@ use super::plan::canonical;
 use super::rooted_fs::RootedFs;
 use jaic::build::{SharedWorkspaces, WorkspaceObserver};
 use jaic::ide::IdeRoot;
-use jaic::ide::lint_compile::{CheckLimits, LintCompile, LintRoot, LintSetup};
+use jaic::ide::lint_compile::{LintCompile, LintRoot, LintSetup};
 use jaic::interp::SandboxHost;
 use jaic::parser::SharedParseReuse;
 use jaic::paths::CanonCache;
@@ -76,7 +76,6 @@ pub(super) fn compile_root(
     report: Option<&BTreeSet<PathBuf>>,
     canon: &CanonCache,
     shared: &RunCaches,
-    limits: CheckLimits,
 ) -> Compiled {
     let root = &program.root;
     let main_dir = root.main_dir();
@@ -122,7 +121,7 @@ pub(super) fn compile_root(
             done: done.clone(),
         })),
         report: Box::new(move |_, text| sink.borrow_mut().push(text.to_string())),
-        limits,
+        limits: options.limits,
     });
     if lint {
         crate::facts::enable(&mut started.compiler, roots);
