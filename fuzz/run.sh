@@ -33,6 +33,17 @@ python3 seed_corpus.py --trim "$target"
 
 # A unit is slow only when it reaches the target's timeout (libFuzzer's default, 10 s, is below
 # the LSP targets' 20 s, and run.sh fails on any file in artifacts/).
+# Each fork-mode worker and the parent get an equal share of the machine's memory, up to 4 GiB.
+# A fixed 4 GiB per worker lets `workers` of them together outgrow a 16 GiB runner, and the kernel
+# then kills one with SIGKILL, which libFuzzer reports as an unexplained "deadly signal".
+if [ -r /proc/meminfo ]; then
+  total_mb=$(awk '/^MemTotal:/ {print int($2 / 1024)}' /proc/meminfo)
+else
+  total_mb=$(($(sysctl -n hw.memsize) / 1048576))
+fi
+rss_limit=$((total_mb * 3 / 4 / (workers + 1)))
+[ "$rss_limit" -gt 4096 ] && rss_limit=4096
+
 # No sanitizer: the compiler is safe Rust except the interpreter's program memory, and ASan
 # would also flag the interpreted program's own (intended) raw memory use. Debug assertions
 # turn arithmetic overflow into panics.
@@ -42,7 +53,7 @@ cargo fuzz run --sanitizer none --debug-assertions --target "$host" "$target" "c
   -max_total_time="$seconds" \
   -timeout="$timeout" \
   -report_slow_units="$timeout" \
-  -rss_limit_mb=4096 \
+  -rss_limit_mb="$rss_limit" \
   -max_len="$max_len" \
   -fork="$workers" -ignore_crashes=1 -ignore_timeouts=1 -ignore_ooms=1 \
   -print_final_stats=1 \

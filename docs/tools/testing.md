@@ -91,6 +91,7 @@ fuzz/run.sh check 1200 4        # target, seconds, workers
 cargo run --release --manifest-path fuzz/harness/Cargo.toml --example replay -- check fuzz/artifacts/check/crash-*
 ```
 
+- `run.sh` gives each worker and the parent an equal share of three quarters of the machine's memory as libFuzzer's `-rss_limit_mb`, up to 4 GiB, so the workers together stay under the machine's memory and an over-limit input is reported as an out-of-memory finding instead of a kernel kill ("deadly signal").
 - Compile-time code and `main` run in the playground sandbox. `BLOCK_BUDGET` stops loops. The interpreter uses real memory, so an input building a pointer from an integer can crash the fuzzer without a compiler bug; the compiler's own reads of program memory go through `Interp::read`/`write`.
 - Corpora are built by `fuzz/seed_corpus.py` and not committed; CI caches them.
 - Every fixed crash gets its minimized input in `fuzz/regressions/<target>/` and a test next to the fix.
