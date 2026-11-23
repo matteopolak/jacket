@@ -185,16 +185,12 @@ fn ends_expression(t: &Tok) -> bool {
 }
 
 /// The receiver of the `.` at `tokens[dot]`: its span, and the names when it is `a.b.c`.
-/// Nothing is a receiver unless it touches the dot, so `case .` and `== .` are inferred members.
+/// Space before the dot does not matter (`value .field`); `case .` and `== .` are inferred
+/// members because what precedes them does not end an expression.
 fn receiver_before(tokens: &[Token], dot: usize) -> (Option<Span>, Vec<Span>) {
-    // `#Context .name` is written with a space, so the dot is not taken for a member of `#`.
-    let touches = |i: usize| {
-        tokens[i].span.end == tokens[i + 1].span.start
-            || matches!(&tokens[i].tok, Tok::Directive(d) if d.as_str() == "Context")
-    };
     let Some(mut i) = dot
         .checked_sub(1)
-        .filter(|&i| touches(i) && ends_expression(&tokens[i].tok))
+        .filter(|&i| ends_expression(&tokens[i].tok))
     else {
         return (None, Vec::new());
     };
@@ -208,8 +204,6 @@ fn receiver_before(tokens: &[Token], dot: usize) -> (Option<Span>, Vec<Span>) {
                 match i.checked_sub(2) {
                     Some(j)
                         if tokens[i - 1].tok == Tok::Punct(P::Dot)
-                            && touches(i - 1)
-                            && touches(j)
                             && ends_expression(&tokens[j].tok) =>
                     {
                         i = j;
@@ -223,9 +217,7 @@ fn receiver_before(tokens: &[Token], dot: usize) -> (Option<Span>, Vec<Span>) {
                     break tokens[i].span.start;
                 };
                 match open.checked_sub(1) {
-                    Some(before)
-                        if touches(before) && matches!(tokens[before].tok, Tok::Ident(_)) =>
-                    {
+                    Some(before) if matches!(tokens[before].tok, Tok::Ident(_)) => {
                         i = before;
                     }
                     _ => break tokens[open].span.start,
@@ -235,7 +227,7 @@ fn receiver_before(tokens: &[Token], dot: usize) -> (Option<Span>, Vec<Span>) {
                 pure = false;
                 match i
                     .checked_sub(1)
-                    .filter(|&j| touches(j) && ends_expression(&tokens[j].tok))
+                    .filter(|&j| ends_expression(&tokens[j].tok))
                 {
                     Some(j) => i = j,
                     None => break tokens[i].span.start,
