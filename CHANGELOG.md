@@ -10,20 +10,19 @@ The language server, linter, formatter and interpreter are faster. `jailsp` uses
 - `jailsp` skips checking stdlib procedure bodies until compile-time code or the lints need them.
 - The interpreter plans each foreign procedure's calls once; a call-heavy benchmark takes 1.95 s instead of 3.34 s.
 - `jailint` shares parsed files across the roots of a run and no longer contends on the system allocator.
-- `jaifmt` runs one worker per core, or `-j N`; checking this repository takes a third of the time.
+- `jaifmt` formats files in parallel (`-j N` sets the workers); checking this repository takes a third as long.
 - On Windows, `jailsp` gives freed memory back to the system after each compile. (#85, @ctzcs)
 
 ### Fixes
 
-- `jailsp` counts compiles for other operating systems toward its kept-compile limit. (#85, @ctzcs)
-- `jailsp` no longer keeps the named arguments of every past compile in memory. (#85, @ctzcs)
-- Compile-fail `.stderr` files write project paths as `$ROOT/...`, so they no longer differ between machines ([testing](docs/tools/jacket-test.md)).
-- A mismatch between same-named types of two module instances names each instance, e.g. `*Generator in Bindings_Generator(TARGET_OS = .LINUX)`.
 - `jailsp` publishes compiler errors as soon as the check finishes, and the lint findings after them.
+- The first completion in a busy `jailsp` session no longer waits for the auto-import index.
 - Member completion works after a space before the dot (`value .field`).
-- The first completion in a busy `jailsp` session no longer waits for the auto-import index; auto imports follow later.
-- On Windows, `#cpp_method` procedures return structs through a pointer after `this`, as MSVC does, fixing D3D12 descriptor handles. (#86, @jthinkthereforejam)
-- Renaming a parameter also renames named arguments in calls through procedure values and named variadic packs (`rest = 7, 8`).
+- Renaming a parameter also renames named arguments in calls through procedure values and variadic packs.
+- `jailsp` counts compiles for other targets toward its kept-compile limit and no longer keeps old named arguments. (#85, @ctzcs)
+- On Windows, `#cpp_method` struct results go through a pointer after `this`, as MSVC expects, fixing D3D12 handles. (#86, @jthinkthereforejam)
+- A type mismatch between two module instances names each one, e.g. `*Generator in Bindings_Generator(TARGET_OS = .LINUX)`.
+- Compile-fail `.stderr` files write project paths as `$ROOT/...`, so they match across machines ([testing](docs/tools/jacket-test.md)).
 
 ## [0.38.0] - 2026-11-22
 
