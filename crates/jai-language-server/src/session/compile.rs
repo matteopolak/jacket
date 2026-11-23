@@ -223,6 +223,18 @@ impl Session {
         Some(query(analysis, path))
     }
 
+    /// Whether the compiles leave the bodies of library procedures nothing observes unchecked
+    /// (on by default; the answers do not depend on it, only the time a check takes).
+    pub fn defer_library_bodies(&self, on: bool) {
+        self.semantic.borrow_mut().set_defer_library_bodies(on);
+    }
+
+    /// Library bodies the kept compiles left unchecked, and how many of those something later
+    /// needed (compile-time code, the lints).
+    pub fn deferred_library_bodies(&self) -> (u64, u64) {
+        self.semantic.borrow().library_body_counts()
+    }
+
     /// Whether a compile may be made now: always, until `defer_compiles` turns it off for
     /// requests (the diagnostics and `warm_pending` still compile, under `background`).
     pub(crate) fn may_compile(&self) -> bool {

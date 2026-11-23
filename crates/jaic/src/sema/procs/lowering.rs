@@ -40,6 +40,9 @@ impl Compiler {
         let executions = self.ct.executions;
         self.diag.dependencies.begin_body(id);
         self.meta.export.expression_types.remove(&id);
+        if self.proc(id).body_state == BodyState::Deferred {
+            self.pr.promoted_bodies += 1;
+        }
         self.pr.procs[id.0 as usize].body_state = BodyState::Lowering;
         let outermost = (self.pr.lowering_depth == 0).then(|| self.meta.perf.start_lowering());
         let checking = crate::progress::enter(crate::progress::Phase::Checking);

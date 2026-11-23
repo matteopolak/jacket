@@ -198,42 +198,41 @@ Until the new lints arrive, the first publish of a version carries the previous 
 
 A request never builds the auto-import module indexes (the stdlib's and the project's; 300–500 ms cold). While requests may not compile (`Session::defer_compiles`, which `jailsp` sets), `auto_import_items` returns nothing and marks the list incomplete until the idle warm-up (`warm_auto_import_unless_interrupted`) has read them (`Index::warm`). A file created or deleted clears the flag. The client asks again as the word grows, so only the first completion in a busy session lacks auto imports.
 
-### Stdlib reuse
+### Stdlib bodies the editor cannot observe
 
-Stdlib sema is 34–40% of a warm check. It is redone every time because each check starts a fresh `Compiler`. The state after loading the stdlib is shared by every check with the same:
-- options;
-- target;
-- import set;
-- module parameters.
+A check lowers (type-checks) the body of every procedure its code reaches, and for the stdlib that is 1000–2000 bodies for 50–135 of the user's (see the profile above). Nothing the user sees comes from most of them: a non-generic stdlib procedure has a declared signature, so callers only need that.
 
-That holds only until user code mutates it. The known mutators are:
-- `#add_context`;
-- `#poke_name`;
-- `#placeholder`;
-- module parameters;
-- target options set by a build;
-- `#run` with side effects;
-- polymorph instances added to generic `ProcInfo.instances`.
+A snapshot of the checked stdlib was considered and dropped. `Compiler` is not `Clone`, the interpreter's boxed frames and host-address blocks cannot be copied without relocation, and deep-copying about 1M allocations (50–100 MB) costs roughly 40–100 ms against a 120–140 ms saving. It would also be a cache with state that can go stale. Not checking the bodies is exact: no copy, no key, no invalidation.
 
-Target design: a **frozen stdlib snapshot** per `(options, target, import set)`.
-1. Build a `Compiler` that has loaded the imports, resolved every non-generic stdlib declaration and lowered every non-generic stdlib body reachable from them. Generic bodies stay lazy.
-2. Freeze it as a read-only `Arc`.
-3. A check clones it. Better, it layers user state over it, as the speculative-body arena cut-back and undo journal already do.
+**Ceiling.** An experiment that skipped queuing non-generic stdlib bodies in `proc_func` (`sema/procs/func.rs`; `jaic -check`, release, warm, three runs each) cut front-end time and allocations:
 
-A check falls back to a full build when it sees a mutator touch snapshot state. Each fallback is counted, so we can see how often it happens.
+| Program | Front end before → after | Allocations before → after |
+|---|---|---|
+| `examples/editor` | 126 → 68 ms (−46%) | 2.10 M → 1.02 M |
+| `examples/chip8` | 61 → 41 ms (−33%) | 0.96 M → 0.62 M |
+| `examples/chat` | 49 → 31 ms (−36%) | 0.88 M → 0.51 M |
 
-Snapshot blockers, ranked:
-1. Interpreter state bound to addresses, which needs a reset or relocation.
-2. User mutation of stdlib state, handled by the fallback above.
-3. `Clone` on all of sema, about 60k lines, mechanical.
-4. Copy-on-write of lazily resolved state.
-5. Trait objects.
-6. Thread-locals.
-7. Id order, which is fine for the IDE.
+That matches the 34–40% stdlib share. The experiment ignored the cases below, so it is an upper bound.
 
-Because lowering is lazy, a snapshot taken right after loading would save only the load share (~3%). The gain needs the eager pass in step 1, which costs once per key.
+**Implemented.** `Options::defer_library_bodies` is set only by the language server (`jaic` and `jailint` check everything). In `proc_func`, a body is deferred (`BodyState::Deferred`, not queued) when its file is in the stdlib (`is_library_file`), it is not generic or a macro, and it is not an instance made from a user call site. The procedure keeps its reserved function; callers see its declared signature.
 
-Expected gain: up to 34–40% of a warm check, minus the clone cost. **The clone cost is not measured yet.** That is the first task of the stage, and the stage stops if a clone costs more than half of what it saves.
+Anything that needs a body promotes it through `lower_body`:
+- **Compile-time runs.** `queued_proc_of` treats `Deferred` like `Queued`, so `lower_reachable_from` lowers the bodies a `#run` reaches.
+- **Lints.** `Analysis::lints` and `warm_lints` call `Compiler::lower_deferred_bodies` first, because lifetime rules read callee IR. Only the compiler-diagnostics publication (`Stage::Compile`) skips the work; the lint stage pays for it.
+- **A stdlib file open in the editor.** The compile turns the flag off when any open document is under the stdlib root.
+
+`ProcState::deferred_bodies` and `promoted_bodies` count the bodies left unchecked and later promoted (`Session::deferred_library_bodies`). `Session::defer_library_bodies(false)` turns the feature off and resets the cache.
+
+**Measured** (release `jailsp`, push diagnostics, 5 sessions; p50):
+
+| Workload | `did_open` | `did_change_keystroke` | `did_change_paste` |
+|---|---|---|---|
+| gen-60k | 284 → 276 ms | 311 → 295 ms | 312 → 293 ms |
+| large-25k | 194 → 180 ms | 219 → 208 ms | 225 → 207 ms |
+
+The gain is 5–8% here because these documents are mostly user code; the small-program ceiling above (33–46% of the front end) applies to documents like `examples/editor`. The lint stage lowers every deferred body, so total work per edit is unchanged and only the first publication arrives sooner.
+
+**Tests.** `tests/deferred_library_bodies.rs`: diagnostics, hover and definition are identical with and without the flag; a `#run` through `array_add` still runs; lints give the same findings; the compile leaves bodies deferred until the lints run; an open stdlib file is checked whole.
 
 ### Caches and bounds
 

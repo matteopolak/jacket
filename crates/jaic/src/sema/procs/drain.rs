@@ -248,7 +248,37 @@ impl Compiler {
     /// The procedure behind IR function `func` if its body is queued (not lowered yet).
     pub fn queued_proc_of(&self, func: ir::FuncId) -> Option<ProcId> {
         self.procs_of_func(func)
-            .find(|&id| self.proc(id).body_state == BodyState::Queued)
+            .find(|&id| self.proc(id).needs_body())
+    }
+
+    /// Whether the body of `id` is left unchecked (`Options::defer_library_bodies`): it is a
+    /// library procedure that is not generic, not a macro and not made for a call (an instance
+    /// is checked where it was asked for).
+    pub(in crate::sema) fn defers_body(&self, id: ProcId) -> bool {
+        let p = self.proc(id);
+        self.options.defer_library_bodies
+            && !p.is_poly
+            && !p.is_macro
+            && p.bindings.is_none()
+            && self.is_library_file(p.span.file)
+    }
+
+    /// Check every body left unchecked and what they reach: the lints read the bodies of what
+    /// the code they check calls. Failures are the library's, which no answer shows.
+    pub fn lower_deferred_bodies(&mut self) {
+        let was = std::mem::replace(&mut self.options.defer_library_bodies, false);
+        let pending: Vec<ProcId> = (0..self.pr.procs.len())
+            .map(|i| ProcId(i as u32))
+            .filter(|&id| self.proc(id).body_state == BodyState::Deferred)
+            .collect();
+        for id in pending {
+            self.pr.procs[id.0 as usize].body_state = BodyState::Queued;
+            self.pr.promoted_bodies += 1;
+            self.pr.deferred_bodies -= 1;
+            self.pr.body_queue.push(id);
+        }
+        let _ = self.drain_bodies_lenient();
+        self.options.defer_library_bodies = was;
     }
 
     /// Lower the queued bodies reachable from IR function `root` (calls, procedure addresses,

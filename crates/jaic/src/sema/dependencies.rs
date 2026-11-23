@@ -30,7 +30,7 @@ impl Compiler {
         let Some(procedure) = self.procs_of_func(callee).next() else {
             return Ok(());
         };
-        if self.proc(procedure).body_state == procs::BodyState::Queued {
+        if self.proc(procedure).needs_body() {
             self.lower_body(procedure)?;
         }
         Ok(())

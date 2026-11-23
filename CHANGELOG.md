@@ -15,6 +15,7 @@ The language server, linter, formatter and interpreter are faster, and `jailsp` 
 - Compile-fail `.stderr` files write project paths as `$ROOT/...`, so they no longer differ between machines ([testing](docs/tools/jacket-test.md)).
 - A mismatch between same-named types of two module instances names each instance, e.g. `*Generator in Bindings_Generator(TARGET_OS = .LINUX)`.
 - `jailsp` publishes compiler errors as soon as the check finishes, and the lint findings after them.
+- `jailsp` skips checking stdlib procedure bodies until compile-time code or the lints need them.
 - Member completion works after a space before the dot (`value .field`).
 - The first completion in a busy `jailsp` session no longer waits for the auto-import index; auto imports follow later.
 

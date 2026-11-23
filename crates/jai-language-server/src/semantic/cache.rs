@@ -25,6 +25,9 @@ pub struct Cache {
     /// Workspace trust is withheld: compiles run no compile-time code (see
     /// `IdeFacts::untrusted`). Survives `reset`; change it with `set_trusted`.
     untrusted: bool,
+    /// Leave unobservable library bodies unchecked (see `compile::Mode`); change it with
+    /// `set_defer_library_bodies`.
+    defer_library_bodies: bool,
     /// What bounds a compile's compile-time code (the client's settings); change it with
     /// `set_limits`.
     limits: CheckLimits,
@@ -45,6 +48,7 @@ impl Default for Cache {
             compiles: 0,
             parses: shared_parses(),
             untrusted: false,
+            defer_library_bodies: true,
             limits: CheckLimits::default(),
             recorded: BTreeMap::new(),
             recorded_version: 0,
@@ -137,6 +141,30 @@ fn quick_key(root: &Path, dirs: &[PathBuf], files: &Buffers, os: Option<TargetOs
 }
 
 impl Cache {
+    /// Whether compiles leave unobservable library bodies unchecked. A change drops every
+    /// compile kept, which were made under the other setting.
+    pub fn set_defer_library_bodies(&mut self, on: bool) {
+        if self.defer_library_bodies != on {
+            *self = Self {
+                defer_library_bodies: on,
+                untrusted: self.untrusted,
+                limits: self.limits,
+                ..Self::default()
+            };
+        }
+    }
+
+    /// Library bodies the kept compiles left unchecked, and how many of those something later
+    /// asked for (the lints, compile-time code).
+    pub fn library_body_counts(&self) -> (u64, u64) {
+        self.entries.iter().fold((0, 0), |(d, p), a| {
+            (
+                d + a.compiler.pr.deferred_bodies,
+                p + a.compiler.pr.promoted_bodies,
+            )
+        })
+    }
+
     /// Whether compile-time code may run. A change drops every compile kept, which were made
     /// under the other setting.
     pub fn set_trusted(&mut self, trusted: bool) {
@@ -145,6 +173,7 @@ impl Cache {
         }
         *self = Self {
             untrusted: !trusted,
+            defer_library_bodies: self.defer_library_bodies,
             ..Self::default()
         };
     }
@@ -529,6 +558,7 @@ impl Cache {
             &self.parses,
             Mode {
                 untrusted: self.untrusted,
+                defer_library_bodies: self.defer_library_bodies,
                 limits: self.limits,
             },
         )?;

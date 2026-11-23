@@ -295,6 +295,11 @@ pub struct Options {
     /// The command-line flag that changes `eval_step_limit`, named in the exhausted-budget
     /// diagnostic's help; `None` where an editor setting does (the language server, `jailint`).
     pub eval_step_flag: Option<&'static str>,
+    /// Leave unchecked the bodies of the standard library's non-generic procedures that
+    /// nothing observes (`BodyState::Deferred`): an editor sets it, since the answers it gives
+    /// never come from them. Whatever needs a body (compile-time code that calls it, the
+    /// lints, a library file open in the editor) gets it lowered first. Off for builds.
+    pub defer_library_bodies: bool,
 }
 
 /// The C `long double` of a target, when wider than `float64`: x87 extended on x86-64 System V
@@ -437,6 +442,7 @@ impl Options {
             backtrace_on_crash: false,
             eval_step_limit: None,
             eval_step_flag: None,
+            defer_library_bodies: false,
         }
     }
 }

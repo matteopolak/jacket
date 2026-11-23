@@ -267,7 +267,7 @@ impl Compiler {
                     BodyState::Queued | BodyState::Lowering => {
                         failed.insert(block.span);
                     }
-                    BodyState::NotNeeded => {}
+                    BodyState::NotNeeded | BodyState::Deferred => {}
                 }
             }
             done.difference(&failed).copied().collect()

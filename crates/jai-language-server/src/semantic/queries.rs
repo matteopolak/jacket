@@ -138,6 +138,11 @@ impl Analysis {
                 if files.is_empty() {
                     continue;
                 }
+                // The lints read the bodies of what the code calls.
+                compiler.lower_deferred_bodies();
+                if jaic::interrupt::fired() {
+                    return false;
+                }
                 let found = jailint::lint_files(
                     compiler,
                     &files,
@@ -256,6 +261,11 @@ impl Analysis {
         let file = self.file(path)?;
         if let Some(found) = self.lints.get(&file) {
             return Some(found.clone());
+        }
+        // The lints read the bodies of what the code calls.
+        self.compiler.lower_deferred_bodies();
+        if jaic::interrupt::fired() {
+            return None;
         }
         let found = jailint::lint_files(
             &mut self.compiler,
