@@ -17,3 +17,7 @@ One definition of integer `+ - * / % & | ^ << >>` and rotates for a given width 
 ## How to change it
 
 Change the rule in `int_arith.rs`, then update `crates/jaic-llvm/src/lower/inst.rs`, the one place that lowers independently. `tests/compiler/semantics/integer-constant-arithmetic.jai` compares folded, `#run` and compiled results; unit tests in `int_arith/tests.rs` check every width against Rust.
+
+## Interpreter division
+
+`Interp::divide` uses native 64-bit division (`divide_64` in `interp/arith.rs`); every interpreted type is at most 64 bits wide. It must agree with `int_binop`, the shared definition: `arith/tests.rs` compares them over the edge words, and `tests/interp_division.rs` runs `MIN / -1`, truncation and division by zero through programs.

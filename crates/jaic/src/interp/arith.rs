@@ -62,6 +62,36 @@ pub(crate) fn int_bin(op: BinOp, ty: Ty, x: u64, y: u64) -> Result<u64, DivideBy
     int_binop(iop, operand(x), rhs, bits, signed).map(|r| mask(ty, r as u64))
 }
 
+/// `SDiv`, `SRem`, `UDiv` or `URem` of two register words of `ty`, which is at most 64 bits wide:
+/// native 64-bit division, where `int_bin` widens to 128 bits. `Err` is a division by zero;
+/// `MIN / -1` wraps to `MIN` and `MIN % -1` is 0, as in `int_binop`.
+#[inline(always)]
+pub(crate) fn divide_64(op: BinOp, ty: Ty, x: u64, y: u64) -> Result<u64, DivideByZero> {
+    let remainder = matches!(op, BinOp::SRem | BinOp::URem);
+    if matches!(op, BinOp::SDiv | BinOp::SRem) {
+        let (a, b) = (sext(ty, x), sext(ty, y));
+        if b == 0 {
+            return Err(DivideByZero);
+        }
+        let r = if remainder {
+            a.wrapping_rem(b)
+        } else {
+            a.wrapping_div(b)
+        };
+        Ok(mask(ty, r as u64))
+    } else {
+        let (a, b) = (mask(ty, x), mask(ty, y));
+        if b == 0 {
+            return Err(DivideByZero);
+        }
+        Ok(if remainder {
+            a % b
+        } else {
+            a / b
+        })
+    }
+}
+
 /// A binary operation other than a division, which cannot fail.
 #[inline(always)]
 pub(crate) fn bin_total(op: BinOp, ty: Ty, x: u64, y: u64) -> u64 {

@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- The interpreter resolves each foreign procedure once (address, libraries, ABI classification, main-thread need) instead of on every call.
+- The interpreter calls foreign procedures, enters traced procedures and divides integers faster: each foreign symbol is resolved once, and division is native 64-bit.
 
 ## [0.38.0] - 2026-11-22
 

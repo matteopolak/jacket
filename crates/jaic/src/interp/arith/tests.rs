@@ -474,3 +474,20 @@ fn float_width_changes_round_to_the_target() {
         );
     }
 }
+
+#[test]
+fn divide_64_agrees_with_the_shared_definition() {
+    for ty in INTS.into_iter().chain([Ty::Ptr]) {
+        for op in [BinOp::SDiv, BinOp::SRem, BinOp::UDiv, BinOp::URem] {
+            for x in WORDS {
+                for y in WORDS {
+                    assert_eq!(
+                        divide_64(op, ty, x, y),
+                        int_bin(op, ty, x, y),
+                        "{op:?} {ty:?} {x:#x} {y:#x}"
+                    );
+                }
+            }
+        }
+    }
+}
