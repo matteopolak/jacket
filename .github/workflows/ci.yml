@@ -542,7 +542,7 @@ jobs:
           cargo build --locked -p jaic-cli -p jacket
           cd stdlib
           grep -v '^#' ../tools/dev/i686-roots.txt | while read -r root; do
-            (cd "$root" && ../../target/debug/jacket test -- -target i686-unknown-linux-gnu) || exit 1
+            (cd "$root" && "$GITHUB_WORKSPACE/target/debug/jacket" test -- -target i686-unknown-linux-gnu) || exit 1
           done
       - name: Linux s390x stdlib
         id: s390x-stdlib
@@ -556,7 +556,7 @@ jobs:
           cd stdlib
           export JAIC_LINKER=s390x-linux-gnu-gcc
           grep -v '^#' ../tools/dev/s390x-roots.txt | while read -r root; do
-            (cd "$root" && ../../target/debug/jacket test --runner "qemu-s390x -L /usr/s390x-linux-gnu" -- -target s390x-unknown-linux-gnu) || exit 1
+            (cd "$root" && "$GITHUB_WORKSPACE/target/debug/jacket" test --runner "qemu-s390x -L /usr/s390x-linux-gnu" -- -target s390x-unknown-linux-gnu) || exit 1
           done
       - name: Linux armv7 stdlib
         id: armv7-stdlib
@@ -570,7 +570,7 @@ jobs:
           cd stdlib
           export JAIC_LINKER=arm-linux-gnueabihf-gcc
           grep -v '^#' ../tools/dev/armv7-roots.txt | while read -r root; do
-            (cd "$root" && ../../target/debug/jacket test --runner "qemu-arm -L /usr/arm-linux-gnueabihf" -- -target armv7-unknown-linux-gnueabihf) || exit 1
+            (cd "$root" && "$GITHUB_WORKSPACE/target/debug/jacket" test --runner "qemu-arm -L /usr/arm-linux-gnueabihf" -- -target armv7-unknown-linux-gnueabihf) || exit 1
           done
       - name: Linux powerpc64 stdlib
         id: powerpc64-stdlib
@@ -584,7 +584,7 @@ jobs:
           cd stdlib
           export JAIC_LINKER=powerpc64-linux-gnu-gcc
           grep -v '^#' ../tools/dev/powerpc64-roots.txt | while read -r root; do
-            (cd "$root" && ../../target/debug/jacket test --runner "qemu-ppc64 -L /usr/powerpc64-linux-gnu" -- -target powerpc64-unknown-linux-gnu) || exit 1
+            (cd "$root" && "$GITHUB_WORKSPACE/target/debug/jacket" test --runner "qemu-ppc64 -L /usr/powerpc64-linux-gnu" -- -target powerpc64-unknown-linux-gnu) || exit 1
           done
   vscode-extension:
     needs: changes
