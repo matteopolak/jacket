@@ -48,6 +48,8 @@ The user's own code is about 5% of a check. Lints and the stdlib account for 65â
 | game3d | 48 MiB | 60 MiB |
 | seek | 34 MiB | 38 MiB |
 
+**Returning freed memory.** After each compile, `release_free_memory()` hands the pages it freed back to the system. On Unix, `large_alloc` maps blocks of 128 KiB and up straight from the OS and trims the heap. On Windows, jailsp runs on mimalloc with the purge delay at 0 and calls `mi_collect` (`windows_alloc.rs`), because the default process heap keeps freed pages committed.
+
 **Requests and typing against the real `jailsp`, `examples/editor/main.jai`, load 33.** Measured with a scratch driver over `tools/bench/lsp_client.py`.
 
 | Measure | Idle | While a check runs |

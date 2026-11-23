@@ -40,6 +40,8 @@ mod struct_literal;
 mod suggestion_fixes;
 mod test_lenses;
 mod type_hierarchy;
+#[cfg(windows)]
+pub mod windows_alloc;
 
 pub use call_snippets::CallSnippets;
 pub use document::{DocumentUri, TextChange, VirtualSources};
@@ -145,3 +147,11 @@ impl std::error::Error for Error {
 
 /// `macro` marks a procedure declared `#expand`.
 pub const TOKEN_MODIFIERS: &[&str] = &["declaration", "readonly", "macro"];
+
+/// Hand the pages a compile freed back to the system: `large_alloc` on Unix, mimalloc on Windows.
+pub fn release_free_memory() {
+    #[cfg(unix)]
+    large_alloc::release_free_memory();
+    #[cfg(windows)]
+    windows_alloc::release_free_memory();
+}

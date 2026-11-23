@@ -96,21 +96,17 @@ fn serve(untrusted: bool) -> Result<u8, Box<dyn std::error::Error>> {
             }
         }
     });
-    #[cfg(unix)]
     let mut compiles = 0;
     // How long the last publication took, which sets how long to wait for more edits.
     let mut last_publication = std::time::Duration::from_millis(40);
     let mut warm_needed = false;
     loop {
         // A compile (or the eviction it caused) freed many small blocks: hand their pages
-        // back while the editor is idle (see `large_alloc`).
-        #[cfg(unix)]
-        {
-            let (started, _) = session.compile_counts();
-            if started != compiles {
-                compiles = started;
-                jai_language_server::large_alloc::release_free_memory();
-            }
+        // back while the editor is idle.
+        let (started, _) = session.compile_counts();
+        if started != compiles {
+            compiles = started;
+            jai_language_server::release_free_memory();
         }
         // Compile-time service answers that compiles read as pending: once one is in, the
         // open files are checked again (published after the usual debounce).
@@ -264,6 +260,8 @@ fn serve(untrusted: bool) -> Result<u8, Box<dyn std::error::Error>> {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> std::process::ExitCode {
+    #[cfg(windows)]
+    jai_language_server::windows_alloc::purge_immediately();
     let untrusted = match command_line() {
         Err(code) => return code,
         Ok(untrusted) => untrusted,
@@ -349,6 +347,11 @@ fn command_line() -> Result<bool, std::process::ExitCode> {
 #[global_allocator]
 static ALLOCATOR: jai_language_server::large_alloc::LargeBlocksToOs =
     jai_language_server::large_alloc::LargeBlocksToOs;
+
+/// Freed pages go back to the operating system (see `windows_alloc`).
+#[cfg(windows)]
+#[global_allocator]
+static ALLOCATOR: jai_language_server::windows_alloc::Allocator = mimalloc::MiMalloc;
 
 /// Modules come from disk: the `modules` folder next to the main file, then the stdlib
 /// (`JAIC_STDLIB`, else `stdlib/` next to the executable, else the repository's). Compile-time
