@@ -8,6 +8,7 @@ The language server answers edits sooner.
 
 - `jailsp` publishes compiler errors as soon as the check finishes, and the lint findings after them.
 - Member completion works after a space before the dot (`value .field`).
+- The first completion in a busy `jailsp` session no longer waits for the auto-import index; auto imports follow later.
 
 ## [0.38.0] - 2026-11-22
 

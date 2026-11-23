@@ -65,6 +65,7 @@ impl Session {
             kept.warming = index.warming;
         } else {
             index.warming.clear();
+            index.warm = true;
             *self.index.borrow_mut() = index;
         }
     }
@@ -285,6 +286,12 @@ impl Session {
             return (Vec::new(), false);
         };
         if prefix.chars().count() < MIN_PREFIX {
+            return (Vec::new(), true);
+        }
+        // A request that may not compile does not read the module indexes either (a few
+        // hundred milliseconds the first time): the idle warm-up does, and the client asks
+        // again as the word grows.
+        if !self.may_compile() && !self.index.borrow().warm {
             return (Vec::new(), true);
         }
         let sources = self.sources(env);

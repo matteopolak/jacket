@@ -192,6 +192,10 @@ Lints still need the compile. They run on the worker that holds it, before the h
 
 Until the new lints arrive, the first publish of a version carries the previous version's lint diagnostics, shifted through the edits since and dropped where an edit touched them. Without that, every edit would clear the lints and redraw them a second later.
 
+### Completion and the auto-import index
+
+A request never builds the auto-import module indexes (the stdlib's and the project's; 300–500 ms cold). While requests may not compile (`Session::defer_compiles`, which `jailsp` sets), `auto_import_items` returns nothing and marks the list incomplete until the idle warm-up (`warm_auto_import_unless_interrupted`) has read them (`Index::warm`). A file created or deleted clears the flag. The client asks again as the word grows, so only the first completion in a busy session lacks auto imports.
+
 ### Stdlib reuse
 
 Stdlib sema is 34–40% of a warm check. It is redone every time because each check starts a fresh `Compiler`. The state after loading the stdlib is shared by every check with the same:
