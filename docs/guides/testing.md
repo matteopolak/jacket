@@ -14,7 +14,6 @@ cd slugs
 ```jai
 // slugs/module.jai
 #import "Basic";
-#import "String";
 
 // Turns a title into a URL slug: lowercase words joined by `-`.
 //
@@ -27,14 +26,14 @@ slugify :: (title: string) -> string {
     builder: String_Builder;
     pending_dash := false;
 
-    for 0..title.count - 1 {
-        c := title[it];
+    for title {
+        c := it;
         if c >= #char "A" && c <= #char "Z" c += 32;
 
         if (c >= #char "a" && c <= #char "z") || (c >= #char "0" && c <= #char "9") {
             if pending_dash && builder_string_length(*builder) > 0 append(*builder, "-");
             pending_dash = false;
-            append(*builder, string.{1, *c});
+            append(*builder, string.{ 1, *c });
         } else {
             pending_dash = true;
         }
@@ -72,29 +71,34 @@ keeps_digits :: () {
 } @test
 ```
 
-```sh
-jacket test
-```
-
-```text
+```console cwd=../examples/testing/slugs
+$ jacket test
     Starting 4 tests
-        PASS [   0.057s] lowercases_and_joins
-        PASS [   0.057s] drops_punctuation
-        PASS [   0.057s] keeps_digits
-        PASS [   0.221s] doc: slugs.slugify#1
-     Summary [   0.221s] 4 tests run: 4 passed
+        PASS [   0.162s] lowercases_and_joins
+        PASS [   0.002s] drops_punctuation
+        PASS [   0.002s] keeps_digits
+        PASS [   0.344s] doc: slugs.slugify#1
+     Summary [   0.623s] 4 tests run: 4 passed
 ```
 
 The fourth test is the example in the doc comment; see [Doc tests](#doc-tests).
 
 Each test runs with a tracking allocator, so a test that allocates and doesn't free fails. Drop the `defer free(got)` lines above and all three fail:
 
-```text
+```console cwd=../examples/testing/more/slugs
+$ jacket test --exact lowercases_and_joins
+    Starting 1 test
+        FAIL [   0.063s] lowercases_and_joins
+
+failures:
+
 --- lowercases_and_joins (FAIL) ---
-  module.jai:28:
+  module.jai:27:
     leaked 11 bytes in 1 allocation made here in slugify
-    28 | return builder_to_string(*builder);
+    27 | return builder_to_string(*builder);
   rerun: jacket test --exact 'lowercases_and_joins'
+
+     Summary [   0.124s] 1 test run: 0 passed, 1 failed
 ```
 
 Put `@allow_leaks` after the body to turn the check off for one test.
@@ -119,14 +123,22 @@ Checks come in two kinds. `expect*` reports a failure and lets the test go on. `
 
 A failure names the line and shows what differed:
 
-```text
+```console cwd=../examples/testing/more/slugs
+$ jacket test --exact breaks_on_purpose
+    Starting 1 test
+        FAIL [   0.059s] breaks_on_purpose
+
+failures:
+
 --- breaks_on_purpose (FAIL) ---
-  tests/more.jai:28:
+  tests/more.jai:8:
     got:  "one-two"
     want: "one_two"
               ^ first difference at byte 3
-    28 | expect_equal(got, "one_two");
+    8 | expect_equal(got, "one_two");
   rerun: jacket test --exact 'breaks_on_purpose'
+
+     Summary [   0.116s] 1 test run: 0 passed, 1 failed
 ```
 
 ### Matchers
@@ -140,11 +152,20 @@ assert_that(ports, has_item(between(8000, 8999)));
 require_that(users, each(not_null()));
 ```
 
-```text
+```console cwd=../examples/testing/more/slugs
+$ jacket test --exact bad_matcher
+    Starting 1 test
+        FAIL [   0.056s] bad_matcher
+
+failures:
+
 --- bad_matcher (FAIL) ---
-  tests/fails.jai:19:
+  tests/fails.jai:8:
     expected "top-ten" to have length 5
-    19 | assert_that(got, all_of(starts_with("top"), has_length(5)));
+    8 | assert_that(got, all_of(starts_with("top"), has_length(5)));
+  rerun: jacket test --exact 'bad_matcher'
+
+     Summary [   0.110s] 1 test run: 0 passed, 1 failed
 ```
 
 | Matcher | Holds when |
@@ -171,7 +192,11 @@ require_that(users, each(not_null()));
 `@cases(LIST)` runs a test once per entry, each as a subtest named after its values. A struct entry is spread over the arguments. The list is a constant at file level whose name has no spaces:
 
 ```jai
-Case :: struct { title: string; want: string; }
+Case :: struct {
+    title: string;
+    want: string;
+}
+
 TITLES :: Case.[
     .{ "Hello World", "hello-world" },
     .{ "  padded  ", "padded" },
@@ -185,8 +210,9 @@ slugifies :: (title: string, want: string) {
 } @test @cases(TITLES)
 ```
 
-```text
-$ jacket test --list
+```console cwd=../examples/testing/more/slugs
+$ jacket test --list slugifies
+jacket: root . (library)
 slugifies: test
 slugifies/Hello World,hello-world: subtest
 slugifies/  padded  ,padded: subtest
@@ -195,12 +221,26 @@ slugifies/A--B,a-b: subtest
 
 Run one case with `jacket test --exact 'slugifies/A--B,a-b'`. A failure inside a case names it:
 
-```text
-  tests/fails.jai:9 (in bad_case/c):
+```console cwd=../examples/testing/more/slugs
+$ jacket test --exact bad_case
+    Starting 1 test
+        FAIL [   0.058s] bad_case
+
+failures:
+
+--- bad_case (FAIL) ---
+  tests/fails.jai:14 (in bad_case/1):
     got:  1
     want: 3
-  failed subtests: bad_case/c
-  rerun: jacket test --exact 'bad_case/c'
+    14 | expect_equal(n * n, n + 2);
+  tests/fails.jai:14 (in bad_case/3):
+    got:  9
+    want: 5
+    14 | expect_equal(n * n, n + 2);
+  failed subtests: bad_case/1, bad_case/3
+  rerun: jacket test --exact 'bad_case/1' 'bad_case/3'
+
+     Summary [   0.060s] 1 test run: 0 passed, 1 failed
 ```
 
 `@property` runs a test on generated arguments, 100 times by default (`@property(500)`). Integers, floats, bools, strings, enums, arrays and structs of those all work:
@@ -215,13 +255,26 @@ has_no_uppercase :: (title: string) {
 
 A failing input is shrunk to a small one, and the report gives the seed:
 
-```text
+```console cwd=../examples/testing/more/slugs
+$ jacket test --exact bad_property --seed 873921072
+    Starting 1 test
+        FAIL [   0.054s] bad_property
+
+failures:
+
 --- bad_property (FAIL) ---
-  tests/fails.jai:12:
-    property failed on trial 4 (seed 873921072)
+  tests/fails.jai:17:
+    property failed on trial 3 (seed 873921072)
     counterexample: bad_property(10)
-    shrunk from:    bad_property(15) in 3 steps
+    shrunk from:    bad_property(141) in 6 steps
     rerun: jacket test --seed 873921072 --exact 'bad_property'
+    17 | bad_property :: (n: u8) {
+  tests/fails.jai:18:
+    expected true, got false
+    18 | expect(n < 10);
+  rerun: jacket test --exact 'bad_property'
+
+     Summary [   0.055s] 1 test run: 0 passed, 1 failed
 ```
 
 `--seed N` replays the same inputs on any machine. Without it, one seed is drawn per run. `assume(condition)` discards a trial that doesn't suit the test, and `@generate(NAME)` points at a `(rng: *Rng) -> T` procedure for values of your own.
@@ -301,7 +354,7 @@ main :: () {
 }
 ```
 
-```text
+```console cwd=../examples/testing/more/slugs
 $ cat tests/hello.stdout
 hello-golden-world
 ```
@@ -318,25 +371,38 @@ main :: () {
 }
 ```
 
-```text
+```console cwd=../examples/testing/more/slugs
 $ cat tests/exits.exit
 3
+```
+
+A golden test whose program now prints something else fails with the difference. Here `stale.stdout` still holds an older slug:
+
+```console cwd=../examples/testing/more/slugs
+$ jacket test --exact stale
+    Starting 1 test
+        FAIL [   0.285s] stale
+
+failures:
+
+--- stale (FAIL) ---
+  standard output differs from stale.stdout:
+  --- want
+  +++ got
+  + hello-golden-world
+  - hello-world
+  stdout:
+    hello-golden-world
+  rerun: jacket test --exact 'stale'
+
+     Summary [   0.296s] 1 test run: 0 passed, 1 failed
 ```
 
 When the output changes on purpose, rewrite the files instead of editing them:
 
 ```sh
 touch tests/hello.stdout       # a new golden test needs one expected file to exist
-jacket test --accept hello
-```
-
-```text
---- hello (FAIL) ---
-  standard output differs from hello.stdout:
-  --- want
-  +++ got
-  + hello-golden-world
-  - wrong
+jacket test --accept stale
 ```
 
 A bare `--accept` rewrites every golden file, so narrow it with a filter.
@@ -360,11 +426,16 @@ jacket test --accept needs_text     # writes needs_text.stderr
 
 A first run writes a missing `.stderr` by itself and prints `CREATED` with its path, so `--accept` is for changing one that exists. When the `CI` environment variable is set, a missing file fails the test instead.
 
-```text
+```console cwd=../examples/testing/more/slugs
+$ jacket test --exact compile_fail/needs_text
+    Starting 1 test
+        PASS [   0.059s] compile_fail/needs_text
+     Summary [   0.059s] 1 test run: 1 passed
+$ cat tests/compile_fail/needs_text.stderr
 needs_text.jai:4:13: error[call-mismatch]: in call to `slugify`: argument of type `s64` does not match parameter type `string`
         slugify(42);
                 ^^
-../../module.jai:11:12: note: `slugify` is declared here
+../../module.jai:10:12: note: `slugify` is declared here
     slugify :: (title: string) -> string {
                ^^^^^^^^^^^^^^^^^^^^^^^^^
 help: to turn a number into text, format it: `tprint("%", value)` (from Basic)
@@ -386,11 +457,21 @@ snapshot_of_slug :: (t: *Test) {
 
 The first run fails and writes the proposed file:
 
-```text
+```console cwd=../examples/testing/more/slugs
+$ jacket test --exact snapshot_of_slug
+    Starting 1 test
+        FAIL [   0.062s] snapshot_of_slug
+
+failures:
+
 --- snapshot_of_slug (FAIL) ---
-  tests/more.jai:38:
+  tests/more.jai:14:
     there is no snapshot tests/__snapshots__/more/snapshot_of_slug.snap yet
     the new one is in tests/__snapshots__/more/snapshot_of_slug.snap.new; `jacket test --accept` keeps it, `jacket test --review` goes through them
+    14 | expect_snapshot(t, got);
+  rerun: jacket test --exact 'snapshot_of_slug'
+
+     Summary [   0.114s] 1 test run: 0 passed, 1 failed
 ```
 
 `jacket test --accept --exact snapshot_of_slug` keeps it. `jacket test --review` shows each pending change as a diff and asks whether to accept, reject or skip it. Commit the `.snap` files and ignore `*.snap.new`. Give a second snapshot in one test a name: `expect_snapshot(t, value, "color")`. Pointers print as `<pointer>`, so keep them out of snapshotted values.

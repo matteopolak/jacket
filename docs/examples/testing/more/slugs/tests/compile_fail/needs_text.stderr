@@ -1,0 +1,8 @@
+needs_text.jai:4:13: error[call-mismatch]: in call to `slugify`: argument of type `s64` does not match parameter type `string`
+        slugify(42);
+                ^^
+../../module.jai:10:12: note: `slugify` is declared here
+    slugify :: (title: string) -> string {
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+help: to turn a number into text, format it: `tprint("%", value)` (from Basic)
+
