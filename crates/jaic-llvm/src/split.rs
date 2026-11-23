@@ -74,7 +74,13 @@ pub(crate) fn emit(
         load[unit] += w;
         owner.insert(name, unit);
     }
+    // The program's module assembly (a board's reset code) is unit 0's alone, and stays out of
+    // the bitcode the other units read: writing bitcode parses it for its symbols with the
+    // target's baseline CPU, which rejects instructions of a CPU feature (AVR's `lpm r0, Z+`).
+    let asm = module_asm(m);
+    set_module_asm(m, b"");
     let bitcode = module.write_bitcode_to_memory().as_slice().to_vec();
+    set_module_asm(m, &asm);
     let paths: Vec<PathBuf> = (0..units)
         .map(|u| {
             if u == 0 {
@@ -155,6 +161,24 @@ fn keep_unit(module: &Module, owner: &HashMap<String, usize>, unit: usize) {
             }
         }
     }
+}
+
+/// The module's inline assembly.
+fn module_asm(m: LLVMModuleRef) -> Vec<u8> {
+    let mut len = 0usize;
+    // SAFETY: `m` is a live module; LLVM returns `len` bytes it owns, copied before returning.
+    unsafe {
+        let text = llvm::LLVMGetModuleInlineAsm(m, &raw mut len);
+        if text.is_null() {
+            return Vec::new();
+        }
+        std::slice::from_raw_parts(text.cast::<u8>(), len).to_vec()
+    }
+}
+
+fn set_module_asm(m: LLVMModuleRef, text: &[u8]) {
+    // SAFETY: `m` is a live module the caller owns; LLVM copies `text`.
+    unsafe { llvm::LLVMSetModuleInlineAsm2(m, text.as_ptr().cast(), text.len()) };
 }
 
 fn functions(m: LLVMModuleRef) -> Vec<LLVMValueRef> {

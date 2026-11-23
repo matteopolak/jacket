@@ -28,6 +28,9 @@ Memory_Map :: struct {
     flash: Region;
     stack_size: u64 = 8192;
     entry := "_start";
+    // Constants go in RAM with `.data`, and are copied from flash at startup. For a core whose
+    // flash is a separate address space (AVR), where an ordinary load cannot read it.
+    rodata_in_ram := false;
 }
 
 // The linker script for `map`.
@@ -43,13 +46,20 @@ linker_script :: (map: Memory_Map) -> string {
     append(*builder, "}\n\nSECTIONS {\n");
 
     print_to_builder(*builder, "  .text : {\n    KEEP(*(.vector_table))\n    *(.text.boot)\n    *(.text .text.*)\n  } > %\n", code);
-    print_to_builder(*builder, "  .rodata : { *(.rodata .rodata.*) } > %\n", code);
+    rodata := "*(.rodata .rodata.*)";
+    in_data := "";
+
+    if map.rodata_in_ram {
+        in_data = rodata;
+    } else {
+        print_to_builder(*builder, "  .rodata : { % } > %\n", rodata, code);
+    }
 
     if map.flash.length != 0 {
-        append(*builder, "  .data : { __data_start = .; *(.data .data.*) __data_end = .; } > RAM AT > FLASH\n");
+        print_to_builder(*builder, "  .data : { __data_start = .; % *(.data .data.*) __data_end = .; } > RAM AT > FLASH\n", in_data);
         append(*builder, "  __data_load = LOADADDR(.data);\n");
     } else {
-        append(*builder, "  .data : { __data_start = .; *(.data .data.*) __data_end = .; } > RAM\n");
+        print_to_builder(*builder, "  .data : { __data_start = .; % *(.data .data.*) __data_end = .; } > RAM\n", in_data);
         append(*builder, "  __data_load = __data_start;\n");
     }
 

@@ -17,15 +17,25 @@ pub enum OptLevel {
 }
 
 impl OptLevel {
-    /// New-pass-manager pipeline string, `None` when no optimization runs.
+    /// New-pass-manager pipeline string, `None` when no optimization runs. LLVM has no `default<Os>`
+    /// or `default<Oz>` any more: the size levels run `default<O2>` over functions marked
+    /// [`Self::size_attributes`].
     pub fn pipeline(self) -> Option<&'static str> {
         match self {
             OptLevel::O0 => None,
             OptLevel::O1 => Some("default<O1>"),
-            OptLevel::O2 => Some("default<O2>"),
+            OptLevel::O2 | OptLevel::Os | OptLevel::Oz => Some("default<O2>"),
             OptLevel::O3 => Some("default<O3>"),
-            OptLevel::Os => Some("default<Os>"),
-            OptLevel::Oz => Some("default<Oz>"),
+        }
+    }
+
+    /// The function attributes that make `default<O2>` favour size: `optsize` for `Os`, with
+    /// `minsize` for `Oz`.
+    pub fn size_attributes(self) -> &'static [&'static str] {
+        match self {
+            OptLevel::Os => &["optsize"],
+            OptLevel::Oz => &["optsize", "minsize"],
+            _ => &[],
         }
     }
 }

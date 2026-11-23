@@ -248,3 +248,48 @@ fn volatile_accesses_use_the_targets_byte_order() {
         );
     }
 }
+
+/// A program for the Arduino Uno board (2-byte pointers) passes compile-time checks: the
+/// compiler's own compile-time buffers fit the 16-bit address window.
+#[test]
+fn an_avr_program_checks_at_compile_time() {
+    let output = Command::new(JAIC)
+        .arg("-check")
+        .arg(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../tests/compiler/targets/avr-hello.jai"),
+        )
+        .arg("+Extensions/Embedded/Boards/Arduino_Uno")
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+/// A string builder holds 4 KiB, or 256 bytes where pointers are 2 bytes wide, so a builder on a
+/// 2 KiB part's stack fits. `avr-hello.jai` asserts the 256 bytes.
+#[test]
+fn a_string_builder_is_sized_by_the_pointer_width() {
+    let source =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/compiler/targets/builder-size.jai");
+    for target in [
+        "x86_64-unknown-linux-gnu",
+        "i686-unknown-linux-gnu",
+        "wasm32-unknown-unknown",
+    ] {
+        let output = Command::new(JAIC)
+            .arg("-check")
+            .arg(&source)
+            .args(["-target", target])
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{target}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}

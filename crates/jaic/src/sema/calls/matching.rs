@@ -124,7 +124,10 @@ impl Compiler {
             let bindings = self.infer_bindings(proc, &header, &slots, args, span)?;
             proc_id = self.instantiate(proc, bindings, span)?;
             self.note_call_instance(span, proc_id);
-            extra = 1 + self.as_base_matches(proc, &header, &slots, args)? * convert::SUBTYPE;
+            // Only inferring a type costs; fixing a constant (`$text: string`) infers nothing.
+            let inferred = u32::from(!header_poly_names(&header).is_empty());
+            extra =
+                inferred + self.as_base_matches(proc, &header, &slots, args)? * convert::SUBTYPE;
         }
         let sig = self.signature(proc_id, span)?;
         let runtime_params: Vec<usize> = (0..header.params.len())

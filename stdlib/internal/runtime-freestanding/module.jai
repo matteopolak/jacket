@@ -155,11 +155,17 @@ no_heap_allocator_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_m
     return null;
 }
 
-// C's `size_t`: the compiler's calls to these functions pass it, so a 32-bit target passes 4 bytes.
-#if size_of(*void) == 4 {
+// C's `size_t` and `int`: the compiler's calls to these functions pass them, so a 32-bit target
+// passes 4-byte sizes and a 16-bit one (AVR) passes 2-byte sizes and 2-byte ints.
+#if size_of(*void) == 2 {
+    Size :: u16;
+    Int :: s16;
+} else #if size_of(*void) == 4 {
     Size :: u32;
+    Int :: s32;
 } else {
     Size :: u64;
+    Int :: s32;
 }
 
 // The C memory functions the compiler's code calls for block copies and fills. There is no libc
@@ -191,7 +197,7 @@ memmove_symbol :: (to: *void, from: *void, count: Size) -> *void #c_call {
 }
 
 #program_export "memset"
-memset_symbol :: (to: *void, value: s32, count: Size) -> *void #c_call {
+memset_symbol :: (to: *void, value: Int, count: Size) -> *void #c_call {
     destination := cast(*u8) to;
     byte := cast,no_check(u8) value;
     for index: 0..cast(s64) count - 1 destination[index] = byte;
@@ -199,12 +205,12 @@ memset_symbol :: (to: *void, value: s32, count: Size) -> *void #c_call {
 }
 
 #program_export "memcmp"
-memcmp_symbol :: (left: *void, right: *void, count: Size) -> s32 #c_call {
+memcmp_symbol :: (left: *void, right: *void, count: Size) -> Int #c_call {
     a := cast(*u8) left;
     b := cast(*u8) right;
 
     for index: 0..cast(s64) count - 1 {
-        if a[index] != b[index] return cast(s32) a[index] - cast(s32) b[index];
+        if a[index] != b[index] return cast(Int) a[index] - cast(Int) b[index];
     }
 
     return 0;
@@ -220,7 +226,7 @@ strlen_symbol :: (text: *u8) -> Size #c_call {
 
 // What LLVM calls for an equality-only `memcmp`.
 #program_export "bcmp"
-bcmp_symbol :: (left: *void, right: *void, count: Size) -> s32 #c_call {
+bcmp_symbol :: (left: *void, right: *void, count: Size) -> Int #c_call {
     return memcmp_symbol(left, right, count);
 }
 

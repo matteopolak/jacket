@@ -337,7 +337,9 @@ impl Compiler {
             && let Ok(ts_ty) = self.module_type(rs, lang_items::modules::TEMPORARY_STORAGE, span)
         {
             let ts_size = self.size_of(ts_ty, span)?;
-            let buf_size = 1 << 20;
+            // 1 MiB, or a sixteenth of the address space when that is less: a 16-bit target's
+            // window is 48 KiB.
+            let buf_size = (1u64 << 20).min(self.options.layout.address_space() / 16);
             let buf = self.out.program.add_global(ir::Global {
                 name: "compile_time_temporary".into(),
                 size: buf_size,

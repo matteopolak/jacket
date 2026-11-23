@@ -376,9 +376,11 @@ impl Compiler {
             .map(|i| value::PolyStructId(i as u32))
     }
 
-    /// What still separates equally cheap candidates: a non-polymorphic one beats a polymorphic
-    /// one, a fixed-arity header beats a variadic header even when its pack is empty, a more specific header beats a looser one, and one that does not hand an
-    /// argument to a constant parameter with a default (`$flag := true`) beats one that does.
+    /// What still separates equally cheap candidates: a fixed-arity header beats a variadic
+    /// header even when its pack is empty (so a `$text` overload can specialise the no-argument
+    /// call), a non-polymorphic one beats a polymorphic one, a more specific header beats a
+    /// looser one, and one that does not hand an argument to a constant parameter with a default
+    /// (`$flag := true`) beats one that does.
     fn candidate_rank(&self, c: &Candidate) -> (bool, bool, std::cmp::Reverse<u32>, u32) {
         let params = &self.proc(c.proc).lit.header.params;
         let constants_given = c
@@ -389,8 +391,8 @@ impl Compiler {
             .count();
         let variadic = params.iter().any(|param| param.variadic);
         (
-            self.proc(c.proc).bindings.is_some(),
             variadic,
+            self.proc(c.proc).bindings.is_some(),
             std::cmp::Reverse(c.specificity),
             u32::try_from(constants_given).unwrap_or(u32::MAX),
         )
@@ -491,7 +493,7 @@ impl Compiler {
             let rivals = best[..tied]
                 .iter()
                 .any(|c| self.proc(c.proc).span != declared);
-            if rivals && (rank.0 || args.iter().any(is_untyped_argument)) {
+            if rivals && (rank.1 || args.iter().any(is_untyped_argument)) {
                 return Err(Box::new(self.ambiguous_overloads(&best[..tied], span)));
             }
         }

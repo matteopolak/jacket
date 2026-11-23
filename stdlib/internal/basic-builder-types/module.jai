@@ -1,7 +1,10 @@
 #module_parameters(ENABLE_ASSERT := true);
 
-// The room, in bytes, a `String_Builder` has inside it and the default size of each buffer it adds later.
-STRING_BUILDER_BUFFER_SIZE :: 4096 - size_of(String_Builder.Buffer);
+// The room, in bytes, a `String_Builder` has inside it and the default size of each buffer it adds later:
+// a 4 KiB buffer, or 256 bytes where addresses are 16 bits or fewer and a builder on the stack must fit
+// in a few KiB of RAM.
+STRING_BUILDER_BYTES :: ifx size_of(*void) < 4 then 256 else 4096;
+STRING_BUILDER_BUFFER_SIZE :: STRING_BUILDER_BYTES - size_of(String_Builder.Buffer);
 
 String_Builder :: struct {
     Buffer :: struct {

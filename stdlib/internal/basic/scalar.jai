@@ -40,6 +40,24 @@ print :: (format_string: string, args: ..Any, to_standard_error := false) -> byt
     return write_builder(*builder, to_standard_error = to_standard_error);
 } @PrintLike
 
+// The same as `print` for a text with no insertion markers, no escaped percent (byte 31, what `\%`
+// lexes to) and no values: the text is written as it is, and none of the formatting code is built
+// into the program. Any other format, or one not known at compile time, takes the general `print`.
+//
+// ```
+// print("done\n");
+// ```
+print :: ($format_string: string, to_standard_error := false) -> bytes_printed: s64 #modify {
+    for 0..format_string.count - 1 {
+        if format_string[it] == #char "%" || format_string[it] == 31 return false;
+    }
+
+    return true;
+} {
+    write_string(format_string, to_standard_error);
+    return format_string.count;
+}
+
 // Tells whether `T` is an integer type, and if so whether it is signed and how many bits wide.
 //
 // ```jai
