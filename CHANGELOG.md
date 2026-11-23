@@ -2,7 +2,11 @@
 
 ## [Unreleased]
 
-`jailsp` uses less memory, most on Windows. Compile-fail test output no longer depends on where the repository is checked out.
+The language server, linter, formatter and interpreter are faster, and `jailsp` uses less memory, most on Windows.
+
+### Highlights
+
+- `jaifmt` runs one worker per core, or `-j N`; checking this repository takes a third of the time.
 
 ### Fixes
 

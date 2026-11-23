@@ -261,6 +261,7 @@ jaifmt [OPTIONS] [PATHS]...
 | `--set <KEY=VALUE>` | Set one [format] key, written as in jacket.toml (--set indent_width=2); implies --no-config. `jacket fmt` passes every resolved setting this way |
 | `--[no-]no-config` | Read no jacket.toml: start from the defaults, then --config and --set. Nothing is ignored, since the caller chooses the files |
 | `-v, --[no-]verbose` | Report every file, a summary, and lines over max_width |
+| `-j, --jobs <N>` | Format this many files at once [default: the number of cores] |
 | `--color <COLOR>` | Colour errors; auto means on a terminal, unless NO_COLOR is set [possible values: auto, always, never] |
 | `-h, --help` | Print help |
 | `-V, --version` | Print version |
