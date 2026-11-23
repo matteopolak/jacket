@@ -21,6 +21,7 @@ The language server, linter, formatter and interpreter are faster. `jailsp` uses
 - Renaming a parameter also renames named arguments in calls through procedure values and variadic packs.
 - `jailsp` counts compiles for other targets toward its kept-compile limit and no longer keeps old named arguments. (#85, @ctzcs)
 - On Windows, `#cpp_method` struct results go through a pointer after `this`, as MSVC expects, fixing D3D12 handles. (#86, @jthinkthereforejam)
+- A procedure nothing calls can use a name that another uncalled procedure declares with `#insert,scope`.
 - A type mismatch between two module instances names each one, e.g. `*Generator in Bindings_Generator(TARGET_OS = .LINUX)`.
 - Compile-fail `.stderr` files write project paths as `$ROOT/...`, so they match across machines ([testing](docs/tools/jacket-test.md)).
 

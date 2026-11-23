@@ -456,11 +456,16 @@ impl Compiler {
                     self.resolve_entity(id)?;
                 }
             }
+            let queued = self.pr.body_queue.len();
             while proc_index < self.pr.procs.len() {
                 let id = ProcId(proc_index as u32);
                 proc_index += 1;
                 self.check_unreferenced_proc(id)?;
             }
+            // All at once, since one body may use what another declares (`#insert,scope`), and
+            // in creation order: the queue is taken from the back.
+            self.pr.body_queue[queued..].reverse();
+            self.drain_bodies()?;
         }
         Ok(())
     }
@@ -536,8 +541,8 @@ impl Compiler {
         }
     }
 
-    /// Check one procedure nothing called: its header, and its body unless it is polymorphic
-    /// or a macro.
+    /// Check one procedure nothing called: its header, and queue its body unless it is
+    /// polymorphic or a macro.
     fn check_unreferenced_proc(&mut self, id: ProcId) -> Result<()> {
         let p = self.proc(id);
         if p.is_macro
@@ -577,7 +582,7 @@ impl Compiler {
             return Ok(());
         }
         self.proc_func(id, span)?;
-        self.drain_bodies()
+        Ok(())
     }
 
     /// Whether the body of unreferenced procedure `id` is left alone until something calls it: a
