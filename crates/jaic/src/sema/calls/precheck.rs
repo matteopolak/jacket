@@ -230,11 +230,14 @@ impl Compiler {
         for &proc in procs {
             match self.match_candidate(proc, args, span) {
                 Ok(c) => {
-                    // A candidate that is not polymorphic beats a polymorphic one when its
-                    // conversions are mild (`f(x: s64)` takes an `s32` before `f(x: $T)`, and a
-                    // `*G` before `f(g: G)` would take `$T`); an integer made a float does not.
+                    // A candidate whose parameter types are written out beats one that infers
+                    // them when its conversions are mild (`f(x: s64)` takes an `s32` before
+                    // `f(x: $T)`, and a `*G` before `f(g: G)` would take `$T`); an integer made
+                    // a float does not. Constants (`$text: string`) infer nothing, so they do not
+                    // count against a candidate.
                     let key = |c: &Candidate| {
-                        let mild = self.proc(c.proc).bindings.is_none()
+                        let header = &self.proc(c.proc).lit.header;
+                        let mild = super::slots::header_poly_names(header).is_empty()
                             && c.cost < crate::sema::convert::INT_TO_FLOAT;
                         (u32::from(!mild), c.cost, c.fit)
                     };
