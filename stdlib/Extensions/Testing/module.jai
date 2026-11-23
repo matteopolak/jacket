@@ -30,14 +30,20 @@ Test :: struct {
     snapshots: s64;
 }
 
-// The benchmark that is running (`bench.jai`). A `@bench` procedure loops `iterations` times.
+// The benchmark that is running (`bench.jai`). A `@bench` procedure measures a `for b { ... }` loop.
 Bench :: struct {
-    iterations: s64;
     bytes_per_iteration: s64;
     items_per_iteration: s64;
 
     // Private to the module.
+    iterations: s64;
     started: Apollo_Time;
+    paused_at: Apollo_Time;
+    paused_nanoseconds: s64;
+    elapsed: s64;
+    paused: bool;
+    paused_clock: bool;
+    looped: bool;
     counter: *Counter;
 }
 

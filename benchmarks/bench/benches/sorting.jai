@@ -12,7 +12,7 @@ SORT_NUMBERS :: 2_000_000;
 quick_sort_ints :: (b: *Bench) {
     set_items(b, SORT_INTS);
 
-    for 0..b.iterations - 1 {
+    for b {
         values := NewArray(SORT_INTS, int);
         state: u32 = 12345;
 
@@ -31,7 +31,7 @@ quick_sort_ints :: (b: *Bench) {
 quick_sort_strings :: (b: *Bench) {
     set_items(b, SORT_WORDS);
 
-    for 0..b.iterations - 1 {
+    for b {
         buffer := cast(*u8) alloc(SORT_WORDS * 12);
         words := NewArray(SORT_WORDS, string);
         state: u32 = 99;
@@ -58,7 +58,7 @@ quick_sort_strings :: (b: *Bench) {
 intro_sort_ints :: (b: *Bench) {
     set_items(b, SORT_NUMBERS);
 
-    for 0..b.iterations - 1 {
+    for b {
         values := NewArray(SORT_NUMBERS, int);
         state: u32 = 99;
 

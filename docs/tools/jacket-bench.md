@@ -18,9 +18,9 @@ Exit status: 0; 1 when a benchmark failed or regressed past `--max-regression`; 
   5. Count allocations in one extra batch.
   6. Print a `bench` record (JSON) with the raw samples.
 - **Statistics** (`crates/jacket/src/test/bench_stats.rs`, seeded, so one record gives one report): time is the least-squares slope through the origin; intervals are 95% bootstrap intervals; outliers use Tukey's fences. A baseline comparison is *regressed* or *improved* when p is below `--significance` and the whole interval lies beyond `--noise-threshold`, *within noise* when only p passes, and *no change* otherwise.
-- Setup before the loop runs once per sample; call `reset_timer(b)` after it to leave it out.
+- The clock and the allocation count start at the first iteration of `for b` and stop when the loop ends, so setup before the loop runs once per sample and is not timed. `pause_timer(b)` and `resume_timer(b)` leave per-iteration setup and teardown out; the report says `clock paused per iteration`, and the record carries `"paused": true`.
 
-The helpers (`black_box`, `set_bytes`, `set_items`, `reset_timer`) and the notes (`@samples`, `@min_time`, `@only`, `@skip_on`, `@needs`, `@timeout`) are in the [guide](../guides/benchmarking.md#writing-a-benchmark).
+The helpers (`black_box`, `set_bytes`, `set_items`, `pause_timer`, `resume_timer`) and the notes (`@samples`, `@min_time`, `@only`, `@skip_on`, `@needs`, `@timeout`) are in the [guide](../guides/benchmarking.md#writing-a-benchmark).
 
 ### Baselines and JSON
 

@@ -15,7 +15,7 @@ This benchmarks `slugify` from the library in [Testing](testing.md). Put benchma
 short_title :: (b: *Bench) {
     title := "Hello, World!";
 
-    for 0..b.iterations - 1 {
+    for b {
         slug := slugify(black_box(title));
         black_box(slug.count);
         free(slug);
@@ -26,7 +26,7 @@ long_title :: (b: *Bench) {
     title := "The Quick Brown Fox Jumps Over The Lazy Dog, Again And Again";
     set_bytes(b, title.count);
 
-    for 0..b.iterations - 1 {
+    for b {
         slug := slugify(black_box(title));
         black_box(slug.count);
         free(slug);
@@ -51,7 +51,7 @@ Found 1 outliers among 30 measurements (3.33%)
   1 (3.33%) high mild
 ```
 
-A benchmark takes a `*Bench`, or nothing, and loops `b.iterations` times. The runner picks that number; you do the work inside the loop and `jacket bench` divides by it.
+A benchmark takes a `*Bench`, or nothing, and wraps the work it measures in `for b { ... }`. The runner picks how many times the body runs and `jacket bench` divides by it. `break` and `continue` work as in any `for`.
 
 ## Writing a benchmark
 
@@ -62,16 +62,15 @@ result := compute(black_box(input));
 black_box(result);
 ```
 
-Work that must happen once, before the loop, such as building the input, runs once per sample. Call `reset_timer(b)` after it to leave it out of the time:
+Work that must happen once, before the loop, such as building the input, runs once per sample. The clock starts at the first iteration of `for b`, so that work is not timed:
 
 ```jai
 many_titles :: (b: *Bench) {
     titles: [..] string;
     for 0..99 array_add(*titles, tprint("Title Number %", it));
-    reset_timer(b);
     set_items(b, titles.count);
 
-    for 0..b.iterations - 1 {
+    for b {
         for titles {
             slug := slugify(it);
             black_box(slug.count);
@@ -92,7 +91,8 @@ many_titles             time:   [14.10 15.05 16.04 µs]
 | `black_box(value)` | returns `value`, opaque to the optimizer |
 | `set_bytes(b, n)` | `n` bytes are processed per iteration: adds a `thrpt` line in MB/s |
 | `set_items(b, n)` | `n` items per iteration: `thrpt` in items per second |
-| `reset_timer(b)` | restart the clock and the allocation count |
+| `pause_timer(b)`, `resume_timer(b)` | stop and restart the clock and the allocation count inside the loop, for per-iteration setup or teardown |
+| `start_timer(b)`, `stop_timer(b)`, `iteration_count(b)` | for work that other threads do: the bench starts the clock, waits, stops it, and hands `iteration_count(b)` iterations to the workers instead of using `for b` |
 | `@samples(N)` | measurements to take, instead of 50 |
 | `@min_time(MS)` | time to spend measuring, instead of 1000 ms |
 | `@only(...)`, `@skip_on(...)`, `@needs(...)`, `@timeout(SECONDS)` | as for [tests](testing.md#options) |
@@ -113,7 +113,8 @@ Found 1 outliers among 30 measurements (3.33%)
 - `thrpt` appears when you called `set_bytes` or `set_items`.
 - `R²` says how well the samples lie on a straight line, as they should when time grows with the number of iterations. Below 0.99 the runner measures again, up to three times (`3 attempts`). A low value on a machine doing other work is normal; close other programs and run again.
 - `median` is the middle sample, a check on the estimate.
-- `allocs/iter` counts allocations per iteration.
+- `allocs/iter` counts allocations per iteration, in the loop only.
+- `clock paused per iteration` means the benchmark calls `pause_timer`. Each pause costs two reads of the clock, so use it only when an iteration is long next to that (a microsecond or more).
 - Outliers are measurements far from the rest. A few high ones are usual and are already accounted for.
 
 Pick benchmarks by name like tests: `jacket bench long`, `jacket bench --exact long_title`, `jacket bench -E 'file(**/slugify.jai)'`. `--list` prints them without running anything.
@@ -189,6 +190,7 @@ The top level holds `schema`, `os`, `cpu`, `confidence_level`, `noise_threshold_
 | `r_squared`, `outliers` | fit quality; counts as `high_mild`, `high_severe`, `low_mild`, `low_severe` |
 | `mb_per_s`, `items_per_s` | throughput, when set |
 | `allocs_per_iteration`, `alloc_bytes_per_iteration` | allocations per iteration |
+| `paused` | the benchmark pauses its clock inside the loop |
 | `sample_iterations`, `sample_ns` | the raw samples |
 | `baseline` | with `--baseline`: `change` (a fraction), `change_percent`, `p_value`, `verdict` |
 

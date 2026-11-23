@@ -1,7 +1,9 @@
-// Benchmarks: procedures with a `@bench` note, measured by `jacket bench`. A bench loops
-// `b.iterations` times over the work it measures. The runner warms up until the time per
-// iteration is steady, then times samples of k * d iterations for k = 1, 2, 3... and hands the
-// raw (iterations, nanoseconds) pairs to jacket, which fits the line and reports the slope.
+// Benchmarks: procedures with a `@bench` note, measured by `jacket bench`. A bench writes
+// `for b { ... }` around the work it measures; the runner chooses how many times the body runs
+// and the clock starts at the first iteration, so whatever comes before the loop is not timed.
+// The runner warms up until the time per iteration is steady, then times samples of k * d
+// iterations for k = 1, 2, 3... and hands the raw (iterations, nanoseconds) pairs to jacket,
+// which fits the line and reports the slope.
 // See docs/tools/jacket-bench.md.
 //
 // ```jai,ignore
@@ -9,11 +11,113 @@
 //     text := "the quick brown fox";
 //     set_bytes(b, text.count);
 //
-//     for 0..b.iterations - 1 {
+//     for b {
 //         black_box(get_hash(text));
 //     }
 // } @bench @samples(40)
 // ```
+
+// Runs the body once per iteration the runner asks for, with `it` and `it_index` counting from 0.
+// `break` and `continue` work as in any `for`. The clock and the allocation count start at the
+// first iteration and stop at the end of the loop.
+//
+// ```jai,ignore
+// for b {
+//     black_box(work(input));
+// }
+// ```
+for_expansion :: (b: *Bench, body: Code, flags: For_Flags) #expand {
+    assert(flags == 0);
+
+    start_timer(b);
+    defer stop_timer(b);
+
+    for i: 0..b.iterations - 1 {
+        `it := i;
+        `it_index := i;
+        #insert body;
+    }
+}
+
+// Starts the clock and the allocation count: `for b` does it at its first iteration. A bench
+// whose work happens elsewhere calls it itself, see `iteration_count`.
+start_timer :: (b: *Bench) {
+    b.looped = true;
+    b.paused = false;
+    b.paused_nanoseconds = 0;
+
+    if b.counter {
+        b.counter.allocations = 0;
+        b.counter.bytes = 0;
+        b.counter.active = true;
+    }
+
+    #if OS != .NONE b.started = current_time_monotonic();
+}
+
+// Stops the clock and the allocation count, and records the time the bench took.
+stop_timer :: (b: *Bench) {
+    resume_timer(b);
+
+    b.elapsed = nanoseconds_since(b.started) - b.paused_nanoseconds;
+    if b.elapsed < 0 b.elapsed = 0;
+
+    if b.counter b.counter.active = false;
+}
+
+// How many iterations of the work this run asks for, for a bench that hands them to other threads
+// instead of looping over them with `for b`. Such a bench brackets the wait with `start_timer`
+// and `stop_timer`.
+//
+// ```jai,ignore
+// job := Job.{ iterations = iteration_count(b) };
+// Io.spawn(worker, *job);
+//
+// start_timer(b);
+// Io.wait(*group);
+// stop_timer(b);
+// ```
+iteration_count :: (b: *Bench) -> s64 {
+    return b.iterations;
+}
+
+// Stops the clock and the allocation count until `resume_timer`, for setup or teardown that each
+// iteration needs but that is not the work to measure. Costs two reads of the clock per pause, so
+// use it only when the work is large next to that; the report marks a bench that pauses.
+//
+// ```jai,ignore
+// for b {
+//     pause_timer(b);
+//     input := make_input();
+//     resume_timer(b);
+//
+//     black_box(work(input));
+//
+//     pause_timer(b);
+//     free_input(input);
+//     resume_timer(b);
+// }
+// ```
+pause_timer :: (b: *Bench) {
+    if b.paused return;
+
+    #if OS != .NONE b.paused_at = current_time_monotonic();
+
+    b.paused = true;
+    b.paused_clock = true;
+
+    if b.counter b.counter.active = false;
+}
+
+// Starts the clock and the allocation count again after `pause_timer`.
+resume_timer :: (b: *Bench) {
+    if !b.paused return;
+
+    b.paused_nanoseconds += nanoseconds_since(b.paused_at);
+    b.paused = false;
+
+    if b.counter b.counter.active = true;
+}
 
 // Returns `value` and hides it from the optimizer: the compiler cannot know the result, and
 // cannot drop the work that made it, so wrap what a bench computes and the inputs it must not
@@ -29,17 +133,6 @@ set_bytes :: (b: *Bench, count: s64) {
 // Each iteration handles `count` items (requests, elements), shown as items per second.
 set_items :: (b: *Bench, count: s64) {
     b.items_per_iteration = count;
-}
-
-// Starts the measured time and the count of allocations again, for a bench that sets up its
-// input before the loop.
-reset_timer :: (b: *Bench) {
-    #if OS != .NONE b.started = current_time_monotonic();
-
-    if b.counter {
-        b.counter.allocations = 0;
-        b.counter.bytes = 0;
-    }
 }
 
 // One `@bench` the Discovery plugin found.
@@ -69,6 +162,18 @@ Counter :: struct {
     parent: Allocator;
     allocations: s64;
     bytes: s64;
+
+    // Only the loop counts: set while the clock runs.
+    active: bool;
+}
+
+nanoseconds_since :: (start: Apollo_Time) -> s64 {
+    #if OS != .NONE {
+        nanoseconds, ok := to_nanoseconds(current_time_monotonic() - start);
+        if ok return nanoseconds;
+    }
+
+    return 0;
 }
 
 // Fewest samples a slow bench gets, and the span of the batches that settle the warm-up.
@@ -168,6 +273,7 @@ SHORTEST_NS :: 0.001;
         json: String_Builder;
         json.allocator = temp;
         print_to_builder(*json, "{\"name\":\"%\",\"mode\":\"%\",\"samples\":%,\"step\":%,\"cpu\":%,\"attempts\":%", bench_case.name, ifx linear then "linear" else "flat", samples, step, cpu, attempts);
+        print_to_builder(*json, ",\"paused\":%", b.paused_clock);
         print_to_builder(*json, ",\"bytes_per_iteration\":%,\"items_per_iteration\":%", b.bytes_per_iteration, b.items_per_iteration);
         print_to_builder(*json, ",\"allocs_per_iteration\":%,\"alloc_bytes_per_iteration\":%", per_unit(counter.allocations, step), per_unit(counter.bytes, step));
         append_list(*json, ",\"sample_iterations\":[", iterations);
@@ -303,20 +409,19 @@ SHORTEST_NS :: 0.001;
         return per_iteration;
     }
 
-    // Runs the body for `iterations` and gives the time it took, in nanoseconds. The clock is read
-    // twice per batch, not per iteration: whatever that and the call cost is the same for every
+    // Runs the body for `iterations` and gives the time its `for b` loop took, in nanoseconds. The
+    // clock is read twice per batch, not per iteration: whatever that costs is the same for every
     // batch, and the line jacket fits through the samples leaves it out.
     time_batch :: (b: *Bench, bench_case: *Bench_Case, iterations: s64) -> s64 {
         reset_temporary_storage();
         b.iterations = iterations;
         b.counter = null;
-        b.started = current_time_monotonic();
+        b.looped = false;
         bench_case.body(b);
 
-        nanoseconds, ok := to_nanoseconds(current_time_monotonic() - b.started);
-        if !ok nanoseconds = 0;
+        assert(b.looped, "the bench % never started its clock: loop with `for b`, or call `start_timer` and `stop_timer`", bench_case.name);
 
-        return nanoseconds;
+        return b.elapsed;
     }
 
     count_allocations :: (b: *Bench, bench_case: *Bench_Case, iterations: s64) -> Counter {
@@ -326,7 +431,7 @@ SHORTEST_NS :: 0.001;
 
         b.iterations = iterations;
         b.counter = *counter;
-        b.started = current_time_monotonic();
+        b.looped = false;
 
         new_context := context;
         new_context.allocator = .{ counting_proc, *counter };
@@ -343,7 +448,7 @@ SHORTEST_NS :: 0.001;
     counting_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
         counter := cast(*Counter) allocator_data;
 
-        if mode == .ALLOCATE || mode == .RESIZE {
+        if counter.active && (mode == .ALLOCATE || mode == .RESIZE) {
             counter.allocations += 1;
             counter.bytes += size;
         }

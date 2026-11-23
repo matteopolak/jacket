@@ -228,9 +228,8 @@ prepare :: () {
 records_jacket :: (b: *Bench, text: string) {
     prepare();
     set_bytes(b, text.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         push_allocator(flat_pool_allocator_proc, *pool);
         records, fields := jacket_count(black_box(text));
 
@@ -243,9 +242,8 @@ records_jacket :: (b: *Bench, text: string) {
 typed_jacket :: (b: *Bench, text: string, borrow: bool) {
     prepare();
     set_bytes(b, text.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         push_allocator(flat_pool_allocator_proc, *pool);
         reader := csv_reader(Row, cast([] u8) black_box(text), .{ header = true, borrow = borrow });
         count := 0;
@@ -268,9 +266,8 @@ typed_jacket :: (b: *Bench, text: string, borrow: bool) {
 records_jaicsv :: (b: *Bench, text: string) {
     prepare();
     set_bytes(b, text.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         push_allocator(flat_pool_allocator_proc, *pool);
         records, fields := jaicsv_count(black_box(text));
 
@@ -283,9 +280,8 @@ records_jaicsv :: (b: *Bench, text: string) {
 typed_jaicsv :: (b: *Bench, text: string) {
     prepare();
     set_bytes(b, text.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         push_allocator(flat_pool_allocator_proc, *pool);
         rows, ok := jaicsv_typed(black_box(text));
 
@@ -315,9 +311,8 @@ typed__jacket_borrow :: (b: *Bench) {
 write__jacket :: (b: *Bench) {
     prepare();
     set_bytes(b, written_text.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         push_allocator(flat_pool_allocator_proc, *pool);
         builder: String_Builder;
 
@@ -338,9 +333,8 @@ typed__jaicsv :: (b: *Bench) {
 write__jaicsv :: (b: *Bench) {
     prepare();
     set_bytes(b, written_text.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         push_allocator(flat_pool_allocator_proc, *pool);
         builder: String_Builder;
 

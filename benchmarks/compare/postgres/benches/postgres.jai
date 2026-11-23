@@ -151,9 +151,8 @@ SELECT_ITEM :: "select id, name, qty, price, active, note from items where id = 
 point_select__jacket :: (b: *Bench) {
     run_fiber(b, false, (b: *Bench, db: *Pg.Connection) {
         set_items(b, 1);
-        reset_timer(b);
 
-        for 0..b.iterations - 1 {
+        for b {
             result, error := Pg.query_binary(db, SELECT_ITEM, 1 + next(100000));
 
             require_pg(error);
@@ -174,9 +173,8 @@ point_select__jacket :: (b: *Bench) {
 point_select_prepared__jacket :: (b: *Bench) {
     run_fiber(b, false, (b: *Bench, db: *Pg.Connection) {
         set_items(b, 1);
-        reset_timer(b);
 
-        for 0..b.iterations - 1 {
+        for b {
             result, error := Pg.query_cached(db, SELECT_ITEM, 1 + next(100000), binary = true);
 
             require_pg(error);
@@ -197,9 +195,8 @@ point_select_prepared__jacket :: (b: *Bench) {
 point_select_tls__jacket :: (b: *Bench) {
     run_fiber(b, true, (b: *Bench, db: *Pg.Connection) {
         set_items(b, 1);
-        reset_timer(b);
 
-        for 0..b.iterations - 1 {
+        for b {
             result, error := Pg.query_binary(db, SELECT_ITEM, 1 + next(100000));
 
             require_pg(error);
@@ -215,9 +212,8 @@ point_select_tls__jacket :: (b: *Bench) {
 point_select__libpq :: (b: *Bench) {
     run_libpq(b, false, (b: *Bench, conn: *libpq.PGconn) {
         set_items(b, 1);
-        reset_timer(b);
 
-        for 0..b.iterations - 1 {
+        for b {
             push_allocator(flat_pool_allocator_proc, *pool);
             items, ok := libpq.execute(conn, Item, SELECT_ITEM, 1 + next(100000));
 
@@ -231,9 +227,8 @@ point_select__libpq :: (b: *Bench) {
 point_select_tls__libpq :: (b: *Bench) {
     run_libpq(b, true, (b: *Bench, conn: *libpq.PGconn) {
         set_items(b, 1);
-        reset_timer(b);
 
-        for 0..b.iterations - 1 {
+        for b {
             push_allocator(flat_pool_allocator_proc, *pool);
             items, ok := libpq.execute(conn, Item, SELECT_ITEM, 1 + next(100000));
 
@@ -256,9 +251,8 @@ bulk_insert__jacket :: (b: *Bench) {
     run_fiber(b, false, (b: *Bench, db: *Pg.Connection) {
         set_items(b, ROWS);
         require_pg(Pg.execute_script(db, TEMP_SINK));
-        reset_timer(b);
 
-        for 0..b.iterations - 1 {
+        for b {
             require_pg(Pg.execute_script(db, "truncate sink; begin"));
 
             for row: 0..ROWS - 1 {
@@ -276,9 +270,8 @@ bulk_insert_pipeline__jacket :: (b: *Bench) {
     run_fiber(b, false, (b: *Bench, db: *Pg.Connection) {
         set_items(b, ROWS);
         require_pg(Pg.execute_script(db, TEMP_SINK));
-        reset_timer(b);
 
-        for 0..b.iterations - 1 {
+        for b {
             require_pg(Pg.execute_script(db, "truncate sink"));
 
             p, error := Pg.pipeline_enter(db);
@@ -327,9 +320,8 @@ bulk_insert_copy__jacket :: (b: *Bench) {
     run_fiber(b, false, (b: *Bench, db: *Pg.Connection) {
         set_items(b, ROWS);
         require_pg(Pg.execute_script(db, TEMP_SINK));
-        reset_timer(b);
 
-        for 0..b.iterations - 1 {
+        for b {
             require_pg(Pg.execute_script(db, "truncate sink"));
             stored, error := Pg.copy_in(db, "copy sink (id, name, qty, price) from stdin (format binary)", bulk_rows);
             require_pg(error);
@@ -346,9 +338,8 @@ bulk_insert__libpq :: (b: *Bench) {
         ok, changed := libpq.execute(conn, TEMP_SINK);
 
         require_ok(ok, "libpq create temp table");
-        reset_timer(b);
 
-        for 0..b.iterations - 1 {
+        for b {
             ok, changed = libpq.execute(conn, "truncate sink");
             require_ok(ok, "libpq truncate");
             ok, changed = libpq.execute(conn, "begin");
@@ -371,9 +362,8 @@ bulk_insert__libpq :: (b: *Bench) {
 wide_fetch__jacket :: (b: *Bench) {
     run_fiber(b, false, (b: *Bench, db: *Pg.Connection) {
         set_items(b, ROWS);
-        reset_timer(b);
 
-        for 0..b.iterations - 1 {
+        for b {
             result, error := Pg.query_binary(db, "select * from wide");
 
             require_pg(error);
@@ -425,9 +415,8 @@ wide_fetch__jacket :: (b: *Bench) {
 wide_fetch__libpq :: (b: *Bench) {
     run_libpq(b, false, (b: *Bench, conn: *libpq.PGconn) {
         set_items(b, ROWS);
-        reset_timer(b);
 
-        for 0..b.iterations - 1 {
+        for b {
             push_allocator(flat_pool_allocator_proc, *pool);
             rows, ok := libpq.execute(conn, Wide, "select * from wide");
 

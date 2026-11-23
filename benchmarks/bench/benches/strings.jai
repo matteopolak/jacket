@@ -8,7 +8,7 @@ join_words :: (b: *Bench) {
 
     set_items(b, words.count);
 
-    for 0..b.iterations - 1 {
+    for b {
         text := join(..words, ",");
         black_box(text.count);
         free(text);
@@ -16,7 +16,7 @@ join_words :: (b: *Bench) {
 } @bench @min_time(300)
 
 grow_array :: (b: *Bench) {
-    for 0..b.iterations - 1 {
+    for b {
         numbers: [..] s64;
 
         for 0..15 array_add(*numbers, it);
@@ -27,12 +27,12 @@ grow_array :: (b: *Bench) {
 } @bench @samples(15)
 
 empty_loop :: (b: *Bench) {
-    for 0..b.iterations - 1 {
+    for b {
         black_box(it);
     }
 } @bench
 
 // Nothing to do in the body: the optimizer deletes the loop, so this reports about zero.
 empty_body :: (b: *Bench) {
-    for 0..b.iterations - 1 {}
+    for b {}
 } @bench

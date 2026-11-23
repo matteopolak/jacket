@@ -113,9 +113,8 @@ browser_scalar :: (b: *Bench) {
     http_use_simd = false;
     defer http_use_simd = true;
     set_bytes(b, stream.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         ends := run(black_box(stream), 1, true);
         assert(ends >= 0);
         black_box(ends);
@@ -129,9 +128,8 @@ browser_vector :: (b: *Bench) {
     http_use_simd = true;
     defer http_use_simd = true;
     set_bytes(b, stream.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         ends := run(black_box(stream), 1, true);
         assert(ends >= 0);
         black_box(ends);
@@ -145,9 +143,8 @@ headers_scalar :: (b: *Bench) {
     http_use_simd = false;
     defer http_use_simd = true;
     set_bytes(b, stream.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         ends := run(black_box(stream), 1, true);
         assert(ends >= 0);
         black_box(ends);
@@ -161,9 +158,8 @@ headers_vector :: (b: *Bench) {
     http_use_simd = true;
     defer http_use_simd = true;
     set_bytes(b, stream.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         ends := run(black_box(stream), 1, true);
         assert(ends >= 0);
         black_box(ends);
@@ -177,9 +173,8 @@ chunked_64k_scalar :: (b: *Bench) {
     http_use_simd = false;
     defer http_use_simd = true;
     set_bytes(b, stream.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         ends := run(black_box(stream), 1, true);
         assert(ends >= 0);
         black_box(ends);
@@ -193,9 +188,8 @@ chunked_64k_vector :: (b: *Bench) {
     http_use_simd = true;
     defer http_use_simd = true;
     set_bytes(b, stream.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         ends := run(black_box(stream), 1, true);
         assert(ends >= 0);
         black_box(ends);
@@ -209,9 +203,8 @@ chunked_100_scalar :: (b: *Bench) {
     http_use_simd = false;
     defer http_use_simd = true;
     set_bytes(b, stream.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         ends := run(black_box(stream), 1, true);
         assert(ends >= 0);
         black_box(ends);
@@ -225,9 +218,8 @@ chunked_100_vector :: (b: *Bench) {
     http_use_simd = true;
     defer http_use_simd = true;
     set_bytes(b, stream.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         ends := run(black_box(stream), 1, true);
         assert(ends >= 0);
         black_box(ends);

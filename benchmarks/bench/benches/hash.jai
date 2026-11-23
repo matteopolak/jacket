@@ -8,7 +8,7 @@ TEXT :: "The quick brown fox jumps over the lazy dog, again and again and again 
 fnv1a :: (b: *Bench) {
     set_bytes(b, TEXT.count);
 
-    for 0..b.iterations - 1 {
+    for b {
         text := black_box(TEXT);
         black_box(fnv1a_hash(text.data, text.count));
     }
@@ -17,7 +17,7 @@ fnv1a :: (b: *Bench) {
 sdbm :: (b: *Bench) {
     set_bytes(b, TEXT.count);
 
-    for 0..b.iterations - 1 {
+    for b {
         text := black_box(TEXT);
         black_box(sdbm_hash(text.data, text.count));
     }
@@ -26,7 +26,7 @@ sdbm :: (b: *Bench) {
 djb2 :: (b: *Bench) {
     set_bytes(b, TEXT.count);
 
-    for 0..b.iterations - 1 {
+    for b {
         black_box(djb2_hash(black_box(TEXT)));
     }
 } @bench
@@ -34,7 +34,7 @@ djb2 :: (b: *Bench) {
 hash_string :: (b: *Bench) {
     set_bytes(b, TEXT.count);
 
-    for 0..b.iterations - 1 {
+    for b {
         black_box(get_hash(black_box(TEXT)));
     }
 } @bench
@@ -42,7 +42,7 @@ hash_string :: (b: *Bench) {
 hash_integer :: (b: *Bench) {
     set_items(b, 1);
 
-    for 0..b.iterations - 1 {
+    for b {
         black_box(get_hash(black_box(it)));
     }
 } @bench @samples(20)
@@ -55,7 +55,7 @@ hash_mixed :: (b: *Bench) {
         checksum = (checksum ^ value) * 1099511628211;
     }
 
-    for 0..b.iterations - 1 {
+    for b {
         piece := string.{ TEXT.count - it % 32, TEXT.data + it % 32 };
 
         mix(fnv1a_hash(piece.data, piece.count));

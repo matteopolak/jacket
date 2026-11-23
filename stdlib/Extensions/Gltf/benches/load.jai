@@ -13,9 +13,8 @@ box_textured :: (b: *Bench) {
     assert(ok, "run `PYTHONPATH=tools python3 tools/gltf_conformance/fetch.py --samples` first (a 1.1 GB download)");
     defer free(bytes);
     set_bytes(b, bytes.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         asset, error := gltf_load(black_box(bytes), .{ gltf_local_resolve, *folder });
 
         black_box(asset);

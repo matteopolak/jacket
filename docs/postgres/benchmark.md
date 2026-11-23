@@ -15,7 +15,7 @@ At scale 1 every transaction updates the single branch row, so the run measures 
 
 ## How to change it
 
-Keep the `statements` table in `run_transaction` in step with pgbench's `tpcb-like` script. The fixture constants control client count and scale. Keep server/table initialization before `reset_timer`.
+Keep the `statements` table in `run_transaction` in step with pgbench's `tpcb-like` script. The fixture constants control client count and scale. Keep server/table initialization before the `for b` loop.
 
 ## Configuration
 

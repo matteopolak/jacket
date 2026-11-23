@@ -89,9 +89,8 @@ SQL);
         }
 
         set_items(b, COPY_ROWS);
-        reset_timer(b);
 
-        for 0..b.iterations - 1 {
+        for b {
             stored, copy_error := Copy_Pg.copy_in(db, "copy copy_bench from stdin (format binary)", rows);
 
             assert(copy_error.kind == .NONE, "%", Copy_Pg.error_text(copy_error));

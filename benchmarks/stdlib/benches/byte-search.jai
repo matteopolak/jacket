@@ -28,9 +28,8 @@ byte_search_case :: (b: *Bench, operation: int) {
     }
 
     set_bytes(b, text.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         input := black_box(text);
         offset := black_box(it % 7);
         result: int;

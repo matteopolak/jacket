@@ -6,9 +6,7 @@
 format_item :: (b: *Bench) {
     builder: String_Builder;
 
-    reset_timer(b);
-
-    for 0..b.iterations - 1 {
+    for b {
         print_to_builder(*builder, "item % is % (%)\n", it, it * 3, formatFloat(cast(float64) it / 7.0, trailing_width = 3));
 
         if builder_string_length(*builder) > 1 << 20 {
@@ -27,9 +25,7 @@ format_integers :: (b: *Bench) {
     state: u64 = 11;
     total := 0;
 
-    reset_timer(b);
-
-    for 0..b.iterations - 1 {
+    for b {
         state = state * 6364136223846793005 + 1442695040888963407;
         signed := cast(s64) (state >> 20) - (1 << 42);
         small := cast(u32) (state >> 50);

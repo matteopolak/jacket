@@ -18,6 +18,7 @@ Jacket builds for 32-bit, big-endian and bare-metal targets, and Sound_Player no
 | Was | Now |
 | --- | --- |
 | `Ty::size()`, `layout::POINTER_SIZE` | take the target's `DataLayout` |
+| `for 0..b.iterations - 1` and `reset_timer(b)` in a `@bench` | `for b`; `pause_timer(b)` leaves work out of the time |
 
 ### Fixes
 

@@ -152,9 +152,8 @@ require_count :: (got: int, want: int) {
 over :: (b: *Bench, bytes: int, work: ()) {
     prepare();
     set_bytes(b, bytes);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         work();
     }
 }

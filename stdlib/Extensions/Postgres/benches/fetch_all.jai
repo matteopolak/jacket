@@ -65,9 +65,8 @@ fetch_all_rows :: (b: *Bench) {
     defer Fetch_Pg.free_rows(*rows);
 
     set_items(b, ROWS);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         items := Fetch_Pg.fetch_all(*rows, temp);
 
         assert(items.count == ROWS && items[1].email == "user1@example.com");

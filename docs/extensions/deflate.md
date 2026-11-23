@@ -57,4 +57,4 @@ so changes belong in `compress_blocks`, `inflate_blocks` and `module.jai`, with
 `tests/sync.jai` covering history, boundaries and output limits. No new dependency
 or global configuration is needed.
 
-`deflate_benches` emits one procedure per generated input and operation. Extend that matrix for new workloads; decompression cases prepare compressed input and scratch storage before `reset_timer`. Both native stb reference operations are separate cases.
+`deflate_benches` emits one procedure per generated input and operation. Extend that matrix for new workloads; decompression cases prepare compressed input and scratch storage before the `for b` loop. Both native stb reference operations are separate cases.

@@ -99,9 +99,8 @@ inflate_case :: (b: *Bench, input: [] u8) {
 
     defer free(packed.data);
     set_bytes(b, input.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         out, _, error := inflate(black_box(packed));
         assert(!error.count, "%", error);
         black_box(out);
@@ -117,9 +116,8 @@ inflate_into_case :: (b: *Bench, input: [] u8) {
 
     defer array_free(scratch);
     set_bytes(b, input.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         written, _, error := inflate_into(black_box(packed), scratch);
         assert(!error.count, "%", error);
         black_box(written);
@@ -132,9 +130,8 @@ stb_decode_case :: (b: *Bench, input: [] u8) {
 
     defer free(packed.data);
     set_bytes(b, input.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         length: s32;
         data := black_box(packed);
         out := stbi_zlib_decode_malloc(data.data, cast(s32) data.count, *length);
@@ -147,9 +144,8 @@ stb_decode_case :: (b: *Bench, input: [] u8) {
 
 stb_compress_case :: (b: *Bench, input: [] u8) {
     set_bytes(b, input.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         length: s32;
         data := black_box(input);
         out := stbi_zlib_compress(data.data, cast(s32) data.count, *length, 8);
@@ -162,27 +158,24 @@ stb_compress_case :: (b: *Bench, input: [] u8) {
 
 crc32_case :: (b: *Bench, input: [] u8) {
     set_bytes(b, input.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         black_box(crc32(black_box(input)));
     }
 }
 
 adler32_case :: (b: *Bench, input: [] u8) {
     set_bytes(b, input.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         black_box(adler32(black_box(input)));
     }
 }
 
 deflate_1_case :: (b: *Bench, input: [] u8) {
     set_bytes(b, input.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         out := deflate(black_box(input), .ZLIB, 1);
         black_box(out);
         free(out.data);
@@ -191,9 +184,8 @@ deflate_1_case :: (b: *Bench, input: [] u8) {
 
 deflate_6_case :: (b: *Bench, input: [] u8) {
     set_bytes(b, input.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         out := deflate(black_box(input), .ZLIB, 6);
         black_box(out);
         free(out.data);
@@ -202,9 +194,8 @@ deflate_6_case :: (b: *Bench, input: [] u8) {
 
 deflate_9_case :: (b: *Bench, input: [] u8) {
     set_bytes(b, input.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         out := deflate(black_box(input), .ZLIB, 9);
         black_box(out);
         free(out.data);

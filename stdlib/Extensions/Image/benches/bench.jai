@@ -270,9 +270,7 @@ image_case :: (b: *Bench, width: s32, height: s32, content: int, format: Pixel_F
         resize_to_h = ifx option % 2 == 0 then height / 4 else height * 2;
     }
 
-    reset_timer(b);
-
-    for 0..b.iterations - 1 {
+    for b {
         if operation == {
             case 0; our_encode_png();
             case 1;

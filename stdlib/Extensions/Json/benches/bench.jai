@@ -158,9 +158,8 @@ json_case :: (b: *Bench, input: int, mode: int, encode: bool, $T: Type) {
 
     defer free(encoded);
     set_bytes(b, ifx encode then encoded.count else text.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         {
             push_allocator(flat_pool_allocator_proc, *pool);
 

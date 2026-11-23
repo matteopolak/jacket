@@ -84,9 +84,8 @@ log_scan :: (b: *Bench) {
 
     defer free(log);
     set_bytes(b, log.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         classes: [6] int;
         lines, sent, errors := scan(black_box(log), *classes);
 

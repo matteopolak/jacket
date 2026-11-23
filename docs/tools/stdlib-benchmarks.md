@@ -43,7 +43,7 @@ For a short sequential smoke check, use `--samples 2 --warmup 1 --measure-ms 1 -
 
 - Add a `@bench` procedure to the file of its area (or a new file). Wrap inputs inside the loop and results in `black_box`, or the optimizer computes a pure call once and the loop measures nothing. Procedure names are shared across the suite, so keep them distinct.
 - Build inputs with a small inline generator (an LCG), not `Random`, so they don't depend on the library under test.
-- Keep setup out of the loop: build large inputs once in a global, or call `reset_timer(b)` after setting up.
+- Keep setup out of the loop: build large inputs once in a global, or set up before the `for b` loop, which the clock leaves out.
 - Aim for 1 us or more per iteration, or a few nanoseconds per step. Use `@samples(10)` for iterations over about 0.3 s.
 
 ## Configuration

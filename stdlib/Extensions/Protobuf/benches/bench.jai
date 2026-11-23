@@ -32,9 +32,7 @@ measure :: (b: *Bench, value: $T, operation: int, borrow: bool = false, skip_utf
     defer free(encoded.data);
     if operation != 2 set_bytes(b, encoded.count);
 
-    reset_timer(b);
-
-    for 0..b.iterations - 1 {
+    for b {
         if operation == 0 {
             bytes, ee := Proto.encode(black_box(value));
             assert(ee.kind == .NONE && bytes.count == encoded.count);
@@ -135,9 +133,8 @@ measure_json :: (b: *Bench, value: $T, plain: $P, operation: int) {
 
     defer free(plain_text);
     set_bytes(b, ifx operation < 2 then text.count else plain_text.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         if operation == 0 {
             out, ee := Proto.to_json(black_box(value));
             assert(ee.kind == .NONE);
@@ -179,9 +176,7 @@ generation :: (b: *Bench) {
 
     defer free(text);
 
-    reset_timer(b);
-
-    for 0..b.iterations - 1 {
+    for b {
         output, error := Schema.protobuf_generate(black_box(text));
         assert(!error.message.count);
         black_box(output);

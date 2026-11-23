@@ -20,7 +20,7 @@ archive_case :: (b: *Bench, name: string, format: Archive_Format, extracting: bo
     destinations: [..] string;
 
     if extracting {
-        for 0..b.iterations - 1 {
+        for 0..iteration_count(b) - 1 {
             dest := tprint("%/archive-bench/extract-%", base, it);
             assert(make_directory_if_it_does_not_exist(dest));
             array_add(*destinations, copy_string(dest));
@@ -38,9 +38,7 @@ archive_case :: (b: *Bench, name: string, format: Archive_Format, extracting: bo
         array_free(destinations);
     }
 
-    reset_timer(b);
-
-    for 0..b.iterations - 1 {
+    for b {
         if extracting {
             failure := extract(black_box(*a), destinations[it]);
             assert(failure.kind == .NONE, "%", failure.message);

@@ -3,7 +3,7 @@
 BT :: #import "Extensions/Time";
 
 civil_add_until :: (b: *Bench) {
-    for 0..b.iterations - 1 {
+    for b {
         start := black_box(BT.Date.{ 2024, 1, 31 });
         end, e := BT.add(start, black_box(BT.Span.{ months = 1, days = 2 }));
         diff, de := BT.until(start, end);
@@ -20,7 +20,7 @@ time_rfc3339_parse :: (b: *Bench) {
 
     set_bytes(b, text.count);
 
-    for 0..b.iterations - 1 {
+    for b {
         v, e := BT.parse(BT.Timestamp, black_box(text));
         black_box(v);
         black_box(e);
@@ -32,7 +32,7 @@ time_rfc3339_format :: (b: *Bench) {
 
     set_bytes(b, 30);
 
-    for 0..b.iterations - 1 {
+    for b {
         builder: String_Builder;
         e := BT.format(*builder, black_box(instant));
 
@@ -49,9 +49,7 @@ time_dst_to_civil :: (b: *Bench) {
     defer BT.time_zone_free(*zone);
     instant, _ := BT.timestamp_from_seconds(1710055800);
 
-    reset_timer(b);
-
-    for 0..b.iterations - 1 {
+    for b {
         v := BT.to_civil(black_box(zone), black_box(instant));
         black_box(v);
     }
@@ -62,9 +60,8 @@ time_cached_zone :: (b: *Bench) {
 
     assert(e.kind == .NONE);
     BT.time_zone_free(*zone);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         v, ve := BT.time_zone_get(black_box("America/New_York"));
         black_box(v);
         black_box(ve);
@@ -79,9 +76,7 @@ time_posix_to_civil :: (b: *Bench) {
     defer BT.time_zone_free(*zone);
     instant, _ := BT.timestamp_from_seconds(1710055800);
 
-    reset_timer(b);
-
-    for 0..b.iterations - 1 {
+    for b {
         v := BT.to_civil(black_box(zone), black_box(instant));
         black_box(v);
     }
@@ -94,9 +89,7 @@ time_civil_to_instant :: (b: *Bench) {
     defer BT.time_zone_free(*zone);
     wall := BT.Date_Time.{ .{ 2024, 3, 10 }, .{ 12, 0, 0, 0 } };
 
-    reset_timer(b);
-
-    for 0..b.iterations - 1 {
+    for b {
         v, ve := BT.to_timestamp(black_box(zone), black_box(wall));
         black_box(v);
         black_box(ve);
