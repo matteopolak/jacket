@@ -1,4 +1,4 @@
-//! Programs for the Arduino Uno (ATmega328P, 2-byte pointers) built with
+//! Programs for the Arduino Uno (`ATmega328P`, 2-byte pointers) built with
 //! `Extensions/Embedded/Boards/Arduino_Uno` and run under `qemu-system-avr`
 //! (docs/native/embedded.md#avr-arduino-uno).
 use std::io::Read;
@@ -187,7 +187,7 @@ fn code_pointers_lower_through_address_space_1() {
     let calls_it = ir.lines().any(|line| {
         line.trim_start().starts_with("call addrspace(1)")
             && line.contains(" %")
-            && line.contains("(")
+            && line.contains('(')
             && !line.contains('@')
     });
     assert!(
