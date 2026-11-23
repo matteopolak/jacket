@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased] The language server, linter, formatter and interpreter are faster, and `jailsp` uses less memory, most on Windows.
+## [Unreleased]
+
+The language server, linter, formatter and interpreter are faster, and `jailsp` uses less memory, most on Windows.
 
 ### Highlights
 
