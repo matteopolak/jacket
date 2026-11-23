@@ -803,8 +803,8 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig, plan: &Plan) -> Result<R
                 regs.stack(low)?;
                 regs.stack(high)?;
             }
-            Passing::Registers(pieces) if !regs.fits(&pieces) => {
-                regs.exhaust(&pieces);
+            Passing::Registers(pieces) if !regs.fits(pieces) => {
+                regs.exhaust(pieces);
                 if layout.align >= 16 {
                     regs.align_stack()?;
                 }
