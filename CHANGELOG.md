@@ -2,7 +2,7 @@
 
 ## [0.38.0] - 2026-11-22
 
-Jacket builds for 32-bit, big-endian and bare-metal targets, and Sound_Player no longer crackles on Windows. The new targets are experimental, and their APIs may change.
+Jacket builds for 16- and 32-bit, big-endian and bare-metal targets, and Sound_Player no longer crackles on Windows. The new targets are experimental, and their APIs may change.
 
 ### Highlights
 
