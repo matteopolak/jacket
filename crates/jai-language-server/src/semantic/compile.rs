@@ -366,6 +366,12 @@ pub(super) fn compile(
             }
         })
         .collect();
+    // A note and the compile-time code that read it are usually in different programs.
+    jaic::ide::share_note_reads(
+        &mut std::iter::once(&mut compiler)
+            .chain(others.iter_mut().map(|p| &mut p.compiler))
+            .collect::<Vec<_>>(),
+    );
     // Compile-time code is over once everything is checked. Each program holds the build
     // state, which would otherwise outlive the compile by hundreds of MB.
     // Nothing runs the lowered bodies either: hovers and lints answer from the facts.

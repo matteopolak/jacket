@@ -625,17 +625,27 @@ impl Analysis {
         out
     }
 
-    /// Declarations the identifier at `offset` names, as (path, text, start, end) with byte
-    /// offsets into that file's text (which may be a module or stdlib file, not an open document).
+    /// Declarations the identifier at `offset` names, or the compile-time code that read the
+    /// note there, as (path, text, start, end) with byte offsets into that file's text (which
+    /// may be a module or stdlib file, not an open document).
     pub fn definition(&mut self, path: &Path, offset: usize) -> Vec<Decl> {
         let Some(file) = self.file(path) else {
             return Vec::new();
         };
-        self.compiler
+        let mut found: Vec<Decl> = self
+            .compiler
             .ide_definition(file, offset as u32)
             .into_iter()
             .filter_map(|span| self.location(span))
-            .collect()
+            .collect();
+        // A note leads to the compile-time code that read it, in whichever program that ran.
+        found.extend(
+            self.compiler
+                .ide_note_readers_at(file, offset as u32)
+                .into_iter()
+                .map(|r| (r.path, r.text, r.offset as usize, r.offset as usize)),
+        );
+        found
     }
 
     /// The procedures the scope at `offset` gives the bare name written there, by an ordinary
