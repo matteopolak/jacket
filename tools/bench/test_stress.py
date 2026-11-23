@@ -2,7 +2,7 @@ import os
 import unittest
 
 from bench import procmem
-from bench.cmd_stress import OS_BLOCK, slope
+from bench.cmd_stress import OS_BLOCK, heading, slope
 
 
 class StressTests(unittest.TestCase):
@@ -20,6 +20,12 @@ class StressTests(unittest.TestCase):
         lines = (OS_BLOCK % {'n': 1}).split('\n')
         self.assertIn('linux_value :=', lines[3])
         self.assertIn('windows_value :=', lines[10])
+
+    def test_heading_counts_the_steps_a_timed_run_took(self):
+        timed = {'seed': 2, 'steps': 4210, 'minutes': 30.0, 'workspace': 'repo'}
+        self.assertEqual(heading(timed), '# Language server stress session (seed 2, 4210 steps in 30 minutes, repo)')
+        counted = {'seed': 1, 'steps': 300, 'minutes': 0, 'workspace': 'repo'}
+        self.assertEqual(heading(counted), '# Language server stress session (seed 1, 300 steps, repo)')
 
 
 if __name__ == '__main__':

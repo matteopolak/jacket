@@ -517,7 +517,8 @@ def summarize(run: Run, failure: str | None, peak_rss: float | None) -> dict:
     every = [s for kind in run.stats.latency.values() for s in kind]
     result = {
         'failure': failure,
-        'seed': run.args.seed, 'steps': run.args.steps, 'workspace': run.args.workspace,
+        'seed': run.args.seed, 'steps': sum(run.stats.actions.values()), 'minutes': run.args.minutes,
+        'workspace': run.args.workspace,
         'actions': run.stats.actions,
         'tolerated_cancellations': run.stats.tolerated,
         'missing_diagnostics': run.missing_diagnostics,
@@ -540,8 +541,14 @@ def summarize(run: Run, failure: str | None, peak_rss: float | None) -> dict:
     return result
 
 
+def heading(result: dict) -> str:
+    """The report's title: the seed, the steps the session took (and its length, when timed) and the workspace."""
+    length = f"{result['steps']} steps" + (f" in {result['minutes']:g} minutes" if result['minutes'] else '')
+    return f"# Language server stress session (seed {result['seed']}, {length}, {result['workspace']})"
+
+
 def render(result: dict) -> str:
-    lines = [f"# Language server stress session (seed {result['seed']}, {result['steps']} steps, {result['workspace']})", '']
+    lines = [heading(result), '']
     lines.append(f"- result: {'FAILED: ' + result['failure'] if result['failure'] else 'ok'}")
     lines.append(f"- peak: {result['peak_rss_mib']} MiB resident, {result['peak_private_mib']} MiB private")
     lines.append(f"- slope: {result['slope_per_minute_mib']} MiB/min over the run ({result['slope_second_half_per_minute_mib']} in its second half), {result['slope_per_gap_mib']} MiB per idle gap")
