@@ -35,6 +35,14 @@ on:
         description: Tag or branch to build - defaults to the latest release tag
         required: false
         default: ''
+      version:
+        description: Version shown on the site - defaults to the tag without its v
+        required: false
+        default: ''
+      source_ref:
+        description: Tag or commit the Source links point at - defaults to ref
+        required: false
+        default: ''
       deploy:
         description: Deploy to Pages after building
         type: boolean

@@ -182,6 +182,12 @@ The stdlib site is served by GitHub Pages at https://jacket.matteopolak.com. `.g
 gh workflow run docs-pages.yml -R matteopolak/jacket -f ref=v0.33.0
 ```
 
+A branch build shows the branch name as its version. To ship a site fix before the next release, build `main` with the release's version and Source links:
+
+```sh
+gh workflow run docs-pages.yml -R matteopolak/jacket -f ref=main -f version=0.38.0 -f source_ref=v0.38.0
+```
+
 Repository settings: Pages source "GitHub Actions", custom domain `jacket.matteopolak.com` (a `CNAME` record to `matteopolak.github.io`), and the `github-pages` environment allows `main` and `v*` tags. The Pages limit is 1 GB per site, with no file-count cap.
 
 CI runs `jacket doc --check` when the stdlib, the compiler or the docs change, so a broken intra-doc link fails before a release does.
