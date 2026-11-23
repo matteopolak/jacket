@@ -47,12 +47,15 @@ pub(crate) fn units_for(module: &Module, forced: Option<usize>) -> usize {
 }
 
 /// Write the optimized `module` as `units` object files, `path`, then `path.1.o`..., in
-/// parallel. `machine` makes a target machine for each unit.
+/// parallel. `machine` makes a target machine for each unit. `fibers` is the target's fiber
+/// assembly (`jaic::fiber::module_asm`): its symbols are local to an object file, so every unit
+/// that calls the routines gets its own copy.
 pub(crate) fn emit(
     module: &Module,
     units: usize,
     path: &Path,
     coff: bool,
+    fibers: Option<&str>,
     machine: &(dyn Fn() -> Result<TargetMachine, String> + Sync),
 ) -> Result<Vec<PathBuf>, String> {
     let m = module.as_mut_ptr();
@@ -109,6 +112,11 @@ pub(crate) fn emit(
                 let module = Module::parse_bitcode_from_buffer(&buffer, &context)
                     .map_err(|e| e.to_string())?;
                 keep_unit(&module, &owner, u);
+                if let Some(text) = fibers
+                    && calls_fiber_routines(module.as_mut_ptr())
+                {
+                    set_module_asm(module.as_mut_ptr(), text.as_bytes());
+                }
                 module
             };
             write(&module, machine, &paths[u])
@@ -161,6 +169,21 @@ fn keep_unit(module: &Module, owner: &HashMap<String, usize>, unit: usize) {
             }
         }
     }
+}
+
+/// Whether a function left in `m` calls `jaic::fiber::SWITCH` or `PREPARE`, which the fiber
+/// assembly defines.
+fn calls_fiber_routines(m: LLVMModuleRef) -> bool {
+    [jaic::fiber::SWITCH, jaic::fiber::PREPARE]
+        .iter()
+        .any(|routine| {
+            let name = std::ffi::CString::new(*routine).expect("no NUL in a routine name");
+            // SAFETY: `m` is a live module the caller owns; the name is NUL-terminated.
+            unsafe {
+                let f = llvm::LLVMGetNamedFunction(m, name.as_ptr());
+                !f.is_null() && !llvm::LLVMGetFirstUse(f).is_null()
+            }
+        })
 }
 
 /// The module's inline assembly.

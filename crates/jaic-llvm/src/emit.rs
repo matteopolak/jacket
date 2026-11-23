@@ -171,7 +171,15 @@ fn emit_module(
         let units = split::units_for(&module, options.codegen.split_units);
         if units > 1 {
             let make = || target_machine(options).map(|(machine, ..)| machine);
-            return split::emit(&module, units, path, build_target.is_windows(), &make);
+            let fibers = jaic::fiber::module_asm(arch, build_target.is_apple());
+            return split::emit(
+                &module,
+                units,
+                path,
+                build_target.is_windows(),
+                fibers.as_deref(),
+                &make,
+            );
         }
     }
     machine
