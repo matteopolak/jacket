@@ -64,14 +64,13 @@ io_case :: (b: *Bench, churn: bool) {
             group: Io.Wait_Group;
 
             Io.add(*group, 16);
-            for 1..16 Io.spawn(churn_worker, Churn_Job.{ address.port, b.iterations, *group });
+            for 1..16 Io.spawn(churn_worker, Churn_Job.{ address.port, iteration_count(b), *group });
 
-            reset_timer(b);
+            start_timer(b);
             Io.wait(*group);
+            stop_timer(b);
         } else {
-            reset_timer(b);
-
-            for 0..b.iterations - 1 {
+            for b {
                 for streams {
                     _, failure := Io.write(it, black_box(message));
                     assert(failure == .NONE);
@@ -131,7 +130,7 @@ thread_churn :: (state: *Thread_Bench) {
     Io.spawn(accept_loop, listener);
     slot := Atomics.atomic_add(*state.ready, 1);
     if slot == 3 {
-        reset_timer(state.b);
+        start_timer(state.b);
         Atomics.atomic_write(*state.go, 1);
     }
 
@@ -140,7 +139,7 @@ thread_churn :: (state: *Thread_Bench) {
     group: Io.Wait_Group;
 
     Io.add(*group, 16);
-    for 1..16 Io.spawn(churn_worker, Churn_Job.{ state.port, state.b.iterations, *group });
+    for 1..16 Io.spawn(churn_worker, Churn_Job.{ state.port, iteration_count(state.b), *group });
 
     Io.wait(*group);
     Atomics.atomic_add(*state.finished, 1);
@@ -170,4 +169,5 @@ loopback_connections_four_threads :: (b: *Bench) {
     }, *state);
     set_items(b, 64);
     Io.io_run_threads(4, thread_churn, *state);
+    stop_timer(b);
 } @bench

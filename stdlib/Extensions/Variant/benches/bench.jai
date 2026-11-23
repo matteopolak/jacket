@@ -26,9 +26,7 @@ variant_equal_records :: (b: *Bench) {
     first := variant(Shape, Record.{ id = 7, name = "a record name", origin = .{ 1, 2 } });
     second := variant(Shape, Record.{ id = 7, name = "a record name", origin = .{ 1, 2 } });
 
-    reset_timer(b);
-
-    for 0..b.iterations - 1 {
+    for b {
         black_box(black_box(first) == black_box(second));
     }
 } @bench
@@ -47,9 +45,8 @@ variant_equal_lists :: (b: *Bench) {
 
     defer array_free(one);
     defer array_free(two);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         black_box(black_box(first) == black_box(second));
     }
 } @bench
@@ -57,9 +54,7 @@ variant_equal_lists :: (b: *Bench) {
 // Builds a variant that owns a list of strings and frees it again: the allocation is in the time
 // too, and the same before and after a change to how it is released.
 variant_free_list :: (b: *Bench) {
-    reset_timer(b);
-
-    for 0..b.iterations - 1 {
+    for b {
         list: [..] string;
 
         for 0..3 array_add(*list, copy_string("owned text"));
@@ -73,9 +68,7 @@ variant_free_list :: (b: *Bench) {
 variant_free_number :: (b: *Bench) {
     owned := variant(Shape, cast(s64) 5);
 
-    reset_timer(b);
-
-    for 0..b.iterations - 1 {
+    for b {
         free_variant(black_box(*owned));
         owned = variant(Shape, cast(s64) 5);
     }

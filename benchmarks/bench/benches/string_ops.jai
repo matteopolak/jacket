@@ -58,10 +58,9 @@ make_scan_text :: () {
 string_ops_round :: (b: *Bench) {
     if !ops_text.count make_ops_text();
 
-    reset_timer(b);
     set_bytes(b, ops_text.count);
 
-    for round: 0..b.iterations - 1 {
+    for round: b {
         checksum: u64 = 1469598103934665603;
 
         mix :: (value: int) #expand {
@@ -145,10 +144,9 @@ string_ops_round :: (b: *Bench) {
 string_scan_long :: (b: *Bench) {
     if !scan_text.count make_scan_text();
 
-    reset_timer(b);
     set_bytes(b, scan_text.count * 40);
 
-    for 0..b.iterations - 1 {
+    for b {
         checksum: u64 = 1469598103934665603;
 
         mix :: (value: int) #expand {
@@ -176,13 +174,12 @@ string_scan_long :: (b: *Bench) {
 string_scan_short :: (b: *Bench) {
     if !scan_text.count make_scan_text();
 
-    reset_timer(b);
     set_items(b, 2);
 
     line := string.{ 60, scan_text.data };
     checksum: u64 = 1469598103934665603;
 
-    for 0..b.iterations - 1 {
+    for b {
         checksum = (checksum ^ cast,no_check(u64) find_index_from_left(line, #char "Q", it % 4)) * 1099511628211;
         checksum = (checksum ^ cast,no_check(u64) find_index_from_right(line, #char "Q")) * 1099511628211;
     }
@@ -200,7 +197,7 @@ path_helpers :: (b: *Bench) {
 
     paths := string.["/usr/local/lib/libthing.so.1", "relative/dir/file.tar.gz", "C:/Program Files/app/run.exe", "noext", "a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p.txt"];
 
-    for 0..b.iterations - 1 {
+    for b {
         path := paths[it % paths.count];
 
         mix(path_filename(path).count);

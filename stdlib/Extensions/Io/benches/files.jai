@@ -78,12 +78,13 @@ file_case :: (b: *Bench, size: int, fibers: int, inline_reads: bool) {
         Io.add(*group, state.fibers);
 
         for index: 0..state.fibers - 1 {
-            Io.spawn(reader, File_Read.{ *files[index], buffers[index], index + 1, b.iterations, *group });
+            Io.spawn(reader, File_Read.{ *files[index], buffers[index], index + 1, iteration_count(b), *group });
         }
 
         set_bytes(b, state.size * state.fibers);
-        reset_timer(b);
+        start_timer(b);
         Io.wait(*group);
+        stop_timer(b);
     }, *state);
 }
 

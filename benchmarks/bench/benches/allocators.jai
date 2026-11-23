@@ -8,7 +8,7 @@
 heap_window :: (b: *Bench) {
     set_items(b, 2_000_000);
 
-    for 0..b.iterations - 1 {
+    for b {
         WINDOW :: 1024;
         live: [WINDOW] *u8;
         state: u32 = 17;
@@ -36,7 +36,7 @@ heap_window :: (b: *Bench) {
 temporary_storage :: (b: *Bench) {
     set_items(b, 3_000_000);
 
-    for 0..b.iterations - 1 {
+    for b {
         checksum: u64 = 1469598103934665603;
 
         for 0..3_000_000 - 1 {
@@ -55,7 +55,7 @@ temporary_storage :: (b: *Bench) {
 pool_allocations :: (b: *Bench) {
     set_items(b, 2_000_000);
 
-    for 0..b.iterations - 1 {
+    for b {
         checksum: u64 = 1469598103934665603;
         pool: Pool;
 
@@ -82,7 +82,7 @@ pool_allocations :: (b: *Bench) {
 flat_pool_allocations :: (b: *Bench) {
     set_items(b, 2_000_000);
 
-    for 0..b.iterations - 1 {
+    for b {
         checksum: u64 = 1469598103934665603;
         flat: Flat_Pool;
 

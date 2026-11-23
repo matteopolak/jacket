@@ -159,9 +159,8 @@ jpeg_case :: (b: *Bench, width: s32, height: s32, variant: int, stb: bool) {
 
     defer free(data.data);
     set_bytes(b, data.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         input := black_box(data);
 
         if stb {

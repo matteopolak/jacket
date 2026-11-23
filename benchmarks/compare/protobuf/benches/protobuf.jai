@@ -390,9 +390,8 @@ count_allocations :: (name: string, work: ()) {
 looped :: (b: *Bench, name: string, bytes: int, work: ()) {
     set_bytes(b, bytes);
     count_allocations(name, work);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         push_allocator(flat_pool_allocator_proc, *pool);
         work();
         reset(*pool);

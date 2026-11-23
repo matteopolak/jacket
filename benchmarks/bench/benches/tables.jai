@@ -40,7 +40,7 @@ make_string_keys :: () {
 table_int_insert :: (b: *Bench) {
     set_items(b, INT_INSERTS);
 
-    for 0..b.iterations - 1 {
+    for b {
         table: Table(int, int);
 
         fill_int_table(*table);
@@ -52,10 +52,9 @@ table_int_insert :: (b: *Bench) {
 table_int_lookup :: (b: *Bench) {
     if !int_table.count fill_int_table(*int_table);
 
-    reset_timer(b);
     set_items(b, INT_LOOKUPS);
 
-    for 0..b.iterations - 1 {
+    for b {
         hits, sum := 0, 0;
 
         for 0..INT_LOOKUPS - 1 {
@@ -74,10 +73,9 @@ table_int_lookup :: (b: *Bench) {
 table_string_insert :: (b: *Bench) {
     if !string_keys.count make_string_keys();
 
-    reset_timer(b);
     set_items(b, STRING_KEYS);
 
-    for 0..b.iterations - 1 {
+    for b {
         table: Table(string, int);
 
         for string_keys table_set(*table, it, it_index);
@@ -96,10 +94,9 @@ table_string_lookup :: (b: *Bench) {
         for string_keys table_set(*string_table, it, it_index);
     }
 
-    reset_timer(b);
     set_items(b, STRING_KEYS * 8);
 
-    for 0..b.iterations - 1 {
+    for b {
         hits, sum := 0, 0;
 
         for round: 0..3 {
@@ -128,10 +125,9 @@ table_string_lookup :: (b: *Bench) {
 table_string_remove :: (b: *Bench) {
     if !string_keys.count make_string_keys();
 
-    reset_timer(b);
     set_items(b, STRING_KEYS);
 
-    for 0..b.iterations - 1 {
+    for b {
         table: Table(string, int);
         hits, removed := 0, 0;
 

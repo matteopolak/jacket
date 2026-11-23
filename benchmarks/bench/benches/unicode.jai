@@ -36,7 +36,7 @@ make_utf8_text :: () {
 utf8_encode :: (b: *Bench) {
     set_items(b, UTF8_CHARACTERS);
 
-    for 0..b.iterations - 1 {
+    for b {
         builder: String_Builder;
         state: u32 = 5;
         scratch: [4] u8;
@@ -65,11 +65,10 @@ utf8_encode :: (b: *Bench) {
 utf8_decode :: (b: *Bench) {
     if !utf8_text.count make_utf8_text();
 
-    reset_timer(b);
     set_items(b, UTF8_CHARACTERS);
     set_bytes(b, utf8_text.count);
 
-    for 0..b.iterations - 1 {
+    for b {
         checksum: u64 = 1469598103934665603;
         rest := utf8_text;
 
@@ -89,11 +88,10 @@ utf8_decode :: (b: *Bench) {
 utf8_next :: (b: *Bench) {
     if !utf8_text.count make_utf8_text();
 
-    reset_timer(b);
     set_items(b, UTF8_CHARACTERS);
     set_bytes(b, utf8_text.count);
 
-    for 0..b.iterations - 1 {
+    for b {
         checksum: u64 = 1469598103934665603;
         rest := utf8_text;
 

@@ -126,9 +126,8 @@ destroy :: (table: *Fast.Map($K, $V)) {
 
 insert_int :: ($T: Type, b: *Bench, data: *Data) {
     set_items(b, data.keys.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         table := create(T);
         for key: data.keys set(table, key, key);
         black_box(table.count);
@@ -142,9 +141,8 @@ hit_int :: ($T: Type, b: *Bench, data: *Data) {
     for key: data.keys set(table, key, key);
 
     set_items(b, data.keys.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         sum: s64;
         for key: data.order sum += find(table, key).*;
         black_box(sum);
@@ -159,9 +157,8 @@ miss_int :: ($T: Type, b: *Bench, data: *Data) {
     for key: data.keys set(table, key, key);
 
     set_items(b, data.keys.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         found := 0;
         for key: data.misses if find(table, key) found += 1;
         black_box(found);
@@ -178,11 +175,10 @@ churn_int :: ($T: Type, b: *Bench, data: *Data) {
     for key: data.keys set(table, key, key);
 
     set_items(b, size);
-    reset_timer(b);
 
     position := 0;
 
-    for 0..b.iterations - 1 {
+    for b {
         for 0..size - 1 {
             remove_key(table, data.ring[position % ring]);
             set(table, data.ring[(position + size) % ring], position);
@@ -217,9 +213,8 @@ iterate_int :: ($T: Type, b: *Bench, data: *Data) {
     for key: data.keys set(table, key, key);
 
     set_items(b, data.keys.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         sum := sum_values(table);
         black_box(sum);
     }
@@ -229,9 +224,8 @@ iterate_int :: ($T: Type, b: *Bench, data: *Data) {
 
 insert_string :: ($T: Type, b: *Bench, data: *Data) {
     set_items(b, data.strings.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         table := create(T);
         for key: data.strings set(table, key, key.count);
         black_box(table.count);
@@ -245,9 +239,8 @@ hit_string :: ($T: Type, b: *Bench, data: *Data) {
     for key: data.strings set(table, key, key.count);
 
     set_items(b, data.strings.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         sum: s64;
         for key: data.shuffled sum += find(table, key).*;
         black_box(sum);

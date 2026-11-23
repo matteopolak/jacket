@@ -13,9 +13,8 @@ nfc :: (b: *Bench) {
 
     defer free(text);
     set_bytes(b, text.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         bld: String_Builder;
 
         defer free_buffers(*bld);
@@ -39,9 +38,8 @@ graphemes :: (b: *Bench) {
 
     defer free(text);
     set_bytes(b, text.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         iter := segments(black_box(text), .GRAPHEME);
 
         while true {

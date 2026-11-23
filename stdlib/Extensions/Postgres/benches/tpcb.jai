@@ -37,11 +37,12 @@ run_tpcb :: (b: *Bench, prepared: bool) {
         group: Io.Wait_Group;
 
         Io.add(*group, settings.clients);
-        for 1..settings.clients Io.spawn(client, Pg_Job.{ *group, it, b.iterations });
+        for 1..settings.clients Io.spawn(client, Pg_Job.{ *group, it, iteration_count(b) });
 
         set_items(b, settings.clients);
-        reset_timer(b);
+        start_timer(b);
         Io.wait(*group);
+        stop_timer(b);
     }, *state);
 }
 

@@ -32,9 +32,8 @@ typed_materials :: (b: *Bench) {
     assert(error.kind == .NONE);
     defer gltf_free(*asset);
     set_items(b, MATERIALS * 3);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         for *material: asset.document.materials {
             ior, _, e1 := gltf_extension(*material.extensions, "KHR_materials_ior", Gltf_Ior);
             strength, _, e2 := gltf_extension(*material.extensions, "KHR_materials_emissive_strength", Gltf_Emissive_Strength);

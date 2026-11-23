@@ -217,9 +217,8 @@ require :: (ok: bool) {
 over_text :: (b: *Bench, text: string, work: (string)) {
     prepare();
     set_bytes(b, text.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         push_allocator(flat_pool_allocator_proc, *pool);
         work(black_box(text));
         reset(*pool);
@@ -229,9 +228,8 @@ over_text :: (b: *Bench, text: string, work: (string)) {
 // The encoders write a value decoded before the timer starts; `work` takes nothing.
 over_value :: (b: *Bench, bytes: int, work: ()) {
     set_bytes(b, bytes);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         push_allocator(flat_pool_allocator_proc, *pool);
         work();
         reset(*pool);

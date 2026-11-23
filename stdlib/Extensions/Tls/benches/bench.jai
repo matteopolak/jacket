@@ -229,13 +229,12 @@ tls_case :: (b: *Bench, variant: int) {
             assert(failure == .NONE);
             defer Io.close(listener);
             address, _ := Io.local_address(listener);
-            job := Shaker.{ listener, *server_config, b.iterations, Io.make_channel(bool, 1) };
+            job := Shaker.{ listener, *server_config, iteration_count(b), Io.make_channel(bool, 1) };
 
             defer Io.free_channel(job.done);
             Io.spawn(shake_server, *job);
-            reset_timer(b);
 
-            for 0..b.iterations - 1 {
+            for b {
                 tcp, connect_error := Io.connect(black_box(address));
 
                 assert(connect_error == .NONE);
@@ -255,13 +254,12 @@ tls_case :: (b: *Bench, variant: int) {
             defer array_free(incoming);
             for *outgoing it.* = cast(u8) ((it_index * 7) & 0xff);
 
-            job := Transfer.{ pair.sender, b.iterations * bytes, outgoing, Io.make_channel(bool, 1) };
+            job := Transfer.{ pair.sender, iteration_count(b) * bytes, outgoing, Io.make_channel(bool, 1) };
 
             defer Io.free_channel(job.done);
             Io.spawn(send_bytes, *job);
-            reset_timer(b);
 
-            for 0..b.iterations - 1 {
+            for b {
                 received := 0;
                 while received < bytes {
                     count, failure := Io.read(black_box(pair.receiver), .{ min(incoming.count, bytes - received), incoming.data });

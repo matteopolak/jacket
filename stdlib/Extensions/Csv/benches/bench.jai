@@ -94,9 +94,8 @@ read_records :: (b: *Bench) {
 
     defer free(data);
     set_bytes(b, data.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 black_box(count_fields(data, .{ header = true }, 0));
+    for b black_box(count_fields(data, .{ header = true }, 0));
 } @bench @samples(10)
 
 read_records_plain :: (b: *Bench) {
@@ -104,9 +103,8 @@ read_records_plain :: (b: *Bench) {
 
     defer free(data);
     set_bytes(b, data.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 black_box(count_fields(data, .{ header = true }, 0));
+    for b black_box(count_fields(data, .{ header = true }, 0));
 } @bench @samples(10)
 
 read_records_plain_trim :: (b: *Bench) {
@@ -114,9 +112,8 @@ read_records_plain_trim :: (b: *Bench) {
 
     defer free(data);
     set_bytes(b, data.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 black_box(count_fields(data, .{ header = true, trim = true }, 0));
+    for b black_box(count_fields(data, .{ header = true, trim = true }, 0));
 } @bench @samples(10)
 
 read_typed :: (b: *Bench) {
@@ -124,9 +121,8 @@ read_typed :: (b: *Bench) {
 
     defer free(data);
     set_bytes(b, data.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         reader := csv_reader(Row, cast([] u8) black_box(data), .{ header = true });
         count := 0;
 
@@ -152,9 +148,8 @@ read_typed_borrowed :: (b: *Bench) {
 
     defer free(data);
     set_bytes(b, data.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         reader := csv_reader(Row, cast([] u8) black_box(data), .{ header = true, borrow = true });
         count := 0;
 
@@ -180,9 +175,8 @@ read_records_chunked :: (b: *Bench) {
 
     defer free(data);
     set_bytes(b, data.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 black_box(count_fields(data, .{ header = true }, 4096));
+    for b black_box(count_fields(data, .{ header = true }, 4096));
 } @bench @samples(10)
 
 read_records_plain_chunked :: (b: *Bench) {
@@ -190,9 +184,8 @@ read_records_plain_chunked :: (b: *Bench) {
 
     defer free(data);
     set_bytes(b, data.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 black_box(count_fields(data, .{ header = true }, 4096));
+    for b black_box(count_fields(data, .{ header = true }, 4096));
 } @bench @samples(10)
 
 read_records_plain_trim_chunked :: (b: *Bench) {
@@ -200,9 +193,8 @@ read_records_plain_trim_chunked :: (b: *Bench) {
 
     defer free(data);
     set_bytes(b, data.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 black_box(count_fields(data, .{ header = true, trim = true }, 4096));
+    for b black_box(count_fields(data, .{ header = true, trim = true }, 4096));
 } @bench @samples(10)
 
 // The first 2 MB of `read_records`' input from a source that gives one byte at a time: every block
@@ -219,9 +211,8 @@ read_records_byte_chunked :: (b: *Bench) {
     head := slice(data, 0, end);
 
     set_bytes(b, head.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 black_box(count_fields(head, .{ header = true }, 1));
+    for b black_box(count_fields(head, .{ header = true }, 1));
 } @bench @samples(10)
 
 // Records of about 20 KB, longer than the reader's first 8192-byte window, plain and quoted, from a
@@ -244,7 +235,6 @@ read_long_records_chunked :: (b: *Bench) {
 
     defer free(data);
     set_bytes(b, data.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 black_box(count_fields(data, .{}, 4096));
+    for b black_box(count_fields(data, .{}, 4096));
 } @bench @samples(10)

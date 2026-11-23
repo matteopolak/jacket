@@ -13,7 +13,7 @@ fill_array :: (values: *[..] int, round: int) {
 array_add_items :: (b: *Bench) {
     set_items(b, 206_000);
 
-    for round: 0..b.iterations - 1 {
+    for round: b {
         values: [..] int;
 
         fill_array(*values, round);
@@ -26,10 +26,9 @@ array_add_items :: (b: *Bench) {
 array_find_values :: (b: *Bench) {
     if !array_values.count fill_array(*array_values, 0);
 
-    reset_timer(b);
     set_items(b, 300);
 
-    for round: 0..b.iterations - 1 {
+    for round: b {
         checksum := 0;
 
         for 0..299 {
@@ -43,7 +42,7 @@ array_find_values :: (b: *Bench) {
 
 // Fills the array, then removes random elements until 1 000 are left.
 array_remove_unordered :: (b: *Bench) {
-    for round: 0..b.iterations - 1 {
+    for round: b {
         values: [..] int;
 
         fill_array(*values, round % 40);

@@ -18,9 +18,8 @@ mixed_stream :: (b: *Bench) {
 
     defer free(text);
     set_bytes(b, text.count);
-    reset_timer(b);
 
-    for 0..b.iterations - 1 {
+    for b {
         total: u64;
         p: Vt_Parser;
         error := vt_feed(*p, black_box(text), count_action, *total);

@@ -60,9 +60,8 @@ websocket_case :: (b: *Bench, compression: bool, secure: bool, input: int) {
         message := string.["hello", "日本語😀", "", "repeat repeat repeat repeat repeat", big, "after ping"][state.input];
 
         set_bytes(b, message.count);
-        reset_timer(b);
 
-        for 0..b.iterations - 1 {
+        for b {
             if state.input == 5 assert(ws_write(*connection, cast([] u8) black_box("ping"), .PING).kind == .NONE);
 
             opcode: Ws_Opcode = ifx state.input == 4 then .BINARY else .TEXT;
