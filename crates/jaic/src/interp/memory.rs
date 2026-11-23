@@ -26,28 +26,79 @@ impl Interp {
     /// The unsigned integer of `size` bytes at `addr`, in the program's byte order.
     ///
     /// SAFETY: `addr..addr + size` is readable program memory.
+    #[inline]
     pub(super) unsafe fn peek(&self, addr: u64, size: usize) -> u64 {
-        let mut bytes = [0; 8];
-        // SAFETY: the caller checked that the bytes are readable.
+        let host = self.host_addr(addr) as *const u8;
+        let big = self.layout.endian == crate::layout::Endian::Big;
+        // SAFETY: the caller checked that the bytes are readable; the reads are unaligned.
         unsafe {
-            std::ptr::copy_nonoverlapping(
-                self.host_addr(addr) as *const u8,
-                bytes.as_mut_ptr(),
-                size,
-            );
+            match size {
+                1 => u64::from(host.read()),
+                2 => {
+                    let v = host.cast::<u16>().read_unaligned();
+                    u64::from(if big {
+                        u16::from_be(v)
+                    } else {
+                        u16::from_le(v)
+                    })
+                }
+                4 => {
+                    let v = host.cast::<u32>().read_unaligned();
+                    u64::from(if big {
+                        u32::from_be(v)
+                    } else {
+                        u32::from_le(v)
+                    })
+                }
+                8 => {
+                    let v = host.cast::<u64>().read_unaligned();
+                    if big {
+                        u64::from_be(v)
+                    } else {
+                        u64::from_le(v)
+                    }
+                }
+                _ => {
+                    let mut bytes = [0; 8];
+                    std::ptr::copy_nonoverlapping(host, bytes.as_mut_ptr(), size);
+                    self.layout.read_uint(&bytes[..size])
+                }
+            }
         }
-        self.layout.read_uint(&bytes[..size])
     }
 
     /// Store the `size`-byte unsigned integer `value` at `addr`, in the program's byte order.
     ///
     /// SAFETY: `addr..addr + size` is writable program memory.
+    #[inline]
     pub(super) unsafe fn poke(&self, addr: u64, size: usize, value: u64) {
-        let mut bytes = [0; 8];
-        self.layout.write_uint(&mut bytes[..size], value);
-        // SAFETY: the caller checked that the bytes are writable.
+        let host = self.host_addr(addr) as *mut u8;
+        let big = self.layout.endian == crate::layout::Endian::Big;
+        // SAFETY: the caller checked that the bytes are writable; the writes are unaligned.
         unsafe {
-            std::ptr::copy_nonoverlapping(bytes.as_ptr(), self.host_addr(addr) as *mut u8, size);
+            match size {
+                1 => host.write(value as u8),
+                2 => host.cast::<u16>().write_unaligned(if big {
+                    (value as u16).to_be()
+                } else {
+                    (value as u16).to_le()
+                }),
+                4 => host.cast::<u32>().write_unaligned(if big {
+                    (value as u32).to_be()
+                } else {
+                    (value as u32).to_le()
+                }),
+                8 => host.cast::<u64>().write_unaligned(if big {
+                    value.to_be()
+                } else {
+                    value.to_le()
+                }),
+                _ => {
+                    let mut bytes = [0; 8];
+                    self.layout.write_uint(&mut bytes[..size], value);
+                    std::ptr::copy_nonoverlapping(bytes.as_ptr(), host, size);
+                }
+            }
         }
     }
 
