@@ -1,0 +1,10 @@
+short and attached kind=NONE check=true jobs=8 name=[] paths=["a.jai", "b.jai"] set_jobs=true set_check=true set_paths=true
+separate value kind=NONE check=false jobs=12 name=[x y] paths=["file"] set_jobs=true set_check=false set_paths=true
+short value kind=NONE check=true jobs=3 name=[] paths=[] set_jobs=true set_check=true set_paths=false
+dashes after separator kind=NONE check=false jobs=4 name=[] paths=["--check", "-x", "-"] set_jobs=false set_check=false set_paths=true
+option before separator kind=NONE check=true jobs=4 name=[] paths=["x"] set_jobs=false set_check=true set_paths=true
+no arguments kind=NONE check=false jobs=4 name=[] paths=[] set_jobs=false set_check=false set_paths=false
+environment default kind=NONE check=false jobs=16 name=[] paths=[] set_jobs=true set_check=false set_paths=false
+command line beats environment kind=NONE check=false jobs=2 name=[] paths=[] set_jobs=true set_check=false set_paths=false
+positional interleaved kind=NONE check=true jobs=4 name=[] paths=["a", "b"] set_jobs=false set_check=true set_paths=true
+ok

@@ -1,0 +1,24 @@
+--chek -> kind=UNKNOWN_OPTION message=[unknown option `--chek`] option=[--chek] value=[chek] suggestion=[--check] set_jobs=false
+--jobs -> kind=MISSING_VALUE message=[option `--jobs` needs a value] option=[--jobs] value=[] suggestion=[] set_jobs=false
+--jobs=100 -> kind=OUT_OF_RANGE message=[value `100` for `--jobs` is out of range (1..64)] option=[--jobs] value=[100] suggestion=[] set_jobs=false
+--jobs=many -> kind=INVALID_VALUE message=[invalid value `many` for `--jobs`: expected an integer] option=[--jobs] value=[many] suggestion=[] set_jobs=false
+--check=yes -> kind=UNEXPECTED_VALUE message=[option `--check` does not take a value] option=[--check] value=[] suggestion=[] set_jobs=false
+-z -> kind=UNKNOWN_OPTION message=[unknown option `-z`] option=[-z] value=[z] suggestion=[] set_jobs=false
+help kind=HELP text_has_about=true text_has_check=true
+Does things.
+
+Usage: tool [OPTIONS] [PATHS]...
+
+Arguments:
+  [PATHS]...         Files to read
+
+Options:
+  -c, --[no-]check   Only check
+  -j, --jobs <JOBS>  Parallel jobs [default: 4] [range: 1..64]
+      --name <NAME>  A label
+  -h, --help         Print help
+  -V, --version      Print version
+version kind=VERSION text=tool 2.1
+
+version text bytes=9
+ok
