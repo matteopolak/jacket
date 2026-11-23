@@ -112,6 +112,18 @@ describe("Jai extension", () => {
 
   it("completes a name from a module the file does not import, adding the #import", async () => {
     const document = await open("auto-import.jai");
+    // Until the server's idle warm-up has read the module indexes, its list has no auto imports
+    // and is marked incomplete, so an editor asks again as the word grows. VS Code's command
+    // merges every provider's list and drops that flag, so ask the server until it is done.
+    const client = api.client();
+    assert.ok(client);
+    const request = { textDocument: { uri: document.uri.toString() }, position: { line: 1, character: 8 } };
+    for (const started = Date.now(); ; ) {
+      const answer = await client.sendRequest<{ isIncomplete?: boolean } | unknown[]>("textDocument/completion", request);
+      if (Array.isArray(answer) || !answer.isIncomplete) break;
+      assert.ok(Date.now() - started < 30_000, "the server's completion list stayed incomplete");
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
     const list = await vscode.commands.executeCommand<vscode.CompletionList>("vscode.executeCompletionItemProvider", document.uri, new vscode.Position(1, 8));
     const print = list.items.find((item) => labelOf(item) === "print" && item.additionalTextEdits?.length);
     assert.ok(print, JSON.stringify(list.items.slice(0, 20).map(labelOf)));
