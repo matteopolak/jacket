@@ -1,6 +1,7 @@
 //! What surrounds a cursor position: strings, member accesses and declarations.
 use super::call_site::closer;
 use crate::lexer::{Lexed, P, Tok, Token};
+use crate::lexicon::WordClass;
 use crate::source::Span;
 
 /// The directive a string literal is the argument of.
@@ -174,10 +175,23 @@ fn ends_expression(t: &Tok) -> bool {
             "filepath" | "file" | "line" | "this" | "Context"
         );
     }
+    // A word that opens a clause (`case`, `return`, `if`, `cast`) is followed by an expression,
+    // not the end of one: `case .A` names an inferred member.
+    if let Tok::Ident(name) = t {
+        return !matches!(
+            crate::lexicon::class_of(name.as_str()),
+            Some(
+                WordClass::Conditional
+                    | WordClass::Repeat
+                    | WordClass::Statement
+                    | WordClass::Declaration
+                    | WordClass::Operator
+            )
+        );
+    }
     matches!(
         t,
-        Tok::Ident(_)
-            | Tok::Str(_)
+        Tok::Str(_)
             | Tok::Int(_)
             | Tok::Float(_)
             | Tok::Punct(P::RParen | P::RBracket | P::RBrace | P::DotStar)
