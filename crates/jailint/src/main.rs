@@ -11,6 +11,13 @@ use std::io::{IsTerminal, Write};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+/// Every Rust allocation goes through the counter that enforces `JAIC_MEMORY_LIMIT`, over
+/// mimalloc: roots are compiled on several threads, and the system allocator makes them wait on
+/// each other.
+#[global_allocator]
+static ALLOCATOR: jaic::memory_limit::CountingAllocator<mimalloc::MiMalloc> =
+    jaic::memory_limit::CountingAllocator(mimalloc::MiMalloc);
+
 fn main() -> ExitCode {
     // Errors about the command line or configuration go to stderr in its own style.
     let args: Vec<String> = std::env::args().skip(1).collect();

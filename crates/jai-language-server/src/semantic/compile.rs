@@ -180,7 +180,7 @@ pub(super) fn compile(
     dirs: &[PathBuf],
     files: BTreeMap<PathBuf, Arc<[u8]>>,
     os: Option<TargetOs>,
-    parses: &Rc<RefCell<jaic::parser::ParseReuse>>,
+    parses: &jaic::parser::SharedParseReuse,
     mode: Mode,
 ) -> Option<Compiled> {
     let Mode {
@@ -266,7 +266,7 @@ pub(super) fn compile(
         .compiler
         .ed
         .record(editor_facts(&dir_key, &open, &host, lint, untrusted));
-    let number = parses.borrow_mut().begin();
+    let number = parses.begin();
     started.compiler.ed.parse_reuse = Some((parses.clone(), number));
     let lint_root = match &stub {
         Some(stub) => LintRoot::Module {

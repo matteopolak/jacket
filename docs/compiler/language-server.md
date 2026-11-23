@@ -25,7 +25,7 @@ Formatting runs `jaifmt` as a subprocess (see below); the formatter is written i
 A big compile is hundreds of MiB, so `semantic::Cache` keeps two compiles plus a few alternates for other targets, preferring the newest that checked, so a half-typed edit does not evict the last good one.
 
 - Per-request work is cached on `Document` or looked up by position index; never rescan the file.
-- Compiles share parse trees through `ParseReuse`. Trees must never be mutated after parsing.
+- Compiles share parse trees through `ParseReuse` (behind the thread-safe `SharedParseReuse`, which `jailint` also uses). Trees must never be mutated after parsing.
 - Typing in a file a program never loaded does not recompile it (`OverlayFs` records every path a compile reads).
 - Completion reuses a compile whose text matches up to the cursor expression.
 - Diagnostics are debounced in `jailsp`, and the check stops when input arrives (`jaic::interrupt`).

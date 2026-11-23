@@ -6,6 +6,7 @@ use jaic::build::{SharedWorkspaces, WorkspaceObserver};
 use jaic::ide::IdeRoot;
 use jaic::ide::lint_compile::{CheckLimits, LintCompile, LintRoot, LintSetup};
 use jaic::interp::SandboxHost;
+use jaic::parser::SharedParseReuse;
 use jaic::paths::CanonCache;
 use jaic::project::{Program, Root};
 use jaic::sema::{Compiler, FileSystem, ProgramSource};
@@ -15,6 +16,14 @@ use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
+
+/// What the roots of one run share: files parsed once, and where paths resolve to. Nothing in
+/// them changes while a run lints, so a root may take what another found.
+#[derive(Clone, Default)]
+pub(super) struct RunCaches {
+    pub(super) parses: SharedParseReuse,
+    pub(super) resolved: Arc<CanonCache>,
+}
 
 /// Compilers of finished workspaces, with whether each failed.
 pub(super) type Finished = Rc<RefCell<Vec<(Box<Compiler>, bool)>>>;
@@ -57,7 +66,8 @@ pub(super) struct Compiled {
 
 /// Compile `root` for `os` and `cpu` (the options' own when `None`). With a
 /// `report` set the compile records lint facts for those files; without one it records every
-/// failing `#assert` instead of stopping at the first and records no lint facts.
+/// failing `#assert` instead of stopping at the first and records no lint facts. Roots that
+/// record lint facts take files already parsed by others from `parses`.
 pub(super) fn compile_root(
     program: &Program,
     options: &Options,
@@ -65,6 +75,7 @@ pub(super) fn compile_root(
     cpu: Option<TargetCpu>,
     report: Option<&BTreeSet<PathBuf>>,
     canon: &CanonCache,
+    shared: &RunCaches,
     limits: CheckLimits,
 ) -> Compiled {
     let root = &program.root;
@@ -80,7 +91,7 @@ pub(super) fn compile_root(
     }
     copts.use_program(&jaic::sema::NativeFs, &anchored);
     let fs: Rc<dyn FileSystem> = Rc::new(RootedFs {
-        resolved: CanonCache::new(),
+        resolved: shared.resolved.clone(),
         base: main_dir.clone(),
         overlay: options
             .overlay
@@ -115,6 +126,7 @@ pub(super) fn compile_root(
     });
     if lint {
         crate::facts::enable(&mut started.compiler, roots);
+        started.compiler.ed.parse_reuse = Some((shared.parses.clone(), shared.parses.begin()));
     } else {
         started.compiler.keep_going_past_asserts();
     }

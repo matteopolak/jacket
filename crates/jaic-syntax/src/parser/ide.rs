@@ -503,31 +503,35 @@ impl ParseReuse {
         }
     }
 
-    /// The parse of `text`, file `file` read from `path`, for compile `compile`.
-    pub fn parse(
+    /// The kept parse of `text`, file `file` read from `path`, when `compile` may take it.
+    pub fn find(
         &mut self,
         compile: u64,
         path: &std::path::Path,
         file: FileId,
         text: &std::sync::Arc<str>,
-    ) -> std::sync::Arc<SharedParse> {
-        let key = (path.to_path_buf(), file);
-        if let Some(kept) = self.kept.get_mut(&key)
-            && kept.used != compile
+    ) -> Option<std::sync::Arc<SharedParse>> {
+        let kept = self.kept.get_mut(&(path.to_path_buf(), file))?;
+        if kept.used != compile
             && (std::sync::Arc::ptr_eq(&kept.text, text) || *kept.text == **text)
         {
             kept.used = compile;
-            return kept.parse.clone();
+            return Some(kept.parse.clone());
         }
-        let IdeParse {
-            file: tree,
-            diagnostics,
-            ..
-        } = parse_file_ide(file, text);
-        let parse = std::sync::Arc::new(SharedParse {
-            file: tree,
-            diagnostics,
-        });
+        None
+    }
+
+    /// Keep `parse` (of `text`, file `file` read from `path`) for later compiles, unless
+    /// `compile` already kept one.
+    pub fn store(
+        &mut self,
+        compile: u64,
+        path: &std::path::Path,
+        file: FileId,
+        text: &std::sync::Arc<str>,
+        parse: &std::sync::Arc<SharedParse>,
+    ) {
+        let key = (path.to_path_buf(), file);
         if self.kept.get(&key).is_none_or(|kept| kept.used != compile) {
             self.kept.insert(
                 key,
@@ -538,6 +542,90 @@ impl ParseReuse {
                 },
             );
         }
+    }
+
+    /// The parse of `text`, file `file` read from `path`, for compile `compile`.
+    pub fn parse(
+        &mut self,
+        compile: u64,
+        path: &std::path::Path,
+        file: FileId,
+        text: &std::sync::Arc<str>,
+    ) -> std::sync::Arc<SharedParse> {
+        if let Some(kept) = self.find(compile, path, file, text) {
+            return kept;
+        }
+        let parse = parse_shared(file, text);
+        self.store(compile, path, file, text, &parse);
+        parse
+    }
+}
+
+fn parse_shared(file: FileId, text: &std::sync::Arc<str>) -> std::sync::Arc<SharedParse> {
+    let IdeParse {
+        file: tree,
+        diagnostics,
+        ..
+    } = parse_file_ide(file, text);
+    std::sync::Arc::new(SharedParse {
+        file: tree,
+        diagnostics,
+    })
+}
+
+/// A [`ParseReuse`] that several threads share: roots linted at once take each other's
+/// parses, so the standard library is parsed once however many workers there are. Parsing
+/// happens outside the lock. Clones share the same store.
+#[derive(Clone, Default)]
+pub struct SharedParseReuse(std::sync::Arc<std::sync::Mutex<ParseReuse>>);
+
+impl SharedParseReuse {
+    fn lock(&self) -> std::sync::MutexGuard<'_, ParseReuse> {
+        self.0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    /// Start a compile: the number that `parse` takes.
+    pub fn begin(&self) -> u64 {
+        self.lock().begin()
+    }
+
+    /// See [`ParseReuse::source`].
+    pub fn source(
+        &self,
+        compile: u64,
+        path: &std::path::Path,
+        bytes: &[u8],
+    ) -> Option<(std::sync::Arc<str>, crate::source::LineIndex)> {
+        self.lock().source(compile, path, bytes)
+    }
+
+    /// See [`ParseReuse::keep_source`].
+    pub fn keep_source(
+        &self,
+        compile: u64,
+        path: &std::path::Path,
+        bytes: &[u8],
+        text: &std::sync::Arc<str>,
+        lines: &crate::source::LineIndex,
+    ) {
+        self.lock().keep_source(compile, path, bytes, text, lines);
+    }
+
+    /// See [`ParseReuse::parse`].
+    pub fn parse(
+        &self,
+        compile: u64,
+        path: &std::path::Path,
+        file: FileId,
+        text: &std::sync::Arc<str>,
+    ) -> std::sync::Arc<SharedParse> {
+        if let Some(kept) = self.lock().find(compile, path, file, text) {
+            return kept;
+        }
+        let parse = parse_shared(file, text);
+        self.lock().store(compile, path, file, text, &parse);
         parse
     }
 }

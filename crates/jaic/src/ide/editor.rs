@@ -7,13 +7,12 @@ use crate::ast::{self, BinOp};
 use crate::diagnostics::Code;
 use crate::diagnostics::Diagnostic;
 use crate::intern::Sym;
-use crate::parser::{ParseReuse, SharedParse};
+use crate::parser::{SharedParse, SharedParseReuse};
 use crate::sema::{EntityId, ProcId, Result};
 use crate::source::{FileId, Span};
 use crate::types::TypeId;
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// What checking does after a statement of a block failed (`Editor::stmt_failed`).
@@ -39,7 +38,7 @@ pub struct Editor {
     pub(crate) type_probe: bool,
     /// Parses shared with other compiles, and this compile's number in it (see
     /// `ParseReuse::begin`). Only read while recording.
-    pub parse_reuse: Option<(Rc<RefCell<ParseReuse>>, u64)>,
+    pub parse_reuse: Option<(SharedParseReuse, u64)>,
     /// The entry file the editor picked, admitted for inspection without authorising imports.
     pub(crate) selected_entry: Option<PathBuf>,
 }
@@ -238,7 +237,7 @@ impl Recorder for Editor {
         bytes: &[u8],
     ) -> Option<(Arc<str>, crate::source::LineIndex)> {
         let (reuse, compile) = self.parse_reuse.as_ref()?;
-        reuse.borrow_mut().source(*compile, path, bytes)
+        reuse.source(*compile, path, bytes)
     }
 
     fn keep_source(
@@ -249,16 +248,14 @@ impl Recorder for Editor {
         lines: &crate::source::LineIndex,
     ) {
         if let Some((reuse, compile)) = &self.parse_reuse {
-            reuse
-                .borrow_mut()
-                .keep_source(*compile, path, bytes, text, lines);
+            reuse.keep_source(*compile, path, bytes, text, lines);
         }
     }
 
     fn parse(&mut self, path: &Path, file: FileId, text: &Arc<str>) -> Option<Arc<SharedParse>> {
         let facts = self.facts.as_mut()?;
         let shared = if let Some((reuse, compile)) = &self.parse_reuse {
-            reuse.borrow_mut().parse(*compile, path, file, text)
+            reuse.parse(*compile, path, file, text)
         } else {
             let parsed = crate::parser::parse_file_ide(file, text);
             Arc::new(SharedParse {
