@@ -2,20 +2,24 @@
 
 ## [Unreleased]
 
-The language server, linter, formatter and interpreter are faster, and `jailsp` uses less memory, most on Windows.
+The language server, linter, formatter and interpreter are faster. `jailsp` uses less memory, most on Windows.
 
 ### Highlights
 
+- `jailsp` publishes errors after a keystroke in about 330 ms instead of 730 ms; the first completion takes 18 ms.
+- `jailsp` skips checking stdlib procedure bodies until compile-time code or the lints need them.
+- The interpreter plans each foreign procedure's calls once; a call-heavy benchmark takes 1.95 s instead of 3.34 s.
+- `jailint` shares parsed files across the roots of a run and no longer contends on the system allocator.
 - `jaifmt` runs one worker per core, or `-j N`; checking this repository takes a third of the time.
+- On Windows, `jailsp` gives freed memory back to the system after each compile. (#85, @ctzcs)
 
 ### Fixes
 
-- On Windows, `jailsp` gives freed memory back to the system after each compile. (#85, @ctzcs)
 - `jailsp` counts compiles for other operating systems toward its kept-compile limit. (#85, @ctzcs)
+- `jailsp` no longer keeps the named arguments of every past compile in memory. (#85, @ctzcs)
 - Compile-fail `.stderr` files write project paths as `$ROOT/...`, so they no longer differ between machines ([testing](docs/tools/jacket-test.md)).
 - A mismatch between same-named types of two module instances names each instance, e.g. `*Generator in Bindings_Generator(TARGET_OS = .LINUX)`.
 - `jailsp` publishes compiler errors as soon as the check finishes, and the lint findings after them.
-- `jailsp` skips checking stdlib procedure bodies until compile-time code or the lints need them.
 - Member completion works after a space before the dot (`value .field`).
 - The first completion in a busy `jailsp` session no longer waits for the auto-import index; auto imports follow later.
 
