@@ -99,7 +99,6 @@
     --foreign: oklch(73.5% 0.121 26.6deg);
     --generated: oklch(76% 0.1 250deg);
     --experimental: oklch(76% 0.12 350deg);
-  --experimental: oklch(76% 0.12 350deg);
     --tint: 17%;
     --scroll: oklch(34.3% 0.01 285.8deg);
     --scroll-hover: oklch(41.9% 0.013 285.8deg);
@@ -2787,6 +2786,7 @@ main blockquote[class^='markdown-alert-'] {
   padding-left: calc(1rem + 5px);
   border: 0;
   border-radius: 8px;
+
   /* The bar is a background so the rounded corners clip it straight instead of bending it. */
   background:
     linear-gradient(var(--alert), var(--alert)) left / 5px 100% no-repeat,
@@ -2794,7 +2794,7 @@ main blockquote[class^='markdown-alert-'] {
   color: var(--fg);
 }
 
-main blockquote[class^='markdown-alert-'] > p:last-child {
+main blockquote[class^='markdown-alert-'] > :last-child {
   margin-bottom: 0;
 }
 
