@@ -21,6 +21,7 @@ fn compile(source: &str, host: Option<WideFloat>, target: Option<WideFloat>) -> 
         os: TargetOs::Linux,
         cpu: TargetCpu::X64,
         long_double: host,
+        msvc: false,
         layout: jaic::layout::DataLayout::lp64_little(),
     };
     options.os = TargetOs::Linux;

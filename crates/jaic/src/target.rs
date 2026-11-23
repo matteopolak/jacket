@@ -437,6 +437,7 @@ impl Target {
         options.cpu = self.cpu;
         options.layout = self.data_layout();
         options.long_double = long_double_for(self.os, self.cpu, self.abi == TargetAbi::Gnu);
+        options.msvc = self.abi == TargetAbi::Msvc;
     }
 
     /// The C environment this target is built for and linked against.
@@ -621,6 +622,10 @@ pub fn select_os_cpu(options: &mut Options, os: Option<TargetOs>, cpu: Option<Ta
         options.cpu,
         options.os == TargetOs::Windows && host_os != TargetOs::Windows,
     );
+    // Another OS is checked with its usual C compiler, which for Windows is MinGW's.
+    if options.os != host_os {
+        options.msvc = false;
+    }
 }
 
 #[cfg(test)]

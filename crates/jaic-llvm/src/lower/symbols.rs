@@ -94,9 +94,12 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         self.apply_attrs(&lowered, |loc, attr| f.add_attribute(loc, attr));
         // The frontend already uses these guarantees to omit null checks. Map IR
         // parameters through the ABI plan: C aggregates may expand or disappear.
-        let mut index = u32::from(matches!(lowered.ret, super::plan::RetPlan::Sret));
+        let mut index = 0;
         for (param, plan) in lowered.params.iter().enumerate() {
             use super::plan::ParamPlan;
+            if lowered.is_sret(index as usize) {
+                index += 1;
+            }
             match plan {
                 ParamPlan::Scalar(jaic::ir::Ty::Ptr)
                     if func.trusted.contains(&jaic::ir::Val(param as u32)) =>

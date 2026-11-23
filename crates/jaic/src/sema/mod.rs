@@ -227,6 +227,8 @@ pub struct HostPlatform {
     pub cpu: TargetCpu,
     /// The host C compiler's `long double` when wider than `float64`; see `long_double_for`.
     pub long_double: Option<crate::wide_float::WideFloat>,
+    /// The host's C and C++ toolchain is Microsoft's; see `Options::msvc`.
+    pub msvc: bool,
     /// How the host lays out data.
     pub layout: crate::layout::DataLayout,
 }
@@ -239,6 +241,7 @@ impl HostPlatform {
             os,
             cpu,
             long_double: long_double_for(os, cpu, cfg!(target_env = "gnu")),
+            msvc: cfg!(target_env = "msvc"),
             layout: crate::target::Target::new(os, cpu).data_layout(),
         }
     }
@@ -279,6 +282,9 @@ pub struct Options {
     /// The target C compiler's `long double` when it is wider than `float64` (`None`: it is
     /// `float64`). Decides what `#jaic_type long_double` names; see `long_double_for`.
     pub long_double: Option<crate::wide_float::WideFloat>,
+    /// The target's C and C++ toolchain is Microsoft's (Windows, not MinGW): a `#cpp_method`
+    /// then returns a struct of any size through a hidden pointer passed after `this`.
+    pub msvc: bool,
     /// `Build_Options.dead_code_elimination`.
     pub dead_code: DeadCode,
     /// `Build_Options.entry_point_name`: the procedure the program starts in (`main`).
@@ -435,6 +441,7 @@ impl Options {
             stack_trace: true,
             debug_info: false,
             long_double: long_double_for(os, cpu, cfg!(target_env = "gnu")),
+            msvc: cfg!(target_env = "msvc"),
             dead_code: DeadCode::default(),
             entry_point: "main".into(),
             runtime_entry_point: true,

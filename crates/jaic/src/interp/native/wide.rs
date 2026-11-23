@@ -322,6 +322,7 @@ mod tests {
                 params: abi_params,
                 ret: Some(wide_layout(ty)),
                 ret_indirect: false,
+                ret_after_this: false,
             })),
         }
     }

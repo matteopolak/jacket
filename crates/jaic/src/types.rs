@@ -30,6 +30,9 @@ pub struct ProcType {
     /// `#cpp_return_type_is_non_pod`: a struct result is returned through a hidden
     /// result pointer even when the C ABI would return it in registers.
     pub non_pod_return: bool,
+    /// `#cpp_method`: a C++ member function, whose first parameter is the object. The
+    /// Microsoft C++ ABI returns its struct results through a pointer passed after it.
+    pub cpp_method: bool,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -539,7 +542,9 @@ impl Types {
                     s.push_str(" -> ");
                     s.push_str(&r.join(", "));
                 }
-                if p.c_call {
+                if p.cpp_method {
+                    s.push_str(" #cpp_method");
+                } else if p.c_call {
                     s.push_str(" #c_call");
                 }
                 s

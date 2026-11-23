@@ -112,6 +112,9 @@ impl<'ctx> Backend<'ctx, '_> {
         // `#cpp_return_type_is_non_pod`: C++ returns a class with a non-trivial copy or
         // destructor through the hidden result pointer, however small it is.
         let forced_sret = cabi.is_some_and(|c| c.ret_indirect);
+        // A Microsoft C++ member function takes the result pointer after its object, as an
+        // ordinary second argument.
+        let after_this = cabi.is_some_and(|c| c.ret_after_this);
         let ret = match &ret_agg {
             Some(layout) => {
                 if let Some(pieces) =
@@ -119,16 +122,19 @@ impl<'ctx> Backend<'ctx, '_> {
                 {
                     RetPlan::Registers(layout.clone(), pieces)
                 } else {
-                    attrs.push((0, ParamAttr::Sret(layout.size)));
-                    if abi::sret_is_inreg(self.arch, forced_sret) {
-                        attrs.push((0, ParamAttr::InReg));
+                    if !after_this {
+                        attrs.push((0, ParamAttr::Sret(layout.size)));
+                        if abi::sret_is_inreg(self.arch, forced_sret) {
+                            attrs.push((0, ParamAttr::InReg));
+                        }
+                        llvm_params.push(self.ptr_ty().into());
                     }
-                    llvm_params.push(self.ptr_ty().into());
                     RetPlan::Sret
                 }
             }
             None => RetPlan::Scalars(sig.returns.clone()),
         };
+        let mut sret_at = 0;
         // FastISel on AArch64 hands any function whose result is a bare `i8` or `i16` to the
         // slow instruction selector. Both sides of a Jai-convention call are ours, so the
         // callee can promise the extension. C results are left alone: a C callee need not
@@ -142,11 +148,18 @@ impl<'ctx> Backend<'ctx, '_> {
         let mut params = Vec::new();
         let mut budget = abi::RegBudget::new(
             self.arch,
-            matches!(ret, RetPlan::Sret) && abi::sret_takes_int_register(self.arch, forced_sret),
+            matches!(ret, RetPlan::Sret)
+                && (after_this || abi::sret_takes_int_register(self.arch, forced_sret)),
         );
         // Variadic arguments are not part of the LLVM function type.
         let mut fixed = None;
         for (i, &ty) in sig.params.iter().enumerate() {
+            if after_this && i == 1 && matches!(ret, RetPlan::Sret) {
+                sret_at = llvm_params.len() as u32;
+                let size = ret_agg.as_ref().map_or(0, |l| l.size);
+                attrs.push((sret_at, ParamAttr::Sret(size)));
+                llvm_params.push(self.ptr_ty().into());
+            }
             if sig.c_varargs && i == sig.c_fixed as usize {
                 fixed = Some(llvm_params.len());
             }
@@ -205,6 +218,7 @@ impl<'ctx> Backend<'ctx, '_> {
             params,
             ret,
             attrs,
+            sret_at,
         }
     }
 

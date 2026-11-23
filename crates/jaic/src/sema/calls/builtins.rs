@@ -531,6 +531,7 @@ impl Compiler {
                 c_call: header.flags.c_call(),
                 no_context: false,
                 non_pod_return: false,
+                cpp_method: false,
             })))
     }
 
@@ -563,6 +564,7 @@ impl Compiler {
                 c_call: header.flags.c_call(),
                 no_context: false,
                 non_pod_return: false,
+                cpp_method: false,
             })))
     }
 

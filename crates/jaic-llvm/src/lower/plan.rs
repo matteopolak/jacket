@@ -133,7 +133,8 @@ pub(super) enum RetPlan {
     Scalars(Vec<Ty>),
     /// C aggregate returned in register chunks; stored through the IR out-pointer.
     Registers(AggLayout, Vec<Piece>),
-    /// C aggregate returned through a hidden first `sret` pointer.
+    /// C aggregate returned through a hidden `sret` pointer, the LLVM parameter
+    /// `Lowered::sret_at`.
     Sret,
 }
 
@@ -155,6 +156,16 @@ pub(super) struct Lowered<'ctx> {
     pub(super) params: Vec<ParamPlan>,
     pub(super) ret: RetPlan,
     pub(super) attrs: Vec<(u32, ParamAttr)>,
+    /// The LLVM parameter of the `sret` pointer: the first, or the one after a Microsoft C++
+    /// member function's object (`CAbi::ret_after_this`).
+    pub(super) sret_at: u32,
+}
+
+impl Lowered<'_> {
+    /// Whether the LLVM parameter `index` is the `sret` pointer.
+    pub(super) fn is_sret(&self, index: usize) -> bool {
+        matches!(self.ret, RetPlan::Sret) && index == self.sret_at as usize
+    }
 }
 
 /// `n` empty slots for declarations made on first use.

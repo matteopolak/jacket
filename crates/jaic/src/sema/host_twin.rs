@@ -159,6 +159,7 @@ impl Compiler {
         options.os = os;
         options.cpu = cpu;
         options.long_double = host.long_double;
+        options.msvc = host.msvc;
         options.layout = host.layout;
         let layout = options.layout;
         let mut twin = Box::new(Compiler::new(options, self.src.fs.clone()));

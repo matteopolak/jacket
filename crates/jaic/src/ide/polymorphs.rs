@@ -303,7 +303,8 @@ impl Keys<'_> {
                             p.c_varargs,
                             p.c_call,
                             p.no_context,
-                            p.non_pod_return
+                            p.non_pod_return,
+                            p.cpp_method
                         )
                     ),
                 ])

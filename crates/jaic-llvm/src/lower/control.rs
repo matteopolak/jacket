@@ -109,10 +109,10 @@ impl<'ctx> Backend<'ctx, '_> {
                     .into_pointer_value(),
             );
         }
-        if matches!(lowered.ret, RetPlan::Sret) {
-            ll_args.push(out_ptr.expect("set above").into());
-        }
         for (i, &arg) in args.iter().enumerate() {
+            if lowered.is_sret(ll_args.len()) {
+                ll_args.push(out_ptr.expect("set above").into());
+            }
             match lowered.params.get(i) {
                 Some(ParamPlan::Dropped) => {}
                 Some(ParamPlan::Scalar(ty)) => ll_args.push(self.coerce(arg, *ty)?.into()),

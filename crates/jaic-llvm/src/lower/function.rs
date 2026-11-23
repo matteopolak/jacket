@@ -86,11 +86,11 @@ impl<'ctx> Backend<'ctx, '_> {
         let lowered = self.lower_sig(&func.sig);
         let params: Vec<BasicValueEnum<'ctx>> = st.function.get_param_iter().collect();
         let mut k = 0;
-        if matches!(lowered.ret, RetPlan::Sret) {
-            k = 1;
-        }
         self.builder.position_at_end(entry);
         for (i, plan) in lowered.params.iter().enumerate() {
+            if lowered.is_sret(k) {
+                k += 1;
+            }
             let value: BasicValueEnum<'ctx> = match plan {
                 ParamPlan::Scalar(_) => {
                     k += 1;
@@ -123,7 +123,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     }
                 },
                 ParamPlan::Dropped => match &lowered.ret {
-                    RetPlan::Sret => params[0],
+                    RetPlan::Sret => params[lowered.sret_at as usize],
                     RetPlan::Registers(layout, pieces) => {
                         let tmp = self.call_temp(st, layout.size, layout.align)?;
                         st.reg_ret = Some((pieces.clone(), tmp));

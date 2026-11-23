@@ -235,6 +235,9 @@ pub struct CAbi {
     /// The aggregate result is returned through a hidden result pointer whatever its
     /// size (`#cpp_return_type_is_non_pod`).
     pub ret_indirect: bool,
+    /// The hidden result pointer comes right after the first argument, the object of a
+    /// Microsoft C++ member function, instead of before every argument.
+    pub ret_after_this: bool,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]

@@ -18,6 +18,9 @@ pub struct Plan {
     pub(super) oversize: bool,
     /// Windows on arm64: the callee takes the result's address in `x0`.
     pub(super) result_in_x0: bool,
+    /// Windows on arm64: a C++ member function takes the result's address after its object,
+    /// as an ordinary argument (`x1`).
+    pub(super) result_after_this: bool,
     /// Windows on arm64: a variadic procedure takes every argument in general registers.
     pub(super) general_only: bool,
     /// The result needs the assembly call of `wide.rs`.
@@ -44,8 +47,9 @@ impl Plan {
         let cabi = sig.c_abi.as_deref();
         let ret_layout = cabi.and_then(|c| c.ret.as_ref());
         let forced_sret = cabi.is_some_and(|c| c.ret_indirect);
-        let (mut ret_pieces, mut sret, mut oversize, mut result_in_x0) =
-            (None, false, false, false);
+        let after_this = cabi.is_some_and(|c| c.ret_after_this);
+        let (mut ret_pieces, mut sret, mut oversize, mut result_in_x0, mut result_after_this) =
+            (None, false, false, false, false);
         let mut general_only = false;
         let mut params = Vec::new();
         if let Some(arch) = arch {
@@ -57,7 +61,9 @@ impl Plan {
                 && !(arch == Arch::Win64Arm && forced_sret)
                 && ret_layout.is_some_and(|l| l.size as usize > SRET_WORDS * 8);
             general_only = arch == Arch::Win64Arm && sig.c_varargs;
-            result_in_x0 = arch == Arch::Win64Arm && forced_sret && ret_layout.is_some();
+            result_after_this = arch == Arch::Win64Arm && after_this && ret_layout.is_some();
+            result_in_x0 =
+                arch == Arch::Win64Arm && forced_sret && !result_after_this && ret_layout.is_some();
             params = cabi
                 .map(|c| {
                     c.params
@@ -87,6 +93,7 @@ impl Plan {
             sret,
             oversize,
             result_in_x0,
+            result_after_this,
             general_only,
             wide_ret,
             scalar,

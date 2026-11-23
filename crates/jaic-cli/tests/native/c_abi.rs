@@ -1031,3 +1031,68 @@ fn msvc_c_runtime_variables_are_dllimport() {
         "{ir}"
     );
 }
+
+/// The Microsoft C++ ABI returns a member function's struct, however small, through a pointer
+/// passed after `this` (#86: an 8-byte D3D12 descriptor handle). MinGW follows the C rules and
+/// returns it in a register. Calls and definitions agree.
+#[test]
+fn msvc_cpp_methods_take_the_result_pointer_after_this() {
+    let dir = TempDir::new("native-msvc-cpp-method");
+    std::fs::write(
+        dir.join("main.jai"),
+        "Handle :: struct { ptr: u64; }\n\
+         Heap :: struct { vtable: *Heap_Vtable; }\n\
+         Heap_Vtable :: struct { start: #type (this: *Heap) -> Handle #cpp_method; }\n\
+         start :: (this: *Heap) -> Handle #cpp_method { return .{ ptr = 7 }; }\n\
+         main :: () {\n    vtable := Heap_Vtable.{ start };\n    heap := Heap.{ *vtable };\n    handle := heap.vtable.start(*heap);\n}\n",
+    )
+    .unwrap();
+    for (target, method) in [
+        ("x86_64-pc-windows-msvc", true),
+        ("aarch64-pc-windows-msvc", true),
+        ("x86_64-w64-windows-gnu", false),
+    ] {
+        // Only the IR matters: the link needs a Windows toolchain this host may lack.
+        jaic()
+            .args([
+                "main.jai", "-target", target, "-emit_ir", "main.ll", "-exe", "main",
+            ])
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        let ir = read_ir_parts(&dir.join("main.ll"));
+        let definition = ir
+            .lines()
+            .find(|l| l.starts_with("define") && l.contains("@start"))
+            .unwrap_or_else(|| panic!("{target}: no definition of start\n{ir}"));
+        let call = ir
+            .lines()
+            .find(|l| l.contains("call") && l.contains("(ptr %") && !l.contains('@'))
+            .unwrap_or_else(|| panic!("{target}: no call through the vtable\n{ir}"));
+        if method {
+            assert!(
+                definition.contains("(ptr %0, ptr sret([8 x i8]) %1)"),
+                "{target}: {definition}"
+            );
+            assert!(
+                call.contains("call void") && call.contains(", ptr sret([8 x i8])"),
+                "{target}: {call}"
+            );
+        } else {
+            assert!(
+                definition.contains("i64 @start") && !definition.contains("sret"),
+                "{target}: {definition}"
+            );
+            assert!(
+                call.contains("call i64") && !call.contains("sret"),
+                "{target}: {call}"
+            );
+        }
+        for part in std::fs::read_dir(dir.path()).unwrap() {
+            let path = part.unwrap().path();
+            if path.extension().is_some_and(|e| e == "ll") {
+                std::fs::remove_file(path).unwrap();
+            }
+        }
+    }
+}

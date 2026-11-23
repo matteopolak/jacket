@@ -282,6 +282,7 @@ impl Compiler {
                 c_call: false,
                 no_context: true,
                 non_pod_return: false,
+                cpp_method: false,
             })));
         if let Some(&func) = self.ty.initializers.get(&ty) {
             return Ok((func, proc_ty));

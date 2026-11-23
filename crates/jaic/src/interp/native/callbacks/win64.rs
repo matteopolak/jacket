@@ -212,13 +212,18 @@ fn invoke<S: Fn(usize) -> u64, X: Fn(usize) -> u64>(
         .filter(|_| !forced_sret)
         .is_some_and(|l| abi::classify_ret(Arch::Win64, l, &DataLayout::host()).is_some());
     let sret = ret_layout.is_some() && !in_rax;
-    // The hidden result pointer takes the first slot.
-    let mut position = sret as usize;
+    // The hidden result pointer takes the first slot, or for a C++ member function the one
+    // after its object.
+    let out_slot = usize::from(cabi.is_some_and(|c| c.ret_after_this));
+    let mut position = 0;
     // By-value aggregates in a slot are rebuilt in memory; the IR passes their addresses.
     let mut buffers: Vec<Vec<u64>> = Vec::new();
     let mut args = Vec::with_capacity(sig.params.len());
     let count = sig.params.len() - ret_layout.is_some() as usize;
     for (i, &param) in sig.params[..count].iter().enumerate() {
+        if sret && position == out_slot {
+            position += 1;
+        }
         let Some(layout) = cabi.and_then(|c| c.params.get(i)).and_then(Option::as_ref) else {
             args.push(incoming.scalar(position, param));
             position += 1;
@@ -255,7 +260,7 @@ fn invoke<S: Fn(usize) -> u64, X: Fn(usize) -> u64>(
     reenter(func, &args)?;
     drop(buffers);
     if sret {
-        let out = (incoming.slot)(0);
+        let out = (incoming.slot)(out_slot);
         // SAFETY: the caller's result buffer holds `layout.size` bytes.
         unsafe {
             std::ptr::copy_nonoverlapping(base as *const u8, out as *mut u8, layout.size as usize);

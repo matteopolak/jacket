@@ -486,6 +486,7 @@ impl Compiler {
             c_call,
             no_context: !has_context,
             non_pod_return: header.flags.cpp_return_type_is_non_pod(),
+            cpp_method: header.flags.cpp_method(),
         };
         let ty = self.ty.types.intern(TypeKind::Proc(Arc::new(proc_type)));
         Ok(Signature {

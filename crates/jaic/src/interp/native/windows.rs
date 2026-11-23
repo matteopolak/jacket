@@ -652,8 +652,10 @@ pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
     let out_ptr = out_index.map_or(0, |i| word_or_zero(args, i));
     let mut slots: Vec<u64> = Vec::new();
     let mut first_float = false;
-    // The hidden result pointer is the first argument.
-    if ret_layout.is_some() && ret_pieces.is_none() {
+    // The hidden result pointer is the first argument, or the second for a C++ member
+    // function (after its object).
+    let after_this = cabi.is_some_and(|c| c.ret_after_this);
+    if ret_layout.is_some() && ret_pieces.is_none() && !after_this {
         slots.push(out_ptr);
     }
     // Copies of aggregates passed by reference; alive until the call returns.
@@ -689,6 +691,9 @@ pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
                 copies.push(copy);
             }
         }
+    }
+    if after_this && ret_layout.is_some() {
+        slots.insert(slots.len().min(1), out_ptr);
     }
     if slots.len() > SLOTS {
         return Err(format!(

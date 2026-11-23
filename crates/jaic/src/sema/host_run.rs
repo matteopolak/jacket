@@ -25,6 +25,7 @@ impl Compiler {
         let mut options = self.options.clone();
         let host = options.host;
         (options.os, options.cpu, options.long_double) = (host.os, host.cpu, host.long_double);
+        options.msvc = host.msvc;
         options.layout = host.layout;
         let layout = options.layout;
         let mut host = Compiler::new(options.clone(), self.src.fs.clone());

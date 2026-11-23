@@ -729,7 +729,8 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig, plan: &Plan) -> Result<R
         plan.result_in_x0,
         plan.general_only,
     );
-    let mut regs = Regs::new(sret && !(oversize && X86_64));
+    let result_after_this = plan.result_after_this;
+    let mut regs = Regs::new(sret && !(oversize && X86_64) && !result_after_this);
     // Copies of large aggregates passed by address; alive until the call returns.
     let mut copies: Vec<Vec<u64>> = Vec::new();
     let mut out_ptr = 0;
@@ -739,6 +740,13 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig, plan: &Plan) -> Result<R
         regs.int(out)?;
     }
     for (i, &a) in args.iter().enumerate() {
+        // A C++ member function's result pointer follows its object.
+        if result_after_this
+            && i == 1
+            && let Some(&out) = args.get(sig.out_index())
+        {
+            regs.int(out)?;
+        }
         if ret_layout.is_some() && i == sig.out_index() {
             out_ptr = a;
             continue;
@@ -862,8 +870,8 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig, plan: &Plan) -> Result<R
     let Some(layout) = ret_layout else {
         return Ok(scalar_call(addr, &regs, sig.returns.first().copied()));
     };
-    if result_in_x0 {
-        // The callee writes the result through the pointer in x0.
+    if result_in_x0 || result_after_this {
+        // The callee writes the result through the pointer in x0 (or x1, after `this`).
         call_as::<u64>(addr, &regs);
         return Ok(Rets::default());
     }

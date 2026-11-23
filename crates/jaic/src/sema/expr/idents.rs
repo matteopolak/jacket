@@ -778,6 +778,7 @@ impl Compiler {
             c_call,
             no_context: c_call || header.flags.no_context(),
             non_pod_return: header.flags.cpp_return_type_is_non_pod(),
+            cpp_method: header.flags.cpp_method(),
         })));
         Ok(ty)
     }

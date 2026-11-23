@@ -198,7 +198,8 @@ pub fn callback_addr(
         {
             Some(pieces) => (shape_of(&pieces)?, false),
             None if X86_64 => (INT, true),
-            // MSVC on arm64 passes a non-POD result's address in x0, like the first argument.
+            // MSVC on arm64 passes a non-POD result's address in x0, like the first argument,
+            // and a member function's in x1, after its object.
             None if arch == Arch::Win64Arm && forced_sret => (INT, true),
             None if cfg!(target_arch = "aarch64") => (A64_SRET, true),
             None => {
@@ -594,9 +595,16 @@ fn invoke(
     } else {
         8
     };
-    let first = (sret && x8.is_none()) as usize;
+    // The hidden result pointer in an integer register: the first, or for a Microsoft C++
+    // member function the one after its object.
+    let out_reg =
+        (sret && x8.is_none()).then(|| usize::from(cabi.is_some_and(|c| c.ret_after_this)));
+    let mut arguments = ints[..int_regs].to_vec();
+    if let Some(at) = out_reg {
+        arguments.remove(at);
+    }
     let mut incoming = Incoming {
-        ints: ints[first..int_regs].to_vec(),
+        ints: arguments,
         floats,
         stack,
         ni: 0,
@@ -669,7 +677,7 @@ fn invoke(
     reenter(func, &args)?;
     drop(buffers);
     if sret {
-        let out = x8.unwrap_or(ints[0]);
+        let out = x8.unwrap_or(ints[out_reg.unwrap_or(0)]);
         // SAFETY: the caller's result buffer holds `layout.size` bytes.
         unsafe {
             std::ptr::copy_nonoverlapping(base as *const u8, out as *mut u8, layout.size as usize);

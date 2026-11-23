@@ -43,7 +43,11 @@ impl Compiler {
                 params.push(Ty::Ptr);
                 if p.c_call && i == 0 {
                     c_abi.ret = Some(self.agg_layout(t, span)?);
-                    c_abi.ret_indirect = p.non_pod_return;
+                    // MSVC returns a member function's struct through a pointer after `this`,
+                    // whatever its size.
+                    c_abi.ret_after_this =
+                        p.cpp_method && self.options.msvc && !p.params.is_empty();
+                    c_abi.ret_indirect = p.non_pod_return || c_abi.ret_after_this;
                 }
                 c_abi.params.push(None);
             }

@@ -33,6 +33,16 @@ Vtable :: struct { add: #type (this: *Obj, x: s32) -> s32 #cpp_method; }
 
 `#cpp_return_type_is_non_pod` on a foreign procedure forces a struct result through the hidden result pointer whatever its size (`CAbi::ret_indirect`). For vtable layout see [C++ vtables](cpp-vtables.md).
 
+On the Microsoft toolchain (`Options::msvc`: Windows, not MinGW) a `#cpp_method` returns every struct, however small, through a hidden pointer passed right after the object (`CAbi::ret_after_this`). A D3D12 descriptor handle (8 bytes) comes back this way:
+
+```jai
+GetCPUDescriptorHandleForHeapStart: #type (this: *ID3D12DescriptorHeap) -> D3D12_CPU_DESCRIPTOR_HANDLE #cpp_method;
+// MSVC: call void %f(ptr %this, ptr sret([8 x i8]) %result)
+// MinGW, macOS, Linux: call i64 %f(ptr %this)
+```
+
+The LLVM backend puts the `sret` pointer at `Lowered::sret_at`; the interpreter's Windows calls (`native/windows.rs`, `native.rs` on arm64) and callbacks place it the same way.
+
 ## How to change it
 
 - New architecture or rule: extend `abi.rs` (it has unit tests), then `bind_params` and call lowering in `crates/jaic-llvm/src/lower.rs`, and `interp/native.rs`. Keep all three in step.
