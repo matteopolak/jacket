@@ -35,6 +35,10 @@ pub struct ProcState {
     /// again if it is lowered again). Metaprogram exports read it from a cursor, so reporting
     /// finished bodies costs what is new, not every procedure of the program.
     pub(in crate::sema) done_log: Vec<ProcId>,
+    /// Library bodies left unchecked (`BodyState::Deferred`) and how many of them something
+    /// later needed (`promoted_bodies`): the cost of the fallback is visible.
+    pub deferred_bodies: u64,
+    pub promoted_bodies: u64,
     /// Procedures that need their bodies lowered.
     pub body_queue: Probed<Vec<ProcId>, { W::PrBodyQueue as usize }>,
     /// Queued bodies whose last lenient attempt failed at `parked_epoch`: skipped as a group by

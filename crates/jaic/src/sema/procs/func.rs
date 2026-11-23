@@ -117,9 +117,14 @@ impl Compiler {
                 return Ok(target);
             }
             let func = self.out.program.reserve_func_with_sig(display, ir_sig);
-            self.pr.procs[id.0 as usize].body_state = BodyState::Queued;
-            crate::sema::body_probe::enqueued(id.0);
-            self.pr.body_queue.push(id);
+            if self.defers_body(id) {
+                self.pr.procs[id.0 as usize].body_state = BodyState::Deferred;
+                self.pr.deferred_bodies += 1;
+            } else {
+                self.pr.procs[id.0 as usize].body_state = BodyState::Queued;
+                crate::sema::body_probe::enqueued(id.0);
+                self.pr.body_queue.push(id);
+            }
             ProcTarget::Func(func)
         };
         self.pr.set_proc_target(id, target);

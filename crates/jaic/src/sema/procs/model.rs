@@ -81,9 +81,19 @@ pub struct ProcInfo {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BodyState {
     NotNeeded,
+    /// Needed by a call but left unchecked: a library procedure no answer comes from
+    /// (`Options::defer_library_bodies`). `lower_body` checks it when something asks.
+    Deferred,
     Queued,
     Lowering,
     Done,
+}
+
+impl ProcInfo {
+    /// Whether the body is still to be checked, now or when something asks for it.
+    pub fn needs_body(&self) -> bool {
+        matches!(self.body_state, BodyState::Queued | BodyState::Deferred)
+    }
 }
 
 /// Does a type expression contain `$T` binders?

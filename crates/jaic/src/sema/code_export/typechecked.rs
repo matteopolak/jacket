@@ -372,7 +372,7 @@ impl Compiler {
             && !self.proc(p).is_poly
             && !self.proc(p).is_macro
             && self.proc_func(p, self.proc(p).span).is_ok()
-            && self.proc(p).body_state == procs::BodyState::Queued
+            && self.proc(p).needs_body()
         {
             let _ = self.lower_with_callees(p);
         }
