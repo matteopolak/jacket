@@ -1,0 +1,8 @@
+count: 3
+second: two
+contains two: true
+contains four: false
+responds to length: true
+responds to nonexistent: false
+is NSString: true
+is NSArray: true

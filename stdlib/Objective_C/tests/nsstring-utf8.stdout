@@ -1,0 +1,6 @@
+length: 9
+utf8 bytes: 14
+round trip equal: true
+empty length: 0
+copy equal: true
+copy length: 9
