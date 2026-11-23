@@ -26,6 +26,8 @@ Jacket builds for 32-bit, big-endian and bare-metal targets, and Sound_Player no
 - Hover shows every parameter of a multi-line declaration. (#82, @ElectronPie)
 - `malloc` and `memmove` work on 32-bit ARM.
 - `jacket test` colours its report under `FORCE_COLOR`, and shows nearby paths relative, as jaic does.
+- `jacket migrate` also renames `Swap`, `get_time`, `bubble_sort` and `.COMPILATION_PHASE`, and fixes `#assert(..., message = ...)` and `follow_symlinks`.
+- `jacket migrate` rewrites `make_vector2` calls whose arguments start with `cast` or `xx`, and keeps arguments after `allocator =` ordinary.
 
 ## [0.37.0] - 2026-11-21
 

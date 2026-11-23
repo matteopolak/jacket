@@ -57,7 +57,7 @@ If the code is in a git repository but `git` isn't installed, the command fails 
 2. Add a `Migration` constant to `crates/jailint/src/migrate/rules.rs`. List it in `MIGRATIONS`, which runs in the order the language changed.
    - Use `Detect::Tokens` for a form the current lexer reads but the language rejects.
    - Use `Detect::Error` to answer a diagnostic code. Copy the code from the compiler's output (`error[unknown-identifier]`).
-3. Make the detection decide from the code alone, and mark the migration `ambiguous` if it can't.
+3. Make the detection decide from the code alone, and mark the migration `ambiguous` if it can't. A rename that is only a table entry goes in the table of `renamed-identifiers`, `renamed-members` or `renamed-arguments`.
 4. When no rewrite can be right, return `Answer::Manual` with what to do instead.
 5. Add a line to the table below.
 
@@ -69,8 +69,12 @@ Migrations are written from what changed, not from another compiler's sources. N
 |---|---|---|
 | `context-type-directive` | `c: Context;` | `c: #Context;` |
 | `foreign-library-directive` | `#foreign_library "x"`, `#foreign_system_library "x"` | `#library "x"`, `#system_library "x"` |
-| `vector-component-constructor` | `make_vector2(x, y)` (one argument per component) | `Vector2.{x, y}`; a qualifier stays (`M.Vector3.{...}`) |
-| `removed-basic-procedures` | `get_time()`, `bubble_sort(...)` | a note saying what to use; no rewrite |
+| `vector-component-constructor` | `make_vector2(x, y)` (one argument per component), also when an argument starts with `cast` or `xx` | `Vector2.{x, y}`; a qualifier stays (`M.Vector3.{...}`) |
+| `renamed-identifiers` | `Swap(*a, *b)`, `get_time()`, `bubble_sort(a, f)`, `__temporary_allocator`, `compiler_get_command_line_arguments()`, `Build_Output_Type.NO_OUTPUT` | `swap(...)`, `seconds_since_init()`, `quick_sort(a, f)`, `temp`, `get_command_line_arguments()`, `Build_Options.Output_Type.NO_OUTPUT`; only where the old name is unknown |
+| `renamed-members` | `.COMPILATION_PHASE` | `.PHASE` |
+| `renamed-arguments` | `file_list(p, follow_symlinks = f)` | `file_list(p, follow_directory_symlinks = f)` |
+| `assert-message-positional` | `#assert(c, message = "m")` | `#assert(c, "m")` |
+| `removed-modules` | `#import "Render";` | a note: `Dynamic_Font` is in `Simp`; no rewrite |
 | `allocator-context-argument` | `New(T, allocator = a)` | `New(T,, allocator = a)` |
 | `versioned-module-import` | `#import "freetype-2.12.1";` | `#import "freetype";`, when a module named `freetype` exists |
 
@@ -83,3 +87,8 @@ There's no configuration of its own. The project's `jacket.toml` sets which file
 - `jailint::driver` compiles roots and collects compile errors, with an in-memory overlay.
 - `similar` prints the diffs.
 - `git` is needed for `--apply` inside a repository.
+
+## Caveats
+
+- `bubble_sort` is stable and `quick_sort` is not: equal elements may change places after the rewrite.
+- `seconds_since_init` counts seconds as a `float64` from the program's start. Code that compares it with another clock needs a look.
