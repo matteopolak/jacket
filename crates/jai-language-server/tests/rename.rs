@@ -72,7 +72,13 @@ const EDIT_COUNTS: &[(&str, &str, &str, usize)] = &[
     (ANCHORS, "base: Header;\n    #place", "b", 2),
     (ANCHORS, "table: *u8", "t", 3),
     (ANCHORS, "tag: u32", "t", 2),
+    // A call through a procedure value names the parameters of the procedure the value comes
+    // from, or of the type it is declared with: the named argument is a use of that parameter.
+    (PROC_VALUES, "rest: ..int) -> int {", "more", 4),
+    (PROC_VALUES, "rest: ..int) -> int =", "more", 2),
 ];
+
+const PROC_VALUES: &str = "sum :: (base: int, rest: ..int) -> int {\n    for rest base += it;\n    return base;\n}\n\nmain :: () {\n    s := sum;\n    a := s(base = 5, rest = 7, 8);\n    c := sum(1, rest = 2, 3);\n    p: (base: int, rest: ..int) -> int = sum;\n    b := p(rest = 1, base = 2);\n}\n";
 
 const ANCHORS: &str = "Header :: struct {\n    tag: u32;\n    table: *u8;\n}\n\nObject :: struct {\n    pad: u64;\n    using base: Header;\n    #overlay(base.table) typed: *u32;\n}\n\nPlaced :: struct {\n    pad: u64;\n    base: Header;\n    #place base.table;\n    other: *u32;\n}\n\nPromoted :: struct {\n    using header: Header;\n    #overlay(tag) small: u32;\n}\n";
 

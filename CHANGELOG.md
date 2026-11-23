@@ -22,6 +22,7 @@ The language server, linter, formatter and interpreter are faster. `jailsp` uses
 - `jailsp` publishes compiler errors as soon as the check finishes, and the lint findings after them.
 - Member completion works after a space before the dot (`value .field`).
 - The first completion in a busy `jailsp` session no longer waits for the auto-import index; auto imports follow later.
+- Renaming a parameter also renames named arguments in calls through procedure values and named variadic packs (`rest = 7, 8`).
 
 ## [0.38.0] - 2026-11-22
 

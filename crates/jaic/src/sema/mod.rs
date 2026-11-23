@@ -604,7 +604,8 @@ pub struct Compiler {
 pub struct ProcTypeParams {
     /// Lexical bodyless declaration, independent of structural procedure type identity.
     pub declaration: Option<Arc<ast::ProcHeader>>,
-    pub names: Vec<Option<Sym>>,
+    /// Each parameter's name, where it is declared (an empty span when nothing declares it).
+    pub names: Vec<Option<ast::Ident>>,
     pub defaults: Vec<Option<ast::Expr>>,
     pub scope: ScopeId,
     /// Lexical headers on declared procedure-valued results.

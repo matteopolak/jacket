@@ -116,7 +116,7 @@ fn callback(
             .iter()
             .enumerate()
             .map(|(i, &ty)| {
-                let name = header.names[i].map(|n| n.as_str().to_owned());
+                let name = header.names[i].map(|n| n.name.as_str().to_owned());
                 let mut detail = format!(
                     "{}: {}",
                     name.as_deref().unwrap_or("_"),

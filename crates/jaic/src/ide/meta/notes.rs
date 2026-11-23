@@ -274,23 +274,56 @@ impl Compiler {
     fn ide_note_named_args(&mut self, chosen: ProcId, slots: &[Slot], args: &[CallArg]) {
         let header = self.proc(chosen).lit.header.clone();
         let sig = self.proc(chosen).sig.clone();
-        for (param, slot) in slots.iter().enumerate() {
-            let (Slot::Arg(a) | Slot::Spread(a)) = slot else {
-                continue;
-            };
-            let arg = &args[*a];
-            let Some(name) = arg.name else {
-                continue;
-            };
-            let at = name.span;
+        self.ide_note_parameter_names(slots, args, |param| {
             let ty = sig
                 .as_ref()
                 .and_then(|s| s.params.get(param))
                 .map_or(TypeId::COMPILE_TIME, |p| p.ty);
-            let decl = header
-                .params
-                .get(param)
-                .and_then(|p| p.name)
+            (ty, header.params.get(param).and_then(|p| p.name))
+        });
+    }
+
+    /// Each `name = value` argument of a call through a procedure value: `names` are the
+    /// parameters of the procedure the value comes from, or of the type it is declared with,
+    /// so renaming one of those renames the argument.
+    pub(crate) fn ide_note_value_named_args(
+        &mut self,
+        names: &[Option<crate::ast::Ident>],
+        types: &[TypeId],
+        slots: &[Slot],
+        args: &[CallArg],
+    ) {
+        self.ide_note_parameter_names(slots, args, |param| {
+            (
+                types.get(param).copied().unwrap_or(TypeId::COMPILE_TIME),
+                names.get(param).copied().flatten(),
+            )
+        });
+    }
+
+    /// Notes each named argument in `slots` as a use of its parameter; `parameter` gives the
+    /// parameter's type and its declared name.
+    fn ide_note_parameter_names(
+        &mut self,
+        slots: &[Slot],
+        args: &[CallArg],
+        parameter: impl Fn(usize) -> (TypeId, Option<crate::ast::Ident>),
+    ) {
+        // `rest = 7, 8` names a variadic parameter with the first argument of its pack.
+        let named = slots.iter().enumerate().flat_map(|(param, slot)| {
+            let list: &[usize] = match slot {
+                Slot::Arg(a) | Slot::Spread(a) => std::slice::from_ref(a),
+                Slot::Variadic(list) => list,
+                Slot::Default => &[],
+            };
+            list.iter()
+                .filter_map(|&a| args[a].name)
+                .map(move |name| (param, name))
+        });
+        for (param, name) in named.collect::<Vec<_>>() {
+            let at = name.span;
+            let (ty, declared) = parameter(param);
+            let decl = declared
                 .filter(|n| n.span.end > n.span.start)
                 .map(|n| n.span);
             let Some(ide) = self.ed.facts_mut() else {

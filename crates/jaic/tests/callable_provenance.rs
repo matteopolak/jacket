@@ -2,6 +2,11 @@
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 use std::{path::PathBuf, rc::Rc};
 
+/// The parameter names of a procedure value's header, without where they are declared.
+fn names(header: &jaic::sema::ProcTypeParams) -> Vec<Option<jaic::intern::Sym>> {
+    header.names.iter().map(|n| n.map(|n| n.name)).collect()
+}
+
 fn compile(source: &str) -> Result<(), String> {
     let mut options = Options::host();
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
@@ -275,14 +280,14 @@ fn ide_metadata_api_selects_fields_instead_of_equal_types_or_offsets() {
         .callable_member_parameters(pointer, Sym::intern("second"), Span::NONE)
         .unwrap()
         .unwrap();
-    assert_eq!(first.names, vec![Some(Sym::intern("public_flag"))]);
-    assert_eq!(second.names, vec![Some(Sym::intern("hidden_flag"))]);
+    assert_eq!(names(&first), vec![Some(Sym::intern("public_flag"))]);
+    assert_eq!(names(&second), vec![Some(Sym::intern("hidden_flag"))]);
     let public = compiler.lookup(scope, Sym::intern("Public")).unwrap()[0];
     let header = compiler
         .callable_entity_parameters(public)
         .unwrap()
         .unwrap();
-    assert_eq!(header.names, first.names);
+    assert_eq!(names(&header), names(&first));
 }
 
 #[test]

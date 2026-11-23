@@ -128,7 +128,7 @@ impl Compiler {
             return Ok(Some(Arc::new(ProcTypeParams {
                 declaration: (!matches!(&expression.kind, E::Proc(p) if p.body.is_some()))
                     .then(|| header.clone()),
-                names: parameters.iter().map(|p| p.name.map(|n| n.name)).collect(),
+                names: parameters.iter().map(|p| p.name).collect(),
                 defaults: parameters.iter().map(|p| p.default.clone()).collect(),
                 scope,
                 returns,
@@ -286,13 +286,27 @@ impl Compiler {
         } else {
             None
         };
+        // A name points at the header's parameter of that name; instances and generated
+        // procedures may have parameters no header declares.
+        let header = self.proc(procedure).lit.header.clone();
+        let declared = |name: super::Sym| {
+            header
+                .params
+                .iter()
+                .filter_map(|p| p.name)
+                .find(|n| n.name == name)
+                .unwrap_or(ast::Ident {
+                    name,
+                    span: super::Span::NONE,
+                })
+        };
         Ok(Arc::new(ProcTypeParams {
             declaration,
             names: signature
                 .params
                 .iter()
                 .filter(|p| !(signature.c_varargs && p.variadic))
-                .map(|p| p.name)
+                .map(|p| p.name.map(declared))
                 .collect(),
             defaults: signature
                 .params

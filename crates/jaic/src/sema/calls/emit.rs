@@ -565,7 +565,7 @@ impl Compiler {
         let last = pt.params.len().checked_sub(1);
         let mut params: Vec<SlotParam> = (0..pt.params.len())
             .map(|i| SlotParam {
-                name: info.and_then(|info| info.names.get(i).copied().flatten()),
+                name: info.and_then(|info| info.names.get(i).copied().flatten().map(|n| n.name)),
                 variadic: pt.variadic && Some(i) == last,
                 span: None,
             })
@@ -627,6 +627,9 @@ impl Compiler {
         }
         let slots = Self::indirect_slots(&pt, parameters.as_deref(), &args, span)
             .map_err(|d| self.with_type_note(*d, ty))?;
+        if let Some(info) = &parameters {
+            self.ide_note_value_named_args(&info.names, &pt.params, &slots, &args);
+        }
         let mut mapped = Vec::new();
         let allocator = if f.lifetimes.is_some() && !f.type_only {
             self.preload_type(crate::sema::PreludeType::Allocator, span)
@@ -689,7 +692,10 @@ impl Compiler {
                                 span,
                                 format!("missing argument {}", i + 1),
                             );
-                            if let Some(name) = parameters.as_ref().and_then(|info| info.names[i]) {
+                            if let Some(name) = parameters
+                                .as_ref()
+                                .and_then(|info| info.names[i].map(|n| n.name))
+                            {
                                 d = d.with_label(format!("no value for parameter `{name}`"));
                             }
                             return Err(self.with_type_note(d, ty));
