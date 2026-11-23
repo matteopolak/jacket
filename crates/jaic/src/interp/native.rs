@@ -27,9 +27,11 @@ mod wide;
 mod windows;
 #[cfg(all(windows, any(target_arch = "x86_64", target_arch = "aarch64")))]
 pub(super) use windows::set_last_error;
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 mod plan;
 #[cfg(windows)]
 mod windows_imports;
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 pub use plan::Plan;
 mod words;
 use words::{read_bytes, write_bytes};
