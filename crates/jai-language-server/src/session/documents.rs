@@ -17,6 +17,16 @@ pub(crate) struct Finding {
     pub suggestions: Vec<jaic::source::Suggestion>,
 }
 
+/// How much of a check a publication carries.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Stage {
+    /// The compiler's errors and warnings and the unreachable code: what the compile gives.
+    Compile,
+    /// Everything: the lints and what the other programs of a file find too. Always a superset
+    /// of `Compile`, so it replaces it.
+    Full,
+}
+
 impl Session {
     pub fn open(&mut self, uri: DocumentUri, version: i32, text: String) -> Result<(), Error> {
         if self.document_uri(&uri).is_some() {
@@ -212,14 +222,27 @@ impl Session {
     /// `jaic::interrupt::request`): then `None`, nothing is kept of the partial check, and the
     /// requests that came in are free to run before it starts again.
     pub fn publications_unless_interrupted(&self) -> Option<Vec<(String, i32, Vec<Diagnostic>)>> {
+        self.staged_unless_interrupted(Stage::Full)
+    }
+
+    /// `publications_unless_interrupted` for one `stage` of the check: the transport publishes
+    /// `Stage::Compile` first, then `Stage::Full` once input is quiet.
+    pub fn staged_unless_interrupted(
+        &self,
+        stage: Stage,
+    ) -> Option<Vec<(String, i32, Vec<Diagnostic>)>> {
         jaic::interrupt::arm();
-        let all = self.publications();
+        let all = self.publications_at(stage);
         (!jaic::interrupt::disarm()).then_some(all)
     }
 
     /// The diagnostics of every open document. One whose check did not finish is left out, so
     /// the client keeps what it shows until the next publication.
     pub fn publications(&self) -> Vec<(String, i32, Vec<Diagnostic>)> {
+        self.publications_at(Stage::Full)
+    }
+
+    fn publications_at(&self, stage: Stage) -> Vec<(String, i32, Vec<Diagnostic>)> {
         let _background = self.background();
         self.documents
             .iter()
@@ -229,7 +252,8 @@ impl Session {
                     .expect("opened document has analysis")
                     .diagnostics
                     .clone();
-                self.add_semantic_diagnostics(uri, &mut diagnostics).ok()?;
+                self.add_semantic_diagnostics(uri, &mut diagnostics, stage)
+                    .ok()?;
                 Some((uri.as_str().into(), doc.version, diagnostics))
             })
             .collect()
@@ -362,7 +386,7 @@ impl Session {
             .expect("opened document has analysis")
             .diagnostics
             .clone();
-        self.add_semantic_diagnostics(uri, &mut diagnostics)?;
+        self.add_semantic_diagnostics(uri, &mut diagnostics, Stage::Full)?;
         Ok(diagnostics)
     }
 
@@ -375,6 +399,7 @@ impl Session {
         &self,
         uri: &DocumentUri,
         all: &mut Vec<Diagnostic>,
+        stage: Stage,
     ) -> Result<(), Error> {
         let mut found: Vec<Diagnostic> = self
             .try_check_findings(uri)?
@@ -382,9 +407,11 @@ impl Session {
             .map(|f| f.diagnostic)
             .collect();
         found.extend(self.unreachable_diagnostics(uri));
-        found.extend(self.lint_diagnostics(uri));
-        let others = self.sibling_program_diagnostics(uri)?;
-        super::workspace_diagnostics::merge(&mut found, &others);
+        if stage == Stage::Full {
+            found.extend(self.lint_diagnostics(uri));
+            let others = self.sibling_program_diagnostics(uri)?;
+            super::workspace_diagnostics::merge(&mut found, &others);
+        }
         // After the checks: they run the build metaprograms whose facts say what is reached.
         if self.is_unreached(uri) {
             all.push(super::workspace_diagnostics::not_in_program(

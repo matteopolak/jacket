@@ -5,7 +5,7 @@ use super::methods::{
 };
 use super::params::CancelParams;
 use super::{JsonSession, Lifecycle, ProtocolError, RequestId};
-use crate::{Error, Limits, MarkupKind, Session};
+use crate::{Error, Limits, MarkupKind, Session, Stage};
 use serde_json::{Value, json};
 use std::collections::VecDeque;
 
@@ -30,6 +30,7 @@ impl JsonSession {
             pull_diagnostics: false,
             defer_publications: false,
             publications_pending: false,
+            lints_pending: false,
             index_progress: super::progress::IndexProgress::default(),
             workspace_published: std::collections::BTreeSet::new(),
             refresh_diagnostics: false,
@@ -232,6 +233,7 @@ impl JsonSession {
     /// The diagnostics of every open document as they are now (one compile at most), for the
     /// edits since the last flush. Empty for a client that pulls.
     pub fn flush_publications(&mut self) -> Result<Vec<String>, ProtocolError> {
+        self.lints_pending = false;
         if !std::mem::take(&mut self.publications_pending) {
             return Ok(Vec::new());
         }
@@ -247,13 +249,36 @@ impl JsonSession {
         if !self.publications_pending {
             return Ok(Vec::new());
         }
-        let Some(publications) = self.session.publications_unless_interrupted() else {
+        // The compiler's diagnostics go out as soon as the compile is done; the lints follow
+        // from `flush_lints_unless_interrupted` when input is quiet.
+        let Some(publications) = self.session.staged_unless_interrupted(Stage::Compile) else {
             return Ok(Vec::new());
         };
         self.publications_pending = false;
+        self.lints_pending = true;
         let mut messages = Self::publication_messages(publications);
         messages.extend(self.compile_refreshes());
         self.encode_unprompted(messages)
+    }
+
+    /// The compile's diagnostics were published and the lints were not.
+    pub fn lints_pending(&self) -> bool {
+        self.lints_pending && !self.publications_pending
+    }
+
+    /// The whole check, lints included, of what `flush_publications_unless_interrupted`
+    /// published without them. Stopped by input like it is: nothing is published and the
+    /// lints stay pending. An edit that came in meanwhile supersedes it (its own publication
+    /// runs first and sets the lints pending again).
+    pub fn flush_lints_unless_interrupted(&mut self) -> Result<Vec<String>, ProtocolError> {
+        if !self.lints_pending() {
+            return Ok(Vec::new());
+        }
+        let Some(publications) = self.session.staged_unless_interrupted(Stage::Full) else {
+            return Ok(Vec::new());
+        };
+        self.lints_pending = false;
+        self.encode_unprompted(Self::publication_messages(publications))
     }
 
     pub fn handle_json(&mut self, input: &str) -> Result<Vec<String>, ProtocolError> {

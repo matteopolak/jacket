@@ -161,6 +161,21 @@ fn serve(untrusted: bool) -> Result<u8, Box<dyn std::error::Error>> {
                 Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Ok(Input::end()),
                 Ok(received) => received,
             }
+        } else if session.lints_pending() {
+            // The compiler's diagnostics are out; the lints are worked out while input is
+            // quiet and stop for any that arrives.
+            jaic::interrupt::request(false);
+            match input.try_recv() {
+                Ok(received) => received,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => Ok(Input::end()),
+                Err(std::sync::mpsc::TryRecvError::Empty) => {
+                    for message in session.flush_lints_unless_interrupted()? {
+                        output.write_all(&jai_language_server::framing::encode(&message))?;
+                    }
+                    output.flush()?;
+                    continue;
+                }
+            }
         } else if session.compile_pending() {
             // The compile that ranks completion waits for quiet input like the diagnostics
             // do, so it does not hold up the next keystroke's request.

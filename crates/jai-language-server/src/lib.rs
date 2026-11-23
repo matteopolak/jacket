@@ -54,7 +54,7 @@ pub use model::{
 pub use position::{Position, Range};
 pub use protocol::{JsonSession, ProtocolError, RequestId, message_too_large, oversized_replies};
 pub use semantic::{Environment, SemanticAnalysisContext, SemanticCoverage, SemanticPath};
-pub use session::Session;
+pub use session::{Session, Stage};
 
 const MIB: usize = 1024 * 1024;
 
