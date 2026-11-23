@@ -1,0 +1,15 @@
+lines=4
+line 0 start=0 end=2 text=[ab]
+line 1 start=4 end=6 text=[cd]
+line 2 start=7 end=7 text=[]
+line 3 start=8 end=12 text=[last]
+offset 2 line=0 offset 3 line=0 offset 7 line=2 offset 12 line=3
+typed=abc!
+undo1 ok=true cursor=3 text=abc
+undo2 ok=true cursor=0 text=[] can_undo=false
+redo2 ok=true cursor=4 text=abc!
+after erases=abcd
+undo erases ok=true cursor=6 text=abcdef
+grouped=yxba
+grouped undone=base
+ok

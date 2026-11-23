@@ -1,0 +1,12 @@
+start lines=3 length=14
+after split lines=4
+after join lines=3 first=[onetw]
+text=onetw
+o
+THREE!|
+range=[onetw] from=6 missing=-1
+last=[THREE!] count=3
+copy=[onetw] buffer=[tw
+o
+THREE!]
+ok
