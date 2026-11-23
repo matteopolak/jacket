@@ -13,6 +13,11 @@ pub const BOARDS: &str = "Extensions/Embedded/Boards";
 /// command that runs its programs. A test keeps this in step with [`BOARDS`].
 const BUILT_IN: &[(&str, &str, &str)] = &[
     (
+        "Arduino_Uno",
+        "avr-none-elf",
+        "qemu-system-avr -M uno -bios {exe} -nographic -serial stdio -monitor none",
+    ),
+    (
         "Qemu_Virt_Aarch64",
         "aarch64-none-elf",
         "qemu-system-aarch64 -M virt -cpu cortex-a53 -nographic -nic none \

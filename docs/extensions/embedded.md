@@ -79,6 +79,7 @@ A board lives in `Extensions/Embedded/Boards/<Name>` and holds its memory map an
 
 | Board | Core | Runs on |
 | --- | --- | --- |
+| `Arduino_Uno` | ATmega328P, 8-bit AVR | `qemu-system-avr -M uno` |
 | `Qemu_Virt_Aarch64` | Cortex-A53, AArch64 | `qemu-system-aarch64 -M virt` |
 | `Mps2_An386` | Cortex-M4F, Thumb-2 | `qemu-system-arm -M mps2-an386 -cpu cortex-m4` |
 | `Mps2_An505` | Cortex-M33 (secure state), Thumb-2 | `qemu-system-arm -M mps2-an505 -cpu cortex-m33` |
