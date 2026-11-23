@@ -331,23 +331,6 @@ pub fn above(text: &str, at: usize) -> Option<String> {
     above_in(&trivia(text), at)
 }
 
-fn above_in(t: &Trivia, at: usize) -> Option<String> {
-    let run = t.docs_run(line_start(&t.text, at));
-    let mut lines: Vec<&str> = run
-        .into_iter()
-        .flat_map(|c| t.bodies(c))
-        .map(|b| b.text)
-        .collect();
-    while lines.first().is_some_and(|l| l.is_empty()) {
-        lines.remove(0);
-    }
-    while lines.last().is_some_and(|l| l.is_empty()) {
-        lines.pop();
-    }
-    let doc = lines.join("\n");
-    (!doc.trim().is_empty()).then_some(doc)
-}
-
 /// The `// ...` after a field, member or parameter declared at `at` (its name), if what
 /// comes before it on the line is a whole declaration rather than the start of a body.
 pub fn trailing(text: &str, at: usize) -> Option<String> {
@@ -1191,6 +1174,7 @@ pub use experimental::{EXPERIMENTAL, noted, strip_experimental};
 mod forward;
 pub use forward::{Resolver, alias_target, docs_site};
 mod located;
+use located::above_in;
 pub use located::{Located, declaration_comments, located_above, opening};
 mod items;
 pub mod unresolved;

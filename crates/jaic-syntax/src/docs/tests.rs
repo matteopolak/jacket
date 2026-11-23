@@ -228,3 +228,13 @@ fn markdown_escapes_and_block_comment_links_map_back_to_the_file() {
         .collect();
     assert_eq!(labels, ["helper", "Mode.IDLE"]);
 }
+
+#[test]
+fn a_comment_above_an_export_line_documents_the_exported_procedure() {
+    let text =
+        "// The C `abort`: stops in a loop.\n#program_export \"abort\"\nstop :: () #c_call {}\n";
+    assert_eq!(
+        doc(text, "stop ::").unwrap(),
+        "The C `abort`: stops in a loop."
+    );
+}

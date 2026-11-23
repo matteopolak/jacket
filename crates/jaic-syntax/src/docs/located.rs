@@ -34,7 +34,10 @@ pub fn located_above(text: &str, at: usize) -> Option<Located> {
         return None;
     }
     let t = trivia(text);
-    located(&t, &t.docs_run(line_start(&t.text, at)))
+    located(
+        &t,
+        &t.docs_run(export_lines_above(&t.text, line_start(&t.text, at))),
+    )
 }
 
 /// The comments that open `text`, before any code: a block comment, or the run of `//` lines
@@ -79,9 +82,9 @@ pub fn declaration_comments(text: &str, at: usize) -> Vec<usize> {
     if super::enclosing_header_in(&t, at).is_some() {
         return Vec::new();
     }
-    if super::above_in(&t, at).is_some() {
+    if above_in(&t, at).is_some() {
         return t
-            .docs_run(line_start(&t.text, at))
+            .docs_run(export_lines_above(&t.text, line_start(&t.text, at)))
             .into_iter()
             .map(Trivia::start)
             .collect();
@@ -90,4 +93,37 @@ pub fn declaration_comments(text: &str, at: usize) -> Vec<usize> {
         return t.comment_after(at).map(Trivia::start).into_iter().collect();
     }
     Vec::new()
+}
+
+/// The start of the `#program_export` lines directly above the line starting at `line`, else
+/// `line`: an export line belongs to the declaration below it, so the docs sit above both.
+pub(super) fn export_lines_above(text: &str, mut line: usize) -> usize {
+    while line > 0 {
+        let above = line_start(text, line - 1);
+        if !text[above..line]
+            .trim_start()
+            .starts_with("#program_export")
+        {
+            break;
+        }
+        line = above;
+    }
+    line
+}
+
+pub(super) fn above_in(t: &Trivia, at: usize) -> Option<String> {
+    let run = t.docs_run(export_lines_above(&t.text, line_start(&t.text, at)));
+    let mut lines: Vec<&str> = run
+        .into_iter()
+        .flat_map(|c| t.bodies(c))
+        .map(|b| b.text)
+        .collect();
+    while lines.first().is_some_and(|l| l.is_empty()) {
+        lines.remove(0);
+    }
+    while lines.last().is_some_and(|l| l.is_empty()) {
+        lines.pop();
+    }
+    let doc = lines.join("\n");
+    (!doc.trim().is_empty()).then_some(doc)
 }
