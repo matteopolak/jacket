@@ -151,6 +151,14 @@ impl std::ops::DerefMut for ValueStack {
     }
 }
 
+impl ValueStack {
+    /// Is this the empty stack `take_exec_state` leaves behind? It owns nothing, so it needs no drop.
+    #[inline(always)]
+    fn is_placeholder(&self) -> bool {
+        self.len == 0 && matches!(self.owner, Owner::Borrowed)
+    }
+}
+
 impl Drop for ValueStack {
     fn drop(&mut self) {
         if matches!(self.owner, Owner::Heap) {
@@ -274,6 +282,7 @@ impl Interp {
         unsafe { &*ptr }
     }
 
+    #[inline]
     pub(super) fn take_exec_state(&mut self) -> ExecState {
         ExecState {
             stack: std::mem::take(&mut self.stack),
@@ -285,8 +294,15 @@ impl Interp {
         }
     }
 
+    #[inline]
     pub(super) fn put_exec_state(&mut self, state: ExecState) {
-        self.stack = state.stack;
+        // What was left behind is almost always the placeholder, which owns nothing: skip the drop.
+        let old = std::mem::replace(&mut self.stack, state.stack);
+        if old.is_placeholder() {
+            std::mem::forget(old);
+        } else {
+            drop(old);
+        }
         self.sp = state.sp;
         self.depth = state.depth;
         self.calls = state.calls;

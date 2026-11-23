@@ -12,10 +12,9 @@
     not(any(target_arch = "x86_64", target_arch = "aarch64")),
     allow(dead_code, unused_imports)
 )]
-use crate::abi::{self, Arch, Passing, Piece, PieceTy};
+use crate::abi::{Arch, Passing, Piece, PieceTy};
 use crate::interp::Rets;
 use crate::ir::{Sig, Ty};
-use crate::layout::DataLayout;
 
 mod callbacks;
 pub(super) mod waits;
@@ -28,8 +27,10 @@ mod wide;
 mod windows;
 #[cfg(all(windows, any(target_arch = "x86_64", target_arch = "aarch64")))]
 pub(super) use windows::set_last_error;
+mod plan;
 #[cfg(windows)]
 mod windows_imports;
+pub use plan::Plan;
 mod words;
 use words::{read_bytes, write_bytes};
 
@@ -307,6 +308,7 @@ impl Library {
                     sys::dlopen as *const () as u64,
                     &[path.as_ptr() as u64, sys::RTLD_NOW as u64],
                     &sig,
+                    &Plan::new(&sig),
                 )
             };
             #[cfg(target_os = "macos")]
@@ -670,214 +672,37 @@ fn call_as<R>(addr: u64, regs: &Regs) -> R {
 /// with `calling_out` so that those on this thread run as its own.
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
+    call_planned(addr, args, sig, &Plan::new(sig))
+}
+
+/// [`call`] with the signature's `Plan`, which a caller that makes the same call again keeps.
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+pub fn call_planned(addr: u64, args: &[u64], sig: &Sig, plan: &Plan) -> Result<Rets, String> {
     #[cfg(target_os = "macos")]
-    if let Some(result) = main_thread::forward(addr, args, sig) {
+    if let Some(result) = main_thread::forward(addr, args, sig, plan) {
         return result;
     }
-    call_with(addr, args, sig)
+    call_with(addr, args, sig, plan)
 }
 
-/// `AppKit` only works on the process's main thread, but the interpreter runs on a worker
-/// with a big stack. The driver parks the main thread in `main_thread::serve`. The
-/// primary thread forwards calls according to their owning native image, including the
-/// first call into an unfamiliar library. The worker waits for each forwarded call.
-/// Thread-safe system-library calls retain their existing direct fast path.
 #[cfg(target_os = "macos")]
-pub mod main_thread {
-    use super::{Rets, Sig, call_with, callbacks};
-    use std::sync::mpsc::{Receiver, Sender, channel};
-    use std::sync::{Mutex, OnceLock};
-
-    type Job = Box<dyn FnOnce() + Send>;
-
-    struct Route {
-        /// Calls for the main thread to make; `None` (from `serve`) means the worker is done.
-        jobs: Mutex<Sender<Option<Job>>>,
-        worker: std::thread::ThreadId,
-    }
-
-    static ROUTE: OnceLock<Route> = OnceLock::new();
-
-    static DISABLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-
-    /// Stop forwarding for good (a forked child has no main thread serving jobs).
-    pub fn disable() {
-        DISABLED.store(true, std::sync::atomic::Ordering::SeqCst);
-    }
-
-    thread_local! {
-        static DIRECT: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
-    }
-
-    /// Run `f` with foreign calls made on the calling thread. `fork` needs this: the child
-    /// only has the forking thread, so the call must come from the interpreter's own thread.
-    pub fn direct<T>(f: impl FnOnce() -> T) -> T {
-        let before = DIRECT.with(|d| d.replace(true));
-        let result = f();
-        DIRECT.with(|d| d.set(before));
-        result
-    }
-
-    /// Run `body` on a new thread (`stack` bytes) while this thread serves its foreign calls.
-    pub fn serve<T: Send + 'static>(
-        stack: usize,
-        body: impl FnOnce() -> T + Send + 'static,
-    ) -> Option<T> {
-        let (tx, rx): (Sender<Option<Job>>, Receiver<Option<Job>>) = channel();
-        // Ends the loop below once `body` returns or unwinds: `ROUTE` keeps its sender alive
-        // for good, so the channel never disconnects on its own.
-        struct Finished(Sender<Option<Job>>);
-
-        impl Drop for Finished {
-            fn drop(&mut self) {
-                let _ = self.0.send(None);
-            }
-        }
-
-        let finished = Finished(tx.clone());
-        let worker = std::thread::Builder::new()
-            .stack_size(stack)
-            .spawn(move || {
-                let _finished = finished;
-                let _ = ROUTE.set(Route {
-                    jobs: Mutex::new(tx),
-                    worker: std::thread::current().id(),
-                });
-                body()
-            });
-        let handle = worker.ok()?;
-        while let Ok(Some(job)) = rx.recv() {
-            job();
-        }
-        handle.join().ok()
-    }
-
-    /// libSystem (libc, libm, pthreads, libdispatch...) and libc++ are thread-safe and never
-    /// touch `AppKit`: calling them directly avoids a thread handoff per call. So is the
-    /// allocator this executable carries (`malloc` and friends), which foreign code reaches
-    /// through the same names. Everything else (frameworks, and user libraries such as SDL or
-    /// GLFW that call into Cocoa) is forwarded.
-    fn needs_main_thread(addr: u64) -> bool {
-        use crate::fxhash::HashMap;
-        thread_local! {
-            static CACHE: std::cell::RefCell<HashMap<u64, bool>> = std::cell::RefCell::new(HashMap::default());
-        }
-        if let Some(known) = CACHE.with(|c| c.borrow().get(&addr).copied()) {
-            return known;
-        }
-        #[repr(C)]
-        struct DlInfo {
-            fname: *const std::ffi::c_char,
-            fbase: *mut std::ffi::c_void,
-            sname: *const std::ffi::c_char,
-            saddr: *mut std::ffi::c_void,
-        }
-        unsafe extern "C" {
-            fn dladdr(addr: *const std::ffi::c_void, info: *mut DlInfo) -> i32;
-        }
-        let mut info = DlInfo {
-            fname: std::ptr::null(),
-            fbase: std::ptr::null_mut(),
-            sname: std::ptr::null(),
-            saddr: std::ptr::null_mut(),
-        };
-        // SAFETY: dladdr only reads the loaded-image tables and fills `info`.
-        let found = unsafe { dladdr(addr as *const std::ffi::c_void, &raw mut info) } != 0;
-        let mut own = DlInfo {
-            fname: std::ptr::null(),
-            fbase: std::ptr::null_mut(),
-            sname: std::ptr::null(),
-            saddr: std::ptr::null_mut(),
-        };
-        let own_found =
-            // SAFETY: as above, for an address in this executable.
-            unsafe { dladdr(needs_main_thread as *const std::ffi::c_void, &raw mut own) } != 0;
-        let main = if !found || info.fname.is_null() {
-            true
-        } else if own_found && info.fbase == own.fbase {
-            false
-        } else {
-            // SAFETY: dladdr returns a NUL-terminated path owned by the loader.
-            let path = unsafe { std::ffi::CStr::from_ptr(info.fname) }.to_string_lossy();
-            !(path.starts_with("/usr/lib/system/")
-                || path.starts_with("/usr/lib/libSystem")
-                || path.starts_with("/usr/lib/libc++"))
-        };
-        CACHE.with(|c| c.borrow_mut().insert(addr, main));
-        main
-    }
-
-    struct Carry<T>(T);
-
-    // SAFETY: the sending thread blocks until the job finishes, so the pointers are never
-    // used from two threads at once.
-    unsafe impl<T> Send for Carry<T> {
-    }
-
-    pub(super) fn forward(addr: u64, args: &[u64], sig: &Sig) -> Option<Result<Rets, String>> {
-        forward_inner(addr, args, sig, false)
-    }
-
-    pub(super) fn forward_loader(
-        addr: u64,
-        args: &[u64],
-        sig: &Sig,
-    ) -> Option<Result<Rets, String>> {
-        forward_inner(addr, args, sig, true)
-    }
-
-    fn forward_inner(
-        addr: u64,
-        args: &[u64],
-        sig: &Sig,
-        initializing_library: bool,
-    ) -> Option<Result<Rets, String>> {
-        let route = ROUTE.get()?;
-        if DISABLED.load(std::sync::atomic::Ordering::SeqCst) || DIRECT.with(std::cell::Cell::get) {
-            return None;
-        }
-        if std::thread::current().id() != route.worker
-            || (!initializing_library && !needs_main_thread(addr))
-        {
-            return None;
-        }
-        let (done_tx, done_rx) = channel();
-        // Callbacks made during the job belong to the waiting worker's call.
-        let caller = callbacks::caller();
-        let carried = Carry((
-            std::ptr::from_ref::<[u64]>(args),
-            std::ptr::from_ref::<Sig>(sig),
-        ));
-        let attribution = Carry(crate::interp::crash::Attribution::of_this_thread());
-        let job: Job = Box::new(move || {
-            let carried = carried;
-            let (args, sig) = carried.0;
-            // SAFETY: see `Carry`; the caller's borrows outlive this job.
-            let (args, sig) = unsafe { (&*args, &*sig) };
-            // A crash here is in the worker's foreign call, made on this thread for it.
-            let attribution = attribution;
-            let _crash_report = attribution.0.enter();
-            let result = callbacks::calling_out(caller, || call_with(addr, args, sig));
-            let _ = done_tx.send(Carry(result));
-        });
-        route.jobs.lock().ok()?.send(Some(job)).ok()?;
-        done_rx.recv().ok().map(|c| c.0)
-    }
-}
+pub mod main_thread;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
+fn call_with(addr: u64, args: &[u64], sig: &Sig, plan: &Plan) -> Result<Rets, String> {
     #[cfg(windows)]
-    return windows::keeping_last_error(|| call_with_unkept(addr, args, sig));
+    return windows::keeping_last_error(|| call_with_unkept(addr, args, sig, plan));
     #[cfg(not(windows))]
-    call_with_unkept(addr, args, sig)
+    call_with_unkept(addr, args, sig, plan)
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
-    let arch = Arch::host().ok_or("native foreign calls are not available on this CPU")?;
+fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig, plan: &Plan) -> Result<Rets, String> {
+    let arch = plan
+        .arch
+        .ok_or("native foreign calls are not available on this CPU")?;
     // A foreign call follows the host's C ABI, whatever the program's own layout.
-    let host = DataLayout::host();
+    let host = &plan.host;
     // The register model below is System V / AAPCS64 (Windows on arm64 included); the
     // Microsoft x64 convention has its own (`windows.rs`).
     if arch == Arch::Win64 {
@@ -888,28 +713,24 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> 
             "the interpreter does not implement the Microsoft x64 calling convention".into(),
         );
     }
+    if plan.scalar
+        && let Some(result) = register_call(addr, args, sig)
+    {
+        return Ok(result);
+    }
     let cabi = sig.c_abi.as_deref();
     let ret_layout = cabi.and_then(|c| c.ret.as_ref());
-    // `#cpp_return_type_is_non_pod` results always use the hidden result pointer.
-    let forced_sret = cabi.is_some_and(|c| c.ret_indirect);
-    let ret_pieces = ret_layout
-        .filter(|_| !forced_sret)
-        .and_then(|l| abi::classify_ret(arch, l, &host));
-    let sret = ret_layout.is_some() && ret_pieces.is_none();
-    // A result too big for `Sret`: the pointer is passed explicitly (the first integer argument
-    // on x86-64, `x8` through the assembly call of `wide.rs` on AArch64).
-    let oversize = sret
-        && !(arch == Arch::Win64Arm && forced_sret)
-        && ret_layout.is_some_and(|l| l.size as usize > SRET_WORDS * 8);
+    let ret_pieces = plan.ret_pieces.as_ref();
+    let (sret, oversize, result_in_x0, general_only) = (
+        plan.sret,
+        plan.oversize,
+        plan.result_in_x0,
+        plan.general_only,
+    );
     let mut regs = Regs::new(sret && !(oversize && X86_64));
     // Copies of large aggregates passed by address; alive until the call returns.
     let mut copies: Vec<Vec<u64>> = Vec::new();
     let mut out_ptr = 0;
-    // Windows on arm64: a variadic procedure takes every argument, fixed ones included, in
-    // x0-x7 and then on the stack (floats as their bits); an aggregate may straddle the two.
-    let general_only = arch == Arch::Win64Arm && sig.c_varargs;
-    // MSVC on arm64 passes a non-POD C++ result's address in x0 (Clang's `inreg sret`), not x8.
-    let result_in_x0 = arch == Arch::Win64Arm && forced_sret && ret_layout.is_some();
     if (result_in_x0 || oversize && X86_64)
         && let Some(&out) = args.get(sig.out_index())
     {
@@ -921,12 +742,13 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> 
             continue;
         }
         let layout = cabi.and_then(|c| c.params.get(i)).and_then(Option::as_ref);
+        let arg_plan = plan.params.get(i).and_then(Option::as_ref);
         if VARARGS_ON_STACK && sig.c_varargs && i >= sig.c_fixed as usize {
             // Apple's arm64 puts every variadic argument on the stack: an aggregate as its own
             // words, or as the address of a copy when it is over 16 bytes and not a float aggregate.
             match layout {
                 None => regs.stack(a)?,
-                Some(l) if matches!(abi::classify_arg(arch, l, &host), Passing::Indirect) => {
+                Some(l) if arg_plan.is_some_and(|p| p.regular == Passing::Indirect) => {
                     regs.stack(indirect_copy(a, l.size, &mut copies))?;
                 }
                 Some(l) => {
@@ -939,7 +761,7 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> 
             continue;
         }
         if general_only {
-            match layout.map(|l| (l, abi::classify_vararg(arch, l, &host))) {
+            match layout.zip(arg_plan.and_then(|p| p.vararg.as_ref())) {
                 None => regs.int(a)?,
                 Some((l, Passing::Registers(pieces))) => {
                     for p in pieces {
@@ -958,8 +780,8 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> 
             } else {
                 regs.ni == regs.int_avail
             };
-            if full && PACKED_STACK && ty.size(&host) < 8 {
-                regs.packed(a, ty.size(&host) as usize)?;
+            if full && PACKED_STACK && ty.size(host) < 8 {
+                regs.packed(a, ty.size(host) as usize)?;
                 continue;
             }
             if ty.is_float() {
@@ -969,7 +791,10 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> 
             }
             continue;
         };
-        match abi::classify_arg(arch, layout, &host) {
+        let Some(arg_plan) = arg_plan else {
+            continue;
+        };
+        match &arg_plan.regular {
             // An x87 `long double` is memory class: a 16-byte aligned stack slot.
             Passing::Registers(pieces) if pieces.iter().any(|p| p.ty == PieceTy::X87) => {
                 regs.align_stack()?;
@@ -1024,12 +849,9 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> 
     }
     // `long double` results in `st(0)` and binary128 values in vector registers need the
     // assembly call of `wide.rs`.
-    let wide_ret = ret_pieces.as_ref().is_some_and(|p| {
-        p.iter()
-            .any(|p| matches!(p.ty, PieceTy::X87 | PieceTy::F128))
-    });
+    let wide_ret = plan.wide_ret;
     if regs.quads || wide_ret {
-        let ret = ret_layout.map(|l| (l.size, ret_pieces.as_deref()));
+        let ret = ret_layout.map(|l| (l.size, ret_pieces.map(Vec::as_slice)));
         // SAFETY: the callee's declared C signature matches these registers.
         let result = unsafe { wide::call(addr, &regs, sig, ret, out_ptr) };
         drop(copies);
@@ -1137,6 +959,81 @@ fn indirect_copy(a: u64, size: u64, copies: &mut Vec<Vec<u64>>) -> u64 {
     addr
 }
 
+/// Integer registers a scalar call can fill: x86-64 System V has six, `AArch64` eight.
+const INT_REGISTERS: usize = if X86_64 {
+    6
+} else {
+    8
+};
+
+/// A call of scalar arguments and a scalar result that fit the registers, which is almost every
+/// foreign call: no argument layout, no stack slots, no hidden pointer. `None` when an argument
+/// does not fit, and the general path packs it.
+fn register_call(addr: u64, args: &[u64], sig: &Sig) -> Option<Rets> {
+    let (mut ints, mut floats) = ([0u64; 8], [0f64; 8]);
+    let (mut ni, mut nf) = (0, 0);
+    for (i, &a) in args.iter().enumerate() {
+        if sig.params.get(i).copied().unwrap_or(Ty::I64).is_float() {
+            *floats.get_mut(nf)? = f64::from_bits(a);
+            nf += 1;
+        } else {
+            if ni == INT_REGISTERS {
+                return None;
+            }
+            ints[ni] = a;
+            ni += 1;
+        }
+    }
+    Some(match sig.returns.first().copied() {
+        Some(t) if t.is_float() => {
+            let bits = call_registers::<f64>(addr, &ints, &floats).to_bits();
+            Rets::one(if t == Ty::F32 {
+                bits & 0xffff_ffff
+            } else {
+                bits
+            })
+        }
+        Some(t) => Rets::one(mask_int(t, call_registers::<u64>(addr, &ints, &floats))),
+        None => {
+            call_registers::<u64>(addr, &ints, &floats);
+            Rets::default()
+        }
+    })
+}
+
+/// Call `addr` with the integer and floating-point argument registers and nothing on the stack,
+/// as `call_as` does for `register_call`'s arguments.
+fn call_registers<R>(addr: u64, ints: &[u64; 8], floats: &[f64; 8]) -> R {
+    let [i0, i1, i2, i3, i4, i5, i6, i7] = *ints;
+    let [f0, f1, f2, f3, f4, f5, f6, f7] = *floats;
+    #[cfg(target_arch = "x86_64")]
+    {
+        let _ = (i6, i7);
+        type Proto<R> = unsafe extern "C" fn(u64, ...) -> R;
+        // SAFETY: `addr` is a C function the program declared (see `call_as`), whose scalar
+        // arguments are these registers; the variadic form also sets `al`.
+        let f: Proto<R> = unsafe { std::mem::transmute::<usize, Proto<R>>(addr as usize) };
+        // SAFETY: as above.
+        unsafe { f(i0, i1, i2, i3, i4, i5, f0, f1, f2, f3, f4, f5, f6, f7) }
+    }
+    #[cfg(not(target_arch = "x86_64"))]
+    {
+        #[rustfmt::skip]
+        type Proto<R> = unsafe extern "C" fn(
+            u64, u64, u64, u64, u64, u64, u64, u64,
+            f64, f64, f64, f64, f64, f64, f64, f64,
+        ) -> R;
+        // SAFETY: as above.
+        let f: Proto<R> = unsafe { std::mem::transmute::<usize, Proto<R>>(addr as usize) };
+        // SAFETY: as above.
+        unsafe {
+            f(
+                i0, i1, i2, i3, i4, i5, i6, i7, f0, f1, f2, f3, f4, f5, f6, f7,
+            )
+        }
+    }
+}
+
 /// A call whose result is a scalar (or nothing).
 fn scalar_call(addr: u64, regs: &Regs, ret: Option<Ty>) -> Rets {
     match ret {
@@ -1169,6 +1066,22 @@ fn mask_int(t: Ty, r: u64) -> u64 {
 #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
 pub fn call(_addr: u64, _args: &[u64], _sig: &Sig) -> Result<Rets, String> {
     Err("native foreign calls are not available on this platform".into())
+}
+
+/// Nothing to precompute where native calls are unavailable.
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+pub struct Plan;
+
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+impl Plan {
+    pub fn new(_sig: &Sig) -> Plan {
+        Plan
+    }
+}
+
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+pub fn call_planned(addr: u64, args: &[u64], sig: &Sig, _plan: &Plan) -> Result<Rets, String> {
+    call(addr, args, sig)
 }
 
 #[cfg(all(test, target_os = "linux"))]

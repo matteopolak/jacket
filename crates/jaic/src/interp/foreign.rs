@@ -79,6 +79,12 @@ fn keeps_memory_syscall(symbol: &str, args: &[u64]) -> bool {
     cfg!(target_os = "linux") && symbol == "syscall" && args.first() == Some(&IO_URING_ENTER)
 }
 
+/// What calls to one foreign procedure share, worked out on the first call.
+pub(super) struct ForeignPlan {
+    scheduling: NativeScheduling,
+    native: native::Plan,
+}
+
 /// Whether native code keeps the interpreter exclusive, lends its baton after the short-call
 /// grace, or hands runnable work on before a known host wait.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -101,6 +107,31 @@ const OBSERVABLE: u8 = 4;
 /// The call may write to the terminal, so the build status line goes down first.
 const WRITES_OUTPUT: u8 = 8;
 
+/// The symbol is one the interpreter may answer itself or watch (`is_special`): the others go
+/// straight to native code.
+const SPECIAL: u8 = 16;
+
+/// The call is `fork` or `vfork`.
+const FORKS: u8 = 32;
+
+/// Is `symbol` one `call_foreign` treats specially by name, before native code runs: the
+/// executable-path queries, thread and synchronisation procedures, and the calls that end or
+/// crash the process?
+fn is_special(symbol: &str) -> bool {
+    super::executable_path::handles(symbol)
+        || super::threads_inline::ThreadFn::from_name(symbol).is_some()
+        || win32_handles(symbol)
+        || matches!(symbol, "exit" | "_exit" | "abort")
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+use super::threads::win32_handles;
+
+#[cfg(target_arch = "wasm32")]
+fn win32_handles(_symbol: &str) -> bool {
+    false
+}
+
 /// Does the call leave the terminal alone? Only these known calls do (`write` is in the memory
 /// list but writes). Any other may print (`system`, `dprintf`, a spawned child, a library's own
 /// output), so the status line goes down before it.
@@ -120,7 +151,18 @@ fn is_quiet(symbol: &str) -> bool {
 }
 
 impl Interp {
+    /// Open the libraries the program links always. Libraries are only ever added, so once
+    /// `libraries_loaded` counts them all there is nothing to do: the case on every call.
+    #[inline]
     pub(super) fn load_required_libraries(&mut self, program: &Program) -> Res<()> {
+        if self.libraries_loaded == program.libraries.len() {
+            return Ok(());
+        }
+        self.open_required_libraries(program)
+    }
+
+    #[cold]
+    fn open_required_libraries(&mut self, program: &Program) -> Res<()> {
         if !self.host.native_linking() || (self.compile_time && program.cross_target) {
             return Ok(());
         }
@@ -152,6 +194,7 @@ impl Interp {
                 ));
             }
         }
+        self.libraries_loaded = program.libraries.len();
         Ok(())
     }
 
@@ -275,6 +318,12 @@ impl Interp {
         if !is_quiet(symbol) {
             flags |= WRITES_OUTPUT;
         }
+        if is_special(symbol) {
+            flags |= SPECIAL;
+        }
+        if matches!(symbol, "fork" | "vfork") {
+            flags |= FORKS;
+        }
         if self.foreign_flags.len() <= id.0 as usize {
             self.foreign_flags.resize(id.0 as usize + 1, 0);
         }
@@ -301,40 +350,44 @@ impl Interp {
         if effects & WRITES_OUTPUT != 0 {
             crate::progress::before_output();
         }
-        if !self.compile_time
-            && let Some(result) = self.executable_path_foreign(symbol, args)
-        {
-            return result.map(Rets::from);
-        }
-        if self.host.cooperative_threads() {
-            if let Some(result) = self.inline_thread_foreign(program, symbol, args) {
+        if effects & SPECIAL != 0 {
+            if !self.compile_time
+                && let Some(result) = self.executable_path_foreign(symbol, args)
+            {
                 return result.map(Rets::from);
             }
-        } else {
+            if self.host.cooperative_threads() {
+                if let Some(result) = self.inline_thread_foreign(program, symbol, args) {
+                    return result.map(Rets::from);
+                }
+            } else {
+                #[cfg(not(target_arch = "wasm32"))]
+                if let Some(result) = self.thread_foreign(program, symbol, args) {
+                    return result.map(Rets::from);
+                }
+            }
+            // The process ends in this call: what ran must be written before it does.
+            if matches!(symbol, "exit" | "_exit") && self.lines.is_some() {
+                self.flush_profile();
+                super::line_cover::write();
+            }
             #[cfg(not(target_arch = "wasm32"))]
-            if let Some(result) = self.thread_foreign(program, symbol, args) {
-                return result.map(Rets::from);
+            if symbol == "abort" {
+                crash::skip_core_dump();
             }
         }
-        // The process ends in this call: what ran must be written before it does.
-        if matches!(symbol, "exit" | "_exit") && self.lines.is_some() {
-            self.flush_profile();
-            super::line_cover::write();
-        }
-        #[cfg(not(target_arch = "wasm32"))]
-        if symbol == "abort" {
-            crash::skip_core_dump();
-        }
-        let base = self.base;
-        if let Some(result) =
-            sandbox::guest::with_base(base, || self.host.foreign(symbol, args, sig))
-        {
-            let exits = matches!(symbol, "exit" | "_exit");
-            return result.map(Rets::from).map_err(|m| {
-                Trap::new(m).at(self.loc).of_kind(
-                    exits.then(|| TrapKind::Exit(args.first().copied().unwrap_or(0) as i32)),
-                )
-            });
+        if self.host.answers_foreign() {
+            let base = self.base;
+            if let Some(result) =
+                sandbox::guest::with_base(base, || self.host.foreign(symbol, args, sig))
+            {
+                let exits = matches!(symbol, "exit" | "_exit");
+                return result.map(Rets::from).map_err(|m| {
+                    Trap::new(m).at(self.loc).of_kind(
+                        exits.then(|| TrapKind::Exit(args.first().copied().unwrap_or(0) as i32)),
+                    )
+                });
+            }
         }
         // Sandbox hosts answer above; only trusted native compile-time evaluation uses
         // real host files. Runtime and native Windows calls retain their normal dispatch.
@@ -387,36 +440,84 @@ impl Interp {
             return Err(trap);
         }
         // The child of a fork has only the forking thread: it must not wait for the others.
-        let forks = matches!(symbol, "fork" | "vfork");
+        let forks = effects & FORKS != 0;
+        let plan = self.foreign_plan(program, id, addr, sig, forks);
+        let scheduling = plan.scheduling;
+        #[cfg(target_os = "macos")]
+        let result = if forks {
+            native::main_thread::direct(|| {
+                self.call_native_planned(
+                    program,
+                    addr,
+                    args,
+                    sig,
+                    Some(symbol),
+                    scheduling,
+                    Some(&plan.native),
+                )
+            })?
+        } else {
+            self.call_native_planned(
+                program,
+                addr,
+                args,
+                sig,
+                Some(symbol),
+                scheduling,
+                Some(&plan.native),
+            )?
+        };
+        #[cfg(not(target_os = "macos"))]
+        let result = self.call_native_planned(
+            program,
+            addr,
+            args,
+            sig,
+            Some(symbol),
+            scheduling,
+            Some(&plan.native),
+        )?;
+        if effects & FORKS != 0 && symbol == "fork" && result.first() == Some(&0) {
+            self.forked_child = true;
+            #[cfg(target_os = "macos")]
+            native::main_thread::disable();
+        }
+        Ok(result)
+    }
+
+    /// The call plan of foreign procedure `id` (resolved to `addr`), made on its first call.
+    fn foreign_plan(
+        &mut self,
+        program: &Program,
+        id: ForeignId,
+        addr: u64,
+        sig: &ir::Sig,
+        forks: bool,
+    ) -> std::sync::Arc<ForeignPlan> {
+        if let Some(Some(plan)) = self.foreign_plans.get(id.0 as usize) {
+            return plan.clone();
+        }
+        let foreign = &program.foreigns[id.0 as usize];
         let scheduling = if forks {
             NativeScheduling::Exclusive
         } else if native::waits::known(
-            program.foreigns[id.0 as usize]
-                .library
-                .map(|index| &program.libraries[index]),
-            symbol,
+            foreign.library.map(|index| &program.libraries[index]),
+            &foreign.symbol,
             addr,
         ) {
             NativeScheduling::Blocking
         } else {
             NativeScheduling::Short
         };
-        #[cfg(target_os = "macos")]
-        let result = if forks {
-            native::main_thread::direct(|| {
-                self.call_native(program, addr, args, sig, Some(symbol), scheduling)
-            })?
-        } else {
-            self.call_native(program, addr, args, sig, Some(symbol), scheduling)?
-        };
-        #[cfg(not(target_os = "macos"))]
-        let result = self.call_native(program, addr, args, sig, Some(symbol), scheduling)?;
-        if symbol == "fork" && result.first() == Some(&0) {
-            self.forked_child = true;
-            #[cfg(target_os = "macos")]
-            native::main_thread::disable();
+        let plan = std::sync::Arc::new(ForeignPlan {
+            scheduling,
+            native: native::Plan::new(sig),
+        });
+        if self.foreign_plans.len() <= id.0 as usize {
+            self.foreign_plans.resize(id.0 as usize + 1, None);
         }
-        Ok(result)
+        self.foreign_plans[id.0 as usize] = Some(plan.clone());
+        plan
     }
 
     /// Call C function `addr` (foreign procedure `symbol`, when it is one). Unless scheduling
@@ -429,6 +530,21 @@ impl Interp {
         sig: &ir::Sig,
         symbol: Option<&str>,
         scheduling: NativeScheduling,
+    ) -> Res<Rets> {
+        self.call_native_planned(program, addr, args, sig, symbol, scheduling, None)
+    }
+
+    /// `call_native`, with the call plan of the procedure when it has been made.
+    #[allow(clippy::too_many_arguments)]
+    fn call_native_planned(
+        &mut self,
+        program: &Program,
+        addr: u64,
+        args: &[u64],
+        sig: &ir::Sig,
+        symbol: Option<&str>,
+        scheduling: NativeScheduling,
+        plan: Option<&native::Plan>,
     ) -> Res<Rets> {
         self.read_only.seal();
         // Native code reached through a procedure pointer may release memory; a named foreign
@@ -471,7 +587,7 @@ impl Interp {
         let crash_report = symbol.map(|symbol| crash::ForeignCall::enter(symbol, &mine, program));
         #[cfg(target_arch = "wasm32")]
         let _ = symbol;
-        let result = self.call_unlocked(addr, argv, sig, scheduling);
+        let result = self.call_unlocked(addr, argv, sig, scheduling, plan);
         #[cfg(not(target_arch = "wasm32"))]
         drop(crash_report);
         self.put_exec_state(mine);
@@ -486,12 +602,16 @@ impl Interp {
         argv: &[u64],
         sig: &ir::Sig,
         scheduling: NativeScheduling,
+        plan: Option<&native::Plan>,
     ) -> Result<Rets, String> {
         // The program reads the error its last native call left, whatever the interpreter did
         // in between: on Windows its first `GetLastError` is looked up lazily, which resets it.
         let call = || {
             super::last_error::restore_program();
-            let result = native::call(addr, argv, sig);
+            let result = match plan {
+                Some(plan) => native::call_planned(addr, argv, sig, plan),
+                None => native::call(addr, argv, sig),
+            };
             super::last_error::save_program();
             result
         };
@@ -521,6 +641,7 @@ impl Interp {
         argv: &[u64],
         sig: &ir::Sig,
         _scheduling: NativeScheduling,
+        _plan: Option<&native::Plan>,
     ) -> Result<Rets, String> {
         native::call(addr, argv, sig)
     }
@@ -568,6 +689,7 @@ impl Interp {
         )?;
         if self.thunk_funcs.insert(addr, id).is_none() {
             self.unseen_thunks.push(addr);
+            self.thunk_list.push(id);
         }
         Ok(addr)
     }
@@ -586,9 +708,12 @@ impl Interp {
         }
         // Exposure bookkeeping can be cleared after a C call, but unresolved
         // readiness must survive until source addition permits another probe.
-        let pending: Vec<_> = self.thunk_funcs.values().copied().collect();
-        for function in pending {
-            self.inspect_callable(program, function)?;
+        // Only a compile-time run that defers missing bodies inspects anything.
+        if self.compile_time && self.defer_missing_bodies {
+            for i in 0..self.thunk_list.len() {
+                let function = self.thunk_list[i];
+                self.inspect_callable(program, function)?;
+            }
         }
         if !self.unseen_thunks.is_empty() {
             self.unseen_thunks.clear();
@@ -826,6 +951,30 @@ mod native_handoff_tests {
             assert_eq!(result.first().copied().unwrap() as i32, -1);
             assert_eq!(std::io::Error::last_os_error().raw_os_error(), Some(error));
             assert!(interp.holds_baton());
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_special;
+
+    #[test]
+    fn only_symbols_the_interpreter_watches_are_special() {
+        for symbol in [
+            "pthread_create",
+            "pthread_mutex_lock",
+            "nanosleep",
+            "exit",
+            "_exit",
+            "abort",
+            "readlink",
+            "_NSGetExecutablePath",
+        ] {
+            assert!(is_special(symbol), "{symbol}");
+        }
+        for symbol in ["labs", "malloc", "write", "sqrt", "fork", "dlopen"] {
+            assert!(!is_special(symbol), "{symbol}");
         }
     }
 }

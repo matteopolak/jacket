@@ -426,8 +426,8 @@ mod tests {
             args.push(out.as_mut_ptr() as u64);
             let mut wide = vec![true, false];
             wide.extend([true; 8]);
-            super::super::super::call_with(mix as *const () as u64, &args, &sig(Ty::F128, &wide))
-                .unwrap();
+            let sig = sig(Ty::F128, &wide);
+            super::super::super::call(mix as *const () as u64, &args, &sig).unwrap();
             assert_eq!(
                 out,
                 words(0x2222_0000_0000_0000 + 0x100 + 0x30, 0x1111 + 0x100 + 0x40)

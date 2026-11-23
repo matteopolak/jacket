@@ -3,7 +3,7 @@
 //! `code::build` lowers the common instructions to `Op`s; whatever it does not lower
 //! (calls through values, intrinsics, rare shapes) stays an `Ir` op and runs here, so this
 //! is the fallback of the op loop and not a second interpreter.
-use super::arith::{bin_total, cmp, conv, divides, int_bin, mask};
+use super::arith::{bin_total, cmp, conv, divide_64, divides, mask};
 use super::frames::Frame;
 use super::trap::TrapKind;
 use super::{Interp, Res, proc_addr};
@@ -267,7 +267,7 @@ impl Interp {
 
     /// `SDiv`, `SRem`, `UDiv` or `URem`: the binary operations that can fail.
     pub(super) fn divide(&self, op: BinOp, ty: Ty, x: u64, y: u64) -> Res<u64> {
-        match int_bin(op, ty, x, y) {
+        match divide_64(op, ty, x, y) {
             Ok(r) => Ok(r),
             Err(_) => self.check_trap(ir::CheckReason::DivideByZero, 0, 0),
         }

@@ -13,6 +13,14 @@ use super::{Interp, Res};
 use crate::interp::word_or_zero;
 use crate::ir::Ty;
 
+/// Is `symbol` one of the queries `executable_path_foreign` can answer?
+pub(super) fn handles(symbol: &str) -> bool {
+    matches!(
+        symbol,
+        "_NSGetExecutablePath" | "readlink" | "GetModuleFileNameW" | "GetCommandLineW"
+    )
+}
+
 impl Interp {
     /// The executable-path queries `run_executable` answers. `None`: not one of them (or no
     /// substitution), so the call goes to the OS.
@@ -21,10 +29,7 @@ impl Interp {
         symbol: &str,
         args: &[u64],
     ) -> Option<Res<Vec<u64>>> {
-        if !matches!(
-            symbol,
-            "_NSGetExecutablePath" | "readlink" | "GetModuleFileNameW" | "GetCommandLineW"
-        ) {
+        if !handles(symbol) {
             return None;
         }
         let path = self.run_executable.clone()?;

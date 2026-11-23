@@ -167,6 +167,10 @@ pub struct Interp {
     foreign_addrs: Vec<u64>,
     /// What each foreign procedure's calls do (`foreign_effects`); 0 until looked at.
     foreign_flags: Vec<u8>,
+    /// How each foreign procedure is called, made on its first native call.
+    foreign_plans: Vec<Option<std::sync::Arc<foreign::ForeignPlan>>>,
+    /// How many of the program's libraries `load_required_libraries` has looked at.
+    libraries_loaded: usize,
     libraries: HashMap<usize, Option<native::Library>>,
     windows: windows_native::NativeWindows,
     /// `#compiler` procedures handled by the compiler, indexed by `FuncId` (checked on every call).
@@ -288,6 +292,8 @@ pub struct Interp {
     proc_values: Vec<u64>,
     /// Thunk address -> procedure, for every thunk this interpreter made.
     thunk_funcs: HashMap<u64, FuncId>,
+    /// The procedures of `thunk_funcs`, in the order their thunks were made.
+    thunk_list: Vec<FuncId>,
     /// Thunks made since the last foreign call, which C has not been able to see yet. One that
     /// starts a Jai thread (`pthread_create`, `CreateThread`) leaves the list, since the
     /// scheduler runs it; the next foreign call hands the rest to C (`hand_thunks_to_c`).
@@ -427,6 +433,8 @@ impl Interp {
             trace_loc: None,
             compile_time: true,
             foreign_flags: Vec::new(),
+            foreign_plans: Vec::new(),
+            libraries_loaded: 0,
             run_executable: None,
             run_arguments: Vec::new(),
             run_command_line: None,
@@ -473,6 +481,7 @@ impl Interp {
             profile: profile::enabled().then(Default::default),
             proc_values: Vec::new(),
             thunk_funcs: HashMap::default(),
+            thunk_list: Vec::new(),
             #[cfg(not(target_arch = "wasm32"))]
             unseen_thunks: Vec::new(),
             #[cfg(not(target_arch = "wasm32"))]

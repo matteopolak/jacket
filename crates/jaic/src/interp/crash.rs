@@ -57,6 +57,11 @@ fn current() -> Current {
     CURRENT.with(Cell::get)
 }
 
+/// Publish `c` and return what was published before, in one thread-local access.
+fn exchange(c: Current) -> Current {
+    CURRENT.with(|cell| cell.replace(c))
+}
+
 fn publish(c: Current) {
     CURRENT.with(|cell| cell.set(c));
 }
@@ -72,8 +77,7 @@ impl ForeignCall {
     /// `state` is the calling thread's interpreter state, set aside for the call.
     pub(super) fn enter(symbol: &str, state: &ExecState, program: &Program) -> Self {
         install();
-        let previous = current();
-        publish(Current {
+        let previous = exchange(Current {
             symbol: (symbol.as_ptr(), symbol.len()),
             state,
             program,

@@ -17,7 +17,7 @@ The copied `next` pointers point into the returned allocation, so the trace stay
 ## How it works
 
 - At lowering, every procedure that takes a context and is not `inline` or `#no_debug` gets `Func.trace` (name, file, line, column).
-- Interpreter: `Interp::exec` pushes a node in the callee's frame and restores `context.stack_trace` on return. Untraced procedures keep the location of the call that entered them.
+- Interpreter: `Interp::exec` pushes a node in the callee's frame and restores `context.stack_trace` on return. Untraced procedures keep the location of the call that entered them. The nodes are real program memory (a program reads `context.stack_trace` with ordinary loads the interpreter never sees), so they cannot be written lazily; `trace_enter` keeps the writes cheap with fixed-width `peek`/`poke` (`interp/memory.rs`). `tests/interp_stack_trace.rs` pins the chain's names, lines, depths and hashes.
 - Compiled output: `stack_trace::instrument` (`crates/jaic/src/stack_trace.rs`) is an IR pass. It gives each traced function a node slot, links it before the first block every use goes through (so early returns that call nothing pay nothing), unlinks on every `Ret`, and stores the line after each statement that can call. It then clears `Func.trace` so the interpreter doesn't push twice.
 - `Program.stack_trace` holds the layout of `stack_trace` in `#Context` and of the node types, read from the prelude. No layout, no traces.
 - `runtime_support_assertion_failed` (`stdlib/Runtime_Support/module.jai`) prints `path:line:col: error: assertion failed: message` then `call stack (innermost first):` with one `name at path:line` per node.
