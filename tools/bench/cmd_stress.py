@@ -56,12 +56,17 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--steps', type=int, default=300, help='actions in the session (default: %(default)s)')
     parser.add_argument('--idle-every', type=int, default=50, help='an idle gap after this many actions (default: %(default)s)')
     parser.add_argument('--idle-seconds', type=float, default=8, help='length of an idle gap (default: %(default)s)')
+    parser.add_argument('--settle-seconds', type=float, default=40,
+                        help='longest an idle gap lasts while memory is still falling (default: %(default)s)')
     parser.add_argument('--sample-seconds', type=float, default=1, help='memory sampling interval (default: %(default)s)')
+    parser.add_argument('--diagnostics-wait', type=float, default=10,
+                        help='seconds a request waits for the diagnostics of the text it asks about (default: %(default)s)')
     parser.add_argument('--timeout', type=float, default=120, help='seconds before a request counts as unanswered')
     parser.add_argument('--max-rss', type=float, default=8192, help='MiB of server RSS at which the run is abandoned')
     parser.add_argument('--max-peak', type=float, default=0, help='fail when the peak private memory passes this many MiB')
     parser.add_argument('--max-slope', type=float, default=0,
                         help='fail when memory after the idle gaps grows by more than this many MiB per gap')
+    parser.add_argument('--actions', default='', help='comma-separated subset of open,close,type,fix,query,os,files (default: all)')
     parser.add_argument('--keep', action='store_true', help='keep the temporary workspace')
     parser.add_argument('--out', type=Path, default=output_dir('bench', 'stress.json'), help='JSON results (default: %(default)s)')
 
@@ -92,6 +97,7 @@ class Doc:
     path: Path
     lines: list[str]
     version: int = 1
+    unpublished: bool = False  # edited since the server last published its diagnostics
     bad_line: int | None = None  # a line the session broke on purpose and has not fixed yet
     os_lines: dict[str, int] = field(default_factory=dict)  # 'linux'/'windows' -> line of the body's first statement
 
@@ -102,6 +108,26 @@ class Doc:
     @property
     def uri(self) -> str:
         return file_uri(self.path)
+
+
+# Requests about a position: kind -> (method, capability that enables it, extra parameters).
+POSITIONAL = {
+    'hover': ('textDocument/hover', 'hoverProvider', {}),
+    'completion': ('textDocument/completion', 'completionProvider', {}),
+    'definition': ('textDocument/definition', 'definitionProvider', {}),
+    'references': ('textDocument/references', 'referencesProvider', {'context': {'includeDeclaration': True}}),
+    'highlight': ('textDocument/documentHighlight', 'documentHighlightProvider', {}),
+    'prepare_rename': ('textDocument/prepareRename', 'renameProvider', {}),
+    'rename': ('textDocument/rename', 'renameProvider', {'newName': 'stress_renamed'}),
+}
+# Requests about a whole document: kind -> (method, capability, function of the document giving extra parameters).
+WHOLE = {
+    'document_symbols': ('textDocument/documentSymbol', 'documentSymbolProvider', lambda doc: {}),
+    'semantic_tokens': ('textDocument/semanticTokens/full', 'semanticTokensProvider', lambda doc: {}),
+    'inlay_hints': ('textDocument/inlayHint', 'inlayHintProvider', lambda doc: {
+        'range': {'start': {'line': 0, 'character': 0}, 'end': {'line': min(len(doc.lines), 200), 'character': 0}}}),
+    'folding': ('textDocument/foldingRange', 'foldingRangeProvider', lambda doc: {}),
+}
 
 
 class Stats:
@@ -153,6 +179,9 @@ class Run:
         self.docs: dict[Path, Doc] = {}
         self.created: list[Path] = []
         self.counter = 0
+        self.positional: list[str] = []
+        self.whole: list[str] = []
+        self.missing_diagnostics = 0
         self.gaps: list[dict] = []
         self.sampler = Sampler(self.client, args.sample_seconds, args.max_rss)
 
@@ -179,8 +208,6 @@ class Run:
             else:
                 raise Failure(f"{kind}: protocol error {error.get('code')}: {error.get('message')}")
         self.stats.add(kind, seconds)
-        with self.client.condition:
-            self.client.notifications.clear()
         return response.get('result')
 
     def count(self, action: str) -> None:
@@ -203,6 +230,7 @@ class Run:
             lines.extend((OS_BLOCK % {'n': self.counter}).split('\n'))
             doc.os_lines = {'linux': first + 3, 'windows': first + 10}
         self.docs[path] = doc
+        doc.unpublished = True
         self.send('textDocument/didOpen', {'textDocument': {'uri': doc.uri, 'languageId': 'jai', 'version': 1, 'text': doc.text}})
         self.count('open')
 
@@ -216,6 +244,7 @@ class Run:
 
     def change(self, doc: Doc, edit: dict) -> None:
         doc.version += 1
+        doc.unpublished = True
         self.send('textDocument/didChange', {'textDocument': {'uri': doc.uri, 'version': doc.version},
                                             'contentChanges': [edit]})
 
@@ -263,20 +292,49 @@ class Run:
                 self.query_in(doc)
                 return
 
-    def query_in(self, doc: Doc) -> None:
-        """One of hover, completion, definition, references at a random identifier of `doc`."""
-        pick = self.body_position(doc)
-        if not pick:
+    def settle(self, doc: Doc) -> None:
+        """Like an editor that asks after typing stops: usually wait for the diagnostics of `doc`, which is
+        when the server has compiled the text. Without them a request is answered from syntax alone."""
+        if not doc.unpublished or self.rng.random() < 0.2:
             return
-        where = {'textDocument': {'uri': doc.uri}, 'position': {'line': pick['hover']['line'], 'character': pick['hover']['character']}}
-        kind = self.rng.choice(['hover', 'completion', 'definition', 'references'])
-        method = {'hover': 'textDocument/hover', 'completion': 'textDocument/completion',
-                  'definition': 'textDocument/definition', 'references': 'textDocument/references'}[kind]
-        params = dict(where)
-        if kind == 'references':
-            params['context'] = {'includeDeclaration': True}
+        deadline = time.perf_counter() + self.args.diagnostics_wait
+        client = self.client
+        with client.condition:
+            while True:
+                found = [n for n in client.notifications if n[1].get('method') == 'textDocument/publishDiagnostics'
+                         and n[1].get('params', {}).get('uri') == doc.uri]
+                # Everything seen so far is read; keep the list short whatever the server publishes.
+                client.notifications.clear()
+                if found:
+                    doc.unpublished = False
+                    return
+                if client.closed:
+                    raise Failure(f'server exited while waiting for diagnostics: {client.tail()}')
+                left = deadline - time.perf_counter()
+                if left <= 0:
+                    self.missing_diagnostics += 1
+                    return
+                client.condition.wait(min(left, 0.5))
+
+    def request_at(self, doc: Doc, kind: str, line: int, character: int) -> None:
+        method, _, extra = POSITIONAL[kind]
+        params = {'textDocument': {'uri': doc.uri}, 'position': {'line': line, 'character': character}, **extra}
         self.ask(kind, method, params)
         self.count(kind)
+
+    def query_in(self, doc: Doc) -> None:
+        """A request about a random identifier of `doc`: hover, completion, definition, references, rename,
+        highlights; sometimes one about the whole document (symbols, tokens, hints)."""
+        self.settle(doc)
+        if self.rng.random() < 0.2 and self.whole:
+            kind = self.rng.choice(self.whole)
+            method, _, extra = WHOLE[kind]
+            self.ask(kind, method, {'textDocument': {'uri': doc.uri}, **extra(doc)})
+            self.count(kind)
+            return
+        pick = self.body_position(doc)
+        if pick:
+            self.request_at(doc, self.rng.choice(self.positional), pick['hover']['line'], pick['hover']['character'])
 
     def query(self) -> None:
         doc = self.some_doc()
@@ -284,7 +342,7 @@ class Run:
             self.query_in(doc)
 
     def os_branch(self) -> None:
-        """Edit and hover inside the `#if OS == .LINUX` and `#if OS == .WINDOWS` branches of a document."""
+        """Edit and ask about code inside the `#if OS == .LINUX` and `#if OS == .WINDOWS` blocks of a document."""
         docs = [d for d in self.docs.values() if d.os_lines]
         if not docs:
             self.open_doc()
@@ -299,8 +357,9 @@ class Run:
             doc.lines[line] = doc.lines[line][:column] + ' ' + doc.lines[line][column:]
             self.change(doc, insert_edit(line, column, ' '))
         column = doc.lines[line].index(f'{branch}_value') + 2
-        self.ask('hover_os_branch', 'textDocument/hover', {'textDocument': {'uri': doc.uri},
-                                                            'position': {'line': line, 'character': column}})
+        self.settle(doc)
+        kinds = [k for k in self.positional if k != 'completion'] or self.positional
+        self.request_at(doc, self.rng.choice(kinds), line, column)
         self.count('os_branch')
 
     def watch(self, *changes: tuple[Path, int]) -> None:
@@ -337,29 +396,47 @@ class Run:
         self.ask('workspace_symbol', 'workspace/symbol', {'query': 'stress_file'})
 
     def idle(self) -> None:
-        """Do nothing for the gap, then record the memory the server settled at."""
+        """Do nothing for the gap, then until the server's memory has stopped moving (it gives memory back in
+        steps while idle), and record where it settled and how long that took."""
+        began = time.perf_counter()
         time.sleep(self.args.idle_seconds)
+        recent: list[float] = []
         reading = self.sampler.now()
+        while reading and time.perf_counter() - began < self.args.settle_seconds:
+            recent = [*recent[-2:], reading[1]]
+            if len(recent) == 3 and max(recent) - min(recent) <= 0.01 * max(recent):
+                break
+            time.sleep(1)
+            reading = self.sampler.now()
         if reading:
             self.gaps.append({'at_action': sum(self.stats.actions.values()), 'rss_mib': round(reading[0], 1),
-                              'private_mib': round(reading[1], 1)})
+                              'private_mib': round(reading[1], 1), 'settled_after_s': round(time.perf_counter() - began, 1)})
         self.count('idle')
 
     # ------------------------------------------------------------------ the session
 
     def initialize(self) -> None:
         uri = file_uri(self.workspace)
-        self.ask('initialize', 'initialize', {
+        result = self.ask('initialize', 'initialize', {
             'processId': None, 'clientInfo': {'name': 'jacket-stress'}, 'rootUri': uri,
             'workspaceFolders': [{'uri': uri, 'name': self.workspace.name}], 'capabilities': capabilities(False)})
         self.client.notify('initialized')
+        advertised = (result or {}).get('capabilities', {})
+        self.positional = [k for k, (_, cap, _) in POSITIONAL.items() if advertised.get(cap)]
+        self.whole = [k for k, (_, cap, _) in WHOLE.items() if advertised.get(cap)]
 
     def run(self) -> None:
         self.sampler.start()
         self.initialize()
         self.open_doc()
-        actions = [(self.open_doc, 3), (self.close_doc, 2), (self.type_burst, 8), (self.fix_errors, 4),
-                   (self.query, 8), (self.os_branch, 4), (self.file_event, 4)]
+        every = {'open': (self.open_doc, 3), 'close': (self.close_doc, 2), 'type': (self.type_burst, 8),
+                 'fix': (self.fix_errors, 4), 'query': (self.query, 8), 'os': (self.os_branch, 4),
+                 'files': (self.file_event, 4)}
+        chosen = [n.strip() for n in self.args.actions.split(',') if n.strip()] or list(every)
+        unknown = [n for n in chosen if n not in every]
+        if unknown:
+            raise Failure(f'--actions: unknown {unknown}; choose from {list(every)}')
+        actions = [every[n] for n in chosen]
         weights = [w for _, w in actions]
         for step in range(1, self.args.steps + 1):
             self.rng.choices([a for a, _ in actions], weights)[0]()
@@ -409,6 +486,7 @@ def summarize(run: Run, failure: str | None, peak_rss: float | None) -> dict:
         'seed': run.args.seed, 'steps': run.args.steps, 'workspace': run.args.workspace,
         'actions': run.stats.actions,
         'tolerated_cancellations': run.stats.tolerated,
+        'missing_diagnostics': run.missing_diagnostics,
         'peak_rss_mib': round(max([r for _, r, _ in series] + [peak_rss or 0]), 1),
         'peak_private_mib': round(max([p for _, _, p in series] + [0]), 1),
         'after_idle': gaps,
