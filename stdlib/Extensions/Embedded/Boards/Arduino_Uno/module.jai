@@ -49,7 +49,16 @@ memory_map :: Embedded.Memory_Map.{
         options.llvm_options.target_system_triple = "avr-none-elf";
         options.llvm_options.target_system_cpu = "atmega328p";
         options.runtime_support_definitions = .ONLY_INIT;
-        options.temporary_storage_size = 256; // of 2 KiB of RAM
+        // Everything below is RAM: 2 KiB for `.data`, `.bss`, the heap and the stack. The trace
+        // text of a stack trace and a large temporary storage would take most of it.
+        // An unoptimized program keeps every compile-time scratch buffer and does not fit the
+        // part, so the board builds small whatever the command line says.
+        set_optimization(options, .OPTIMIZED_SMALL);
+        options.stack_trace = false;
+        // RAM starts at data address 0x100, so no low address is unmapped: the null check, which
+        // takes everything below 4096 for a null pointer, would stop every global access.
+        options.null_pointer_check = .OFF;
+        options.temporary_storage_size = 64;
         Embedded.link_for(options, memory_map);
     }
 
