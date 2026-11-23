@@ -162,7 +162,8 @@ pub fn display_path(path: &std::path::Path) -> String {
 }
 
 /// `path` as shown from `base`: relative when inside it or up to two directories above it
-/// (`../lib/module.jai`), else as it is.
+/// (`../lib/module.jai`), else as it is. The filesystem root never counts as one of those
+/// directories.
 ///
 /// ```
 /// use std::path::Path;
@@ -174,7 +175,12 @@ pub fn display_path_from(base: &std::path::Path, path: &std::path::Path) -> Stri
     if path == base {
         return ".".to_string();
     }
-    for (up, dir) in base.ancestors().take(3).enumerate() {
+    for (up, dir) in base
+        .ancestors()
+        .take(3)
+        .take_while(|dir| dir.parent().is_some())
+        .enumerate()
+    {
         if let Ok(relative) = path.strip_prefix(dir)
             && !relative.as_os_str().is_empty()
         {
