@@ -95,6 +95,17 @@ fn emit_module(
             .map_err(|e| format!("invalid LLVM IR: {e}"))?;
     }
     apply_codegen_attributes(&context, &module, &options.codegen, build_target);
+    for name in options.opt_level.size_attributes() {
+        let kind = Attribute::get_named_enum_kind_id(name);
+        for function in module.get_functions() {
+            if function.count_basic_blocks() > 0 {
+                function.add_attribute(
+                    AttributeLoc::Function,
+                    context.create_enum_attribute(kind, 0),
+                );
+            }
+        }
+    }
     if let Some(path) = &options.codegen.bitcode_before
         && !module.write_bitcode_to_path(unit_path(path, unit))
     {
