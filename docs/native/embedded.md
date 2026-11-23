@@ -64,19 +64,24 @@ export JAIC_COMPILER_RT=$PWD/target/compiler-rt
 
 ## AVR (Arduino Uno)
 
-`Extensions/Embedded/Boards/Arduino_Uno` builds for `avr-none-elf` (ATmega328P, 2-byte pointers):
+`Extensions/Embedded/Boards/Arduino_Uno` builds for `avr-none-elf` (ATmega328P: 32 KiB of flash, 2 KiB of RAM, 2-byte pointers). Compiler flags go before the source, because a board's arguments follow its name:
 
 ```sh
-jaic app.jai +Extensions/Embedded/Boards/Arduino_Uno
+jaic -exe app app.jai +Extensions/Embedded/Boards/Arduino_Uno
 qemu-system-avr -M uno -bios app -nographic -serial stdio -monitor none
 ```
 
+`print("hello\n")` builds to about 5.7 KB of code, 0.45 KB of `.data` and 0.4 KB of `.bss`. The qemu tests in `crates/jaic-cli/tests/avr.rs` run it, and a program that calls through `#c_call` and Jai procedure pointers.
+
 How it differs from the other boards:
 
-- Flash and RAM are separate address spaces, so ordinary loads cannot read flash. `.data` and `.rodata` live in RAM and the reset code in `Extensions/Embedded/avr.jai` copies them from flash with `lpm`.
-- Code pointers are word addresses in flash (address space 1). The compiler casts them to and from plain pointers and casts the callee back before an indirect call.
-- The linker script places flash at 0 and RAM at `0x800100`; lld truncates addresses to 16 bits. Link with `ld.lld`; it needs no `-m` for AVR.
-- `__mulsi3` and `abort` come from `avr.jai`. The rest of the runtime builtins come from `tools/embedded/build-compiler-rt.sh avr-none-elf <dir>`, which builds for `atmega328p`; point `JAIC_COMPILER_RT` at `<dir>`. At `-O0` the compiler raises AVR to `-O1`, because the fast register allocator cannot place 64-bit values.
-- The compile-time buffers shrink to fit the 16-bit window, so `-check` works for AVR programs.
+- **Memory.** Flash and RAM are separate address spaces, so ordinary loads cannot read flash. `.data` and `.rodata` live in RAM, and the reset code in `Extensions/Embedded/avr.jai` copies them from flash with `lpm`. Constant data therefore costs RAM; keep it small.
+- **Code pointers** are word addresses in flash (address space 1). The compiler casts them to and from plain pointers and casts the callee back before an indirect call.
+- **Linking.** The linker script places flash at 0 and RAM at `0x800100`, and lld truncates addresses to 16 bits. `ld.lld` needs no `-m` for AVR. The Windows `jaic` cannot build for AVR: the LLVM it links has no AVR backend.
+- **Builtins.** `__mulsi3` and `abort` come from `avr.jai`. The rest of compiler-rt comes from `tools/embedded/build-compiler-rt.sh avr-none-elf <dir>`, built for `atmega328p` (other AVR cores are rejected at link time). Point `JAIC_COMPILER_RT` at `<dir>`; a path that does not exist is an error that says so.
+- **Build options.** The board sets `set_optimization(.OPTIMIZED_SMALL)` (an unoptimized image keeps compile-time scratch buffers and does not fit), `stack_trace = false` (trace text is RAM), `null_pointer_check = .OFF` (RAM starts at data address 0x100, so no low address is unmapped) and a 64-byte temporary storage.
+- **Size.** A `String_Builder` is 256 bytes where pointers are 2 bytes wide (4 KiB elsewhere). `print` with no `%` and no values writes the text directly, so none of the formatter is linked; a `print` with values pulls in the formatter, which does not fit 32 KiB of flash with the rest of `Basic`. `init_runtime` leaves `context_info` empty, because describing `Context` links about 17 KB of type information. Call `describe_context()` after `init_runtime()` when something needs it, such as `Remap_Context`.
+- **C ABI.** The runtime's `memset`, `memcmp` and `bcmp` take `int` and `size_t` at the target's width (16 bits on AVR), as LLVM's calls pass them.
+- **Compile time.** The interpreter runs the program's own layout in a 48 KiB window, and the compile-time buffers shrink to fit, so `-check` works. Compile-time code at host width with values relaid out when they reach the program is not built (see [n-bit and embedded](n-bit-and-embedded.md)).
 
-Limit: a program that imports `Basic` carries about 14 KB of code and 19 KB of data (type information and a 4 KB string builder), which does not fit the Uno's 32 KB flash and 2 KB RAM, so it links only into a larger memory map. Trimming that data is not done. Only the compile-time check is tested in CI; the Windows `jaic` has no AVR backend.
+Required tools: `ld.lld` built with AVR support, the compiler-rt archive, and `qemu-system-avr` (Debian `qemu-system-misc`) to run it. Without `qemu-system-avr` the tests skip with a note; `JAIC_REQUIRE_TOOLCHAIN=qemu-system-avr,avr-backend,compiler-rt,ld.lld` makes each a failure, as CI does.
