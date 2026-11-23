@@ -6,9 +6,9 @@ Jacket builds for 16- and 32-bit, big-endian and bare-metal targets, and Sound_P
 
 ### Highlights
 
-- New targets: WebAssembly (`wasm32-wasi`), i686, ARMv7, s390x and PowerPC64 Linux, run under qemu-user ([targets](docs/compiler/targets.md)).
-- Bare-metal AArch64, Cortex-M and AVR (Arduino Uno) programs, with QEMU boards in `Extensions/Embedded` ([embedded](docs/native/embedded.md)).
-- `jacket build|run|test --target NAME` builds for a target or board and runs on its emulator. `jacket targets` lists them.
+- New targets: WebAssembly (`wasm32-wasi`), i686, ARMv7, s390x and PowerPC64 Linux; `ARCHITECTURE` tells them apart ([targets](docs/compiler/targets.md)).
+- Bare-metal AArch64, Cortex-M and AVR (Arduino Uno): `OS == .NONE`, volatile accesses, interrupt and section notes ([embedded](docs/native/embedded.md)).
+- `jacket build|run|test --target NAME` builds and runs on a target, board or `[target.NAME]` table; `jacket targets` lists them.
 - New lint rules, off by default: `freestanding` and `narrow_pointers`.
 - A new guide: [32-bit and embedded](docs/guides/other-targets.md).
 - `jacket doc` renders GitHub alerts, and runs guides' `console` blocks, failing on drift and showing their colours.
