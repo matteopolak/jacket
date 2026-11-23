@@ -102,3 +102,33 @@ fn mixed_integer_and_float_registers_keep_their_own_order() {
         "#,
     );
 }
+
+#[test]
+fn callbacks_handed_to_c_keep_working_across_many_calls() {
+    check(
+        r#"
+        qsort :: (base: *void, count: u64, size: u64, compare: (*void, *void) -> s32 #c_call) #foreign;
+        abs :: (x: s32) -> s32 #foreign;
+
+        by_value :: (a: *void, b: *void) -> s32 #c_call {
+            x := (cast(*s32) a).*;
+            y := (cast(*s32) b).*;
+            if x < y return -1;
+            if x > y return 1;
+            return 0;
+        }
+
+        run :: () -> s64 {
+            for 1..50 {
+                values := s32.[5, 3, 9, 1, 7, 2];
+                qsort(values.data, 6, 4, by_value);
+                if values[0] != 1 || values[5] != 9 || values[2] != 3 return -1;
+                if abs(cast(s32) -it) != cast(s32) it return -2;
+            }
+            return 0;
+        }
+        #assert run() == 0;
+        main :: () {}
+        "#,
+    );
+}

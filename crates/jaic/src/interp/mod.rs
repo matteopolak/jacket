@@ -292,6 +292,8 @@ pub struct Interp {
     proc_values: Vec<u64>,
     /// Thunk address -> procedure, for every thunk this interpreter made.
     thunk_funcs: HashMap<u64, FuncId>,
+    /// The procedures of `thunk_funcs`, in the order their thunks were made.
+    thunk_list: Vec<FuncId>,
     /// Thunks made since the last foreign call, which C has not been able to see yet. One that
     /// starts a Jai thread (`pthread_create`, `CreateThread`) leaves the list, since the
     /// scheduler runs it; the next foreign call hands the rest to C (`hand_thunks_to_c`).
@@ -479,6 +481,7 @@ impl Interp {
             profile: profile::enabled().then(Default::default),
             proc_values: Vec::new(),
             thunk_funcs: HashMap::default(),
+            thunk_list: Vec::new(),
             #[cfg(not(target_arch = "wasm32"))]
             unseen_thunks: Vec::new(),
             #[cfg(not(target_arch = "wasm32"))]

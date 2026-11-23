@@ -647,6 +647,7 @@ impl Interp {
         )?;
         if self.thunk_funcs.insert(addr, id).is_none() {
             self.unseen_thunks.push(addr);
+            self.thunk_list.push(id);
         }
         Ok(addr)
     }
@@ -666,9 +667,9 @@ impl Interp {
         // Exposure bookkeeping can be cleared after a C call, but unresolved
         // readiness must survive until source addition permits another probe.
         // Only a compile-time run that defers missing bodies inspects anything.
-        if self.compile_time && self.defer_missing_bodies && !self.thunk_funcs.is_empty() {
-            let pending: Vec<_> = self.thunk_funcs.values().copied().collect();
-            for function in pending {
+        if self.compile_time && self.defer_missing_bodies {
+            for i in 0..self.thunk_list.len() {
+                let function = self.thunk_list[i];
                 self.inspect_callable(program, function)?;
             }
         }
