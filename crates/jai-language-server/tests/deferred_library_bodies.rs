@@ -15,6 +15,14 @@ const PROGRAMS: &[&str] = &[
     "#import \"Basic\";\nmake :: () -> int {\n    xs: [..] int;\n    array_add(*xs, 4);\n    array_add(*xs, 5);\n    return xs.count;\n}\nN :: #run make();\n#assert N == 2;\nmain :: () { print(\"%\\n\", N); }\n",
     // Math, strings and a procedure value.
     "#import \"Basic\";\n#import \"Math\";\n#import \"String\";\nmain :: () {\n    r := sqrt(4.0);\n    print(\"%\\n\", r);\n    t := to_lower_copy(\"ABC\");\n    print(\"%\\n\", t);\n}\n",
+    // A body using a name another body declares through `#insert,scope`.
+    include_str!("../../../tests/compiler/regressions/body-waits-for-inserted-declaration.jai"),
+    // A struct laid out while `using` a global pointer to a struct that holds it.
+    include_str!("../../../tests/compiler/regressions/using-global-of-own-struct.jai"),
+    // Polymorphs, baked arguments and polymorphic structs.
+    include_str!("../../../tests/compiler/regressions/rules-polymorphism.jai"),
+    // A metaprogram that sees the stdlib bodies its workspace checks.
+    include_str!("../../../tests/compiler/metaprograms/intercepted-stdlib-body-from-string.jai"),
 ];
 
 fn open(defer: bool, text: &str) -> Session {
