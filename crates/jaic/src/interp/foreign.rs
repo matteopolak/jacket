@@ -107,6 +107,31 @@ const OBSERVABLE: u8 = 4;
 /// The call may write to the terminal, so the build status line goes down first.
 const WRITES_OUTPUT: u8 = 8;
 
+/// The symbol is one the interpreter may answer itself or watch (`is_special`): the others go
+/// straight to native code.
+const SPECIAL: u8 = 16;
+
+/// The call is `fork` or `vfork`.
+const FORKS: u8 = 32;
+
+/// Is `symbol` one `call_foreign` treats specially by name, before native code runs: the
+/// executable-path queries, thread and synchronisation procedures, and the calls that end or
+/// crash the process?
+fn is_special(symbol: &str) -> bool {
+    super::executable_path::handles(symbol)
+        || super::threads_inline::ThreadFn::from_name(symbol).is_some()
+        || win32_handles(symbol)
+        || matches!(symbol, "exit" | "_exit" | "abort")
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+use super::threads::win32_handles;
+
+#[cfg(target_arch = "wasm32")]
+fn win32_handles(_symbol: &str) -> bool {
+    false
+}
+
 /// Does the call leave the terminal alone? Only these known calls do (`write` is in the memory
 /// list but writes). Any other may print (`system`, `dprintf`, a spawned child, a library's own
 /// output), so the status line goes down before it.
@@ -286,6 +311,12 @@ impl Interp {
         if !is_quiet(symbol) {
             flags |= WRITES_OUTPUT;
         }
+        if is_special(symbol) {
+            flags |= SPECIAL;
+        }
+        if matches!(symbol, "fork" | "vfork") {
+            flags |= FORKS;
+        }
         if self.foreign_flags.len() <= id.0 as usize {
             self.foreign_flags.resize(id.0 as usize + 1, 0);
         }
@@ -312,40 +343,44 @@ impl Interp {
         if effects & WRITES_OUTPUT != 0 {
             crate::progress::before_output();
         }
-        if !self.compile_time
-            && let Some(result) = self.executable_path_foreign(symbol, args)
-        {
-            return result.map(Rets::from);
-        }
-        if self.host.cooperative_threads() {
-            if let Some(result) = self.inline_thread_foreign(program, symbol, args) {
+        if effects & SPECIAL != 0 {
+            if !self.compile_time
+                && let Some(result) = self.executable_path_foreign(symbol, args)
+            {
                 return result.map(Rets::from);
             }
-        } else {
+            if self.host.cooperative_threads() {
+                if let Some(result) = self.inline_thread_foreign(program, symbol, args) {
+                    return result.map(Rets::from);
+                }
+            } else {
+                #[cfg(not(target_arch = "wasm32"))]
+                if let Some(result) = self.thread_foreign(program, symbol, args) {
+                    return result.map(Rets::from);
+                }
+            }
+            // The process ends in this call: what ran must be written before it does.
+            if matches!(symbol, "exit" | "_exit") && self.lines.is_some() {
+                self.flush_profile();
+                super::line_cover::write();
+            }
             #[cfg(not(target_arch = "wasm32"))]
-            if let Some(result) = self.thread_foreign(program, symbol, args) {
-                return result.map(Rets::from);
+            if symbol == "abort" {
+                crash::skip_core_dump();
             }
         }
-        // The process ends in this call: what ran must be written before it does.
-        if matches!(symbol, "exit" | "_exit") && self.lines.is_some() {
-            self.flush_profile();
-            super::line_cover::write();
-        }
-        #[cfg(not(target_arch = "wasm32"))]
-        if symbol == "abort" {
-            crash::skip_core_dump();
-        }
-        let base = self.base;
-        if let Some(result) =
-            sandbox::guest::with_base(base, || self.host.foreign(symbol, args, sig))
-        {
-            let exits = matches!(symbol, "exit" | "_exit");
-            return result.map(Rets::from).map_err(|m| {
-                Trap::new(m).at(self.loc).of_kind(
-                    exits.then(|| TrapKind::Exit(args.first().copied().unwrap_or(0) as i32)),
-                )
-            });
+        if self.host.answers_foreign() {
+            let base = self.base;
+            if let Some(result) =
+                sandbox::guest::with_base(base, || self.host.foreign(symbol, args, sig))
+            {
+                let exits = matches!(symbol, "exit" | "_exit");
+                return result.map(Rets::from).map_err(|m| {
+                    Trap::new(m).at(self.loc).of_kind(
+                        exits.then(|| TrapKind::Exit(args.first().copied().unwrap_or(0) as i32)),
+                    )
+                });
+            }
         }
         // Sandbox hosts answer above; only trusted native compile-time evaluation uses
         // real host files. Runtime and native Windows calls retain their normal dispatch.
@@ -398,7 +433,7 @@ impl Interp {
             return Err(trap);
         }
         // The child of a fork has only the forking thread: it must not wait for the others.
-        let forks = matches!(symbol, "fork" | "vfork");
+        let forks = effects & FORKS != 0;
         let plan = self.foreign_plan(program, id, addr, sig, forks);
         let scheduling = plan.scheduling;
         #[cfg(target_os = "macos")]
@@ -435,7 +470,7 @@ impl Interp {
             scheduling,
             Some(&plan.native),
         )?;
-        if symbol == "fork" && result.first() == Some(&0) {
+        if effects & FORKS != 0 && symbol == "fork" && result.first() == Some(&0) {
             self.forked_child = true;
             #[cfg(target_os = "macos")]
             native::main_thread::disable();
@@ -909,6 +944,30 @@ mod native_handoff_tests {
             assert_eq!(result.first().copied().unwrap() as i32, -1);
             assert_eq!(std::io::Error::last_os_error().raw_os_error(), Some(error));
             assert!(interp.holds_baton());
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_special;
+
+    #[test]
+    fn only_symbols_the_interpreter_watches_are_special() {
+        for symbol in [
+            "pthread_create",
+            "pthread_mutex_lock",
+            "nanosleep",
+            "exit",
+            "_exit",
+            "abort",
+            "readlink",
+            "_NSGetExecutablePath",
+        ] {
+            assert!(is_special(symbol), "{symbol}");
+        }
+        for symbol in ["labs", "malloc", "write", "sqrt", "fork", "dlopen"] {
+            assert!(!is_special(symbol), "{symbol}");
         }
     }
 }

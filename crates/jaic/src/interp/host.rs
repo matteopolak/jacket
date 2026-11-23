@@ -100,6 +100,12 @@ pub trait Host {
         sig: &ir::Sig,
     ) -> Option<Result<Vec<u64>, String>>;
 
+    /// Whether `foreign` may answer any symbol; a host that never does says no, and the
+    /// interpreter skips asking on every call.
+    fn answers_foreign(&self) -> bool {
+        true
+    }
+
     /// The address of a foreign variable (a C global such as `stdin`) the host provides. `None` =
     /// not provided.
     fn foreign_data(&mut self, _symbol: &str) -> Option<u64> {
@@ -199,6 +205,10 @@ impl Host for NativeHost {
         _sig: &ir::Sig,
     ) -> Option<Result<Vec<u64>, String>> {
         None
+    }
+
+    fn answers_foreign(&self) -> bool {
+        false
     }
 
     #[cfg(not(target_arch = "wasm32"))]

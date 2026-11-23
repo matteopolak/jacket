@@ -1111,3 +1111,8 @@ fn deadline_after(milliseconds: u32) -> Option<Instant> {
 
 #[cfg(test)]
 mod tests;
+
+/// Is `symbol` a Win32 thread or synchronisation procedure `win32_foreign` implements?
+pub(in crate::interp) fn handles(symbol: &str) -> bool {
+    Win32Fn::from_name(symbol).is_some()
+}
