@@ -107,7 +107,7 @@ def run(args: argparse.Namespace) -> int:
         todo = native_scenarios(jaifmt, inputs)
         skipped: dict[str, Result] = {}
         if supports(jaifmt, 'range'):
-            todo.append(Scenario('range-stdin', [str(jaifmt), '--stdin', '--range', '1-400'],
+            todo.append(Scenario('range-stdin', [str(jaifmt), '--stdin', '--range', '1:400'],
                                  stdin_bytes=inputs.formatted.read_bytes()))
         else:
             skipped['range-stdin'] = Result.skipped('jaifmt has no range option')
