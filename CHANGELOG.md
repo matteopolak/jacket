@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+The language server answers edits sooner.
+
+### Fixes
+
+- `jailsp` publishes compiler errors as soon as the check finishes, and the lint findings after them.
+- Member completion works after a space before the dot (`value .field`).
+
 ## [0.38.0] - 2026-11-22
 
 Jacket builds for 16- and 32-bit, big-endian and bare-metal targets, and Sound_Player no longer crackles on Windows. The new targets are experimental, and their APIs may change.
