@@ -192,42 +192,33 @@ Lints still need the compile. They run on the worker that holds it, before the h
 
 Until the new lints arrive, the first publish of a version carries the previous version's lint diagnostics, shifted through the edits since and dropped where an edit touched them. Without that, every edit would clear the lints and redraw them a second later.
 
-### Stdlib reuse
+### Stdlib bodies the editor cannot observe
 
-Stdlib sema is 34–40% of a warm check. It is redone every time because each check starts a fresh `Compiler`. The state after loading the stdlib is shared by every check with the same:
-- options;
-- target;
-- import set;
-- module parameters.
+A check lowers (type-checks) the body of every procedure its code reaches, and for the stdlib that is 1000–2000 bodies for 50–135 of the user's (see the profile above). Nothing the user sees comes from most of them: a non-generic stdlib procedure has a declared signature, so callers only need that.
 
-That holds only until user code mutates it. The known mutators are:
-- `#add_context`;
-- `#poke_name`;
-- `#placeholder`;
-- module parameters;
-- target options set by a build;
-- `#run` with side effects;
-- polymorph instances added to generic `ProcInfo.instances`.
+A snapshot of the checked stdlib was considered and dropped. `Compiler` is not `Clone`, the interpreter's boxed frames and host-address blocks cannot be copied without relocation, and deep-copying about 1M allocations (50–100 MB) costs roughly 40–100 ms against a 120–140 ms saving. It would also be a cache with state that can go stale. Not checking the bodies is exact: no copy, no key, no invalidation.
 
-Target design: a **frozen stdlib snapshot** per `(options, target, import set)`.
-1. Build a `Compiler` that has loaded the imports, resolved every non-generic stdlib declaration and lowered every non-generic stdlib body reachable from them. Generic bodies stay lazy.
-2. Freeze it as a read-only `Arc`.
-3. A check clones it. Better, it layers user state over it, as the speculative-body arena cut-back and undo journal already do.
+**Ceiling.** An experiment that skipped queuing non-generic stdlib bodies in `proc_func` (`sema/procs/func.rs`; `jaic -check`, release, warm, three runs each) cut front-end time and allocations:
 
-A check falls back to a full build when it sees a mutator touch snapshot state. Each fallback is counted, so we can see how often it happens.
+| Program | Front end before → after | Allocations before → after |
+|---|---|---|
+| `examples/editor` | 126 → 68 ms (−46%) | 2.10 M → 1.02 M |
+| `examples/chip8` | 61 → 41 ms (−33%) | 0.96 M → 0.62 M |
+| `examples/chat` | 49 → 31 ms (−36%) | 0.88 M → 0.51 M |
 
-Snapshot blockers, ranked:
-1. Interpreter state bound to addresses, which needs a reset or relocation.
-2. User mutation of stdlib state, handled by the fallback above.
-3. `Clone` on all of sema, about 60k lines, mechanical.
-4. Copy-on-write of lazily resolved state.
-5. Trait objects.
-6. Thread-locals.
-7. Id order, which is fine for the IDE.
+That matches the 34–40% stdlib share. The experiment ignored the cases below, so it is an upper bound.
 
-Because lowering is lazy, a snapshot taken right after loading would save only the load share (~3%). The gain needs the eager pass in step 1, which costs once per key.
+**Design.** An `Options` flag set only by the language server (`jaic` and `jailint` keep checking everything). In `proc_func`, a procedure is deferred when all hold:
+1. its file is in the stdlib (`is_library_file`) and no open document;
+2. it is not generic, not a macro, and not an instance made from a user call site (`bindings` is none);
+3. it has a declared return type, so no caller needs its body to know the signature.
 
-Expected gain: up to 34–40% of a warm check, minus the clone cost. **The clone cost is not measured yet.** That is the first task of the stage, and the stage stops if a clone costs more than half of what it saves.
+A deferred procedure gets a new `BodyState::Deferred` and keeps its reserved function. Anything that needs a body promotes it to `Queued` first:
+- **Compile-time runs.** `lower_reachable_from` already lowers the queued bodies reachable from a `#run` thunk and nothing else; it must also promote deferred ones (`queued_proc_of`).
+- **Lints.** Lifetime summaries read callee bodies. The lint pass must promote the callees it summarises, or its results change silently. This touches `jailint`; coordinate with the lint-caching work.
+- **Opening a stdlib file.** The open set is part of the compile key, so the next check lowers that file's bodies.
+
+**Tests first.** Diagnostics, hover, definition, completion and lints are identical with and without the flag over the edit corpus and typing-session tests; a `#run` that calls a deferred stdlib procedure still runs; a stdlib file opened in the editor reports its own body errors; a lint that follows a stdlib callee gives the same finding. Count promotions so the cost of the fallback is visible.
 
 ### Caches and bounds
 
