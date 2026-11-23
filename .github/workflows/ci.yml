@@ -619,7 +619,7 @@ jobs:
           python3 ../../tools/ci/check_dependency_age.py --lockfile ../../Cargo.lock
           node scripts/check-dependency-age.ts
       # The pnpm version comes from package.json's packageManager, which the age check covers.
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
           package_json_file: editors/vscode/package.json
       - name: Install npm dependencies
@@ -667,7 +667,7 @@ jobs:
         with: {node-version: '24'}
       - name: Validate the pnpm version's age before installing
         run: node editors/vscode/scripts/check-dependency-age.ts --dir crates/jacket/src/doc/site-tools
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
           package_json_file: crates/jacket/src/doc/site-tools/package.json
       - name: Install npm dependencies
@@ -691,7 +691,7 @@ jobs:
         with: {node-version: '24'}
       - name: Validate the pnpm version's age before installing
         run: node editors/vscode/scripts/check-dependency-age.ts --dir tools
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
           package_json_file: tools/package.json
       - name: Install npm dependencies
@@ -1341,7 +1341,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: {persist-credentials: false}
-      - uses: cachix/install-nix-action@448cde739abec1eaf0646249e3d25bb8d9bc7702 # v31.11.2
+      - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
       - name: Check the lock file is current
         run: nix flake lock --no-update-lock-file
       - name: Check the flake
