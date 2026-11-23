@@ -7,20 +7,6 @@ use crate::sema::convert::Site;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Diagnostic, Result, Span, Sym, TypeId, ast, err};
 
-thread_local! {
-    /// Where the name of each named argument is written, by the span of its value: a
-    /// `CallArg` keeps only the value's span, and a fix for a wrong name replaces just the name.
-    static ARGUMENT_NAMES: std::cell::RefCell<crate::fxhash::HashMap<Span, Span>> =
-        std::cell::RefCell::new(crate::fxhash::HashMap::default());
-}
-
-/// Remember that the argument whose value is at `value` is named at `name`.
-pub(super) fn note_argument_name(value: Span, name: Span) {
-    ARGUMENT_NAMES.with(|names| {
-        names.borrow_mut().insert(value, name);
-    });
-}
-
 /// C default argument promotions for variadic arguments.
 pub(super) fn c_vararg_promote(
     c: &mut Compiler,
@@ -143,6 +129,7 @@ fn names_poly_var(
     poly_vars: &[Sym],
 ) -> bool {
     arg.name
+        .map(|name| name.name)
         .is_some_and(|name| poly_vars.contains(&name) && !names.any(|n| n == Some(name)))
 }
 
@@ -189,7 +176,8 @@ pub(super) fn assign_slots(
         if names_poly_var(params.iter().map(|p| p.name), arg, poly_vars) {
             continue;
         }
-        if let Some(name) = arg.name {
+        if let Some(written) = arg.name {
+            let name = written.name;
             let Some(p) = params.iter().position(|p| p.name == Some(name)) else {
                 let names: Vec<&str> = params
                     .iter()
@@ -202,17 +190,12 @@ pub(super) fn assign_slots(
                 );
                 match crate::suggest::closest(name.as_str(), names.iter().copied()) {
                     Some(near) => {
-                        let written =
-                            ARGUMENT_NAMES.with(|names| names.borrow().get(&arg.span).copied());
-                        d = match written {
-                            // Only the name changes, not the value after it.
-                            Some(name_span) => d.with_replacement(
-                                format!("did you mean `{near}`?"),
-                                name_span,
-                                near,
-                            ),
-                            None => d.with_help(format!("did you mean `{near}`?")),
-                        };
+                        // Only the name changes, not the value after it.
+                        d = d.with_replacement(
+                            format!("did you mean `{near}`?"),
+                            written.span,
+                            near,
+                        );
                         if let Some(declared) = params
                             .iter()
                             .find(|p| p.name.map(Sym::as_str) == Some(near))

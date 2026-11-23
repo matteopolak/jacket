@@ -282,9 +282,7 @@ impl Compiler {
             let Some(name) = arg.name else {
                 continue;
             };
-            let Some(at) = self.ide_arg_name_span(arg.span, name) else {
-                continue;
-            };
+            let at = name.span;
             let ty = sig
                 .as_ref()
                 .and_then(|s| s.params.get(param))
@@ -300,7 +298,7 @@ impl Compiler {
             };
             ide.refs.push(IdeRef {
                 span: at,
-                what: IdeWhat::Member(name),
+                what: IdeWhat::Member(name.name),
                 ty,
                 decl: false,
             });
@@ -308,30 +306,6 @@ impl Compiler {
                 ide.member_uses.insert((at, decl));
             }
         }
-    }
-
-    /// The `name` of a `name = value` argument whose value (or whole argument) is at `span`.
-    fn ide_arg_name_span(&self, span: Span, name: Sym) -> Option<Span> {
-        let text = &self.src.sources.try_get(span.file)?.text;
-        let name = name.as_str();
-        let start = span.start as usize;
-        // The argument's span may start at the name or at the value.
-        if text.get(start..)?.starts_with(name)
-            && text[start + name.len()..].trim_start().starts_with('=')
-        {
-            return Some(Span {
-                file: span.file,
-                start: span.start,
-                end: (start + name.len()) as u32,
-            });
-        }
-        let before = text.get(..start)?.trim_end().strip_suffix('=')?.trim_end();
-        let at = before.strip_suffix(name).map(str::len)?;
-        Some(Span {
-            file: span.file,
-            start: at as u32,
-            end: (at + name.len()) as u32,
-        })
     }
 
     pub(super) fn ide_wants_file(&mut self, file: FileId) -> bool {

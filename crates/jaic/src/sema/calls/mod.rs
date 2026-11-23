@@ -70,7 +70,8 @@ fn const_marker(name: Sym) -> Sym {
 /// type is known (`.MEMBER`, `.{...}`, `xx value`...).
 #[derive(Clone)]
 pub struct CallArg {
-    pub name: Option<Sym>,
+    /// The name of a named argument, and where it is written.
+    pub name: Option<ast::Ident>,
     pub spread: bool,
     pub expr: Option<ast::Expr>,
     pub op: Option<Operand>,

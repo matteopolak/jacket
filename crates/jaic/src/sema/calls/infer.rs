@@ -88,7 +88,7 @@ impl Compiler {
             if !is_poly_var_arg(&header.params, arg, &st.poly_vars) {
                 continue;
             }
-            let name = arg.name.unwrap();
+            let name = arg.name.unwrap().name;
             let op = match (&arg.op, &arg.expr) {
                 (Some(op), _) => op.clone(),
                 (None, Some(e)) => self.eval_const(arg.scope, e, None)?,

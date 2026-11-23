@@ -527,7 +527,7 @@ impl Compiler {
                     Some(n) => header
                         .params
                         .iter()
-                        .position(|q| q.name.map(|x| x.name) == Some(n)),
+                        .position(|q| q.name.map(|x| x.name) == Some(n.name)),
                     None => Some(i),
                 };
                 let Some(at) = at.filter(|&k| k < header.params.len() && !header.params[k].baked)
