@@ -22,6 +22,8 @@ pub struct Plan {
     pub(super) general_only: bool,
     /// The result needs the assembly call of `wide.rs`.
     pub(super) wide_ret: bool,
+    /// Every argument and the result is a scalar, so a call needs only registers (`scalar_call`).
+    pub(super) scalar: bool,
     pub(super) params: Vec<Option<ArgPlan>>,
     /// Whether the callee must run on the main thread (macOS), once known.
     #[cfg(target_os = "macos")]
@@ -74,6 +76,10 @@ impl Plan {
             p.iter()
                 .any(|p| matches!(p.ty, PieceTy::X87 | PieceTy::F128))
         });
+        let scalar = matches!(arch, Some(Arch::X86_64 | Arch::Aarch64))
+            && ret_layout.is_none()
+            && params.iter().all(Option::is_none)
+            && !(sig.c_varargs && super::VARARGS_ON_STACK);
         Plan {
             arch,
             host,
@@ -83,6 +89,7 @@ impl Plan {
             result_in_x0,
             general_only,
             wide_ret,
+            scalar,
             params,
             #[cfg(target_os = "macos")]
             main_thread: std::cell::Cell::new(None),

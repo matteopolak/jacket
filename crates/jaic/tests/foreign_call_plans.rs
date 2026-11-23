@@ -69,3 +69,36 @@ fn aggregate_results_come_back_through_the_plan() {
         "#,
     );
 }
+
+#[test]
+fn mixed_integer_and_float_registers_keep_their_own_order() {
+    check(
+        r#"
+        fma :: (x: float64, y: float64, z: float64) -> float64 #foreign;
+        fmaf :: (x: float32, y: float32, z: float32) -> float32 #foreign;
+        ldexp :: (x: float64, e: s32) -> float64 #foreign;
+        copysignf :: (x: float32, y: float32) -> float32 #foreign;
+        strtol :: (s: *u8, end: **u8, base: s32) -> s64 #foreign;
+        abs :: (x: s32) -> s32 #foreign;
+        toupper :: (c: s32) -> s32 #foreign;
+        isdigit :: (c: s32) -> s32 #foreign;
+
+        run :: () -> s64 {
+            for 1..200 {
+                if fma(2.0, 3.0, cast(float64) it) != 6.0 + cast(float64) it return -1;
+                if fmaf(2.0, 4.0, 1.0) != 9.0 return -2;
+                if ldexp(1.5, 4) != 24.0 return -3;
+                if copysignf(3.0, -1.0) != -3.0 return -4;
+            }
+            text := "ff";
+            if strtol(text.data, null, 16) != 255 return -5;
+            if abs(-7) != 7 return -6;
+            if toupper(97) != 65 return -7;
+            if isdigit(55) == 0 return -8;
+            return 0;
+        }
+        #assert run() == 0;
+        main :: () {}
+        "#,
+    );
+}

@@ -713,6 +713,11 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig, plan: &Plan) -> Result<R
             "the interpreter does not implement the Microsoft x64 calling convention".into(),
         );
     }
+    if plan.scalar
+        && let Some(result) = register_call(addr, args, sig)
+    {
+        return Ok(result);
+    }
     let cabi = sig.c_abi.as_deref();
     let ret_layout = cabi.and_then(|c| c.ret.as_ref());
     let ret_pieces = plan.ret_pieces.as_ref();
@@ -952,6 +957,81 @@ fn indirect_copy(a: u64, size: u64, copies: &mut Vec<Vec<u64>>) -> u64 {
     let addr = copy.as_ptr() as u64;
     copies.push(copy);
     addr
+}
+
+/// Integer registers a scalar call can fill: x86-64 System V has six, `AArch64` eight.
+const INT_REGISTERS: usize = if X86_64 {
+    6
+} else {
+    8
+};
+
+/// A call of scalar arguments and a scalar result that fit the registers, which is almost every
+/// foreign call: no argument layout, no stack slots, no hidden pointer. `None` when an argument
+/// does not fit, and the general path packs it.
+fn register_call(addr: u64, args: &[u64], sig: &Sig) -> Option<Rets> {
+    let (mut ints, mut floats) = ([0u64; 8], [0f64; 8]);
+    let (mut ni, mut nf) = (0, 0);
+    for (i, &a) in args.iter().enumerate() {
+        if sig.params.get(i).copied().unwrap_or(Ty::I64).is_float() {
+            *floats.get_mut(nf)? = f64::from_bits(a);
+            nf += 1;
+        } else {
+            if ni == INT_REGISTERS {
+                return None;
+            }
+            ints[ni] = a;
+            ni += 1;
+        }
+    }
+    Some(match sig.returns.first().copied() {
+        Some(t) if t.is_float() => {
+            let bits = call_registers::<f64>(addr, &ints, &floats).to_bits();
+            Rets::one(if t == Ty::F32 {
+                bits & 0xffff_ffff
+            } else {
+                bits
+            })
+        }
+        Some(t) => Rets::one(mask_int(t, call_registers::<u64>(addr, &ints, &floats))),
+        None => {
+            call_registers::<u64>(addr, &ints, &floats);
+            Rets::default()
+        }
+    })
+}
+
+/// Call `addr` with the integer and floating-point argument registers and nothing on the stack,
+/// as `call_as` does for `register_call`'s arguments.
+fn call_registers<R>(addr: u64, ints: &[u64; 8], floats: &[f64; 8]) -> R {
+    let [i0, i1, i2, i3, i4, i5, i6, i7] = *ints;
+    let [f0, f1, f2, f3, f4, f5, f6, f7] = *floats;
+    #[cfg(target_arch = "x86_64")]
+    {
+        let _ = (i6, i7);
+        type Proto<R> = unsafe extern "C" fn(u64, ...) -> R;
+        // SAFETY: `addr` is a C function the program declared (see `call_as`), whose scalar
+        // arguments are these registers; the variadic form also sets `al`.
+        let f: Proto<R> = unsafe { std::mem::transmute::<usize, Proto<R>>(addr as usize) };
+        // SAFETY: as above.
+        unsafe { f(i0, i1, i2, i3, i4, i5, f0, f1, f2, f3, f4, f5, f6, f7) }
+    }
+    #[cfg(not(target_arch = "x86_64"))]
+    {
+        #[rustfmt::skip]
+        type Proto<R> = unsafe extern "C" fn(
+            u64, u64, u64, u64, u64, u64, u64, u64,
+            f64, f64, f64, f64, f64, f64, f64, f64,
+        ) -> R;
+        // SAFETY: as above.
+        let f: Proto<R> = unsafe { std::mem::transmute::<usize, Proto<R>>(addr as usize) };
+        // SAFETY: as above.
+        unsafe {
+            f(
+                i0, i1, i2, i3, i4, i5, i6, i7, f0, f1, f2, f3, f4, f5, f6, f7,
+            )
+        }
+    }
 }
 
 /// A call whose result is a scalar (or nothing).
