@@ -1,0 +1,36 @@
+// crc64 gives the same value for equal input and a different value for every single-bit change and for reordered bytes.
+// The generator polynomial has a nonzero constant term, so no single-bit error can go undetected.
+#import "Basic";
+Crc :: #import "Crc";
+
+main :: () {
+    msg: [64] u8;
+    for *b, i: msg b.* = cast,trunc(u8) (i * 37 + 11);
+
+    original := string.{ msg.count, msg.data };
+    base := Crc.crc64(original);
+
+    copied: [64] u8 = msg;
+    same := string.{ copied.count, copied.data };
+
+    assert(Crc.crc64(same) == base);
+
+    for byte_index: 0..63 {
+        for bit: 0..7 {
+            changed := msg;
+            changed[byte_index] ^= cast(u8) (1 << bit);
+            text := string.{ changed.count, changed.data };
+            assert(Crc.crc64(text) != base);
+        }
+    }
+
+    // Swapping two different bytes changes the result.
+    swapped := msg;
+    first := swapped[0];
+
+    swapped[0] = swapped[1];
+    swapped[1] = first;
+    assert(Crc.crc64(string.{ swapped.count, swapped.data }) != base);
+
+    print("ok\n");
+}
