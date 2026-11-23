@@ -531,6 +531,12 @@ fn location_end(line: &str) -> Option<usize> {
     (end > 0 && !line[..end].contains(' ')).then_some(end)
 }
 
+/// The folders compile-fail output names as `$STDLIB` and `$ROOT`.
+pub struct Folders<'a> {
+    pub stdlib: &'a Path,
+    pub project: &'a Path,
+}
+
 /// Type-checks the compile-fail test `source`: it must fail, printing its `.stderr` (or, with
 /// `compile_fail(text)`, diagnostics that contain the text). A missing `.stderr` is written from
 /// what the compiler printed when `create_missing` (a first run; not under CI), else it fails.
@@ -539,8 +545,7 @@ pub fn compile_fail(
     options: &TestOptions,
     root_flags: &[String],
     toolchain: &Toolchain,
-    stdlib: &Path,
-    project: &Path,
+    folders: &Folders,
     accept: bool,
     create_missing: bool,
 ) -> Checked {
@@ -574,7 +579,12 @@ pub fn compile_fail(
             .push("it compiled; a compile-fail test must not".into());
         return checked;
     }
-    let got = normalize_paths(&compile_output(&output), dir, stdlib, project);
+    let got = normalize_paths(
+        &compile_output(&output),
+        dir,
+        folders.stdlib,
+        folders.project,
+    );
     let expected = source.with_extension("stderr");
     if let Some(part) = &options.diagnostic_contains {
         if !got.contains(part.as_str()) {
