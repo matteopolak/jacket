@@ -1,0 +1,11 @@
+version=2 failed=false first_line=1
+line 0 (4): [width   640] left=[width] right=[640]
+line 1 (5): [height 480] left=[height] right=[480]
+line 2 (8): [name last] left=[name] right=[last]
+plain version=-1 first=[[not a version]]
+array ok=true count=3
+array [a]
+array [b]
+array [c]
+table ok=true count=2
+ok
