@@ -167,6 +167,10 @@ pub struct Interp {
     foreign_addrs: Vec<u64>,
     /// What each foreign procedure's calls do (`foreign_effects`); 0 until looked at.
     foreign_flags: Vec<u8>,
+    /// How each foreign procedure is called, made on its first native call.
+    foreign_plans: Vec<Option<std::sync::Arc<foreign::ForeignPlan>>>,
+    /// How many of the program's libraries `load_required_libraries` has looked at.
+    libraries_loaded: usize,
     libraries: HashMap<usize, Option<native::Library>>,
     windows: windows_native::NativeWindows,
     /// `#compiler` procedures handled by the compiler, indexed by `FuncId` (checked on every call).
@@ -427,6 +431,8 @@ impl Interp {
             trace_loc: None,
             compile_time: true,
             foreign_flags: Vec::new(),
+            foreign_plans: Vec::new(),
+            libraries_loaded: 0,
             run_executable: None,
             run_arguments: Vec::new(),
             run_command_line: None,

@@ -79,6 +79,12 @@ fn keeps_memory_syscall(symbol: &str, args: &[u64]) -> bool {
     cfg!(target_os = "linux") && symbol == "syscall" && args.first() == Some(&IO_URING_ENTER)
 }
 
+/// What calls to one foreign procedure share, worked out on the first call.
+pub(super) struct ForeignPlan {
+    scheduling: NativeScheduling,
+    native: native::Plan,
+}
+
 /// Whether native code keeps the interpreter exclusive, lends its baton after the short-call
 /// grace, or hands runnable work on before a known host wait.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -124,6 +130,10 @@ impl Interp {
         if !self.host.native_linking() || (self.compile_time && program.cross_target) {
             return Ok(());
         }
+        // Libraries are only ever added, so one pass per count is enough.
+        if self.libraries_loaded == program.libraries.len() {
+            return Ok(());
+        }
         for (index, info) in program.libraries.iter().enumerate() {
             if !info.link_always || info.no_dll {
                 continue;
@@ -152,6 +162,7 @@ impl Interp {
                 ));
             }
         }
+        self.libraries_loaded = program.libraries.len();
         Ok(())
     }
 
@@ -388,35 +399,83 @@ impl Interp {
         }
         // The child of a fork has only the forking thread: it must not wait for the others.
         let forks = matches!(symbol, "fork" | "vfork");
-        let scheduling = if forks {
-            NativeScheduling::Exclusive
-        } else if native::waits::known(
-            program.foreigns[id.0 as usize]
-                .library
-                .map(|index| &program.libraries[index]),
-            symbol,
-            addr,
-        ) {
-            NativeScheduling::Blocking
-        } else {
-            NativeScheduling::Short
-        };
+        let plan = self.foreign_plan(program, id, addr, sig, forks);
+        let scheduling = plan.scheduling;
         #[cfg(target_os = "macos")]
         let result = if forks {
             native::main_thread::direct(|| {
-                self.call_native(program, addr, args, sig, Some(symbol), scheduling)
+                self.call_native_planned(
+                    program,
+                    addr,
+                    args,
+                    sig,
+                    Some(symbol),
+                    scheduling,
+                    Some(&plan.native),
+                )
             })?
         } else {
-            self.call_native(program, addr, args, sig, Some(symbol), scheduling)?
+            self.call_native_planned(
+                program,
+                addr,
+                args,
+                sig,
+                Some(symbol),
+                scheduling,
+                Some(&plan.native),
+            )?
         };
         #[cfg(not(target_os = "macos"))]
-        let result = self.call_native(program, addr, args, sig, Some(symbol), scheduling)?;
+        let result = self.call_native_planned(
+            program,
+            addr,
+            args,
+            sig,
+            Some(symbol),
+            scheduling,
+            Some(&plan.native),
+        )?;
         if symbol == "fork" && result.first() == Some(&0) {
             self.forked_child = true;
             #[cfg(target_os = "macos")]
             native::main_thread::disable();
         }
         Ok(result)
+    }
+
+    /// The call plan of foreign procedure `id` (resolved to `addr`), made on its first call.
+    fn foreign_plan(
+        &mut self,
+        program: &Program,
+        id: ForeignId,
+        addr: u64,
+        sig: &ir::Sig,
+        forks: bool,
+    ) -> std::sync::Arc<ForeignPlan> {
+        if let Some(Some(plan)) = self.foreign_plans.get(id.0 as usize) {
+            return plan.clone();
+        }
+        let foreign = &program.foreigns[id.0 as usize];
+        let scheduling = if forks {
+            NativeScheduling::Exclusive
+        } else if native::waits::known(
+            foreign.library.map(|index| &program.libraries[index]),
+            &foreign.symbol,
+            addr,
+        ) {
+            NativeScheduling::Blocking
+        } else {
+            NativeScheduling::Short
+        };
+        let plan = std::sync::Arc::new(ForeignPlan {
+            scheduling,
+            native: native::Plan::new(sig),
+        });
+        if self.foreign_plans.len() <= id.0 as usize {
+            self.foreign_plans.resize(id.0 as usize + 1, None);
+        }
+        self.foreign_plans[id.0 as usize] = Some(plan.clone());
+        plan
     }
 
     /// Call C function `addr` (foreign procedure `symbol`, when it is one). Unless scheduling
@@ -429,6 +488,21 @@ impl Interp {
         sig: &ir::Sig,
         symbol: Option<&str>,
         scheduling: NativeScheduling,
+    ) -> Res<Rets> {
+        self.call_native_planned(program, addr, args, sig, symbol, scheduling, None)
+    }
+
+    /// `call_native`, with the call plan of the procedure when it has been made.
+    #[allow(clippy::too_many_arguments)]
+    fn call_native_planned(
+        &mut self,
+        program: &Program,
+        addr: u64,
+        args: &[u64],
+        sig: &ir::Sig,
+        symbol: Option<&str>,
+        scheduling: NativeScheduling,
+        plan: Option<&native::Plan>,
     ) -> Res<Rets> {
         self.read_only.seal();
         // Native code reached through a procedure pointer may release memory; a named foreign
@@ -471,7 +545,7 @@ impl Interp {
         let crash_report = symbol.map(|symbol| crash::ForeignCall::enter(symbol, &mine, program));
         #[cfg(target_arch = "wasm32")]
         let _ = symbol;
-        let result = self.call_unlocked(addr, argv, sig, scheduling);
+        let result = self.call_unlocked(addr, argv, sig, scheduling, plan);
         #[cfg(not(target_arch = "wasm32"))]
         drop(crash_report);
         self.put_exec_state(mine);
@@ -486,12 +560,16 @@ impl Interp {
         argv: &[u64],
         sig: &ir::Sig,
         scheduling: NativeScheduling,
+        plan: Option<&native::Plan>,
     ) -> Result<Rets, String> {
         // The program reads the error its last native call left, whatever the interpreter did
         // in between: on Windows its first `GetLastError` is looked up lazily, which resets it.
         let call = || {
             super::last_error::restore_program();
-            let result = native::call(addr, argv, sig);
+            let result = match plan {
+                Some(plan) => native::call_planned(addr, argv, sig, plan),
+                None => native::call(addr, argv, sig),
+            };
             super::last_error::save_program();
             result
         };
@@ -521,6 +599,7 @@ impl Interp {
         argv: &[u64],
         sig: &ir::Sig,
         _scheduling: NativeScheduling,
+        _plan: Option<&native::Plan>,
     ) -> Result<Rets, String> {
         native::call(addr, argv, sig)
     }
@@ -586,9 +665,12 @@ impl Interp {
         }
         // Exposure bookkeeping can be cleared after a C call, but unresolved
         // readiness must survive until source addition permits another probe.
-        let pending: Vec<_> = self.thunk_funcs.values().copied().collect();
-        for function in pending {
-            self.inspect_callable(program, function)?;
+        // Only a compile-time run that defers missing bodies inspects anything.
+        if self.compile_time && self.defer_missing_bodies && !self.thunk_funcs.is_empty() {
+            let pending: Vec<_> = self.thunk_funcs.values().copied().collect();
+            for function in pending {
+                self.inspect_callable(program, function)?;
+            }
         }
         if !self.unseen_thunks.is_empty() {
             self.unseen_thunks.clear();

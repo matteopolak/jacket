@@ -52,6 +52,7 @@ To add a call: add a member to the API's enum in `sandbox/symbols.rs` (one place
 
 Every call in `native.rs` goes through one C prototype with 8 integer and 8 `double` register arguments plus 16 stack slots. Arguments are classified with `jaic::abi` (shared with `jaic-llvm`).
 
+- A foreign procedure's call plan (`native::Plan`, kept in `ForeignPlan`) is made on its first call: the C ABI classification of its result and aggregate arguments, its scheduling kind and, on macOS, whether the callee needs the main thread. Later calls only marshal arguments. Change how a signature is classified in `Plan::new`, not in the call path; `native::call` makes a throwaway plan for calls through a procedure pointer.
 - A `#c_call` procedure's value is a real C thunk (`native/callbacks.rs`): 64 per return shape, freed with the interpreter.
 - On macOS `jaic` parks the main thread and runs the compiler on a 1 GiB worker. After the first AppKit call, foreign calls go to the main thread; libc calls stay on the worker.
 - A fault in native code is caught and reported ([diagnostics](diagnostics.md)).
