@@ -27,7 +27,7 @@ fn compiles_for_other_targets_do_not_pile_up() {
     )
     .unwrap();
     s.set_auto_import(false);
-    s.open(uri(), 1, source.clone().into()).unwrap();
+    s.open(uri(), 1, source.clone()).unwrap();
     let _ = s.diagnostics(&uri());
     // Each hover asks the targets in turn until one compiles the arm: Windows, then macOS
     // (which has to pass Windows), then Wasm.
