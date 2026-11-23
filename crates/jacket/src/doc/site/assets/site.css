@@ -27,6 +27,7 @@
   --warnbg: oklch(96.1% 0.028 84.6deg);
   --foreign: oklch(53.7% 0.144 27.2deg);
   --generated: oklch(50% 0.13 255deg);
+  --experimental: oklch(53% 0.17 350deg);
   --tint: 11%;
   --scroll: oklch(89.6% 0.005 286.3deg);
   --scroll-hover: oklch(78.5% 0.01 286.2deg);
@@ -63,6 +64,7 @@
   --warnbg: oklch(27.4% 0.025 79.5deg);
   --foreign: oklch(73.5% 0.121 26.6deg);
   --generated: oklch(76% 0.1 250deg);
+  --experimental: oklch(76% 0.12 350deg);
   --tint: 17%;
   --scroll: oklch(34.3% 0.01 285.8deg);
   --scroll-hover: oklch(41.9% 0.013 285.8deg);
@@ -96,6 +98,8 @@
     --warnbg: oklch(27.4% 0.025 79.5deg);
     --foreign: oklch(73.5% 0.121 26.6deg);
     --generated: oklch(76% 0.1 250deg);
+    --experimental: oklch(76% 0.12 350deg);
+  --experimental: oklch(76% 0.12 350deg);
     --tint: 17%;
     --scroll: oklch(34.3% 0.01 285.8deg);
     --scroll-hover: oklch(41.9% 0.013 285.8deg);
@@ -169,7 +173,6 @@ html,
 .side,
 .side > nav,
 .toc,
-pre,
 .sig-line,
 .guide table,
 #search-results {
@@ -895,7 +898,7 @@ html:not(.mac) .key-mac {
 }
 
 .dot.exp {
-  --c: var(--warn);
+  --c: var(--experimental);
 }
 
 .side a .dot {
@@ -1350,7 +1353,7 @@ div.meta {
 }
 
 .badge.exp {
-  --c: var(--warn);
+  --c: var(--experimental);
 }
 
 .import {
@@ -2772,16 +2775,22 @@ html.loading main {
   max-width: 60ch;
 }
 
-/* GitHub alerts in doc text (`> [!WARNING]`): a thin outline, a faint tint and a small label with a
-   dot in the kind's colour. The text keeps the page's own colour. */
+/* GitHub alerts in doc text (`> [!WARNING]`): a straight bar on the left, rounded corners, a faint tint and an icon with the
+   kind's name, all in the kind's colour. The text keeps the page's own colour. The icons are masks so
+   they take `--alert`. */
 main blockquote[class^='markdown-alert-'] {
   --alert: var(--link);
+  --alert-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Zm5.5-3a1 1 0 1 1 2 0 1 1 0 0 1-2 0Zm-.25 2.5h1.5a.75.75 0 0 1 .75.75v3.25h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25V9h-.75a.75.75 0 0 1 0-1.5Z'/%3E%3C/svg%3E");
 
   margin: 1.25rem 0;
   padding: 0.7rem 1rem 0.75rem;
-  border: 1px solid color-mix(in oklch, var(--alert) 30%, transparent);
+  padding-left: calc(1rem + 5px);
+  border: 0;
   border-radius: 8px;
-  background: color-mix(in oklch, var(--alert) 5%, transparent);
+  /* The bar is a background so the rounded corners clip it straight instead of bending it. */
+  background:
+    linear-gradient(var(--alert), var(--alert)) left / 5px 100% no-repeat,
+    color-mix(in oklch, var(--alert) 7%, transparent);
   color: var(--fg);
 }
 
@@ -2791,36 +2800,38 @@ main blockquote[class^='markdown-alert-'] > p:last-child {
 
 main blockquote.markdown-alert-tip {
   --alert: var(--ok);
+  --alert-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1.5a4.5 4.5 0 0 0-2.67 8.13c.4.3.67.75.67 1.25v.37h4v-.37c0-.5.27-.95.67-1.25A4.5 4.5 0 0 0 8 1.5ZM2 6a6 6 0 1 1 9.57 4.83.6.6 0 0 0-.07.05V12a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-1.12l-.07-.05A6 6 0 0 1 2 6Zm4 8.25a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z'/%3E%3C/svg%3E");
 }
 
 main blockquote.markdown-alert-important {
   --alert: var(--kw);
+  --alert-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1.75 1h12.5A1.75 1.75 0 0 1 16 2.75v8.5A1.75 1.75 0 0 1 14.25 13H8.06l-2.57 2.57A1.46 1.46 0 0 1 3 14.54V13H1.75A1.75 1.75 0 0 1 0 11.25v-8.5A1.75 1.75 0 0 1 1.75 1ZM8 3.5a.75.75 0 0 0-.75.75v3a.75.75 0 0 0 1.5 0v-3A.75.75 0 0 0 8 3.5Zm0 6.75a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z'/%3E%3C/svg%3E");
 }
 
 main blockquote.markdown-alert-warning {
   --alert: var(--warn);
+  --alert-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z'/%3E%3Cpath d='M12 9v4'/%3E%3Cpath d='M12 17h.01'/%3E%3C/svg%3E");
 }
 
 main blockquote.markdown-alert-caution {
   --alert: var(--err);
+  --alert-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.47.22A.75.75 0 0 1 5 0h6a.75.75 0 0 1 .53.22l4.25 4.25c.14.14.22.33.22.53v6a.75.75 0 0 1-.22.53l-4.25 4.25A.75.75 0 0 1 11 16H5a.75.75 0 0 1-.53-.22L.22 11.53A.75.75 0 0 1 0 11V5c0-.2.08-.39.22-.53ZM8 4a.75.75 0 0 0-.75.75v3.5a.75.75 0 0 0 1.5 0v-3.5A.75.75 0 0 0 8 4Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z'/%3E%3C/svg%3E");
 }
 
 main .markdown-alert-title {
   display: flex;
-  gap: 0.45rem;
+  gap: 0.5rem;
   align-items: center;
-  margin: 0 0 0.3rem;
+  margin: 0 0 0.35rem;
   color: var(--alert);
-  font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 main .markdown-alert-title::before {
   content: '';
-  width: 0.45rem;
-  height: 0.45rem;
-  border-radius: 50%;
+  flex: none;
+  width: 1em;
+  height: 1em;
   background: var(--alert);
+  mask: var(--alert-icon) center / contain no-repeat;
 }
