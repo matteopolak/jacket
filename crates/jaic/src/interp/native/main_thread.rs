@@ -160,7 +160,7 @@ fn forward_inner(
     initializing_library: bool,
 ) -> Option<Result<Rets, String>> {
     // A callee known to be thread-safe needs no route, thread or flag lookups at all.
-    if !initializing_library && plan.main_thread.get() == Some(false) {
+    if !initializing_library && plan.main_thread.get() == Some(&false) {
         return None;
     }
     let route = ROUTE.get()?;
@@ -170,15 +170,8 @@ fn forward_inner(
     if std::thread::current().id() != route.worker {
         return None;
     }
-    if !initializing_library {
-        let main = plan.main_thread.get().unwrap_or_else(|| {
-            let main = needs_main_thread(addr);
-            plan.main_thread.set(Some(main));
-            main
-        });
-        if !main {
-            return None;
-        }
+    if !initializing_library && !*plan.main_thread.get_or_init(|| needs_main_thread(addr)) {
+        return None;
     }
     let (done_tx, done_rx) = channel();
     // Callbacks made during the job belong to the waiting worker's call.

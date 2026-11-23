@@ -27,7 +27,7 @@ pub struct Plan {
     pub(super) params: Vec<Option<ArgPlan>>,
     /// Whether the callee must run on the main thread (macOS), once known.
     #[cfg(target_os = "macos")]
-    pub(super) main_thread: std::cell::Cell<Option<bool>>,
+    pub(super) main_thread: std::sync::OnceLock<bool>,
 }
 
 /// How one aggregate argument is passed.
@@ -92,7 +92,7 @@ impl Plan {
             scalar,
             params,
             #[cfg(target_os = "macos")]
-            main_thread: std::cell::Cell::new(None),
+            main_thread: std::sync::OnceLock::new(),
         }
     }
 }
