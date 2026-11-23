@@ -2772,15 +2772,21 @@ html.loading main {
   max-width: 60ch;
 }
 
-/* GitHub alerts in doc text (`> [!WARNING]`): a coloured rule and title per kind. */
+/* GitHub alerts in doc text (`> [!WARNING]`): a thin outline, a faint tint and a small label with a
+   dot in the kind's colour. The text keeps the page's own colour. */
 main blockquote[class^='markdown-alert-'] {
   --alert: var(--link);
 
-  margin: 1rem 0;
-  padding: 0.5rem 1rem;
-  border-left: 3px solid var(--alert);
-  border-radius: 0 6px 6px 0;
-  background: color-mix(in oklch, var(--alert) var(--tint), transparent);
+  margin: 1.25rem 0;
+  padding: 0.7rem 1rem 0.75rem;
+  border: 1px solid color-mix(in oklch, var(--alert) 30%, transparent);
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--alert) 5%, transparent);
+  color: var(--fg);
+}
+
+main blockquote[class^='markdown-alert-'] > p:last-child {
+  margin-bottom: 0;
 }
 
 main blockquote.markdown-alert-tip {
@@ -2800,7 +2806,21 @@ main blockquote.markdown-alert-caution {
 }
 
 main .markdown-alert-title {
-  margin: 0 0 0.25rem;
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  margin: 0 0 0.3rem;
   color: var(--alert);
+  font-size: 0.72rem;
   font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+main .markdown-alert-title::before {
+  content: '';
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--alert);
 }
