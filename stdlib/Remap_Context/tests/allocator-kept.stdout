@@ -1,0 +1,5 @@
+thread=3 number=12 allocator_proc_kept=true allocator_data_kept=true
+value through kept allocator=77
+other number=-4 allocator_kept=true
+active allocator kept=true context_type_ok=true
+ok
