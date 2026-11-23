@@ -151,12 +151,19 @@ fn is_quiet(symbol: &str) -> bool {
 }
 
 impl Interp {
+    /// Open the libraries the program links always. Libraries are only ever added, so once
+    /// `libraries_loaded` counts them all there is nothing to do: the case on every call.
+    #[inline]
     pub(super) fn load_required_libraries(&mut self, program: &Program) -> Res<()> {
-        if !self.host.native_linking() || (self.compile_time && program.cross_target) {
+        if self.libraries_loaded == program.libraries.len() {
             return Ok(());
         }
-        // Libraries are only ever added, so one pass per count is enough.
-        if self.libraries_loaded == program.libraries.len() {
+        self.open_required_libraries(program)
+    }
+
+    #[cold]
+    fn open_required_libraries(&mut self, program: &Program) -> Res<()> {
+        if !self.host.native_linking() || (self.compile_time && program.cross_target) {
             return Ok(());
         }
         for (index, info) in program.libraries.iter().enumerate() {

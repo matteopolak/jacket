@@ -159,6 +159,10 @@ fn forward_inner(
     plan: &Plan,
     initializing_library: bool,
 ) -> Option<Result<Rets, String>> {
+    // A callee known to be thread-safe needs no route, thread or flag lookups at all.
+    if !initializing_library && plan.main_thread.get() == Some(false) {
+        return None;
+    }
     let route = ROUTE.get()?;
     if DISABLED.load(std::sync::atomic::Ordering::SeqCst) || DIRECT.with(std::cell::Cell::get) {
         return None;
