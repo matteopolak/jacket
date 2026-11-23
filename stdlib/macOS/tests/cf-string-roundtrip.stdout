@@ -1,0 +1,6 @@
+length: 5
+bytes: 6
+nul kept: true
+same bytes: true
+empty length: 0
+empty bytes: 0

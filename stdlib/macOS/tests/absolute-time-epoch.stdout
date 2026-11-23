@@ -1,0 +1,6 @@
+date: 2001-1-1
+time: 0:0:0
+week repeats after 7 days: true
+next day differs: true
+day of year: 1
+now after epoch: true
