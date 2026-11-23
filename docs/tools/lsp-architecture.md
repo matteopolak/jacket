@@ -208,17 +208,25 @@ A snapshot of the checked stdlib was considered and dropped. `Compiler` is not `
 
 That matches the 34–40% stdlib share. The experiment ignored the cases below, so it is an upper bound.
 
-**Design.** An `Options` flag set only by the language server (`jaic` and `jailint` keep checking everything). In `proc_func`, a procedure is deferred when all hold:
-1. its file is in the stdlib (`is_library_file`) and no open document;
-2. it is not generic, not a macro, and not an instance made from a user call site (`bindings` is none);
-3. it has a declared return type, so no caller needs its body to know the signature.
+**Implemented.** `Options::defer_library_bodies` is set only by the language server (`jaic` and `jailint` check everything). In `proc_func`, a body is deferred (`BodyState::Deferred`, not queued) when its file is in the stdlib (`is_library_file`), it is not generic or a macro, and it is not an instance made from a user call site. The procedure keeps its reserved function; callers see its declared signature.
 
-A deferred procedure gets a new `BodyState::Deferred` and keeps its reserved function. Anything that needs a body promotes it to `Queued` first:
-- **Compile-time runs.** `lower_reachable_from` already lowers the queued bodies reachable from a `#run` thunk and nothing else; it must also promote deferred ones (`queued_proc_of`).
-- **Lints.** Lifetime summaries read callee bodies. The lint pass must promote the callees it summarises, or its results change silently. This touches `jailint`; coordinate with the lint-caching work.
-- **Opening a stdlib file.** The open set is part of the compile key, so the next check lowers that file's bodies.
+Anything that needs a body promotes it through `lower_body`:
+- **Compile-time runs.** `queued_proc_of` treats `Deferred` like `Queued`, so `lower_reachable_from` lowers the bodies a `#run` reaches.
+- **Lints.** `Analysis::lints` and `warm_lints` call `Compiler::lower_deferred_bodies` first, because lifetime rules read callee IR. Only the compiler-diagnostics publication (`Stage::Compile`) skips the work; the lint stage pays for it.
+- **A stdlib file open in the editor.** The compile turns the flag off when any open document is under the stdlib root.
 
-**Tests first.** Diagnostics, hover, definition, completion and lints are identical with and without the flag over the edit corpus and typing-session tests; a `#run` that calls a deferred stdlib procedure still runs; a stdlib file opened in the editor reports its own body errors; a lint that follows a stdlib callee gives the same finding. Count promotions so the cost of the fallback is visible.
+`ProcState::deferred_bodies` and `promoted_bodies` count the bodies left unchecked and later promoted (`Session::deferred_library_bodies`). `Session::defer_library_bodies(false)` turns the feature off and resets the cache.
+
+**Measured** (release `jailsp`, push diagnostics, 5 sessions; p50):
+
+| Workload | `did_open` | `did_change_keystroke` | `did_change_paste` |
+|---|---|---|---|
+| gen-60k | 284 → 276 ms | 311 → 295 ms | 312 → 293 ms |
+| large-25k | 194 → 180 ms | 219 → 208 ms | 225 → 207 ms |
+
+The gain is 5–8% here because these documents are mostly user code; the small-program ceiling above (33–46% of the front end) applies to documents like `examples/editor`. The lint stage lowers every deferred body, so total work per edit is unchanged and only the first publication arrives sooner.
+
+**Tests.** `tests/deferred_library_bodies.rs`: diagnostics, hover and definition are identical with and without the flag; a `#run` through `array_add` still runs; lints give the same findings; the compile leaves bodies deferred until the lints run; an open stdlib file is checked whole.
 
 ### Caches and bounds
 

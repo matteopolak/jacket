@@ -7,6 +7,7 @@ The language server answers edits sooner.
 ### Fixes
 
 - `jailsp` publishes compiler errors as soon as the check finishes, and the lint findings after them.
+- `jailsp` skips checking stdlib procedure bodies until compile-time code or the lints need them.
 - Member completion works after a space before the dot (`value .field`).
 
 ## [0.38.0] - 2026-11-22

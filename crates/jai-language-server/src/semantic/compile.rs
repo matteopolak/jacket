@@ -170,6 +170,9 @@ pub(super) struct Compiled {
 #[derive(Clone, Copy)]
 pub(super) struct Mode {
     pub(super) untrusted: bool,
+    /// Leave the standard library's unobservable procedure bodies unchecked
+    /// (`jaic::sema::Options::defer_library_bodies`); not while a library file is open.
+    pub(super) defer_library_bodies: bool,
     pub(super) limits: CheckLimits,
 }
 
@@ -185,6 +188,7 @@ pub(super) fn compile(
 ) -> Option<Compiled> {
     let Mode {
         untrusted,
+        defer_library_bodies,
         limits,
     } = mode;
     let dir = root.parent().map(Path::to_path_buf).unwrap_or_default();
@@ -194,6 +198,13 @@ pub(super) fn compile(
         jaic::project::add_import_dirs(&mut options.import_paths, dirs);
         // The target `jaic -check -os <os>` would use.
         jaic::target::select_os_cpu(&mut options, os, None);
+        // A library file the user has open is checked whole: its own bodies are what they ask
+        // about.
+        options.defer_library_bodies = defer_library_bodies
+            && !options.stdlib_root().is_some_and(|stdlib| {
+                let stdlib = jaic::paths::file_identity(&*env.fs, stdlib);
+                open.iter().any(|path| path.starts_with(&stdlib))
+            });
         options
     };
     // A module's `module.jai` is checked as the module a program imports, not as a program:
