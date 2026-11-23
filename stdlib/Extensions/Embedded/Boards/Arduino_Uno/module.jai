@@ -62,6 +62,8 @@ memory_map :: Embedded.Memory_Map.{
         Embedded.link_for(options, memory_map);
     }
 
+    // `jaic app.jai +Extensions/Embedded/Boards/Arduino_Uno` builds the program for this board
+    // without a metaprogram of its own: the plugin runs `configure` on the workspace.
     get_plugin :: () -> *Metaprogram_Plugin {
         return Embedded.board_plugin("Extensions/Embedded/Boards/Arduino_Uno", configure);
     }

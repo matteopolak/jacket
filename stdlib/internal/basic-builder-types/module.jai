@@ -4,6 +4,7 @@
 // a 4 KiB buffer, or 256 bytes where addresses are 16 bits or fewer and a builder on the stack must fit
 // in a few KiB of RAM.
 STRING_BUILDER_BYTES :: ifx size_of(*void) < 4 then 256 else 4096;
+// The bytes of text a `String_Builder`'s own buffer holds: `STRING_BUILDER_BYTES` less the buffer's header.
 STRING_BUILDER_BUFFER_SIZE :: STRING_BUILDER_BYTES - size_of(String_Builder.Buffer);
 
 String_Builder :: struct {
