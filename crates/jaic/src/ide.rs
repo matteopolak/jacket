@@ -16,6 +16,8 @@ pub mod lint_compile;
 mod member_notes;
 pub mod meta;
 mod never_returns;
+pub mod note_readers;
+pub use self::note_readers::{NoteReader, share_note_reads};
 mod polymorphs;
 pub use self::polymorphs::{IdePolymorph, IdeSpecialization};
 mod recorder;

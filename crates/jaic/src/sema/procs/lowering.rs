@@ -142,7 +142,7 @@ impl Compiler {
             ast::CallHintFlag::NoInline => ir::InlineHint::Never,
             ast::CallHintFlag::None => ir::InlineHint::Default,
         };
-        f.b.func.cold = self.proc_has_note(id, "Cold");
+        f.b.func.cold = self.proc_has_note(id, crate::sema::COLD_NOTE);
         f.b.func.section = self.proc_note_string(id, SECTION_NOTE);
         self.check_interrupt_handler(id, span)?;
         f.b.func.target_features = header.flags.target_features.as_deref().map(str::to_string);

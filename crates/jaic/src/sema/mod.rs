@@ -32,6 +32,23 @@ pub(crate) const MODULE_ASM_NOTE: &str = "Module_Asm";
 /// The note `@Interrupt`: the procedure is entered by the hardware.
 pub(crate) const INTERRUPT_NOTE: &str = "Interrupt";
 
+/// The note `@Cold`: the procedure is rarely called, so its code is laid out apart.
+pub(crate) const COLD_NOTE: &str = "Cold";
+
+/// The note `@GrowsArray` on a procedure that may reallocate the array it is given.
+pub(crate) const GROWS_ARRAY_NOTE: &str = "GrowsArray";
+
+/// The notes the compiler reads itself, by name (the text before any `(`).
+pub const COMPILER_NOTES: [&str; 7] = [
+    SECTION_NOTE,
+    MODULE_ASM_NOTE,
+    INTERRUPT_NOTE,
+    COLD_NOTE,
+    GROWS_ARRAY_NOTE,
+    crate::format_string::PRINT_LIKE_NOTE,
+    crate::interpolate::NOTE,
+];
+
 use body_probe::{Probed, W};
 mod callable;
 pub(crate) mod calls;

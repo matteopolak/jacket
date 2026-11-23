@@ -8,10 +8,11 @@
 //! to Jai code, for the rest of the compilation. Each record is built once per program, so
 //! pointers to the same record stay the same pointer.
 use crate::fxhash::HashMap;
+use crate::interp::note_watch::NotePlace;
 use crate::interp::{Interp, Trap};
 use crate::lang_items;
 use crate::layout::DataLayout;
-use crate::records::{FieldRef, Item, List, Name, Records};
+use crate::records::{FieldRef, Item, List, Name, Record, RecordTag, Records};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -186,6 +187,17 @@ impl Image<'_> {
         self.put(p, &bytes[..size])
     }
 
+    /// The count and data pointer of the view written at `p`.
+    fn view_at(&self, p: u64) -> Result<(u64, u64), Trap> {
+        let size = self.layout.builtins().view.size as usize;
+        let at = p.checked_sub(self.base).map(|at| at as usize);
+        let range = at.and_then(|at| Some(at..at.checked_add(size)?));
+        match range.and_then(|range| self.bytes.get(range)) {
+            Some(bytes) => Ok(self.layout.read_view(bytes)),
+            None => Err(Trap::unwritable(p, size)),
+        }
+    }
+
     fn put_ptr(&mut self, p: u64, value: u64) -> Result<(), Trap> {
         self.put_int(p, value, self.layout.pointer_size as usize)
     }
@@ -203,6 +215,26 @@ impl Image<'_> {
             None => Err(Trap::unwritable(p, len)),
         }
     }
+}
+
+/// Where the `Code_Note` `record` is written, from its location fields and the file record
+/// they point to; `None` for a note with no location (one made from `#code` at run time).
+fn note_place(records: &Records, record: &Record) -> Option<NotePlace> {
+    let int = |name: &str| match record.field(name)? {
+        FieldRef::Int(v) => u32::try_from(v).ok(),
+        _ => None,
+    };
+    let Some(FieldRef::Ref(file)) = record.field("enclosing_load") else {
+        return None;
+    };
+    let Some(FieldRef::Str(path)) = records.field(file, "fully_pathed_filename") else {
+        return None;
+    };
+    Some(NotePlace {
+        path: String::from_utf8_lossy(path).into(),
+        start: (int("l0")?, int("c0")?),
+        end: (int("l1")?, int("c1")?),
+    })
 }
 
 /// An integer or a record id.
@@ -545,6 +577,12 @@ impl Builder {
                 slots[entry as usize] = i as u16;
             }
         }
+        // A note's text handed to an editor compile's program is watched (`note_watch.rs`).
+        let note = if record.tag == RecordTag::CodeNote && interp.note_watch.is_some() {
+            note_place(fill.records, record)
+        } else {
+            None
+        };
         for (entry, &slot) in plan.entries.iter().zip(slots.iter()) {
             let field = (slot != NO_ENTRY).then(|| record.slot_value(slot as usize));
             if entry.shape == Shape::Pointer
@@ -639,6 +677,15 @@ impl Builder {
                         &item,
                         target,
                     )?;
+                    if let Some(place) = &note
+                        && entry.shape == Shape::String
+                        && entry.name.as_str() == "text"
+                    {
+                        let (count, data) = image.view_at(target)?;
+                        if let Some(watch) = interp.note_watch.as_mut() {
+                            watch.add(data, count, place.clone());
+                        }
+                    }
                 }
             }
         }

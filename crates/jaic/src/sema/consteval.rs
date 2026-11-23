@@ -162,6 +162,7 @@ impl Compiler {
             self.refresh_type_table();
         }
         self.ct.interp.compile_time = true;
+        self.ide_watch_notes();
         let effects = self.ct.interp.effects;
         let outer = self.ct.interp.run_effects.replace(effects);
         // Typed exports belong to this run (a nested one keeps the outer run's aside).
@@ -258,6 +259,7 @@ impl Compiler {
         self.ct.interp.export_request = None;
         self.ct.interp.missing_func = None;
         self.ct.interp.run_effects = outer;
+        self.ide_note_reads();
         for data in std::mem::take(&mut self.ct.interp.pending_data_globals) {
             let init = self
                 .ct

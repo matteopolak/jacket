@@ -23,10 +23,11 @@ impl Interp {
         self.trap_of(TrapKind::BudgetExhausted, message)
     }
 
-    /// Does anything need to look at each basic block as it is entered?
+    /// Does anything need to look at each basic block as it is entered, or at the memory
+    /// loads read (a note watch)?
     #[inline(always)]
     fn watches_blocks(&self) -> bool {
-        self.multi || self.profile.is_some() || self.lines.is_some()
+        self.multi || self.profile.is_some() || self.lines.is_some() || self.note_watch.is_some()
     }
 
     /// Make `loc` the location in effect at op `op` of `code`, if it has one.
@@ -237,6 +238,16 @@ impl Interp {
                     pc = target;
                 }};
             }
+            // A load or copy that may touch a watched note's text (`note_watch.rs`): only the
+            // loop that watches blocks looks, so an unwatched run pays nothing.
+            macro_rules! watch {
+                ($addr:expr, $len:expr) => {
+                    if WATCH && self.near_note($addr, $len) {
+                        self.sync_loc(code, here);
+                        self.note_read($addr, $len);
+                    }
+                };
+            }
             match *op {
                 Op::Const {
                     dst,
@@ -380,10 +391,11 @@ impl Interp {
                     dst,
                     base,
                     off,
-                } => set(
-                    dst,
-                    tri!(self.load(ty, get(base).wrapping_add(off as i64 as u64))),
-                ),
+                } => {
+                    let addr = get(base).wrapping_add(off as i64 as u64);
+                    watch!(addr, ty.size(self.data_layout()));
+                    set(dst, tri!(self.load(ty, addr)));
+                }
                 Op::LoadFrame {
                     ty,
                     dst,
@@ -419,26 +431,29 @@ impl Interp {
                     dst,
                     base,
                     off,
-                } => set(
-                    dst,
-                    tri!(self.load(Ty::I8, get(base).wrapping_add(off as i64 as u64))),
-                ),
+                } => {
+                    let addr = get(base).wrapping_add(off as i64 as u64);
+                    watch!(addr, 1);
+                    set(dst, tri!(self.load(Ty::I8, addr)));
+                }
                 Op::Load32 {
                     dst,
                     base,
                     off,
-                } => set(
-                    dst,
-                    tri!(self.load(Ty::I32, get(base).wrapping_add(off as i64 as u64))),
-                ),
+                } => {
+                    let addr = get(base).wrapping_add(off as i64 as u64);
+                    watch!(addr, 4);
+                    set(dst, tri!(self.load(Ty::I32, addr)));
+                }
                 Op::Load64 {
                     dst,
                     base,
                     off,
-                } => set(
-                    dst,
-                    tri!(self.load(Ty::I64, get(base).wrapping_add(off as i64 as u64))),
-                ),
+                } => {
+                    let addr = get(base).wrapping_add(off as i64 as u64);
+                    watch!(addr, 8);
+                    set(dst, tri!(self.load(Ty::I64, addr)));
+                }
                 Op::LoadFrame8 {
                     dst,
                     off,
@@ -504,6 +519,7 @@ impl Interp {
                         self.sync_loc(code, here);
                         return Err(trap.at(self.loc));
                     }
+                    watch!(s, u64::from(size));
                     // SAFETY: both addresses are non-null (checked above) host addresses of program
                     // memory that the IR sized `size` bytes.
                     unsafe { copy_bytes(self.host_addr(d), self.host_addr(s), size) };
@@ -527,6 +543,7 @@ impl Interp {
                             self.sync_loc(code, here);
                             return Err(trap.at(self.loc));
                         }
+                        watch!(s, n as u64);
                         // Like a load or store, a copy goes through the program's pointers
                         // directly, so a bad one faults as it would natively.
                         // SAFETY: the program's own memmove.

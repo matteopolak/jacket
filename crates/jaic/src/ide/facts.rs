@@ -102,6 +102,10 @@ pub struct IdeFacts {
     pub calls: Vec<crate::ide::meta::IdeCall>,
     /// String literals read for `@Interpolates` holes.
     pub interpolations: Vec<crate::ide::meta::IdeInterpolation>,
+    /// Compile-time code that read notes, this compiler's and (after `share_note_reads`) the
+    /// other workspaces' of the check.
+    pub note_readers: Vec<crate::ide::note_readers::NoteReader>,
+    pub(crate) note_reader_keys: HashSet<(crate::interp::note_watch::NotePlace, String, u32)>,
     pub(crate) call_spans: HashSet<Span>,
     /// The procedure each direct call expression resolved to, in any file (`None`: checks of it
     /// disagreed, as instances of a polymorphic procedure can). See `never_returns.rs`.

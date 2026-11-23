@@ -129,7 +129,13 @@ impl Interp {
                 dst,
                 ty,
                 addr,
-            } => vals[dst.0 as usize] = self.load(*ty, vals[addr.0 as usize])?,
+            } => {
+                let at = vals[addr.0 as usize];
+                if self.near_note(at, 8) {
+                    self.note_read(at, ty.size(self.data_layout()));
+                }
+                vals[dst.0 as usize] = self.load(*ty, at)?;
+            }
             Inst::Store {
                 ty,
                 addr,
@@ -151,6 +157,9 @@ impl Interp {
                     return self.null_trap("memory copy through a null pointer");
                 }
                 self.check_writable(d, *size as usize)?;
+                if self.near_note(s, *size) {
+                    self.note_read(s, *size);
+                }
                 // SAFETY: operands are host addresses of live program memory, which `ptr::copy` may
                 // overlap; the null case was trapped above.
                 unsafe {

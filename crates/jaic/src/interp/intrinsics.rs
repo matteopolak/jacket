@@ -231,6 +231,9 @@ impl Interp {
                         return self.trap("memcpy length exceeds the host address space");
                     };
                     self.check_writable(a[0], len)?;
+                    if self.near_note(a[1], a[2]) {
+                        self.note_read(a[1], a[2]);
+                    }
                     // Like a load or store, a copy goes through the program's pointers directly,
                     // so a bad one faults as it would natively.
                     // SAFETY: the program's own memmove.
@@ -280,6 +283,15 @@ impl Interp {
                             std::slice::from_raw_parts(self.host_addr(a[1]) as *const u8, n),
                         )
                     };
+                    // Equal bytes are a read of a note among them; a difference means the code
+                    // was after something else.
+                    if ordering.is_eq() {
+                        for at in [a[0], a[1]] {
+                            if self.near_note(at, a[2]) {
+                                self.note_read(at, a[2]);
+                            }
+                        }
+                    }
                     match ordering {
                         std::cmp::Ordering::Less => -1,
                         std::cmp::Ordering::Equal => 0,

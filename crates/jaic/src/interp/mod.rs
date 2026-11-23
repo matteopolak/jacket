@@ -37,6 +37,7 @@ mod last_error;
 pub mod line_cover;
 mod memory;
 mod native;
+pub mod note_watch;
 mod probe;
 mod proc_addr;
 pub mod profile;
@@ -318,6 +319,9 @@ pub struct Interp {
     closed: bool,
     /// The lines run, for `-interp -coverage`; `None` when it is off.
     lines: Option<Box<line_cover::Lines>>,
+    /// Which notes the program reads, for the editor; `None` when nothing asked
+    /// (`watch_notes`).
+    pub note_watch: Option<Box<note_watch::NoteWatch>>,
 }
 
 /// Empty read-only data for a program whose memory is `window` (or host memory).
@@ -498,6 +502,34 @@ impl Interp {
             fiber_trap: None,
             closed: false,
             lines: line_cover::enabled().then(Default::default),
+            note_watch: None,
+        }
+    }
+
+    /// Start noting which notes the program reads (see `note_watch`).
+    pub fn watch_notes(&mut self) {
+        if self.note_watch.is_none() {
+            self.note_watch = Some(Box::default());
+        }
+    }
+
+    /// Whether `addr..addr + len` may hold a watched note's text.
+    #[inline(always)]
+    fn near_note(&self, addr: u64, len: u64) -> bool {
+        self.note_watch.as_ref().is_some_and(|w| w.near(addr, len))
+    }
+
+    /// The program read `addr..addr + len`, which may hold watched notes' text, at `self.loc`.
+    #[cold]
+    #[inline(never)]
+    fn note_read(&mut self, addr: u64, len: u64) {
+        let stack: Vec<note_watch::Loc> = self
+            .loc
+            .into_iter()
+            .chain(self.calls.iter().rev().filter_map(|c| c.1))
+            .collect();
+        if let Some(watch) = self.note_watch.as_mut() {
+            watch.read(addr, len, &stack);
         }
     }
 

@@ -70,7 +70,7 @@ impl Compiler {
                     parameter_spans: header.params.iter().map(|p| p.span).collect(),
                 });
         }
-        let grows = lifetime_call && self.proc_has_note(proc, "GrowsArray");
+        let grows = lifetime_call && self.proc_has_note(proc, crate::sema::GROWS_ARRAY_NOTE);
         let result = self.emit_call_inner(f, scope, c, args, span);
         if lifetime_call && let Some(record) = &mut f.lifetimes {
             use crate::ide::lifetimes::{LifetimeEvent, LifetimeOperand};
