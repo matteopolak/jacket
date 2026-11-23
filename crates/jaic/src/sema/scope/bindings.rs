@@ -172,6 +172,7 @@ impl Compiler {
             state: EntityState::Unresolved,
             file_private: false,
             untyped_const: false,
+            baked_argument: false,
         });
         self.bind_name(scope, name, id);
         if let Some(placeholder) = placeholder {

@@ -205,8 +205,9 @@ impl Compiler {
             return vec![decl];
         }
         let Some(r) = self.ed.facts().and_then(|ide| {
-            ide.refs_at(file, offset)
-                .into_iter()
+            let mut here = ide.refs_at(file, offset);
+            self.ide_prefer_own_parameters(&mut here);
+            here.into_iter()
                 .min_by_key(|r| r.span.end - r.span.start)
                 .cloned()
         }) else {

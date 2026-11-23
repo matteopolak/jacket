@@ -6,8 +6,8 @@
 //! procedure, so the body and the remaining parameter types see them by name.
 use super::lower::Operand;
 use super::{
-    Arc, Compiler, ConstArg, Diagnostic, Result, ScopeId, Span, Sym, TypeId, Value, ast, calls,
-    err, procs, value,
+    Arc, Compiler, ConstArg, Diagnostic, EntityId, Result, ScopeId, Span, Sym, TypeId, Value, ast,
+    calls, err, procs, value,
 };
 use crate::diagnostics::Code;
 
@@ -87,6 +87,16 @@ impl Compiler {
                     body,
                 });
                 let baked_scope = self.const_scope(def_scope, consts, span);
+                let fixed: Vec<EntityId> = self
+                    .scope(baked_scope)
+                    .names
+                    .values()
+                    .flatten()
+                    .copied()
+                    .collect();
+                for id in fixed {
+                    self.entity_mut(id).baked_argument = true;
+                }
                 if partial {
                     // A bound `$T` is still declared where the header writes it.
                     for (n, at) in binders {

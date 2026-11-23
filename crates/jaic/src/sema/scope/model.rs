@@ -248,4 +248,7 @@ pub struct Entity {
     /// A constant declared without a type whose value is an untyped literal (`X :: 5`):
     /// uses of it convert like the literal would.
     pub untyped_const: bool,
+    /// A parameter `#bake_arguments` fixed, bound as a constant in the copy's scope. The copy's
+    /// body is the original's source, so its uses of the name are those of the parameter.
+    pub baked_argument: bool,
 }

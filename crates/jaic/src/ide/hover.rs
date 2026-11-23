@@ -54,6 +54,19 @@ impl Compiler {
         found
     }
 
+    /// A `#bake_arguments` copy of a procedure checks the original's source with the baked
+    /// parameters bound as constants, so its records for a name share a span with the
+    /// original's records of the parameter. Where both exist the original's say what the source
+    /// means, whichever body was checked last; the copy's stand alone only when the original's
+    /// body was not checked.
+    pub(super) fn ide_prefer_own_parameters(&self, here: &mut Vec<&IdeRef>) {
+        let baked =
+            |r: &IdeRef| matches!(r.what, IdeWhat::Entity(e) if self.entity(e).baked_argument);
+        if here.iter().any(|r| !baked(r)) {
+            here.retain(|r| !baked(r));
+        }
+    }
+
     /// The innermost recorded name at `offset` of `file`, and whether every record of that
     /// exact span agrees (a polymorphic body is checked once per instance).
     fn ide_hover_ref(&self, file: FileId, offset: u32) -> Option<(IdeRef, bool)> {
@@ -64,6 +77,7 @@ impl Compiler {
         if here.iter().any(|r| !facts.sketched(r)) {
             here.retain(|r| !facts.sketched(r));
         }
+        self.ide_prefer_own_parameters(&mut here);
         let r = here
             .iter()
             .copied()
