@@ -10,10 +10,8 @@ stdenv.mkDerivation {
 
   src = lib.fileset.toSource {
     root = ../.;
-    fileset = lib.fileset.unions [
-      ../jaifmt/main.jai
-      ../jaifmt/version.jai
-    ];
+    # Every file main.jai loads; the tests folder holds formatter fixtures, not sources.
+    fileset = lib.fileset.difference (lib.fileset.fileFilter (file: file.hasExt "jai") ../jaifmt) ../jaifmt/tests;
   };
 
   nativeBuildInputs = [ jaic ];
