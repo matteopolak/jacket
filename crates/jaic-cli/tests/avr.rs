@@ -140,7 +140,11 @@ fn the_hello_image_fits_the_atmega328p() {
     let Some(built) = build(&dir, "avr-hello.jai", &[], "prog.elf") else {
         return;
     };
-    assert!(built.status.success());
+    assert!(
+        built.status.success(),
+        "{}",
+        String::from_utf8_lossy(&built.stderr)
+    );
     let out = Command::new(size)
         .arg(dir.join("prog.elf"))
         .output()
