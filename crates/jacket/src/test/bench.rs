@@ -52,6 +52,8 @@ pub struct Measure {
     pub attempts: u64,
     /// The core the program pinned itself to, where the system allows it.
     pub cpu: Option<u64>,
+    /// The benchmark pauses its clock inside the loop, so each iteration pays two clock reads.
+    pub paused: bool,
     pub samples: Samples,
     pub analysis: Analysis,
     pub bytes: u64,
@@ -105,6 +107,7 @@ impl Measure {
             step: number("step")? as u64,
             attempts: value["attempts"].as_u64().unwrap_or(1),
             cpu: value["cpu"].as_i64().and_then(|c| u64::try_from(c).ok()),
+            paused: value["paused"].as_bool().unwrap_or(false),
             samples,
             analysis,
             bytes: number("bytes_per_iteration")? as u64,
@@ -137,6 +140,7 @@ impl Measure {
             "step": self.step,
             "attempts": self.attempts,
             "cpu": self.cpu,
+            "paused": self.paused,
             "estimator": a.estimator.name(),
             "time_ns": interval_json(a.time),
             "mean_ns": interval_json(a.mean),
@@ -533,6 +537,9 @@ pub fn report(
     if measure.attempts > 1 {
         details.push(format!("{} attempts", measure.attempts));
     }
+    if measure.paused {
+        details.push("clock paused per iteration".to_string());
+    }
     out.push_str(&format!("{pad}{}\n", details.join("   ")));
     match change {
         Some(change) => {
@@ -601,6 +608,7 @@ mod tests {
             step: 1000,
             attempts: 1,
             cpu: None,
+            paused: false,
             samples,
             analysis,
             bytes: 0,
@@ -708,6 +716,16 @@ mod tests {
         let measure = Measure::from_record(text, &case, 200).unwrap();
         assert_eq!((measure.samples.len(), measure.step), (4, 100));
         assert_eq!(measure.cpu, None);
+        assert!(!measure.paused);
+        assert!(
+            Measure::from_record(
+                &text.replace("\"cpu\":-1", "\"cpu\":-1,\"paused\":true"),
+                &case,
+                10
+            )
+            .unwrap()
+            .paused
+        );
         assert!((measure.analysis.time.estimate - 10.0).abs() < 0.1);
         assert!(Measure::from_record("{}", &case, 10).is_err());
         let single = text
