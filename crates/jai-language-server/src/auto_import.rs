@@ -106,6 +106,9 @@ pub(crate) struct Index {
     stdlib: Option<(PathBuf, ModuleCache)>,
     /// Complete modules retained across interrupted warm-ups. Partial lists never escape.
     warming: BTreeMap<(PathBuf, String), Arc<Module>>,
+    /// A warm-up read every module index to the end and no module appeared or went since, so
+    /// a request finds the lists made (see `Session::auto_import_items`).
+    pub(crate) warm: bool,
     /// How the stdlib modules rank for suggestion, for the module list it was worked out from.
     ranking: Option<(Modules, ModuleRanking)>,
     module_dirs: BTreeMap<PathBuf, ModuleCache>,
@@ -242,6 +245,7 @@ impl Index {
     /// `path` was created or deleted: listings of the folders above it are stale too.
     pub(crate) fn created_or_deleted(&mut self, path: &Path) {
         self.changed(path);
+        self.warm = false;
         self.warming.clear();
         // A folder of modules may have appeared or gone.
         self.import_dirs.clear();

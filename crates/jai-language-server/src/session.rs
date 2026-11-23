@@ -216,6 +216,7 @@ mod compile;
 mod completion;
 mod config;
 mod documents;
+pub use documents::Stage;
 mod indexing;
 mod navigation;
 mod symbols;

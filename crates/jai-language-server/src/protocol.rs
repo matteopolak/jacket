@@ -81,6 +81,8 @@ pub struct JsonSession {
     defer_publications: bool,
     /// An edit since the last flush has diagnostics to publish.
     publications_pending: bool,
+    /// The compile's diagnostics were published and the lints (the rest of the check) were not.
+    lints_pending: bool,
     index_progress: progress::IndexProgress,
     workspace_published: std::collections::BTreeSet<String>,
 }

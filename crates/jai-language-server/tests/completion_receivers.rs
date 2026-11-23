@@ -58,3 +58,20 @@ fn a_parameter_of_a_polymorphic_procedure_offers_every_instance() {
     );
     assert!(labels.contains(&"second".to_string()), "{labels:?}");
 }
+
+/// Whitespace before the dot does not change what the value is.
+#[test]
+fn a_space_before_the_dot() {
+    let labels = labels(&format!(
+        "{COUNTER}main :: () {{ c: Counter; x := c .|from; y := c .from; }}"
+    ));
+    assert!(labels.contains(&"step".to_string()), "{labels:?}");
+}
+
+/// An inferred member (`== .A`, `case .A`) is still not a member of what comes before it.
+#[test]
+fn an_inferred_member_has_no_receiver() {
+    let labels =
+        labels("Color :: enum { red; green; }\nmain :: () { c: Color; if c == .|red { } }");
+    assert!(labels.contains(&"green".to_string()), "{labels:?}");
+}
