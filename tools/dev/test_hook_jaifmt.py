@@ -84,3 +84,17 @@ class RebuildTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StdlibTests(unittest.TestCase):
+    """Tools dev.py runs read this checkout's stdlib, even when built from another checkout."""
+
+    def test_sets_this_checkouts_stdlib_when_unset(self):
+        with patch.dict(os.environ, {}, clear=True):
+            dev.use_this_checkouts_stdlib()
+            self.assertEqual(os.environ["JAIC_STDLIB"], str(dev.ROOT / "stdlib"))
+
+    def test_keeps_a_stdlib_the_caller_chose(self):
+        with patch.dict(os.environ, {"JAIC_STDLIB": "/elsewhere/stdlib"}, clear=True):
+            dev.use_this_checkouts_stdlib()
+            self.assertEqual(os.environ["JAIC_STDLIB"], "/elsewhere/stdlib")

@@ -889,7 +889,14 @@ def cmd_precommit(args) -> int:
     return 0
 
 
+def use_this_checkouts_stdlib() -> None:
+    """Point the tools this script runs at this checkout's stdlib, unless the caller chose one. A binary in a
+    shared target directory may have been built from another checkout, whose built-in stdlib path is wrong here."""
+    os.environ.setdefault("JAIC_STDLIB", str(ROOT / "stdlib"))
+
+
 def main() -> int:
+    use_this_checkouts_stdlib()
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
     for name, fn in (("build", cmd_build), ("docs", cmd_docs), ("run-example", cmd_run_example), ("fmt", cmd_fmt), ("lint", cmd_lint), ("editor", cmd_editor), ("site-assets", cmd_site_assets), ("tools-scripts", cmd_tools_scripts),
