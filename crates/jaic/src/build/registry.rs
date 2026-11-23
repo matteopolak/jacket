@@ -464,6 +464,9 @@ pub(super) fn new_compiler(shared: &SharedWorkspaces, id: i64) -> Result<Box<Com
         let host = (reg.env.make_host)(os, options.layout.is_foreign_memory());
         (settings, options, reg.env.fs.clone(), host)
     };
+    // A metaprogram sees its workspace's checked bodies (intercepted messages) and may run what
+    // it builds: only the editor's own program leaves library bodies unchecked.
+    options.defer_library_bodies = false;
     if let Some(paths) = &settings.import_paths {
         // The module search path the metaprogram set, then the defaults (stdlib).
         let defaults = std::mem::take(&mut options.import_paths);
