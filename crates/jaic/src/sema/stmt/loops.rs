@@ -519,12 +519,12 @@ impl Compiler {
     fn for_expansion_takes(&mut self, procs: &[ProcId], cty: TypeId) -> bool {
         procs.iter().any(|&p| {
             self.first_param_takes(p, cty)
-                .is_some_and(|(_, takes)| takes)
+                .is_none_or(|(_, takes)| takes)
         })
     }
 
     /// `p`'s first parameter as (is a pointer, accepts `cty`): a pointer parameter `*T` accepts
-    /// `cty` when `T` does. None when the parameter has no written type.
+    /// `cty` when `T` does. None when the parameter has no written type, which may take anything.
     fn first_param_takes(&mut self, p: ProcId, cty: TypeId) -> Option<(bool, bool)> {
         let t = self
             .proc(p)
@@ -538,12 +538,22 @@ impl Compiler {
             _ => (false, t),
         };
         let home = self.proc(p).scope;
-        let takes = if procs::has_poly(&t) || self.mentions_poly_struct(home, &t).unwrap_or(false) {
-            // A polymorphic pattern counts only when it matches this very type.
-            self.match_pattern(&t, cty, &mut Vec::new(), home).is_ok()
-        } else {
-            self.eval_type(home, &t).ok() == Some(cty)
+        let poly = procs::has_poly(&t) || self.mentions_poly_struct(home, &t).unwrap_or(false);
+        let takes_one = |this: &mut Self, ty: TypeId| {
+            if poly {
+                // A polymorphic pattern counts only when it matches this very type.
+                this.match_pattern(&t, ty, &mut Vec::new(), home).is_ok()
+            } else {
+                this.eval_type(home, &t).ok() == Some(ty)
+            }
         };
+        // A collection held through a pointer is iterated as its pointee.
+        let takes = takes_one(self, cty)
+            || self
+                .ty
+                .types
+                .pointee(cty)
+                .is_some_and(|inner| takes_one(self, inner));
         Some((pointer, takes))
     }
 
@@ -662,13 +672,12 @@ impl Compiler {
                 span,
                 scope,
             }];
-            return self.check_for_expansion(
+            return self.expand_struct_for(
                 f,
-                scope,
-                for_,
+                (scope, for_),
                 (procs, leading),
                 (it_name, index_name),
-                span,
+                (cty, span),
             );
         }
         let (elem, fixed) = match self.ty.types.kind(self.ty.types.repr(cty)).clone() {
@@ -924,17 +933,51 @@ impl Compiler {
         };
         if procs.is_empty() {
             let ty = self.ty.types.name(collection.ty());
-            return Err(Box::new(
-                Diagnostic::new(Code::NoVisibleIterating,
-                    span,
-                    format!("no `{macro_name}` is visible for iterating over {ty}"),
-                )
-                .with_help(format!(
-                    "define `{macro_name}` for `{ty}` in a visible scope, or iterate over one of its array members"
-                )),
-            ));
+            return Err(Box::new(no_visible_iterating(macro_name, &ty, span)));
         }
         Ok(procs)
+    }
+
+    /// `for x` over a struct through `procs`. When the call fails because every visible
+    /// `for_expansion` takes another type, the error says none is visible for this one.
+    fn expand_struct_for(
+        &mut self,
+        f: &mut FnCtx,
+        (scope, for_): (ScopeId, &ast::For),
+        (procs, leading): (Vec<ProcId>, Vec<CallArg>),
+        names: (Sym, Sym),
+        (cty, span): (TypeId, Span),
+    ) -> Result<()> {
+        let candidates = procs.clone();
+        match self.check_for_expansion(f, scope, for_, (procs, leading), names, span) {
+            Err(e)
+                if e.code == Code::CallMismatch
+                    && for_.iterator.is_none()
+                    && !self.for_expansion_takes(&candidates, cty) =>
+            {
+                Err(Box::new(self.no_expansion_for(cty, &candidates, span)))
+            }
+            result => result,
+        }
+    }
+
+    /// The error for `for x` when the visible `for_expansion`s all take other types: none is
+    /// visible for this one, with a note on each saying what it iterates over.
+    fn no_expansion_for(&mut self, cty: TypeId, procs: &[ProcId], span: Span) -> Diagnostic {
+        let ty = self.ty.types.name(cty);
+        let mut d = no_visible_iterating(Sym::intern("for_expansion"), &ty, span);
+        for &p in procs {
+            let header = self.proc(p).lit.header.clone();
+            let Some(param) = header.params.first().and_then(|q| q.ty.as_ref()) else {
+                continue;
+            };
+            let takes = self.src.sources.snippet(param.extent()).trim().to_string();
+            d = d.with_note(
+                header.span,
+                format!("this `for_expansion` iterates over `{takes}`, not `{ty}`"),
+            );
+        }
+        d
     }
 
     /// The procedures `name` resolves to from `scope`.
@@ -1074,4 +1117,16 @@ impl Compiler {
         f.pending_for_body = None;
         result.map(|_| ())
     }
+}
+
+/// "no `name` is visible for iterating over ty", with where to define one.
+fn no_visible_iterating(macro_name: Sym, ty: &str, span: Span) -> Diagnostic {
+    Diagnostic::new(
+        Code::NoVisibleIterating,
+        span,
+        format!("no `{macro_name}` is visible for iterating over {ty}"),
+    )
+    .with_help(format!(
+        "define `{macro_name}` for `{ty}` in a visible scope, or iterate over one of its array members"
+    ))
 }

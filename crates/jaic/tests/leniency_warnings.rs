@@ -117,6 +117,16 @@ fn for_with_the_module_imported_by_name_does_not_warn() {
 }
 
 #[test]
+fn for_through_a_pointer_with_the_module_imported_does_not_warn() {
+    let found = warnings(
+        "#import \"Coll\"; main :: () { v: Coll; c := *v; for c {} }",
+        &[("Coll", COLL)],
+        Code::NamespacedForExpansion,
+    );
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
 fn for_inside_an_imported_module_is_silent() {
     let user = "M :: #import \"Coll\";
         go :: () { c: M.Coll; for c {} }";

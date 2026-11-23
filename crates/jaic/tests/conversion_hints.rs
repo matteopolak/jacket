@@ -299,6 +299,30 @@ fn looping_over_a_number_suggests_a_range() {
     );
 }
 
+/// A visible `for_expansion` for another type is not a candidate: the error says none is
+/// visible for this type and points at the one that is, with the type it takes.
+#[test]
+fn looping_with_only_another_types_expansion_visible_says_what_it_takes() {
+    let source = format!(
+        "{PRELUDE}For_Flags :: u32;
+for_expansion :: (q: *Q, body: Code, flags: For_Flags) #expand {{ #insert body; }}
+main :: () {{ for P.{{}} {{ }} }}
+"
+    );
+    let d = error_of(&source);
+    assert_eq!(
+        d.message,
+        "no `for_expansion` is visible for iterating over P"
+    );
+    assert!(
+        d.notes
+            .iter()
+            .any(|(_, note)| note == "this `for_expansion` iterates over `*Q`, not `P`"),
+        "{:?}",
+        d.notes
+    );
+}
+
 #[test]
 fn looping_over_a_struct_says_where_to_define_the_expansion() {
     let d = error_of(&program("for P.{} { }"));
