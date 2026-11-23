@@ -49,7 +49,7 @@ fn repeated_scalar_calls_use_each_calls_own_arguments() {
 #[test]
 fn aggregate_results_come_back_through_the_plan() {
     check(
-        r#"
+        r"
         Div_T :: struct { quot: s32; rem: s32; }
         Ldiv_T :: struct { quot: s64; rem: s64; }
         div :: (a: s32, b: s32) -> Div_T #foreign;
@@ -66,7 +66,7 @@ fn aggregate_results_come_back_through_the_plan() {
         }
         #assert run() == 728920;
         main :: () {}
-        "#,
+        ",
     );
 }
 
@@ -106,7 +106,7 @@ fn mixed_integer_and_float_registers_keep_their_own_order() {
 #[test]
 fn callbacks_handed_to_c_keep_working_across_many_calls() {
     check(
-        r#"
+        r"
         qsort :: (base: *void, count: u64, size: u64, compare: (*void, *void) -> s32 #c_call) #foreign;
         abs :: (x: s32) -> s32 #foreign;
 
@@ -129,6 +129,6 @@ fn callbacks_handed_to_c_keep_working_across_many_calls() {
         }
         #assert run() == 0;
         main :: () {}
-        "#,
+        ",
     );
 }

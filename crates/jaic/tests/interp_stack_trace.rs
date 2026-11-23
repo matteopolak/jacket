@@ -76,7 +76,7 @@ main :: () {}
 #[test]
 fn a_site_always_hashes_the_same_and_sites_differ() {
     check(
-        r#"
+        r"
 probe :: () -> u64 { return context.stack_trace.hash; }
 first :: () -> u64 { return probe(); }
 second :: () -> u64 { return probe(); }
@@ -88,6 +88,6 @@ twice :: () -> bool {
 }
 #assert twice();
 main :: () {}
-"#,
+",
     );
 }

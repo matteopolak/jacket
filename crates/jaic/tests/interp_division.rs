@@ -16,7 +16,7 @@ fn compile(source: &str) -> Result<(), String> {
 #[test]
 fn signed_division_truncates_toward_zero_and_wraps_min_over_minus_one() {
     compile(
-        r#"
+        r"
 run :: () -> s64 {
     min64 := -9223372036854775807 - 1; one64: s64 = -1;
     if min64 / one64 != min64 return 1;
@@ -49,7 +49,7 @@ run :: () -> s64 {
 }
 #assert run() == 0;
 main :: () {}
-"#,
+",
     )
     .unwrap();
 }
@@ -57,7 +57,7 @@ main :: () {}
 #[test]
 fn unsigned_division_uses_the_full_width() {
     compile(
-        r#"
+        r"
 run :: () -> s64 {
     big: u64 = 18446744073709551615; three: u64 = 3; ten: u64 = 10;
     if big / three != 6148914691236517205 return 1;
@@ -77,7 +77,7 @@ run :: () -> s64 {
 }
 #assert run() == 0;
 main :: () {}
-"#,
+",
     )
     .unwrap();
 }
