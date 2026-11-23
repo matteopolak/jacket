@@ -5,7 +5,7 @@ main :: () {
     flt := 1.5e-3;
     half := .5;
     member := v.x;
-    range := 0..10;
+    for 0..10 {}
     uninit: int = ---;
     poly :: ($T: Type, x: $$U) {}
     `outer := 1;

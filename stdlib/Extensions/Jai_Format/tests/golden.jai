@@ -88,6 +88,7 @@ main :: () {
     check_ranges(bless);
     check_range_edges();
     check_refusals();
+    check_unparsed_tokens();
     check_equivalence_guard();
     check_config_parsing();
     check_toml_forms();
@@ -186,6 +187,26 @@ check_refusals :: () {
     for bad {
         _, ok := format_source(it);
         if ok fail("malformed input was formatted: %", it);
+    }
+}
+
+// Code the compiler rejects but the lexer reads, as an editor sends it mid-edit: the formatter
+// spaces the tokens and keeps each one whole. These stay inline so no fixture file fails to parse.
+check_unparsed_tokens :: () {
+    cases :: string.[
+        // A second decimal point, or digits after a member `.`, starts a new token.
+        "d := 1.2.3;\nx := v.5;\n", "d := 1.2 . 3;\nx := v. 5;\n",
+        // A note runs to the next whitespace, so `@@b` is one token.
+        "a@@b := 0;\n", "a @@b := 0;\n",
+    ];
+    i := 0;
+
+    while i < cases.count {
+        output, ok, error := format_source(cases[i]);
+        if !ok fail("% was refused: %", cases[i], error);
+        else if output != cases[i + 1] report_difference(cases[i], cases[i + 1], output);
+
+        i += 2;
     }
 }
 

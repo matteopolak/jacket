@@ -1,6 +1,6 @@
 // The playground examples: whitespace in the input does not change the output.
 main :: () {
-    a: int, b: int;
+    a, b: int;
     arr := int.[1, 2, 3];
     for arr {
         print("%\n", it);
