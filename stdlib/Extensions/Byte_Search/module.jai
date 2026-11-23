@@ -5,7 +5,7 @@
 //
 // text := "id,name;note\nneedle in a/haystack";
 // at := Byte_Search.find(text, #char "\n"); // the first newline, or -1
-// at = Byte_Search.find_any(text, #char ",", #char ";");
+// at = Byte_Search.find_any(text, .[#char ",", #char ";"]);
 // at = Byte_Search.find(text, "needle"); // the first "needle", or -1
 // at = Byte_Search.find_last(text, #char "/");
 //
@@ -30,20 +30,28 @@ find :: inline (text: string, byte: u8, start := 0) -> int {
     return find_byte(text, byte, start);
 }
 
-// The first of either byte at or after `start`, or -1.
+// The first of any of `bytes` at or after `start`, or -1. Up to three bytes use dedicated
+// vector searches; more build a [Byte_Set] for this call, so build one yourself to search
+// for the same bytes many times.
 //
 // ```jai
 // Byte_Search :: #import "Extensions/Byte_Search";
 //
-// assert(Byte_Search.find_any("key=value;", #char ";", #char "=") == 3);
+// assert(Byte_Search.find_any("key=value;", .[#char ";", #char "="]) == 3);
+// assert(Byte_Search.find_any("a|b,c", .[#char ",", #char "|", #char ";"], 2) == 3);
+// assert(Byte_Search.find_any("abc", .[]) == -1);
 // ```
-find_any :: inline (text: string, a: u8, b: u8, start := 0) -> int {
-    return find_two(text, a, b, start);
-}
+find_any :: inline (text: string, bytes: [] u8, start := 0) -> int {
+    if bytes.count == {
+        case 0; return -1;
+        case 1; return find_byte(text, bytes[0], start);
+        case 2; return find_two(text, bytes[0], bytes[1], start);
+        case 3; return find_three(text, bytes[0], bytes[1], bytes[2], start);
+    }
 
-// The first of any of the three bytes at or after `start`, or -1. Larger sets: [Byte_Set].
-find_any :: inline (text: string, a: u8, b: u8, c: u8, start := 0) -> int {
-    return find_three(text, a, b, c, start);
+    set := make_byte_set(bytes);
+
+    return find(*set, text, start);
 }
 
 // The last `byte` before `end` (-1: the end of the text), or -1.
@@ -58,20 +66,32 @@ find_last :: inline (text: string, byte: u8, end := -1) -> int {
     return find_last_byte(text, byte, end);
 }
 
-// The last of either byte before `end`, or -1.
+// The last of any of `bytes` before `end` (-1: the end of the text), or -1.
 //
 // ```jai
 // Byte_Search :: #import "Extensions/Byte_Search";
 //
-// assert(Byte_Search.find_last_any("dir\\file/name", #char "/", #char "\\") == 8);
+// assert(Byte_Search.find_last_any("dir\\file/name", .[#char "/", #char "\\"]) == 8);
+// assert(Byte_Search.find_last_any("a;b,c|d", .[#char ";", #char ",", #char "|", #char "!"], 5) == 3);
 // ```
-find_last_any :: inline (text: string, a: u8, b: u8, end := -1) -> int {
-    return find_last_two(text, a, b, end);
-}
+find_last_any :: inline (text: string, bytes: [] u8, end := -1) -> int {
+    if bytes.count == {
+        case 0; return -1;
+        case 1; return find_last_byte(text, bytes[0], end);
+        case 2; return find_last_two(text, bytes[0], bytes[1], end);
+        case 3; return find_last_three(text, bytes[0], bytes[1], bytes[2], end);
+    }
 
-// The last of any of the three bytes before `end`, or -1.
-find_last_any :: inline (text: string, a: u8, b: u8, c: u8, end := -1) -> int {
-    return find_last_three(text, a, b, c, end);
+    set: Byte_Set;
+    for bytes set.bits[it >> 3] |= cast(u8) (1 << (it & 7));
+
+    i := ifx end < 0 || end > text.count then text.count else end;
+    while i > 0 {
+        i -= 1;
+        if contains(*set, text[i]) return i;
+    }
+
+    return -1;
 }
 
 // How many times `byte` occurs in the text.

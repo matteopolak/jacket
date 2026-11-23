@@ -6,7 +6,7 @@ Vectorized byte and substring search (the job of `memchr`/`memmem`), built on [S
 Byte_Search :: #import "Extensions/Byte_Search";
 
 at := Byte_Search.find(text, #char "\n");
-at  = Byte_Search.find_any(text, #char ",", #char ";");
+at  = Byte_Search.find_any(text, .[#char ",", #char ";"]);
 n  := Byte_Search.count(text, #char "\n");
 at  = Byte_Search.find(text, "needle");
 

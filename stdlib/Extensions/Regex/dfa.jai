@@ -499,9 +499,9 @@ skip_to :: inline (skip: *Skip, text: string, i: int, fence: *int) -> int {
 
         if skip.kind == {
             case .BYTES;
-                if skip.count == 1 found = Byte_Search.find(text, skip.bytes[0], at);
-                else if skip.count == 2 found = Byte_Search.find_any(text, skip.bytes[0], skip.bytes[1], at);
-                else found = Byte_Search.find_any(text, skip.bytes[0], skip.bytes[1], skip.bytes[2], at);
+                bytes: [] u8 = skip.bytes;
+                bytes.count = skip.count;
+                found = Byte_Search.find_any(text, bytes, at);
             case .SET;
                 found = Byte_Search.find(*skip.set, text, at);
             case .PAIR;

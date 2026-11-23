@@ -706,9 +706,7 @@ vector_find_last :: no_inline (s: string, byte: u8) -> s64 {
 
 // Any number of bytes: up to three have a vector search, more are checked one by one.
 vector_find_any :: no_inline (s: string, bytes: string, start: s64) -> s64 {
-    if bytes.count == 1 return Search.find(s, bytes[0], start);
-    if bytes.count == 2 return Search.find_any(s, bytes[0], bytes[1], start);
-    if bytes.count == 3 return Search.find_any(s, bytes[0], bytes[1], bytes[2], start);
+    if bytes.count <= 3 return Search.find_any(s, cast([] u8) bytes, start);
 
     for i: max(start, 0)..s.count - 1 if is_any(s[i], bytes) return i;
 
@@ -716,9 +714,7 @@ vector_find_any :: no_inline (s: string, bytes: string, start: s64) -> s64 {
 }
 
 vector_find_last_any :: no_inline (s: string, bytes: string) -> s64 {
-    if bytes.count == 1 return Search.find_last(s, bytes[0]);
-    if bytes.count == 2 return Search.find_last_any(s, bytes[0], bytes[1]);
-    if bytes.count == 3 return Search.find_last_any(s, bytes[0], bytes[1], bytes[2]);
+    if bytes.count <= 3 return Search.find_last_any(s, cast([] u8) bytes);
 
     i := s.count;
     while i > 0 {

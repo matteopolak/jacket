@@ -74,13 +74,15 @@ bytes :: () {
 
         for start: -1..size + 1 {
             check(Byte_Search.find(text, a, start) == naive_find_any(text, .[a], start), tprint("find % in % from %", a, text, start));
-            check(Byte_Search.find_any(text, a, b, start) == naive_find_any(text, .[a, b], start), tprint("find_any %/% in % from %", a, b, text, start));
-            check(Byte_Search.find_any(text, a, b, c, start) == naive_find_any(text, .[a, b, c], start), tprint("find_any %/%/% in % from %", a, b, c, text, start));
+            check(Byte_Search.find_any(text, .[a, b], start) == naive_find_any(text, .[a, b], start), tprint("find_any %/% in % from %", a, b, text, start));
+            check(Byte_Search.find_any(text, .[a, b, c], start) == naive_find_any(text, .[a, b, c], start), tprint("find_any %/%/% in % from %", a, b, c, text, start));
+            check(Byte_Search.find_any(text, .[a, b, c, #char "\n"], start) == naive_find_any(text, .[a, b, c, #char "\n"], start), tprint("find_any 4 bytes in % from %", text, start));
             end := start;
 
             check(Byte_Search.find_last(text, a, end) == naive_find_last_any(text, .[a], end), tprint("find_last % in % before %", a, text, end));
-            check(Byte_Search.find_last_any(text, a, b, end) == naive_find_last_any(text, .[a, b], end), tprint("find_last_any %/% in % before %", a, b, text, end));
-            check(Byte_Search.find_last_any(text, a, b, c, end) == naive_find_last_any(text, .[a, b, c], end), tprint("find_last_any %/%/% in % before %", a, b, c, text, end));
+            check(Byte_Search.find_last_any(text, .[a, b], end) == naive_find_last_any(text, .[a, b], end), tprint("find_last_any %/% in % before %", a, b, text, end));
+            check(Byte_Search.find_last_any(text, .[a, b, c], end) == naive_find_last_any(text, .[a, b, c], end), tprint("find_last_any %/%/% in % before %", a, b, c, text, end));
+            check(Byte_Search.find_last_any(text, .[a, b, c, #char "\n"], end) == naive_find_last_any(text, .[a, b, c, #char "\n"], end), tprint("find_last_any 4 bytes in % before %", text, end));
         }
 
         expected := 0;

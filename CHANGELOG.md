@@ -13,6 +13,10 @@ The language server, linter, formatter and interpreter are faster. `jailsp` uses
 - `jaifmt` formats files in parallel (`-j N` sets the workers); checking this repository takes a third as long.
 - On Windows, `jailsp` gives freed memory back to the system after each compile. (#85, @ctzcs)
 
+### Breaking changes
+
+- `Byte_Search.find_any` and `find_last_any` take the bytes as an array: `find_any(text, .[#char ",", #char "|"])`.
+
 ### Fixes
 
 - `jailsp` publishes compiler errors as soon as the check finishes, and the lint findings after them.
