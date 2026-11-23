@@ -148,7 +148,7 @@ fn markdown_hovers_fence_code_and_break_sections() {
         overloads.contains("Writes the formatted text to standard output"),
         "{overloads}"
     );
-    assert_eq!(overloads.matches("\nprint :: (").count(), 2, "{overloads}");
+    assert_eq!(overloads.matches("\nprint :: (").count(), 3, "{overloads}");
 }
 
 #[test]

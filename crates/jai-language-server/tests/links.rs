@@ -162,8 +162,8 @@ fn module_names_and_reexported_symbols_go_to_their_declarations() {
         .unwrap();
     assert_eq!(
         overloads.len(),
-        2,
-        "both reviewed alias overloads: {overloads:?}"
+        3,
+        "every overload of the alias: {overloads:?}"
     );
     assert!(
         overloads
