@@ -18,6 +18,7 @@ import os
 import re
 import subprocess
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -75,10 +76,13 @@ def zulip(method: str, path: str, fields: dict) -> dict:
     query = urllib.parse.urlencode(fields)
     url, data = (f"{site}/api/v1/{path}?{query}", None) if method == "GET" else (f"{site}/api/v1/{path}", query.encode())
     request = urllib.request.Request(url, data, {"Authorization": f"Basic {auth}"}, method=method)
-    with urllib.request.urlopen(request) as response:
-        result = json.load(response)
+    try:
+        with urllib.request.urlopen(request) as response:
+            result = json.load(response)
+    except urllib.error.HTTPError as err:
+        sys.exit(f"Zulip refused {method} {path}: {err.code} {err.read().decode(errors='replace')}")
     if result.get("result") != "success":
-        sys.exit(f"Zulip refused the request: {result}")
+        sys.exit(f"Zulip refused {method} {path}: {result}")
     return result
 
 
