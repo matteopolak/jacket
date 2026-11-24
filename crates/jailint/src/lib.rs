@@ -25,6 +25,7 @@ pub fn rule_url(rule: &str) -> String {
     format!("https://jacket.matteopolak.com/lint-rules/{rule}")
 }
 
+pub use rules::unused_note::LINT_NOTES;
 pub use rules::{RULES, RuleInfo};
 
 use jaic::sema::Compiler;

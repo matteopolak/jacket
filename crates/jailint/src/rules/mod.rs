@@ -183,6 +183,7 @@ rules! {
     unsigned_range_end_minus_one,
     unreadable_literal,
     pub(crate) unused_import,
+    pub(crate) unused_note,
     unused_parameter,
     unused_private_declaration,
     unused_result,

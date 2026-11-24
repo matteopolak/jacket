@@ -1,0 +1,29 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[unused_note]: no compile-time code read the note `@glsl`
+  --> tests/lint/unused_note/bad.jai:5:26
+   |
+ 5 |     position: [3] float; @glsl
+   |                          ^^^^^
+   |
+   = help: remove it, or make the metaprogram that reads it part of the check
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_note
+
+warning[unused_note]: no compile-time code read the note `@Exported`
+  --> tests/lint/unused_note/bad.jai:10:3
+   |
+10 | } @Exported
+   |   ^^^^^^^^^
+   |
+   = help: remove it, or make the metaprogram that reads it part of the check
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_note
+
+warning[unused_note]: no compile-time code read the note `@Tunable`
+  --> tests/lint/unused_note/bad.jai:12:14
+   |
+12 | LIMIT :: 10; @Tunable
+   |              ^^^^^^^^
+   |
+   = help: remove it, or make the metaprogram that reads it part of the check
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_note

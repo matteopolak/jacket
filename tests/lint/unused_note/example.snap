@@ -1,0 +1,11 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[unused_note]: no compile-time code read the note `@Exported`
+  --> tests/lint/unused_note/example.jai:6:3
+   |
+ 6 | } @Exported
+   |   ^^^^^^^^^
+   |
+   = help: remove it, or make the metaprogram that reads it part of the check
+   = note: see https://jacket.matteopolak.com/lint-rules/unused_note

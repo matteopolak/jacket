@@ -1095,6 +1095,16 @@
               "default": "warn",
               "markdownDescription": "an `#import` nothing in its scope uses (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unused_import)"
             },
+            "unused_note": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "a note that no compile-time code read (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unused_note)"
+            },
             "unused_parameter": {
               "type": "string",
               "enum": [

@@ -1,6 +1,6 @@
 # Lint rules
 
-The 108 rules `jailint` checks, by category. [jailint](../tools/jailint.md) says how to run it, configure rules and silence a finding.
+The 109 rules `jailint` checks, by category. [jailint](../tools/jailint.md) says how to run it, configure rules and silence a finding.
 
 A rule's category sets its default level. Name a category wherever a rule name works (`[lint.rules]`, `-W`, `// jailint: allow(...)`). The compiler's warnings are reported too and take levels the same way, by code (`struct-literal-as-dynamic-array`), as `leniencies`, or all at once as `compiler`; `// jailint: allow(...)` does not cover them.
 
@@ -5485,3 +5485,48 @@ main :: () {
 ```
 
 Each `#no_abc`, `#no_aoc` and `#asm` needs a comment on its own line or the line just above.
+
+### unused_note
+
+Finds a note that no compile-time code read.
+
+Category `restriction`, `allow` by default.
+
+Off by default; the example is shown with the rule enabled.
+
+```jai example
+#import "Basic";
+
+// Nothing in the build reads `@Exported`: the metaprogram that collected these was removed.
+answer :: () -> int {
+    return 42;
+} @Exported
+
+main :: () {
+    print("%\n", answer());
+}
+```
+
+```diagnostic
+warning[unused_note]: no compile-time code read the note `@Exported`
+  --> example.jai:6:3
+   |
+ 6 | } @Exported
+   |   ^^^^^^^^^
+   |
+   = help: remove it, or make the metaprogram that reads it part of the check
+```
+
+```jai fixed
+#import "Basic";
+
+answer :: () -> int {
+    return 42;
+}
+
+main :: () {
+    print("%\n", answer());
+}
+```
+
+Off by default. A note counts as read when compile-time code of the check loaded, copied or compared equal its text ([note readers](../compiler/note-readers.md)). Notes the compiler reads, the [declaration notes](../tools/jailint.md#declaration-notes) and `@jailint_allow` are not reported. Neither are notes in a check that did not finish or ran no compile-time code (untrusted).

@@ -48,7 +48,7 @@ pub(crate) struct Unused {
 }
 
 const MARKER: &str = "jailint:";
-const NOTE: &str = "jailint_allow";
+pub(crate) const NOTE: &str = "jailint_allow";
 
 impl Suppressions {
     pub fn new(text: &str, tokens: &[Token], comments: &[Comment], ast: &File) -> Self {

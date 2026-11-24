@@ -142,6 +142,13 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
             diagnostics,
         });
     }
+    // A note and the compile-time code that read it are usually in different workspaces.
+    jaic::ide::share_note_reads(
+        &mut checked
+            .iter_mut()
+            .map(|c| &mut *c.compiler)
+            .collect::<Vec<_>>(),
+    );
     let compiled: BTreeSet<PathBuf> = checked
         .iter()
         .flat_map(|c| c.files.iter().map(|(_, path)| path.clone()))

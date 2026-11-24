@@ -135,6 +135,7 @@ Most lifetime effects are inferred from procedure bodies, so the notes below are
 | `@TemporaryStorageMark`, `@RestoresTemporaryStorage`, `@ResetsTemporaryStorage` | saves, restores or resets the temporary-storage watermark |
 | `@NoLifetimeEffects` | a foreign or opaque procedure that frees, moves and keeps nothing it is given |
 | `@ValidUntilNextCall` | the returned pointer dies at the next call of the same procedure |
+| `@ReturnsStandardHandle` | returns the standard input, output or error handle its first argument names (bodiless only) |
 | `@RegistersBorrower(r,cb,data)`, `@StartsBorrower(r)`, `@CompletesBorrower(r)`, `@EndsBorrower(r)` | a worker `r` keeps `data` for callback `cb` from start until it completes or ends |
 
 ## Rules
@@ -513,6 +514,9 @@ Ranges include their end, so `0..n-1` visits the `n` indices below `n`, but with
 
 ### unused_import
 Unnamed imports count as used when any lookup went through them, or (guard for unchecked code) when the module's files mention a name it exports.
+
+### unused_note
+Off by default. A note counts as read when compile-time code of the check loaded, copied or compared equal its text ([note readers](../compiler/note-readers.md)). Notes the compiler reads, the [declaration notes](#declaration-notes) and `@jailint_allow` are not reported. Neither are notes in a check that did not finish or ran no compile-time code (untrusted).
 
 ### unused_parameter
 Only for procedures whose every caller is in view: named, only called (never taken as a value), called at least once, not overloaded or exported, no `#c_call`/`#foreign`/`#expand`/notes.
