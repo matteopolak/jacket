@@ -117,16 +117,66 @@ impl Compiler {
         Ok(())
     }
 
-    /// Write the `notes` view field of `desc` from the note strings.
+    /// Write the `notes` view field of `desc` from `notes`. An editor compile gives each note
+    /// its own bytes with its place, so the note watch sees which compile-time code reads it
+    /// ([note readers](../../../../../docs/compiler/note-readers.md)).
     pub(super) fn set_notes_view(
         &mut self,
         agg: &mut Aggregate,
         desc: TypeId,
-        notes: &[Arc<[u8]>],
+        notes: &[crate::ast::Note],
         span: Span,
     ) -> Result<()> {
-        let data = self.string_view(notes, span)?;
+        let data = if self.ed.is_live() {
+            self.note_view(notes)
+        } else {
+            let texts: Vec<Arc<[u8]>> =
+                notes.iter().map(|n| Arc::from(n.text.as_bytes())).collect();
+            self.string_view(&texts, span)?
+        };
         self.set_view(agg, desc, "notes", View::of(notes.len(), data), span)
+    }
+
+    /// The `[] string` data of `notes`, each pointing at a note global of its own.
+    fn note_view(&mut self, notes: &[crate::ast::Note]) -> Aggregate {
+        let stride = self.ty.types.size_of(TypeId::STRING);
+        let view = self.ty.types.builtins().view;
+        let mut data = Aggregate {
+            bytes: vec![0; notes.len() * stride as usize],
+            relocs: Vec::new(),
+        };
+        for (i, note) in notes.iter().enumerate() {
+            let at = i as u64 * stride;
+            let text = note.text.as_bytes();
+            self.options.layout.write_u64(
+                &mut data.bytes[(at + view.count) as usize..],
+                text.len() as u64,
+            );
+            if text.is_empty() {
+                continue;
+            }
+            let g = match self.note_place(note.span) {
+                Some(place) => self.out.note_global(text, place),
+                None => self.out.string_global(&Arc::from(text)),
+            };
+            data.relocs.push(ir::Reloc {
+                offset: at + view.data,
+                target: ir::RelocTarget::Global(g),
+                addend: 0,
+            });
+        }
+        data
+    }
+
+    /// Where the note at `span` is written, as the note watch names places.
+    fn note_place(&self, span: Span) -> Option<crate::interp::note_watch::NotePlace> {
+        let source = self.src.sources.try_get(span.file)?;
+        source.path.as_file()?;
+        Some(crate::interp::note_watch::NotePlace {
+            path: crate::paths::program_path(&source.path.to_string()).into(),
+            start: source.line_col(span.start),
+            end: source.line_col(span.end),
+        })
     }
 
     /// Write a `[] T` view field pointing at a new read-only global.

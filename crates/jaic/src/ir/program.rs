@@ -117,6 +117,9 @@ pub struct Program {
     /// is lowered (`reserve_func_with_sig`); `None` for functions reserved without one.
     pub reserved_sigs: Vec<Option<Sig>>,
     pub globals: Vec<Global>,
+    /// Globals holding the text of one note each, with where the note is written: an editor
+    /// compile watches what compile-time code reads them (`interp::note_watch`).
+    pub note_globals: crate::fxhash::HashMap<GlobalId, crate::interp::note_watch::NotePlace>,
     /// Assembly for the whole module (`@Module_Asm` on a string constant), in source order:
     /// reset code and the like, which the program's own symbols name.
     pub module_asm: Vec<String>,

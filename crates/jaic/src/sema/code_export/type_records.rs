@@ -199,7 +199,7 @@ impl Compiler {
                             field
                                 .notes
                                 .iter()
-                                .map(|n| Item::Str(n.as_bytes().into()))
+                                .map(|n| Item::Str(n.text.as_bytes().into()))
                                 .collect(),
                         )
                         .int("offset_into_constant_storage", -1);

@@ -185,6 +185,12 @@ impl Interp {
         self.globals[i] = Some(mem);
         self.ranges.insert(addr, (addr + global.size.max(1), g));
         self.initialize_global(program, g, addr, true)?;
+        // A note's text from type info: reads of it are reads of that note.
+        if let Some(place) = program.note_globals.get(&g)
+            && let Some(watch) = self.note_watch.as_mut()
+        {
+            watch.add(addr, global.size.saturating_sub(1), place.clone());
+        }
         Ok(addr)
     }
 

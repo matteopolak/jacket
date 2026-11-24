@@ -99,7 +99,9 @@ pub struct Field {
     pub as_: bool,
     /// Declared after `#overlay(f)`: shares another field's storage.
     pub overlay: bool,
-    pub notes: Vec<Arc<str>>,
+    /// The member's notes with where each is written (a note's place lets an editor compile
+    /// watch which compile-time code reads it through type info).
+    pub notes: Vec<crate::ast::Note>,
     /// Constant initializer bytes (or none = zero / ---).
     pub span: Span,
 }

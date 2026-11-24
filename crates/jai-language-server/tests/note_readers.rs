@@ -81,3 +81,91 @@ fn a_note_leads_to_the_code_that_read_it() {
     // `@Unrelated` has another length than either: no code looked at its text.
     assert_eq!(readers(&s, &uri, &text, "@Unrelated"), Vec::<u32>::new());
 }
+
+const TYPE_INFO: &str = r#"#import "Basic";
+Config :: struct @Saved {
+    port: int @json ;
+    host: string @toml ;
+}
+#run {
+    info := type_info(Config);
+    for info.notes if it == "Saved" print("saved\n");
+    for member: info.members {
+        for note: member.notes if note == "json" print("json %\n", member.name);
+    }
+}
+main :: () {}
+"#;
+
+/// The zero-based lines in `main.jai` that `definition` gives for the note at `marker`, each once.
+fn readers_here(
+    s: &Session,
+    uri: &jai_language_server::DocumentUri,
+    text: &str,
+    marker: &str,
+) -> Vec<u32> {
+    let at = text.find(marker).unwrap() + 1;
+    let mut lines: Vec<u32> = s
+        .definition(uri, position(text, at))
+        .unwrap()
+        .into_iter()
+        .filter(|l| l.uri.as_str().ends_with("main.jai"))
+        .map(|l| l.range.start.line)
+        .filter(|&line| line != text[..at].matches('\n').count() as u32)
+        .collect();
+    lines.sort_unstable();
+    lines.dedup();
+    lines
+}
+
+#[test]
+fn notes_read_through_type_info_lead_to_their_readers() {
+    let dir = project("note-readers-type-info", &[("main.jai", TYPE_INFO)]);
+    let (s, uri, text) = open_file(&dir, "main.jai");
+    let line = |marker: &str| {
+        TYPE_INFO[..TYPE_INFO.find(marker).unwrap()]
+            .matches('\n')
+            .count() as u32
+    };
+    assert_eq!(
+        readers_here(&s, &uri, &text, "@json"),
+        vec![line("for note: member.notes")]
+    );
+    assert_eq!(
+        readers_here(&s, &uri, &text, "@Saved"),
+        vec![line("for info.notes")]
+    );
+    // `== "json"` compared `toml` and found it different: not a read.
+    assert_eq!(readers_here(&s, &uri, &text, "@toml"), Vec::<u32>::new());
+}
+
+/// A note with arguments, found by its name: the prefix test reads it, whatever the arguments.
+const WITH_ARGUMENTS: &str = r#"#import "Basic";
+#import "String";
+Config :: struct {
+    port: int; @json(rename = "Port")
+    host: string; @toml(rename = "Host")
+}
+#run {
+    for member: type_info(Config).members {
+        for note: member.notes if begins_with(note, "json(") print("%\n", note);
+    }
+}
+main :: () {}
+"#;
+
+#[test]
+fn a_note_with_arguments_is_read_by_a_test_of_its_name() {
+    let dir = project("note-readers-arguments", &[("main.jai", WITH_ARGUMENTS)]);
+    let (s, uri, text) = open_file(&dir, "main.jai");
+    let line = |marker: &str| {
+        WITH_ARGUMENTS[..WITH_ARGUMENTS.find(marker).unwrap()]
+            .matches('\n')
+            .count() as u32
+    };
+    assert_eq!(
+        readers_here(&s, &uri, &text, "@json"),
+        vec![line("for note: member.notes")]
+    );
+    assert_eq!(readers_here(&s, &uri, &text, "@toml"), Vec::<u32>::new());
+}

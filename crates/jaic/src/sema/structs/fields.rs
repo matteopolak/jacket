@@ -239,7 +239,7 @@ impl Compiler {
             Some(a) => Some(self.eval_align(scope, a)?),
             None => None,
         };
-        let notes: Vec<Arc<str>> = decl.notes.iter().map(|n| n.text.clone()).collect();
+        let notes: Vec<ast::Note> = decl.notes.iter().cloned().collect();
         for name in &decl.names {
             out.push(FieldItem::Field(FieldDecl {
                 name: Some(name.name),

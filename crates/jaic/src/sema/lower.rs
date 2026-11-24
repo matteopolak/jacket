@@ -969,6 +969,30 @@ impl Output {
         })
     }
 
+    /// Read-only global holding the text of the note at `place`. Not shared with equal strings,
+    /// so reads of its bytes are reads of that one note.
+    pub fn note_global(
+        &mut self,
+        bytes: &[u8],
+        place: crate::interp::note_watch::NotePlace,
+    ) -> ir::GlobalId {
+        let mut init = bytes.to_vec();
+        init.push(0);
+        let name = format!("note.{}", self.program.note_globals.len());
+        let g = self.program.add_global(ir::Global {
+            name,
+            size: init.len() as u64,
+            align: 1,
+            init,
+            relocs: Vec::new(),
+            read_only: true,
+            export: None,
+            section: None,
+        });
+        self.program.note_globals.insert(g, place);
+        g
+    }
+
     /// Read-only global holding the bytes of a string literal.
     pub fn string_global(&mut self, bytes: &Arc<[u8]>) -> ir::GlobalId {
         let found = self.strings.get(bytes).copied();

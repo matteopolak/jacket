@@ -13,7 +13,7 @@ use crate::sema::TypeState;
 use crate::types::{LayoutState, TypeKind};
 
 /// A struct-scoped constant for type info: where it is declared, its name, type, value and notes.
-type StructConstant = (Span, Sym, TypeId, Option<Value>, Vec<Arc<[u8]>>);
+type StructConstant = (Span, Sym, TypeId, Option<Value>, Vec<crate::ast::Note>);
 
 /// Tag values of Preload's `Type_Info_Tag`.
 mod tag {

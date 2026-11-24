@@ -192,12 +192,7 @@ impl Compiler {
             )
         });
         // Notes written on the struct itself: `S :: struct @thing { ... }`.
-        let notes: Vec<Arc<[u8]>> = src
-            .lit
-            .notes
-            .iter()
-            .map(|n| Arc::from(n.text.as_bytes()))
-            .collect();
+        let notes = src.lit.notes.clone();
         if no_padding {
             self.set_field(agg, desc, "textual_flags", Value::Int(textual | 0x4), span)?;
         }
@@ -357,11 +352,7 @@ impl Compiler {
                         flags |= 0x20;
                     }
                     self.set_field(&mut m, member_ty, "flags", Value::Int(flags), span)?;
-                    let notes: Vec<Arc<[u8]>> = field
-                        .notes
-                        .iter()
-                        .map(|n| Arc::from(n.as_bytes()))
-                        .collect();
+                    let notes = field.notes.clone();
                     self.set_notes_view(&mut m, member_ty, &notes, span)?;
                     structs::write_agg(&mut members, slot as u64 * msize, &m);
                 }

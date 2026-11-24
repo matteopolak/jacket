@@ -99,7 +99,7 @@ pub(super) struct FieldDecl {
     pub(super) ty: TypeId,
     pub(super) using: bool,
     pub(super) as_: bool,
-    pub(super) notes: Vec<Arc<str>>,
+    pub(super) notes: Vec<ast::Note>,
     pub(super) span: Span,
     pub(super) init: Option<ast::Expr>,
     pub(super) scope: ScopeId,
