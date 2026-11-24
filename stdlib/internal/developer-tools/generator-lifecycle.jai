@@ -2,7 +2,8 @@
 #import "Basic";
 
 GM_LIFECYCLE_TYPES :: #string C
-/* Independent builtin-type input for official SDK target layout queries. */
+/* Independent builtin-type input for official SDK target layout queries. Fixed-width types come
+   from clang's predefined macros, since `int` is 2 bytes on some targets. */
 typedef void GM_Lifecycle_Void;
 #ifdef __cplusplus
 typedef bool GM_Lifecycle_Bool;
@@ -10,34 +11,31 @@ typedef bool GM_Lifecycle_Bool;
 __extension__ typedef _Bool GM_Lifecycle_Bool;
 #endif
 typedef char GM_Lifecycle_Char;
-typedef signed char GM_Lifecycle_S8;
-typedef unsigned char GM_Lifecycle_U8;
-typedef short GM_Lifecycle_S16;
-typedef unsigned short GM_Lifecycle_U16;
-typedef int GM_Lifecycle_S32;
-typedef unsigned int GM_Lifecycle_U32;
-__extension__ typedef long long GM_Lifecycle_S64;
-__extension__ typedef unsigned long long GM_Lifecycle_U64;
+typedef __INT8_TYPE__ GM_Lifecycle_S8;
+typedef __UINT8_TYPE__ GM_Lifecycle_U8;
+typedef __INT16_TYPE__ GM_Lifecycle_S16;
+typedef __UINT16_TYPE__ GM_Lifecycle_U16;
+typedef __INT32_TYPE__ GM_Lifecycle_S32;
+typedef __UINT32_TYPE__ GM_Lifecycle_U32;
+typedef __INT64_TYPE__ GM_Lifecycle_S64;
+typedef __UINT64_TYPE__ GM_Lifecycle_U64;
+#ifdef __SIZEOF_INT128__
 __extension__ typedef __int128 GM_Lifecycle_S128;
 __extension__ typedef unsigned __int128 GM_Lifecycle_U128;
+#endif
 typedef float GM_Lifecycle_Float32;
 typedef double GM_Lifecycle_Float64;
 typedef void *GM_Lifecycle_Pointer;
 C
 
+// The clang target triple for `options`: the `-target`/`--target=` the caller passed, else the
+// default for its OS and CPU. "" when neither names one.
 gm_lifecycle_target :: (options: Generate_Bindings_Options) -> string {
-    if options.cpu != .X64 && options.cpu != .ARM64 return "";
-
-    arm := options.cpu == .ARM64;
-    if options.os == .MACOS return ifx arm then "arm64-apple-darwin" else "x86_64-apple-darwin";
-    if options.os == .WINDOWS return ifx arm then "aarch64-pc-windows-msvc" else "x86_64-pc-windows-msvc";
-    if options.os == .LINUX return ifx arm then "aarch64-unknown-linux-gnu" else "x86_64-unknown-linux-gnu";
-    if options.os == .ANDROID return ifx arm then "aarch64-linux-android" else "x86_64-linux-android";
-    if options.os == .IOS return ifx arm then "arm64-apple-ios" else "x86_64-apple-ios-simulator";
-
-    return "";
+    return Target_Triple.target_triple(options.os, options.cpu, options.extra_clang_arguments);
 }
 
+// Types a target may lack (`__int128` on 32-bit and 16-bit targets, an 8-byte `double` on AVR) are
+// not required; clang reports them if the headers use one.
 gm_lifecycle_primitives :: (generator: *Generator, options: Generate_Bindings_Options) -> bool {
     referenced := generator.int128_was_referenced;
 
@@ -52,7 +50,7 @@ gm_lifecycle_primitives :: (generator: *Generator, options: Generate_Bindings_Op
 
     triple := gm_lifecycle_target(options);
     if !triple {
-        gm_input_error("generator initialization lacks a supported SDK target for the requested OS/CPU");
+        gm_input_error("generator initialization has no default target for the requested OS/CPU; pass -target <triple> in extra_clang_arguments");
         return false;
     }
 
@@ -98,6 +96,19 @@ gm_lifecycle_primitives :: (generator: *Generator, options: Generate_Bindings_Op
     defer if unit clang_disposeTranslationUnit(unit);
 
     if status != .Success || !unit || clang_getNumDiagnostics(unit) != 0 {
+        // Without a unit clang has only its driver to explain itself (an unknown triple): ask it.
+        if !unit array_free(binding_probe_include_paths(triple));
+
+        if unit for index: 0..cast(s32) clang_getNumDiagnostics(unit) - 1 {
+            diagnostic := clang_getDiagnostic(unit, cast(u32) index);
+
+            defer clang_disposeDiagnostic(diagnostic);
+            message := clang_formatDiagnostic(diagnostic, clang_defaultDiagnosticDisplayOptions());
+
+            defer clang_disposeString(message);
+            log_error("Bindings_Generator: %\n", to_string(clang_getCString(message)));
+        }
+
         gm_input_error("generator initialization could not obtain SDK builtin type layouts");
         return false;
     }
@@ -139,9 +150,9 @@ gm_lifecycle_primitives :: (generator: *Generator, options: Generate_Bindings_Op
     if !generator.type_def_void || !generator.type_def_bool || !generator.type_def_char ||
        !generator.type_def_s8 || !generator.type_def_u8 || !generator.type_def_s16 || !generator.type_def_u16 ||
        !generator.type_def_s32 || !generator.type_def_u32 || !generator.type_def_s64 || !generator.type_def_u64 ||
-       !generator.type_def_s128 || !generator.type_def_u128 || !generator.type_def_float32 || !generator.type_def_float64 ||
+       !generator.type_def_float32 ||
        !generator.type_def_pointer_to_void {
-        gm_input_error("generator initialization did not obtain all required canonical primitive types");
+        gm_input_error(tprint("generator initialization did not obtain all required canonical primitive types (void % bool % char % s8 % u8 % s16 % u16 % s32 % u32 % s64 % u64 % f32 % ptr %)", generator.type_def_void != null, generator.type_def_bool != null, generator.type_def_char != null, generator.type_def_s8 != null, generator.type_def_u8 != null, generator.type_def_s16 != null, generator.type_def_u16 != null, generator.type_def_s32 != null, generator.type_def_u32 != null, generator.type_def_s64 != null, generator.type_def_u64 != null, generator.type_def_float32 != null, generator.type_def_pointer_to_void != null));
         return false;
     }
 

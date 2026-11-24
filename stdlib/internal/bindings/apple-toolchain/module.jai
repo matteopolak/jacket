@@ -1,6 +1,5 @@
 target_triple :: (cpu: CPU_Tag) -> string {
-    if cpu == .ARM64 return "arm64-apple-ios";
-    return "x86_64-apple-ios";
+    return Target_Triple.default_target_triple(.IOS, cpu);
 }
 
 ios_sdk_path :: () -> string {
@@ -14,6 +13,7 @@ simulator_sdk_path :: () -> string {
 }
 
 #scope_file
+Target_Triple :: #import "internal/target-triple";
 Native :: #import "internal/bindings/native";
 
 ios_path: string;

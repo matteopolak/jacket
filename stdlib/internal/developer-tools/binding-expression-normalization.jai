@@ -77,7 +77,7 @@ binding_normalize_array_parameter :: (type: *CType, depth: int) -> *CType, bool 
     if underlying.array_element_count >= 0 || underlying.array_element_count_expression {
         generator := gp_current_generator();
 
-        assert(generator != null && (generator.pointer_size == 4 || generator.pointer_size == 8), "Bindings_Generator: initialized target pointer size required");
+        assert(generator != null && (generator.pointer_size > 0), "Bindings_Generator: initialized target pointer size required");
         result := binding_new_type();
         result.pointer_to = type;
         result.flags = .INSERTED;

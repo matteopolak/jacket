@@ -55,7 +55,7 @@ binding_normalize_options :: (state: *Binding_Options_Normalization) -> bool {
     triple := gm_lifecycle_target(options.*);
 
     if !triple {
-        log_error("Bindings_Generator: option normalization has no supported SDK target for OS % CPU %\n", options.os, options.cpu);
+        log_error("Bindings_Generator: no default target for OS % CPU %; pass -target <triple> in extra_clang_arguments\n", options.os, options.cpu);
         return false;
     }
 
@@ -69,7 +69,7 @@ binding_normalize_options :: (state: *Binding_Options_Normalization) -> bool {
     state.owns_arrays = true;
 
     if options.system_include_paths.count == 0 {
-        defaults := get_default_system_include_paths(options.os, options.cpu);
+        defaults := binding_probe_include_paths(triple);
 
         defer array_free(defaults);
 
@@ -84,7 +84,7 @@ binding_normalize_options :: (state: *Binding_Options_Normalization) -> bool {
 
     needs_system_roots := options.system_library_search_paths.count == 0;
     if needs_system_roots && (options.os == .MACOS || options.os == .IOS || options.os == .ANDROID) {
-        generic, platform, found := get_libc_paths(options.os, options.cpu);
+        generic, platform, found := gp_libc_paths(options.os, options.cpu, triple);
         if !found return false;
 
         defer free(generic);
@@ -110,14 +110,9 @@ binding_normalize_options :: (state: *Binding_Options_Normalization) -> bool {
         }
     }
 
-    if options.os == .ANDROID || (needs_system_roots && (options.os == .MACOS || options.os == .IOS)) {
-        explicit_target := false;
-        for argument: options.extra_clang_arguments if argument == "-target" explicit_target = true;
-
-        if !explicit_target {
-            array_add(*options.extra_clang_arguments, "-target");
-            array_add(*options.extra_clang_arguments, binding_normalization_text(state, triple));
-        }
+    if !Target_Triple.target_triple_from_arguments(options.extra_clang_arguments) {
+        array_add(*options.extra_clang_arguments, "-target");
+        array_add(*options.extra_clang_arguments, binding_normalization_text(state, triple));
     }
 
     if options.libnames.count {

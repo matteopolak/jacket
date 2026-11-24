@@ -36,9 +36,9 @@ android_find_ndk_path :: (log_errors := false) -> bool, string {
 }
 
 get_android_target_triple :: (cpu: CPU_Tag) -> triple: string, triple_with_sdk: string {
-    if cpu == .ARM64 triple = "aarch64-linux-android";
-    else if cpu == .X64 triple = "x86_64-linux-android";
-    else {
+    triple = Target_Triple.default_target_triple(.ANDROID, cpu);
+
+    if !triple {
         log_error("Unsupported Android target CPU\n");
         return "", "";
     }
@@ -165,6 +165,7 @@ run_android_link_command :: (message: *Message_Phase, options: Build_Options, ex
 }
 
 #scope_file
+Target_Triple :: #import "internal/target-triple";
 #import "Basic";
 #import "Compiler";
 Android_Sdk_Files :: #import "File_Utilities";

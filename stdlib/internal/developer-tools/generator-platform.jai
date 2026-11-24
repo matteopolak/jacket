@@ -421,8 +421,16 @@ gp_directory :: (path: string) -> bool {
     return directory && ok;
 }
 
-gp_libc_paths :: (os: Operating_System_Tag, cpu: CPU_Tag) -> string, string, bool {
-    if cpu != .X64 && cpu != .ARM64 return "", "", false;
+// The libc include directories for `os`. The target-specific one is named by clang for `triple`
+// ("" for the OS and CPU default), so any target clang knows has a directory.
+gp_libc_paths :: (os: Operating_System_Tag, cpu: CPU_Tag, requested := "") -> string, string, bool {
+    triple := requested;
+    if !triple triple = Target_Triple.default_target_triple(os, cpu);
+
+    if !triple {
+        log_error("Bindings_Generator: no target for OS % CPU %; pass a triple\n", os, cpu);
+        return "", "", false;
+    }
 
     generic: string;
     platform: string;
@@ -430,8 +438,10 @@ gp_libc_paths :: (os: Operating_System_Tag, cpu: CPU_Tag) -> string, string, boo
     if os == .LINUX {
         root := gp_env("DEVELOPER_TOOLS_LINUX_SYSROOT");
         generic = tprint("%/usr/include", root);
-        triple := ifx cpu == .X64 then "x86_64-linux-gnu" else "aarch64-linux-gnu";
-        platform = tprint("%/%", generic, triple);
+        multiarch, found := gp_multiarch(triple);
+        if !found return "", "", false;
+
+        platform = tprint("%/%", generic, multiarch);
     } else if os == .ANDROID {
         ndk := gp_env("ANDROID_NDK_HOME");
         if !ndk ndk = gp_env("ANDROID_NDK_ROOT");
@@ -444,9 +454,10 @@ gp_libc_paths :: (os: Operating_System_Tag, cpu: CPU_Tag) -> string, string, boo
         host := ifx OS == .MACOS then "darwin-x86_64" else ifx OS == .WINDOWS then "windows-x86_64" else "linux-x86_64";
 
         generic = tprint("%/toolchains/llvm/prebuilt/%/sysroot/usr/include", ndk, host);
-        triple := ifx cpu == .X64 then "x86_64-linux-android" else "aarch64-linux-android";
+        multiarch, found := gp_multiarch(triple);
+        if !found return "", "", false;
 
-        platform = tprint("%/%", generic, triple);
+        platform = tprint("%/%", generic, multiarch);
     } else if os == .MACOS || os == .IOS {
         sdk := gp_env("DEVELOPER_TOOLS_APPLE_SDK_ROOT");
         if !sdk {
@@ -482,6 +493,35 @@ gp_libc_paths :: (os: Operating_System_Tag, cpu: CPU_Tag) -> string, string, boo
     }
 
     return copy_string(generic), copy_string(platform), true;
+}
+
+// The directory name clang uses for `triple` under an include or library root (`clang -print-multiarch`).
+gp_multiarch :: (triple: string) -> string, bool {
+    compiler_path, compiler_is_clang := gp_compiler_path();
+
+    if !compiler_path || !compiler_is_clang {
+        log_error("Bindings_Generator: clang is required to name the multiarch directory of %\n", triple);
+        return "", false;
+    }
+
+    status, output, errors, timed_out := GP_Process.run_command(compiler_path, tprint("--target=%", triple), "-print-multiarch", capture_and_return_output = true, timeout_ms = 30000);
+
+    defer free(output);
+    defer free(errors);
+
+    if status.type != .EXITED || status.exit_code != 0 || timed_out {
+        log_error("Bindings_Generator: clang rejected target %\n%", triple, errors);
+        return "", false;
+    }
+
+    while output.count > 0 && (output[output.count - 1] == #char "\n" || output[output.count - 1] == #char "\r") output = GP_String.slice(output, 0, output.count - 1);
+
+    if !output {
+        log_error("Bindings_Generator: clang names no multiarch directory for %\n", triple);
+        return "", false;
+    }
+
+    return copy_temporary_string(output), true;
 }
 
 #scope_file

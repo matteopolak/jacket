@@ -336,7 +336,7 @@ gr_parse_input :: (owner: *GM_Sessions.Session, options: *Generate_Bindings_Opti
 
     triple := gm_lifecycle_target(options.*);
     if !triple {
-        gm_input_error("generator parse target is unsupported");
+        gm_input_error("generator has no default target for the requested OS/CPU; pass -target <triple> in extra_clang_arguments");
         return null;
     }
 

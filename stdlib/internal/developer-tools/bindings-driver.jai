@@ -72,13 +72,19 @@ looks_like_valid_identifier :: (identifier: string) -> bool {
 }
 
 get_default_system_include_paths :: (os := OS, cpu := CPU) -> [] string {
-    result: [..] string;
     triple := binding_target_triple(os, cpu);
 
     if !triple {
-        log_error("Bindings_Generator: unsupported include-probe target\n");
+        log_error("Bindings_Generator: no default target for OS % CPU %; pass a triple to binding_probe_include_paths\n", os, cpu);
         return .{};
     }
+
+    return binding_probe_include_paths(triple);
+}
+
+// The directories the C compiler searches for `triple`'s system headers.
+binding_probe_include_paths :: (triple: string) -> [] string {
+    result: [..] string;
 
     compiler_path, compiler_is_clang := gp_compiler_path();
 
@@ -126,6 +132,7 @@ get_default_system_include_paths :: (os := OS, cpu := CPU) -> [] string {
 #scope_module
 #import "Basic";
 #import "File";
+Target_Triple :: #import "internal/target-triple";
 P :: #import "Process";
 S :: #import "String";
 
@@ -148,8 +155,5 @@ binding_join_names :: (names: [] string) -> string {
 }
 
 binding_target_triple :: (os: Operating_System_Tag, cpu: CPU_Tag) -> string {
-    options: Generate_Bindings_Options;
-    options.os = os;
-    options.cpu = cpu;
-    return gm_lifecycle_target(options);
+    return Target_Triple.default_target_triple(os, cpu);
 }

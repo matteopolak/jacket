@@ -34,6 +34,7 @@ The language server, linter, formatter and interpreter are faster. `jailsp` uses
 - `jacket test --changed` reuses the file lists earlier test compiles recorded, and builds missing ones in parallel.
 - Compile-fail `.stderr` files write project paths as `$ROOT/...`, so they match across machines ([testing](docs/tools/jacket-test.md)).
 - Doc pages render `<kbd>` keys instead of showing the tags as text.
+- `Bindings_Generator` passes one target triple to clang on every OS, so `i686-linux-gnu` and `avr` lay out correctly.
 
 ## [0.38.0] - 2026-11-22
 

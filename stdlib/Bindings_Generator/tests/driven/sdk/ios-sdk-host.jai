@@ -13,7 +13,7 @@ check :: (value: bool) {
 main :: () {
     check(target_triple(.ARM64) == "arm64-apple-ios");
     check(target_triple(.X64) == "x86_64-apple-ios");
-    check(target_triple(cast(CPU_Tag) 0xffff_ffff) == "x86_64-apple-ios");
+    check(target_triple(.CUSTOM) == "");
     // Genuine native pipe behavior, not a substitute SDK or public iOS pass.
     long_result := sdk_lookup("i=0; while [ $i -lt 5000 ]; do printf x; i=$((i+1)); done; printf '\\n'");
 

@@ -15,11 +15,7 @@ gm_metadata_native_abi :: () -> bool {
     supported_cpu := begins_with(triple, "arm64-") || begins_with(triple, "aarch64-") || begins_with(triple, "x86_64-");
 
     if !supported_cpu return false;
-    if TARGET_OS == .MACOS return contains(triple, "-apple-");
-    if TARGET_OS == .LINUX return contains(triple, "-linux-");
-    if TARGET_OS == .WINDOWS return contains(triple, "-windows-msvc");
-
-    return false;
+    return contains(triple, "-apple-") || contains(triple, "-linux-") || contains(triple, "-windows-msvc");
 }
 
 gm_vtable_value_type :: (type: *CType, depth := 0) -> bool {
