@@ -46,7 +46,7 @@ Layout :: (out: *Out, page: *Page($C)) {
 <body data-base="{cast(Html) page.site.base}" data-page="{esc(page.view.path)}">
 <a class="skip" href="#main-content">Skip to content</a>
 {Header(page.site, page.view.path, page.view.side_label)}
-<div class="wrap"{if page.view.outline.count} data-toc{end}>
+<div class="wrap{ifx C == Content_Playground then " wide" else ""}"{if page.view.outline.count} data-toc{end}>
 <dialog class="side" id="side" open aria-label="{esc(page.view.side_label)}" data-title="{esc(SideTitle(page.view.side_label))}">
 <nav aria-label="{esc(page.view.side_label)}" data-nav="{esc(NavKey(page.view))}">
 {Side(page)}</nav></dialog>
@@ -152,6 +152,7 @@ Render :: (out: *Out, site: *Site_View, view: *Page_View, module: *Module_View =
     content1 := get_pointer(c, Content_Module);
     content2 := get_pointer(c, Content_Item);
     content3 := get_pointer(c, Content_Guide);
+    content4 := get_pointer(c, Content_Playground);
     if content0 {
         page := Page(Content_Index).{ site, view, content0, module, nav_stamps };
         Layout(out, *page);
@@ -163,6 +164,9 @@ Render :: (out: *Out, site: *Site_View, view: *Page_View, module: *Module_View =
         Layout(out, *page);
     } else if content3 {
         page := Page(Content_Guide).{ site, view, content3, module, nav_stamps };
+        Layout(out, *page);
+    } else if content4 {
+        page := Page(Content_Playground).{ site, view, content4, module, nav_stamps };
         Layout(out, *page);
     }
 }

@@ -95,7 +95,7 @@ main :: () {
     }
     site := read_view(Site_View, tprint("%/site.json", args[1]));
     defer free_json(*site);
-    if site.format != 8 {
+    if site.format != 9 {
         print("unsupported site format %\n", site.format);
         exit(2);
     }
@@ -116,8 +116,8 @@ main :: () {
         }
         original := data;
         defer free(original);
-        if path == "assets/site.css" data = compact_css(data);
-        if path == "assets/site.js" || path == "assets/early.js" data = compact_js(data);
+        if path == "assets/site.css" || path == "assets/playground.css" data = compact_css(data);
+        if path == "assets/site.js" || path == "assets/early.js" || path == "assets/playground.js" data = compact_js(data);
         if path == "assets/early.js" {
             // Inlined into every page, so it runs before the page is first painted.
             site.early_js = copy_string(data);
@@ -126,6 +126,8 @@ main :: () {
         write_file(*w, path, data);
         if path == "assets/site.css" site.css_url = copy_string(tprint("%assets/site.css?v=%", site.base, content_stamp(data)));
         if path == "assets/site.js" site.script_url = copy_string(tprint("%assets/site.js?v=%", site.base, content_stamp(data)));
+        if path == "assets/playground.css" site.playground_css_url = copy_string(tprint("%assets/playground.css?v=%", site.base, content_stamp(data)));
+        if path == "assets/playground.js" site.playground_script_url = copy_string(tprint("%assets/playground.js?v=%", site.base, content_stamp(data)));
         if path == "assets/icons.svg" site.icons_url = copy_string(tprint("%assets/icons.svg?v=%", site.base, content_stamp(data)));
     }
     category_out: Out;

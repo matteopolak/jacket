@@ -95,7 +95,7 @@ jobs:
         env:
           VERSION: ${{ steps.pick.outputs.version }}
           REF: ${{ inputs.source_ref || steps.pick.outputs.ref }}
-        run: target/release/jacket doc --base-url / --version "$VERSION" --source-ref "$REF" --playground-url https://matteopolak.com/playground/jacket --runtime target/doc-runtime --out target/doc-site
+        run: target/release/jacket doc --base-url / --version "$VERSION" --source-ref "$REF" --runtime target/doc-runtime --out target/doc-site
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: {node-version: '24'}
       - name: Check documentation validation helpers

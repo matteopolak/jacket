@@ -148,6 +148,15 @@ html {
   scroll-margin-top: 160px;
 }
 
+/* Containers that take focus from a script (the drawer, dialogs, the page) show no ring. */
+.side:focus-visible,
+.side > nav:focus-visible,
+dialog:focus-visible,
+main:focus-visible,
+[tabindex='-1']:focus-visible {
+  outline: none;
+}
+
 /* One card per list, rows split by hairlines, and one shared name column: as wide as the
    longest name, up to half the width. */
 .defs {
@@ -1954,7 +1963,7 @@ pre {
 }
 
 .ed textarea::selection {
-  background: var(--sel);
+  background: color-mix(in oklch, oklch(62% 0.15 255deg), transparent 68%);
   color: transparent;
 }
 
@@ -2834,4 +2843,23 @@ main .markdown-alert-title::before {
   height: 1em;
   background: var(--alert);
   mask: var(--alert-icon) center / contain no-repeat;
+}
+
+/* The playground is an app: it fills the window and the page itself never scrolls. */
+html:has(body[data-page='playground.html']) {
+  overflow: hidden;
+}
+
+body[data-page='playground.html'] {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body[data-page='playground.html'] > .wrap {
+  flex: 1 1 0;
+}
+
+body[data-page='playground.html'] .foot {
+  display: none;
 }

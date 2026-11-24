@@ -30,7 +30,7 @@ pub struct Site {
     pub repo: String,
     /// Where the library's folder is in the repository, with a trailing slash (`stdlib/`).
     pub source_prefix: String,
-    /// The playground's address; empty for none.
+    /// The address of a playground elsewhere (`[doc] playground`); empty to use the site's own.
     pub playground: String,
     /// The logo's file below `assets/`, if the site has one.
     pub logo: Option<String>,
@@ -197,6 +197,21 @@ impl Site {
     /// `.html`, which GitHub Pages and the dev servers look up.
     pub fn item_path(&self, module: &str, name: &str) -> String {
         format!("api/{module}/{}.html", self.folder(module, name))
+    }
+
+    /// Where the Playground link and "open in playground" go: `[doc] playground` or
+    /// `--playground-url` when one is set, else the site's own playground page.
+    pub fn playground_href(&self) -> String {
+        if self.playground.is_empty() {
+            self.page_href(super::playground::PATH)
+        } else {
+            self.playground.clone()
+        }
+    }
+
+    /// Whether "open in playground" links are shown: there is a playground that can run code.
+    pub fn has_playground(&self) -> bool {
+        self.runtime || !self.playground.is_empty()
     }
 
     /// The address of a page from its file: the path without `.html`, and the front page

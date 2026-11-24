@@ -13,12 +13,15 @@ The language server, linter, formatter and interpreter are faster. `jailsp` uses
 - `jaifmt` formats files in parallel (`-j N` sets the workers); checking this repository takes a third as long.
 - Go to definition on a note lists the code that read it; `unused_note` (off by default) reports unread notes.
 
+
 ### Breaking changes
 
+- `jacket doc --runtime` needs the whole browser bundle and fails with the build command when a file is missing.
 - `Byte_Search.find_any` and `find_last_any` take the bytes as an array: `find_any(text, .[#char ",", #char "|"])`.
 
 ### Fixes
 
+- `jacket doc` adds a playground page to the site, and the nav and example links point at it.
 - On Windows, `jailsp` gives freed memory back to the system after each compile. (#85, @ctzcs)
 - `jailsp` publishes compiler errors as soon as the check finishes, and the lint findings after them.
 - The first completion in a busy `jailsp` session no longer waits for the auto-import index.

@@ -3,7 +3,7 @@
     "target": "es2023",
     "module": "preserve",
     "moduleResolution": "bundler",
-    "lib": ["es2023", "dom"],
+    "lib": ["es2023", "dom", "dom.iterable"],
     "types": [],
     "allowJs": true,
     "checkJs": true,
@@ -15,5 +15,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["globals.d.ts", "../site/assets/site.js", "../site/assets/early.js"]
+  "include": ["globals.d.ts", "../site/assets/site.js", "../site/assets/early.js", "../site/assets/playground.js", "../site/assets/playground-state.js", "../site/assets/playground-layout.js"]
 }

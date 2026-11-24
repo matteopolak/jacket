@@ -20,6 +20,8 @@ Site_View :: struct {
     script_url: string; @json(default)
     categories_url: string; @json(default)
     early_js: string; @json(default)
+    playground_css_url: string; @json(default)
+    playground_script_url: string; @json(default)
     icons_url: string; @json(default)
     footer_version: string;
     module_files: [] string;
@@ -76,7 +78,7 @@ Page_View :: struct {
     side_label: string;
     sidebar: Sidebar; @json(tag=kind,tags=modules,item)
     outline: [] Outline; @json(tag=kind,tags=heading,items)
-    content: Content; @json(tag=kind,tags=index,module,item,guide)
+    content: Content; @json(tag=kind,tags=index,module,item,guide,playground)
 }
 
 Sidebar_Modules :: struct {
@@ -167,7 +169,13 @@ Content_Guide :: struct {
     segments: [] Doc_Segment; @json(tag=kind,tags=html,example,code,group,compare)
 }
 
-Content :: Variant(Content_Index, Content_Module, Content_Item, Content_Guide);
+Content_Playground :: struct {
+    ready: bool;
+    hint: string;
+    runtime_url: string;
+}
+
+Content :: Variant(Content_Index, Content_Module, Content_Item, Content_Guide, Content_Playground);
 
 
 Badge :: struct {

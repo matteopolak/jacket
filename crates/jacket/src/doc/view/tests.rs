@@ -275,7 +275,7 @@ fn json_contract_has_tagged_content_and_ordered_segments() {
             "written_files"
         ]
     );
-    assert_eq!(shared["format"], 8);
+    assert_eq!(shared["format"], 9);
     assert_eq!(shared["index"]["content"]["kind"], "index");
     assert_eq!(shared["index"]["sidebar"]["kind"], "modules");
     let bundle = serde_json::to_value(module(&site, 0)).unwrap();
@@ -885,5 +885,58 @@ fn a_type_of_a_documented_import_links_to_its_page() {
     assert!(
         html.contains("<a ") && html.contains("/docs/api/B/Thing"),
         "{html}"
+    );
+}
+
+#[test]
+fn the_playground_is_the_sites_own_page_unless_a_setting_names_another() {
+    let mut site = fixture();
+    assert_eq!(site.playground_href(), "/docs/playground");
+    let links = super::site(&site).header_links;
+    assert_eq!(links.last().unwrap().href, "/docs/playground");
+    assert_eq!(links.last().unwrap().label, "Playground");
+    // The links on examples need a playground that can run them.
+    assert!(!site.has_playground());
+    site.runtime = true;
+    assert!(site.has_playground());
+    site.playground = "https://example.com/play".into();
+    assert_eq!(site.playground_href(), "https://example.com/play");
+    let links = super::site(&site).header_links;
+    assert_eq!(links.last().unwrap().href, "https://example.com/play");
+}
+
+#[test]
+fn an_example_opens_in_the_sites_own_playground() {
+    let mut site = fixture();
+    site.runtime = true;
+    let module = &site.modules[0];
+    let shown =
+        super::super::example::view(&site, module, ("a.jai", 1), ("jai", "x := 1;\n"), false);
+    let link = shown.playground_url.expect("a runnable example has a link");
+    assert!(link.starts_with("/docs/playground#code="), "{link}");
+    assert!(!link.contains("matteopolak.com"), "{link}");
+}
+
+#[test]
+fn the_playground_page_says_whether_the_site_has_a_compiler() {
+    let mut site = fixture();
+    let shared = super::site(&site);
+    let page = super::super::playground::page(&site, &shared.nav);
+    assert_eq!(page.path, "playground.html");
+    let json = serde_json::to_value(&page).unwrap();
+    assert_eq!(json["content"]["kind"], "playground");
+    assert_eq!(json["content"]["ready"], false);
+    assert!(
+        json["content"]["hint"]
+            .as_str()
+            .unwrap()
+            .contains("--runtime")
+    );
+    assert_eq!(json["content"]["runtime_url"], "/docs/runtime.json");
+    site.runtime = true;
+    let page = super::super::playground::page(&site, &shared.nav);
+    assert_eq!(
+        serde_json::to_value(&page).unwrap()["content"]["ready"],
+        true
     );
 }

@@ -136,7 +136,7 @@ Platform limits go after a comma: `jai,skip_on(wasm)`, `jai,only(linux, macos)`,
 #import "Basic";
 ```
 
-On the site every example has Copy and, when the site is built with a browser compiler, Run and an editor: change the code in place and press Run (or Ctrl/Cmd+Enter). Give `--runtime DIR` a folder with `jai_wasm.wasm` and `engine.mjs` to enable it, and `playground` in `[doc]` for an "Open in playground" link. Without them the Run button is disabled and says why.
+On the site every example has Copy and, when the site is built with a browser compiler, Run and an editor: change the code in place and press Run (or Ctrl/Cmd+Enter). Give `--runtime DIR` a [browser bundle](../browser/playground.md) to enable it; the site then has its own [playground](../tools/jacket-doc.md#playground), and examples get an "Open in playground" link (`playground` in `[doc]` points them elsewhere). Without a bundle the Run button is disabled and says why.
 
 Don't indent code to show it. An indented block is never run, and `jacket doc` warns about it.
 

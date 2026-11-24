@@ -1035,6 +1035,7 @@
       return cls ? '<span class="' + cls + '">' + escapeHtml(m) + '</span>' : escapeHtml(m);
     });
   }
+  window.jacketHighlight = highlight;
   /** @param {Element} figure */
   function editable(figure) {
     var runButton = /** @type {HTMLButtonElement} */ (
@@ -1683,7 +1684,10 @@
     main.replaceWith(document.importNode(next, true));
     var wrap = document.querySelector('body > .wrap'),
       nextWrap = doc.querySelector('body > .wrap');
-    if (wrap && nextWrap) wrap.toggleAttribute('data-toc', nextWrap.hasAttribute('data-toc'));
+    if (wrap && nextWrap) {
+      wrap.toggleAttribute('data-toc', nextWrap.hasAttribute('data-toc'));
+      wrap.classList.toggle('wide', nextWrap.classList.contains('wide'));
+    }
     var toc = document.querySelector('body > .wrap > .toc'),
       nextToc = doc.querySelector('body > .wrap > .toc');
     if (toc) toc.remove();
@@ -1694,6 +1698,14 @@
     // Inline scripts in the new content don't run; this does their work.
     window.jacketPage(false);
     setupPage();
+    // A page's module script does not run when it is swapped in; this starts it.
+    var script = document.querySelector('#main-content script[type="module"][src]');
+    if (script)
+      import(/** @type {string} */ (script.getAttribute('src')))
+        .then(function (m) {
+          if (m.mount) m.mount();
+        })
+        .catch(function () {});
   }
 
   // The next page's sidebar replaces this one in the same frame, keeping the groups the reader

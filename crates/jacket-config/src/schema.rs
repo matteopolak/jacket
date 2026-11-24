@@ -520,7 +520,7 @@ pub struct Doc {
     /// The repository web address, for Source links (`https://github.com/o/r`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub repo: Option<String>,
-    /// The playground address examples open in.
+    /// The playground address examples open in [default: the site's own playground page].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub playground: Option<String>,
     /// A file of the releases items first appeared in (see `jacket doc`).

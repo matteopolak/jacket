@@ -177,14 +177,12 @@ pub fn site(site: &Site) -> SiteView {
             label: site.pages_title.clone(),
         });
     }
-    if !site.playground.is_empty() {
-        header_links.push(Link {
-            href: site.playground.clone(),
-            label: "Playground".into(),
-        });
-    }
+    header_links.push(Link {
+        href: site.playground_href(),
+        label: "Playground".into(),
+    });
     SiteView {
-        format: 8,
+        format: 9,
         name: site.name.clone(),
         site_name: site.name.clone(),
         base: site.base.clone(),

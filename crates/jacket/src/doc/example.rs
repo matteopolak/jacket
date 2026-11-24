@@ -42,7 +42,7 @@ fn browser_skip(block: &Block) -> Option<String> {
 }
 
 /// Base64 with the URL alphabet and no padding, for the playground's `#code=`.
-fn base64url(bytes: &[u8]) -> String {
+pub fn base64url(bytes: &[u8]) -> String {
     const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
     let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
     for chunk in bytes.chunks(3) {
@@ -138,14 +138,20 @@ pub fn view(
             "run": template_json(&doctest::generate_template(&block, module.import_name())),
             "open": standalone_ok(&block, module.import_name())
                 .then(|| template_json(&doctest::standalone_template(&block, module.import_name()))),
-            "playground": site.playground,
+            "playground": site.playground_href(),
         });
         site.add_example(&text, parts.to_string())
     });
-    let standalone = (standalone_ok(&block, module.import_name()) && !site.playground.is_empty())
+    let standalone = (standalone_ok(&block, module.import_name()) && site.has_playground())
         .then(|| doctest::standalone(&block, module.import_name()))
         .flatten()
-        .map(|text| format!("{}#code={}", site.playground, base64url(text.as_bytes())));
+        .map(|text| {
+            format!(
+                "{}#code={}",
+                site.playground_href(),
+                base64url(text.as_bytes())
+            )
+        });
     Example {
         plain: false,
         compact,

@@ -1,6 +1,6 @@
 # Browser compiler (WebAssembly bundle)
 
-`crates/jai-wasm` compiles the compiler core `crates/jaic` and the shared language server to `wasm32-unknown-unknown`, with the full `stdlib/` embedded, so `#import "Basic"` works offline. This repository ships the module, a small JavaScript glue file (`engine.mjs`), the example workspaces and release packaging, not a UI. The hosted playground at https://matteopolak.com/playground/jacket lives in the portfolio repository (`matteopolak/portfolio`), which has the editor, worker and engine wrapper.
+`crates/jai-wasm` compiles the compiler core `crates/jaic` and the shared language server to `wasm32-unknown-unknown`, with the full `stdlib/` embedded, so `#import "Basic"` works offline. This repository ships the module, a small JavaScript glue file (`engine.mjs`), the example workspaces and release packaging. The playground is a page of the docs site that `jacket doc --runtime <bundle>` builds ([the page](../tools/jacket-doc.md#playground)); the project's own is at https://jacket.matteopolak.com/playground.
 
 ```js
 const engine = await createEngine(wasmBytes);
@@ -40,7 +40,7 @@ node tools/browser/check_jaifmt_wasm.ts engine target/scripting-runtime
 node tools/browser/check_playground_stdlib.ts target/scripting-runtime
 ```
 
-The build is offline, locked and non-incremental, and needs 2 GiB free. `--jaic <native jaic>` also builds `jaifmt.wasm`. To try a build in the hosted UI, run the portfolio's sync with `JAI_WEB_LOCAL=<bundle dir>`. Native test: `cargo test -p jai-wasm play`. A release module over 24 MiB fails (`MAX_RELEASE_WASM_BYTES`), because Cloudflare Pages rejects 25 MiB.
+The build is offline, locked and non-incremental, and needs 2 GiB free. `--jaic <native jaic>` also builds `jaifmt.wasm`. To try a build, run `jacket doc --runtime <bundle dir> --out <site>` and serve `<site>` (`python3 tools/dev/doc_serve.py --directory <site>`); the playground is at `<site>/playground`. Native test: `cargo test -p jai-wasm play`. A release module over 24 MiB fails (`MAX_RELEASE_WASM_BYTES`), because Cloudflare Pages rejects 25 MiB.
 
 `check_playground_stdlib.ts` runs every stdlib and regression test through `engine.play` with a fresh instance. A test needing something the browser lacks skips that part with a runtime `if OS == .WASM`; one with nothing left to run lists the modes in `unsupported_modes` of its `tests/manifest.json` row. `PLAYGROUND_VERBOSE=1` prints one test's output.
 

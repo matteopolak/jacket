@@ -13,3 +13,4 @@ F :: #import "File";
 #load "item.jai";
 #load "guides.jai";
 #load "examples.jai";
+#load "playground.jai";

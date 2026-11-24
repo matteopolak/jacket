@@ -1,0 +1,1357 @@
+/* The playground page: a code editor with its files beside it and the results next to or under it.
+   It uses the site's colour tokens, so it follows light and dark. Two surfaces only: the page and
+   the panels on it. */
+
+/* The page is the tool: the sidebar column gives way to the drawer. */
+body > .wrap.wide {
+  max-width: var(--pg-max, 1480px);
+  gap: 0;
+  padding: 0 20px;
+  min-height: 0;
+  overflow: hidden;
+  flex-wrap: nowrap;
+  align-items: stretch;
+}
+
+.wide > main {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 100%;
+  max-width: none;
+  min-height: 0;
+  padding: 0;
+}
+
+@media (width >= 900px) {
+  .wide > .side {
+    display: none;
+  }
+}
+
+.pg {
+  position: relative;
+  --pg-fs: 14px;
+  --pg-lh: 1.65;
+  --pg-blue: oklch(62% 0.16 255deg);
+  --pg-hover: color-mix(in oklch, var(--fg), transparent 93%);
+  --pg-active: color-mix(in oklch, var(--fg), transparent 93%);
+
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1 1 0;
+  min-height: 0;
+  padding: 4px 0 14px;
+}
+
+.pg :where(button) {
+  font: inherit;
+  color: inherit;
+}
+
+/* Fields keep a quiet focus look; the editor, lists and buttons show none. */
+.pg :is(select, input, textarea[data-opt]):focus-visible {
+  outline: 1px solid var(--muted);
+  outline-offset: -1px;
+}
+
+.pg :is(button, [tabindex], textarea):focus-visible {
+  outline: none;
+}
+
+.pg button:focus-visible {
+  background: var(--pg-hover);
+}
+
+/* Panels: the sidebar, the editor and the results. */
+.pg-side,
+.pg-edit,
+.pg-res {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Toolbar */
+.pg-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+
+.pg-bar .spacer,
+.pg-res-bar .spacer {
+  flex: 1 1 0;
+}
+
+.pg-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 11px;
+  font-size: 13.5px;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.pg-tool:hover,
+.pg-tool[aria-expanded='true'] {
+  background: var(--pg-hover);
+}
+
+.pg-act {
+  justify-content: center;
+  width: 34px;
+  padding: 0;
+  color: var(--muted);
+  background: none;
+  border-color: transparent;
+}
+
+.pg-act:hover,
+.pg-act[aria-expanded='true'] {
+  color: var(--fg);
+}
+
+.pg-act .pg-label {
+  display: none;
+}
+
+@media (width >= 900px) {
+  .pg-act {
+    width: auto;
+    padding: 0 11px;
+    color: var(--fg);
+    background: var(--surface);
+    border-color: var(--border);
+  }
+
+  .pg-act .pg-label {
+    display: inline;
+  }
+}
+
+.pg-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.pg-icon.sm {
+  width: 26px;
+  height: 26px;
+}
+
+.pg-icon:hover:not(:disabled),
+.pg-icon[aria-expanded='true'] {
+  color: var(--fg);
+  background: var(--pg-hover);
+}
+
+.pg-icon:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.pg-run {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 14px 0 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: white;
+  background: var(--pg-blue);
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.pg .pg-run:hover:not(:disabled),
+.pg .pg-run:focus-visible {
+  background: color-mix(in oklch, var(--pg-blue), black 12%);
+}
+
+.pg-run:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.pg .pg-run.stop {
+  color: var(--err);
+  background: var(--errbg);
+}
+
+.pg-run[hidden] {
+  display: none;
+}
+
+.pg-run kbd {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: inherit;
+  background: color-mix(in oklch, white, transparent 80%);
+  border: 0;
+}
+
+@media (hover: none) {
+  .pg-run kbd {
+    display: none;
+  }
+}
+
+/* Menus: a panel under its button. */
+.pg-menu {
+  position: relative;
+}
+
+.pg-options {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  padding: 10px 14px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 10px 32px color-mix(in oklch, black, transparent 80%);
+}
+
+.pg-options[hidden] {
+  display: none;
+}
+
+.pg-examples-menu {
+  width: 280px;
+  max-height: min(70vh, 460px);
+  padding: 6px;
+  overflow-y: auto;
+}
+
+.pg-group-name {
+  margin: 8px 0 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.pg-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  font-size: 13.5px;
+}
+
+.pg-field label {
+  flex: none;
+}
+
+.pg-field :is(select, input, textarea) {
+  flex: 0 1 150px;
+  min-width: 0;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.pg-field textarea {
+  resize: vertical;
+  font-family: var(--mono);
+}
+
+/* Body: the files, then the editor with the results beside it (under it when narrow). */
+.pg-body {
+  display: flex;
+  gap: 12px;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.pg-side {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  width: 250px;
+  min-height: 0;
+}
+
+.pg-head {
+  flex: none;
+  margin: 0;
+  padding: 12px 16px 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.pg-list {
+  flex: 1 1 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0 6px 8px;
+  list-style: none;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pg-list button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 6px 10px;
+  text-align: left;
+  font-size: 14px;
+  line-height: 1.4;
+  background: none;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.pg-list button:hover {
+  background: color-mix(in oklch, var(--fg), transparent 95%);
+}
+
+.pg-list button[aria-current] {
+  background: var(--pg-active);
+}
+
+.pg-list button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+@media (width >= 1180px) {
+  .pg-main {
+    flex-direction: row;
+  }
+
+  .pg-res {
+    flex: 0 0 38%;
+    min-height: 0;
+  }
+}
+
+.pg-edit {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pg-tabs {
+  display: flex;
+  overflow-x: auto;
+  flex: none;
+  scrollbar-width: none;
+}
+
+.pg-edit > .pg-tabs {
+  gap: 2px;
+  padding: 6px 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.pg-tabs button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px 9px;
+  font-size: 13.5px;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-radius: 7px 7px 0 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pg-tabs button:hover {
+  color: var(--fg);
+  background: var(--pg-hover);
+}
+
+.pg-tabs button[aria-selected='true'] {
+  color: var(--fg);
+}
+
+.pg-tabs button[aria-selected='true']::after {
+  content: '';
+  position: absolute;
+  inset: auto 8px -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--pg-blue);
+}
+
+.pg-count {
+  margin-left: 2px;
+  padding: 0 6px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  color: var(--warn);
+  background: var(--warnbg);
+}
+
+.pg-count.error {
+  color: var(--err);
+  background: var(--errbg);
+}
+
+.pg-count[hidden] {
+  display: none;
+}
+
+/* The editor: a transparent textarea over the coloured code, beside the line numbers. */
+.pg-ed {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+}
+
+.pg-gutter,
+.pg-body-ed .code,
+.pg-body-ed textarea {
+  margin: 0;
+  padding: 12px 0;
+  font-family: var(--mono);
+  font-size: var(--pg-fs);
+  line-height: var(--pg-lh);
+  tab-size: 4;
+}
+
+.pg-gutter {
+  flex: none;
+  min-width: 3.4em;
+  padding: 12px 16px 12px 24px;
+  text-align: right;
+  color: color-mix(in oklch, var(--muted), transparent 40%);
+  overflow: hidden;
+  user-select: none;
+  white-space: pre;
+}
+
+.pg-gutter span {
+  display: block;
+  position: relative;
+}
+
+.pg-gutter .now {
+  color: var(--fg);
+}
+
+.pg-body-ed {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.pg-line {
+  position: absolute;
+  inset: 0 0 auto;
+  background: var(--pg-hover);
+  pointer-events: none;
+}
+
+.pg-line[hidden] {
+  display: none;
+}
+
+.pg-body-ed .code code {
+  font: inherit;
+  letter-spacing: inherit;
+  white-space: pre;
+}
+
+.pg-body-ed .code {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  padding-left: 0;
+  padding-right: 16px;
+  background: none;
+  border: 0;
+  pointer-events: none;
+}
+
+.pg-body-ed textarea {
+  padding-left: 0;
+  padding-right: 16px;
+  border: 0;
+  border-radius: 0;
+  resize: none;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--fg);
+  white-space: pre;
+  overflow: auto;
+  outline: none;
+}
+
+.pg-body-ed textarea:disabled {
+  opacity: 1;
+}
+
+/* The selection tints the text under it instead of covering it. */
+.pg-body-ed textarea::selection {
+  background: color-mix(in oklch, var(--pg-blue), transparent 68%);
+  color: transparent;
+}
+
+/* Hover information from the language server. */
+.pg-tip {
+  position: absolute;
+  z-index: 3;
+  max-width: min(540px, calc(100% - 16px));
+  max-height: 340px;
+  overflow: auto;
+  padding: 4px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px color-mix(in oklch, black, transparent 82%);
+}
+
+.pg-tip[hidden] {
+  display: none;
+}
+
+.pg-tip p {
+  margin: 4px 0;
+}
+
+.pg-tip pre {
+  margin: 4px 0;
+  padding: 0;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  background: none;
+  border: 0;
+  white-space: pre-wrap;
+}
+
+/* Results */
+.pg-res {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 32%;
+  min-height: 130px;
+}
+
+.pg-res-bar {
+  display: flex;
+  align-items: center;
+  flex: none;
+  padding: 6px 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.pg-output,
+.pg-problems {
+  flex: 1 1 0;
+  min-height: 0;
+  margin: 0;
+  padding: 10px 16px;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 13.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: none;
+  border: 0;
+}
+
+.pg-stderr {
+  color: var(--err);
+}
+
+.pg-rendered {
+  color: var(--muted);
+}
+
+.pg-problems {
+  padding: 6px;
+  list-style: none;
+  white-space: normal;
+}
+
+.pg-problems[hidden],
+.pg-output[hidden] {
+  display: none;
+}
+
+.pg-problem {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  padding: 5px 10px;
+  text-align: left;
+  font-family: inherit;
+  font-size: 13.5px;
+  background: none;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.pg-problem:hover:not(:disabled) {
+  background: var(--pg-hover);
+}
+
+.pg-problem:disabled {
+  cursor: default;
+}
+
+.pg-problem b {
+  flex: none;
+  min-width: 4.5em;
+  font-weight: 600;
+}
+
+.pg-problem.error b {
+  color: var(--err);
+}
+
+.pg-problem.warning b {
+  color: var(--warn);
+}
+
+.pg-where {
+  flex: none;
+  color: var(--muted);
+}
+
+/* Status bar */
+.pg-foot {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  justify-content: flex-end;
+  flex: none;
+  padding: 0 4px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.pg-status {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 12px;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.pg-status.ok {
+  color: var(--ok);
+}
+
+.pg-status.bad {
+  color: var(--err);
+}
+
+.pg-pos,
+.pg-spaces,
+.pg-lang {
+  text-align: right;
+}
+
+.pg-pos {
+  min-width: 10ch;
+}
+
+.pg-spaces {
+  min-width: 10ch;
+}
+
+.pg-lang {
+  min-width: 9ch;
+}
+
+.pg-foot > span:not(.pg-status) {
+  flex: none;
+  white-space: nowrap;
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.pg-note {
+  padding: 16px;
+}
+
+/* File icons, in the tree and on the tabs. */
+.pg-ico {
+  flex: none;
+  color: var(--muted);
+}
+
+.pg-ico-md {
+  color: oklch(68% 0.1 215deg);
+}
+
+.pg-ico-toml {
+  color: oklch(70% 0.13 45deg);
+}
+
+/* Phones: one pane at a time, switched from a bar at the bottom. */
+.pg-views {
+  display: none;
+}
+
+@media (width < 720px) {
+  body > .wrap.wide {
+    padding: 0 12px;
+  }
+
+  .pg-side,
+  .pg-main {
+    flex: 1 1 100%;
+    width: auto;
+  }
+
+  .pg-main {
+    border: 0;
+  }
+
+  .pg[data-view='files'] .pg-main,
+  .pg[data-view='code'] .pg-side,
+  .pg[data-view='output'] .pg-side,
+  .pg[data-view='output'] .pg-edit,
+  .pg[data-view='code'] .pg-res,
+  .pg[data-view='files'] .pg-res {
+    display: none;
+  }
+
+  .pg[data-view='output'] .pg-res {
+    flex: 1 1 0;
+  }
+
+  .pg-pos,
+  .pg-spaces,
+  .pg-lang,
+  .pg-target {
+    display: none;
+  }
+
+  .pg-views {
+    display: flex;
+    flex: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+
+  .pg-views button {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 0 4px;
+    font-size: 11.5px;
+    color: var(--muted);
+    background: none;
+    border: 0;
+    border-radius: 12px;
+  }
+
+  .pg-views button[aria-current] {
+    color: var(--fg);
+  }
+
+  .pg-options {
+    position: fixed;
+    top: auto;
+    inset-inline: 12px;
+    width: auto;
+    max-width: none;
+  }
+}
+
+/* A library file open for reading; Ctrl or Cmd turns the pointer into a link. */
+.pg-lock {
+  margin-left: 2px;
+}
+
+.pg-body-ed textarea.goto {
+  cursor: pointer;
+}
+
+/* A short message beside the control that was used. */
+.pg-toast {
+  position: absolute;
+  z-index: 6;
+  max-width: min(420px, 100%);
+  padding: 6px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px color-mix(in oklch, black, transparent 80%);
+  white-space: pre-wrap;
+}
+
+.pg-toast[hidden] {
+  display: none;
+}
+
+.pg-toast.ok {
+  color: var(--ok);
+}
+
+.pg-toast.bad {
+  color: var(--err);
+}
+
+button.pg-spaces {
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+button.pg-spaces:hover {
+  color: var(--fg);
+}
+
+/* The underline under a name that Ctrl or Cmd would follow to its definition. */
+.pg-link {
+  position: absolute;
+  z-index: 2;
+  border-bottom: 1px solid var(--fg);
+  pointer-events: none;
+}
+
+.pg-link[hidden] {
+  display: none;
+}
+
+.pg-body-ed textarea.goto {
+  cursor: pointer;
+}
+
+/* Asks before the editor's files are replaced. */
+.pg-modal {
+  width: min(420px, calc(100vw - 32px));
+  padding: 20px 22px 18px;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px color-mix(in oklch, black, transparent 70%);
+}
+
+.pg-modal::backdrop {
+  background: color-mix(in oklch, black, transparent 55%);
+  backdrop-filter: blur(2px);
+}
+
+.pg-modal h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.pg-modal p {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.pg-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Gutter marks and squiggles by severity: an icon beside the number, a wavy line under the text. */
+.pg-gutter .pg-error,
+.pg-gutter .pg-warning,
+.pg-gutter .pg-information {
+  --mark: var(--err);
+}
+
+.pg-gutter .pg-warning {
+  --mark: var(--warn);
+}
+
+.pg-gutter .pg-information {
+  --mark: var(--pg-blue);
+}
+
+.pg-gutter .pg-error::before,
+.pg-gutter .pg-warning::before,
+.pg-gutter .pg-information::before {
+  content: '';
+  position: absolute;
+  left: -16px;
+  top: calc(50% - 7px);
+  width: 14px;
+  height: 14px;
+  background: var(--mark);
+  mask: var(--icon) center / contain no-repeat;
+}
+
+.pg-gutter .pg-error {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='m15 9-6 6M9 9l6 6'/%3E%3C/svg%3E");
+}
+
+.pg-gutter .pg-warning {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h0'/%3E%3C/svg%3E");
+}
+
+.pg-gutter .pg-information {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 16v-4M12 8h0'/%3E%3C/svg%3E");
+}
+
+.pg-marks {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.pg-marks > div {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.pg-sq {
+  position: absolute;
+  background: var(--mark, var(--err));
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='3'%3E%3Cpath d='M0 2.5 1.5 0.5 3 2.5 4.5 0.5 6 2.5' fill='none' stroke='black' stroke-width='1'/%3E%3C/svg%3E") repeat-x left bottom / 6px 3px;
+}
+
+.pg-sq.warning {
+  --mark: var(--warn);
+}
+
+.pg-sq.information {
+  --mark: var(--pg-blue);
+}
+
+.pg-sq.hint {
+  --mark: var(--muted);
+  opacity: 0.6;
+}
+
+/* The light bulb offered beside a line that has fixes, and its menu. */
+.pg-bulb {
+  position: absolute;
+  z-index: 2;
+  left: 3px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  color: var(--warn);
+  background: none;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.pg-bulb:hover {
+  background: var(--pg-hover);
+}
+
+.pg-bulb[hidden],
+.pg-actions[hidden] {
+  display: none;
+}
+
+.pg-actions {
+  top: 0;
+  left: 28px;
+  width: auto;
+  min-width: 220px;
+  max-width: min(480px, 90%);
+  padding: 4px;
+}
+
+.pg-actions button {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  text-align: left;
+  font-size: 13.5px;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.pg-actions button:hover {
+  background: var(--pg-hover);
+}
+
+.pg-problem.information b {
+  color: var(--pg-blue);
+}
+
+/* Docked layout: panels the reader has moved, with gaps that resize them. */
+body > .wrap.wide.pg-free {
+  max-width: none;
+  transition: none;
+  padding: 0 10px;
+}
+
+.pg-body.docked > .pg-dock {
+  flex: 1 1 0;
+}
+
+.pg-dock {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pg-dock.pg-row {
+  flex-direction: row;
+}
+
+.pg-dock.pg-col {
+  flex-direction: column;
+}
+
+.pg-dock > * {
+  min-width: 0;
+  min-height: 0;
+}
+
+.pg-dock > .pg-side {
+  width: auto;
+}
+
+.pg-dock > .pg-res {
+  min-height: 0;
+}
+
+.pg-sash {
+  position: relative;
+  flex: none;
+}
+
+.pg-sash.pg-row {
+  width: 12px;
+  cursor: col-resize;
+}
+
+.pg-sash.pg-col {
+  height: 12px;
+  cursor: row-resize;
+}
+
+.pg-sash::after {
+  content: '';
+  position: absolute;
+  border-radius: 2px;
+  background: transparent;
+  transition: background 0.1s;
+}
+
+.pg-sash.pg-row::after {
+  inset: 0 5px;
+}
+
+.pg-sash.pg-col::after {
+  inset: 5px 0;
+}
+
+.pg-sash:hover::after,
+.pg-sash.dragging::after {
+  background: var(--muted);
+}
+
+.pg-grab {
+  cursor: grab;
+}
+
+.pg-ghost {
+  position: fixed;
+  z-index: 50;
+  padding: 4px 12px;
+  font-size: 13px;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px color-mix(in oklch, black, transparent 78%);
+  pointer-events: none;
+}
+
+.pg-shade {
+  transition:
+    left 0.12s ease-out,
+    top 0.12s ease-out,
+    width 0.12s ease-out,
+    height 0.12s ease-out,
+    opacity 0.12s;
+  position: fixed;
+  z-index: 49;
+  background: color-mix(in oklch, var(--pg-blue, oklch(62% 0.16 255deg)), transparent 78%);
+  border: 2px solid var(--pg-blue, oklch(62% 0.16 255deg));
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+.pg-shade[hidden] {
+  display: none;
+}
+
+@media (width < 720px) {
+  .pg-grab {
+    cursor: default;
+  }
+}
+
+/* Motion: menus, popovers and the dialog ease in; controls ease their colour. */
+@keyframes pg-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pg-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.pg-options:not([hidden]),
+.pg-actions:not([hidden]) {
+  transform-origin: top left;
+  animation: pg-pop 0.14s ease-out;
+}
+
+.pg-toast:not([hidden]),
+.pg-tip:not([hidden]) {
+  transform-origin: top left;
+  animation: pg-pop 0.12s ease-out;
+}
+
+.pg-modal[open] {
+  animation: pg-pop 0.18s ease-out;
+}
+
+.pg-modal[open]::backdrop {
+  animation: pg-fade 0.18s ease-out;
+}
+
+.pg-bulb:not([hidden]),
+.pg-link:not([hidden]) {
+  animation: pg-fade 0.12s ease-out;
+}
+
+.pg-tool,
+.pg-icon,
+.pg-run,
+.pg-list button,
+.pg-tabs button,
+.pg-problem {
+  transition:
+    background-color 0.12s,
+    color 0.12s,
+    border-color 0.12s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg *,
+  .pg-modal,
+  .pg-modal::backdrop {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* The panels show once the saved layout is in place, so the default one never flashes. */
+.pg:not([data-layout]) .pg-body {
+  visibility: hidden;
+}
+
+/* The workspace's left and right edges, which change its width when dragged. */
+.pg-reach {
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  bottom: 0;
+  width: 16px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.pg-reach-l {
+  left: -18px;
+}
+
+.pg-reach-r {
+  right: -18px;
+}
+
+.pg-reach::after {
+  content: '';
+  position: absolute;
+  inset: 20% 6px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background 0.12s;
+}
+
+.pg-reach:hover::after,
+.pg-reach.dragging::after {
+  background: var(--muted);
+}
+
+@media (width < 720px) {
+  .pg-reach {
+    display: none;
+  }
+}
+
+/* Hover text: each declaration is a block with its signature, facts and notes. */
+.pg-tip section {
+  padding: 10px 0;
+}
+
+.pg-tip section + section,
+.pg-tip .pg-tip-note + section {
+  border-top: 1px solid var(--border);
+}
+
+.pg-tip .pg-sig {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.pg-tip .pg-facts {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.pg-tip p {
+  margin: 6px 0;
+}
+
+.pg-tip ul {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+
+.pg-tip li {
+  margin: 2px 0;
+}
+
+.pg-tip code {
+  padding: 0 4px;
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--pg-hover);
+  border-radius: 4px;
+}
+
+.pg-tip pre {
+  margin: 8px 0;
+  padding: 8px 10px;
+  background: var(--pg-hover);
+  border-radius: 6px;
+}
+
+.pg-tip pre.pg-sig {
+  padding: 0;
+  background: none;
+}
+
+.pg-tip-note {
+  margin: 8px 0 0;
+  padding: 6px 10px;
+  font-size: 12.5px;
+  border-radius: 6px;
+  color: var(--err);
+  background: var(--errbg);
+}
+
+.pg-tip-note.warning {
+  color: var(--warn);
+  background: var(--warnbg);
+}
+
+.pg-tip-note.information,
+.pg-tip-note.hint {
+  color: var(--fg);
+  background: var(--pg-hover);
+}

@@ -167,6 +167,14 @@ pub enum Content {
     Guide {
         segments: Vec<DocSegment>,
     },
+    /// The playground page. `ready` is whether the site carries the browser compiler; when it
+    /// does not, `hint` says how to build it.
+    Playground {
+        ready: bool,
+        hint: String,
+        /// The address of `runtime.json`, which names the files the page loads.
+        runtime_url: String,
+    },
 }
 
 /// One system on a module page: `state` is `full`, `partial` or `none`, and `tip` says it in words.

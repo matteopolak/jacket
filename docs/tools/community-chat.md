@@ -8,7 +8,7 @@ The project chat is a Zulip organization at https://jacket.zulipchat.com. Sign-u
 
 ## Code blocks
 
-The default code-block language is `jai`. Zulip's code playgrounds for `jai` and `jacket` add a button that opens `https://matteopolak.com/playground/jacket?code={code}`. The playground (in the portfolio repository) reads the raw `?code=` query and opens it as `main.jai`.
+The default code-block language is `jai`. Zulip's code playgrounds for `jai` and `jacket` add a button that opens `https://jacket.matteopolak.com/playground?code={code}`. The [playground](../browser/playground.md) reads the raw `?code=` query and opens it as `main.jai`.
 
 ## Release announcements
 

@@ -480,3 +480,45 @@ the_sidebar_is_one_dialog_that_the_header_button_opens :: () {
     expect(contains(page, "<dialog class=\"side\" id=\"side\""));
     expect(!contains(page, "<details class=\"side\""));
 } @test
+
+the_playground_page_loads_its_own_assets_and_the_options_are_controls :: () {
+    site := fixture(Site_View, "site");
+    view := fixture(Page_View, "playground");
+    defer {
+        free_json(*site);
+        free_json(*view);
+    }
+    site.playground_css_url = copy_string("/assets/playground.css?v=00000000");
+    site.playground_script_url = copy_string("/assets/playground.js?v=00000000");
+    page := render(*site, *view);
+    defer free(page);
+    expect(contains(page, "<div class=\"wrap wide\""));
+    expect(contains(page, "<link rel=\"stylesheet\" href=\"/assets/playground.css?v=00000000\">"));
+    expect(contains(page, "<script type=\"module\" src=\"/assets/playground.js?v=00000000\"></script>"));
+    expect(contains(page, "data-runtime=\"/runtime.json\""));
+    expect(contains(page, "<select id=\"pg-limit\" data-opt=\"limit\">"));
+    expect(contains(page, "<select id=\"pg-indent\" data-opt=\"indent\">"));
+    expect(contains(page, "data-act=\"run\""));
+    expect(contains(page, "data-act=\"format\""));
+    // Other pages keep the sidebar column.
+    other := render(*site, *site.index);
+    defer free(other);
+    expect(!contains(other, "wrap wide"));
+} @test
+
+a_site_without_the_compiler_says_how_to_build_one :: () {
+    site := fixture(Site_View, "site");
+    view := fixture(Page_View, "playground");
+    defer {
+        free_json(*site);
+        free_json(*view);
+    }
+    content := get_pointer(*view.content, Content_Playground);
+    content.ready = false;
+    page := render(*site, *view);
+    defer free(page);
+    expect(contains(page, "built without the browser compiler"));
+    expect(contains(page, "jacket doc --runtime &lt;dir&gt;"));
+    expect(!contains(page, "id=\"pg\""));
+    expect(!contains(page, "playground.js"));
+} @test

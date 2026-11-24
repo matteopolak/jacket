@@ -1,6 +1,8 @@
 // What the site scripts hang on `window` for one another and for the page's inline scripts.
 interface Window {
   jacketRestore: () => void;
+  /** Colours Jai code as the examples are, as HTML. */
+  jacketHighlight: (code: string) => string;
   /** Opens the folds that fit and restores the reading position; `load` on a first load. */
   jacketPage: (load?: boolean) => void;
   /** Finishes the sidebar; `state` is what site.js saved from the page being replaced. */

@@ -12,6 +12,7 @@ mod highlight;
 mod markdown;
 mod metadata;
 mod model;
+mod playground;
 mod search;
 mod since;
 mod site;
@@ -660,13 +661,12 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
                 module.group.clone_from(group);
             }
         }
-        if let Some(runtime) = &args.runtime {
-            for file in ["jai_wasm.wasm", "engine.mjs"] {
-                if !runtime.join(file).is_file() {
-                    return Err(format!("--runtime: {} has no {file}", runtime.display()));
-                }
-            }
-        }
+        let bundle = args
+            .runtime
+            .as_deref()
+            .map(playground::bundle)
+            .transpose()?
+            .unwrap_or_default();
         let version = args.version.clone().unwrap_or_default();
         if let Some(since) = &doc.since
             && !version.is_empty()
@@ -743,6 +743,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         let mut shared = view::site(&site);
         let mut input = Vec::new();
         let mut guides = extra.pages(&site, &shared.nav);
+        guides.push(playground::page(&site, &shared.nav));
         use_home(&mut guides, &mut shared.index);
         let metadata::Publication {
             metadata,
@@ -771,17 +772,15 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         files.extend(metadata.files(&urls, image_file));
         let published = published_files(&config_dir, &doc.files, &files)?;
         shared.written_files = files.iter().map(|(path, _)| path.clone()).collect();
-        if site.runtime {
-            shared
-                .written_files
-                .extend(["runtime/engine.mjs".into(), "runtime/jai_wasm.wasm".into()]);
-        }
+        shared
+            .written_files
+            .extend(bundle.iter().map(|(path, _)| format!("runtime/{path}")));
         shared.written_files.push(MARKER.into());
         shared.assets = theme.assets();
         shared.resolve_links = !filtered;
         input.push(("site.json".into(), json_bytes(&shared)?));
         let input_start = std::time::Instant::now();
-        write_site(&input_dir.path, &input, None)?;
+        write_site(&input_dir.path, &input, &[])?;
         // Serialization and input I/O are part of the view phase's end-to-end cost.
         let view_elapsed = view_elapsed + input_start.elapsed();
         accounted += view_elapsed;
@@ -830,7 +829,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         accounted += compile_start.elapsed();
         let render_start = std::time::Instant::now();
         if !args.check {
-            write_site(&args.out, &files, args.runtime.as_deref())?;
+            write_site(&args.out, &files, &bundle)?;
         }
         let rendered = prepared.run(&stdlib, &input_dir.path, &cwd.join(&args.out), args.check)?;
         accounted += timing(args, "render and write", render_start);
@@ -891,10 +890,7 @@ fn auxiliary_files(
         add(format!("examples/{id}.json"), parts.clone());
     }
     if site.runtime {
-        add(
-            "runtime.json".into(),
-            "{\"engine\":\"runtime/engine.mjs\",\"wasm\":\"runtime/jai_wasm.wasm\"}\n".into(),
-        );
+        add("runtime.json".into(), playground::runtime_json());
     }
     files
 }
@@ -1001,11 +997,11 @@ fn json_bytes(value: &impl serde::Serialize) -> Result<Vec<u8>, String> {
     serde_json::to_vec(value).map_err(|e| format!("cannot serialize documentation view: {e}"))
 }
 
-/// Replaces `out` with `files`, and copies the browser compiler in when there is one.
+/// Replaces `out` with `files`, and the browser compiler's `runtime` files below `runtime/`.
 fn write_site(
     out: &Path,
     files: &[(String, Vec<u8>)],
-    runtime: Option<&Path>,
+    runtime: &[(String, Vec<u8>)],
 ) -> Result<(), String> {
     if out.exists() {
         let is_ours = out.join(MARKER).is_file()
@@ -1029,12 +1025,8 @@ fn write_site(
     for (path, bytes) in files {
         write(out.join(path), bytes)?;
     }
-    if let Some(runtime) = runtime {
-        for file in ["jai_wasm.wasm", "engine.mjs"] {
-            let bytes = std::fs::read(runtime.join(file))
-                .map_err(|e| format!("cannot read {}: {e}", runtime.join(file).display()))?;
-            write(out.join("runtime").join(file), &bytes)?;
-        }
+    for (path, bytes) in runtime {
+        write(out.join("runtime").join(path), bytes)?;
     }
     Ok(())
 }
