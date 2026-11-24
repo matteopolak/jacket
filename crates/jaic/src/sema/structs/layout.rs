@@ -145,6 +145,19 @@ impl Compiler {
         Ok(Some(members))
     }
 
+    /// The field items layout consumes: those [`Self::struct_members`] already collected, or a
+    /// fresh collection whose members it records.
+    fn take_field_items(&mut self, s: StructId, src: &StructSource) -> Result<Vec<FieldItem>> {
+        if let Some(collected) = self.ty.collected_fields.remove(&s) {
+            return Ok(collected.0);
+        }
+        let items = self.struct_field_items(src)?;
+        self.ty
+            .struct_members
+            .insert(s, Arc::new(StructMembers::of(&items)));
+        Ok(items)
+    }
+
     /// The members of a struct in declaration order: its fields, aliases and layout directives,
     /// with the field declarations of `using` members resolved.
     fn struct_field_items(&mut self, src: &StructSource) -> Result<Vec<FieldItem>> {
@@ -258,15 +271,7 @@ impl Compiler {
             .get(&s)
             .cloned()
             .expect("struct without source");
-        let items = match self.ty.collected_fields.remove(&s) {
-            Some(collected) => collected.0,
-            None => {
-                let items = self.struct_field_items(&src)?;
-                let members = Arc::new(StructMembers::of(&items));
-                self.ty.struct_members.insert(s, members);
-                items
-            }
-        };
+        let items = self.take_field_items(s, &src)?;
         let is_union = src.lit.kind == ast::StructKind::Union && src.lit.tag.is_none();
         let no_padding = src.lit.flags.has(ast::StructBits::NO_PADDING);
         let mut fields = Vec::new();
