@@ -13,8 +13,14 @@ use std::rc::Rc;
 /// What a use resolved to, as far as the checks need it.
 #[derive(Clone, Debug)]
 pub enum Resolved {
-    /// A declared name and where (file, first and last line), when it is in a file.
-    Entity(Option<(PathBuf, u32, u32)>),
+    /// A declared name and where (file, first and last line), when it is in a file. A use that
+    /// the compile reached more than once (a macro or polymorphic body, once per instance) lists
+    /// each declaration it resolved to; any of them is a right answer.
+    Entity(Vec<(PathBuf, u32, u32)>),
+    /// A parameter that `#bake_arguments` fixed, as the baked copy's body sees it: a constant
+    /// whose span is the argument that bakes it. The declaration is the original's parameter,
+    /// which the copy has no record of.
+    Baked,
     /// A member; `true` when the receiver is a struct, enum or distinct type (whose members
     /// are declared somewhere), `false` for builtin members such as `count` or `data`.
     Member(bool),
@@ -136,6 +142,7 @@ pub fn compile(options: Options, path: &Path, text: &str) -> Result<Oracle, Stri
             continue;
         }
         let resolved = match &r.what {
+            IdeWhat::Entity(e) if compiler.entity(*e).baked_argument => Resolved::Baked,
             IdeWhat::Entity(e) => {
                 let span = compiler.entity(*e).span;
                 let place = (span.end > span.start)
@@ -150,7 +157,7 @@ pub fn compile(options: Options, path: &Path, text: &str) -> Result<Oracle, Stri
                         ))
                     })
                     .flatten();
-                Resolved::Entity(place)
+                Resolved::Entity(place.into_iter().collect())
             }
             IdeWhat::Member(_) => Resolved::Member(
                 ide.receivers
@@ -170,7 +177,24 @@ pub fn compile(options: Options, path: &Path, text: &str) -> Result<Oracle, Stri
         });
     }
     refs.sort_by_key(|r| (r.start, r.end));
-    refs.dedup_by_key(|r| (r.start, r.end));
+    refs.dedup_by(|later, kept| {
+        if (later.start, later.end) != (kept.start, kept.end) {
+            return false;
+        }
+        match (&mut kept.resolved, &mut later.resolved) {
+            (Resolved::Entity(into), Resolved::Entity(from)) => {
+                for place in from.drain(..) {
+                    if !into.contains(&place) {
+                        into.push(place);
+                    }
+                }
+            }
+            // The original's own record says what the source means.
+            (kept @ Resolved::Baked, other @ Resolved::Entity(_)) => *kept = other.clone(),
+            _ => {}
+        }
+        true
+    });
     let literals = literals(&compiler, file, text);
     let notes = read_notes(&compiler, path, text);
     Ok(Oracle {

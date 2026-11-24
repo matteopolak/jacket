@@ -143,9 +143,9 @@ pub fn resolutions(
             Err(e) => findings.push(Finding::new("b-hover", at, name, format!("{e:?}"))),
         }
         let wanted = match &r.resolved {
-            Resolved::Entity(place) => place.is_some(),
+            Resolved::Entity(places) => !places.is_empty(),
             Resolved::Member(declared) | Resolved::Type(declared) => *declared,
-            Resolved::Procs | Resolved::Module => true,
+            Resolved::Procs | Resolved::Module | Resolved::Baked => true,
         };
         if !wanted {
             continue;
@@ -166,13 +166,17 @@ pub fn resolutions(
             ));
             continue;
         }
-        if let Resolved::Entity(Some((path, first, last))) = &r.resolved {
-            let want = path.canonicalize().unwrap_or_else(|_| path.clone());
-            let hit = locations.iter().any(|l| {
-                DocumentUri::parse(&l.uri).is_ok_and(|u| {
-                    let got = std::path::Path::new(u.path());
-                    got.canonicalize().unwrap_or_else(|_| got.to_path_buf()) == want
-                        && (*first..=*last).contains(&l.range.start.line)
+        if let Resolved::Entity(places) = &r.resolved
+            && !places.is_empty()
+        {
+            let hit = places.iter().any(|(path, first, last)| {
+                let want = path.canonicalize().unwrap_or_else(|_| path.clone());
+                locations.iter().any(|l| {
+                    DocumentUri::parse(&l.uri).is_ok_and(|u| {
+                        let got = std::path::Path::new(u.path());
+                        got.canonicalize().unwrap_or_else(|_| got.to_path_buf()) == want
+                            && (*first..=*last).contains(&l.range.start.line)
+                    })
                 })
             });
             if !hit {
@@ -185,9 +189,12 @@ pub fn resolutions(
                     at,
                     name,
                     format!(
-                        "compiler: {}:{}; server: {}",
-                        path.display(),
-                        first + 1,
+                        "compiler: {}; server: {}",
+                        places
+                            .iter()
+                            .map(|(path, first, _)| format!("{}:{}", path.display(), first + 1))
+                            .collect::<Vec<_>>()
+                            .join(", "),
                         got.join(", ")
                     ),
                 ));
