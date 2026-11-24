@@ -25,6 +25,9 @@ inputs:
   apt-packages:
     description: More Ubuntu packages, installed with the native libraries in one apt run and kept in the same cache (Linux)
     default: ''
+  rust-cache-key:
+    description: Name another job's Rust dependency cache entry to restore (rust-cache `shared-key`)
+    default: ''
 runs:
   using: composite
   steps:
@@ -91,3 +94,5 @@ runs:
       with:
         leg: ${{ inputs.leg }}
     - uses: ./.github/actions/rust-cache
+      with:
+        shared-key: ${{ inputs.rust-cache-key }}

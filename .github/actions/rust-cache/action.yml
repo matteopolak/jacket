@@ -6,6 +6,9 @@ inputs:
   workspaces:
     description: rust-cache `workspaces` (a cargo workspace outside the repository root, e.g. `fuzz`)
     default: '.'
+  shared-key:
+    description: rust-cache `shared-key`, to use another job's entry (`stdlib-build` reads the one `stdlib-runtime` saves)
+    default: ''
 runs:
   using: composite
   steps:
@@ -28,6 +31,7 @@ runs:
       with:
         save-if: ${{ github.ref == 'refs/heads/main' }}
         workspaces: ${{ inputs.workspaces }}
+        shared-key: ${{ inputs.shared-key }}
     - shell: bash
       run: |
         shopt -s nullglob dotglob

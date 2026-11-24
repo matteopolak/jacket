@@ -867,6 +867,7 @@ jobs:
       - uses: ./.github/actions/setup-unix
         with:
           leg: build-${{ strategy.job-index }}
+          rust-cache-key: stdlib-runtime
           native-libs: 'false'
           font: 'false'
       - name: Build production compiler and lint tools
