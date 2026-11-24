@@ -55,9 +55,9 @@ fn write(path: &Path, text: &str) -> Result<(), String> {
 fn scaffold(dir: &Path, name: &str, lib: bool) -> Result<Vec<&'static str>, String> {
     std::fs::create_dir_all(dir).map_err(|e| format!("could not create {}: {e}", dir.display()))?;
     let manifest = if lib {
-        MANIFEST_LIB
+        format!("{MANIFEST_LIB}\n[package]\nname = \"{name}\"\nversion = \"0.1.0\"\n")
     } else {
-        MANIFEST_BIN
+        MANIFEST_BIN.to_string()
     };
     let toolchain = format!(
         "\n[toolchain]\nversion = \"{}\"\n",

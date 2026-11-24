@@ -1,6 +1,6 @@
 # Plan: dependencies (`jacket dep`)
 
-Status: D1 (direct dependencies by tag and commit), D2 (versions) and D3 (release-age policy) are built. The rest is plan; each milestone updates this page and the docs it names when it lands.
+Status: D1 (direct dependencies by tag and commit), D2 (versions), D3 (release-age policy) and D4 (`[package]`) are built. The rest is plan; each milestone updates this page and the docs it names when it lands.
 
 Jai projects share code as module folders under `modules/`, today mostly copied in by hand. `jacket dep` manages them as git submodules pinned in `jacket.toml`, with version ranges, version schemes and a release-age policy. The submodule's commit (its gitlink) is the lock, so there is no lockfile.
 
@@ -113,15 +113,18 @@ A tag can be pushed again to a different commit. `dep check` and `dep update` co
 
 `dep` reads only `[package]` and `[dependencies]`:
 
-- `[package] name` and `module` decide the import name and which folder is the module. Without `[package]`, `dep add` uses `module.jai` at the repo root, else a single `modules/<Name>/`, else asks for `--module`.
+- `[package] module` (or `--module`) says which folder holds `module.jai`. Without it, `dep add` uses the repository root, else the only `modules/<Name>/`, else fails and asks for `--module`. A module that isn't at the root is recorded as the entry's `module`.
+- A module is imported by its folder's name. For a root module that is the submodule folder, so when `--name` is absent `dep add` names the folder after `[package] name`. For a module in a subfolder, `[package] name` must equal that folder's name or `add` fails.
+- `dep add` refuses to replace an existing non-submodule folder unless `--name` is given.
+- `version` is compared with the tag and a mismatch is a warning; `platforms` not listing this OS is a warning.
 - `[package] import_path` (or the package's `[project] import_path` when it has no `[package]` key) applies **only to that package's files**. A file inside package P resolves `#import` in this order:
   1. `modules/` next to the file;
   2. P's own import paths;
   3. the program's roots (`<main_dir>/modules`, its import paths, the stdlib).
 
   So a dependency can't replace `Basic` or any other module for the rest of the program.
-- `[dependencies]` gives the package's requirements as ranges. Without dedupe, `dep list` shows them and checks them against the nested pins.
-- `requires_jacket` is checked at `add` and `update`.
+- `[dependencies]` gives the package's requirements as ranges. Without dedupe, `dep list` prints a `<dep> needs <name> <range>: pinned at <tag>` line for each and says when the nested pin doesn't satisfy it.
+- `requires_jacket` is checked at `add` and `update`. A failing `add` removes the checkout; a failing `update` moves back to the old commit.
 - Everything else (`[target]`, `[lint]`, `[fmt]`, `[experimental]`, runners) belongs to whoever builds the program and is never read from a dependency.
 
 ## Shared dependencies (`dedupe`)

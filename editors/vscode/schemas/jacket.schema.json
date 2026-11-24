@@ -1627,6 +1627,43 @@
         }
       }
     },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "markdownDescription": "What a repository says about itself when other projects depend on it with `jacket dep add`.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "markdownDescription": "The import name, which is the module folder's name. `jacket dep add` names the submodule folder after it."
+        },
+        "version": {
+          "type": "string",
+          "markdownDescription": "The version this tree is; `jacket dep add` warns when it differs from the tag."
+        },
+        "module": {
+          "type": "string",
+          "markdownDescription": "The folder holding `module.jai`. Default: the repository root, else the only `modules/<Name>`."
+        },
+        "requires_jacket": {
+          "type": "string",
+          "markdownDescription": "The jacket versions this package builds with (`>=0.40`). `jacket dep add` and `update` refuse it elsewhere."
+        },
+        "platforms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "markdownDescription": "The operating systems it supports (`linux`, `macos`, `windows`). Others get a warning."
+        },
+        "import_path": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "markdownDescription": "More module folders searched for this package's files only."
+        }
+      }
+    },
     "resolver": {
       "type": "object",
       "additionalProperties": false,

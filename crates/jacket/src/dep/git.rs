@@ -58,6 +58,9 @@ pub trait Git {
     /// Brings the submodule's tags and objects up to date with its remote.
     fn fetch(&self, dir: &Path, path: &str) -> Result<(), String>;
 
+    /// Moves a submodule's folder (`git mv`), keeping `.gitmodules` in step.
+    fn rename(&self, dir: &Path, from: &str, to: &str) -> Result<(), String>;
+
     /// The submodule's checked-out commit.
     fn head(&self, dir: &Path, path: &str) -> Result<String, String>;
 
@@ -203,6 +206,10 @@ impl Git for RealGit {
 
     fn head(&self, dir: &Path, path: &str) -> Result<String, String> {
         run(Some(&dir.join(path)), &["rev-parse", "HEAD"]).map(|s| s.trim().to_string())
+    }
+
+    fn rename(&self, dir: &Path, from: &str, to: &str) -> Result<(), String> {
+        run(Some(dir), &["mv", "--", from, to]).map(drop)
     }
 
     fn remove_tree(&self, dir: &Path, path: &str) -> Result<(), String> {

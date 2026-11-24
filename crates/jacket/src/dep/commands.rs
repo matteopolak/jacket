@@ -3,6 +3,8 @@
 use super::forge::{self, Repo};
 use super::git::RemoteTag;
 use super::git::{Git, Submodule};
+use super::inspect::{inspect, requirements};
+use super::package;
 use super::policy::{self, Policy};
 use super::resolve::{self, Ask, Reading, Recorded};
 use super::version::Tagged;
@@ -24,7 +26,7 @@ fn short(commit: &str) -> &str {
 }
 
 /// What an entry asks for, as `jacket dep list` writes it.
-fn asked(entry: &Dependency) -> String {
+pub(super) fn asked(entry: &Dependency) -> String {
     match (&entry.version, &entry.tag, &entry.rev) {
         (Some(range), ..) => range.clone(),
         (_, Some(tag), _) => tag.clone(),
@@ -413,6 +415,7 @@ fn add(ctx: &mut Ctx, project: &mut Project, spec_text: &str, options: AddOption
     require_repo(ctx, project)?;
     let parsed = spec::parse(spec_text);
     let url = spec::url(&parsed.git);
+    let explicit = name.is_some();
     let name = name.unwrap_or_else(|| spec::repo_name(&parsed.git));
     if name.is_empty() || name.contains(['/', '\\']) || name == "." || name == ".." {
         return Err(
@@ -431,6 +434,13 @@ fn add(ctx: &mut Ctx, project: &mut Project, spec_text: &str, options: AddOption
     }
     let full = project.dir.join(&path);
     if full.exists() && full.read_dir().is_ok_and(|mut d| d.next().is_some()) {
+        if !explicit {
+            return Err(
+                DepError::new(format!("{path} already exists and is not a submodule")).note(
+                    format!("to replace that copy with a pinned submodule, pass --name {name}"),
+                ),
+            );
+        }
         ctx.git
             .remove_tree(&project.dir, &path)
             .map_err(|e| DepError::new(format!("{path} already exists: {e}")))?;
@@ -452,6 +462,35 @@ fn add(ctx: &mut Ctx, project: &mut Project, spec_text: &str, options: AddOption
     entry.tag = pin.tag.clone();
     entry.rev = pin.rev.clone();
     entry.version = pin.version.clone();
+    let tag_now = pin.tag.clone().or_else(|| {
+        let head = ctx.git.head(&project.dir, &path).ok()?;
+        resolved_tag(ctx.git, project, &entry, &path, &head)
+    });
+    let found = match inspect(
+        ctx,
+        project,
+        &name,
+        explicit,
+        &path,
+        entry.module.as_deref(),
+        tag_now.as_deref(),
+    ) {
+        Ok(found) => found,
+        Err(error) => {
+            // Nothing is left behind by a dependency that cannot be used.
+            let _ = ctx.git.remove(&project.dir, &path);
+            return Err(error);
+        }
+    };
+    let (name, path) = (found.name, found.path);
+    entry.module = found.module;
+    if project.config.dependencies.contains_key(&name) {
+        let _ = ctx.git.remove(&project.dir, &path);
+        return Err(DepError::new(format!("`{name}` is already a dependency")));
+    }
+    if path != format!("modules/{name}") {
+        entry.path = Some(path.clone());
+    }
     let mut text = manifest::set_dependency(&project.text, &name, &entry).map_err(DepError::new)?;
     if project.config.resolver.seed.is_none() {
         text = manifest::set_seed(&text, &fresh_seed());
@@ -619,6 +658,9 @@ fn list(ctx: &mut Ctx, project: &Project, all_tags: bool, offline: bool) -> Resu
             .collect();
         say(ctx, cells.join("  ").trim_end().to_string());
     }
+    for line in requirements(ctx, project, &known) {
+        say(ctx, line);
+    }
     if all_tags {
         for (name, entry) in &project.config.dependencies {
             let tags = ctx.git.remote_tags(&spec::url(&entry.git))?;
@@ -751,6 +793,14 @@ fn update(
             continue;
         }
         ctx.git.move_to(&project.dir, &path, &next.commit)?;
+        let manifest = package::read(&project.dir.join(&path)).unwrap_or_default();
+        if let Err(why) = package::requires_jacket(&manifest.package, env!("CARGO_PKG_VERSION")) {
+            // The new version cannot be used here: the old commit stays checked out.
+            if let Some(old) = &pinned {
+                let _ = ctx.git.move_to(&project.dir, &path, old);
+            }
+            return Err(DepError::new(format!("{name}: {why}")));
+        }
         let updated = Dependency {
             tag: next.tag.clone(),
             rev: next.rev.clone(),

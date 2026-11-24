@@ -5,7 +5,9 @@
 mod commands;
 pub mod forge;
 pub mod git;
+mod inspect;
 pub mod manifest;
+pub mod package;
 pub mod policy;
 pub mod resolve;
 pub mod spec;
