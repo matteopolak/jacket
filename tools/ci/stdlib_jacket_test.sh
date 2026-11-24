@@ -8,6 +8,7 @@
 # JACKET_TEST_CHANGED, a JSON list of changed files (ci_changes.py sets it only for a change that cannot
 # reach beyond the stdlib's own modules), narrows every run to the tests those files can affect, before the
 # partition: tools/ci/select_tests.py asks jacket which. If it cannot, every test runs.
+# JACKET_TEST_PLATFORM_ONLY=true limits every run to the modules written for the host's OS (tools/ci/platform_modules.py).
 # Every run happens; the exit status is non-zero if any failed.
 set -eo pipefail
 ulimit -c 0
@@ -27,6 +28,10 @@ case "${JACKET_TEST_PARTITION:-all}" in
   all) ;;
   *) partition=(--partition "$JACKET_TEST_PARTITION") ;;
 esac
+roots=()
+if [[ "${JACKET_TEST_PLATFORM_ONLY:-}" == true ]]; then
+  while IFS= read -r module; do roots+=(--path "$module"); done < <(python3 -B tools/ci/platform_modules.py)
+fi
 run() {
   local mode="$1"
   shift
@@ -47,7 +52,7 @@ run() {
     fi
     rm -f "$names"
   fi
-  with_display "$jacket" test -q --needs display "${partition[@]}" "${only[@]}" "$@" || status=1
+  with_display "$jacket" test -q --needs display "${roots[@]}" "${partition[@]}" "${only[@]}" "$@" || status=1
 }
 run native
 run interp --interp

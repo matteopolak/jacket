@@ -888,12 +888,12 @@ jobs:
       - name: Build private native dependencies from source
         run: bash tools/native/ci_native_deps.sh full
       - name: Run reviewed contracts and retained regressions
-        if: ${{ contains(matrix.shard, '/') }}
+        if: ${{ contains(matrix.shard, '/') || matrix.modes }}
         run: |
           ulimit -c 0
           run=()
           [[ "$RUNNER_OS" == Linux ]] && run=(xvfb-run -a -s "-screen 0 1280x1024x24")
-          "${run[@]}" python3 -u tools/stdlib/stdlib_runtime.py --jaic target/release/jaic --platform ${{ matrix.platform }} --shard ${{ matrix.shard }} \
+          "${run[@]}" python3 -u tools/stdlib/stdlib_runtime.py --jaic target/release/jaic --platform ${{ matrix.platform }} --shard ${{ contains(matrix.shard, '/') && matrix.shard || '1/1' }} \
             --modes ${{ matrix.modes }} --strict --timeout 600
       - name: Stdlib tests, native O2
         if: ${{ always() && !cancelled() && matrix.o2 }}
@@ -934,6 +934,7 @@ jobs:
           WASM: ${{ matrix.wasm }}
           JACKET_TEST_O2: ${{ needs.changes.outputs.full }}
           JACKET_TEST_PARTITION: ${{ matrix.jacket_test }}
+          JACKET_TEST_PLATFORM_ONLY: ${{ matrix.platform_only }}
           JACKET_TEST_DEPS_DIR: ${{ runner.temp }}/jacket-test-deps
         run: bash tools/ci/stdlib_jacket_test.sh
       - name: glTF sample models

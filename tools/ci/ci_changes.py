@@ -189,15 +189,12 @@ def stdlib_matrix(full):
             dict(platform="linux-x64", shard=s, modes=everything, o2=False)
             for s in shards(3)
         ]
-        legs += [
-            dict(platform="macos-arm64", shard=s, modes="interp,native", o2=False)
-            for s in shards(2)
-        ]
-        return (
-            legs
-            + suite_legs("linux-x64", ("bindings", "tooling"))
-            + suite_legs("macos-arm64", ())
-        )
+        # A macOS job costs more of the cap than it runs: the setup and builds take eight
+        # minutes, the catalogue about one. So macOS has one job, with the catalogue, the producer
+        # suites and the tests of the modules written for macOS (`platform_only`).
+        mac = suite_legs("macos-arm64", ())
+        mac[0].update(modes="interp,native", o2=False, platform_only=True)
+        return legs + suite_legs("linux-x64", ("bindings", "tooling")) + mac
     legs = []
     for platform in ("linux-x64", "linux-arm64"):
         modes = everything if platform == "linux-x64" else "interp,native"

@@ -674,6 +674,15 @@ class Tiers(unittest.TestCase):
         macos += [leg for leg in stdlib if leg["platform"].startswith("macos")]
         self.assertLessEqual(len(macos), 5)
 
+    def test_the_fast_tier_runs_one_stdlib_job_on_macos_with_the_platform_modules(self):
+        legs = [leg for leg in ci_changes.stdlib_matrix(False) if leg["platform"].startswith("macos")]
+        self.assertEqual(len(legs), 1)
+        self.assertTrue(legs[0]["platform_only"])
+        self.assertEqual(legs[0]["jacket_test"], "all")
+        self.assertIn("native", legs[0]["modes"])
+        for leg in ci_changes.stdlib_matrix(True):
+            self.assertFalse(leg.get("platform_only"), leg)
+
     def test_each_mac_runs_few_long_jobs_in_the_full_tier(self):
         tests = ci_changes.test_matrix(True)
         stdlib = ci_changes.stdlib_matrix(True)

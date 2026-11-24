@@ -103,6 +103,7 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `job_inputs.py` | The files each CI job reads, computed from the workflow instead of listed by hand. | tools |
 | `package_bindings_helpers.py` | Put the native helpers Bindings_Generator needs into a release archive's native-libs/<platform>. | CI, tools |
 | `pins.py` | Keep the tool versions that the workflows spell out equal to .github/pins.json. | CI, tools |
+| `platform_modules.py` | Prints the stdlib module folders whose own sources are written for one OS, one per line. | tools |
 | `release_smoke.py` | Pieces of the post-release smoke test (.github/workflows/release-smoke.yml, docs/tools/release-smoke.md). | CI |
 | `run_miri.py` | Run Miri on the parts of the compiler that handle raw memory and need nothing from the operating system. | CI |
 | `select_tests.py` | List the stdlib tests a change can affect, for the `jacket test` CI steps. | tools |
