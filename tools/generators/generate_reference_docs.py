@@ -149,7 +149,7 @@ def tools_page():
     jaifmt = subprocess.run([str(build_jaifmt()), "--help"], check=True, capture_output=True, text=True).stdout
     jaifmt = "\n".join(line.rstrip() for line in jaifmt.strip().splitlines())
     own = [n for n in jacket_commands(jacket) if n not in PASSTHROUGH and n != "help"]
-    expected = {"new", "init", "test", "bench", "doc", "config", "toolchain", "clean", "explain", "migrate", "version", "upgrade"}
+    expected = {"new", "init", "test", "bench", "doc", "config", "toolchain", "dep", "clean", "explain", "migrate", "version", "upgrade"}
     if set(own) != expected:
         raise SystemExit(f"jacket commands changed ({sorted(set(own) ^ expected)}): place them in tools_page()")
 
@@ -206,6 +206,10 @@ def tools_page():
         "the diff, and `--apply` writes it when git could give every file back. "
         "[jacket migrate](../tools/jacket-migrate.md) lists the migrations and how to add one.\n",
         sub("migrate"),
+        "### Dependencies\n",
+        "`jacket dep` manages git submodules pinned in the `[dependencies]` of `jacket.toml`, with version "
+        "ranges and a release-age policy. [Dependencies](../tools/dependencies.md) says how it works.\n",
+        sub("dep"),
         "## Testing and documenting\n",
         "### Testing\n",
         "`jacket test` builds the `@test` procedures once and runs each in its own process. "

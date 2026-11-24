@@ -51,6 +51,11 @@ pub fn inline(entry: &Dependency) -> String {
     format!("{{ {} }}", parts.join(", "))
 }
 
+/// The line `[dependencies]` holds for `name`.
+pub fn line(name: &str, entry: &Dependency) -> String {
+    format!("{} = {}", key(name), inline(entry))
+}
+
 fn header(line: &str) -> Option<&str> {
     let line = line.trim();
     let inner = line.strip_prefix('[')?;

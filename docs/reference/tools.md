@@ -350,6 +350,34 @@ jacket migrate [OPTIONS] [PATHS]...
 | `--allow-no-vcs` | Write files that are not in a git repository |
 | `-h, --help` | Print help |
 
+### Dependencies
+
+`jacket dep` manages git submodules pinned in the `[dependencies]` of `jacket.toml`, with version ranges and a release-age policy. [Dependencies](../tools/dependencies.md) says how it works.
+
+Manage git dependencies pinned in `jacket.toml`
+
+```text
+jacket dep <COMMAND>
+```
+
+#### Commands
+
+| Command | Meaning |
+| --- | --- |
+| `add` | Add a git dependency as a submodule and an entry in `[dependencies]` |
+| `remove` | Remove a dependency: its submodule, folder and entry |
+| `list` | Show each dependency's pin and whether it is checked out |
+| `update` | Move dependencies to what their entries now allow |
+| `sync` | Check out every pinned commit, as after a fresh clone |
+| `check` | Verify `jacket.toml` and the gitlinks agree and no tag has moved (for CI) |
+| `init` | Adopt the submodules already under the module folders |
+
+#### Options
+
+| Option | Meaning |
+| --- | --- |
+| `-h, --help` | Print help |
+
 ## Testing and documenting
 
 ### Testing
@@ -610,6 +638,7 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | --- | --- | --- | --- |
 | `EXPECTED_PRELUDE` | The prelude the child process of the prelude-selection tests must find, or `missing`. | unset | tests |
 | `JACKET_DATABASE_URL` | A PostgreSQL connection URL for the typed-query tests. | unset: the Postgres tests skip | tests |
+| `JACKET_FORGE_API` | A base URL (`http://127.0.0.1:8080`) that replaces the API host of every forge `jacket dep` asks for release times. | each forge's own API host | jacket, tests |
 | `JACKET_STDLIB_TARGETS_PART` | `K/N`: the stdlib-by-target check takes every Nth module and target pair from the Kth, so CI can split it. | `1/1` | tests |
 | `JACKET_TEST_CHANGED` | A JSON list of changed paths for the CI test-selection helper (`tools/ci/select_tests.py`); narrows stdlib tests before partitioning. | unset: the full test catalogue | tests |
 | `JACKET_TEST_CODEGEN_UNITS` | Passes `-codegen_units N` to the native build tests, to run them split into several modules. | unset | tests |
@@ -647,6 +676,7 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `FORCE_COLOR` | Anything but `0` turns colour on even when output is not a terminal. | unset | jaic, jailint |
 | `GITHUB_ACTIONS` | Set by GitHub Actions: tests that need a capable filesystem stop skipping. | unset | jacket, tests |
 | `GITHUB_TOKEN` | Sent with `jacket upgrade`'s release lookups, which raises GitHub's rate limit. | unset | jacket |
+| `GITLAB_TOKEN` | Sent with `jacket dep`'s release lookups on gitlab.com, which raises its rate limit. | unset | jacket |
 | `HOME` | Locates the user cache when neither `JAIC_CACHE_DIR` nor `XDG_CACHE_HOME` is set. | unset | jaic, jacket |
 | `INSTA_UPDATE` | `always` rewrites the test snapshots instead of failing on a difference. | unset | tests |
 | `LANG` | See `LC_ALL`. | unset | jaic, jailint |

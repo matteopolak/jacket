@@ -1,6 +1,6 @@
 # Plan: dependencies (`jacket dep`)
 
-Status: D1 (direct dependencies by tag and commit) and D2 (versions) are built. The rest is plan; each milestone updates this page and the docs it names when it lands.
+Status: D1 (direct dependencies by tag and commit), D2 (versions) and D3 (release-age policy) are built. The rest is plan; each milestone updates this page and the docs it names when it lands.
 
 Jai projects share code as module folders under `modules/`, today mostly copied in by hand. `jacket dep` manages them as git submodules pinned in `jacket.toml`, with version ranges, version schemes and a release-age policy. The submodule's commit (its gitlink) is the lock, so there is no lockfile.
 
@@ -81,8 +81,9 @@ From a survey of the 190 corpus projects: 37 have tags; 27 use semver, 7 two-par
 
 - `min_release_age`: a version must have been published at least this long ago.
 - `release_age_jitter`: adds a per-version offset in `[0, jitter]`, hashed from `seed`, package and version. Everyone on the project gets the same offset, and different projects get different ones, so a compromised release reaches projects in stages.
-- With jitter set and no `seed`, `add` and `update` warn, apply no jitter, and suggest `jacket dep init`.
-- **Publish times come only from a forge's records:** GitHub and GitLab releases and tag APIs, and Gitea, Forgejo and Codeberg. Commit and tagger dates are never used, because whoever made the commit wrote them.
+- With jitter set and no `seed`, `add` and `update` warn, apply no jitter, and suggest `jacket dep init`. The first `add` writes a seed if there is none.
+- A commit (`rev`) has no release, so under an active policy it needs `min_release_age = "0"` on its entry. `dep init` adopts what it finds and prints the same error as a warning for each version that fails the policy.
+- **Publish times come only from a forge's records:** the releases of GitHub (`github.com`), GitLab (`gitlab.com`) and Codeberg (`codeberg.org`). A tag with no release has no recorded time. Commit and tagger dates are never used, because whoever made the commit wrote them.
 - **The policy applies to every version, named or not:**
 
 ```
@@ -99,8 +100,10 @@ On a host without recorded times the error says the age can't be checked, with t
 - Publish times are cached permanently in jacket's user cache, keyed by host, repo, tag and commit. A moved tag misses the cache.
 - Candidates are checked newest first, stopping at the first old-enough one.
 - Release lists use conditional requests (`ETag`); GitHub's "not modified" answers don't count against its rate limit.
-- On GitHub, `update` asks for every dependency's candidates in one GraphQL query.
-- `GITHUB_TOKEN` and `GITLAB_TOKEN`, when set, go only to that forge's API host.
+- On GitHub with `GITHUB_TOKEN` set, `update` asks for the release lists of every dependency that has no cached list in one GraphQL query. Cached lists are revalidated with their `ETag` instead, which costs no rate limit when nothing changed.
+- A list is fetched at most once per run.
+- `GITHUB_TOKEN` and `GITLAB_TOKEN`, when set, go only to that forge's API host. Codeberg and other Gitea or Forgejo hosts are read without a token.
+- A rate-limited answer is an error that names the token to set.
 
 ## Moved tags
 

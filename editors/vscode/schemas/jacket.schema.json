@@ -1574,6 +1574,82 @@
         }
       }
     },
+    "dependencies": {
+      "type": "object",
+      "markdownDescription": "Git dependencies, each a submodule pinned by its commit. `jacket dep add` writes the entries.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "git"
+        ],
+        "properties": {
+          "git": {
+            "type": "string",
+            "markdownDescription": "`user/repo` (GitHub), `host/path` (HTTPS), or a full URL or `git@...` address."
+          },
+          "version": {
+            "type": "string",
+            "markdownDescription": "A version range in Cargo's spelling (`^1.2`, `~1.2.3`, `>=1.0, <2.0`, `=1.4.0`, `*`). The newest allowed tag is pinned. Use exactly one of `version`, `tag` and `rev`."
+          },
+          "tag": {
+            "type": "string",
+            "markdownDescription": "An exact tag."
+          },
+          "rev": {
+            "type": "string",
+            "markdownDescription": "A commit, for a repository with no usable tags."
+          },
+          "path": {
+            "type": "string",
+            "markdownDescription": "The submodule folder, relative to the project. Default `modules/<name>`."
+          },
+          "module": {
+            "type": "string",
+            "markdownDescription": "The folder of the repository that holds `module.jai`. Default: its `[package] module`, else the repository root."
+          },
+          "scheme": {
+            "enum": [
+              "semver",
+              "calendar",
+              "integer"
+            ],
+            "markdownDescription": "How tags read as versions. Default `semver`."
+          },
+          "tag_prefix": {
+            "type": "string",
+            "markdownDescription": "Fixed text stripped from tags before they are read (`alpha-`)."
+          },
+          "min_release_age": {
+            "type": "string",
+            "markdownDescription": "Replaces `[resolver] min_release_age` for this dependency. `\"0\"` waives the policy."
+          }
+        }
+      }
+    },
+    "resolver": {
+      "type": "object",
+      "additionalProperties": false,
+      "markdownDescription": "How `jacket dep` picks versions.",
+      "properties": {
+        "min_release_age": {
+          "type": "string",
+          "markdownDescription": "How long ago a version must have been published (`3d`, `12h`, `90m`, `2w`, `0`). Times come from the forge's release records."
+        },
+        "release_age_jitter": {
+          "type": "string",
+          "markdownDescription": "Adds a per-version wait in `[0, jitter]`, hashed from `seed`, the dependency and the version, so a bad release reaches projects in stages."
+        },
+        "seed": {
+          "type": "string",
+          "markdownDescription": "Random text the jitter is hashed from. `jacket dep init` and the first `jacket dep add` write it; commit it."
+        },
+        "dedupe": {
+          "type": "boolean",
+          "markdownDescription": "Experimental: solve every package's ranges together and share one copy per name."
+        }
+      }
+    },
     "doc": {
       "type": "object",
       "markdownDescription": "The site `jacket doc` writes.",

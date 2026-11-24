@@ -1,0 +1,271 @@
+//! The release-age policy: how old a version must be before `jacket dep` accepts it.
+//!
+//! `min_release_age` is the floor. `release_age_jitter` adds an offset in `[0, jitter]` that is
+//! hashed from the seed, the package and the version, so everyone on one project agrees while
+//! different projects wait different times and a compromised release reaches them in stages.
+use sha2::{Digest, Sha256};
+
+/// `3d`, `12h`, `90m`, `30s`, `2w` or `0`, in seconds.
+pub fn parse_age(text: &str) -> Result<i64, String> {
+    let text = text.trim();
+    let bad = || {
+        format!(
+            "`{text}` is not a duration: write a number and a unit (`3d`, `12h`, `90m`, `2w`), or `0`"
+        )
+    };
+    if text == "0" {
+        return Ok(0);
+    }
+    let unit = text.chars().last().ok_or_else(bad)?;
+    let scale: i64 = match unit {
+        's' => 1,
+        'm' => 60,
+        'h' => 3600,
+        'd' => 86_400,
+        'w' => 604_800,
+        _ => return Err(bad()),
+    };
+    let n: i64 = text[..text.len() - 1].trim().parse().map_err(|_| bad())?;
+    if n < 0 {
+        return Err(bad());
+    }
+    Ok(n * scale)
+}
+
+/// "20 hours ago", "3 days ago".
+pub fn ago(seconds: i64) -> String {
+    let seconds = seconds.max(0);
+    let (n, unit) = match seconds {
+        s if s < 90 => (s, "second"),
+        s if s < 3600 => ((s + 30) / 60, "minute"),
+        s if s < 129_600 => ((s + 1800) / 3600, "hour"),
+        s => ((s + 43_200) / 86_400, "day"),
+    };
+    format!(
+        "{n} {unit}{} ago",
+        if n == 1 {
+            ""
+        } else {
+            "s"
+        }
+    )
+}
+
+/// "3d 5h", "20h", "45m": a duration for messages.
+pub fn span(seconds: i64) -> String {
+    let (d, h, m) = (
+        seconds / 86_400,
+        seconds % 86_400 / 3600,
+        seconds % 3600 / 60,
+    );
+    let mut parts = Vec::new();
+    for (n, unit) in [(d, 'd'), (h, 'h'), (m, 'm')] {
+        if n > 0 {
+            parts.push(format!("{n}{unit}"));
+        }
+    }
+    if parts.is_empty() {
+        format!("{seconds}s")
+    } else {
+        parts.join(" ")
+    }
+}
+
+/// The Unix time of an RFC 3339 timestamp (`2024-05-01T12:00:00Z`, with a fraction or an
+/// offset).
+pub fn parse_time(text: &str) -> Option<i64> {
+    let (date, rest) = text.trim().split_once(['T', 't', ' '])?;
+    let mut d = date.split('-');
+    let (y, m, day): (i64, i64, i64) = (
+        d.next()?.parse().ok()?,
+        d.next()?.parse().ok()?,
+        d.next()?.parse().ok()?,
+    );
+    if d.next().is_some() || !(1..=12).contains(&m) || !(1..=31).contains(&day) {
+        return None;
+    }
+    let split = rest.find(['Z', 'z', '+', '-']).unwrap_or(rest.len());
+    let (clock, zone) = rest.split_at(split);
+    let mut c = clock.split(':');
+    let (h, mi): (i64, i64) = (c.next()?.parse().ok()?, c.next()?.parse().ok()?);
+    let sec: i64 = c
+        .next()
+        .map_or(Some(0), |s| s.split('.').next()?.parse().ok())?;
+    let offset = match zone.chars().next() {
+        None | Some('Z' | 'z') => 0,
+        Some(sign) => {
+            let (zh, zm) = zone[1..].split_once(':').unwrap_or((&zone[1..], "0"));
+            let seconds = zh.parse::<i64>().ok()? * 3600 + zm.parse::<i64>().ok()? * 60;
+            if sign == '-' {
+                -seconds
+            } else {
+                seconds
+            }
+        }
+    };
+    Some(days_from_civil(y, m, day) * 86_400 + h * 3600 + mi * 60 + sec - offset)
+}
+
+/// Days since 1970-01-01 of a civil date (Howard Hinnant's algorithm).
+fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
+    let y = if m <= 2 {
+        y - 1
+    } else {
+        y
+    };
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let doy =
+        (153 * (if m > 2 {
+            m - 3
+        } else {
+            m + 9
+        }) + 2)
+            / 5
+            + d
+            - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146_097 + doe - 719_468
+}
+
+/// The policy that applies to one dependency.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Policy {
+    /// Seconds a version must have been published; `None` means no policy.
+    pub min_age: Option<i64>,
+    /// The largest jitter, in seconds.
+    pub jitter: Option<i64>,
+    pub seed: Option<String>,
+}
+
+impl Policy {
+    /// `[resolver]`, overridden by the entry's own `min_release_age` (`"0"` waives everything).
+    pub fn from_config(
+        resolver: &jacket_config::Resolver,
+        entry: &jacket_config::Dependency,
+    ) -> Result<Self, String> {
+        let age = |text: &Option<String>| text.as_deref().map(parse_age).transpose();
+        let mut policy = Self {
+            min_age: age(&resolver.min_release_age)?,
+            jitter: age(&resolver.release_age_jitter)?,
+            seed: resolver.seed.clone(),
+        };
+        if let Some(own) = age(&entry.min_release_age)? {
+            policy.min_age = Some(own);
+            if own == 0 {
+                policy.jitter = None;
+            }
+        }
+        Ok(policy)
+    }
+
+    /// Whether a policy applies at all.
+    pub fn active(&self) -> bool {
+        self.min_age.is_some_and(|age| age > 0) || self.jitter.is_some_and(|j| j > 0)
+    }
+
+    /// The age `tag` of `package` must have reached.
+    pub fn required(&self, package: &str, tag: &str) -> i64 {
+        let floor = self.min_age.unwrap_or(0);
+        match (&self.seed, self.jitter) {
+            (Some(seed), Some(jitter)) if jitter > 0 => floor + offset(seed, package, tag, jitter),
+            _ => floor,
+        }
+    }
+}
+
+/// A repeatable offset in `[0, max]` from the seed, package and version.
+pub fn offset(seed: &str, package: &str, version: &str, max: i64) -> i64 {
+    let mut hash = Sha256::new();
+    for part in [seed, package, version] {
+        hash.update(part.as_bytes());
+        hash.update([0]);
+    }
+    let digest = hash.finalize();
+    let n = u64::from_be_bytes(digest[..8].try_into().unwrap_or([0; 8]));
+    (n % (max as u64 + 1)) as i64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn durations_parse_with_units() {
+        assert_eq!(parse_age("3d"), Ok(259_200));
+        assert_eq!(parse_age("12h"), Ok(43_200));
+        assert_eq!(parse_age("2w"), Ok(1_209_600));
+        assert_eq!(parse_age("0"), Ok(0));
+        for bad in ["", "3", "d", "-1d", "3 days", "1.5h"] {
+            assert!(parse_age(bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn ages_read_in_the_largest_fitting_unit() {
+        assert_eq!(ago(20 * 3600), "20 hours ago");
+        assert_eq!(ago(3600), "1 hour ago");
+        assert_eq!(ago(3 * 86_400), "3 days ago");
+        assert_eq!(ago(300), "5 minutes ago");
+    }
+
+    #[test]
+    fn timestamps_parse_with_zones_and_fractions() {
+        assert_eq!(parse_time("1970-01-01T00:00:00Z"), Some(0));
+        assert_eq!(parse_time("2024-05-01T12:00:00Z"), Some(1_714_564_800));
+        assert_eq!(parse_time("2024-05-01T12:00:00.123Z"), Some(1_714_564_800));
+        assert_eq!(parse_time("2024-05-01T14:00:00+02:00"), Some(1_714_564_800));
+        assert_eq!(parse_time("2024-05-01T07:00:00-05:00"), Some(1_714_564_800));
+        assert_eq!(parse_time("2024-02-29T00:00:00Z"), Some(1_709_164_800));
+        assert_eq!(parse_time("yesterday"), None);
+        assert_eq!(parse_time("2024-13-01T00:00:00Z"), None);
+    }
+
+    #[test]
+    fn jitter_is_stable_bounded_and_per_project() {
+        let a = offset("seed-a", "jaison", "v1.0.0", 172_800);
+        assert_eq!(a, offset("seed-a", "jaison", "v1.0.0", 172_800));
+        assert!((0..=172_800).contains(&a));
+        let differs = (0..8).any(|i| offset(&format!("s{i}"), "jaison", "v1.0.0", 172_800) != a);
+        assert!(differs, "another seed gives another offset");
+        assert_ne!(offset("seed-a", "jaison", "v1.0.1", 172_800), a);
+        assert_eq!(offset("s", "p", "v", 0), 0);
+    }
+
+    #[test]
+    fn an_entry_overrides_the_resolver_and_zero_waives_everything() {
+        let resolver = jacket_config::Resolver {
+            min_release_age: Some("3d".into()),
+            release_age_jitter: Some("2d".into()),
+            seed: Some("k".into()),
+            dedupe: None,
+        };
+        let plain = jacket_config::Dependency::default();
+        let policy = Policy::from_config(&resolver, &plain).unwrap();
+        let need = policy.required("p", "v1");
+        assert!((259_200..=259_200 + 172_800).contains(&need));
+        let waived = jacket_config::Dependency {
+            min_release_age: Some("0".into()),
+            ..plain.clone()
+        };
+        let policy = Policy::from_config(&resolver, &waived).unwrap();
+        assert!(!policy.active());
+        assert_eq!(policy.required("p", "v1"), 0);
+        let own = jacket_config::Dependency {
+            min_release_age: Some("1h".into()),
+            ..plain
+        };
+        let policy = Policy::from_config(&resolver, &own).unwrap();
+        assert!(policy.required("p", "v1") >= 3600);
+        assert!(
+            Policy::from_config(
+                &jacket_config::Resolver {
+                    min_release_age: Some("soon".into()),
+                    ..resolver
+                },
+                &own
+            )
+            .is_err()
+        );
+    }
+}

@@ -1,7 +1,9 @@
 //! The `jacket dep` commands. Each reads the project, asks git through [`Git`] and writes
 //! `jacket.toml` through [`manifest`].
+use super::forge::{self, Repo};
 use super::git::RemoteTag;
 use super::git::{Git, Submodule};
+use super::policy::{self, Policy};
 use super::resolve::{self, Ask, Reading, Recorded};
 use super::version::Tagged;
 use super::{Action, Ctx, DepError, Project, Result, manifest, spec};
@@ -104,58 +106,209 @@ fn newest_list(tags: &[Tagged]) -> String {
     }
 }
 
-/// The commit `ask` means among the remote's `tags`.
-fn pick(ctx: &mut Ctx, url: &str, reading: &Reading, tags: &[RemoteTag], ask: Ask) -> Result<Pin> {
+/// How a version stands against the release-age policy.
+enum Verdict {
+    Allowed,
+    TooNew { age: i64, required: i64 },
+    Unknown(String),
+}
+
+/// The policy as it applies to one dependency.
+struct Gate {
+    name: String,
+    entry: Dependency,
+    policy: Policy,
+    repo: Option<Repo>,
+    floor: String,
+    jitter: Option<String>,
+}
+
+impl Gate {
+    fn new(project: &Project, name: &str, entry: &Dependency, url: &str) -> Result<Self> {
+        let resolver = &project.config.resolver;
+        let policy = Policy::from_config(resolver, entry)
+            .map_err(|e| DepError::new(format!("{name}: {e}")))?;
+        Ok(Self {
+            name: name.to_string(),
+            entry: entry.clone(),
+            policy,
+            repo: spec::host_and_repo(url).map(|(host, path)| Repo {
+                host,
+                path,
+            }),
+            floor: entry
+                .min_release_age
+                .clone()
+                .or_else(|| resolver.min_release_age.clone())
+                .unwrap_or_else(|| "0".into()),
+            jitter: resolver
+                .release_age_jitter
+                .clone()
+                .filter(|_| entry.min_release_age.as_deref() != Some("0")),
+        })
+    }
+
+    fn active(&self) -> bool {
+        self.policy.active()
+    }
+
+    fn check(&self, ctx: &mut Ctx, tag: &str, commit: &str) -> Verdict {
+        if !self.active() {
+            return Verdict::Allowed;
+        }
+        let Some(repo) = &self.repo else {
+            return Verdict::Unknown("a local path keeps no release times".into());
+        };
+        match forge::published(ctx.forge, ctx.cache, repo, tag, commit) {
+            Ok(published) => {
+                let age = ctx.now - published;
+                let required = self.policy.required(&self.name, tag);
+                if age >= required {
+                    Verdict::Allowed
+                } else {
+                    Verdict::TooNew {
+                        age,
+                        required,
+                    }
+                }
+            }
+            Err(unknown) => Verdict::Unknown(unknown.to_string()),
+        }
+    }
+
+    /// The error for a version the policy does not accept. `entry` is what the override note
+    /// shows: the entry as it would read with the waiver.
+    fn refuse(&self, subject: &str, verdict: &Verdict, waived: &Dependency) -> DepError {
+        let message = match verdict {
+            Verdict::TooNew {
+                age,
+                required,
+            } => {
+                let mut said = format!(
+                    "{} {subject} was published {}; min_release_age is {}",
+                    self.name,
+                    policy::ago(*age),
+                    self.floor
+                );
+                if let Some(jitter) = &self.jitter
+                    && self.policy.seed.is_some()
+                {
+                    said.push_str(&format!(
+                        ", plus up to {jitter} of jitter (this version waits {})",
+                        policy::span(*required)
+                    ));
+                }
+                said
+            }
+            Verdict::Unknown(why) => {
+                format!("{} {subject}'s age can't be checked: {why}", self.name)
+            }
+            Verdict::Allowed => format!("{} {subject} is allowed", self.name),
+        };
+        let mut waived = waived.clone();
+        waived.min_release_age = Some("0".into());
+        let mut error = DepError::new(message).note(format!(
+            "to accept it, add `min_release_age = \"0\"` to its entry:\n{}",
+            manifest::line(&self.name, &waived)
+        ));
+        error.too_new = matches!(verdict, Verdict::TooNew { .. });
+        error
+    }
+}
+
+/// The entry as `add` would write it for `pin`, for notes.
+fn entry_for(base: &Dependency, pin: &Pin) -> Dependency {
+    Dependency {
+        tag: pin.tag.clone(),
+        rev: pin.rev.clone(),
+        version: pin.version.clone(),
+        ..base.clone()
+    }
+}
+
+/// The commit `ask` means among the remote's `tags`, among those the policy accepts.
+fn pick(
+    ctx: &mut Ctx,
+    gate: &Gate,
+    url: &str,
+    reading: &Reading,
+    tags: &[RemoteTag],
+    ask: Ask,
+) -> Result<Pin> {
+    let base = Dependency {
+        tag: None,
+        rev: None,
+        version: None,
+        ..gate.entry.clone()
+    };
     match ask {
         Ask::Tag(tag) => {
             let found = tags
                 .iter()
                 .find(|t| t.name == tag)
                 .ok_or_else(|| DepError::new(format!("{url} has no tag `{tag}`")))?;
-            Ok(Pin {
+            let pin = Pin {
                 commit: found.commit.clone(),
-                tag: Some(tag),
+                tag: Some(tag.clone()),
                 rev: None,
                 version: None,
-            })
+            };
+            match gate.check(ctx, &tag, &found.commit) {
+                Verdict::Allowed => Ok(pin),
+                refused => Err(gate.refuse(&tag, &refused, &entry_for(&base, &pin))),
+            }
         }
-        Ask::Rev(rev) => Ok(Pin {
-            commit: rev.clone(),
-            tag: None,
-            rev: Some(rev),
-            version: None,
-        }),
+        Ask::Rev(rev) => {
+            let pin = Pin {
+                commit: rev.clone(),
+                tag: None,
+                rev: Some(rev.clone()),
+                version: None,
+            };
+            if gate.active() {
+                let why =
+                    Verdict::Unknown("a commit has no release, so no recorded publish time".into());
+                return Err(gate.refuse(&format!("rev {rev}"), &why, &entry_for(&base, &pin)));
+            }
+            Ok(pin)
+        }
         Ask::Range(text) => {
             let range = reading.range(&text)?;
             let found = resolve::matching(reading, tags, Some(&range));
-            let Some(newest) = found.first() else {
+            if found.is_empty() {
                 let all = resolve::matching(reading, tags, None);
                 return Err(DepError::new(format!("no tag of {url} satisfies `{text}`"))
                     .note(newest_list(&all)));
+            }
+            let recorded = Dependency {
+                version: Some(text.clone()),
+                ..base
             };
-            Ok(Pin {
-                commit: newest.commit.clone(),
+            accept_newest(ctx, gate, &found, &recorded, |_| Pin {
+                commit: String::new(),
                 tag: None,
                 rev: None,
-                version: Some(text),
+                version: Some(text.clone()),
             })
         }
         Ask::Latest => {
             let found = resolve::matching(reading, tags, None);
-            if let Some(newest) = found.first() {
-                return Ok(match resolve::recorded(reading, newest) {
-                    Recorded::Version(range) => Pin {
-                        commit: newest.commit.clone(),
-                        tag: None,
-                        rev: None,
-                        version: Some(range),
-                    },
-                    Recorded::Tag(tag) => Pin {
-                        commit: newest.commit.clone(),
-                        tag: Some(tag),
-                        rev: None,
-                        version: None,
-                    },
+            if !found.is_empty() {
+                return accept_newest(ctx, gate, &found, &base, |newest| {
+                    match resolve::recorded(reading, newest) {
+                        Recorded::Version(range) => Pin {
+                            commit: String::new(),
+                            tag: None,
+                            rev: None,
+                            version: Some(range),
+                        },
+                        Recorded::Tag(tag) => Pin {
+                            commit: String::new(),
+                            tag: Some(tag),
+                            rev: None,
+                            version: None,
+                        },
+                    }
                 });
             }
             if !tags.is_empty() {
@@ -167,13 +320,60 @@ fn pick(ctx: &mut Ctx, url: &str, reading: &Reading, tags: &[RemoteTag], ask: As
                 );
             }
             let head = ctx.git.remote_head(url)?;
-            Ok(Pin {
+            let pin = Pin {
                 rev: Some(short(&head).to_string()),
                 commit: head,
                 tag: None,
                 version: None,
-            })
+            };
+            if gate.active() {
+                let why =
+                    Verdict::Unknown("a commit has no release, so no recorded publish time".into());
+                let subject = format!("rev {}", short(&pin.commit));
+                return Err(gate.refuse(&subject, &why, &entry_for(&base, &pin)));
+            }
+            Ok(pin)
         }
+    }
+}
+
+/// The newest of `found` (newest first) that the policy accepts. A version that is too new is
+/// skipped for an older one; one whose age cannot be checked stops the search.
+fn accept_newest(
+    ctx: &mut Ctx,
+    gate: &Gate,
+    found: &[Tagged],
+    waived: &Dependency,
+    shape: impl Fn(&Tagged) -> Pin,
+) -> Result<Pin> {
+    let mut newest_refusal: Option<(String, Verdict)> = None;
+    for candidate in found {
+        match gate.check(ctx, &candidate.tag, &candidate.commit) {
+            Verdict::Allowed => {
+                let mut pin = shape(candidate);
+                pin.commit = candidate.commit.clone();
+                return Ok(pin);
+            }
+            Verdict::Unknown(why) => {
+                return Err(gate.refuse(&candidate.tag, &Verdict::Unknown(why), waived));
+            }
+            too_new => {
+                newest_refusal.get_or_insert((candidate.tag.clone(), too_new));
+            }
+        }
+    }
+    let (tag, verdict) = newest_refusal.expect("candidates were given");
+    Err(gate.refuse(&tag, &verdict, waived))
+}
+
+/// Jitter without a seed applies none; says so and how to get one.
+fn warn_without_seed(ctx: &mut Ctx, project: &Project) {
+    let resolver = &project.config.resolver;
+    if resolver.release_age_jitter.is_some() && resolver.seed.is_none() {
+        let _ = writeln!(
+            ctx.err,
+            "warning: release_age_jitter is set but [resolver] seed is not, so no jitter is applied\nnote: run `jacket dep init` to write a seed"
+        );
     }
 }
 
@@ -243,25 +443,31 @@ fn add(ctx: &mut Ctx, project: &mut Project, spec_text: &str, options: AddOption
         ..Dependency::default()
     };
     let reading = Reading::of(&entry)?;
+    warn_without_seed(ctx, project);
+    let gate = Gate::new(project, &name, &entry, &url)?;
     let tags = ctx.git.remote_tags(&url)?;
     let ask = resolve::classify(&reading, &tags, parsed.at.as_deref())?;
-    let pin = pick(ctx, &url, &reading, &tags, ask)?;
+    let pin = pick(ctx, &gate, &url, &reading, &tags, ask)?;
     ctx.git.add(&project.dir, &url, &path, &pin.commit)?;
     entry.tag = pin.tag.clone();
     entry.rev = pin.rev.clone();
     entry.version = pin.version.clone();
-    let text = manifest::set_dependency(&project.text, &name, &entry).map_err(DepError::new)?;
+    let mut text = manifest::set_dependency(&project.text, &name, &entry).map_err(DepError::new)?;
+    if project.config.resolver.seed.is_none() {
+        text = manifest::set_seed(&text, &fresh_seed());
+    }
     project.save(text)?;
     let head = ctx.git.head(&project.dir, &path)?;
+    let shown = resolved_tag(ctx.git, project, &entry, &path, &head)
+        .or_else(|| entry.tag.clone())
+        .unwrap_or_else(|| format!("rev {}", short(&head)));
+    let asked = entry
+        .version
+        .as_deref()
+        .map_or(String::new(), |v| format!(" ({v})"));
     say(
         ctx,
-        format!(
-            "added {name} {} at {path} ({})",
-            pin.tag
-                .as_deref()
-                .map_or_else(|| format!("rev {}", short(&head)), str::to_string),
-            short(&head)
-        ),
+        format!("added {name} {shown}{asked} at {path} ({})", short(&head)),
     );
     Ok(())
 }
@@ -295,7 +501,14 @@ fn resolved_tag(
 }
 
 /// What a remote offers beyond the pin, for `list`'s last column.
-fn newer(ctx: &Ctx, entry: &Dependency, url: &str, resolved: Option<&str>, commit: &str) -> String {
+fn newer(
+    ctx: &Ctx,
+    gate: &Gate,
+    entry: &Dependency,
+    url: &str,
+    resolved: Option<&str>,
+    commit: &str,
+) -> String {
     let Ok(tags) = ctx.git.remote_tags(url) else {
         return "unreachable".into();
     };
@@ -311,8 +524,20 @@ fn newer(ctx: &Ctx, entry: &Dependency, url: &str, resolved: Option<&str>, commi
             resolve::matching(&reading, &tags, Some(&range)).first(),
             current,
         ) {
-            (Some(best), Some(current)) if best.version > current => best.tag.clone(),
-            (Some(best), None) if best.commit != commit => best.tag.clone(),
+            (Some(best), Some(current)) if best.version > current => {
+                format!(
+                    "{}{}",
+                    best.tag,
+                    age_note(ctx, gate, &best.tag, &best.commit)
+                )
+            }
+            (Some(best), None) if best.commit != commit => {
+                format!(
+                    "{}{}",
+                    best.tag,
+                    age_note(ctx, gate, &best.tag, &best.commit)
+                )
+            }
             _ => "-".into(),
         };
     }
@@ -323,6 +548,22 @@ fn newer(ctx: &Ctx, entry: &Dependency, url: &str, resolved: Option<&str>, commi
         };
     }
     "-".into()
+}
+
+/// What the cache alone says about a version's age, for `list` (which never asks a forge).
+fn age_note(ctx: &Ctx, gate: &Gate, tag: &str, commit: &str) -> &'static str {
+    if !gate.active() {
+        return "";
+    }
+    match gate
+        .repo
+        .as_ref()
+        .and_then(|r| ctx.cache.known(r, tag, commit))
+    {
+        Some(published) if ctx.now - published >= gate.policy.required(&gate.name, tag) => "",
+        Some(_) => " (too new)",
+        None => " (age unchecked)",
+    }
 }
 
 fn list(ctx: &mut Ctx, project: &Project, all_tags: bool, offline: bool) -> Result<()> {
@@ -360,13 +601,9 @@ fn list(ctx: &mut Ctx, project: &Project, all_tags: bool, offline: bool) -> Resu
         let mut row = vec![name.clone(), asked(entry), shown, commit, path];
         if !offline {
             let full = sub.map(|s| s.commit.as_str()).unwrap_or_default();
-            row.push(newer(
-                ctx,
-                entry,
-                &spec::url(&entry.git),
-                resolved.as_deref(),
-                full,
-            ));
+            let url = spec::url(&entry.git);
+            let gate = Gate::new(project, name, entry, &url)?;
+            row.push(newer(ctx, &gate, entry, &url, resolved.as_deref(), full));
         }
         rows.push(row);
     }
@@ -424,7 +661,19 @@ fn update(
         return Err(DepError::new("--to needs one dependency name"));
     }
     let known = ctx.git.submodules(&project.dir)?;
-    for name in names {
+    warn_without_seed(ctx, project);
+    let mut gates = Vec::new();
+    for name in &names {
+        let entry = &project.config.dependencies[name];
+        gates.push(Gate::new(project, name, entry, &spec::url(&entry.git))?);
+    }
+    let repos: Vec<Repo> = gates
+        .iter()
+        .filter(|g| g.active() && g.entry.tag.is_none())
+        .filter_map(|g| g.repo.clone())
+        .collect();
+    forge::prefetch(ctx.forge, ctx.cache, &repos);
+    for (name, gate) in names.into_iter().zip(gates) {
         let entry = project.config.dependencies[&name].clone();
         let path = path_of(&name, &entry);
         let url = spec::url(&entry.git);
@@ -472,14 +721,30 @@ fn update(
             // A commit-pinned entry follows the default branch.
             (Ask::Latest, Some(_)) => {
                 let head = ctx.git.remote_head(&url)?;
-                Pin {
+                let pin = Pin {
                     rev: Some(short(&head).to_string()),
                     commit: head,
                     tag: None,
                     version: None,
+                };
+                if gate.active() {
+                    let why = Verdict::Unknown(
+                        "a commit has no release, so no recorded publish time".into(),
+                    );
+                    let subject = format!("rev {}", short(&pin.commit));
+                    return Err(gate.refuse(&subject, &why, &entry_for(&entry, &pin)));
                 }
+                pin
             }
-            _ => pick(ctx, &url, &reading, &tags, ask)?,
+            _ => match pick(ctx, &gate, &url, &reading, &tags, ask) {
+                Ok(pin) => pin,
+                // Newer versions exist but are not old enough yet: the pin stays.
+                Err(error) if error.too_new && pinned.is_some() => {
+                    say(ctx, format!("{name}: {}", error.message));
+                    continue;
+                }
+                Err(error) => return Err(error),
+            },
         };
         if pinned.as_deref() == Some(next.commit.as_str()) {
             say(ctx, format!("{name} is up to date"));
@@ -747,6 +1012,26 @@ fn init(ctx: &mut Ctx, project: &mut Project, reseed: bool) -> Result<()> {
         match tag {
             Some(tag) => entry.tag = Some(tag),
             None => entry.rev = Some(short(&sub.commit).to_string()),
+        }
+        let gate = Gate::new(project, &name, &entry, &spec::url(&entry.git))?;
+        let (subject, verdict) = match &entry.tag {
+            Some(tag) => (tag.clone(), gate.check(ctx, tag, &sub.commit)),
+            None if gate.active() => (
+                format!("rev {}", short(&sub.commit)),
+                Verdict::Unknown("a commit has no release, so no recorded publish time".into()),
+            ),
+            None => (String::new(), Verdict::Allowed),
+        };
+        if !matches!(verdict, Verdict::Allowed) {
+            let error = gate.refuse(&subject, &verdict, &entry);
+            let _ = writeln!(ctx.err, "warning: {}", error.message);
+            for note in &error.notes {
+                let mut lines = note.lines();
+                let _ = writeln!(ctx.err, "note: {}", lines.next().unwrap_or(""));
+                for rest in lines {
+                    let _ = writeln!(ctx.err, "      {rest}");
+                }
+            }
         }
         text = manifest::set_dependency(&text, &name, &entry).map_err(DepError::new)?;
         say(ctx, format!("adopted {name} ({})", asked(&entry)));

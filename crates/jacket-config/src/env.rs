@@ -539,6 +539,16 @@ vars! {
         default: "unset",
         summary: "Sent with `jacket upgrade`'s release lookups, which raises GitHub's rate limit.",
     }
+    GITLAB_TOKEN {
+        name: "GITLAB_TOKEN", group: Standard, readers: [Jacket],
+        default: "unset",
+        summary: "Sent with `jacket dep`'s release lookups on gitlab.com, which raises its rate limit.",
+    }
+    FORGE_API {
+        name: "JACKET_FORGE_API", group: Testing, readers: [Jacket, Tests],
+        default: "each forge's own API host",
+        summary: "A base URL (`http://127.0.0.1:8080`) that replaces the API host of every forge `jacket dep` asks for release times.",
+    }
     GITHUB_ACTIONS {
         name: "GITHUB_ACTIONS", group: Standard, readers: [Jacket, Tests],
         default: "unset",

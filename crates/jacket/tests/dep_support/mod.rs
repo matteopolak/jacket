@@ -1,9 +1,12 @@
 //! Local bare git repositories and a project to add them to, so `jacket dep` runs against real
 //! git without touching the network.
 #![allow(dead_code)]
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use test_support::TempDir;
+
+pub mod forge;
 
 pub fn git(dir: &Path, args: &[&str]) -> String {
     let output = Command::new("git")
@@ -105,6 +108,8 @@ impl Origin {
 pub struct Project {
     pub root: TempDir,
     pub dir: PathBuf,
+    /// `(url, local path)`: git is told to fetch `url` from the path.
+    rewrites: RefCell<Vec<(String, String)>>,
 }
 
 pub struct Run {
@@ -125,15 +130,34 @@ impl Project {
         Self {
             root,
             dir,
+            rewrites: RefCell::default(),
         }
     }
 
     pub fn jacket(&self, args: &[&str]) -> Run {
-        run_in(&self.dir, &self.root, args, &[])
+        self.jacket_env(args, &[])
+    }
+
+    /// Makes git fetch `url` (as `https://github.com/someone/lib`) from a local repository.
+    pub fn rewrite(&self, url: &str, local: &str) {
+        self.rewrites.borrow_mut().push((url.into(), local.into()));
     }
 
     pub fn jacket_env(&self, args: &[&str], env: &[(&str, &str)]) -> Run {
-        run_in(&self.dir, &self.root, args, env)
+        let rewrites = self.rewrites.borrow();
+        let mut all: Vec<(String, String)> =
+            vec![("GIT_CONFIG_COUNT".into(), (1 + rewrites.len()).to_string())];
+        for (i, (url, local)) in rewrites.iter().enumerate() {
+            all.push((
+                format!("GIT_CONFIG_KEY_{}", i + 1),
+                format!("url.{local}.insteadOf"),
+            ));
+            all.push((format!("GIT_CONFIG_VALUE_{}", i + 1), url.clone()));
+        }
+        let mut pairs: Vec<(&str, &str)> =
+            all.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+        pairs.extend_from_slice(env);
+        run_in(&self.dir, &self.root, args, &pairs)
     }
 
     pub fn toml(&self) -> String {

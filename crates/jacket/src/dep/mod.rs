@@ -3,8 +3,10 @@
 //! The submodule's commit (its gitlink) is the lock. Every command takes its git access through
 //! [`git::Git`], so unit tests use a fake and never start a process.
 mod commands;
+pub mod forge;
 pub mod git;
 pub mod manifest;
+pub mod policy;
 pub mod resolve;
 pub mod spec;
 pub mod version;
@@ -74,6 +76,8 @@ pub enum Action {
 pub struct DepError {
     pub message: String,
     pub notes: Vec<String>,
+    /// The policy refused a version that may be fine later (too new), not one that is wrong.
+    pub too_new: bool,
 }
 
 impl DepError {
@@ -81,6 +85,7 @@ impl DepError {
         Self {
             message: message.into(),
             notes: Vec::new(),
+            too_new: false,
         }
     }
 
@@ -139,18 +144,31 @@ impl Project {
 /// What a command reads and writes besides the project.
 pub struct Ctx<'a> {
     pub git: &'a dyn git::Git,
+    pub forge: &'a dyn forge::Forge,
+    pub cache: &'a mut forge::Cache,
+    /// Unix seconds.
+    pub now: i64,
     pub out: &'a mut dyn Write,
     pub err: &'a mut dyn Write,
 }
 
 pub fn run(action: Action, cwd: &Path) -> ExitCode {
     let (stdout, stderr) = (&mut std::io::stdout(), &mut std::io::stderr());
+    let mut cache = forge::Cache::open();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs() as i64);
     let mut ctx = Ctx {
         git: &git::RealGit,
+        forge: &forge::Http::from_env(),
+        cache: &mut cache,
+        now,
         out: stdout,
         err: stderr,
     };
-    match commands::dispatch(action, cwd, &mut ctx) {
+    let result = commands::dispatch(action, cwd, &mut ctx);
+    ctx.cache.save();
+    match result {
         Ok(true) => ExitCode::SUCCESS,
         Ok(false) => ExitCode::from(1),
         Err(error) => {
