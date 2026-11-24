@@ -53,15 +53,53 @@ pub fn module_listed(fs: &dyn FileSystem, dir: &Path, entry: &str, is_dir: bool)
     }
 }
 
+/// Folders that only the files of one package search: a dependency's own `import_path`.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct PackageImports {
+    /// The package's folder; every file below it belongs to the package.
+    pub dir: PathBuf,
+    /// Searched for those files after their own `modules` folder and before the program's roots.
+    pub import_paths: Vec<PathBuf>,
+}
+
+impl PackageImports {
+    /// The `(package folder, folder)` pairs of `-package_import_dir` flags, one entry per
+    /// package with its folders in the order given.
+    pub fn grouped(pairs: &[(PathBuf, PathBuf)]) -> Vec<Self> {
+        let mut out: Vec<Self> = Vec::new();
+        for (package, dir) in pairs {
+            match out.iter_mut().find(|p| &p.dir == package) {
+                Some(found) => found.import_paths.push(dir.clone()),
+                None => out.push(Self {
+                    dir: package.clone(),
+                    import_paths: vec![dir.clone()],
+                }),
+            }
+        }
+        out
+    }
+}
+
 /// The folders an `#import "Name"` written in a file of `from_dir` searches, in order: the
-/// `modules` folder next to that file, then each of `import_paths` (a project's own folders,
-/// then `-import_dir` folders, then the standard library last; see `docs/compiler/project.md`).
-/// The same list serves every file: a file of the standard library resolves a name exactly as
-/// the module that loads it does, so a project's replacement for a library module is seen by
-/// all of the library or by none of it.
-pub fn search_roots(import_paths: &[PathBuf], from_dir: &Path) -> Vec<PathBuf> {
+/// `modules` folder next to that file, the `import_paths` of the innermost package holding the
+/// file, then each of the program's `import_paths` (a project's own folders, then `-import_dir`
+/// folders, then the standard library last; see `docs/compiler/project.md`).
+/// The program's list serves every file: a file of the standard library resolves a name exactly
+/// as the module that loads it does, so a project's replacement for a library module is seen by
+/// all of the library or by none of it. A package's own folders reach only its own files, so a
+/// dependency cannot replace a module for the rest of the program.
+pub fn search_roots(
+    import_paths: &[PathBuf],
+    packages: &[PackageImports],
+    from_dir: &Path,
+) -> Vec<PathBuf> {
+    let own = packages
+        .iter()
+        .filter(|p| from_dir.starts_with(&p.dir))
+        .max_by_key(|p| p.dir.components().count());
     let mut roots = Vec::with_capacity(import_paths.len() + 1);
     roots.push(from_dir.join("modules"));
+    roots.extend(own.into_iter().flat_map(|p| p.import_paths.iter().cloned()));
     roots.extend(import_paths.iter().cloned());
     roots
 }
@@ -72,10 +110,11 @@ pub fn search_roots(import_paths: &[PathBuf], from_dir: &Path) -> Vec<PathBuf> {
 pub fn find_module_in(
     fs: &dyn FileSystem,
     import_paths: &[PathBuf],
+    packages: &[PackageImports],
     name: &str,
     from_dir: &Path,
 ) -> Option<PathBuf> {
-    let roots = search_roots(import_paths, from_dir);
+    let roots = search_roots(import_paths, packages, from_dir);
     if let Some(entry) = roots.iter().find_map(|dir| module_file_in(fs, dir, name)) {
         return Some(entry);
     }
@@ -92,11 +131,12 @@ pub fn find_module_in(
 pub fn import_entry(
     fs: &dyn FileSystem,
     import_paths: &[PathBuf],
+    packages: &[PackageImports],
     source: &ast::ImportSource,
     dir: &Path,
 ) -> Option<PathBuf> {
     match source {
-        ast::ImportSource::Module(name) => find_module_in(fs, import_paths, name, dir),
+        ast::ImportSource::Module(name) => find_module_in(fs, import_paths, packages, name, dir),
         ast::ImportSource::File(path) => Some(dir.join(&**path)),
         ast::ImportSource::Dir(path) => Some(crate::paths::module_entry(&dir.join(&**path))),
         ast::ImportSource::String(_) => None,
@@ -185,13 +225,13 @@ mod tests {
         ];
         for (name, from, expected) in table {
             assert_eq!(
-                find_module_in(&fs, &paths, name, Path::new(from)),
+                find_module_in(&fs, &paths, &[], name, Path::new(from)),
                 expected.map(PathBuf::from),
                 "`#import \"{name}\"` from {from}"
             );
         }
         assert_eq!(
-            search_roots(&paths, Path::new("/project/src")),
+            search_roots(&paths, &[], Path::new("/project/src")),
             [
                 PathBuf::from("/project/src/modules"),
                 PathBuf::from("/project/modules"),
@@ -199,5 +239,54 @@ mod tests {
                 PathBuf::from("/std"),
             ]
         );
+    }
+
+    /// A package's own folders come after its `modules` folder and before the program's, and
+    /// only its own files see them.
+    #[test]
+    fn a_packages_folders_reach_only_its_own_files() {
+        let mut fs = VirtualFs::default();
+        for file in [
+            "/p/modules/Basic/module.jai",
+            "/p/modules/dep/module.jai",
+            "/p/modules/dep/vendor/Basic/module.jai",
+            "/p/modules/dep/vendor/Extra/module.jai",
+            "/p/modules/dep/src/modules/Near.jai",
+            "/p/modules/other/module.jai",
+        ] {
+            fs.insert(file, b"".to_vec());
+        }
+        let paths = [PathBuf::from("/p/modules")];
+        let packages = [PackageImports {
+            dir: "/p/modules/dep".into(),
+            import_paths: vec!["/p/modules/dep/vendor".into()],
+        }];
+        let find =
+            |name: &str, from: &str| find_module_in(&fs, &paths, &packages, name, Path::new(from));
+        // The package's own `Basic` is seen from the package, and from nowhere else.
+        assert_eq!(
+            find("Basic", "/p/modules/dep/src"),
+            Some("/p/modules/dep/vendor/Basic/module.jai".into())
+        );
+        assert_eq!(
+            find("Basic", "/p/modules/other"),
+            Some("/p/modules/Basic/module.jai".into())
+        );
+        assert_eq!(
+            find("Basic", "/p"),
+            Some("/p/modules/Basic/module.jai".into())
+        );
+        assert_eq!(find("Extra", "/p/modules/other"), None);
+        assert_eq!(
+            find("Extra", "/p/modules/dep"),
+            Some("/p/modules/dep/vendor/Extra/module.jai".into())
+        );
+        // The file's own `modules` folder still goes first.
+        assert_eq!(
+            find("Near", "/p/modules/dep/src"),
+            Some("/p/modules/dep/src/modules/Near.jai".into())
+        );
+        // A sibling folder with the package's prefix is not inside it.
+        assert_eq!(find("Extra", "/p/modules/dependency"), None);
     }
 }

@@ -49,6 +49,8 @@ pub enum Shared {
     /// An LLVM target triple, which overrides the OS and CPU.
     Triple(String),
     ImportDir(PathBuf),
+    /// A folder only the files of one package search: `(package folder, folder)`.
+    PackageImportDir(PathBuf, PathBuf),
     /// Source added to the program's scope.
     Add(String),
     /// Programs (or tests) handled at once.
@@ -140,6 +142,22 @@ pub const IMPORT_DIR: SharedFlag = SharedFlag {
     parse: |_, dir| Ok(Shared::ImportDir(PathBuf::from(dir))),
 };
 
+/// `-package_import_dir`: a folder searched for modules by the files of one package only.
+pub const PACKAGE_IMPORT_DIR: SharedFlag = SharedFlag {
+    names: &["-package_import_dir"],
+    what: "a package folder and a directory, as <package>=<dir>",
+    synopsis: "-package_import_dir <package>=<dir>",
+    help: "also look for modules in <dir>, for the files under <package> only (repeatable)",
+    parse: |name, value| match value.split_once('=') {
+        Some((package, dir)) if !package.is_empty() && !dir.is_empty() => Ok(
+            Shared::PackageImportDir(PathBuf::from(package), PathBuf::from(dir)),
+        ),
+        _ => Err(FlagError::new(format!(
+            "`{name}` needs <package>=<dir>, not `{value}`"
+        ))),
+    },
+};
+
 /// `-add`: source added to the program.
 pub const ADD: SharedFlag = SharedFlag {
     names: &["-add", "--add"],
@@ -179,11 +197,20 @@ pub const COLOR: SharedFlag = SharedFlag {
 };
 
 /// Every shared flag.
-pub const ALL: &[&SharedFlag] = &[&OS, &CPU, &TARGET, &IMPORT_DIR, &ADD, &JOBS, &COLOR];
+pub const ALL: &[&SharedFlag] = &[
+    &OS,
+    &CPU,
+    &TARGET,
+    &IMPORT_DIR,
+    &PACKAGE_IMPORT_DIR,
+    &ADD,
+    &JOBS,
+    &COLOR,
+];
 
 /// The flags that choose what is compiled and for which target: what a tool that compiles
 /// programs takes.
-pub const COMPILE: &[&SharedFlag] = &[&OS, &CPU, &TARGET, &IMPORT_DIR, &ADD];
+pub const COMPILE: &[&SharedFlag] = &[&OS, &CPU, &TARGET, &IMPORT_DIR, &PACKAGE_IMPORT_DIR, &ADD];
 
 /// The flag of `set` spelt `name`, together with the value after an `=` when it is written
 /// `name=value` (any shared flag takes one).
@@ -210,6 +237,8 @@ pub fn spellings<'a>(set: &'a [&'static SharedFlag]) -> impl Iterator<Item = &'s
 pub struct Common {
     pub target: Selection,
     pub imports: Vec<PathBuf>,
+    /// `-package_import_dir`: `(package folder, folder)`.
+    pub package_imports: Vec<(PathBuf, PathBuf)>,
     pub add: Vec<String>,
     pub jobs: Option<usize>,
     pub color: Option<ColorChoice>,
@@ -222,6 +251,7 @@ impl Common {
             Shared::Cpu(cpu) => self.target.cpu = Some(cpu),
             Shared::Triple(triple) => self.target.triple = Some(triple),
             Shared::ImportDir(dir) => self.imports.push(dir),
+            Shared::PackageImportDir(package, dir) => self.package_imports.push((package, dir)),
             Shared::Add(code) => self.add.push(code),
             Shared::Jobs(n) => self.jobs = Some(n),
             Shared::Color(choice) => self.color = Some(choice),

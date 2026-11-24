@@ -59,6 +59,7 @@ fn compile(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Expanded {
     let inputs = ProgramInputs {
         configured: Vec::new(),
         extra: import_dirs.to_vec(),
+        packages: Vec::new(),
         stdlib: stdlib.to_path_buf(),
     };
     let options = Options::for_program(&*fs, &entry, &inputs);

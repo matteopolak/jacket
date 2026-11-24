@@ -1,6 +1,6 @@
 # Plan: dependencies (`jacket dep`)
 
-Status: D1 (direct dependencies by tag and commit), D2 (versions), D3 (release-age policy) and D4 (`[package]`) are built. The rest is plan; each milestone updates this page and the docs it names when it lands.
+Status: D1 (direct dependencies by tag and commit), D2 (versions), D3 (release-age policy), D4 (`[package]`) and D5 (package-scoped import paths) are built. The rest is plan; each milestone updates this page and the docs it names when it lands.
 
 Jai projects share code as module folders under `modules/`, today mostly copied in by hand. `jacket dep` manages them as git submodules pinned in `jacket.toml`, with version ranges, version schemes and a release-age policy. The submodule's commit (its gitlink) is the lock, so there is no lockfile.
 
@@ -122,7 +122,7 @@ A tag can be pushed again to a different commit. `dep check` and `dep update` co
   2. P's own import paths;
   3. the program's roots (`<main_dir>/modules`, its import paths, the stdlib).
 
-  So a dependency can't replace `Basic` or any other module for the rest of the program.
+  So a dependency can't replace `Basic` or any other module for the rest of the program. `jacket build`, `check`, `run`, `test` and `lint` pass each dependency's folders as `-package_import_dir <dependency folder>=<folder>`; the language server doesn't apply them yet.
 - `[dependencies]` gives the package's requirements as ranges. Without dedupe, `dep list` prints a `<dep> needs <name> <range>: pinned at <tag>` line for each and says when the nested pin doesn't satisfy it.
 - `requires_jacket` is checked at `add` and `update`. A failing `add` removes the checkout; a failing `update` moves back to the old commit.
 - Everything else (`[target]`, `[lint]`, `[fmt]`, `[experimental]`, runners) belongs to whoever builds the program and is never read from a dependency.

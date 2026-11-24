@@ -23,7 +23,7 @@ impl Session {
         &self,
         uri: &DocumentUri,
         link: &Link,
-        paths: &OnceCell<Vec<PathBuf>>,
+        paths: &OnceCell<(Vec<PathBuf>, Vec<jaic::sema::PackageImports>)>,
     ) -> Option<DocumentUri> {
         let files = OpenFiles {
             session: self,
@@ -31,14 +31,14 @@ impl Session {
         let path = match &link.source {
             LinkSource::Load(path) => PathBuf::from(uri.load(path).ok()?.path()),
             LinkSource::Import(source) => {
-                let import_paths = paths.get_or_init(|| {
+                let (import_paths, packages) = paths.get_or_init(|| {
                     let root = PathBuf::from(self.root(uri).path());
                     self.options_for(&root)
-                        .map(|o| o.import_paths)
+                        .map(|o| (o.import_paths, o.package_imports))
                         .unwrap_or_default()
                 });
                 let dir = Path::new(uri.path()).parent()?;
-                jaic::sema::import_entry(&files, import_paths, source, dir)?
+                jaic::sema::import_entry(&files, import_paths, packages, source, dir)?
             }
         };
         if !files.is_file(&path) {

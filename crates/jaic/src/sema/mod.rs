@@ -127,7 +127,8 @@ pub use import_trace::{FailedAssert, ImportEdge, ImportTrace};
 pub use meta_state::MetaState;
 pub use module_rank::{ModuleRanking, Rank, count_importers};
 pub use modules::{
-    BootstrapModule, FileSystem, NativeFs, VirtualFs, content_stamp, find_module_in, import_entry,
+    BootstrapModule, FileSystem, NativeFs, PackageImports, VirtualFs, content_stamp,
+    find_module_in, import_entry,
 };
 pub use name_caches::NameCaches;
 pub use namespaces::Namespaces;
@@ -287,6 +288,9 @@ pub struct Options {
     pub layout: crate::layout::DataLayout,
     /// Directories searched by `#import "Name"`, in order.
     pub import_paths: Vec<PathBuf>,
+    /// Folders searched only by the files of one package, between their own `modules` folder
+    /// and `import_paths`.
+    pub package_imports: Vec<PackageImports>,
     /// Bootstrap entry loaded into every program (see `crate::PRELUDE_ENTRIES`).
     pub preload: Option<PathBuf>,
     /// Configured module root, independent of an explicitly selected prelude file.
@@ -432,6 +436,7 @@ impl Options {
             &inputs.extra,
             &inputs.stdlib,
         );
+        options.package_imports.clone_from(&inputs.packages);
         options.set_stdlib(fs, &inputs.stdlib);
         options
     }
@@ -440,6 +445,7 @@ impl Options {
     /// the caller already chose is kept.
     pub fn use_program(&mut self, fs: &dyn FileSystem, program: &crate::project::Program) {
         self.import_paths.clone_from(&program.import_dirs);
+        self.package_imports.clone_from(&program.packages);
         if self.preload.is_none() {
             self.set_stdlib(fs, &program.stdlib);
         }
@@ -459,6 +465,7 @@ impl Options {
             layout: host.layout,
             host,
             import_paths: Vec::new(),
+            package_imports: Vec::new(),
             preload: None,
             preload_stdlib: None,
             runtime_support: true,

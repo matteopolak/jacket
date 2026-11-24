@@ -211,6 +211,7 @@ impl Compiler {
                 let entry = import_entry(
                     &*self.src.fs,
                     &self.options.import_paths,
+                    &self.options.package_imports,
                     &import.source,
                     &dir,
                 )

@@ -162,6 +162,8 @@ pub struct Cli {
     pub mode: Mode,
     pub file: String,
     pub imports: Vec<PathBuf>,
+    /// `-package_import_dir`: `(package folder, folder)`.
+    pub package_imports: Vec<(PathBuf, PathBuf)>,
     /// `-exe`: the target workspace's `output_executable_name`. It may carry a directory and an
     /// extension.
     pub exe: Option<String>,
@@ -295,6 +297,7 @@ impl Cli {
             Shared::Cpu(cpu) => self.cpu = Some(cpu),
             Shared::Triple(triple) => self.target = Some(triple),
             Shared::ImportDir(dir) => self.imports.push(dir),
+            Shared::PackageImportDir(package, dir) => self.package_imports.push((package, dir)),
             Shared::Add(code) => self.added.push(Added::Code(code)),
             // 0 leaves the pool at one thread per core, as for no flag.
             Shared::Jobs(n) => self.tuning.threads = (n > 0).then_some(n),

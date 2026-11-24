@@ -12,9 +12,6 @@ use std::path::Path;
 pub struct Manifest {
     pub package: Package,
     pub dependencies: BTreeMap<String, Dependency>,
-    /// `[package] import_path`, else `[project] import_path`: the folders only this package's
-    /// files search.
-    pub import_path: Vec<String>,
 }
 
 /// The tables of `text` that a dependency may set. `None` when the text is not TOML.
@@ -28,27 +25,9 @@ pub fn read_text(text: &str) -> Option<Manifest> {
         .get("dependencies")
         .and_then(|v| v.clone().try_into().ok())
         .unwrap_or_default();
-    let project_paths: Vec<String> = table
-        .get("project")
-        .and_then(|p| p.get("import_path"))
-        .map(|v| match v {
-            toml::Value::String(one) => vec![one.clone()],
-            toml::Value::Array(many) => many
-                .iter()
-                .filter_map(|m| m.as_str().map(str::to_string))
-                .collect(),
-            _ => Vec::new(),
-        })
-        .unwrap_or_default();
-    let import_path = if package.import_path.0.is_empty() {
-        project_paths
-    } else {
-        package.import_path.0.clone()
-    };
     Some(Manifest {
         package,
         dependencies,
-        import_path,
     })
 }
 
@@ -112,15 +91,6 @@ pub fn import_name(module: &str, fallback: &str) -> String {
         .to_string()
 }
 
-/// The folder that must be searched for the module to be found by name: the module folder's
-/// parent. `None` for a module at the root, which sits where `modules/<name>` already is.
-pub fn module_parent(module: &str) -> Option<&str> {
-    module
-        .rsplit_once('/')
-        .map(|(parent, _)| parent)
-        .or_else(|| (!module.is_empty()).then_some(""))
-}
-
 /// Why this jacket cannot use a package, if it cannot.
 pub fn requires_jacket(package: &Package, jacket: &str) -> Result<(), String> {
     let Some(text) = &package.requires_jacket else {
@@ -168,11 +138,6 @@ mod tests {
             manifest.dependencies["utf8"].version.as_deref(),
             Some("^0.4")
         );
-        assert_eq!(manifest.import_path, ["vendor"]);
-        let own =
-            read_text("[package]\nimport_path = \"mine\"\n[project]\nimport_path = [\"vendor\"]\n")
-                .unwrap();
-        assert_eq!(own.import_path, ["mine"], "[package] import_path wins");
         assert!(read_text("[package\n").is_none());
         assert_eq!(read_text("").unwrap(), Manifest::default());
     }
@@ -232,11 +197,8 @@ mod tests {
     }
 
     #[test]
-    fn a_module_is_imported_by_its_folder_and_found_through_its_parent() {
+    fn a_module_is_imported_by_its_folders_name() {
         assert_eq!(import_name("src/My_Lib", "dep"), "My_Lib");
         assert_eq!(import_name("", "dep"), "dep");
-        assert_eq!(module_parent("src/My_Lib"), Some("src"));
-        assert_eq!(module_parent("My_Lib"), Some(""));
-        assert_eq!(module_parent(""), None);
     }
 }

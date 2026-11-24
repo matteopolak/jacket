@@ -242,6 +242,11 @@ fn enter_main_directory(cli: &mut Cli) -> Result<(PathBuf, PathBuf), ExitCode> {
     let path = jaic::canonicalize(&cli.file).unwrap_or_else(|_| PathBuf::from(&cli.file));
     let absolute = |p: &PathBuf| std::path::absolute(p).unwrap_or_else(|_| p.clone());
     cli.imports = cli.imports.iter().map(absolute).collect();
+    cli.package_imports = cli
+        .package_imports
+        .iter()
+        .map(|(package, dir)| (absolute(package), absolute(dir)))
+        .collect();
     cli.output_path = cli.output_path.as_ref().map(absolute);
     cli.sysroot = cli.sysroot.as_ref().map(absolute);
     cli.compiler_rt = cli.compiler_rt.as_ref().map(absolute);
@@ -272,6 +277,7 @@ fn enter_main_directory(cli: &mut Cli) -> Result<(PathBuf, PathBuf), ExitCode> {
 pub(super) fn compiler_options(cli: &Cli, stdlib: &Path, main: &Path) -> Result<Options, ExitCode> {
     let mut inputs = jaic::project::ProgramInputs::for_file(&NativeFs, main, stdlib);
     inputs.extra.clone_from(&cli.imports);
+    inputs.packages = jaic::sema::PackageImports::grouped(&cli.package_imports);
     let mut options = Options::for_program(&NativeFs, main, &inputs);
     if cli.no_dce {
         options.dead_code = DeadCode::None;
@@ -406,6 +412,7 @@ pub(super) fn disable_check_bindings(cli: &mut Cli, options: &jaic::sema::Option
         let entry = jaic::sema::find_module_in(
             &NativeFs,
             &options.import_paths,
+            &options.package_imports,
             &plugin.module,
             Path::new(""),
         )

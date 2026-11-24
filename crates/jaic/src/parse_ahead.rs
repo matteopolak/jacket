@@ -127,6 +127,7 @@ mod imp {
         /// `claim` waits here for a running file.
         done: Condvar,
         import_paths: Vec<PathBuf>,
+        package_imports: Vec<crate::sema::PackageImports>,
         preload: Option<PathBuf>,
         /// The canonical standard library root.
         stdlib: Option<PathBuf>,
@@ -171,6 +172,7 @@ mod imp {
                 work: Condvar::new(),
                 done: Condvar::new(),
                 import_paths: options.import_paths.clone(),
+                package_imports: options.package_imports.clone(),
                 preload: options.preload.clone(),
                 stdlib: options.stdlib_root().map(|root| NativeFs.canonical(root)),
                 os: options.os,
@@ -237,6 +239,7 @@ mod imp {
             work: Condvar::new(),
             done: Condvar::new(),
             import_paths: Vec::new(),
+            package_imports: Vec::new(),
             preload: None,
             stdlib: None,
             os: TargetOs::Linux,
@@ -352,9 +355,13 @@ mod imp {
                             {
                                 self.preload.clone()
                             }
-                            ast::ImportSource::Module(name) => {
-                                find_module_in(&NativeFs, &self.import_paths, name, dir)
-                            }
+                            ast::ImportSource::Module(name) => find_module_in(
+                                &NativeFs,
+                                &self.import_paths,
+                                &self.package_imports,
+                                name,
+                                dir,
+                            ),
                             ast::ImportSource::File(path) => Some(dir.join(&**path)),
                             ast::ImportSource::Dir(path) => {
                                 Some(crate::paths::module_entry(&dir.join(&**path)))

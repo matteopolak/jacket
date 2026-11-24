@@ -230,6 +230,7 @@ pub const OPTIONS: &[CliOption] = {
             "run the code at compile time, as a `#run` (repeatable)",
         ),
         CliOption::shared(&flags::IMPORT_DIR, Program),
+        CliOption::shared(&flags::PACKAGE_IMPORT_DIR, Program),
         CliOption::shared(&flags::OS, Program),
         CliOption::shared(&flags::CPU, Program),
         CliOption::shared(&flags::TARGET, Program),

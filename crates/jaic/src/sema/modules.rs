@@ -11,7 +11,8 @@ pub(super) use self::parameters::INFERRED_PARAM;
 pub(super) use self::declare::file_scope_for_eval;
 pub(super) use self::filesystem::module_listed;
 pub use self::filesystem::{
-    BootstrapModule, FileSystem, NativeFs, VirtualFs, content_stamp, find_module_in, import_entry,
+    BootstrapModule, FileSystem, NativeFs, PackageImports, VirtualFs, content_stamp,
+    find_module_in, import_entry,
 };
 pub(super) use self::loading::FileLoadState;
 pub use self::parameters::ParameterContract;

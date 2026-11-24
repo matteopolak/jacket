@@ -365,7 +365,13 @@ impl Compiler {
         {
             return Some(preload.clone());
         }
-        find_module_in(&*self.src.fs, &self.options.import_paths, name, from_dir)
+        find_module_in(
+            &*self.src.fs,
+            &self.options.import_paths,
+            &self.options.package_imports,
+            name,
+            from_dir,
+        )
     }
 
     /// Where the runtime's entry file is, on the import path.

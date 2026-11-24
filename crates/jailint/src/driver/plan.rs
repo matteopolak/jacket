@@ -89,6 +89,15 @@ fn expand(
 fn program_inputs(options: &Options, configs: &Configs, path: &Path) -> ProgramInputs {
     let mut inputs = ProgramInputs::for_file(&jaic::sema::NativeFs, path, &options.stdlib);
     inputs.configured.clone_from(&configs.at(path).import_dirs);
+    inputs.packages = configs
+        .at(path)
+        .package_imports
+        .iter()
+        .map(|(dir, paths)| jaic::sema::PackageImports {
+            dir: dir.clone(),
+            import_paths: paths.clone(),
+        })
+        .collect();
     inputs.extra.clone_from(&options.import_dirs);
     inputs
 }

@@ -24,10 +24,13 @@ The tools agree whenever one loader chain exists and differ only when several un
 | --- | --- | --- |
 | 0 | the bootstrap entry, only for the name `Preload` | `Options::preload` |
 | 1 | `modules/` next to the importing file | the file's folder |
-| 2 | `<main_dir>/modules` | `import_paths` |
-| 3 | `[project] import_path` folders | `jacket.toml` (passed as `-import_dir`) |
-| 4 | `-import_dir` / `-I` folders and tool additions | the command line |
-| 5 | the standard library | `set_stdlib` |
+| 2 | the importing file's package folders, if it is inside a dependency | `-package_import_dir`, from the dependency's `[package] import_path` |
+| 3 | `<main_dir>/modules` | `import_paths` |
+| 4 | `[project] import_path` folders | `jacket.toml` (passed as `-import_dir`) |
+| 5 | `-import_dir` / `-I` folders and tool additions | the command line |
+| 6 | the standard library | `set_stdlib` |
+
+Root 2 is only searched by files below a dependency's folder, and the innermost dependency counts. `-package_import_dir <package>=<folder>` adds a folder for the files under `<package>`; `jacket` passes one for each folder in a dependency's `[package] import_path` (else its `[project] import_path`; see [dependencies](../tools/dependencies.md)). A dependency can therefore find the modules it vendors, but it cannot replace `Basic` or any other module for the program or for another dependency. Paths are compared as spelled, so the package folder must be spelled the way the compiler reaches the dependency's files (under `<main_dir>/modules`, or the folder `jacket.toml` gives).
 
 If no root has `Preload`, the prelude is looked up in the same roots (`JAIC_PRELUDE` overrides). There are no special cases: no `Basic` rule, and a file's own location doesn't count.
 
@@ -37,7 +40,7 @@ So a project folder holding a module named like a library one (`Windows`, `Threa
 
 - Add a setting in `crates/jacket-config/src/schema.rs`.
 - Change root rules by adding a variant to `TieBreak` or `LoaderSearch`, and extend `linter_and_language_server_agree_on_the_same_tree` and `tie_breaks_differ_when_loaders_disagree`.
-- Change the search order in `search_roots`, extend `search_roots_in_order` (`sema/modules/filesystem.rs`), and `import_paths` for roots outside the compiler. Fixtures: `crates/jaic-cli/tests/module_r*`.
+- Change the search order in `search_roots`, extend `search_roots_in_order` and `a_packages_folders_reach_only_its_own_files` (`sema/modules/filesystem.rs`), and `import_paths` for roots outside the compiler. Fixtures: `crates/jaic-cli/tests/module_r*`.
 - A file system that keeps the loader graph between calls (the language server's `IndexFs`) overrides `ProjectFs::loader_graph`.
 
 ## Dependencies

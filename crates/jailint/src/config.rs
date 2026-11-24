@@ -149,6 +149,8 @@ pub struct Config {
     pub notes: Vec<String>,
     /// `[project] import_path` of the file the settings came from, as absolute folders.
     pub import_dirs: Vec<PathBuf>,
+    /// The folders each dependency's own files search: its package folder and `import_path`.
+    pub package_imports: Vec<(PathBuf, Vec<PathBuf>)>,
 }
 
 /// The settings of every file in a run: each file uses the nearest `jacket.toml` above it,
@@ -562,6 +564,13 @@ impl Config {
             .map_err(|e| format!("in `{}`, {e}", source.display()))?;
         config.source = Some(source);
         config.import_dirs = loaded.config.project.import_dirs(loaded.dir());
+        let roots = jacket_config::packages::dependency_roots(
+            &jacket_config::Disk,
+            loaded.dir(),
+            &loaded.config,
+        );
+        config.import_dirs.extend(roots.modules);
+        config.package_imports = roots.packages;
         config.notes = loaded.notes;
         Ok(config)
     }

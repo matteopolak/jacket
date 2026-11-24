@@ -5,7 +5,8 @@
 //!
 //! - no `.jai` file among the arguments: the project's entry file goes first (`[project] entry`,
 //!   else the first of `jacket_config::INFERRED_ENTRIES` that exists);
-//! - `[project] import_path` becomes `-import_dir`;
+//! - `[project] import_path` becomes `-import_dir`, with a dependency module below its repository root found through its parent folder, and each dependency's own `import_path`
+//!   becomes `-package_import_dir <dependency>=<folder>`;
 //! - `[experimental]` becomes `-parse_threads`, `-serial_parse` and `-codegen_units`, each only
 //!   when the arguments do not already carry that flag ([`project_flags`], which `jacket test`
 //!   uses too).
@@ -99,6 +100,29 @@ fn supplied(loaded: &Loaded) -> Vec<Supplied> {
             unless: None,
         })
         .collect();
+    // A module below its repository's root is found through its parent folder; a
+    // dependency's own import folders reach that dependency's files only.
+    let roots = jacket_config::packages::dependency_roots(
+        &jacket_config::Disk,
+        loaded.dir(),
+        &loaded.config,
+    );
+    for dir in roots.modules {
+        out.push(Supplied {
+            flag: "-import_dir",
+            value: Some(dir.to_string_lossy().into_owned()),
+            unless: None,
+        });
+    }
+    for (package, dirs) in roots.packages {
+        for dir in dirs {
+            out.push(Supplied {
+                flag: "-package_import_dir",
+                value: Some(format!("{}={}", package.display(), dir.display())),
+                unless: None,
+            });
+        }
+    }
     let experimental = &loaded.config.experimental;
     if let Some(n) = experimental.parse_threads {
         out.push(Supplied {

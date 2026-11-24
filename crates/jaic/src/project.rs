@@ -115,6 +115,8 @@ pub struct ProgramInputs {
     pub configured: Vec<PathBuf>,
     /// Folders added by the caller, searched after `configured`.
     pub extra: Vec<PathBuf>,
+    /// The folders each dependency's own files search, from its `[package] import_path`.
+    pub packages: Vec<crate::sema::PackageImports>,
     pub stdlib: PathBuf,
 }
 
@@ -127,6 +129,7 @@ impl ProgramInputs {
         Self {
             configured: Vec::new(),
             extra: Vec::new(),
+            packages: Vec::new(),
             stdlib: crate::enclosing_stdlib(fs, main, default_stdlib)
                 .unwrap_or_else(|| default_stdlib.to_path_buf()),
         }
@@ -138,6 +141,8 @@ impl ProgramInputs {
 pub struct Program {
     pub root: Root,
     pub import_dirs: Vec<PathBuf>,
+    /// The folders each package's own files search besides `import_dirs`.
+    pub packages: Vec<crate::sema::PackageImports>,
     /// The standard library it is compiled against.
     pub stdlib: PathBuf,
 }
@@ -176,6 +181,7 @@ pub fn program_for(root: Root, inputs: &ProgramInputs) -> Program {
     Program {
         root,
         import_dirs,
+        packages: inputs.packages.clone(),
         stdlib: inputs.stdlib.clone(),
     }
 }
@@ -1173,6 +1179,7 @@ mod import_path_tests {
         let inputs = ProgramInputs {
             configured: paths(&["/p/vendor"]),
             extra: paths(&["/e"]),
+            packages: Vec::new(),
             stdlib: "/std".into(),
         };
         let module = Root::Module {
