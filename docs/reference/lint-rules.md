@@ -5529,4 +5529,4 @@ main :: () {
 }
 ```
 
-Off by default. A note counts as read when compile-time code of the check loaded, copied or compared equal its text ([note readers](../compiler/note-readers.md)). Notes the compiler reads, the [declaration notes](../tools/jailint.md#declaration-notes) and `@jailint_allow` are not reported. Neither are notes in a check that did not finish or ran no compile-time code (untrusted).
+Off by default. A note counts as read when compile-time code of the check loaded, copied or compared equal its text ([note readers](../compiler/note-readers.md)). Notes the compiler reads, the [declaration notes](../tools/jailint.md#declaration-notes), the notes `jacket test` and the native library build read (`@test`, `@native`) and `@jailint_allow` are not reported. A note in a file several programs load counts as read when any of them read it. Neither are notes in a check that did not finish or ran no compile-time code (untrusted).
