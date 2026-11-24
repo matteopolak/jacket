@@ -2,8 +2,9 @@ name: Cache the native libraries
 description: >-
   Restores target/native-libs (tools/native/build_native_libs.py) for this runner; on main a new key is
   also saved when the job succeeds. tools/native/build_native_libs.py builds only the libraries missing there.
-  With `helpers`, the helper libraries tools/native/ci_native_deps.sh full builds are kept too, each with a
-  stamp of its inputs that the script checks before reusing it.
+  With `helpers`, the helper libraries tools/native/ci_native_deps.sh full builds are kept in a second entry
+  whose newest older version is restored when its key changed: each library has a stamp of its inputs that the
+  script checks before reusing it.
 inputs:
   variant:
     description: Tells apart jobs that build other platforms' libraries here (the MinGW cross-builds)
@@ -18,32 +19,43 @@ runs:
     # sources, compile flags), the local sources (every `local` folder of the manifest;
     # tools/native/test_native_libs_cache_key.py checks) and the scripts that build them. There are no
     # restore-keys: the build script only looks for missing libraries, so an older set would be
-    # reused as it is. The helper libraries are separate entries (`-helpers`) so a job that does not
-    # build them never saves an incomplete one; their stamps, not this key, decide whether each is
-    # reused, so the key only has to change when their inputs do.
+    # reused as it is.
     - id: key
       shell: bash
       run: |
-        key="native-libs-$RUNNER_OS-$RUNNER_ARCH-${{ inputs.variant }}-llvm$(PYTHONPATH=tools python3 tools/ci/pins.py get llvm)-${{ hashFiles('tools/native/native-libs.json', 'tools/native/**', '!tools/native/test_*.py', '!tools/native/windows_cross.py', '!tools/native/provided_libs.py', '!tools/native/package_native_libs.py', 'tools/native/build_native_libs.py', 'tools/bindings/sdl3_native.py', 'tools/repo_output.py', 'stdlib/internal/bindings/callback-context/**', 'stdlib/internal/audio/native/**', 'stdlib/internal/clipboard/native/**') }}"
-        if [ "${{ inputs.helpers }}" = true ]; then
-          key="$key-helpers-${{ hashFiles('tools/window_render/**', 'tools/native_bindings/**', 'tools/portable/**', 'tools/toolkit/**', 'stdlib/Clipboard/**', 'stdlib/GL/tests/native/**', 'stdlib/Unmapping_Allocator/tests/native/**', 'stdlib/Thread/tests/sdk-identity.c', 'stdlib/Bindings_Generator/tests/driven/sdk/**', 'stdlib/internal/**') }}"
-        fi
-        echo "key=$key" >> "$GITHUB_OUTPUT"
-        {
-          echo 'paths<<EOF'
-          echo target/native-libs
-          if [ "${{ inputs.helpers }}" = true ]; then
-            printf '%s\n' target/window-native target/production-bindings/native target/clipboard-native target/native-stamps
-          fi
-          echo EOF
-        } >> "$GITHUB_OUTPUT"
+        prefix="native-libs-$RUNNER_OS-$RUNNER_ARCH-${{ inputs.variant }}-llvm$(PYTHONPATH=tools python3 tools/ci/pins.py get llvm)"
+        echo "key=$prefix-${{ hashFiles('tools/native/native-libs.json', 'tools/native/**', '!tools/native/test_*.py', '!tools/native/windows_cross.py', '!tools/native/provided_libs.py', '!tools/native/package_native_libs.py', 'tools/native/build_native_libs.py', 'tools/bindings/sdl3_native.py', 'tools/repo_output.py', 'stdlib/internal/bindings/callback-context/**', 'stdlib/internal/audio/native/**', 'stdlib/internal/clipboard/native/**') }}" >> "$GITHUB_OUTPUT"
+        echo "helpers=helpers-$RUNNER_OS-$RUNNER_ARCH-llvm$(PYTHONPATH=tools python3 tools/ci/pins.py get llvm)" >> "$GITHUB_OUTPUT"
     - if: github.ref == 'refs/heads/main'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
-        path: ${{ steps.key.outputs.paths }}
+        path: target/native-libs
         key: ${{ steps.key.outputs.key }}
     - if: github.ref != 'refs/heads/main'
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
-        path: ${{ steps.key.outputs.paths }}
+        path: target/native-libs
         key: ${{ steps.key.outputs.key }}
+    # The helper libraries are entries of their own, so a job that does not build them never saves an
+    # incomplete one. Their stamps, not this key, decide whether each is reused (ci_native_deps.sh),
+    # so a changed input restores the newest entry and rebuilds only the helper it affects.
+    - if: inputs.helpers == 'true' && github.ref == 'refs/heads/main'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          target/window-native
+          target/production-bindings/native
+          target/clipboard-native
+          target/native-stamps
+        key: ${{ steps.key.outputs.helpers }}-${{ hashFiles('tools/window_render/**', 'tools/native_bindings/**', 'tools/portable/**', 'tools/toolkit/**', 'stdlib/Clipboard/**', 'stdlib/GL/tests/native/**', 'stdlib/Unmapping_Allocator/tests/native/**', 'stdlib/Thread/tests/sdk-identity.c', 'stdlib/Bindings_Generator/tests/driven/sdk/**', 'stdlib/internal/**') }}
+        restore-keys: ${{ steps.key.outputs.helpers }}-
+    - if: inputs.helpers == 'true' && github.ref != 'refs/heads/main'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          target/window-native
+          target/production-bindings/native
+          target/clipboard-native
+          target/native-stamps
+        key: ${{ steps.key.outputs.helpers }}-${{ hashFiles('tools/window_render/**', 'tools/native_bindings/**', 'tools/portable/**', 'tools/toolkit/**', 'stdlib/Clipboard/**', 'stdlib/GL/tests/native/**', 'stdlib/Unmapping_Allocator/tests/native/**', 'stdlib/Thread/tests/sdk-identity.c', 'stdlib/Bindings_Generator/tests/driven/sdk/**', 'stdlib/internal/**') }}
+        restore-keys: ${{ steps.key.outputs.helpers }}-

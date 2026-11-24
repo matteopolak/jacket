@@ -9,7 +9,7 @@ class CacheKey(unittest.TestCase):
     def test_every_local_folder_of_the_manifest_is_in_the_key(self):
         manifest = json.loads((ROOT / "tools/native/native-libs.json").read_text())
         action = (ROOT / ".github/actions/native-libs-cache/action.yml").read_text()
-        key = next(line for line in action.splitlines() if line.strip().startswith('key="native-libs-'))
+        key = next(line for line in action.splitlines() if line.strip().startswith('echo "key=$prefix-'))
         locals_ = {lib["local"] for lib in manifest["libraries"].values() if "local" in lib}
         self.assertTrue(locals_)
         for folder in sorted(locals_):
