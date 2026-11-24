@@ -1,41 +1,34 @@
-# Plan: toolchain discovery and `jacket toolchain`
+# Toolchain discovery and `jacket toolchain`
 
-Status: plan, being built milestone by milestone. Each milestone updates this page and the docs it names when it lands.
-
-Cross and bare-metal builds need tools beyond `jaic`: a linker for the target, the target's C library (a sysroot) for hosted targets, and the compiler builtins for freestanding ones. Today the user names some of these in environment variables (`JAIC_LINKER=arm-linux-gnueabihf-gcc`, `JAIC_COMPILER_RT`). This plan finds them from the host and the triple instead, with no configuration, and adds one command for the pieces no package manager provides.
+Cross and bare-metal builds need tools beyond `jaic`: a linker for the target, the target's C library (a sysroot) for hosted targets, and the compiler builtins for freestanding ones. Jacket finds them from the host and the triple, with no configuration. `jacket toolchain` shows what was found and fetches the pieces no package manager provides.
 
 ## Rules
 
-- **`jacket.toml` never names a machine's tools.** A project file says what the project is (`triple`, `board`, `runner`), never how one machine builds it: no linker, archiver, sysroot or builtins path. Anyone on any OS can build a project from its `jacket.toml`.
-- **The system's tools come first.** Jacket ships no linker. It uses the installed `cc`, `ld`, `ld.lld`, `link.exe` or a GNU cross driver.
-- **Builds never touch the network.** Anything that must be downloaded is fetched only by `jacket toolchain add`.
-- **Jacket never installs system packages, and never offers to.** A missing tool is an error whose note gives the command that fixes it.
-- **No silent fallbacks.** The lookup order below is fixed. Each step either finds the tool or ends in an error; it never switches to a different toolchain without saying so.
+- **`jacket.toml` never names a machine's tools.** It holds `triple`, `board`, `runner` (tool names with placeholders) and link settings written by meaning. Never a linker, archiver, sysroot or builtins path.
+- **The system's tools come first.** Jacket ships no linker. It uses the installed `cc`, `ld`, `ld.lld`, `lld-link`, `link.exe`, `wasm-ld` or a GNU cross driver.
+- **Builds never touch the network.** Only `jacket toolchain add` downloads. Every download is pinned, sha256-checked and written only to jacket's cache.
+- **Jacket never installs system packages.** A missing tool is an error whose `note:` gives the package-manager command for the detected OS, or the `jacket toolchain add` command.
+- **No silent fallbacks.** The order below is fixed. Each step finds the tool or ends in the error.
 
 ## Lookup order
 
-For each link, in this order:
-
-1. An override: the `-linker`, `-sysroot` or `-compiler_rt` flag, else `JAIC_LINKER`, `JAIC_SYSROOT` or `JAIC_COMPILER_RT`. These are for CI and scripts, and never come from `jacket.toml`.
-2. The system linker, if it handles the triple. Each candidate is asked, not judged by name: `ld.lld --version` and its targets, `cc -print-targets` or a dry run, `link.exe` through `vswhere`.
-3. Another installed tool that handles it: `clang --target=<triple>` with an `ld.lld` on `PATH`, or the GNU driver named for the triple (`arm-linux-gnueabihf-gcc`, `arm-none-eabi-gcc`, `avr-gcc`).
+1. An override: the `-linker`, `-sysroot` or `-compiler_rt` flag, else `JAIC_LINKER`, `JAIC_SYSROOT` or `JAIC_COMPILER_RT`. These are for CI and scripts, never for `jacket.toml`. A named path that does not exist is an error.
+2. The system tool that handles the triple. A candidate is asked (`ld.lld --version`, `cc -dumpmachine`), not judged by name.
+3. Another installed tool that handles it: `clang --target=<triple>` with an `ld.lld`, or the GNU driver for the triple (`arm-linux-gnueabihf-gcc`, `arm-none-eabi-gcc`, `avr-gcc`).
 4. The jacket cache, filled by `jacket toolchain add`.
 5. An error with a note.
 
 | Target | Linker | Libraries |
 | --- | --- | --- |
-| The host | macOS: Xcode `ld` (today's direct path); Linux: `cc`; Windows: `link.exe` | the system's |
-| Cross Linux | `ld.lld`, `clang --target`, or the GNU cross driver | the system sysroot (`/usr/<gnu-triple>`), else the cached one |
+| Host | macOS: `cc`; Linux: `cc`; Windows: `link.exe` | the system's |
+| Cross Linux | `cc --target=T --ld-path=<ld.lld>`, or the GNU cross driver | the system sysroot (`/usr/<gnu-triple>`), else the cached one |
 | Windows from macOS or Linux | `lld-link` or the MinGW driver | MinGW import libraries |
-| macOS from Linux or Windows | `ld.lld` | an installed Apple SDK only: it cannot be redistributed |
-| wasm32, wasm64 | `wasm-ld` | the WASI sysroot |
-| Bare metal and boards | `ld.lld` | builtins: `libgcc.a` from an installed GNU embedded toolchain, else cached compiler-rt; the board's linker script |
+| wasm32, wasm64 | `wasm-ld` | none |
+| Bare metal and boards | `ld.lld` | builtins, below; the board's linker script |
 
-Runners are found the same way: `qemu-*` on `PATH`, the Homebrew prefix, Debian's locations and `Program Files\qemu`; `wasmtime` or `node` for wasm; `avrdude`, `probe-rs` or `picotool` for flashing.
+Builtins for a freestanding target, in order: the override file; the LLVM install's `libclang_rt.builtins.a` for the triple; `libgcc.a` from an installed `arm-none-eabi-gcc` or `avr-gcc` (asked with `-print-libgcc-file-name`); the cached compiler-rt build. Thumb-1 (`thumbv6m`) has no backend and is reported as a missing linker.
 
 ## Error notes
-
-The note names the package for the package manager jacket detects (`brew`, `apt`, `dnf`, `pacman`, `winget`). With none detected, it names the package and its download page. When no package manager provides the piece, it gives the `jacket toolchain` command.
 
 ```
 error: no linker for thumbv7em-none-eabihf
@@ -45,74 +38,40 @@ error: no Linux C library for armv7-unknown-linux-gnueabihf
 note: run `jacket toolchain add armv7-unknown-linux-gnueabihf`
 ```
 
-| Need | macOS | Debian, Ubuntu | Fedora | Arch | Windows |
-| --- | --- | --- | --- | --- | --- |
-| `ld.lld`, `lld-link`, `wasm-ld` | `brew install lld` | `apt install lld` | `dnf install lld` | `pacman -S lld` | `winget install LLVM.LLVM` |
-| Cross Linux libc (armhf) | `jacket toolchain add` | `apt install gcc-arm-linux-gnueabihf` | `dnf install gcc-arm-linux-gnu` | `jacket toolchain add` | `jacket toolchain add` |
-| Windows import libraries | `brew install mingw-w64` | `apt install gcc-mingw-w64` | `dnf install mingw64-gcc` | `pacman -S mingw-w64-gcc` | MSVC, or `winget install MartinStorsjo.LLVM-MinGW.UCRT` |
-| Cortex-M builtins | `brew install --cask gcc-arm-embedded` | `apt install gcc-arm-none-eabi` | `dnf install arm-none-eabi-gcc-cs` | `pacman -S arm-none-eabi-gcc` | `winget install Arm.GnuArmEmbeddedToolchain` |
-| AVR builtins | `brew install avr-gcc` (tap) | `apt install gcc-avr avr-libc` | `dnf install avr-gcc` | `pacman -S avr-gcc` | Microchip's toolchain download |
-| QEMU | `brew install qemu` | `apt install qemu-user qemu-system-arm` | `dnf install qemu` | `pacman -S qemu-full` | `winget install SoftwareFreedomConservancy.QEMU` |
-
-The table lives in one place in the code, with a test that every target `jacket toolchain` lists has a row.
-
-## `jacket toolchain`
-
-Fetches what no package manager provides, into jacket's cache only (`%LOCALAPPDATA%\jacket\toolchains` on Windows, the user cache folder elsewhere). It never installs system packages.
-
-```sh
-jacket toolchain add armv7-unknown-linux-gnueabihf   # a pinned Debian sysroot, sha256-checked
-jacket toolchain add thumbv6m-none-eabi              # compiler-rt builtins, built with the installed clang
-jacket toolchain list                                # what the cache holds
-jacket toolchain remove armv7-unknown-linux-gnueabihf
-```
-
-- **Sysroots.** A pinned set of Debian `libc6-dev` packages for the architecture, unpacked to a sysroot. Needed for cross Linux from macOS and Windows; on Linux the distribution's cross packages come first.
-- **Builtins.** compiler-rt's source for the pinned LLVM tag is downloaded and its builtins are compiled for the triple with the installed `clang`, directly from the source list, without cmake, ninja, git or bash, so it works on Windows. The AVR core comes from the board, not a fixed `-mmcu`. This replaces `tools/embedded/build-compiler-rt.sh`, which CI then calls through the same code.
-- Every download is pinned and checked by sha256. An entry records its source, so `list` shows where each came from.
-
-### What it replaces
-
-Every place that finds a tool today folds into the one lookup. There were five separate `PATH` walkers (`jaic-native/src/linker.rs`, `wasm.rs`, `freestanding.rs`, `jaic/src/toolchain/discover.rs`, `test-support/src/toolchain.rs`) and six separate install hints.
-
-| Today | After |
-| --- | --- |
-| `jacket targets` | `jacket toolchain` with no subcommand: every target with its triple, board, linker, libraries and runner, found or missing; `jacket toolchain check NAME...` exits non-zero when something is missing |
-| `tools/embedded/build-compiler-rt.sh`, and `JAIC_COMPILER_RT` naming a folder of builds | `jacket toolchain add <triple>`; `JAIC_COMPILER_RT` stays as the one-file override |
-| `tools/dev/cross_link.sh` (a `JAIC_LINKER` that links inside the cross container) | the lookup order; the container stays only to run programs under qemu-user (`tools/dev/qemu_run.sh`) |
-| `JAIC_LLD`, `JAIC_WASM_LD` | removed; `-linker` / `JAIC_LINKER` is the one override for whichever linker the target uses |
-| `JAIC_SANITIZER_CC` | removed; the sanitizer driver is the build's own LLVM `clang`, else `clang` on `PATH`, else the error note |
-| `JAIC_CROSS_LIBS` (cross-built third-party libraries for MinGW) | removed; cross builds read the same native-library roots as host builds, from the folder named for the target (`windows-x64-mingw`) |
-| `JAIC_REQUIRE_TOOLCHAIN` in tests | removed; tests find tools through the same lookup, a missing one skips (fails under `CI`), and CI runs `jacket toolchain check` first so a missing tool names itself |
-| `jacket::target::installed` (a `PATH`-only check of the runner) | the lookup, which also searches Homebrew's prefix and `Program Files\qemu` |
-| The install hints in `linker_not_run`, `LLD_INSTALL`, `WASM_LD_INSTALL`, `compiler_rt_install`, the MinGW and MSVC messages, `test-support`'s `install_hint` | the one package table |
-| 32-bit and cross builds of the native libraries (`native-libs/<os>-<arch>`), built by hand | `jacket toolchain add <triple>` fetches the release's native libraries for that target, once releases publish them per target |
-
-Kept: `JAIC_LINKER` and `JAIC_AR` (overrides for CI and scripts), `JAIC_NATIVE_LIBS`, and `JAIC_CROSS_ARCH` for `tools/dev/qemu_run.sh`, which runs programs in a container and is not part of the lookup.
-
-`jacket upgrade` and `jacket version` stay: they are about jacket's own install, not a target's tools.
+The note names the package for the manager jacket detects (`brew`, `apt`, `dnf`, `pacman`, `winget`), or the package and its download page when none is detected. The table is `Need` in `crates/jaic-toolchain/src/package.rs`; a test checks that every row has text for every manager.
 
 ## Status lines
 
-Cross and bare-metal builds print where each tool came from, in the same bold, right-aligned style as `Compiling` and `Finished`. Host builds print them only with `-v`. An override is always shown and labelled. `-quiet` hides them; plain mode (CI, `NO_COLOR`) keeps them without colour.
+Cross and bare-metal builds print where each tool came from, in the bold right-aligned style of `Compiling` and `Finished`. Host builds print them only with `-v` (`-verbose` in jaic). An override is labelled. `-quiet` hides them.
 
 ```
-   Compiling hello (armv7-unknown-linux-gnueabihf)
-      Linker /opt/homebrew/bin/ld.lld 21.1.8
-     Sysroot ~/Library/Caches/jacket/toolchains/armv7-unknown-linux-gnueabihf (jacket toolchain)
-    Finished release in 1.84s
-     Running qemu-arm -L ~/Library/Caches/jacket/toolchains/armv7-unknown-linux-gnueabihf ./hello
-
    Compiling blink (thumbv7em-none-eabihf, board Mps2_An386)
       Linker /usr/bin/ld.lld 19.1.7
-    Builtins libgcc.a from arm-none-eabi-gcc 14.2
-      Script board Mps2_An386
+    Builtins ~/Library/Caches/jacket/toolchains/thumbv7em-none-eabihf/builtins/libclang_rt.builtins.a compiler-rt 21.1.8 (cached)
+      Script board.ld
     Finished debug in 0.92s
 ```
 
-`jacket toolchain add` shows a live `Building compiler-rt 21.1.8 for <triple> (112/158)` line while it builds, then `Builtins compiler-rt 21.1.8 (built in 14.2s)`. Later builds say `(cached)`. Home folders are shortened to `~` on screen only.
+Cross Linux links add a `Sysroot` line. Home folders are shortened to `~` on screen only.
 
-`jacket toolchain` uses the same lookup, so its listing and a build always agree.
+## `jacket toolchain`
+
+```sh
+jacket toolchain                                  # every target: linker, libraries, runner
+jacket toolchain check [TARGET...] [--tool NAME]  # exit 1 when anything is missing, with notes
+jacket toolchain add TARGET...                    # fetch a sysroot or build builtins into the cache
+jacket toolchain list                             # what the cache holds
+jacket toolchain remove TARGET... | --all
+```
+
+With no subcommand it lists the host, the project's `[target.NAME]` tables and the built-in boards. `check --tool node` checks a program on `PATH` (CI uses it for `node`, `qemu-*`).
+
+`add` takes a Linux triple or a freestanding one:
+
+- **Sysroot** (`armv7-unknown-linux-gnueabihf`, `aarch64-unknown-linux-gnu`, `i686-...`, `x86_64-...`, `s390x-...`): a pinned set of Debian bookworm packages (`libc6`, `libc6-dev`, `linux-libc-dev`, `libcrypt`, `libgcc`) unpacked into `<cache>/jacket/toolchains/<triple>/sysroot`.
+- **Builtins** (`aarch64-none-elf`, `thumbv7em-none-eabihf`, `thumbv8m.main-none-eabihf`, `avr-none-elf`): compiler-rt's pinned source, compiled file by file with the installed `clang` and archived with `llvm-ar`. No cmake, ninja, git or bash, so it works on Windows. A second `add` says `(cached)`; a build made from an older source list is rebuilt.
+
+`XDG_CACHE_HOME` moves the cache. `remove` deletes only entries `add` made.
 
 ## `jacket.toml`
 
@@ -120,34 +79,46 @@ Cross and bare-metal builds print where each tool came from, in the same bold, r
 [target.pi]
 triple = "armv7-unknown-linux-gnueabihf"
 runner = "qemu-arm -L {sysroot} {exe}"
+stack_size = 8192
+entry = "main"
+gc_sections = true
 ```
 
-- **Allowed:** `triple`, `board`, and `runner` as tool names with `{exe}`, `{args}` and `{sysroot}`, which jacket fills in.
-- **Link settings** are written by meaning (`gc_sections`, `stack_size`, `entry`), not as linker flags, because `-Wl,...` works only through a C driver. Raw arguments, if still needed, use `ld.lld`'s spelling and are translated for the linker in use.
-- **Flashing** takes the port from `--port` or `JACKET_PORT`, never from the project file.
+- `runner` words may use `{exe}`, `{args}` and `{sysroot}`. `{sysroot}` is the system's cross sysroot, else the cached one; none found is an error with the `add` note. It is looked up only when running.
+- `stack_size`, `entry` and `gc_sections` are written by meaning. jaic renders them for the linker it uses:
 
-## Design
+| Meaning | `ld.lld` | MSVC / lld-link | Apple `ld` | GNU driver |
+| --- | --- | --- | --- | --- |
+| `gc_sections` | `--gc-sections` | `/OPT:REF` | `-Wl,-dead_strip` | `-Wl,--gc-sections` |
+| `entry = S` | `--entry=S` | `/ENTRY:S` | `-Wl,-e,S` | `-Wl,--entry=S` |
+| `stack_size = N` | `-z stack-size=N` | `/STACK:N` | `-Wl,-stack_size,0xN` | `-Wl,-z,stack-size=N` (MinGW: `-Wl,--stack,N`) |
 
-One new crate, `jaic-toolchain`, depends on `jaic` (for `Target`) and `jacket-config`. `jaic-native` uses it to link, `jacket` uses it to list, check and fill the cache, and `test-support` uses it to find tools. It reads the machine through a `Host` value (the OS, `PATH`, environment, file checks, and a probe that runs a tool and returns its output). The real `Host` uses the process; tests build one from a table, so package-manager detection, probing and every error note are tested without the real tools.
+- Raw linker arguments (`-link_arg`, `additional_linker_arguments`) use `ld.lld`'s spelling and go through the same translation.
+- Flashing takes the port from `--port` or `JACKET_PORT`, never from the file.
 
-- `which`: the one `PATH` search (`PATHEXT`, `.exe`, versioned names such as `ld.lld-23`, Homebrew kegs, Debian's `/usr/lib/llvm-N/bin`, `Program Files\LLVM`).
-- `PackageManager::detect(host)`: `brew`, `apt`, `dnf`, `pacman` or `winget`, from the OS and the tools on `PATH`.
-- `Need`: one variant per piece (`Lld`, `WasmLd`, `CrossLinuxLibc(arch)`, `MingwImportLibs`, `ArmEmbedded`, `Avr`, `Qemu(kind)`, `Wasmtime`, ...) with its `install(manager)` text. A test checks that every target `jacket toolchain` lists has a row.
-- `find_linker(host, target)`, `find_sysroot`, `find_builtins`, `find_runner`: each returns `Found { path, version, origin }` or `Missing { need }`, and the origin is what the status line prints.
+## How to change it
 
-A tool is asked, not judged by its name: `ld.lld --version`, `cc -dumpmachine`, `clang --version`.
+- Lookup and notes: `crates/jaic-toolchain/src/` (`lookup.rs` finds programs, `linker.rs` linkers and sysroots, `builtins.rs` builtins, `package.rs` the notes, `pins.rs` the pins). It reads the machine through the `Host` trait, so tests build a `FakeHost` instead of needing real tools.
+- Pins: `crates/jaic-toolchain/data/sysroots.txt` and `compiler-rt.txt` are generated. Rewrite them with `PYTHONPATH=tools python3 tools/embedded/pin_sysroots.py` or `pin_compiler_rt.py`; `--check` fails when they are stale.
+- Status lines: `crates/jaic/src/progress.rs`; callers in `crates/jaic-native/src/`.
+- `add`, `list`, `remove`: `crates/jacket/src/toolchain/`.
+- Link-setting translation: `crates/jaic-native/src/link_options.rs`.
+- Tests that need a tool call `test_support::toolchain::buildable(triple)`: it skips with the note when the tool is missing, and fails under `CI`.
 
-## Milestones
+## Configuration
 
-1. **T1, lookup and notes.** The `jaic-toolchain` crate, the package table and error notes, the lookup for cross Linux, MinGW, wasm and freestanding links, `-linker`/`-sysroot`/`-compiler_rt` and their variables, and `jacket toolchain` (replacing `jacket targets`). Removes `JAIC_LLD`, `JAIC_WASM_LD`, `JAIC_SANITIZER_CC`, `JAIC_CROSS_LIBS`, `JAIC_REQUIRE_TOOLCHAIN` and `cross_link.sh`.
-2. **T2, status lines.** `Linker`, `Sysroot`, `Builtins` and `Script` lines in jaic's progress output (`crates/jaic/src/progress.rs`), shown for cross and bare-metal builds and with `-verbose` for host builds.
-3. **T3, system builtins.** Link `libgcc.a` from an installed GNU embedded toolchain for Cortex-M and AVR.
-4. **T4, `jacket toolchain add`.** Cached compiler-rt builds and Debian sysroots, `list` and `remove`; `build-compiler-rt.sh` goes away.
-5. **T5, `jacket.toml` link settings.** `stack_size`, `entry` and `gc_sections` under `[target.NAME]`, rendered per linker, raw `ld.lld` spellings translated, and `{sysroot}` in runners. `jacket.toml` has no machine-specific keys today; a test keeps it that way.
+| Name | Effect |
+| --- | --- |
+| `-linker`, `JAIC_LINKER` | the linker or driver to use |
+| `-sysroot`, `JAIC_SYSROOT` | the sysroot folder for a Linux target |
+| `-compiler_rt`, `JAIC_COMPILER_RT` | one builtins archive for a freestanding target |
+| `JAIC_AR` | the archiver |
+| `XDG_CACHE_HOME` | moves jacket's cache |
 
-## Files
+Removed: `JAIC_LLD`, `JAIC_WASM_LD`, `JAIC_SANITIZER_CC`, `JAIC_CROSS_LIBS`, `JAIC_REQUIRE_TOOLCHAIN`, the `cross_link.sh` and `build-compiler-rt.sh` scripts. `jacket targets` is now `jacket toolchain`.
 
-- Linker choice: `crates/jaic-native/src/` (`freestanding.rs`, `apple_ld.rs` and the hosted link driver).
-- Builtins lookup: `crates/jaic/src/toolchain/freestanding.rs`.
-- Targets and runners: `crates/jacket/src/target.rs`.
-- Related: [embedded and freestanding targets](embedded.md), [linking](native-linking.md), [targets](../compiler/targets.md), [N-bit and embedded plan](n-bit-and-embedded.md).
+## Dependencies
+
+`jaic-toolchain` depends on `jaic` (for `Target`). `jaic-native` links with it, `jacket` lists and fills the cache with it, and `test-support` finds tools with it. Downloads use `curl`; `.deb` files are read by a small `ar` parser, then unpacked with `tar`.
+
+Related: [embedded and freestanding targets](embedded.md), [linking](native-linking.md), [targets](../compiler/targets.md).

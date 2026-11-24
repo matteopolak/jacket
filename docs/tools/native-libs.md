@@ -14,7 +14,7 @@ Not shipped (the OS's or the user's to install): SDL2 on most platforms, libcurl
 ## How it works
 
 - `tools/native/native-libs.json` pins each source (a repository and revision with a sha256 per file, or an archive URL) and lists the licence files. A library is a C unit or a list of `units` with `include`, `defines` and `cflags`; extra fields cover support glue, repo-local files, `platforms`/`except` limits and `prebuilt` downloads.
-- Units compile once with `cc -O2 -fPIC` into `lib<name>.a` and `lib<name>.dylib`/`.so`. On Windows it uses clang with the static CRT and writes `<name>.lib` plus `<name>.dll`. MinGW cross builds produce static archives only, linked from `JAIC_CROSS_LIBS`.
+- Units compile once with `cc -O2 -fPIC` into `lib<name>.a` and `lib<name>.dylib`/`.so`. On Windows it uses clang with the static CRT and writes `<name>.lib` plus `<name>.dll`. MinGW cross builds produce static archives only; `jaic` finds them in `native-libs/windows-<cpu>-mingw/`.
 - The interpreter loads `<dir>/lib<name>.<dylib|so>` before the system search. The linker links `<dir>/lib<name>.a` by path, so executables are self-contained.
 - C++ libraries (meshoptimizer, ImGui) build without exceptions, RTTI or the C++ runtime. `check_no_cxx_runtime` fails the build if an object needs it.
 - mbedTLS is one library (crypto, X.509, TLS) with our config and glue in `tools/native/mbedtls/`. SDL3 is built by CMake. SDL2 on Windows x64 is the official release.
@@ -53,7 +53,7 @@ The Windows crash provider (`tools/stdlib/build_platform_io_runtime.py`) writes 
 
 ## Configuration
 
-`JAIC_NATIVE_LIBS` replaces the default directory. `JAIC_CROSS_LIBS` lists MinGW directories for cross builds.
+`JAIC_NATIVE_LIBS` replaces the default directory.
 
 ## Dependencies
 

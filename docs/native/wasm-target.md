@@ -67,8 +67,7 @@ Debug info keeps lines and scopes for rewritten procedures but drops their varia
 | `-os wasm` | `wasm64-unknown-wasi`, Wasi_Runtime added |
 | `-target wasm64-unknown-unknown` | no runtime |
 | `-no_debug_info` | `--strip-debug` |
-| `JAIC_WASM_LD` | path of `wasm-ld`; else the LLVM install's `bin/` ([LLVM setup](../tools/llvm-setup.md#where-jaic-finds-llvm)), Homebrew `lld`, then `PATH` |
-| `JAIC_REQUIRE_TOOLCHAIN=node,wasm-ld` | wasm tests fail instead of skipping (CI sets it) |
+| `JAIC_LINKER`, `-linker` | path of `wasm-ld`; else the LLVM install's `bin/` ([LLVM setup](../tools/llvm-setup.md#where-jaic-finds-llvm)), Homebrew `lld`, then `PATH` |
 
 Install LLD with `brew install lld` or Debian's `lld-23`. Runtimes need Memory64: Node.js 24, Chrome/Edge 133, Firefox 134, Deno 2.2, Wasmtime 30, Safari Technology Preview 251 or later.
 

@@ -2,7 +2,21 @@
 
 ## [Unreleased]
 
+Cross and bare-metal builds find their tools without configuration, and `jacket toolchain` checks and fills them in.
+
+### Highlights
+
 - New allocators for `context.allocator` in `Extensions`: `Mimalloc` (macOS and Linux), `Tlsf`, `Frame_Arena` (with a double-frame pair) and `Stack_Allocator` ([docs](docs/extensions/tlsf.md)).
+- Cross and bare-metal builds find their linker, sysroot and builtins on their own and print where each came from.
+- `jacket toolchain add` fetches a pinned Linux sysroot or builds compiler-rt builtins; it is the only command that downloads.
+- `jacket.toml` targets take `stack_size`, `entry` and `gc_sections`; runners can use `{sysroot}`.
+- Cortex-M and AVR builds link `libgcc.a` from an installed GNU embedded toolchain.
+
+### Breaking changes
+
+- `jacket targets` is now `jacket toolchain`, which also checks that each target's tools are installed.
+- Removed `JAIC_LLD`, `JAIC_WASM_LD`, `JAIC_SANITIZER_CC`, `JAIC_CROSS_LIBS` and `JAIC_REQUIRE_TOOLCHAIN`; use `-linker`.
+- `tools/embedded/build-compiler-rt.sh` is gone: run `jacket toolchain add TRIPLE`.
 
 ## [0.39.0] - 2026-11-24
 

@@ -112,4 +112,4 @@ reset :: () #c_call #no_context { Board.start(main); }
 
 ## Dependencies
 
-`ld.lld` and, for builtins such as 64-bit division, compiler-rt for the target (see [embedded and freestanding targets](../native/embedded.md); `tools/embedded/build-compiler-rt.sh` builds it). The tests also need `clang`, `qemu-system-aarch64` and `qemu-system-arm`.
+`ld.lld` and, for builtins such as 64-bit division, compiler-rt for the target (see [embedded and freestanding targets](../native/embedded.md); `jacket toolchain add` builds it). The tests also need `clang`, `qemu-system-aarch64` and `qemu-system-arm`.

@@ -37,7 +37,7 @@ env:
   # tools/ holds the folders the Python scripts import from (`from toolkit.repo import ROOT`).
   PYTHONPATH: ${{ github.workspace }}/tools
   # GitHub refuses anonymous downloads from shared runners at times (a 403 on an archive URL), so
-  # tools/toolkit/download.py and build-compiler-rt.sh authenticate to GitHub with the job's
+  # tools/toolkit/download.py authenticates to GitHub with the job's
   # read-only token. The corpus sandbox (tools/bench/sandbox.py) leaves it out.
   GITHUB_TOKEN: ${{ github.token }}
   # No wall-clock limit on jailint and jailsp checks: shared runners are too slow and uneven for
@@ -281,44 +281,39 @@ jobs:
     timeout-minutes: ${{ matrix.timeout || 45 }}
     env:
       CARGO_INCREMENTAL: '0'
-      # The wasm target tests fail, rather than skip, without node or wasm-ld. On Linux the
-      # freestanding tests (docs/native/embedded.md) also need QEMU to run their programs.
-      JAIC_REQUIRE_TOOLCHAIN: node,wasm-ld${{ matrix.runner == 'ubuntu-24.04' && ',qemu-system-aarch64,qemu-system-arm,qemu-system-avr,avr-backend,compiler-rt' || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: {persist-credentials: false}
+      # `jacket toolchain add` writes its builds here; the cache step below saves them.
+      - run: echo "XDG_CACHE_HOME=$RUNNER_TEMP/cache" >> "$GITHUB_ENV"
       - uses: ./.github/actions/setup-unix
         with:
           leg: ${{ strategy.job-index }}
           lld: 'true'
           font: 'false'
-          # QEMU for the freestanding tests (qemu-system-misc has the AVR one), and what the
-          # compiler-rt build below needs beyond the native libraries' clang and cmake.
-          apt-packages: ${{ matrix.runner == 'ubuntu-24.04' && (contains(matrix.parts, ',rust,') || contains(matrix.parts, ',targets,')) && 'qemu-system-arm qemu-system-misc llvm ninja-build' || '' }}
-      # The archives depend only on the script (its pinned LLVM tag and configuration) and the
-      # host, so a cache hit skips the llvm-project clone and the builds.
+          # QEMU for the freestanding tests (qemu-system-misc has the AVR one), and llvm-ar for
+          # the compiler-rt build below.
+          apt-packages: ${{ matrix.runner == 'ubuntu-24.04' && (contains(matrix.parts, ',rust,') || contains(matrix.parts, ',targets,')) && 'qemu-system-arm qemu-system-misc llvm' || '' }}
+      # The builds depend only on the pinned source list and the host, so a cache hit skips the
+      # download and the compile.
       - if: ${{ (matrix.runner == 'ubuntu-24.04' && (contains(matrix.parts, ',rust,') || contains(matrix.parts, ',targets,'))) || startsWith(matrix.runner, 'macos') }}
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ${{ runner.temp }}/compiler-rt/*/libclang_rt.builtins.a
-          key: compiler-rt-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tools/embedded/build-compiler-rt.sh') }}
+          path: ${{ runner.temp }}/cache/jacket
+          key: toolchain-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('crates/jaic-toolchain/data/*.txt') }}
       - name: Build compiler-rt for the Cortex-M and AVR boards
         # The builtins a board program links (64-bit division, double-precision floats); the
-        # board tests below and the `board_tests` suite find them through JAIC_COMPILER_RT. macOS
-        # has no QEMU for the boards, but the AVR image size test still links the Uno program. Only
-        # the legs that run the Rust tests or the board tests need them.
+        # compiler finds them in the cache. macOS has no QEMU for the boards, but the AVR image
+        # size test still links the Uno program. Only the legs that run the Rust tests or the
+        # board tests need them.
         if: ${{ (matrix.runner == 'ubuntu-24.04' && (contains(matrix.parts, ',rust,') || contains(matrix.parts, ',targets,'))) || startsWith(matrix.runner, 'macos') }}
-        run: |
-          out="$RUNNER_TEMP/compiler-rt"
-          for triple in thumbv7em-none-eabihf thumbv8m.main-none-eabihf avr-none-elf; do
-            [ -f "$out/$triple/libclang_rt.builtins.a" ] && continue
-            if [ "$RUNNER_OS" != Linux ]; then
-              command -v ninja >/dev/null || brew install ninja
-            fi
-            tools/embedded/build-compiler-rt.sh "$triple" "$out"
-          done
-          echo "JAIC_COMPILER_RT=$out" >> "$GITHUB_ENV"
+        run: cargo run --locked -q -p jacket -- toolchain add thumbv7em-none-eabihf thumbv8m.main-none-eabihf avr-none-elf
+      # Names every missing tool with its install command, before a test skips or fails on it.
+      - name: Check the tools the target tests use
+        run: >
+          cargo run --locked -q -p jacket -- toolchain check
+          --tool node
+          ${{ matrix.runner == 'ubuntu-24.04' && '--tool qemu-system-aarch64 --tool qemu-system-arm --tool qemu-system-avr' || '' }}
       # The format and lint steps below run the Justfile's recipes (docs/tools/development.md).
       - uses: ./.github/actions/install-tool
         with: {tool: just}
@@ -584,7 +579,6 @@ jobs:
           sudo apt-get install -y --no-install-recommends qemu-user gcc-s390x-linux-gnu libc6-dev-s390x-cross
           cargo build --locked -p jaic-cli -p jacket
           cd stdlib
-          export JAIC_LINKER=s390x-linux-gnu-gcc
           grep -v '^#' ../tools/dev/s390x-roots.txt | while read -r root; do
             (cd "$root" && "$GITHUB_WORKSPACE/target/debug/jacket" test --runner "qemu-s390x -L /usr/s390x-linux-gnu" -- -target s390x-unknown-linux-gnu) || exit 1
           done
@@ -598,7 +592,6 @@ jobs:
           sudo apt-get install -y --no-install-recommends qemu-user gcc-arm-linux-gnueabihf libc6-dev-armhf-cross
           cargo build --locked -p jaic-cli -p jacket
           cd stdlib
-          export JAIC_LINKER=arm-linux-gnueabihf-gcc
           grep -v '^#' ../tools/dev/armv7-roots.txt | while read -r root; do
             (cd "$root" && "$GITHUB_WORKSPACE/target/debug/jacket" test --runner "qemu-arm -L /usr/arm-linux-gnueabihf" -- -target armv7-unknown-linux-gnueabihf) || exit 1
           done
@@ -612,7 +605,6 @@ jobs:
           sudo apt-get install -y --no-install-recommends qemu-user gcc-powerpc64-linux-gnu libc6-dev-ppc64-cross
           cargo build --locked -p jaic-cli -p jacket
           cd stdlib
-          export JAIC_LINKER=powerpc64-linux-gnu-gcc
           grep -v '^#' ../tools/dev/powerpc64-roots.txt | while read -r root; do
             (cd "$root" && "$GITHUB_WORKSPACE/target/debug/jacket" test --runner "qemu-ppc64 -L /usr/powerpc64-linux-gnu" -- -target powerpc64-unknown-linux-gnu) || exit 1
           done

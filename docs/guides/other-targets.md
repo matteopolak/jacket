@@ -71,11 +71,10 @@ You need:
 
 - `ld.lld` (Homebrew `lld`, or Debian `lld`).
 - QEMU (`qemu-system-arm` for the Cortex-M boards).
-- The compiler-rt builtins for the chip, which cover things like 64-bit division and `float64` math on a 32-bit core. `tools/embedded/build-compiler-rt.sh` builds them in a minute or two, and prints the `JAIC_COMPILER_RT=` line to set. It needs LLVM's `clang` and `llvm-ar` (`brew install llvm`, or `apt install clang llvm`), `cmake` and `ninja`.
+- The compiler-rt builtins for the chip, which cover things like 64-bit division and `float64` math on a 32-bit core. A GNU embedded toolchain's `libgcc.a` (`arm-none-eabi-gcc`) is used when installed. Otherwise `jacket toolchain add` compiles them in a minute or two with LLVM's `clang` and `llvm-ar` (`brew install llvm`, or `apt install clang llvm`).
 
 ```sh
-tools/embedded/build-compiler-rt.sh thumbv7em-none-eabihf
-export JAIC_COMPILER_RT=$PWD/target/compiler-rt
+jacket toolchain add thumbv7em-none-eabihf
 ```
 
 Then the program:
@@ -109,7 +108,7 @@ triple = "thumbv6m-none-eabi"
 runner = "flash {exe}"     # whatever puts the program on your board
 ```
 
-`jacket targets` lists every name `--target` accepts, and whether its runner is installed.
+`jacket toolchain` lists every name `--target` accepts with the linker, libraries and runner it needs, and whether this machine has them.
 
 ## Tests on the target
 
@@ -139,4 +138,4 @@ On a board, only unit tests run, and everything they import has to build without
 - [Embedded and freestanding targets](../native/embedded.md): how linking works with no OS, and every setting.
 - [WebAssembly](../native/wasm-target.md): imports, exports and running in a browser.
 - [Targets](../compiler/targets.md): the exact layout and calling convention of each target.
-- [Tests on a board](../tools/jacket-test.md#tests-on-a-board) and [jacket targets](../tools/jacket.md#targets).
+- [Tests on a board](../tools/jacket-test.md#tests-on-a-board) and [jacket toolchain](../tools/jacket.md#targets).

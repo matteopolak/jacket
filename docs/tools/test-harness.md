@@ -18,7 +18,7 @@
 
 `jaic` and `jaic-llvm` dev-depend on `test-support`, which depends on them only behind features. A test inside a crate's `src/` sees a different build of that crate and may use only the feature-less modules.
 
-`require(name)` fails the test on CI (or when `JAIC_REQUIRE_TOOLCHAIN` names the tool); otherwise the test skips with a note. `optional(name)` skips unless the variable names it.
+`require(name)` fails the test on CI (`CI` is set); otherwise the test skips with a note. `optional(name)` always skips. `buildable(triple)` asks whether `jaic` can link for a target here, through the lookup `jaic` runs, and prints the note that says how to get what is missing.
 
 ## Snapshots
 
@@ -39,7 +39,6 @@
 | Variable | Effect |
 | --- | --- |
 | `INSTA_UPDATE` | `always` rewrites snapshots; `no` (CI default) only compares. |
-| `JAIC_REQUIRE_TOOLCHAIN` | `1` or a list like `node,wasm-ld`: missing tools fail instead of skipping. |
 | `JAIC_ABI_CROSS` | `;`-separated `os-cpu[:clang args]` targets whose C headers the stdlib's C layouts are checked against. |
 | `JAIC_TEST_TMPDIR` | Where `TempDir` creates directories. |
 | `JAIC_KEEP_TEST_TMP` | Keep scratch directories. |

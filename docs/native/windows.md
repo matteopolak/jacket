@@ -45,7 +45,7 @@ GCC's MinGW-w64 only targets x64. For arm64 use [llvm-mingw](https://github.com/
 - On arm64 Windows, `#cpp_return_type_is_non_pod` results use x0 for the hidden pointer.
 - With MSVC, a `#cpp_method` struct result goes through a hidden pointer after `this` (x64 `rdx`, arm64 `x1`), whatever its size ([C ABI](c-abi.md#c-methods)).
 - Debug info: MinGW gets DWARF; MSVC gets CodeView and a `.pdb` next to the output (`pdb_args`).
-- Third-party libraries: `tools/native/build_native_libs.py` builds them into `target/native-libs/windows-<cpu>/`; MinGW cross builds use static archives found through `JAIC_CROSS_LIBS` ([native libraries](../tools/native-libs.md)). The [Windows probe](../tools/windows-probe.md) reproduces a report on a real runner.
+- Third-party libraries: `tools/native/build_native_libs.py` builds them into `target/native-libs/windows-<cpu>/`; MinGW cross builds link the static archives in `target/native-libs/windows-<cpu>-mingw/` ([native libraries](../tools/native-libs.md)). The [Windows probe](../tools/windows-probe.md) reproduces a report on a real runner.
 
 ## Configuration
 

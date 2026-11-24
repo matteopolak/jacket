@@ -31,11 +31,11 @@ What `jacket` adds is the project:
 
 ## Commands
 
-`build`, `check`, `run`, `lint`, `fmt` and `lsp` front the tool of the same name. `test`, `bench`, `doc` and `migrate` are [jacket test](jacket-test.md), [jacket bench](jacket-bench.md), [jacket doc](jacket-doc.md) and [jacket migrate](jacket-migrate.md). `new`, `init`, `config`, `targets`, `clean`, `explain`, `version` and `upgrade` are `jacket`'s own and use `--long` flags. `jacket jaic|jailint|jailsp|jaifmt <args>` runs that tool verbatim, and any other command runs `jacket-<command>` from `PATH`, as cargo does. Every flag is in the [tools reference](../reference/tools.md).
+`build`, `check`, `run`, `lint`, `fmt` and `lsp` front the tool of the same name. `test`, `bench`, `doc` and `migrate` are [jacket test](jacket-test.md), [jacket bench](jacket-bench.md), [jacket doc](jacket-doc.md) and [jacket migrate](jacket-migrate.md). `new`, `init`, `config`, `toolchain`, `clean`, `explain`, `version` and `upgrade` are `jacket`'s own and use `--long` flags. `jacket jaic|jailint|jailsp|jaifmt <args>` runs that tool verbatim, and any other command runs `jacket-<command>` from `PATH`, as cargo does. Every flag is in the [tools reference](../reference/tools.md).
 
 ### Targets
 
-`jacket build|check|run --target NAME` (also `-target NAME`) builds for a named target. `NAME` is a `[target.NAME]` table of `jacket.toml` or a built-in board; an LLVM triple still goes to jaic unchanged. `jacket targets` lists every name with its triple, board and whether its runner is installed. An unknown name fails and suggests the nearest one (`unknown target `pic`; did you mean `pico`?`).
+`jacket build|check|run --target NAME` (also `-target NAME`) builds for a named target. `NAME` is a `[target.NAME]` table of `jacket.toml` or a built-in board; an LLVM triple still goes to jaic unchanged. `jacket toolchain` lists every name with its triple, board, and the linker, libraries and runner this machine has for it; `jacket toolchain check [--tool NAME]... [TARGET]...` exits non-zero and says how to get what is missing. An unknown name fails and suggests the nearest one (`unknown target `pic`; did you mean `pico`?`).
 
 ```toml
 [target.pico]

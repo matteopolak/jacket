@@ -18,7 +18,7 @@ Compile side (`Sanitize` in `crates/jaic-native/src/options.rs`, applied in `emi
 
 Other UBSan checks are absent on purpose: signed overflow wraps in Jai, shifts and float-to-int are defined, division by zero traps, and an alignment check would flag deliberate unaligned reads.
 
-Link side: a Clang from the LLVM install jaic was built against links with `-fsanitize=...`. Instrumentation and runtime must come from the same LLVM. Search: `JAIC_SANITIZER_CC`, then `bin/clang` of the LLVM install ([LLVM setup](../tools/llvm-setup.md#where-jaic-finds-llvm)), then `clang-<major>` or `clang` on `PATH`.
+Link side: a Clang from the LLVM install jaic was built against links with `-fsanitize=...`. Instrumentation and runtime must come from the same LLVM. Search: `JAIC_LINKER`, then `bin/clang` of the LLVM install ([LLVM setup](../tools/llvm-setup.md#where-jaic-finds-llvm)), then `clang-<major>` or `clang` on `PATH`.
 
 `Default_Allocator` calls `malloc`/`free`, so ASan sees its backing heap allocations. Bookkeeping headers and alignment slack remain addressable inside those allocations; ASan does not automatically enforce each logical input extent. Tests must verify sanitizer visibility at the logical boundaries they exercise. Direct C `malloc`/`free` avoids our allocator's padding; explicit redzones inside an owned allocation make the required boundary observable independently of allocator rounding. Allocators that carve a larger region (temporary allocator, `Flat_Pool`, `Pool`, `Bucket_Array`) likewise need explicit object-bound instrumentation.
 
@@ -54,7 +54,7 @@ per-test limits unchanged; splitting jobs duplicates setup rather than reducing 
 
 ## Configuration
 
-`-sanitize address|undefined|fuzzer` or a comma list. `JAIC_SANITIZER_CC`, `LLVM_PREFIX`, `ASAN_OPTIONS`, `UBSAN_OPTIONS`. Sweep: `--sanitize`, `--native`, `--opt`, `--jobs` (ASan roughly doubles memory; keep jobs low on small machines).
+`-sanitize address|undefined|fuzzer` or a comma list. `JAIC_LINKER`, `LLVM_PREFIX`, `ASAN_OPTIONS`, `UBSAN_OPTIONS`. Sweep: `--sanitize`, `--native`, `--opt`, `--jobs` (ASan roughly doubles memory; keep jobs low on small machines).
 
 ## Dependencies
 

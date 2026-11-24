@@ -74,6 +74,10 @@ By default jaic builds a native executable. Options may come before or after the
 | `-no_backtrace_on_crash` | leave the crash handler out of the program |
 | `-emit_ir <file.ll>` | also write the LLVM IR |
 | `-no_debug_info` | leave out native debug information |
+| `-linker <program>` | link with this program instead of the one found for the target (also JAIC_LINKER) |
+| `-sysroot <dir>` | the C library folder a cross link uses (also JAIC_SYSROOT) |
+| `-compiler_rt <file>` | the compiler builtins archive a freestanding link uses (also JAIC_COMPILER_RT) |
+| `-link_arg <argument>` | an argument for the linker, in `ld.lld`'s spelling; repeat it for each argument. It is translated for the linker in use (`--gc-sections` is `/OPT:REF` for `link.exe`) |
 | `-sanitize <list>` | address, undefined and/or fuzzer, comma-separated |
 | `-coverage` | record line and function coverage (docs/tools/coverage.md) |
 | `-no_workspace_output` | (-interp only) do not write what a metaprogram's workspaces ask for |
@@ -124,13 +128,22 @@ By default jaic builds a native executable. Options may come before or after the
 
 exit status: 0 success, 1 the program failed to compile, an input file cannot be read or a runtime error stopped it (`-interp` otherwise exits with the program's own status), 2 a command-line mistake, 3 a build found no `main` to make an executable from, 120 the memory limit, 121 native code crashed under the interpreter, 101 an internal compiler error
 
-`--target NAME` builds for a `[target.NAME]` of `jacket.toml` or a built-in board; `jacket targets` lists them ([targets](../tools/jacket.md#targets)).
+`--target NAME` builds for a `[target.NAME]` of `jacket.toml` or a built-in board; `jacket toolchain` lists them and what each needs ([toolchain](../native/toolchain-discovery.md)).
 
-List the targets `--target` accepts: the project's `[target.*]` tables and the built-in boards, with their triple, board and whether the runner is installed
+List the targets `--target` accepts with the linker, libraries and runner each needs, and check that this machine has them
 
 ```text
-jacket targets
+jacket toolchain [COMMAND]
 ```
+
+##### Commands
+
+| Command | Meaning |
+| --- | --- |
+| `check` | Exit with a failure when something a target needs is missing, saying how to get it |
+| `add` | Fetch what no package manager provides, into jacket's cache: a Linux target's sysroot (pinned Debian packages) or a freestanding target's compiler builtins (built with the installed clang). This is the only command that downloads |
+| `list` | Show what the cache holds for each target |
+| `remove` | Delete what the cache holds for targets, or all of it |
 
 ##### Options
 
@@ -513,8 +526,8 @@ jacket doc [OPTIONS] [PATH] [-- <FLAGS>...]
 | `--logo <FILE>` | An SVG or PNG for the header and the page icon, over `[doc] logo` [default: none] |
 | `--icon <FILE>` | An SVG or PNG for the page icon alone, over `[doc] icon` [default: the logo] |
 | `--repo <URL>` | The repository's web address, over `[doc] repo`; Source links go to `<URL>/blob/<ref>/<file>` [default: none, and no Source links] |
-| `--runtime <DIR>` | A folder with `jai_wasm.wasm` and `engine.mjs` (a browser bundle) to copy into the site, so the Run buttons work; without it they are shown disabled. The examples are then tested in that compiler under Node (standard library only; an error without `node`) |
-| `--playground-url <URL>` | Where "open in playground" and the Playground link go, over `[doc] playground` [default: none, and no links] |
+| `--runtime <DIR>` | A browser bundle (`tools/browser/build_scripting_wasm.py --output DIR`) to copy into the site, so the Run buttons and the playground work; without it they say how to build one. The examples are then tested in that compiler under Node (standard library only; an error without `node`) |
+| `--playground-url <URL>` | Where "open in playground" and the Playground link go, over `[doc] playground` [default: the site's own playground page] |
 | `--source-ref <REF>` | The tag, branch or commit Source links point at [default: the checkout's commit] |
 | `--module <NAME>` | Document only these modules (`String`, `Extensions/Http`); repeatable |
 | `--check` | Build and check the links without writing the site or running the examples (the commands of the guides' `console` blocks still run) |
@@ -564,24 +577,21 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `JAIC_AR` | The program that archives object files into a static library. | the system `ar`, or `llvm-ar`, a MinGW `ar` or `lib.exe` where that is needed | jaic |
 | `JAIC_BACKEND` | The code generation library (`libjaic_backend`) a release `jaic` opens when a build writes native code. | the code generation library next to the `jaic` executable | jaic |
 | `JAIC_CACHE_DIR` | Where `jaic` unpacks the helpers it embeds (the crash runtime). | `$XDG_CACHE_HOME/jaic`, else the platform's user cache (`~/Library/Caches/jaic`, `~/.cache/jaic`) | jaic |
-| `JAIC_COMPILER_RT` | The compiler-rt builtins a freestanding build links: an archive, or a folder with a `<triple>/libclang_rt.builtins.a` per target (what `tools/embedded/build-compiler-rt.sh` writes). | `lib/clang/<version>/lib/<triple>/libclang_rt.builtins.a` in the build's LLVM | jaic |
-| `JAIC_CROSS_LIBS` | A path list of directories with libraries cross-built for a MinGW target; a cross build links from these instead of the host's native libraries. | unset | jaic |
+| `JAIC_COMPILER_RT` | The compiler-rt builtins a freestanding build links: one archive. Also the `-compiler_rt` flag. | `lib/clang/<version>/lib/<triple>/libclang_rt.builtins.a` in the build's LLVM | jaic |
 | `JAIC_DIAGNOSTICS` | The diagnostic layout: `plain`, `ascii` or `unicode`. | by terminal: `unicode` or `ascii` on one, `plain` otherwise | jaic, jailint |
 | `JAIC_DSYM` | When set, a macOS debug build writes a `.dSYM` bundle instead of keeping its object files. | unset: macOS debug builds keep their object files for the debugger | jaic |
 | `JAIC_HOST_TWIN_DEBUG` | When set, the host twin prints what it generates. | unset | jaic |
 | `JAIC_ID_SCRAMBLE` | The same as `JAIC_SYM_SCRAMBLE`, for AST ids. | unset | jaic |
-| `JAIC_LINKER` | The program that links executables and libraries. Empty counts as unset. | the linker found for the target | jaic |
-| `JAIC_LLD` | The `ld.lld` that links freestanding (`-os none`) output. | `ld.lld` next to the build's LLVM, an LLD install, then `PATH` | jaic |
+| `JAIC_LINKER` | The program that links executables and libraries. Empty counts as unset. Also the `-linker` flag. | the linker found for the target | jaic |
 | `JAIC_MEMORY_LIMIT` | Stop with exit status 120 once this much memory is allocated: bytes, or a number with a `K`, `M` or `G` suffix. Child processes inherit it. | no limit | jaic |
 | `JAIC_NATIVE_LIBS` | A path list of directories holding the prebuilt third-party native libraries (SDL3, FreeType, ...), replacing the default search. | `native-libs/<os>-<cpu>` beside the library, else under `target/` | jaic |
 | `JAIC_NO_HOST_TWIN` | Any value but `0` turns the host twin off, which makes compile-time code with foreign calls fail the way it would without one. | unset: compile-time code that needs the host's types gets a host twin | jaic |
 | `JAIC_PRELUDE` | The prelude file to load instead of the library's own, as a path (relative paths are taken from the library root). | the library's `prelude/module.jai`, else `Preload.jai` | jaic, jailint, jailsp |
 | `JAIC_PROGRESS` | The build status lines: `off`, `plain` or `live`, whatever stderr is (`-quiet` still wins). | by terminal: a live status line on one, nothing otherwise | jaic, jacket |
-| `JAIC_SANITIZER_CC` | The C driver that links a build made with a sanitizer. | the `clang` of the LLVM jaic was built with, else `cc` | jaic |
 | `JAIC_STDLIB` | The standard library directory. `jacket test` also hands it to every `jaic` it starts. | the `stdlib/` next to the executable, else the checkout's | jaic, jacket, jailint, jailsp, tests |
 | `JAIC_SYM_SCRAMBLE` | A seed that spreads the interner's symbol numbers apart, so output that depends on them rather than spellings changes (`tools/differential/determinism.py`). | unset | jaic |
+| `JAIC_SYSROOT` | The Linux sysroot a cross build links against, and a runner's `{sysroot}` stands for. Also the `-sysroot` flag. | the system's cross packages, else the one `jacket toolchain add` fetched | jaic |
 | `JAIC_TCPLISTEN` | Comma-separated `host:port` addresses a `-interp -os wasm` run listens on. Each becomes a pre-opened socket the program accepts connections from, numbered 3, 4, ... in order, and `LISTEN_FDS` holds how many there are (the convention of wasmtime's `--tcplisten`). | unset: a `-interp -os wasm` run has no sockets | jaic |
-| `JAIC_WASM_LD` | The `wasm-ld` that links WebAssembly output. | `wasm-ld` next to the build's LLVM, an LLD install, then `PATH` | jaic |
 | `JAILINT_LIFETIME_MEMORY` | With the lifetime_memory example and one worker, measure selected lifetime facts separately from all other lint facts after each compiler finishes linting. | No destructive retained-fact profiling. | jailint, tests |
 | `JAILINT_LIFETIME_STATS` | Print per-file body, CFG, candidate and rejection counts for the lifetime rules. | No lifetime coverage counters. | jailint |
 
@@ -609,7 +619,6 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `JAIC_CORPUS_STAGE` | How far the corpus sweep takes each file. | `parse` | tests |
 | `JAIC_KEEP_TEST_TMP` | When set, test scratch directories are kept after the test. | unset: scratch directories are removed | tests |
 | `JAIC_PRELUDE_TEST_CHILD` | Marks the child process of the prelude-selection tests, which run themselves again with `JAIC_PRELUDE` set. | unset | tests |
-| `JAIC_REQUIRE_TOOLCHAIN` | `1`, or a comma list of tool names: a missing tool fails the test instead of skipping it. Always on under `CI`. | unset: a test whose tool is missing skips | tests |
 | `JAIC_SPECULATIVE_BODIES` | When set, checks queued bodies speculatively first, like `-dev_speculative_bodies` (only in a `jaic` built with the `speculative-bodies` feature). | unset | jaic, tests |
 | `JAIC_TEST_FONT_PATH` | A font file for stdlib tests that render text; without it they fail, unless they declare `optional(JAIC_TEST_FONT_PATH)`, which skips them. | unset | jacket |
 | `JAIC_TEST_LIBRARY_MARKER` | A file the native-link test's library writes to, to show it was loaded. | unset | tests |

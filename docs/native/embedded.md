@@ -13,7 +13,7 @@ A freestanding target has no operating system: `Operating_System_Tag.NONE`, a tr
 - **Metaprogram and target.** A target's pointers decide where compile-time code runs: a 32-bit target's runs in the interpreter's address window with the target's `OS` and `CPU`, so host-only code (a board's `configure`, the linker-script writer) cannot be compiled into it. A board therefore sets its triple on the workspace it builds (`llvm_options.target_system_triple`; the triple wins over `os_target` and `cpu_target`) and `jaic` is started without `-target`: `jaic app.jai +Extensions/Embedded/Boards/Mps2_An386`. `jacket --target <board>` does this.
 - **Linking.** `crates/jaic-native/src/freestanding.rs` runs `ld.lld` directly: `-static -nostdlib --gc-sections`, the objects, any static archives, the compiler-rt builtins, then `additional_linker_arguments`. One of those must be a linker script (`-T script.ld`); without it the build fails and says so. There is no C driver and no other linker to fall back to.
 - **Libraries.** A `#library` or `#system_library` must be a static archive or object next to the declaring file (`start.a`, `libstart.a`, `start.o`). Anything else, `libc` included, is a link error naming it.
-- **Builtins.** `libclang_rt.builtins` for the exact target (64-bit division, soft float, atomics outlines) comes from `JAIC_COMPILER_RT` (an archive, or a folder with `<triple>/libclang_rt.builtins.a`), else `lib/clang/<version>/lib/<triple>/` or `lib/baremetal/` of an LLVM install (`crates/jaic/src/toolchain/freestanding.rs`). An archive built for an OS is never used. Cortex-M builtins must be the soft-float ones (`libclang_rt.builtins-armv7em.a`): LLVM calls `__muldf3` and the like with the base calling convention, which the hard-float `armhf` archive does not follow. `build-compiler-rt.sh` builds the right one. If the link needs a builtin and none was found, the error says how to get one.
+- **Builtins.** `libclang_rt.builtins` for the exact target (64-bit division, soft float, atomics outlines) comes from `JAIC_COMPILER_RT` (one archive), else `lib/clang/<version>/lib/<triple>/` or `lib/baremetal/` of an LLVM install, else `libgcc.a` of an installed `arm-none-eabi-gcc` or `avr-gcc`, else the cache `jacket toolchain add` fills (`crates/jaic-toolchain/src/builtins.rs`). An archive built for an OS is never used. Cortex-M builtins must be the soft-float ones (`libclang_rt.builtins-armv7em.a`): LLVM calls `__muldf3` and the like with the base calling convention, which the hard-float `armhf` archive does not follow. `jacket toolchain add` builds the right one. The Cortex-M runtime defines `abort` (it ends the run like a fault) because a GNU `libgcc.a` calls it. If the link needs a builtin and none was found, the error says how to get one.
 - **Runtime.** `Runtime_Support` has an `OS == .NONE` variant, `stdlib/internal/runtime-freestanding`:
   - `.AUTO` and `.ONLY_INIT` do not define a system entry point; `main` is called by your reset code.
   - There is no default heap. The default allocator panics with a message saying the board must set `context.allocator`.
@@ -36,7 +36,7 @@ With jacket, name the board in `jacket.toml` and let it do the rest (`[target.de
 
 ```sh
 jacket run --target dev    # builds with the board plugin, runs it under QEMU
-jacket targets             # what --target accepts
+jacket toolchain           # what --target accepts, and whether this machine can build and run each
 ```
 
 ## How to change it
@@ -47,19 +47,18 @@ jacket targets             # what --target accepts
 
 ## Configuration
 
-- `JAIC_LLD`: the `ld.lld` to use. Default: next to the build's LLVM, an LLD install, then `PATH`.
-- `JAIC_COMPILER_RT`: the builtins archive.
+- `JAIC_LINKER`, `-linker`: the `ld.lld` to use. Default: next to the build's LLVM, an LLD install, then `PATH`.
+- `JAIC_COMPILER_RT`, `-compiler_rt`: the builtins archive (one file).
 - `os_target`, `cpu_target`, `llvm_options.target_system_triple`, `runtime_support_definitions` and `additional_linker_arguments` in `Build_Options`.
 
 ## Dependencies
 
 `ld.lld` (Homebrew `lld`, Debian `lld-<llvm major>`), compiler-rt builtins for the target when the program needs them, and for the tests `clang`, `qemu-system-aarch64` and `qemu-system-arm`.
 
-Build the builtins with `tools/embedded/build-compiler-rt.sh [TRIPLE] [OUT_DIR]`. It clones the pinned LLVM tag (`LLVM_TAG`, or `LLVM_SRC` for a checkout you have), configures compiler-rt for the bare-metal triple and prints the `JAIC_COMPILER_RT=` line that makes `jaic` link the result (the output folder holds one archive per target, and serves them all). It needs `clang`, `llvm-ar`, `cmake`, `ninja` and `git`, and says which one is missing and how to install it.
+Build the builtins with `jacket toolchain add TRIPLE`. It downloads the pinned compiler-rt source and compiles it with the installed `clang` and `llvm-ar`, into jacket's cache; later builds find it there. See [toolchain discovery](toolchain-discovery.md).
 
 ```bash
-tools/embedded/build-compiler-rt.sh aarch64-none-elf
-export JAIC_COMPILER_RT=$PWD/target/compiler-rt
+jacket toolchain add aarch64-none-elf
 ```
 
 ## AVR (Arduino Uno)
@@ -78,10 +77,10 @@ How it differs from the other boards:
 - **Memory.** Flash and RAM are separate address spaces, so ordinary loads cannot read flash. `.data` and `.rodata` live in RAM, and the reset code in `Extensions/Embedded/avr.jai` copies them from flash with `lpm`. Constant data therefore costs RAM; keep it small.
 - **Code pointers** are word addresses in flash (address space 1). The compiler casts them to and from plain pointers and casts the callee back before an indirect call.
 - **Linking.** The linker script places flash at 0 and RAM at `0x800100`, and lld truncates addresses to 16 bits. `ld.lld` needs no `-m` for AVR. The Windows `jaic` cannot build for AVR: the LLVM it links has no AVR backend.
-- **Builtins.** `__mulsi3` and `abort` come from `avr.jai`. The rest of compiler-rt comes from `tools/embedded/build-compiler-rt.sh avr-none-elf <dir>`, built for `atmega328p` (other AVR cores are rejected at link time). Point `JAIC_COMPILER_RT` at `<dir>`; a path that does not exist is an error that says so.
+- **Builtins.** `__mulsi3` and `abort` come from `avr.jai`. The rest of compiler-rt comes from `avr-gcc`'s `libgcc.a`, else `jacket toolchain add avr-none-elf`, built for `atmega328p` (other AVR cores are rejected at link time). A `JAIC_COMPILER_RT` path that does not exist is an error that says so.
 - **Build options.** The board sets `set_optimization(.OPTIMIZED_SMALL)` (an unoptimized image keeps compile-time scratch buffers and does not fit), `stack_trace = false` (trace text is RAM), `null_pointer_check = .OFF` (RAM starts at data address 0x100, so no low address is unmapped) and a 64-byte temporary storage.
 - **Size.** A `String_Builder` is 256 bytes where pointers are 2 bytes wide (4 KiB elsewhere). `print` with no `%` and no values writes the text directly, so none of the formatter is linked; a `print` with values pulls in the formatter, which does not fit 32 KiB of flash with the rest of `Basic`. `init_runtime` leaves `context_info` empty, because describing `Context` links about 17 KB of type information. Call `describe_context()` after `init_runtime()` when something needs it, such as `Remap_Context`.
 - **C ABI.** The runtime's `memset`, `memcmp` and `bcmp` take `int` and `size_t` at the target's width (16 bits on AVR), as LLVM's calls pass them.
 - **Compile time.** The interpreter runs the program's own layout in a 48 KiB window, and the compile-time buffers shrink to fit, so `-check` works. Compile-time code at host width with values relaid out when they reach the program is not built (see [n-bit and embedded](n-bit-and-embedded.md)).
 
-Required tools: `ld.lld` built with AVR support, the compiler-rt archive, and `qemu-system-avr` (Debian `qemu-system-misc`) to run it. Without `qemu-system-avr` the tests skip with a note; `JAIC_REQUIRE_TOOLCHAIN=qemu-system-avr,avr-backend,compiler-rt,ld.lld` makes each a failure, as CI does.
+Required tools: `ld.lld` built with AVR support, the compiler-rt archive, and `qemu-system-avr` (Debian `qemu-system-misc`) to run it. Without a tool the tests skip with its install note; under `CI` they fail.
