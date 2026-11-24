@@ -342,8 +342,16 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::project_settings;
+    use super::{metamorphic::with_blank_lines, project_settings};
     use std::path::PathBuf;
+
+    /// An export line belongs to the declaration below it, with the docs above both: a blank line
+    /// after it detaches them, which is not an edit that leaves hovers alone.
+    #[test]
+    fn no_blank_line_goes_between_an_export_line_and_its_declaration() {
+        let text = "// Docs.\n#program_export \"f\"\nf :: () #c_call {}\n";
+        assert_eq!(with_blank_lines(text), text);
+    }
 
     fn scratch(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("lsp-oracle-{name}-{}", std::process::id()));

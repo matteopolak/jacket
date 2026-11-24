@@ -237,7 +237,8 @@ fn difference(a: &View, b: &View, layout: &Layout<'_>) -> Option<(Position, Stri
 }
 
 /// `text` with a blank line before every third line that starts with a token and does not follow
-/// a comment (a blank line there would detach a doc comment).
+/// a comment or a `#program_export` line (a blank line there would detach a doc comment: an
+/// export line belongs to the declaration below it).
 pub fn with_blank_lines(text: &str) -> String {
     let Ok(tokens) = jaic::lexer::lex(FileId(0), text) else {
         return text.to_owned();
@@ -253,7 +254,11 @@ pub fn with_blank_lines(text: &str) -> String {
             continue;
         }
         let previous = text[..line - 1].rsplit('\n').next().unwrap_or("").trim();
-        if previous.starts_with("//") || previous.ends_with("*/") || previous.contains("//") {
+        if previous.starts_with("//")
+            || previous.ends_with("*/")
+            || previous.contains("//")
+            || previous.starts_with("#program_export")
+        {
             continue;
         }
         at.push(line);
