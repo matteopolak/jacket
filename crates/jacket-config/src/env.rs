@@ -253,6 +253,11 @@ vars! {
         default: "10 seconds",
         summary: "Seconds one program check may take when the linter or language server runs compile-time code (`0`: no limit). CI sets it to `0`.",
     }
+    TEST_DEPS_DIR {
+        name: "JACKET_TEST_DEPS_DIR", group: Settings, readers: [Jacket],
+        default: "`jacket/test-deps` in the user cache folder",
+        summary: "The folder where `jacket test` keeps the source files each test program read, which `--changed` consults instead of compiling programs again. Point it at a cached folder in CI.",
+    }
     TEST_DLLS {
         name: "JACKET_TEST_DLLS", group: Settings, readers: [Jacket],
         default: "unset",

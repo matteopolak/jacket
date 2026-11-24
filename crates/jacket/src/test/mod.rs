@@ -10,6 +10,7 @@ mod bench_stats;
 mod build;
 mod coverage;
 mod deps;
+mod deps_store;
 mod diff;
 mod discover;
 pub(crate) mod doctest;
@@ -523,6 +524,8 @@ fn run_once(
         coverage: args.coverage,
         coverage_dir: None,
         check_only: args.check_only,
+        deps: deps_store::Store::open(&jaic).map(std::sync::Arc::new),
+        environment_flags: 0,
     };
     let cross = !args.interp && (os != host_os() || cpu != host_cpu());
     let cross_skip = (cross && toolchain.runner.is_empty())
@@ -569,6 +572,7 @@ fn run_once(
         if let Some(probes) = prerequisites::prepare_probes(&files, &stdlib) {
             let path = serde_json::to_string(&probes.to_string_lossy()).expect("serialize path");
             toolchain.flags.extend(["-add".into(), format!("#run {{ C :: #import \"Compiler\"; C.compiler_add_library_search_directory({path}); }}")]);
+            toolchain.environment_flags = 2;
         }
     }
     // Native compilation runs #run code and generators too. Their interpreter coverage belongs
@@ -663,6 +667,7 @@ fn run_once(
             work: &work,
             toolchain: dependency_toolchain,
             bench,
+            jobs: settings.jobs,
         };
         selected = deps::narrow(selected, &args.changed, &ctx);
     }
@@ -696,14 +701,14 @@ fn run_once(
             );
         }
         if args.deps {
-            deps::print(
-                &selected,
-                &roots,
-                &root_flags,
-                &work,
-                &discovery_toolchain,
+            let listing = deps::Listing {
+                root_flags: &root_flags,
+                work: &work,
+                toolchain: &discovery_toolchain,
                 bench,
-            );
+                jobs: settings.jobs,
+            };
+            deps::print(&selected, &roots, &listing);
         } else {
             reporter.list(&selected);
         }

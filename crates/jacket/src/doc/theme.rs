@@ -82,31 +82,6 @@ fn read_tree(root: &Path, dir: &Path, files: &mut BTreeMap<String, Vec<u8>>) -> 
     Ok(())
 }
 
-fn cache_root() -> Result<PathBuf, String> {
-    if cfg!(windows) {
-        return jacket_config::env::LOCALAPPDATA
-            .os()
-            .filter(|v| !v.is_empty())
-            .map(PathBuf::from)
-            .ok_or_else(|| "LOCALAPPDATA is not set".into());
-    }
-    if let Some(root) = jacket_config::env::XDG_CACHE_HOME
-        .os()
-        .filter(|v| !v.is_empty())
-    {
-        return Ok(PathBuf::from(root));
-    }
-    let home = jacket_config::env::HOME
-        .os()
-        .filter(|v| !v.is_empty())
-        .ok_or("HOME is not set")?;
-    Ok(PathBuf::from(home).join(if cfg!(target_os = "macos") {
-        "Library/Caches"
-    } else {
-        ".cache"
-    }))
-}
-
 #[allow(
     clippy::disallowed_methods,
     reason = "hashes host bytes for a colour, not program data"
@@ -169,7 +144,7 @@ impl Theme {
     }
 
     pub fn prepare(&self, jaic: &Path, stdlib: &Path, timings: bool) -> Result<Prepared, String> {
-        self.prepare_at(jaic, stdlib, timings, &cache_root()?)
+        self.prepare_at(jaic, stdlib, timings, &jacket_config::user_cache_dir()?)
     }
 
     fn prepare_at(

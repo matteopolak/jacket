@@ -7,6 +7,7 @@
 //! expected files instead of comparing (for a golden test, into those that exist, `.stdout` at
 //! least).
 use super::build::{Toolchain, compile_output, path_text, program_and_args, stage_dlls};
+use super::deps_store::Program;
 use super::exec::{self, Ending, Invocation, Limits, Live};
 use super::jobs::ending_text;
 use super::options::TestOptions;
@@ -141,6 +142,7 @@ fn built(
         }
         args.extend(toolchain.flags.iter().cloned());
         args.extend(root_flags.iter().cloned());
+        args.extend(toolchain.deps_args(Program::File(source), root_flags, false));
         return Ok(Built {
             invocation: Invocation {
                 program: toolchain.jaic.clone(),
@@ -166,6 +168,7 @@ fn built(
         .args(&quiet)
         .args(&toolchain.flags)
         .args(root_flags)
+        .args(toolchain.deps_args(Program::File(source), root_flags, false))
         .arg("-exe")
         .arg(&exe)
         .env(jacket_config::env::REPORT_EXE.name, &report)
@@ -269,6 +272,7 @@ fn check_only(source: &Path, root_flags: &[String], toolchain: &Toolchain, cwd: 
         .arg("-quiet")
         .args(&toolchain.flags)
         .args(root_flags)
+        .args(toolchain.deps_args(Program::File(source), root_flags, false))
         .current_dir(cwd)
         .output();
     match output {

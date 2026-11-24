@@ -15,10 +15,11 @@
 //!   when it hands the process its first tests;
 //! - `--list` is that first process too, told to name the cases of the `@cases` tests (`--list`)
 //!   and not to run anything.
+use super::deps_store::{Program, Store};
 use super::exec::{self, Demux, Invocation, Piece, Started};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 pub const PLUGIN: &str = "+Extensions/Testing/Discovery";
 
@@ -44,6 +45,11 @@ pub struct Toolchain {
     pub coverage_dir: Option<PathBuf>,
     /// Doc examples are type-checked only, whatever their mode (`--check-only`).
     pub check_only: bool,
+    /// Where the source files each compile read are kept for `--changed`; `None` records nothing.
+    pub deps: Option<Arc<Store>>,
+    /// How many of the last `flags` only prepare the environment (the folder of the probe
+    /// libraries) and cannot change which files a compile reads: dependency entries leave them out.
+    pub environment_flags: usize,
 }
 
 impl Toolchain {
@@ -52,6 +58,7 @@ impl Toolchain {
         let mut toolchain = self.clone();
         if listing == Some(Listing::Host) {
             toolchain.flags = host_flags(&self.flags);
+            toolchain.environment_flags = 0;
         }
         toolchain
     }
@@ -62,6 +69,40 @@ impl Toolchain {
             jacket_config::env::STDLIB.name.into(),
             self.stdlib.to_string_lossy().into_owned(),
         )]
+    }
+
+    /// The flags that decide which files a compile reads.
+    pub fn program_flags(&self) -> &[String] {
+        &self.flags[..self.flags.len() - self.environment_flags]
+    }
+
+    /// Where the list of files a compile of `program` reads is kept, if lists are kept.
+    pub fn deps_entry(
+        &self,
+        program: Program,
+        root_flags: &[String],
+        plugin: bool,
+    ) -> Option<PathBuf> {
+        let store = self.deps.as_ref()?;
+        Some(store.entry(
+            program,
+            &self.stdlib,
+            self.program_flags(),
+            root_flags,
+            plugin,
+        ))
+    }
+
+    /// The arguments that make a compile of `program` record the files it reads in the store
+    /// (none without one). Any list left by an earlier compile goes, so a compile that fails
+    /// leaves none. Put them before the plugins, which take the arguments that follow them.
+    pub fn deps_args(&self, program: Program, root_flags: &[String], plugin: bool) -> Vec<String> {
+        let (Some(store), Some(entry)) = (&self.deps, self.deps_entry(program, root_flags, plugin))
+        else {
+            return Vec::new();
+        };
+        store.prepare(&entry);
+        vec!["-deps_file".into(), path_text(&entry)]
     }
 
     /// A command that runs this toolchain's jaic with its standard library.
@@ -240,6 +281,7 @@ pub fn unit(
         .arg("-quiet")
         .args(&plain)
         .args(root_flags)
+        .args(toolchain.deps_args(Program::Text(&loads), root_flags, true))
         .arg("-exe")
         .arg(&exe)
         .env(jacket_config::env::REPORT_EXE.name, &report);
@@ -284,6 +326,7 @@ fn interpreted(
     let mut args = vec![path_text(root), "-interp".into(), "-quiet".into()];
     args.extend(toolchain.flags.iter().cloned());
     args.extend(root_flags.iter().cloned());
+    args.extend(toolchain.deps_args(Program::Text(loads), root_flags, true));
     args.push(PLUGIN.into());
     if list {
         // Nothing runs afterwards, so the plugin leaves the `@compile_time` tests unrun too.
@@ -684,6 +727,8 @@ mod tests {
             coverage: false,
             coverage_dir: None,
             check_only: false,
+            deps: None,
+            environment_flags: 0,
         };
         let names = ["a".to_string()];
         let run = |accept| {
@@ -720,6 +765,8 @@ mod tests {
             coverage: false,
             coverage_dir: None,
             check_only: false,
+            deps: None,
+            environment_flags: 0,
         };
         assert!(targets_wasm(&toolchain("wasm", &[])));
         assert!(!targets_wasm(&toolchain("linux", &["-q", "-os", "wasm"])));
@@ -799,6 +846,8 @@ mod tests {
             coverage: false,
             coverage_dir: None,
             check_only: false,
+            deps: None,
+            environment_flags: 0,
         };
         let built = |name: &str, warm: bool| {
             unit(

@@ -60,6 +60,7 @@ By default jaic builds a native executable. Options may come before or after the
 
 | Option | Meaning |
 | --- | --- |
+| `-deps_file <file>` | after the compile, write the source files it read to the file, as -deps lists them |
 | `-j, --jobs <n>` | run n compiles (or tests) at once (default: one per CPU) |
 | `-exe <name>` | the executable's name; it may include a directory and extension (`-exe build/app.exe`). A bare name goes in the current directory |
 | `-output_path <dir>` | the directory the executable is written to |
@@ -558,6 +559,7 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | --- | --- | --- | --- |
 | `JACKET_CHECK_TIME_LIMIT` | Seconds one program check may take when the linter or language server runs compile-time code (`0`: no limit). CI sets it to `0`. | 10 seconds | jailint, jailsp |
 | `JACKET_OUTPUT_DIR` | Relocates the build output directory (the `native-libs/` lookup and `jacket test --coverage` reports follow it). A relative path is below the checkout the tools and standard library are in, not the working directory. | `target/` in the project | jaic, jacket |
+| `JACKET_TEST_DEPS_DIR` | The folder where `jacket test` keeps the source files each test program read, which `--changed` consults instead of compiling programs again. Point it at a cached folder in CI. | `jacket/test-deps` in the user cache folder | jacket |
 | `JACKET_TEST_DLLS` | A path list of directories whose `.dll` files `jacket test` links next to each Windows test executable. | unset | jacket |
 | `JAIC_AR` | The program that archives object files into a static library. | the system `ar`, or `llvm-ar`, a MinGW `ar` or `lib.exe` where that is needed | jaic |
 | `JAIC_BACKEND` | The code generation library (`libjaic_backend`) a release `jaic` opens when a build writes native code. | the code generation library next to the `jaic` executable | jaic |

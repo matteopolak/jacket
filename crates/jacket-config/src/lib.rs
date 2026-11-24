@@ -35,6 +35,30 @@ pub const INFERRED_ENTRIES: &[&str] = &[
     "module.jai",
 ];
 
+/// The folder the platform keeps user caches in: `LOCALAPPDATA` on Windows, else
+/// `XDG_CACHE_HOME`, else `~/Library/Caches` (macOS) or `~/.cache`.
+pub fn user_cache_dir() -> Result<PathBuf, String> {
+    if cfg!(windows) {
+        return env::LOCALAPPDATA
+            .os()
+            .filter(|v| !v.is_empty())
+            .map(PathBuf::from)
+            .ok_or_else(|| "LOCALAPPDATA is not set".into());
+    }
+    if let Some(root) = env::XDG_CACHE_HOME.os().filter(|v| !v.is_empty()) {
+        return Ok(PathBuf::from(root));
+    }
+    let home = env::HOME
+        .os()
+        .filter(|v| !v.is_empty())
+        .ok_or("HOME is not set")?;
+    Ok(PathBuf::from(home).join(if cfg!(target_os = "macos") {
+        "Library/Caches"
+    } else {
+        ".cache"
+    }))
+}
+
 /// `path` with every `\` written `/`: the spelling paths take in program text, module keys,
 /// golden output and generated sources, so they read the same on every host.
 pub fn to_slash(path: &str) -> String {

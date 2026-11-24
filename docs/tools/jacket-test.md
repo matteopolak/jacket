@@ -131,7 +131,7 @@ Examples of every flag are in the [guide](../guides/testing.md#running-tests).
 - A test whose process dies of a signal (or a Windows exception such as `0xC0000005`) shows the last 64 lines of its stdout and stderr under the failure, for unit tests and golden tests alike. Native test builds pass `-backtrace_on_crash`, so stderr also has `crash signal N at 0xADDR` and a `native stack:` trace (`stdlib/internal/runtime/crash-native/runtime.c`). `-no_backtrace_on_crash` after `--` turns the trace off; `--interp` runs have none.
 - Each test gets a fresh `temp_dir`; a failing test's is kept and printed (`--keep-temp` keeps all).
 - Statuses: `PASS`, `FAIL`, `SKIP`, `TIMEOUT`, `XFAIL`, `XPASS` (fails the run so the note gets removed), `FLAKY` (failed, then passed on a `--retries` attempt; a pass unless `flaky_fails`). `--fail-fast` starts no new tests after the first failure.
-- `--changed FILE` (repeat it per file) keeps the tests a change to FILE can affect, before `--partition` splits what is left. A unit-test root, a golden program and a compile-fail test are kept when their program reads FILE (the `--list --deps` closure); a compile-fail test and a root's doc examples cannot be compiled alone, so they stand for the modules they `#import`. A test whose program does not compile is kept (a deleted file breaks its importers), and so is every test of a root that gains a file no program reads (a new test, a data file). `Basic` changes keep nearly everything. Pass paths as they exist from the current directory. CI's use of it: [CI job selection](ci-job-selection.md).
+- `--changed FILE` (repeat it per file) keeps the tests a change to FILE can affect, before `--partition` splits what is left. A unit-test root, a golden program and a compile-fail test are kept when their program reads FILE (the `--list --deps` closure); a compile-fail test and a root's doc examples cannot be compiled alone, so they stand for the modules they `#import`. A test whose program does not compile is kept (a deleted file breaks its importers), and so is every test of a root that gains a file no program reads (a new test, a data file). `Basic` changes keep nearly everything. What a program reads comes from the [dependency store](#dependency-store), so a warm store costs no compiles. Pass paths as they exist from the current directory. CI's use of it: [CI job selection](ci-job-selection.md).
 - `--partition hash:K/N` keeps tests whose name hashes to part K of N (stable across machines); `count:K/N` takes every Nth.
 - `-os`/`-cpu` are spelled as in jaic. A cross-built test is skipped unless `--runner` can run it (compile-fail tests still run). `--runner` is split on spaces; the program and its arguments follow.
 
@@ -211,10 +211,21 @@ The Discovery plugin finds the `@test` and `@bench` procedures, adds the test ta
 - **`--interp` roots beyond `-j`**: only the first `-j` roots keep their compiling process waiting (`warm` in `build::unit`); each waiting process is a whole compiler in memory. The others compile again when they run, as `program.jai` processes do.
 - **`--interp -os wasm`**: the sandbox prints only when the program ends, so the first process runs `-- --list` and every run is a `program.jai` process.
 - **`--list`** builds and runs nothing; `--list --deps` prints the source files the compiles read.
+- **Dependency lists:** every compile above, and each golden program's build or `--interp` run, also passes `-deps_file` (see [Dependency store](#dependency-store)).
 
 The test program (`stdlib/Extensions/Testing/runner.jai`) takes `--list`, `--run NAME... [--temp DIR]`, `--seed N`, `--accept` and `--args-from-stdin` (block until standard input ends, then read the arguments from it; how `--interp` hands its first tests to the process that compiled them). With `--run` it writes records to stderr: `\x02`, the kind, fields separated by `\x1f`, then `\x03`. Kinds: `start`, `fail` (name, file, line, message), `skip`, `end` (`pass`/`fail`/`skip`), `missing`, and `case` (with `--list`, on stdout). Everything else on either stream is the test's own output. A process that stops after `start` without `end` crashed in that test (`exec.rs` turns its status into the reason).
 
 `--watch` polls the test roots and import folders for `.jai` changes and reruns after 200 ms of quiet; if every changed file is a test file only those tests run.
+
+### Dependency store
+
+`--changed` needs the source files each test program reads. The compiles jacket does anyway (a root's unit-test build or listing, a golden program's build, check or `--interp` run) pass `jaic -deps_file <entry>`, and `jaic` writes the list there when the compile finishes, whole or not at all. The store is the folder of those entries: `jacket/test-deps` in the user cache folder, or `JACKET_TEST_DEPS_DIR` (CI points it at a cached folder).
+
+An entry is named by a hash of the `jaic` binary's contents, the standard library path, the program (its path, or its text for a generated program such as a root's `tests.jai`, whose folder changes every run), the compiler flags, the root's flags, and whether the Discovery plugin runs. The mode (build, `-interp`, `-check`) is not part of it, so a list from any of them answers a query. The `-add` that points at the prepared probe libraries is left out too: it cannot change what is read.
+
+`--changed` reads the store first. A program with no entry is compiled with `jaic -check -deps_file`, `-j` programs at a time, which stores its list; this covers compile-fail tests and doc examples too, which are read through a stand-in program of their imports. A compile that fails leaves no entry (the old one is removed first), and a program with no list is always kept.
+
+A stored list can be older than the files. That is sound for selection: a program starts reading a new file only if a file it already read changed to import or load it, and that file is in the old list, so the program is selected anyway. A new file that shadows module resolution is the unlisted file of a root, which `--changed` selects. Entries are never deleted; remove the folder to start over.
 
 Design choices:
 
@@ -255,7 +266,7 @@ retries = 2
 fail_fast = true
 ```
 
-Flags win over the profile, the profile over `[test]`. Environment: `JAIC_STDLIB`, `TMPDIR` (the work folder), and `JACKET_TEST_DLLS`, a path list of folders whose `.dll` files are hard-linked next to every native test program (how a Windows test finds `SDL3.dll`, or a replacement `opengl32.dll`).
+Flags win over the profile, the profile over `[test]`. Environment: `JAIC_STDLIB`, `TMPDIR` (the work folder), and `JACKET_TEST_DEPS_DIR` (the [dependency store](#dependency-store)), and `JACKET_TEST_DLLS`, a path list of folders whose `.dll` files are hard-linked next to every native test program (how a Windows test finds `SDL3.dll`, or a replacement `opengl32.dll`).
 
 ## Dependencies
 
