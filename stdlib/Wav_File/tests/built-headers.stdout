@@ -1,0 +1,5 @@
+exact ok=true tag=1 channels=2 rate=44100 avg=176400 align=4 bits=16 cbSize=0 samples=8 first=1 last=251
+overclaimed ok=true tag=1 channels=2 rate=44100 avg=176400 align=4 bits=16 cbSize=0 samples=8 first=1 last=251
+big riff ok=true tag=1 channels=2 rate=44100 avg=176400 align=4 bits=16 cbSize=0 samples=8 first=1 last=251
+not wave ok=false
+ok

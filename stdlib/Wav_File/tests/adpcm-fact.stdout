@@ -1,0 +1,4 @@
+ok=true tag=17 channels=1 rate=8000 align=256 bits=4 cbSize=2
+per_block=505 fact=1010 samples=ADPCMDAT
+no fact ok=true per_block=505 fact=0 samples=2
+ok
