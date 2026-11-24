@@ -67,7 +67,7 @@ Guides: [testing](guides/testing.md), [benchmarking](guides/benchmarking.md), [d
 - Fuzzing: [stdlib fuzzing](tools/stdlib-fuzzing.md), [language server typing sessions](tools/lsp-fuzzing.md), [language server oracle](tools/lsp-oracle.md).
 - Performance: [benchmarks and profiling](tools/benchmarks.md), [stdlib benchmarks](tools/stdlib-benchmarks.md), [library comparisons](tools/library-comparisons.md), [performance gate](tools/perf-gate.md).
 - Image codecs: [coverage, alternatives and conformance](tools/image-conformance.md).
-- Corpus and releases: [upstream corpus](tools/upstream-corpus.md), [dogfood applications](tools/dogfood.md), [releases](tools/releases.md), [release smoke tests](tools/release-smoke.md), [Windows probe](tools/windows-probe.md), [license](license.md).
+- Corpus and releases: [upstream corpus](tools/upstream-corpus.md), [bindings corpus](tools/bindings-corpus.md), [dogfood applications](tools/dogfood.md), [releases](tools/releases.md), [release smoke tests](tools/release-smoke.md), [Windows probe](tools/windows-probe.md), [license](license.md).
 
 ## Reference
 

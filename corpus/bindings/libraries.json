@@ -1,0 +1,236 @@
+{
+  "format": 1,
+  "description": "Pinned C libraries that tools/corpus/bindings_corpus.py generates bindings for, checked against clang at each target. Read docs/tools/bindings-corpus.md.",
+  "triples": {
+    "x86_64-linux-gnu": {
+      "os": "linux",
+      "clang": [
+        "-ffreestanding"
+      ]
+    },
+    "i686-linux-gnu": {
+      "os": "linux",
+      "clang": [
+        "-ffreestanding"
+      ]
+    },
+    "thumbv7em-none-eabihf": {
+      "os": "none",
+      "clang": [
+        "-ffreestanding"
+      ]
+    },
+    "avr": {
+      "os": "none",
+      "clang": [
+        "-ffreestanding",
+        "-mmcu=atmega328p"
+      ]
+    }
+  },
+  "libc": "corpus/bindings/libc",
+  "config": "corpus/bindings/config",
+  "libraries": [
+    {
+      "id": "cmsis-core",
+      "name": "CMSIS-Core",
+      "version": "5.9.0",
+      "url": "https://github.com/ARM-software/CMSIS_5/archive/refs/tags/5.9.0.tar.gz",
+      "sha256": "9ce693dd15c41f02506adda79323c077912b3211303ca0d9b28b8ebe735a7031",
+      "root": "CMSIS_5-5.9.0",
+      "headers": [
+        "CMSIS/Core/Include/core_cm4.h"
+      ],
+      "include": [
+        "CMSIS/Core/Include"
+      ],
+      "triples": {
+        "x86_64-linux-gnu": {
+          "skip": "CMSIS-Core is Arm-only: core_cm4.h models Cortex-M registers and intrinsics, and the corpus parses it elsewhere only through a stub device header, so there is no product target"
+        },
+        "i686-linux-gnu": {
+          "skip": "CMSIS-Core is Arm-only: core_cm4.h models Cortex-M registers and intrinsics, and the corpus parses it elsewhere only through a stub device header, so there is no product target"
+        },
+        "thumbv7em-none-eabihf": {
+          "clang": [
+            "-include",
+            "ARMCM4.h"
+          ]
+        },
+        "avr": {
+          "skip": "CMSIS-Core is Arm-only: core_cm4.h models Cortex-M registers and intrinsics, and the corpus parses it elsewhere only through a stub device header, so there is no product target"
+        }
+      },
+      "config": "cmsis-core",
+      "clang": []
+    },
+    {
+      "id": "freertos",
+      "name": "FreeRTOS Kernel",
+      "version": "11.1.0",
+      "url": "https://github.com/FreeRTOS/FreeRTOS-Kernel/archive/refs/tags/V11.1.0.tar.gz",
+      "sha256": "0e21928b3bcc4f9bcaf7333fb1c8c0299d97e2ec9e13e3faa2c5a7ac8a3bc573",
+      "root": "FreeRTOS-Kernel-11.1.0",
+      "headers": [
+        "include/FreeRTOS.h",
+        "include/task.h",
+        "include/queue.h",
+        "include/semphr.h",
+        "include/timers.h"
+      ],
+      "include": [
+        "include"
+      ],
+      "triples": {
+        "x86_64-linux-gnu": {
+          "include": [
+            "portable/ThirdParty/GCC/Posix",
+            "portable/ThirdParty/GCC/Posix/utils"
+          ]
+        },
+        "i686-linux-gnu": {
+          "include": [
+            "portable/ThirdParty/GCC/Posix",
+            "portable/ThirdParty/GCC/Posix/utils"
+          ]
+        },
+        "thumbv7em-none-eabihf": {
+          "include": [
+            "portable/GCC/ARM_CM4F"
+          ]
+        },
+        "avr": {
+          "include": [
+            "portable/GCC/ATMega323"
+          ]
+        }
+      },
+      "config": "freertos",
+      "prelude": [
+        "include/FreeRTOS.h"
+      ]
+    },
+    {
+      "id": "lwip",
+      "name": "lwIP",
+      "version": "2.2.1",
+      "url": "https://github.com/lwip-tcpip/lwip/archive/refs/tags/STABLE-2_2_1_RELEASE.tar.gz",
+      "sha256": "ce0b7461c0ad9602c376f0bf07c5eb7253b48c7bf66f011c6bf3e2a96731c539",
+      "root": "lwip-STABLE-2_2_1_RELEASE",
+      "headers": [
+        "src/include/lwip/tcp.h",
+        "src/include/lwip/netif.h",
+        "src/include/lwip/udp.h",
+        "src/include/lwip/dhcp.h"
+      ],
+      "include": [
+        "src/include"
+      ],
+      "config": "lwip",
+      "triples": {}
+    },
+    {
+      "id": "littlefs",
+      "name": "littlefs",
+      "version": "2.9.3",
+      "url": "https://github.com/littlefs-project/littlefs/archive/refs/tags/v2.9.3.tar.gz",
+      "sha256": "9cf2e7db673ea27d967a54cdafe8f55a7ffe27c63a2070ff7424fadd559cad67",
+      "root": "littlefs-2.9.3",
+      "headers": [
+        "lfs.h"
+      ],
+      "include": [
+        "."
+      ],
+      "triples": {}
+    },
+    {
+      "id": "fatfs",
+      "name": "FatFs",
+      "version": "R0.15",
+      "url": "https://github.com/stm32duino/FatFs/archive/cef1acad37d563e6b7dfd1c4fd3d48e7ff348947.tar.gz",
+      "sha256": "290307ef120069ded945739342e92e62d76da1ac1330b2edf5036d502a20581c",
+      "root": "FatFs-cef1acad37d563e6b7dfd1c4fd3d48e7ff348947",
+      "headers": [
+        "src/ff.h",
+        "src/diskio.h"
+      ],
+      "include": [
+        "src"
+      ],
+      "triples": {},
+      "config": "fatfs"
+    },
+    {
+      "id": "tinyusb",
+      "name": "TinyUSB",
+      "version": "0.17.0",
+      "url": "https://github.com/hathach/tinyusb/archive/refs/tags/0.17.0.tar.gz",
+      "sha256": "666632c92d900dba1a74a14884355b2e252814d7ade5b72bcde3726108d92b06",
+      "root": "tinyusb-0.17.0",
+      "headers": [
+        "src/tusb.h"
+      ],
+      "include": [
+        "src"
+      ],
+      "config": "tinyusb",
+      "triples": {}
+    },
+    {
+      "id": "lvgl",
+      "name": "LVGL",
+      "version": "9.2.2",
+      "url": "https://github.com/lvgl/lvgl/archive/refs/tags/v9.2.2.tar.gz",
+      "sha256": "129b4e00e06639fa79d7e8a6cab3c1ecce2445b1a246652ccd34f22e7b17ad6f",
+      "root": "lvgl-9.2.2",
+      "headers": [
+        "lvgl.h"
+      ],
+      "include": [
+        "."
+      ],
+      "config": "lvgl",
+      "triples": {},
+      "clang": [
+        "-DLV_CONF_INCLUDE_SIMPLE"
+      ]
+    },
+    {
+      "id": "mbedtls",
+      "name": "Mbed TLS",
+      "version": "3.6.2",
+      "url": "https://github.com/Mbed-TLS/mbedtls/archive/refs/tags/v3.6.2.tar.gz",
+      "sha256": "f4a876b1f6921ad0aefb445f974ef62414d33928640b2c45555c5e64a196a1a8",
+      "root": "mbedtls-3.6.2",
+      "headers": [
+        "include/mbedtls/ssl.h",
+        "include/mbedtls/entropy.h",
+        "include/mbedtls/ctr_drbg.h",
+        "include/mbedtls/x509_crt.h"
+      ],
+      "include": [
+        "include"
+      ],
+      "triples": {}
+    },
+    {
+      "id": "nanopb",
+      "name": "nanopb",
+      "version": "0.4.9.1",
+      "url": "https://github.com/nanopb/nanopb/archive/refs/tags/0.4.9.1.tar.gz",
+      "sha256": "4575944a468718ef25f05eb01d994364650b581563089a9841986bb1e460eac3",
+      "root": "nanopb-0.4.9.1",
+      "headers": [
+        "pb.h",
+        "pb_encode.h",
+        "pb_decode.h",
+        "pb_common.h"
+      ],
+      "include": [
+        "."
+      ],
+      "triples": {}
+    }
+  ]
+}

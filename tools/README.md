@@ -113,6 +113,7 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 
 | Script | What it does | Called by |
 | --- | --- | --- |
+| `bindings_corpus.py` | Checks Bindings_Generator's struct sizes, alignments and field offsets against clang for pinned C libraries. | - |
 | `gen_http_corpus.py` | Turns the vendored llhttp fixtures (MIT) into stdlib/Extensions/Http/tests/fixtures/llhttp_cases.jai, | CI, tools |
 | `gen_json_corpus.py` | Turns the vendored JSONTestSuite cases into stdlib/Extensions/Json/tests/fixtures/suite_cases.jai, | tools |
 | `gen_regex_corpus.py` | Writes stdlib/Extensions/Regex/tests/fixtures/differential_cases.jai: random patterns and texts, | tools |
