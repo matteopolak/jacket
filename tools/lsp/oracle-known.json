@@ -1,4 +1,5 @@
 [
+ "examples/http/notes.jai|e-note-reader|",
  "stdlib/Basic/tests/config-negative/modules/Non_Main_Basic_Parameters/module.jai|a-error|",
  "stdlib/Basic/tests/config-negative/modules/Non_Main_Basic_Parameters/module.jai|b-definition|ENABLE_ASSERT",
  "stdlib/Basic/tests/config-negative/modules/Non_Main_Basic_Parameters/module.jai|b-definition|print",
