@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build and check both TOML adapters against every pinned profile case, without exclusions.
 
-    python3 tools/stdlib/toml/run.py --jaic target/debug/jaic --cache /tmp/toml-test --report /tmp/toml.json
+    PYTHONPATH=tools python3 tools/stdlib/toml/run.py --jaic target/debug/jaic --cache /tmp/toml-test --report /tmp/toml.json
 
 Local callers must use the repository's shared heavy-job gate. Cache downloads are verified
 before extraction/execution; report IDs must exactly match the pinned profile inventory.
@@ -21,7 +21,8 @@ import shutil
 import struct
 import subprocess
 import tarfile
-import urllib.request
+
+from toolkit import download
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
@@ -34,8 +35,7 @@ def sha256(data: bytes) -> str:
 
 def fetch(path: Path, url: str, digest: str) -> bytes:
     if not path.is_file():
-        request = urllib.request.Request(url, headers={'User-Agent': 'jacket-toml-conformance'})
-        data = urllib.request.urlopen(request, timeout=60).read()
+        data = download.fetch(url, timeout=60)
         if sha256(data) != digest:
             raise RuntimeError(f'checksum mismatch for {url}')
         path.write_bytes(data)

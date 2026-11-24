@@ -34,7 +34,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ci import pins
-from toolkit.download import USER_AGENT, fetch
+from toolkit.download import USER_AGENT, fetch, request
 from toolkit.hashing import sha256_bytes
 from toolkit.host import host_cpu, host_os
 from toolkit.repo import ROOT
@@ -211,8 +211,7 @@ def download(url: str, path: Path, attempts: int = 5, pause: int = 5) -> None:
         try:
             with (
                 urllib.request.urlopen(
-                    urllib.request.Request(url, headers={"User-Agent": USER_AGENT}),
-                    timeout=120,
+                    request(url, {"User-Agent": USER_AGENT}), timeout=120
                 ) as response,
                 partial.open("wb") as out,
             ):

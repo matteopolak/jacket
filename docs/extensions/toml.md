@@ -133,8 +133,8 @@ Reproduce the native suite through the shared local heavy-job gate:
 
 ```sh
 export PYTHONPATH="$PWD/tools"
-python3 tools/stdlib/toml/run.py --jaic /absolute/path/to/jaic --cache /tmp/toml-suite --report /tmp/toml-result.json
-python3 tools/stdlib/toml/run.py --jaic /absolute/path/to/jaic --cache /tmp/toml-suite --report /tmp/toml-statements.json --record-statements
+PYTHONPATH=tools python3 tools/stdlib/toml/run.py --jaic /absolute/path/to/jaic --cache /tmp/toml-suite --report /tmp/toml-result.json
+PYTHONPATH=tools python3 tools/stdlib/toml/run.py --jaic /absolute/path/to/jaic --cache /tmp/toml-suite --report /tmp/toml-statements.json --record-statements
 python3 tools/stdlib/toml/run_wasi.py --jaic /absolute/path/to/jaic --cache /tmp/toml-wasi --report /tmp/toml-wasi.json
 python3 tools/stdlib/toml/compare_conformance.py --cache /tmp/toml-suite --python --rust /absolute/path/to/toml-oracle
 python3 tools/stdlib/toml/settings.py --own /absolute/path/to/settings-adapter --rust /absolute/path/to/toml-oracle --report /tmp/toml-settings.json

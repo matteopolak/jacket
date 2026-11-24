@@ -32,7 +32,6 @@ class ProfileTests(unittest.TestCase):
         self.assertIn(['--bind', str(writes), str(writes)], [arguments[i:i + 3] for i in range(len(arguments))])
 
 
-@unittest.skipUnless(sys.platform == 'darwin' and not Sandbox.available(), 'needs sandbox-exec')
 class EnvironmentTests(unittest.TestCase):
     def test_credentials_stay_outside_the_sandbox(self):
         secrets = {'GITHUB_TOKEN': 'a', 'GH_TOKEN': 'b', 'ACTIONS_RUNTIME_TOKEN': 'c',
@@ -44,6 +43,7 @@ class EnvironmentTests(unittest.TestCase):
             self.assertNotIn(name, env)
 
 
+@unittest.skipUnless(sys.platform == 'darwin' and not Sandbox.available(), 'needs sandbox-exec')
 class SeatbeltTests(unittest.TestCase):
     def run_inside(self, *command: str) -> int:
         with tempfile.TemporaryDirectory() as scratch:
