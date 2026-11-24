@@ -26,8 +26,12 @@ class AptConfiguration(unittest.TestCase):
             ],
             text=True,
             capture_output=True,
-            # CI's setup-unix sets it for the job; these tests choose their own.
-            env={k: v for k, v in os.environ.items() if k != "JAI_APT_ARCHIVES"},
+            # CI's setup-unix sets it for the job; these tests choose their own. Nor may a test
+            # touch the runner's own mirror list.
+            env={
+                **{k: v for k, v in os.environ.items() if k != "JAI_APT_ARCHIVES"},
+                "JAI_APT_MIRRORS": "/nonexistent/apt-mirrors.txt",
+            },
         )
 
     def configure(self, root):

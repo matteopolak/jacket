@@ -89,8 +89,9 @@ apt_drop_mirror() {
   local mirrors=${JAI_APT_MIRRORS:-/etc/apt/apt-mirrors.txt}
   [[ -f "$mirrors" ]] || return 0
   if (( $(grep -c . "$mirrors") > 1 )); then
-    awk 'NF && !dropped { dropped = 1; next } 1' "$mirrors" | sudo tee "$mirrors.next" > /dev/null
-    sudo mv "$mirrors.next" "$mirrors"
+    local rest
+    rest=$(awk 'NF && !dropped { dropped = 1; next } 1' "$mirrors")
+    printf '%s\n' "$rest" | sudo tee "$mirrors" > /dev/null
     echo "next mirror: $(grep -m 1 . "$mirrors")" >&2
   fi
 }
