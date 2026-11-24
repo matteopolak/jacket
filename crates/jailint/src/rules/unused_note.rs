@@ -9,14 +9,12 @@
 //! read when compile-time code of the check (a `#run`, or a build metaprogram intercepting a
 //! workspace) loaded or copied its text, or compared it equal to something (see
 //! `docs/compiler/note-readers.md`). Notes the compiler reads itself (`@PrintLike`, `@Cold`,
-//! `@Section(...)` and the like), the declaration notes the rules read (`LINT_NOTES`) and
-//! `@jailint_allow` are not reported. Neither are notes in
-//! a file whose check did not finish, or in an untrusted workspace, where compile-time code
-//! did not all run.
+//! `@Section(...)` and the like), the declaration notes the rules read (`LINT_NOTES`), the
+//! notes other tools read (`TOOL_NOTES`: `@test`, `@native`) and `@jailint_allow` are not
+//! reported. Neither are notes in a file whose check did not finish, or in an untrusted
+//! workspace, where compile-time code did not all run.
 //!
-//! Off by default: notes read by other tools (`jacket test` reads `@test`) or by
-//! metaprograms the check does not run, and notes reaching code only through type info
-//! (`Type_Info_Struct_Member.notes`), which is not watched yet, are reported too. No fix:
+//! Off by default: notes read by metaprograms the check does not run are reported too. No fix:
 //! whether the note or the metaprogram is wrong is the author's call.
 use super::finding;
 use crate::Finding;
@@ -66,6 +64,39 @@ pub const LINT_NOTES: [&str; 36] = [
     "WritesOutput",
 ];
 
+/// Notes other tools read from the source: `jacket test`'s
+/// ([test notes](../../../../docs/tools/jacket-test.md)) and `@native`, which the
+/// [native library build](../../../../docs/tools/native-libs.md) reads.
+pub const TOOL_NOTES: [&str; 27] = [
+    "allow_leaks",
+    "args",
+    "bench",
+    "cases",
+    "check_only",
+    "compile_fail",
+    "compile_time",
+    "exit",
+    "generate",
+    "interp_only",
+    "min_time",
+    "native",
+    "native_only",
+    "needs",
+    "only",
+    "optional",
+    "property",
+    "retries",
+    "samples",
+    "serial",
+    "should_fail",
+    "skip_on",
+    "slow",
+    "test",
+    "timeout",
+    "warns",
+    "xfail",
+];
+
 /// The rule's name, group and one-line summary, and its check.
 pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
     name: "unused_note",
@@ -92,6 +123,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         let name = note.text.split('(').next().unwrap_or_default().trim();
         if jaic::sema::COMPILER_NOTES.contains(&name)
             || LINT_NOTES.contains(&name)
+            || TOOL_NOTES.contains(&name)
             || name == crate::suppress::NOTE
             || cx.in_code_operand(note.span)
             || read.contains(&(note.span.start, note.span.end))

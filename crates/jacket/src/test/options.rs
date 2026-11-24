@@ -61,6 +61,7 @@ impl TestOptions {
                 format!("`@{name}` takes a whole number of {what}, as in `@{name}(5)`")
             })
         };
+        // A note added here goes in `jailint::TOOL_NOTES` too, so `unused_note` skips it.
         match name {
             "timeout" => self.timeout = Some(number("seconds")?),
             "retries" => {
@@ -487,6 +488,20 @@ mod tests {
             assert_eq!(options, TestOptions::default(), "{note}");
             assert_eq!(warnings.len(), 1, "{note}: {warnings:?}");
             assert!(warnings[0].contains(expect), "{note}: {warnings:?}");
+        }
+    }
+
+    #[test]
+    fn the_notes_unused_note_skips_are_ones_the_runner_knows() {
+        // `@native` is the native library build's, not the runner's.
+        for name in jailint::TOOL_NOTES.iter().filter(|n| **n != "native") {
+            let result = TestOptions::default().apply(name);
+            assert!(
+                !result
+                    .as_ref()
+                    .is_err_and(|e| e.starts_with("unknown note")),
+                "{name}: {result:?}"
+            );
         }
     }
 
