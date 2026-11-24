@@ -1,0 +1,14 @@
+[package]
+name = "jaic-toolchain"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Finding the host's linkers, sysroots, builtins and runners, and the notes that say how to get a missing one."
+
+[dependencies]
+jaic = { path = "../jaic" }
+jacket-config = { path = "../jacket-config" }
+
+[lints]
+workspace = true

@@ -163,6 +163,11 @@ vars! {
         default: "the linker found for the target",
         summary: "The program that links executables and libraries. Empty counts as unset.",
     }
+    SYSROOT {
+        name: "JAIC_SYSROOT", group: Settings, readers: [Jaic],
+        default: "the system's cross packages, else the one `jacket toolchain add` fetched",
+        summary: "The Linux sysroot a cross build links against, and a runner's `{sysroot}` stands for.",
+    }
     AR {
         name: "JAIC_AR", group: Settings, readers: [Jaic],
         default: "the system `ar`, or `llvm-ar`, a MinGW `ar` or `lib.exe` where that is needed",

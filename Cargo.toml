@@ -6,6 +6,7 @@ members = [
     "crates/jaic",
     "crates/jaic-syntax",
     "crates/jaic-native",
+    "crates/jaic-toolchain",
     "crates/jaic-llvm",
     "crates/jaic-backend",
     "crates/jaic-cli",
