@@ -1,6 +1,6 @@
 # Plan: dependencies (`jacket dep`)
 
-Status: D1 (direct dependencies by tag and commit) is built. The rest is plan; each milestone updates this page and the docs it names when it lands.
+Status: D1 (direct dependencies by tag and commit) and D2 (versions) are built. The rest is plan; each milestone updates this page and the docs it names when it lands.
 
 Jai projects share code as module folders under `modules/`, today mostly copied in by hand. `jacket dep` manages them as git submodules pinned in `jacket.toml`, with version ranges, version schemes and a release-age policy. The submodule's commit (its gitlink) is the lock, so there is no lockfile.
 
@@ -43,9 +43,9 @@ platforms = ["macos", "linux", "windows"]
 
 | Command | Does |
 | --- | --- |
-| `jacket dep add <spec> [--name N] [--module P]` | Adds a submodule and an entry. `<spec>` is `user/repo`, a host path or URL, with an optional `@<version-or-range>`, `@<tag>` or `@<rev>`. With no version, the newest allowed one. |
+| `jacket dep add <spec> [--name N] [--module P] [--scheme S] [--tag-prefix T]` | Adds a submodule and an entry. `<spec>` is `user/repo`, a host path or URL, with an optional `@<version-or-range>`, `@<tag>` or `@<rev>`. With no version, the newest stable one is pinned and recorded as `version = "^X.Y.Z"` (calendar and integer schemes record `tag`). A version written in full (`@1.2.3`) names that version's tag; a partial one (`@1.2`) or one with an operator is a range. |
 | `jacket dep remove <name>` | Deinits the submodule and removes its folder and entry. |
-| `jacket dep list` | Name, asked-for version, resolved tag and commit, path, and whether a newer allowed version exists. |
+| `jacket dep list [--all-tags] [--offline]` | Name, asked-for version, resolved tag and commit, path, and the newer version the range admits (asked of each remote with `git ls-remote`; `--offline` skips it). `--all-tags` names the remote tags that are not versions. |
 | `jacket dep update [name] [--to <tag>]` | Moves the submodule and the entry to the newest version the range and policy allow. |
 | `jacket dep sync` | Checks out every pinned commit (`git submodule update --init` for the managed ones), for a fresh clone. |
 | `jacket dep check [--offline]` | For CI: `jacket.toml` and the gitlinks agree, every tag still points at its pinned commit (here and on the remote), and every submodule is initialised. Uses `git ls-remote`, never a forge API; `--offline` skips the remote. |

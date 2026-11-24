@@ -5,7 +5,9 @@
 mod commands;
 pub mod git;
 pub mod manifest;
+pub mod resolve;
 pub mod spec;
+pub mod version;
 
 use clap::Subcommand;
 use jacket_config::{Config, Disk, FILE_NAME};
@@ -25,11 +27,24 @@ pub enum Action {
         /// The folder of the repository holding `module.jai`
         #[arg(long, value_name = "PATH")]
         module: Option<String>,
+        /// How its tags read as versions: `semver` (default), `calendar` or `integer`
+        #[arg(long, value_name = "SCHEME")]
+        scheme: Option<String>,
+        /// Text stripped from tags before they are read (`alpha-`)
+        #[arg(long, value_name = "TEXT")]
+        tag_prefix: Option<String>,
     },
     /// Remove a dependency: its submodule, folder and entry
     Remove { name: String },
     /// Show each dependency's pin and whether it is checked out
-    List,
+    List {
+        /// Also name the remote tags that are not versions under the entry's scheme
+        #[arg(long)]
+        all_tags: bool,
+        /// Do not ask the remotes for newer versions
+        #[arg(long)]
+        offline: bool,
+    },
     /// Move dependencies to what their entries now allow
     Update {
         /// One dependency (default: all)

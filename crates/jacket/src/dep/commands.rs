@@ -1,6 +1,9 @@
 //! The `jacket dep` commands. Each reads the project, asks git through [`Git`] and writes
 //! `jacket.toml` through [`manifest`].
+use super::git::RemoteTag;
 use super::git::{Git, Submodule};
+use super::resolve::{self, Ask, Reading, Recorded};
+use super::version::Tagged;
 use super::{Action, Ctx, DepError, Project, Result, manifest, spec};
 use jacket_config::Dependency;
 use std::collections::BTreeSet;
@@ -18,11 +21,6 @@ fn short(commit: &str) -> &str {
     &commit[..commit.len().min(7)]
 }
 
-/// Whether `text` could be a commit hash (7 to 40 hex digits).
-fn is_rev(text: &str) -> bool {
-    (7..=40).contains(&text.len()) && text.bytes().all(|b| b.is_ascii_hexdigit())
-}
-
 /// What an entry asks for, as `jacket dep list` writes it.
 fn asked(entry: &Dependency) -> String {
     match (&entry.version, &entry.tag, &entry.rev) {
@@ -33,11 +31,12 @@ fn asked(entry: &Dependency) -> String {
     }
 }
 
-/// A commit chosen for an entry.
+/// A commit chosen for an entry, and how the entry records it.
 pub struct Pin {
     pub commit: String,
     pub tag: Option<String>,
     pub rev: Option<String>,
+    pub version: Option<String>,
 }
 
 pub fn dispatch(action: Action, cwd: &Path, ctx: &mut Ctx) -> Result<bool> {
@@ -47,11 +46,27 @@ pub fn dispatch(action: Action, cwd: &Path, ctx: &mut Ctx) -> Result<bool> {
             spec,
             name,
             module,
-        } => add(ctx, &mut project, &spec, name, module).map(|()| true),
+            scheme,
+            tag_prefix,
+        } => add(
+            ctx,
+            &mut project,
+            &spec,
+            AddOptions {
+                name,
+                module,
+                scheme,
+                tag_prefix,
+            },
+        )
+        .map(|()| true),
         Action::Remove {
             name,
         } => remove(ctx, &mut project, &name).map(|()| true),
-        Action::List => list(ctx, &project).map(|()| true),
+        Action::List {
+            all_tags,
+            offline,
+        } => list(ctx, &project, all_tags, offline).map(|()| true),
         Action::Update {
             name,
             to,
@@ -80,44 +95,121 @@ fn require_repo(ctx: &Ctx, project: &Project) -> Result<()> {
     })
 }
 
-fn choose(ctx: &Ctx, url: &str, at: Option<&str>) -> Result<Pin> {
-    let tags = ctx.git.remote_tags(url)?;
-    match at {
-        Some(at) => {
-            if let Some(tag) = tags.iter().find(|t| t.name == at) {
-                return Ok(Pin {
-                    commit: tag.commit.clone(),
-                    tag: Some(tag.name.clone()),
-                    rev: None,
-                });
-            }
-            if is_rev(at) {
-                return Ok(Pin {
-                    commit: at.to_string(),
-                    tag: None,
-                    rev: Some(at.to_string()),
-                });
-            }
-            Err(DepError::new(format!("{url} has no tag `{at}`")))
+fn newest_list(tags: &[Tagged]) -> String {
+    let names: Vec<&str> = tags.iter().take(5).map(|t| t.tag.as_str()).collect();
+    if names.is_empty() {
+        "it has no tags that read as versions".to_string()
+    } else {
+        format!("its newest versions are {}", names.join(", "))
+    }
+}
+
+/// The commit `ask` means among the remote's `tags`.
+fn pick(ctx: &mut Ctx, url: &str, reading: &Reading, tags: &[RemoteTag], ask: Ask) -> Result<Pin> {
+    match ask {
+        Ask::Tag(tag) => {
+            let found = tags
+                .iter()
+                .find(|t| t.name == tag)
+                .ok_or_else(|| DepError::new(format!("{url} has no tag `{tag}`")))?;
+            Ok(Pin {
+                commit: found.commit.clone(),
+                tag: Some(tag),
+                rev: None,
+                version: None,
+            })
         }
-        None => {
+        Ask::Rev(rev) => Ok(Pin {
+            commit: rev.clone(),
+            tag: None,
+            rev: Some(rev),
+            version: None,
+        }),
+        Ask::Range(text) => {
+            let range = reading.range(&text)?;
+            let found = resolve::matching(reading, tags, Some(&range));
+            let Some(newest) = found.first() else {
+                let all = resolve::matching(reading, tags, None);
+                return Err(DepError::new(format!("no tag of {url} satisfies `{text}`"))
+                    .note(newest_list(&all)));
+            };
+            Ok(Pin {
+                commit: newest.commit.clone(),
+                tag: None,
+                rev: None,
+                version: Some(text),
+            })
+        }
+        Ask::Latest => {
+            let found = resolve::matching(reading, tags, None);
+            if let Some(newest) = found.first() {
+                return Ok(match resolve::recorded(reading, newest) {
+                    Recorded::Version(range) => Pin {
+                        commit: newest.commit.clone(),
+                        tag: None,
+                        rev: None,
+                        version: Some(range),
+                    },
+                    Recorded::Tag(tag) => Pin {
+                        commit: newest.commit.clone(),
+                        tag: Some(tag),
+                        rev: None,
+                        version: None,
+                    },
+                });
+            }
+            if !tags.is_empty() {
+                let _ = writeln!(
+                    ctx.err,
+                    "warning: {url} has {} but none read as {} versions, so the default branch's commit is pinned\nnote: pin a tag with `@<tag>`, or pass --tag-prefix or --scheme",
+                    plural(tags.len(), "tag"),
+                    scheme_name(reading)
+                );
+            }
             let head = ctx.git.remote_head(url)?;
             Ok(Pin {
                 rev: Some(short(&head).to_string()),
                 commit: head,
                 tag: None,
+                version: None,
             })
         }
     }
 }
 
-fn add(
-    ctx: &mut Ctx,
-    project: &mut Project,
-    spec_text: &str,
+fn plural(n: usize, word: &str) -> String {
+    format!(
+        "{n} {word}{}",
+        if n == 1 {
+            ""
+        } else {
+            "s"
+        }
+    )
+}
+
+fn scheme_name(reading: &Reading) -> &'static str {
+    match reading.scheme {
+        super::version::Scheme::Semver => "semver",
+        super::version::Scheme::Calendar => "calendar",
+        super::version::Scheme::Integer => "integer",
+    }
+}
+
+struct AddOptions {
     name: Option<String>,
     module: Option<String>,
-) -> Result<()> {
+    scheme: Option<String>,
+    tag_prefix: Option<String>,
+}
+
+fn add(ctx: &mut Ctx, project: &mut Project, spec_text: &str, options: AddOptions) -> Result<()> {
+    let AddOptions {
+        name,
+        module,
+        scheme,
+        tag_prefix,
+    } = options;
     require_repo(ctx, project)?;
     let parsed = spec::parse(spec_text);
     let url = spec::url(&parsed.git);
@@ -143,15 +235,21 @@ fn add(
             .remove_tree(&project.dir, &path)
             .map_err(|e| DepError::new(format!("{path} already exists: {e}")))?;
     }
-    let pin = choose(ctx, &url, parsed.at.as_deref())?;
-    ctx.git.add(&project.dir, &url, &path, &pin.commit)?;
-    let entry = Dependency {
+    let mut entry = Dependency {
         git: parsed.git,
-        tag: pin.tag.clone(),
-        rev: pin.rev.clone(),
+        scheme,
+        tag_prefix,
         module,
         ..Dependency::default()
     };
+    let reading = Reading::of(&entry)?;
+    let tags = ctx.git.remote_tags(&url)?;
+    let ask = resolve::classify(&reading, &tags, parsed.at.as_deref())?;
+    let pin = pick(ctx, &url, &reading, &tags, ask)?;
+    ctx.git.add(&project.dir, &url, &path, &pin.commit)?;
+    entry.tag = pin.tag.clone();
+    entry.rev = pin.rev.clone();
+    entry.version = pin.version.clone();
     let text = manifest::set_dependency(&project.text, &name, &entry).map_err(DepError::new)?;
     project.save(text)?;
     let head = ctx.git.head(&project.dir, &path)?;
@@ -183,34 +281,97 @@ fn remove(ctx: &mut Ctx, project: &mut Project, name: &str) -> Result<()> {
     Ok(())
 }
 
-/// The tag pointing at `commit` that names the resolved version: the last in sorted order.
-fn resolved_tag(git: &dyn Git, project: &Project, path: &str, commit: &str) -> Option<String> {
-    let mut tags = git.tags_at(&project.dir, path, commit).ok()?;
-    tags.sort();
-    tags.pop()
+/// The tag pointing at `commit` that names the resolved version.
+fn resolved_tag(
+    git: &dyn Git,
+    project: &Project,
+    entry: &Dependency,
+    path: &str,
+    commit: &str,
+) -> Option<String> {
+    let tags = git.tags_at(&project.dir, path, commit).ok()?;
+    let reading = Reading::of(entry).ok()?;
+    resolve::resolved(&reading, &tags).cloned()
 }
 
-fn list(ctx: &mut Ctx, project: &Project) -> Result<()> {
+/// What a remote offers beyond the pin, for `list`'s last column.
+fn newer(ctx: &Ctx, entry: &Dependency, url: &str, resolved: Option<&str>, commit: &str) -> String {
+    let Ok(tags) = ctx.git.remote_tags(url) else {
+        return "unreachable".into();
+    };
+    let Ok(reading) = Reading::of(entry) else {
+        return "-".into();
+    };
+    if let Some(text) = &entry.version {
+        let Ok(range) = reading.range(text) else {
+            return "-".into();
+        };
+        let current = resolved.and_then(|t| reading.parse(t));
+        return match (
+            resolve::matching(&reading, &tags, Some(&range)).first(),
+            current,
+        ) {
+            (Some(best), Some(current)) if best.version > current => best.tag.clone(),
+            (Some(best), None) if best.commit != commit => best.tag.clone(),
+            _ => "-".into(),
+        };
+    }
+    if entry.rev.is_some() {
+        return match ctx.git.remote_head(url) {
+            Ok(head) if head != commit => format!("{} (new commits)", short(&head)),
+            _ => "-".into(),
+        };
+    }
+    "-".into()
+}
+
+fn list(ctx: &mut Ctx, project: &Project, all_tags: bool, offline: bool) -> Result<()> {
     if project.config.dependencies.is_empty() {
         say(ctx, "no dependencies".into());
         return Ok(());
     }
     let known = ctx.git.submodules(&project.dir)?;
-    let mut rows = vec![["NAME", "ASKED", "RESOLVED", "COMMIT", "PATH"].map(String::from)];
+    let mut header = ["NAME", "ASKED", "RESOLVED", "COMMIT", "PATH"]
+        .map(String::from)
+        .to_vec();
+    if !offline {
+        header.push("NEWER".into());
+    }
+    let mut rows = vec![header];
     for (name, entry) in &project.config.dependencies {
         let path = path_of(name, entry);
         let sub = known.iter().find(|s| s.path == path);
         let (resolved, commit) = match sub {
             Some(sub) if ctx.git.initialised(&project.dir, &path) => (
-                resolved_tag(ctx.git, project, &path, &sub.commit).unwrap_or_else(|| "-".into()),
+                resolved_tag(ctx.git, project, entry, &path, &sub.commit),
                 short(&sub.commit).to_string(),
             ),
-            Some(sub) => ("not checked out".into(), short(&sub.commit).to_string()),
-            None => ("not a submodule".into(), "-".into()),
+            Some(sub) => (None, short(&sub.commit).to_string()),
+            None => (None, "-".into()),
         };
-        rows.push([name.clone(), asked(entry), resolved, commit, path]);
+        let shown = match (sub, &resolved) {
+            (None, _) => "not a submodule".to_string(),
+            (Some(_), Some(tag)) => tag.clone(),
+            (Some(_), None) if !ctx.git.initialised(&project.dir, &path) => {
+                "not checked out".into()
+            }
+            _ => "-".into(),
+        };
+        let mut row = vec![name.clone(), asked(entry), shown, commit, path];
+        if !offline {
+            let full = sub.map(|s| s.commit.as_str()).unwrap_or_default();
+            row.push(newer(
+                ctx,
+                entry,
+                &spec::url(&entry.git),
+                resolved.as_deref(),
+                full,
+            ));
+        }
+        rows.push(row);
     }
-    let widths: Vec<usize> = (0..5)
+    let columns = rows[0].len();
+    let widths: Vec<usize> = (0..columns)
         .map(|c| rows.iter().map(|r| r[c].chars().count()).max().unwrap_or(0))
         .collect();
     for row in rows {
@@ -220,6 +381,20 @@ fn list(ctx: &mut Ctx, project: &Project) -> Result<()> {
             .map(|(cell, w)| format!("{cell:<w$}"))
             .collect();
         say(ctx, cells.join("  ").trim_end().to_string());
+    }
+    if all_tags {
+        for (name, entry) in &project.config.dependencies {
+            let tags = ctx.git.remote_tags(&spec::url(&entry.git))?;
+            let reading = Reading::of(entry)?;
+            let skipped: Vec<&str> = tags
+                .iter()
+                .filter(|t| reading.parse(&t.name).is_none())
+                .map(|t| t.name.as_str())
+                .collect();
+            if !skipped.is_empty() {
+                say(ctx, format!("{name}: not versions: {}", skipped.join(", ")));
+            }
+        }
     }
     Ok(())
 }
@@ -253,33 +428,58 @@ fn update(
         let entry = project.config.dependencies[&name].clone();
         let path = path_of(&name, &entry);
         let url = spec::url(&entry.git);
+        let reading = Reading::of(&entry)?;
         let pinned = known
             .iter()
             .find(|s| s.path == path)
             .map(|s| s.commit.clone());
-        let next = match (&to, &entry) {
-            (Some(tag), _) => choose(ctx, &url, Some(tag))?,
+        let tags = ctx.git.remote_tags(&url)?;
+        // The tag the pin stands on must still point at the pinned commit.
+        if let (Some(pinned), true) = (&pinned, ctx.git.initialised(&project.dir, &path))
+            && let Some(tag) = entry
+                .tag
+                .clone()
+                .or_else(|| resolved_tag(ctx.git, project, &entry, &path, pinned))
+        {
+            match tags.iter().find(|t| t.name == tag) {
+                Some(t) if &t.commit != pinned => {
+                    return Err(moved(&name, &tag, &t.commit, pinned));
+                }
+                None if entry.tag.is_some() => {
+                    return Err(DepError::new(format!(
+                        "{name}: the remote no longer has tag {tag}"
+                    )));
+                }
+                _ => {}
+            }
+        }
+        let ask = match (&to, &entry) {
+            (Some(at), _) => resolve::classify(&reading, &tags, Some(at))?,
             (None, e) if e.tag.is_some() => {
                 let tag = e.tag.as_deref().unwrap_or_default();
-                let remote = ctx.git.remote_tags(&url)?;
-                match (remote.iter().find(|t| t.name == tag), &pinned) {
-                    (Some(t), Some(p)) if &t.commit != p => {
-                        return Err(moved(&name, tag, &t.commit, p));
-                    }
-                    (None, _) => {
-                        return Err(DepError::new(format!(
-                            "{name}: the remote no longer has tag {tag}"
-                        )));
-                    }
-                    _ => {}
-                }
                 say(
                     ctx,
                     format!("{name} is pinned to {tag}; use --to to change it"),
                 );
                 continue;
             }
-            _ => choose(ctx, &url, None)?,
+            (None, e) => match (&e.version, &e.rev) {
+                (Some(range), _) => Ask::Range(range.clone()),
+                _ => Ask::Latest,
+            },
+        };
+        let next = match (&ask, &entry.rev) {
+            // A commit-pinned entry follows the default branch.
+            (Ask::Latest, Some(_)) => {
+                let head = ctx.git.remote_head(&url)?;
+                Pin {
+                    rev: Some(short(&head).to_string()),
+                    commit: head,
+                    tag: None,
+                    version: None,
+                }
+            }
+            _ => pick(ctx, &url, &reading, &tags, ask)?,
         };
         if pinned.as_deref() == Some(next.commit.as_str()) {
             say(ctx, format!("{name} is up to date"));
@@ -289,20 +489,19 @@ fn update(
         let updated = Dependency {
             tag: next.tag.clone(),
             rev: next.rev.clone(),
-            version: None,
+            version: next.version.clone().or_else(|| {
+                // A range stays as the user wrote it.
+                entry.version.clone().filter(|_| to.is_none())
+            }),
             ..entry
         };
         let text =
             manifest::set_dependency(&project.text, &name, &updated).map_err(DepError::new)?;
         project.save(text)?;
-        say(
-            ctx,
-            format!(
-                "updated {name} to {} ({})",
-                asked(&updated),
-                short(&next.commit)
-            ),
-        );
+        let head = ctx.git.head(&project.dir, &path)?;
+        let now = resolved_tag(ctx.git, project, &updated, &path, &head)
+            .unwrap_or_else(|| format!("rev {}", short(&head)));
+        say(ctx, format!("updated {name} to {now} ({})", short(&head)));
     }
     Ok(())
 }
@@ -430,25 +629,62 @@ fn check_pin(
             short(&sub.commit)
         ));
     }
-    let Some(tag) = &entry.tag else {
-        return;
+    let tag = match (&entry.tag, &entry.version) {
+        (Some(tag), _) => {
+            match ctx.git.local_commit(&project.dir, &path, tag) {
+                Ok(Some(local)) if local != sub.commit => problems.push(format!(
+                    "{name}: tag {tag} is {} in the checkout, the pin is {}",
+                    short(&local),
+                    short(&sub.commit)
+                )),
+                Ok(None) => problems.push(format!("{name}: the checkout has no tag {tag}")),
+                _ => {}
+            }
+            tag.clone()
+        }
+        (None, Some(text)) => {
+            let at = ctx
+                .git
+                .tags_at(&project.dir, &path, &sub.commit)
+                .unwrap_or_default();
+            let admitted = Reading::of(entry)
+                .and_then(|r| r.range(text).map(|range| (r, range)))
+                .map(|(r, range)| {
+                    at.iter()
+                        .filter(|t| r.parse(t).is_some_and(|v| range.matches(&v)))
+                        .cloned()
+                        .collect::<Vec<_>>()
+                });
+            match admitted {
+                Ok(list) if list.is_empty() => {
+                    problems.push(format!(
+                        "{name}: the pinned commit {} has no tag satisfying {text}; run `jacket dep update {name}`",
+                        short(&sub.commit)
+                    ));
+                    return;
+                }
+                Ok(list) => match Reading::of(entry)
+                    .ok()
+                    .and_then(|r| resolve::resolved(&r, &list).cloned())
+                {
+                    Some(tag) => tag,
+                    None => return,
+                },
+                Err(error) => {
+                    problems.push(format!("{name}: {error}"));
+                    return;
+                }
+            }
+        }
+        _ => return,
     };
-    match ctx.git.local_commit(&project.dir, &path, tag) {
-        Ok(Some(local)) if local != sub.commit => problems.push(format!(
-            "{name}: tag {tag} is {} in the checkout, the pin is {}",
-            short(&local),
-            short(&sub.commit)
-        )),
-        Ok(None) => problems.push(format!("{name}: the checkout has no tag {tag}")),
-        _ => {}
-    }
     if offline {
         return;
     }
     match ctx.git.remote_tags(&spec::url(&entry.git)) {
-        Ok(remote) => match remote.iter().find(|t| &t.name == tag) {
+        Ok(remote) => match remote.iter().find(|t| t.name == tag) {
             Some(t) if t.commit != sub.commit => {
-                problems.push(moved(name, tag, &t.commit, &sub.commit).message);
+                problems.push(moved(name, &tag, &t.commit, &sub.commit).message);
             }
             None => problems.push(format!("{name}: the remote no longer has tag {tag}")),
             _ => {}
@@ -506,7 +742,7 @@ fn init(ctx: &mut Ctx, project: &mut Project, reseed: bool) -> Result<()> {
         let tag = ctx
             .git
             .initialised(&project.dir, &sub.path)
-            .then(|| resolved_tag(ctx.git, project, &sub.path, &sub.commit))
+            .then(|| resolved_tag(ctx.git, project, &entry, &sub.path, &sub.commit))
             .flatten();
         match tag {
             Some(tag) => entry.tag = Some(tag),

@@ -39,8 +39,9 @@ fn add_by_tag_checks_out_the_commit_and_records_the_entry_without_committing() {
 }
 
 #[test]
-fn add_without_a_version_pins_the_default_branch_by_rev() {
-    let (project, origin, _) = one_tag();
+fn add_without_tags_pins_the_default_branch_by_rev() {
+    let project = Project::new("");
+    let origin = Origin::new(&project.root, "plain", MODULE);
     let tip = origin.commit("more");
     let run = project.jacket(&["dep", "add", &origin.url(), "--name", "j"]);
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
@@ -153,7 +154,8 @@ fn a_moved_tag_fails_check_and_update_naming_both_commits() {
 
 #[test]
 fn update_moves_a_rev_entry_to_the_newest_commit_and_a_tag_with_to() {
-    let (project, origin, _) = one_tag();
+    let project = Project::new("");
+    let origin = Origin::new(&project.root, "plain", MODULE);
     let first = origin.commit("one");
     project.jacket(&["dep", "add", &origin.url(), "--name", "j"]);
     let tip = origin.commit("two");
@@ -173,6 +175,7 @@ fn update_moves_a_rev_entry_to_the_newest_commit_and_a_tag_with_to() {
             .out
             .contains("up to date")
     );
+    origin.release("v1.0.0", &[("module.jai", "answer :: 7;\n")]);
     let run = project.jacket(&["dep", "update", "j", "--to", "v1.0.0"]);
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert!(
