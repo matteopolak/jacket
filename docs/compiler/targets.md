@@ -2,6 +2,8 @@
 
 `jaic::target::Target` (`crates/jaic/src/target.rs`) is the one value for what a program is built for: `os`, `cpu`, `abi` (`Msvc`, `Gnu`, `Musl`, `Apple`, `Wasi`, `Unknown`), plus `memory32` for `wasm32`. `Display` writes the LLVM triple.
 
+The compiler itself also builds and runs on 32-bit hosts (`i686-unknown-linux-gnu`): `compiler_host()` maps x86, arm, s390x and powerpc64 hosts to their `TargetCpu`, and CI runs the `jaic-syntax` and `jaic` tests on i686 in the full tier. A 32-bit host cannot run programs with 8-byte pointers at compile time, since the interpreter window needs a 64-bit address space.
+
 The 32-bit (`wasm32`, i686, armv7, Cortex-M, AVR), big-endian (s390x, powerpc64) and freestanding targets are experimental: their behaviour and APIs may change in any release.
 
 ```text

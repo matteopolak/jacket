@@ -191,9 +191,13 @@ pub fn compiler_host() -> (TargetOs, TargetCpu) {
     #[cfg(not(any(
         target_arch = "x86_64",
         target_arch = "aarch64",
+        target_arch = "x86",
+        target_arch = "arm",
+        target_arch = "s390x",
+        target_arch = "powerpc64",
         target_arch = "wasm32"
     )))]
-    compile_error!("compiler host architecture has no supported CPU_Tag mapping");
+    compile_error!("compiler host architecture has no TargetCpu mapping");
     let os = if cfg!(target_os = "windows") {
         TargetOs::Windows
     } else if cfg!(target_os = "macos") {
@@ -205,6 +209,14 @@ pub fn compiler_host() -> (TargetOs, TargetCpu) {
     };
     let cpu = if cfg!(target_arch = "aarch64") {
         TargetCpu::Arm64
+    } else if cfg!(target_arch = "x86") {
+        TargetCpu::X86
+    } else if cfg!(target_arch = "arm") {
+        TargetCpu::Arm
+    } else if cfg!(target_arch = "s390x") {
+        TargetCpu::S390x
+    } else if cfg!(target_arch = "powerpc64") {
+        TargetCpu::PowerPc64
     } else if cfg!(target_arch = "wasm32") {
         TargetCpu::Wasm
     } else {

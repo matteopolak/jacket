@@ -563,6 +563,16 @@ jobs:
           grep -v '^#' ../tools/dev/i686-roots.txt | while read -r root; do
             (cd "$root" && "$GITHUB_WORKSPACE/target/debug/jacket" test -- -target i686-unknown-linux-gnu) || exit 1
           done
+      - name: Compiler on an i686 host
+        id: i686-host
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',diff,') && runner.os == 'Linux' && matrix.architecture == 'x86_64' && needs.changes.outputs.full == 'true' }}
+        # jaic-syntax and jaic built and tested as 32-bit programs (4-byte host pointers), which an
+        # x86-64 kernel runs; docs/compiler/targets.md.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-multilib
+          rustup target add i686-unknown-linux-gnu
+          cargo nextest run --locked --target i686-unknown-linux-gnu -p jaic-syntax -p jaic
       - name: Linux s390x stdlib
         id: s390x-stdlib
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',diff,') && runner.os == 'Linux' && matrix.architecture == 'x86_64' && needs.changes.outputs.full == 'true' }}
