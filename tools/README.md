@@ -146,7 +146,7 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `fetch_mini_test.py` | Fetch mini.test, the Neovim plugin tests' runner, at the commit pinned in .github/pins.json. | tools |
 | `json_bench_data.py` | Fetch the real-world inputs for `jacket bench --path stdlib/Extensions/Json`. | - |
 | `lsp_partial_edits.py` | Run source-built IDE correctness checks in timeout-isolated per-file processes. | - |
-| `pre_push_clippy.py` | Clippy for the crates a push changes. | hook, tools |
+| `pre_push_clippy.py` | Clippy for the crates a push changes, and the stdlib tests its stdlib changes can affect. | hook, tools |
 | `render_packages.py` | Render the Homebrew formula for a release from packaging/. | CI, tools |
 | `rust_item_spacing.py` | Enforce a blank line between Rust items, which rustfmt does not do. | tools |
 

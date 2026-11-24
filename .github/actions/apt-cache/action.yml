@@ -19,19 +19,28 @@ runs:
       run: |
         echo "JAI_APT_ARCHIVES=$RUNNER_TEMP/jai-apt-archives" >> "$GITHUB_ENV"
         # A label may list packages: one cache per set, so a new package is saved in a key of its own.
+        # A set with no cache yet starts from its label's first word (the base set), so only the
+        # extra packages come from the mirror.
+        scripts=${{ hashFiles('tools/ci/install_ci_llvm_linux.sh', 'tools/ci/install_ci_native_linux.sh') }}
+        read -r base _ <<< "$LABEL"
         LABEL=$(echo "$LABEL" | xargs | tr ' ' '-')
-        prefix="apt-debs-$RUNNER_ARCH-$LABEL-${{ hashFiles('tools/ci/install_ci_llvm_linux.sh', 'tools/ci/install_ci_native_linux.sh') }}-"
-        echo "prefix=$prefix" >> "$GITHUB_OUTPUT"
+        prefix="apt-debs-$RUNNER_ARCH-$LABEL-$scripts-"
         echo "key=$prefix$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+        {
+          echo "restore-keys<<EOF"
+          echo "$prefix"
+          [[ "$base" == "$LABEL" ]] || echo "apt-debs-$RUNNER_ARCH-$base-$scripts-"
+          echo EOF
+        } >> "$GITHUB_OUTPUT"
     - if: runner.os == 'Linux' && github.ref == 'refs/heads/main'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ env.JAI_APT_ARCHIVES }}
         key: ${{ steps.apt-key.outputs.key }}
-        restore-keys: ${{ steps.apt-key.outputs.prefix }}
+        restore-keys: ${{ steps.apt-key.outputs.restore-keys }}
     - if: runner.os == 'Linux' && github.ref != 'refs/heads/main'
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ env.JAI_APT_ARCHIVES }}
         key: ${{ steps.apt-key.outputs.key }}
-        restore-keys: ${{ steps.apt-key.outputs.prefix }}
+        restore-keys: ${{ steps.apt-key.outputs.restore-keys }}

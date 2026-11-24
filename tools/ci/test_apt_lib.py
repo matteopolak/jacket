@@ -101,6 +101,31 @@ apt_get update""")
         self.assertEqual(result.stdout.count("dpkg --configure -a"), 5)
         self.assertIn("attempt 5 of 5", result.stderr)
 
+    def test_failed_attempt_moves_on_to_the_next_mirror(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            mirrors = Path(tmp) / "apt-mirrors.txt"
+            mirrors.write_text(
+                "http://us-east-2.ec2.archive.ubuntu.com/ubuntu/\tpriority:1\n"
+                "http://archive.ubuntu.com/ubuntu/\tpriority:2\n"
+                "http://security.ubuntu.com/ubuntu/\tpriority:3\n"
+            )
+            result = self.run_bash(
+                """source "$1"
+JAI_APT_MIRRORS="$2"
+sudo() {
+  [[ "$1" != timeout ]] || { head -n 1 "$JAI_APT_MIRRORS"; return 1; }
+  "$@"
+}
+apt_get update""",
+                mirrors,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            # Each failed attempt drops the mirror it used; the last one is kept.
+            self.assertEqual(
+                mirrors.read_text(), "http://security.ubuntu.com/ubuntu/\tpriority:3\n"
+            )
+            self.assertIn("next mirror: http://archive.ubuntu.com/ubuntu/", result.stderr)
+
     def test_successful_command_prints_nothing(self):
         result = self.run_bash("""source "$1"
 sudo() { printf 'Unpacking %s\\n' "$*"; }

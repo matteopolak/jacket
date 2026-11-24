@@ -77,8 +77,22 @@ apt_get() {
     tail -n 40 "$log" >&2
     echo "apt-get $1 failed or stalled (attempt $attempt of 5)" >&2
     sudo dpkg --configure -a || true
+    apt_drop_mirror
   done
   return 1
+}
+
+# The runners' sources read their mirrors from a list (`mirror+file:`), and apt keeps using the first
+# one while it stalls without failing. After a failed attempt, drop that mirror so the next attempt
+# uses the following one; the last mirror is always kept. JAI_APT_MIRRORS overrides the list's path.
+apt_drop_mirror() {
+  local mirrors=${JAI_APT_MIRRORS:-/etc/apt/apt-mirrors.txt}
+  [[ -f "$mirrors" ]] || return 0
+  if (( $(grep -c . "$mirrors") > 1 )); then
+    awk 'NF && !dropped { dropped = 1; next } 1' "$mirrors" | sudo tee "$mirrors.next" > /dev/null
+    sudo mv "$mirrors.next" "$mirrors"
+    echo "next mirror: $(grep -m 1 . "$mirrors")" >&2
+  fi
 }
 
 # Best-effort: fetch the packages an install would need over several connections into apt's archive
