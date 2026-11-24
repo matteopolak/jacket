@@ -464,8 +464,12 @@ impl Compiler {
             }
             // All at once, since one body may use what another declares (`#insert,scope`), and
             // in creation order: the queue is taken from the back.
-            self.pr.body_queue[queued..].reverse();
-            self.drain_bodies()?;
+            // Only when this pass queued a body: a failed lowering the program accepts (see
+            // `writes_no_program`) may leave bodies waiting that it never reaches.
+            if self.pr.body_queue.len() > queued {
+                self.pr.body_queue[queued..].reverse();
+                self.drain_bodies()?;
+            }
         }
         Ok(())
     }
