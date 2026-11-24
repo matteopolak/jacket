@@ -14,6 +14,7 @@ mod linker;
 #[cfg(target_os = "macos")]
 mod malloc_zone;
 mod options;
+mod toolchain;
 mod wasm;
 
 use jaic::ir::{Library, Program};
@@ -21,14 +22,14 @@ use jaic::ir::{Library, Program};
 /// The LLVM prefix this build was made against (`build.rs`), searched after the environment.
 pub(crate) const BAKED_LLVM_PREFIX: Option<&str> = option_env!("LLVM_PREFIX_AT_BUILD");
 
-pub use self::freestanding::{FreestandingLink, find_lld, link_freestanding};
+pub use self::freestanding::{FreestandingLink, link_freestanding};
 pub use self::link::{LinkInputs, LinkRequest, link, link_inputs};
 pub use self::linker::{
     OutputKind, archive, check_sanitizer_target, link_failure, linker_not_run, output_extension,
     write_dsym,
 };
 pub use self::options::{Codegen, OptLevel, Options, SANCOV_PASS, Sanitize};
-pub use self::wasm::{WasmLink, find_wasm_ld, link_wasm};
+pub use self::wasm::{WasmLink, link_wasm};
 
 /// Keep `fork` working when the process's C allocator is mimalloc's macOS zone
 /// (the `override` feature of mimalloc); call once at startup. Does nothing elsewhere.
@@ -59,7 +60,7 @@ pub fn used_libraries(program: &Program) -> Vec<Library> {
 mod tests {
     use super::*;
     use crate::link::{LinkArg, order_link_groups, toolchain_for, uses_compiler_helpers};
-    use crate::linker::{library_args, linker_command, mingw_cpu, render_link_arg};
+    use crate::linker::{library_args, render_link_arg};
     use jaic::target::Target as BuildTarget;
     use jaic::target::TargetCpu;
     use jaic::toolchain::Linker;
@@ -136,12 +137,7 @@ mod tests {
         );
         for mingw in ["aarch64-pc-windows-gnu", "aarch64-w64-mingw32"] {
             assert_eq!(toolchain_for(target(mingw)).linker, Linker::MinGw);
-            assert_eq!(mingw_cpu(target(mingw)), "aarch64");
         }
-        assert_eq!(
-            mingw_cpu(Some(BuildTarget::windows(TargetCpu::X64, false))),
-            "x86_64"
-        );
         assert_eq!(
             output_extension(target("aarch64-pc-windows-gnu"), OutputKind::Executable),
             Some("exe")
@@ -160,7 +156,7 @@ mod tests {
         let msvc = BuildTarget::windows(TargetCpu::X64, true).toolchain();
         let mingw = BuildTarget::windows(TargetCpu::X64, false).toolchain();
         let args =
-            |name: &str, toolchain| library_args(&lib(name), toolchain, true, false).unwrap();
+            |name: &str, toolchain| library_args(&lib(name), toolchain, true, false, &[]).unwrap();
         assert_eq!(
             args("kernel32", mingw),
             vec![LinkArg::Lib("kernel32".into())]
@@ -206,7 +202,7 @@ mod tests {
         let toolchain = BuildTarget::parse("i686-unknown-linux-gnu")
             .unwrap()
             .toolchain();
-        let args = library_args(&lib, toolchain, true, false).unwrap();
+        let args = library_args(&lib, toolchain, true, false, &[]).unwrap();
         // ARM's EABI unwinder finds no frame in code built without unwind tables, so the
         // runtime's own `backtrace` call would come back empty.
         let [LinkArg::Option(flag), LinkArg::File(source)] = args.as_slice() else {
@@ -214,24 +210,6 @@ mod tests {
         };
         assert_eq!(flag, "-funwind-tables");
         assert!(source.ends_with("crash-native/runtime.c"), "{source}");
-    }
-
-    /// The default `cc` links 32-bit x86 Linux programs with `-m32` (the runner needs the
-    /// multilib packages), and leaves other targets alone.
-    #[test]
-    fn linking_i686_linux_with_cc_asks_for_32_bit_output() {
-        if jacket_config::env::LINKER.os().is_some() {
-            return;
-        }
-        let flags = |triple: &str| {
-            let target = BuildTarget::parse(triple).unwrap();
-            let (_, cmd) = linker_command(Linker::Unix, Some(target)).unwrap();
-            cmd.get_args()
-                .map(|a| a.to_string_lossy().into_owned())
-                .collect::<Vec<_>>()
-        };
-        assert_eq!(flags("i686-unknown-linux-gnu"), ["-m32"]);
-        assert!(flags("x86_64-unknown-linux-gnu").is_empty());
     }
 
     #[test]

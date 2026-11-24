@@ -208,7 +208,6 @@ class Selection(unittest.TestCase):
                 self.assertEqual(
                     crash_command[crash_command.index("--cpu") + 1], "arm64"
                 )
-                self.assertEqual(os.environ["JAIC_CROSS_LIBS"], directory)
 
     def test_build_reports_unavailable_and_retains_failure_even_keep_going(self):
         with tempfile.TemporaryDirectory() as directory:

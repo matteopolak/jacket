@@ -45,7 +45,6 @@ runs:
         llvm="$(cygpath -u "$RUNNER_TEMP")/llvm"
         cygpath -w "$llvm/bin" >> "$GITHUB_PATH"
         test -x "$llvm/bin/wasm-ld.exe"
-        echo "JAIC_WASM_LD=$(cygpath -m "$llvm/bin/wasm-ld.exe")" >> "$GITHUB_ENV"
         # Supply the static libraries llvm-config names but the archive lacks (libxml2, zstd)
         # and the llvm-config front that llvm-sys needs (docs/tools/llvm-setup.md).
         bash tools/ci/windows-llvm/prepare.sh "$llvm"

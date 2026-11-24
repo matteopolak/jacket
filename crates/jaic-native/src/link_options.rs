@@ -1,5 +1,6 @@
 //! Build-option arguments cross two boundaries: compiler driver and target linker.
 use jaic::toolchain::{Driver, Linker};
+pub(super) use jaic_toolchain::names::is_clang;
 
 pub(super) fn driver_for_command(program: &str, args: &[String]) -> Driver {
     let mut driver = driver_for_program(program);
@@ -54,21 +55,6 @@ fn takes_driver_operand(arg: &str) -> bool {
             | "/D"
             | "/FI"
     )
-}
-
-pub(super) fn is_clang(program: &str) -> bool {
-    let name = program
-        .rsplit(['/', '\\'])
-        .next()
-        .unwrap_or(program)
-        .to_ascii_lowercase();
-    let name = name.strip_suffix(".exe").unwrap_or(&name);
-    matches!(name, "clang" | "clang++" | "clang-cl")
-        || name.ends_with("-clang")
-        || name.ends_with("-clang++")
-        || name
-            .strip_prefix("clang-")
-            .is_some_and(|suffix| !suffix.is_empty() && suffix.chars().all(|c| c.is_ascii_digit()))
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]

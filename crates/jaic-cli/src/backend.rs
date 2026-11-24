@@ -485,6 +485,15 @@ fn remove_stale_objects(dir: &Path, file_name: &std::ffi::OsStr) {
     }
 }
 
+/// Where the libraries built for `target` are, when it is not the host.
+#[cfg(feature = "llvm")]
+fn cross_library_dirs(target: Option<Target>) -> Vec<PathBuf> {
+    target
+        .filter(|target| *target != Target::host())
+        .map(|target| super::native_paths::cross_lib_dirs(&jaic::default_stdlib_dir(), target))
+        .unwrap_or_default()
+}
+
 #[cfg(feature = "llvm")]
 impl OutputBackend for LlvmBackend {
     fn write_output(
@@ -515,6 +524,7 @@ impl OutputBackend for LlvmBackend {
         let mut link_args = settings.additional_linker_arguments.clone();
         link_args.extend(extra_link_args);
         let debug_info = options.debug_info;
+        let cross_library_dirs = cross_library_dirs(target);
         let linked = timings::time("link", || match settings.output_type {
             OutputType::ObjectFile | OutputType::NoOutput => unreachable!(),
             OutputType::Executable | OutputType::DynamicLibrary if wasm => {
@@ -554,6 +564,7 @@ impl OutputBackend for LlvmBackend {
                     target,
                     sanitize: options.sanitize,
                     debug_info,
+                    cross_library_dirs: &cross_library_dirs,
                 })
             }
             OutputType::StaticLibrary => jaic_native::archive(&objects, output, target),
@@ -593,7 +604,11 @@ impl OutputBackend for LlvmBackend {
             generate::objects(program, &prepared.options, &prepared.object)
         })?;
         let libraries = jaic_native::used_libraries(program);
-        let inputs = jaic_native::link_inputs(&libraries, prepared.target)?;
+        let inputs = jaic_native::link_inputs(
+            &libraries,
+            prepared.target,
+            &cross_library_dirs(prepared.target),
+        )?;
         jaic::build::report_executable(settings, &prepared.output);
         Ok(jaic::build::LinkObjects {
             objects: objects.iter().map(|o| o.display().to_string()).collect(),

@@ -116,7 +116,7 @@ fn build_problems_say_what_to_change() {
             "help: `first.jai` built another workspace, so it is a build file: add `set_build_options_dc(.{do_output = false});` to its `#run` so it writes no program of its own",
         ],
     );
-    // A linker that is not installed: how to get one, and that `-interp` needs none.
+    // A linker that is not installed: what named it, and that `-interp` needs none.
     let output = Command::new(JAIC)
         .args(["ok.jai", "-exe", "prog"])
         .current_dir(&dir)
@@ -128,10 +128,9 @@ fn build_problems_say_what_to_change() {
     assert_in_order(
         &stderr(&output),
         &[
-            "error[cli-failure]: could not find the linker `no-such-linker-for-jaic-tests`",
-            "help: ",
-            "JAIC_LINKER",
-            "help: `jaic file.jai -interp` needs no linker",
+            "error[cli-failure]: could not run the linker `no-such-linker-for-jaic-tests`",
+            "note: JAIC_LINKER names it",
+            "note: `jaic file.jai -interp` needs no linker",
         ],
     );
     // An undeclared `#foreign` library.

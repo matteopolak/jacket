@@ -6,21 +6,21 @@ use std::path::PathBuf;
 pub struct Lookup<'a> {
     pub host: &'a dyn Host,
     /// The `bin` folders of the LLVM installs jaic knows (`jacket_config::llvm::bin_dirs`), best
-    /// first.
-    llvm_bins: Vec<PathBuf>,
+    /// first. Asked for only when an LLVM program is looked up: finding them starts `llvm-config`.
+    llvm_bins: Box<dyn Fn() -> Vec<PathBuf> + 'a>,
 }
 
 impl<'a> Lookup<'a> {
     pub fn new(host: &'a dyn Host) -> Lookup<'a> {
         Lookup {
             host,
-            llvm_bins: Vec::new(),
+            llvm_bins: Box::new(Vec::new),
         }
     }
 
     #[must_use]
-    pub fn with_llvm_bins(mut self, bins: Vec<PathBuf>) -> Lookup<'a> {
-        self.llvm_bins = bins;
+    pub fn with_llvm_bins(mut self, bins: impl Fn() -> Vec<PathBuf> + 'a) -> Lookup<'a> {
+        self.llvm_bins = Box::new(bins);
         self
     }
 
@@ -75,7 +75,7 @@ impl<'a> Lookup<'a> {
     /// versioned name (`ld.lld-23`) before the plain one.
     pub fn llvm_tool(&self, name: &str) -> Option<PathBuf> {
         let major = jacket_config::llvm::MAJOR;
-        let mut dirs = self.llvm_bins.clone();
+        let mut dirs = (self.llvm_bins)();
         for keg in ["lld".to_string(), format!("lld@{major}")] {
             for root in ["/opt/homebrew/opt", "/usr/local/opt"] {
                 dirs.push(PathBuf::from(root).join(&keg).join("bin"));
@@ -121,6 +121,7 @@ mod tests {
             lookup.tool("qemu-system-arm"),
             Some("/opt/homebrew/bin/qemu-system-arm".into())
         );
+        drop(lookup);
         host.file("/usr/bin/qemu-system-arm");
         assert_eq!(
             Lookup::new(&host).tool("qemu-system-arm"),
@@ -150,13 +151,14 @@ mod tests {
         host.file("/opt/homebrew/bin/ld.lld");
         host.path.push("/opt/homebrew/bin".into());
         host.file("/opt/homebrew/opt/lld/bin/ld.lld");
-        let lookup = Lookup::new(&host).with_llvm_bins(vec!["/llvm/bin".into()]);
+        let lookup = Lookup::new(&host).with_llvm_bins(|| vec!["/llvm/bin".into()]);
         assert_eq!(
             lookup.llvm_tool("ld.lld"),
             Some("/opt/homebrew/opt/lld/bin/ld.lld".into())
         );
+        drop(lookup);
         host.file("/llvm/bin/ld.lld");
-        let lookup = Lookup::new(&host).with_llvm_bins(vec!["/llvm/bin".into()]);
+        let lookup = Lookup::new(&host).with_llvm_bins(|| vec!["/llvm/bin".into()]);
         assert_eq!(lookup.llvm_tool("ld.lld"), Some("/llvm/bin/ld.lld".into()));
         // On a Debian machine the versioned name beats the plain one.
         let mut host = FakeHost::debian();

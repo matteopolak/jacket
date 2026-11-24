@@ -201,7 +201,7 @@ fn a_freestanding_link_without_a_linker_script_says_how_to_add_one() {
 }
 
 #[test]
-fn a_missing_lld_fails_with_an_install_hint_and_no_other_linker_runs() {
+fn a_named_linker_that_is_missing_fails_and_no_other_linker_runs() {
     let dir = TempDir::new(&format!("freestanding-lld-{}", std::process::id()));
     project(&dir, &Setup::default(), None);
     std::fs::write(
@@ -211,14 +211,14 @@ fn a_missing_lld_fails_with_an_install_hint_and_no_other_linker_runs() {
     .unwrap();
     let built = Command::new(JAIC)
         .arg("build.jai")
-        .env("JAIC_LLD", dir.join("no-such-lld"))
+        .env("JAIC_LINKER", dir.join("no-such-lld"))
         .current_dir(dir.path())
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&built.stderr);
     assert!(!built.status.success());
-    assert!(stderr.contains("could not find the linker"), "{stderr}");
-    assert!(stderr.contains("install LLD"), "{stderr}");
+    assert!(stderr.contains("could not run the linker"), "{stderr}");
+    assert!(stderr.contains("note: JAIC_LINKER names it"), "{stderr}");
     assert!(!dir.join("prog.elf").exists());
 }
 

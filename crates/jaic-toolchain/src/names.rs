@@ -36,3 +36,26 @@ pub fn is_lib_tool(program: &Path) -> bool {
         "lib" | "llvm-lib"
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn clang_drivers_are_told_from_other_programs() {
+        assert!(is_clang("C:\\LLVM tools\\clang.exe"));
+        assert!(is_clang("aarch64-w64-mingw32-clang"));
+        assert!(is_clang("clang-23"));
+        assert!(!is_clang("x86_64-w64-mingw32-gcc"));
+        assert!(!is_clang("lld-link"));
+    }
+
+    #[test]
+    fn msvc_style_linkers_take_slash_arguments() {
+        assert!(is_msvc_linker("lld-link"));
+        assert!(is_msvc_linker("C:\\VS\\bin\\LINK.EXE"));
+        assert!(!is_msvc_linker("clang-cl"));
+        assert!(is_lib_tool(Path::new("llvm-lib")));
+        assert!(!is_lib_tool(Path::new("llvm-ar")));
+    }
+}

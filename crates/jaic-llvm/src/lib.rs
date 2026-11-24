@@ -15,9 +15,8 @@ mod split;
 
 pub use jaic_native::{
     Codegen, LinkInputs, LinkRequest, OptLevel, Options, OutputKind, SANCOV_PASS, Sanitize,
-    WasmLink, archive, check_sanitizer_target, find_wasm_ld, fix_malloc_zone_for_fork, link,
-    link_failure, link_inputs, link_wasm, linker_not_run, output_extension, used_libraries,
-    write_dsym,
+    WasmLink, archive, check_sanitizer_target, fix_malloc_zone_for_fork, link, link_failure,
+    link_inputs, link_wasm, linker_not_run, output_extension, used_libraries, write_dsym,
 };
 
 pub use self::emit::{emit_object, emit_objects};

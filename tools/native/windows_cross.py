@@ -443,7 +443,8 @@ def verified_cross_host_bindings(directory, profiles, required, suffix):
 
 def use_cross_libs(args):
     """Cross-build the third-party C libraries the stdlib tests link (stb_*, FreeType, lz4...)
-    with the MinGW toolchain, and point `jaic` at them (JAIC_CROSS_LIBS). They are static
+    with the MinGW toolchain, where `jaic` finds them (the target's folder beside the host's under
+    `native-libs/`). They are static
     archives, so the executables need no DLL beside them, except SDL2, which comes as the
     official release's import library and DLL (copied beside the executables, see `build`)."""
     # Compile-time code executes in the host compiler process; its real native
@@ -493,7 +494,6 @@ def use_cross_libs(args):
     CROSS_DLLS.append(
         ROOT / "stdlib/internal/runtime/crash-native/platform_io_windows_crash.dll"
     )
-    os.environ["JAIC_CROSS_LIBS"] = str(target_libraries)
     # SDL2 is linked through its import library, so its DLL goes beside the executables.
     CROSS_DLLS.extend(build_native_libs.output_dir(platform).glob("SDL2.dll"))
 

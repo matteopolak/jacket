@@ -43,6 +43,32 @@ fn apple_toolchain_lib_dir() -> Option<PathBuf> {
         .find(|dir| dir.join("libclang.dylib").is_file())
 }
 
+/// The folder name `tools/native/build_native_libs.py` gives the libraries built for `target`:
+/// `<os>-<cpu>`, with `-mingw` for a Windows target linked by MinGW.
+fn platform_name(target: Target) -> String {
+    let mingw = if target.os == jaic::target::TargetOs::Windows
+        && target.abi == jaic::target::TargetAbi::Gnu
+    {
+        "-mingw"
+    } else {
+        ""
+    };
+    format!(
+        "{}-{}{mingw}",
+        jaic::target::os_name(target.os),
+        jaic::target::cpu_name(target.cpu)
+    )
+}
+
+/// Where the libraries built for a cross `target` are: the target's own folder beside the host's.
+/// Empty when none was built, so a cross link finds none of the host's archives.
+pub(super) fn cross_lib_dirs(stdlib: &Path, target: Target) -> Vec<PathBuf> {
+    if target.is_wasm() || target.is_freestanding() {
+        return Vec::new();
+    }
+    default_native_lib_dirs(stdlib, &platform_name(target))
+}
+
 fn configured_native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
     if let Some(dirs) = jacket_config::env::NATIVE_LIBS.os() {
         return std::env::split_paths(&dirs).collect();
@@ -51,11 +77,12 @@ fn configured_native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
     if host.is_wasm() {
         return Vec::new();
     }
-    let platform = format!(
-        "{}-{}",
-        jaic::target::os_name(host.os),
-        jaic::target::cpu_name(host.cpu)
-    );
+    default_native_lib_dirs(stdlib, &platform_name(host))
+}
+
+/// The first of the places a build puts `platform`'s libraries that exists.
+fn default_native_lib_dirs(stdlib: &Path, platform: &str) -> Vec<PathBuf> {
+    let platform = platform.to_string();
     // `JACKET_OUTPUT_DIR` (tools/repo_output.py) relocates the build output directory; a
     // release package carries `native-libs/` beside `stdlib/`, a checkout builds them under
     // `target/`.

@@ -9,6 +9,7 @@ description = "Native output without LLVM: build options, the system linker, and
 [dependencies]
 jaic = { path = "../jaic" }
 jacket-config = { path = "../jacket-config" }
+jaic-toolchain = { path = "../jaic-toolchain" }
 
 [lints]
 workspace = true

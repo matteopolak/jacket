@@ -5,7 +5,7 @@ Output: target/native-libs/<os>-<arch>/ (see tools/repo_output.py), which `jaic`
 `#library` names (see docs/tools/native-libs.md): lib<name>.a and lib<name>.<dylib|so> on macOS
 and Linux, <name>.lib and <name>.dll on Windows (built with Clang for the MSVC toolchain).
 `--platform windows-<cpu>-mingw` cross-builds lib<name>.a for `jaic -os windows` (MinGW-w64
-or llvm-mingw on the build host; the directory goes in JAIC_CROSS_LIBS).
+or llvm-mingw on the build host; `jaic` links from that folder for a MinGW target).
 """
 from __future__ import annotations
 

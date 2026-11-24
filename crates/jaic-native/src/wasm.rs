@@ -4,9 +4,11 @@
 //! foreign procedure the program does not define becomes an import (`lower.rs` names its
 //! module), so the link needs no `--allow-undefined`; anything else left undefined, such as a
 //! compiler-rt helper, is a link error.
+use crate::toolchain::{command, lookup};
 use jaic::ir::Library;
+use jaic_toolchain::Overrides;
+use jaic_toolchain::linker::find_linker;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 /// Stack reserved below the data (`--stack-first`): the 8 MiB native programs get. An overflow
 /// then runs off the bottom of memory and traps instead of overwriting globals.
@@ -30,8 +32,14 @@ pub struct WasmLink<'a> {
 
 /// Link wasm objects into a module with `wasm-ld`.
 pub fn link_wasm(link: &WasmLink) -> Result<(), String> {
-    let wasm_ld = find_wasm_ld()?;
-    let mut cmd = Command::new(&wasm_ld);
+    let target = jaic::target::Target::parse(if link.memory64 {
+        "wasm64-unknown-unknown"
+    } else {
+        "wasm32-unknown-unknown"
+    })?;
+    let wasm_ld = find_linker(&lookup(), Some(target), &Overrides::from_env())
+        .map_err(|missing| missing.to_string())?;
+    let mut cmd = command(&wasm_ld);
     cmd.arg(if link.memory64 {
         "-mwasm64"
     } else {
@@ -55,57 +63,12 @@ pub fn link_wasm(link: &WasmLink) -> Result<(), String> {
         }
     }
     cmd.args(link.extra_args);
-    let program = wasm_ld.display().to_string();
-    let out = crate::linker::run_captured(&mut cmd)
-        .map_err(|e| crate::linker_not_run(&program, &e, WASM_LD_INSTALL))?;
+    let program = wasm_ld.program.display().to_string();
+    let out =
+        crate::linker::run_captured(&mut cmd).map_err(|e| crate::linker_not_run(&wasm_ld, &e))?;
     if out.status.success() {
         Ok(())
     } else {
         Err(crate::link_failure(&program, &out))
     }
-}
-
-/// `wasm-ld`: `JAIC_WASM_LD`, else next to the LLVM jaic was built with, else an LLD install
-/// (Homebrew's `lld` kegs, Debian's `/usr/lib/llvm-N`), else `PATH`.
-pub fn find_wasm_ld() -> Result<PathBuf, String> {
-    if let Some(program) = jacket_config::env::WASM_LD.os() {
-        return Ok(PathBuf::from(program));
-    }
-    find_llvm_tool("wasm-ld")
-        .map(PathBuf::from)
-        .ok_or_else(|| format!("wasm-ld not found: {WASM_LD_INSTALL}"))
-}
-
-/// How to get `wasm-ld`.
-const WASM_LD_INSTALL: &str =
-    "install LLD (Homebrew `lld`, Debian `lld-<llvm major>`) or set JAIC_WASM_LD to its path";
-
-/// An LLVM tool (`wasm-ld`, `llvm-ar`) from the LLVM or LLD installs jaic knows about.
-pub(crate) fn find_llvm_tool(name: &str) -> Option<String> {
-    let mut dirs = jacket_config::llvm::bin_dirs(crate::BAKED_LLVM_PREFIX);
-    // LLD is a separate package from LLVM on Homebrew and Debian.
-    for keg in [
-        "lld".to_string(),
-        format!("lld@{}", jacket_config::llvm::MAJOR),
-    ] {
-        for root in ["/opt/homebrew/opt", "/usr/local/opt"] {
-            dirs.push(Path::new(root).join(&keg).join("bin"));
-        }
-    }
-    if let Some(found) = dirs.iter().map(|d| d.join(name)).find(|p| p.is_file()) {
-        return Some(found.to_string_lossy().into_owned());
-    }
-    let path = jacket_config::env::PATH.os()?;
-    for candidate in [
-        format!("{name}-{}", jacket_config::llvm::MAJOR),
-        name.to_string(),
-    ] {
-        for dir in std::env::split_paths(&path) {
-            let full = dir.join(&candidate);
-            if full.is_file() {
-                return Some(full.to_string_lossy().into_owned());
-            }
-        }
-    }
-    None
 }

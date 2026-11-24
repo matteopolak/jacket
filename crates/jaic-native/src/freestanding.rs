@@ -2,10 +2,13 @@
 //!
 //! There is no C driver, libc or startup file: the program defines its own entry point, and a
 //! linker script places its sections. `ld.lld` is the only linker used; if it is missing the
-//! build fails with an install hint.
+//! build fails with a note that says how to get it.
+use crate::toolchain::{command, lookup};
 use jaic::ir::Library;
 use jaic::target::{Target, TargetCpu};
 use jaic::toolchain::freestanding;
+use jaic_toolchain::linker::find_linker;
+use jaic_toolchain::{Found, Overrides};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -41,7 +44,7 @@ fn emulation(cpu: TargetCpu) -> Result<Option<&'static str>, String> {
 
 /// The `ld.lld` command for `link`, with the compiler-rt `builtins` archive when there is one.
 fn lld_command(
-    lld: &Path,
+    lld: &Found,
     link: &FreestandingLink,
     builtins: Option<&Path>,
 ) -> Result<Command, String> {
@@ -51,7 +54,7 @@ fn lld_command(
              `-T <script>` to `additional_linker_arguments`"
             .into());
     }
-    let mut cmd = Command::new(lld);
+    let mut cmd = command(lld);
     if let Some(emulation) = emulation(link.target.cpu)? {
         cmd.args(["-m", emulation]);
     }
@@ -87,7 +90,8 @@ fn lld_command(
 
 /// Link freestanding objects into an ELF executable with `ld.lld`.
 pub fn link_freestanding(link: &FreestandingLink) -> Result<(), String> {
-    let lld = find_lld()?;
+    let lld = find_linker(&lookup(), Some(link.target), &Overrides::from_env())
+        .map_err(|missing| missing.to_string())?;
     let explicit = jacket_config::env::COMPILER_RT.os().map(PathBuf::from);
     if let Some(path) = explicit.as_deref().filter(|path| !path.exists()) {
         return Err(format!(
@@ -99,9 +103,8 @@ pub fn link_freestanding(link: &FreestandingLink) -> Result<(), String> {
     let prefixes = jacket_config::llvm::prefixes(crate::BAKED_LLVM_PREFIX);
     let builtins = freestanding::compiler_rt_builtins(link.target, explicit.as_deref(), &prefixes);
     let mut cmd = lld_command(&lld, link, builtins.as_deref())?;
-    let program = lld.display().to_string();
-    let out = crate::linker::run_captured(&mut cmd)
-        .map_err(|e| crate::linker_not_run(&program, &e, LLD_INSTALL))?;
+    let program = lld.program.display().to_string();
+    let out = crate::linker::run_captured(&mut cmd).map_err(|e| crate::linker_not_run(&lld, &e))?;
     if out.status.success() {
         return Ok(());
     }
@@ -120,24 +123,10 @@ pub fn link_freestanding(link: &FreestandingLink) -> Result<(), String> {
     Err(message)
 }
 
-/// `ld.lld`: `JAIC_LLD`, else next to the LLVM jaic was built with, else an LLD install, else
-/// `PATH`. There is no other linker to fall back to.
-pub fn find_lld() -> Result<PathBuf, String> {
-    if let Some(program) = jacket_config::env::LLD.os() {
-        return Ok(PathBuf::from(program));
-    }
-    crate::wasm::find_llvm_tool("ld.lld")
-        .map(PathBuf::from)
-        .ok_or_else(|| format!("ld.lld not found: {LLD_INSTALL}"))
-}
-
-/// How to get `ld.lld`.
-const LLD_INSTALL: &str =
-    "install LLD (Homebrew `lld`, Debian `lld-<llvm major>`) or set JAIC_LLD to its path";
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use jaic_toolchain::Origin;
 
     fn link<'a>(objects: &'a [PathBuf], extra: &'a [String]) -> FreestandingLink<'a> {
         FreestandingLink {
@@ -150,6 +139,10 @@ mod tests {
         }
     }
 
+    fn lld() -> Found {
+        Found::new("ld.lld", Origin::System)
+    }
+
     fn args(cmd: &Command) -> Vec<String> {
         cmd.get_args()
             .map(|a| a.to_string_lossy().into_owned())
@@ -158,7 +151,7 @@ mod tests {
 
     #[test]
     fn a_link_without_a_script_says_how_to_add_one() {
-        let error = lld_command(Path::new("ld.lld"), &link(&[], &[]), None).unwrap_err();
+        let error = lld_command(&lld(), &link(&[], &[]), None).unwrap_err();
         assert!(error.contains("linker script"), "{error}");
         assert!(error.contains("link_for"), "{error}");
     }
@@ -168,8 +161,7 @@ mod tests {
         let objects = [PathBuf::from("a.o")];
         let extra = ["-T".to_string(), "board.ld".to_string()];
         let builtins = Path::new("rt.a");
-        let cmd =
-            lld_command(Path::new("ld.lld"), &link(&objects, &extra), Some(builtins)).unwrap();
+        let cmd = lld_command(&lld(), &link(&objects, &extra), Some(builtins)).unwrap();
         assert_eq!(
             args(&cmd),
             [
@@ -196,7 +188,7 @@ mod tests {
             target: Target::parse("avr-none-elf").unwrap(),
             ..link(&[], &extra)
         };
-        let cmd = lld_command(Path::new("ld.lld"), &request, None).unwrap();
+        let cmd = lld_command(&lld(), &request, None).unwrap();
         assert!(!args(&cmd).contains(&"-m".to_string()), "{:?}", args(&cmd));
     }
 
@@ -214,7 +206,7 @@ mod tests {
             libraries: &libraries,
             ..link(&[], &extra)
         };
-        let error = lld_command(Path::new("ld.lld"), &request, None).unwrap_err();
+        let error = lld_command(&lld(), &request, None).unwrap_err();
         assert!(error.contains("`#library \"libc\"`"), "{error}");
         assert!(error.contains("no libc"), "{error}");
     }

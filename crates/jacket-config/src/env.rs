@@ -153,11 +153,6 @@ vars! {
         default: "`native-libs/<os>-<cpu>` beside the library, else under `target/`",
         summary: "A path list of directories holding the prebuilt third-party native libraries (SDL3, FreeType, ...), replacing the default search.",
     }
-    CROSS_LIBS {
-        name: "JAIC_CROSS_LIBS", group: Settings, readers: [Jaic],
-        default: "unset",
-        summary: "A path list of directories with libraries cross-built for a MinGW target; a cross build links from these instead of the host's native libraries.",
-    }
     LINKER {
         name: "JAIC_LINKER", group: Settings, readers: [Jaic],
         default: "the linker found for the target",
@@ -172,21 +167,6 @@ vars! {
         name: "JAIC_AR", group: Settings, readers: [Jaic],
         default: "the system `ar`, or `llvm-ar`, a MinGW `ar` or `lib.exe` where that is needed",
         summary: "The program that archives object files into a static library.",
-    }
-    SANITIZER_CC {
-        name: "JAIC_SANITIZER_CC", group: Settings, readers: [Jaic],
-        default: "the `clang` of the LLVM jaic was built with, else `cc`",
-        summary: "The C driver that links a build made with a sanitizer.",
-    }
-    WASM_LD {
-        name: "JAIC_WASM_LD", group: Settings, readers: [Jaic],
-        default: "`wasm-ld` next to the build's LLVM, an LLD install, then `PATH`",
-        summary: "The `wasm-ld` that links WebAssembly output.",
-    }
-    LLD {
-        name: "JAIC_LLD", group: Settings, readers: [Jaic],
-        default: "`ld.lld` next to the build's LLVM, an LLD install, then `PATH`",
-        summary: "The `ld.lld` that links freestanding (`-os none`) output.",
     }
     COMPILER_RT {
         name: "JAIC_COMPILER_RT", group: Settings, readers: [Jaic],

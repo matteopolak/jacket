@@ -1,13 +1,15 @@
 //! The link driver and its inputs.
 use super::link_options;
 use super::linker::{
-    check_sanitizer_target, library_args, link_failure, linker_command, linker_not_run, pdb_args,
-    render_link_arg, sanitizer_driver,
+    check_sanitizer_target, library_args, link_failure, linker_not_run, pdb_args, render_link_arg,
 };
 use super::options::Sanitize;
+use super::toolchain::{command, lookup};
 use jaic::ir::Library;
 use jaic::target::Target as BuildTarget;
 use jaic::toolchain::{Driver, Linker, Toolchain};
+use jaic_toolchain::linker::{find_linker, find_sanitizer_driver};
+use jaic_toolchain::{Origin, Overrides};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -57,8 +59,9 @@ fn library_group(
     toolchain: &Toolchain,
     cross: bool,
     helpers: bool,
+    cross_dirs: &[PathBuf],
 ) -> Result<Vec<LinkArg>, String> {
-    let mut args = library_args(lib, toolchain, cross, helpers)?;
+    let mut args = library_args(lib, toolchain, cross, helpers, cross_dirs)?;
     if lib.link_always
         && toolchain.linker == Linker::Unix
         && !args.is_empty()
@@ -83,6 +86,8 @@ pub struct LinkRequest<'a> {
     pub target: Option<BuildTarget>,
     pub sanitize: Sanitize,
     pub debug_info: bool,
+    /// Where libraries built for `target` are, for a cross build.
+    pub cross_library_dirs: &'a [PathBuf],
 }
 
 /// Link object files into an executable (or shared library) for `target` (`None`: the
@@ -99,6 +104,7 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
         target,
         sanitize,
         debug_info,
+        cross_library_dirs,
     } = *request;
     let toolchain = toolchain_for(target);
     let linker = toolchain.linker;
@@ -110,7 +116,7 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
     // Each library's argument group is added once (`-framework X` is two arguments).
     let mut seen: Vec<Vec<LinkArg>> = Vec::new();
     for lib in libraries {
-        let args = library_group(lib, toolchain, cross, helpers)?;
+        let args = library_group(lib, toolchain, cross, helpers, cross_library_dirs)?;
         if !args.is_empty() && !seen.contains(&args) {
             seen.push(args);
         }
@@ -125,9 +131,12 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
         }
     }
     order_link_groups(&mut seen);
-    let (program, mut cmd) = if sanitize.any() {
-        let program = sanitizer_driver();
-        let mut cmd = Command::new(&program);
+    let overrides = Overrides::from_env();
+    let lookup = lookup();
+    let (linker_found, mut cmd) = if sanitize.any() {
+        let found = find_sanitizer_driver(&lookup, &overrides).map_err(|m| m.to_string())?;
+        let program = found.program.display().to_string();
+        let mut cmd = command(&found);
         cmd.args(sanitize.driver_flag());
         if sanitize.fuzzer {
             cmd.arg(fuzzer_runtime(&program)?);
@@ -137,10 +146,13 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
                 "-lstdc++"
             });
         }
-        (program, cmd)
+        (found, cmd)
     } else {
-        linker_command(linker, target)?
+        let found = find_linker(&lookup, target, &overrides).map_err(|m| m.to_string())?;
+        let cmd = command(&found);
+        (found, cmd)
     };
+    let program = linker_found.program.display().to_string();
     let mut coverage_source = None;
     let driver = link_options::driver_for_command(&program, extra_args);
     let extra_args = link_options::render(extra_args, linker, driver)?;
@@ -199,15 +211,12 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
     } else {
         cmd.args(extra_args.linker);
     }
-    let install = if cfg!(target_os = "macos") {
-        "install the Xcode command line tools (`xcode-select --install`), or name a linker with the JAIC_LINKER environment variable"
-    } else if cfg!(windows) {
-        "install LLVM (clang) or the Visual Studio build tools, or name a linker with the JAIC_LINKER environment variable"
-    } else {
-        "install a C compiler (clang or gcc, e.g. `apt install clang`), or name a linker with the JAIC_LINKER environment variable"
-    };
     #[cfg(target_os = "macos")]
-    if program == "cc"
+    if linker_found
+        .program
+        .file_name()
+        .is_some_and(|name| name == "cc")
+        && linker_found.origin == Origin::System
         && target.is_none()
         && !dynamic_library
         && !sanitize.any()
@@ -230,7 +239,7 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
     if let Some(source) = coverage_source {
         let _ = std::fs::remove_file(source);
     }
-    let out = out.map_err(|e| linker_not_run(&program, &e, install))?;
+    let out = out.map_err(|e| linker_not_run(&linker_found, &e))?;
     if out.status.success() {
         Ok(())
     } else {
@@ -256,6 +265,7 @@ pub struct LinkInputs {
 pub fn link_inputs(
     libraries: &[Library],
     target: Option<BuildTarget>,
+    cross_dirs: &[PathBuf],
 ) -> Result<LinkInputs, String> {
     let toolchain = toolchain_for(target);
     let linker = toolchain.linker;
@@ -263,7 +273,7 @@ pub fn link_inputs(
     let helpers = uses_compiler_helpers(target, BuildTarget::host());
     let mut seen: Vec<Vec<LinkArg>> = Vec::new();
     for lib in libraries {
-        let args = library_group(lib, toolchain, cross, helpers)?;
+        let args = library_group(lib, toolchain, cross, helpers, cross_dirs)?;
         if !args.is_empty() && !seen.contains(&args) {
             seen.push(args);
         }
