@@ -22,6 +22,9 @@ inputs:
   apt-label:
     description: Extra name for the Ubuntu package cache, for a job that installs more packages after this step
     default: ''
+  apt-packages:
+    description: More Ubuntu packages, installed with the native libraries in one apt run and kept in the same cache (Linux)
+    default: ''
 runs:
   using: composite
   steps:
@@ -36,7 +39,7 @@ runs:
     # The Ubuntu packages the Linux installs below download, kept between runs (./.github/actions/apt-cache).
     - uses: ./.github/actions/apt-cache
       with:
-        label: native${{ inputs.native-libs }}${{ inputs.apt-label }}
+        label: native${{ inputs.native-libs }}${{ inputs.apt-label }} ${{ inputs.apt-packages }}
     # --lld: wasm-ld, which `jaic -os wasm` links with (docs/native/wasm-target.md).
     - uses: ./.github/actions/setup-llvm
       with:
@@ -57,11 +60,17 @@ runs:
       env:
         NATIVE: ${{ inputs.native-libs }}
         FONT: ${{ inputs.font }}
+        JAI_APT_EXTRA: ${{ inputs.apt-packages }}
       run: |
         echo "DEVELOPER_TOOLS_LLVM_PREFIX=$LLVM_PREFIX" >> "$GITHUB_ENV"
         # X11, GL (Mesa's software renderer), FreeType, Xvfb, ALSA and Mesa's lavapipe (the
         # Vulkan adapter of the WebGPU tests).
-        if [ "$NATIVE" = true ]; then bash tools/ci/install_ci_native_linux.sh; fi
+        if [ "$NATIVE" = true ]; then
+          bash tools/ci/install_ci_native_linux.sh
+        elif [ -n "$JAI_APT_EXTRA" ]; then
+          # shellcheck disable=SC2086 # a list of package names
+          bash tools/ci/apt_install.sh $JAI_APT_EXTRA
+        fi
         if [ "$FONT" = true ]; then echo 'JAIC_TEST_FONT_PATH=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf' >> "$GITHUB_ENV"; fi
         # Drop superseded package versions, and let the cache step read what apt (as root) wrote.
         sudo apt-get autoclean -qq

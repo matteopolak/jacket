@@ -18,6 +18,8 @@ runs:
         LABEL: ${{ inputs.label }}
       run: |
         echo "JAI_APT_ARCHIVES=$RUNNER_TEMP/jai-apt-archives" >> "$GITHUB_ENV"
+        # A label may list packages: one cache per set, so a new package is saved in a key of its own.
+        LABEL=$(echo "$LABEL" | xargs | tr ' ' '-')
         prefix="apt-debs-$RUNNER_ARCH-$LABEL-${{ hashFiles('tools/ci/install_ci_llvm_linux.sh', 'tools/ci/install_ci_native_linux.sh') }}-"
         echo "prefix=$prefix" >> "$GITHUB_OUTPUT"
         echo "key=$prefix$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
