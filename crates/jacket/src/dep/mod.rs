@@ -3,6 +3,7 @@
 //! The submodule's commit (its gitlink) is the lock. Every command takes its git access through
 //! [`git::Git`], so unit tests use a fake and never start a process.
 mod commands;
+mod dedupe;
 pub mod forge;
 pub mod git;
 mod inspect;

@@ -80,7 +80,7 @@ pub(super) fn inspect(
             .note(format!("pass --name {name} to keep this name")));
         }
         ctx.git.rename(&project.dir, path, &to)?;
-        found.name = declared.clone();
+        found.name.clone_from(declared);
         found.path = to;
     }
     Ok(found)

@@ -40,8 +40,13 @@ pub trait Git {
     /// Moves an existing submodule to `commit`, fetching what is missing, and stages it.
     fn move_to(&self, dir: &Path, path: &str, commit: &str) -> Result<(), String>;
 
-    /// Checks out the pinned commits of `paths` (and their own submodules), initialising them.
+    /// Checks out the pinned commits of `paths`, initialising them. Their own submodules are
+    /// left to [`Git::nested`].
     fn sync(&self, dir: &Path, paths: &[String]) -> Result<(), String>;
+
+    /// Checks out the submodules inside the submodule at `path`, except those at the paths in
+    /// `skip` (relative to it), which stay empty.
+    fn nested(&self, dir: &Path, path: &str, skip: &[String]) -> Result<(), String>;
 
     /// Deinits the submodule and removes its folder, gitlink and `.gitmodules` entry.
     fn remove(&self, dir: &Path, path: &str) -> Result<(), String>;
@@ -133,11 +138,7 @@ impl Git for RealGit {
         }
         run(Some(dir), &add)?;
         self.move_to(dir, path, commit)?;
-        run(
-            Some(dir),
-            &["submodule", "update", "--init", "--recursive", "--", path],
-        )
-        .map(drop)
+        run(Some(dir), &["submodule", "update", "--init", "--", path]).map(drop)
     }
 
     fn move_to(&self, dir: &Path, path: &str, commit: &str) -> Result<(), String> {
@@ -153,9 +154,31 @@ impl Git for RealGit {
     }
 
     fn sync(&self, dir: &Path, paths: &[String]) -> Result<(), String> {
-        let mut args = vec!["submodule", "update", "--init", "--recursive", "--"];
+        let mut args = vec!["submodule", "update", "--init", "--"];
         args.extend(paths.iter().map(String::as_str));
         run(Some(dir), &args).map(drop)
+    }
+
+    fn nested(&self, dir: &Path, path: &str, skip: &[String]) -> Result<(), String> {
+        let sub = dir.join(path);
+        if !self.initialised(dir, path) {
+            return Ok(());
+        }
+        let all: Vec<String> = self.submodules(&sub)?.into_iter().map(|s| s.path).collect();
+        // A copy the project now shares is not kept.
+        for path in all
+            .iter()
+            .filter(|p| skip.contains(p) && self.initialised(&sub, p))
+        {
+            run(Some(&sub), &["submodule", "deinit", "-f", "--", path])?;
+        }
+        let wanted: Vec<String> = all.into_iter().filter(|p| !skip.contains(p)).collect();
+        if wanted.is_empty() {
+            return Ok(());
+        }
+        let mut args = vec!["submodule", "update", "--init", "--recursive", "--"];
+        args.extend(wanted.iter().map(String::as_str));
+        run(Some(&sub), &args).map(drop)
     }
 
     fn remove(&self, dir: &Path, path: &str) -> Result<(), String> {

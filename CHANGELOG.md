@@ -2,21 +2,24 @@
 
 ## [Unreleased]
 
-Cross and bare-metal builds find their tools without configuration, and `jacket toolchain` checks and fills them in.
+Cross and bare-metal builds find their own tools, and `jacket dep` manages git dependencies as pinned submodules. The docs site has a playground, and `Extensions` has new allocators.
 
 ### Highlights
 
-- New allocators for `context.allocator` in `Extensions`: `Mimalloc` (macOS and Linux), `Tlsf`, `Frame_Arena` (with a double-frame pair) and `Stack_Allocator` ([docs](docs/extensions/tlsf.md)).
+- `jacket dep` manages git dependencies as pinned submodules, with version ranges and a release-age policy ([docs](docs/tools/dependencies.md)).
 - Cross and bare-metal builds find their linker, sysroot and builtins on their own and print where each came from.
 - `jacket toolchain add` fetches a pinned Linux sysroot or builds compiler-rt builtins; it is the only command that downloads.
-- `jacket.toml` targets take `stack_size`, `entry` and `gc_sections`; runners can use `{sysroot}`.
-- Cortex-M and AVR builds link `libgcc.a` from an installed GNU embedded toolchain.
+- The docs site has a playground with compile options, hover information and go to definition.
+- New allocators for `context.allocator` in `Extensions`: `Mimalloc`, `Tlsf`, `Frame_Arena` and `Stack_Allocator` ([docs](docs/extensions/tlsf.md)).
+- `jaic`, `jailsp` and `jailint` build for 32-bit hosts such as `i686-unknown-linux-gnu`.
 
 ### Breaking changes
 
 - `jacket targets` is now `jacket toolchain`, which also checks that each target's tools are installed.
 - Removed `JAIC_LLD`, `JAIC_WASM_LD`, `JAIC_SANITIZER_CC`, `JAIC_CROSS_LIBS` and `JAIC_REQUIRE_TOOLCHAIN`; use `-linker`.
 - `tools/embedded/build-compiler-rt.sh` is gone: run `jacket toolchain add TRIPLE`.
+- `Bindings_Generator` passes one target triple to clang on every OS, so `i686-linux-gnu` and `avr` lay out correctly.
+- `jacket doc --runtime` needs the whole browser bundle and fails with the build command when a file is missing.
 
 ## [0.39.0] - 2026-11-24
 
@@ -31,15 +34,12 @@ The language server, linter, formatter and interpreter are faster. `jailsp` uses
 - `jaifmt` formats files in parallel (`-j N` sets the workers); checking this repository takes a third as long.
 - Go to definition on a note lists the code that read it; `unused_note` (off by default) reports unread notes.
 
-
 ### Breaking changes
 
-- `jacket doc --runtime` needs the whole browser bundle and fails with the build command when a file is missing.
 - `Byte_Search.find_any` and `find_last_any` take the bytes as an array: `find_any(text, .[#char ",", #char "|"])`.
 
 ### Fixes
 
-- `jacket doc` adds a playground page to the site, and the nav and example links point at it.
 - On Windows, `jailsp` gives freed memory back to the system after each compile. (#85, @ctzcs)
 - `jailsp` publishes compiler errors as soon as the check finishes, and the lint findings after them.
 - The first completion in a busy `jailsp` session no longer waits for the auto-import index.
@@ -55,8 +55,6 @@ The language server, linter, formatter and interpreter are faster. `jailsp` uses
 - `jacket test --changed` reuses the file lists earlier test compiles recorded, and builds missing ones in parallel.
 - Compile-fail `.stderr` files write project paths as `$ROOT/...`, so they match across machines ([testing](docs/tools/jacket-test.md)).
 - Doc pages render `<kbd>` keys instead of showing the tags as text.
-- `Bindings_Generator` passes one target triple to clang on every OS, so `i686-linux-gnu` and `avr` lay out correctly.
-- `jaic`, `jailsp` and `jailint` build for 32-bit hosts such as `i686-unknown-linux-gnu`.
 
 ## [0.38.0] - 2026-11-22
 

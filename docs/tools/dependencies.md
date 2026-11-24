@@ -1,6 +1,4 @@
-# Plan: dependencies (`jacket dep`)
-
-Status: D1 (direct dependencies by tag and commit), D2 (versions), D3 (release-age policy), D4 (`[package]`) and D5 (package-scoped import paths) are built. The rest is plan; each milestone updates this page and the docs it names when it lands.
+# Dependencies (`jacket dep`)
 
 Jai projects share code as module folders under `modules/`, today mostly copied in by hand. `jacket dep` manages them as git submodules pinned in `jacket.toml`, with version ranges, version schemes and a release-age policy. The submodule's commit (its gitlink) is the lock, so there is no lockfile.
 
@@ -51,7 +49,7 @@ platforms = ["macos", "linux", "windows"]
 | `jacket dep check [--offline]` | For CI: `jacket.toml` and the gitlinks agree, every tag still points at its pinned commit (here and on the remote), and every submodule is initialised. Uses `git ls-remote`, never a forge API; `--offline` skips the remote. |
 | `jacket dep init [--reseed]` | Adopts existing submodules under the module folders into `[dependencies]`, and writes `[resolver] seed`. |
 
-A build that finds a managed submodule uninitialised fails with a note: `run jacket dep sync`.
+A build that finds a managed submodule uninitialised fails with a note: `run jacket dep sync`. A module that sits below its repository's root (`module = "modules/Inner"`) is imported by its folder's name, so `jacket` adds that folder's parent to the program's `-import_dir`s.
 
 ### `dep init`
 
@@ -132,27 +130,40 @@ A tag can be pushed again to a different commit. `dep check` and `dep update` co
 Off by default and experimental.
 
 - **Off:** each dependency's own dependencies are fetched recursively as its own submodules. A library's files find their copy through `modules/` next to them, which `search_roots` already tries first. Each copy is a separate module instance, so two copies have distinct types, and errors name each instance.
-- **On:** the ranges of every package are solved together, one version per name goes into the project's `modules/`, and the nested submodules it replaces are not checked out. A library's `#import` then falls through to the shared copy. The compiler doesn't change. A conflict is an error naming each requirer and its range. Vendored nested copies can't be shared and are reported.
-- **Before it can become the default**, it needs its own stress suite:
-  - generated packages at many versions, in diamond, chain and cycle shapes;
-  - a dependency's type in another's public API;
-  - different `#module_parameters` per requirer;
-  - mixed schemes, moved tags and deep nesting;
-  - imports from a library's subfolders, which skip its own `modules/`;
-  - every combination compiled with dedupe on and off, and the results compared.
+- **On** (`[resolver] dedupe = true`): after `add`, `update` and `remove`, the `[dependencies]` of every checked-out package are solved together with the project's entries.
+  - A name no entry covers becomes an entry with `shared = true`, pinned by `tag` to the newest version every requirer admits and the release-age policy accepts, as a submodule of the project's `modules/`.
+  - The nested submodules it replaces are never checked out (`dep sync` skips them too), so a library's `#import` falls through to the shared copy. The compiler doesn't change.
+  - Entries the user wrote keep their pin and must satisfy every requirer. A shared entry stays while it fits everyone; plain `dep update` moves it to the newest version they admit.
+  - Shared entries can't be removed or updated by name; the last package that needs one takes it with it. `dep list` marks them `(shared)` and `dep check` fails when a requirement is uncovered or unmet.
+  - A conflict names each requirer and its range. A failing `dep add` removes the package and any copies only it needed. Requirers must agree on the repository, `scheme` and `tag_prefix`.
+  - A package that keeps a plain copy of a module in the folder where its submodule would be can't share it; `add` warns.
+- **Stress suite:** `crates/jacket/tests/dep_dedupe.rs` generates packages at several versions and compiles each shape with dedupe on and off. What it showed:
+  - Diamond with a type in a public API: off, two copies of the type and a compile error (`argument of type Handle does not match parameter type Handle`); on, one copy and a clean build.
+  - A file in a package's subfolder importing a nested module: off, `module not found` (no `modules/` next to it); on, it finds the shared copy.
+  - Different `#module_parameters` per requirer: one copy of the files, two module instances, and the same type error on and off.
+  - Chain, deep chain with a diamond, and a cycle of packages: one copy per name, settled in a few rounds.
+  - Conflicting ranges, disagreeing schemes, a pinned entry the requirer rejects and a moved shared tag: each an error naming the packages.
+  - A fresh clone: `dep sync` checks out the shared copy and leaves the nested ones empty.
+- It stays off by default until it has run on real projects.
 
-## Milestones
+## How to change it
 
-1. **D1, direct dependencies.** `add`, `remove`, `list`, `update`, `sync`, `check` and `init`; `[dependencies]` with `tag` and `rev`; moved-tag checks.
-2. **D2, versions.** Schemes, prefixes and ranges; `version =` entries.
-3. **D3, release-age policy.** `[resolver]`, forge time lookups, caching, `seed`.
-4. **D4, `[package]`.** Name, module path, `requires_jacket`, `platforms`; `jacket new --lib` writes the table.
-5. **D5, package-scoped import paths.** The compiler change (per-package search roots, passed by jacket), with fixtures in `crates/jaic-cli/tests/module_r*`.
-6. **D6, dedupe.** The solver and the stress suite, behind `dedupe = true`.
+- **A command:** `crates/jacket/src/dep/commands.rs` (`dispatch` is the table); the clap definitions are `Action` in `dep/mod.rs`. Git and forge access go through the `Git` and `Forge` traits (`dep/git.rs`, `dep/forge.rs`), which tests replace with local bare repositories and a fake forge server (`crates/jacket/tests/dep_support/`).
+- **`jacket.toml` fields:** `Dependency`, `Resolver` and `Package` in `crates/jacket-config/src/schema.rs`, then `editors/vscode/scripts/build.ts` and `node scripts/build.ts schemas`. Entries are written as text by `dep/manifest.rs`, which touches only `[dependencies]` lines and `[resolver] seed`, so comments and layout survive; add a new field to `manifest::inline` too.
+- **Versions and ranges:** `dep/version.rs` (schemes, `parse_tag`, `parse_range`) and `dep/resolve.rs` (`classify`, `matching`).
+- **The policy:** `dep/policy.rs` (ages, jitter) and `dep/forge.rs` (release lists, the cache, GraphQL batching).
+- **A dependency's `[package]`:** `dep/package.rs` reads it, `dep/inspect.rs` applies it at `add` and reports requirements for `list`.
+- **Module search:** `jacket_config::packages::dependency_roots` decides what each dependency adds; `jacket` turns it into `-import_dir` and `-package_import_dir` (`compile.rs`) and `jailint` into `ProgramInputs::packages`. The compiler side is `search_roots` in `crates/jaic/src/sema/modules/filesystem.rs`; see [module search order](../compiler/project.md#module-search-order). The language server doesn't read dependency import paths yet.
+- **Sharing:** `dep/dedupe.rs`. The stress suite is `crates/jacket/tests/dep_dedupe.rs`; add a shape there with `observe`, which builds it with dedupe off and on and compiles both.
+- **Gotchas:** `add` and `sync` check out only the dependency itself; `Git::nested` checks out what is inside it, skipping what the project shares. Git blocks local-path submodule URLs by default; `add` allows the one the user typed, and tests allow them through `GIT_CONFIG_*`.
 
-## Files
+## Configuration
 
-- CLI: `crates/jacket/src/cli.rs`, with the commands in a new `dep` module of the jacket crate.
-- Settings: `crates/jacket-config/src/schema.rs` and the editor schema `editors/vscode/schemas/jacket.schema.json`.
-- Module search: `crates/jaic/src/sema/modules/filesystem.rs` (`search_roots`) and `docs/compiler/project.md`.
-- Related: [jacket](jacket.md), [module search order](../compiler/project.md#module-search-order), [toolchain discovery](../native/toolchain-discovery.md).
+- `[dependencies]`, `[resolver]` and `[package]` in `jacket.toml`, described above.
+- `GITHUB_TOKEN`, `GITLAB_TOKEN`: sent only to their own forge's API host.
+- `JACKET_FORGE_API`: replaces the forge API base URL, for tests.
+- The release-time cache is `dep-release-times.json` under `jacket/` in the user cache folder (`XDG_CACHE_HOME`, `~/Library/Caches` or `LOCALAPPDATA`).
+
+## Dependencies
+
+`git` and `curl` on `PATH`; the `semver` crate; `jacket-config`. Related: [jacket](jacket.md), [module search order](../compiler/project.md#module-search-order), [toolchain discovery](../native/toolchain-discovery.md).

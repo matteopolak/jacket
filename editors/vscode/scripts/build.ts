@@ -343,6 +343,7 @@ const jacket = {
           scheme: { enum: ["semver", "calendar", "integer"], markdownDescription: "How tags read as versions. Default `semver`." },
           tag_prefix: { type: "string", markdownDescription: "Fixed text stripped from tags before they are read (`alpha-`)." },
           min_release_age: { type: "string", markdownDescription: "Replaces `[resolver] min_release_age` for this dependency. `\"0\"` waives the policy." },
+          shared: { type: "boolean", markdownDescription: "Written by `jacket dep` under `[resolver] dedupe`: another package asks for this one, so it is removed with the last package that needs it." },
         },
       },
     },

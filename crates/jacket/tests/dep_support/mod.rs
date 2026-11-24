@@ -102,6 +102,30 @@ impl Origin {
     pub fn url(&self) -> String {
         self.bare.to_string_lossy().into_owned()
     }
+
+    /// Makes `inner` a submodule of this repository at `modules/<name>`, checked out at `at`
+    /// (a tag or commit of `inner`). Commit afterwards.
+    pub fn nest(&self, inner: &Origin, name: &str, at: &str) {
+        let path = format!("modules/{name}");
+        if !self.work.join(&path).join(".git").exists() {
+            git(
+                &self.work,
+                &[
+                    "-c",
+                    "protocol.file.allow=always",
+                    "submodule",
+                    "add",
+                    "-q",
+                    "--force",
+                    &inner.url(),
+                    &path,
+                ],
+            );
+        }
+        let sub = self.work.join(&path);
+        git(&sub, &["fetch", "-q", "--tags", "origin"]);
+        git(&sub, &["checkout", "-q", at]);
+    }
 }
 
 /// A git repository with a `jacket.toml`, to run `jacket dep` in.

@@ -31,7 +31,7 @@ What `jacket` adds is the project:
 
 ## Commands
 
-`build`, `check`, `run`, `lint`, `fmt` and `lsp` front the tool of the same name. `test`, `bench`, `doc` and `migrate` are [jacket test](jacket-test.md), [jacket bench](jacket-bench.md), [jacket doc](jacket-doc.md) and [jacket migrate](jacket-migrate.md). `new`, `init`, `config`, `toolchain`, `clean`, `explain`, `version` and `upgrade` are `jacket`'s own and use `--long` flags. `jacket jaic|jailint|jailsp|jaifmt <args>` runs that tool verbatim, and any other command runs `jacket-<command>` from `PATH`, as cargo does. Every flag is in the [tools reference](../reference/tools.md).
+`build`, `check`, `run`, `lint`, `fmt` and `lsp` front the tool of the same name. `test`, `bench`, `doc` and `migrate` are [jacket test](jacket-test.md), [jacket bench](jacket-bench.md), [jacket doc](jacket-doc.md) and [jacket migrate](jacket-migrate.md). `dep` manages [git dependencies](dependencies.md). `new`, `init`, `config`, `toolchain`, `clean`, `explain`, `version` and `upgrade` are `jacket`'s own and use `--long` flags. `jacket jaic|jailint|jailsp|jaifmt <args>` runs that tool verbatim, and any other command runs `jacket-<command>` from `PATH`, as cargo does. Every flag is in the [tools reference](../reference/tools.md).
 
 ### Targets
 
@@ -112,6 +112,17 @@ runner = "flash {exe}"
 path = "src/my_lib"
 repo = "https://github.com/me/my_lib"
 
+[dependencies]                  # jacket dep add/update/sync; see dependencies.md
+jaison = { git = "someone/jaison", version = "^1.2" }
+
+[resolver]                      # how jacket dep picks versions
+min_release_age = "3d"
+seed = "k3v9q2xh"
+
+[package]                       # what this repository says when others depend on it
+name = "my_lib"
+requires_jacket = ">=0.40"
+
 [postgres]                      # read by Extensions/Postgres
 managed = true
 
@@ -128,7 +139,8 @@ Precedence: command-line flags, then `jacket.toml`, then defaults. Unknown keys 
 - **A new section:** add a typed struct in `schema.rs` (no catch-all map; `parse_noting` collects unknown keys and `known_keys` feeds the did-you-mean, which a test keeps in step) and read it from `Loaded`. A tool that validates its own values passes a `Check` to `load_checked`.
 - **Entry inference:** `jacket_config::first_entry` and `INFERRED_ENTRIES`. `jaic-cli` and `jailsp` share them, so keep one order.
 - **`[format]`:** `FORMAT_SETTINGS` in `schema.rs` is the authority. `jacket fmt` (`crates/jacket/src/fmt.rs`) resolves them and passes each to `jaifmt` as `--no-config --set key=value`. Standalone `jaifmt` and the browser use the Jai TOML reader in `stdlib/Extensions/Jai_Format`, and `jai_format_sync.rs` fails when the two drift. To add a key: the table, `Format` in `schema.rs`, then `Format_Config`, `apply_key` and `FORMAT_KEYS` in `Jai_Format`.
-- `crates/jaic` never reads `jacket.toml`; `jaic` takes settings as flags from `jacket`.
+- `crates/jaic` never reads `jacket.toml`; `jaic` takes settings as flags from `jacket`, including `-package_import_dir` for each dependency's own `import_path`.
+- **Dependencies:** `crates/jacket/src/dep/` holds the commands (see [dependencies](dependencies.md)); `jacket_config::packages` reads what dependencies add to the module search and is shared by `jacket`, `jailint` and the compiler tests.
 
 ## Dependencies
 

@@ -69,6 +69,10 @@ pub struct Dependency {
     /// Replaces `[resolver] min_release_age` for this entry (`"0"` waives it).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min_release_age: Option<String>,
+    /// Written by `jacket dep` under `[resolver] dedupe`: another package asks for this one and
+    /// it is shared, so it is removed with the last package that needs it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub shared: bool,
 }
 
 /// `[resolver]`: the release-age policy and the experimental shared-dependency mode.
@@ -874,6 +878,7 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "scheme",
             "tag_prefix",
             "min_release_age",
+            "shared",
         ],
         "project" => &["entry", "import_path"],
         "toolchain" => &["version"],

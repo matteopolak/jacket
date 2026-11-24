@@ -1,5 +1,6 @@
 //! The `jacket dep` commands. Each reads the project, asks git through [`Git`] and writes
 //! `jacket.toml` through [`manifest`].
+use super::dedupe;
 use super::forge::{self, Repo};
 use super::git::RemoteTag;
 use super::git::{Git, Submodule};
@@ -21,17 +22,22 @@ pub fn path_of(name: &str, entry: &Dependency) -> String {
         .unwrap_or_else(|| format!("modules/{name}"))
 }
 
-fn short(commit: &str) -> &str {
+pub(super) fn short(commit: &str) -> &str {
     &commit[..commit.len().min(7)]
 }
 
 /// What an entry asks for, as `jacket dep list` writes it.
 pub(super) fn asked(entry: &Dependency) -> String {
-    match (&entry.version, &entry.tag, &entry.rev) {
+    let text = match (&entry.version, &entry.tag, &entry.rev) {
         (Some(range), ..) => range.clone(),
         (_, Some(tag), _) => tag.clone(),
         (_, _, Some(rev)) => format!("rev {rev}"),
         _ => "-".into(),
+    };
+    if entry.shared {
+        format!("{text} (shared)")
+    } else {
+        text
     }
 }
 
@@ -85,7 +91,7 @@ pub fn dispatch(action: Action, cwd: &Path, ctx: &mut Ctx) -> Result<bool> {
     }
 }
 
-fn say(ctx: &mut Ctx, text: String) {
+pub(super) fn say(ctx: &mut Ctx, text: String) {
     let _ = writeln!(ctx.out, "{text}");
 }
 
@@ -116,7 +122,7 @@ enum Verdict {
 }
 
 /// The policy as it applies to one dependency.
-struct Gate {
+pub(super) struct Gate {
     name: String,
     entry: Dependency,
     policy: Policy,
@@ -126,7 +132,12 @@ struct Gate {
 }
 
 impl Gate {
-    fn new(project: &Project, name: &str, entry: &Dependency, url: &str) -> Result<Self> {
+    pub(super) fn new(
+        project: &Project,
+        name: &str,
+        entry: &Dependency,
+        url: &str,
+    ) -> Result<Self> {
         let resolver = &project.config.resolver;
         let policy = Policy::from_config(resolver, entry)
             .map_err(|e| DepError::new(format!("{name}: {e}")))?;
@@ -150,7 +161,7 @@ impl Gate {
         })
     }
 
-    fn active(&self) -> bool {
+    pub(super) fn active(&self) -> bool {
         self.policy.active()
     }
 
@@ -341,7 +352,7 @@ fn pick(
 
 /// The newest of `found` (newest first) that the policy accepts. A version that is too new is
 /// skipped for an older one; one whose age cannot be checked stops the search.
-fn accept_newest(
+pub(super) fn accept_newest(
     ctx: &mut Ctx,
     gate: &Gate,
     found: &[Tagged],
@@ -353,13 +364,15 @@ fn accept_newest(
         match gate.check(ctx, &candidate.tag, &candidate.commit) {
             Verdict::Allowed => {
                 let mut pin = shape(candidate);
-                pin.commit = candidate.commit.clone();
+                pin.commit.clone_from(&candidate.commit);
                 return Ok(pin);
             }
             Verdict::Unknown(why) => {
                 return Err(gate.refuse(&candidate.tag, &Verdict::Unknown(why), waived));
             }
-            too_new => {
+            too_new @ Verdict::TooNew {
+                ..
+            } => {
                 newest_refusal.get_or_insert((candidate.tag.clone(), too_new));
             }
         }
@@ -459,9 +472,9 @@ fn add(ctx: &mut Ctx, project: &mut Project, spec_text: &str, options: AddOption
     let ask = resolve::classify(&reading, &tags, parsed.at.as_deref())?;
     let pin = pick(ctx, &gate, &url, &reading, &tags, ask)?;
     ctx.git.add(&project.dir, &url, &path, &pin.commit)?;
-    entry.tag = pin.tag.clone();
-    entry.rev = pin.rev.clone();
-    entry.version = pin.version.clone();
+    entry.tag.clone_from(&pin.tag);
+    entry.rev.clone_from(&pin.rev);
+    entry.version.clone_from(&pin.version);
     let tag_now = pin.tag.clone().or_else(|| {
         let head = ctx.git.head(&project.dir, &path).ok()?;
         resolved_tag(ctx.git, project, &entry, &path, &head)
@@ -508,13 +521,27 @@ fn add(ctx: &mut Ctx, project: &mut Project, spec_text: &str, options: AddOption
         ctx,
         format!("added {name} {shown}{asked} at {path} ({})", short(&head)),
     );
-    Ok(())
+    if let Err(error) = dedupe::run(ctx, project, false) {
+        // A package the project cannot share is not kept, nor the copies only it needed.
+        let _ = ctx.git.remove(&project.dir, &path);
+        let (text, _) = manifest::remove_dependency(&project.text, &name);
+        let _ = project.save(text);
+        let _ = dedupe::run(ctx, project, false);
+        return Err(error);
+    }
+    dedupe::checkout_nested(ctx, project)
 }
 
 fn remove(ctx: &mut Ctx, project: &mut Project, name: &str) -> Result<()> {
     let Some(entry) = project.config.dependencies.get(name) else {
         return Err(DepError::new(format!("`{name}` is not a dependency")));
     };
+    if entry.shared {
+        return Err(
+            DepError::new(format!("{name} is shared: other dependencies need it"))
+                .note("it is removed with the last of them"),
+        );
+    }
     let path = path_of(name, entry);
     let known = ctx.git.submodules(&project.dir)?;
     if known.iter().any(|s| s.path == path) {
@@ -523,11 +550,11 @@ fn remove(ctx: &mut Ctx, project: &mut Project, name: &str) -> Result<()> {
     let (text, _) = manifest::remove_dependency(&project.text, name);
     project.save(text)?;
     say(ctx, format!("removed {name} ({path})"));
-    Ok(())
+    dedupe::run(ctx, project, false)
 }
 
 /// The tag pointing at `commit` that names the resolved version.
-fn resolved_tag(
+pub(super) fn resolved_tag(
     git: &dyn Git,
     project: &Project,
     entry: &Dependency,
@@ -695,9 +722,27 @@ fn update(
 ) -> Result<()> {
     require_repo(ctx, project)?;
     let names: Vec<String> = match only {
+        Some(name)
+            if project
+                .config
+                .dependencies
+                .get(name)
+                .is_some_and(|e| e.shared) =>
+        {
+            return Err(DepError::new(format!(
+                "{name} is shared: its version follows the packages that need it"
+            ))
+            .note("update those, or `jacket dep update` to move every shared version"));
+        }
         Some(name) if project.config.dependencies.contains_key(name) => vec![name.to_string()],
         Some(name) => return Err(DepError::new(format!("`{name}` is not a dependency"))),
-        None => project.config.dependencies.keys().cloned().collect(),
+        None => project
+            .config
+            .dependencies
+            .iter()
+            .filter(|(_, e)| !e.shared)
+            .map(|(name, _)| name.clone())
+            .collect(),
     };
     if to.is_some() && names.len() != 1 {
         return Err(DepError::new("--to needs one dependency name"));
@@ -818,7 +863,8 @@ fn update(
             .unwrap_or_else(|| format!("rev {}", short(&head)));
         say(ctx, format!("updated {name} to {now} ({})", short(&head)));
     }
-    Ok(())
+    dedupe::run(ctx, project, only.is_none())?;
+    dedupe::checkout_nested(ctx, project)
 }
 
 fn sync(ctx: &mut Ctx, project: &Project) -> Result<()> {
@@ -840,6 +886,7 @@ fn sync(ctx: &mut Ctx, project: &Project) -> Result<()> {
         return Ok(());
     }
     ctx.git.sync(&project.dir, &paths)?;
+    dedupe::checkout_nested(ctx, project)?;
     say(ctx, format!("checked out {} dependencies", paths.len()));
     Ok(())
 }
@@ -910,6 +957,7 @@ fn check(ctx: &mut Ctx, project: &Project, offline: bool) -> Result<bool> {
             ));
         }
     }
+    problems.extend(dedupe::problems(ctx, project));
     if problems.is_empty() {
         say(
             ctx,
@@ -1093,7 +1141,7 @@ fn init(ctx: &mut Ctx, project: &mut Project, reseed: bool) -> Result<()> {
             continue;
         };
         let mut vendored: Vec<String> = entries
-            .filter_map(|e| e.ok())
+            .filter_map(std::result::Result::ok)
             .filter(|e| {
                 let path = e.path();
                 !known.iter().any(|s| project.dir.join(&s.path) == path)

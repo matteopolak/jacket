@@ -278,7 +278,7 @@ fn known_keys_match_the_structs() {
     tops.push("target");
     let config = parse(
         "[dependencies.d]\ngit = \"a/b\"\nversion = \"^1\"\ntag = \"t\"\nrev = \"r\"\npath = \"p\"\n\
-         module = \"m\"\nscheme = \"semver\"\ntag_prefix = \"v\"\nmin_release_age = \"0\"\n",
+         module = \"m\"\nscheme = \"semver\"\ntag_prefix = \"v\"\nmin_release_age = \"0\"\nshared = true\n",
     )
     .unwrap();
     let value = toml::Value::try_from(&config).unwrap();

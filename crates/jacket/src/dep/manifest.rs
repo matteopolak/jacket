@@ -48,6 +48,9 @@ pub fn inline(entry: &Dependency) -> String {
             parts.push(format!("{name} = {}", quote(value)));
         }
     }
+    if entry.shared {
+        parts.push("shared = true".to_string());
+    }
     format!("{{ {} }}", parts.join(", "))
 }
 
@@ -107,25 +110,23 @@ pub fn set_dependency(text: &str, name: &str, entry: &Dependency) -> Result<Stri
         ));
     }
     let line = format!("{} = {}", key(name), inline(entry));
-    let mut out: Vec<String> = lines.iter().map(|l| l.to_string()).collect();
-    match table_span(&lines, "dependencies") {
-        Some((from, to)) => match entry_line(&lines, from, to, name) {
-            Some(at) => out[at] = line,
-            None => {
-                let mut at = to;
-                while at > from && lines[at - 1].trim().is_empty() {
-                    at -= 1;
-                }
-                out.insert(at, line);
+    let mut out: Vec<String> = lines.iter().map(ToString::to_string).collect();
+    if let Some((from, to)) = table_span(&lines, "dependencies") {
+        if let Some(at) = entry_line(&lines, from, to, name) {
+            out[at] = line;
+        } else {
+            let mut at = to;
+            while at > from && lines[at - 1].trim().is_empty() {
+                at -= 1;
             }
-        },
-        None => {
-            if out.last().is_some_and(|l| !l.trim().is_empty()) {
-                out.push(String::new());
-            }
-            out.push("[dependencies]".into());
-            out.push(line);
+            out.insert(at, line);
         }
+    } else {
+        if out.last().is_some_and(|l| !l.trim().is_empty()) {
+            out.push(String::new());
+        }
+        out.push("[dependencies]".into());
+        out.push(line);
     }
     Ok(join(&out, text))
 }
@@ -152,19 +153,19 @@ pub fn remove_dependency(text: &str, name: &str) -> (String, bool) {
 pub fn set_seed(text: &str, seed: &str) -> String {
     let lines: Vec<&str> = text.lines().collect();
     let line = format!("seed = {}", quote(seed));
-    let mut out: Vec<String> = lines.iter().map(|l| l.to_string()).collect();
-    match table_span(&lines, "resolver") {
-        Some((from, to)) => match entry_line(&lines, from, to, "seed") {
-            Some(at) => out[at] = line,
-            None => out.insert(from, line),
-        },
-        None => {
-            if out.last().is_some_and(|l| !l.trim().is_empty()) {
-                out.push(String::new());
-            }
-            out.push("[resolver]".into());
-            out.push(line);
+    let mut out: Vec<String> = lines.iter().map(ToString::to_string).collect();
+    if let Some((from, to)) = table_span(&lines, "resolver") {
+        if let Some(at) = entry_line(&lines, from, to, "seed") {
+            out[at] = line;
+        } else {
+            out.insert(from, line);
         }
+    } else {
+        if out.last().is_some_and(|l| !l.trim().is_empty()) {
+            out.push(String::new());
+        }
+        out.push("[resolver]".into());
+        out.push(line);
     }
     join(&out, text)
 }

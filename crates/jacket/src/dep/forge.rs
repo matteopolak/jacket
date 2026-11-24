@@ -15,6 +15,9 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
+/// Status, lower-cased headers and body of an HTTP answer.
+type Response = (u16, Vec<(String, String)>, String);
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind {
     GitHub,
@@ -325,7 +328,7 @@ impl Http {
         etag: Option<&str>,
         token: Option<(&str, &str)>,
         post: Option<&str>,
-    ) -> Result<(u16, Vec<(String, String)>, String), ForgeError> {
+    ) -> Result<Response, ForgeError> {
         let mut command = Command::new("curl");
         command
             .args(["--silent", "--show-error", "--include", "--max-time", "30"])
@@ -385,7 +388,7 @@ impl Http {
 }
 
 /// Status, lower-cased headers and body of a `curl --include` answer.
-fn parse_response(text: &str) -> Option<(u16, Vec<(String, String)>, String)> {
+fn parse_response(text: &str) -> Option<Response> {
     let mut rest = text;
     loop {
         let (head, body) = rest

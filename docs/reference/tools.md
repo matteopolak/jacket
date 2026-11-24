@@ -49,6 +49,7 @@ By default jaic builds a native executable. Options may come before or after the
 | `-add "code"` | add the code to the target program (repeatable) |
 | `-run "code"` | run the code at compile time, as a `#run` (repeatable) |
 | `-import_dir <dir>` | also look for modules in &lt;dir&gt; (repeatable; short form -I) |
+| `-package_import_dir <package>=<dir>also look for modules in <dir>, for the files under <package> only (repeatable)` |  |
 | `-os <os>` | target OS: linux, windows, macos or wasm |
 | `-cpu <cpu>` | target CPU: x64 or arm64 |
 | `-target <triple>` | build for an LLVM target triple (overrides -os and -cpu) |
@@ -239,6 +240,7 @@ jailint [OPTIONS] [paths]...
 | `-cpu <cpu>` | target CPU: x64 or arm64 |
 | `-target <triple>` | build for an LLVM target triple (overrides -os and -cpu) |
 | `-import_dir <dir>` | also look for modules in &lt;dir&gt; (repeatable; short form -I) |
+| `-package_import_dir <package>=<dir>also look for modules in <dir>, for the files under <package> only (repeatable)` |  |
 | `-add "code"` | add the code to the target program (repeatable) |
 | `-j, --jobs <n>` | run n compiles (or tests) at once (default: one per CPU) |
 | `--color <when>` | colour in diagnostics: auto, always or never |
