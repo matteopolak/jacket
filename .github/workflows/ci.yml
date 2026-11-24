@@ -893,6 +893,23 @@ jobs:
           [[ "$RUNNER_OS" == Linux ]] && run=(xvfb-run -a -s "-screen 0 1280x1024x24")
           "${run[@]}" python3 -u tools/stdlib/stdlib_runtime.py --jaic target/release/jaic --platform ${{ matrix.platform }} --shard ${{ matrix.shard }} \
             --modes native --opt O2 --strict --timeout 600
+      - name: Dependency lists of the jacket test programs
+        # The files each test program read (jacket's test-deps store), which `--changed` consults
+        # instead of compiling every program again. One cache per platform and share; main saves,
+        # other refs only restore (the pattern of .github/actions/apt-cache).
+        if: ${{ always() && !cancelled() && matrix.jacket_test && github.ref == 'refs/heads/main' }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/jacket-test-deps
+          key: jacket-test-deps-${{ matrix.platform }}-${{ matrix.jacket_test }}-${{ github.sha }}
+          restore-keys: jacket-test-deps-${{ matrix.platform }}-${{ matrix.jacket_test }}-
+      - name: Dependency lists of the jacket test programs (restore only)
+        if: ${{ always() && !cancelled() && matrix.jacket_test && github.ref != 'refs/heads/main' }}
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/jacket-test-deps
+          key: jacket-test-deps-${{ matrix.platform }}-${{ matrix.jacket_test }}-${{ github.sha }}
+          restore-keys: jacket-test-deps-${{ matrix.platform }}-${{ matrix.jacket_test }}-
       - name: Stdlib tests run by jacket test
         # Every stdlib module's tests (`[test] paths` in jacket.toml finds them), once per
         # platform: native, interpreted, native -O2 in the full tier only, and with `wasm`, wasm
@@ -907,6 +924,7 @@ jobs:
           WASM: ${{ matrix.wasm }}
           JACKET_TEST_O2: ${{ needs.changes.outputs.full }}
           JACKET_TEST_PARTITION: ${{ matrix.jacket_test }}
+          JACKET_TEST_DEPS_DIR: ${{ runner.temp }}/jacket-test-deps
         run: bash tools/ci/stdlib_jacket_test.sh
       - name: glTF sample models
         # The 1.1 GB Khronos sample set is fetched here only, into a cache of its own so the shared
