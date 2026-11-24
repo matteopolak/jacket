@@ -1,0 +1,24 @@
+flat top: true top
+flat nested: true inner
+flat hidden: true hidden
+flat extra folder present: false
+flat icon: true icns-bytes
+flat plist written: false
+tree top: true top
+tree nested: true inner
+tree icon: true icns-bytes
+tree plist: true <?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key>
+  <string>tool</string>
+  <key>CFBundleName</key>
+  <string>Tree</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleIconFile</key>
+  <string>Icon.icns</string>
+</dict>
+</plist>
+
