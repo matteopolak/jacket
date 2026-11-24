@@ -1,0 +1,6 @@
+valid entries=1 first=only size=3
+bad magic loaded=false errors=1
+newer version loaded=false errors=1
+cut short loaded=false errors=1
+empty loaded=false errors=1
+ok

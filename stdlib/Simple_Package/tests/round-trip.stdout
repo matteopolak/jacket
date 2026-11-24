@@ -1,0 +1,12 @@
+sorted file size=506 table_offset=367
+memory entry alpha size=0 match=true
+memory entry mid size=300 match=true
+memory entry zeta size=3 match=true
+file entry alpha size=0 match=true
+file entry mid size=300 match=true
+file entry zeta size=3 match=true
+ordered names=zeta,alpha,mid
+ordered entry zeta size=3 match=true
+ordered entry alpha size=0 match=true
+ordered entry mid size=300 match=true
+ok
