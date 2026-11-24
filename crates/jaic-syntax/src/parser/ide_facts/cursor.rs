@@ -204,7 +204,7 @@ fn ends_expression(t: &Tok) -> bool {
 fn receiver_before(tokens: &[Token], dot: usize) -> (Option<Span>, Vec<Span>) {
     let Some(mut i) = dot
         .checked_sub(1)
-        .filter(|&i| ends_expression(&tokens[i].tok))
+        .filter(|&i| ends_expression(&tokens[i].tok) && !closes_cast_type(tokens, i))
     else {
         return (None, Vec::new());
     };
@@ -267,6 +267,28 @@ fn receiver_before(tokens: &[Token], dot: usize) -> (Option<Span>, Vec<Span>) {
         }),
         chain,
     )
+}
+
+/// Whether the `)` at `tokens[close]` ends the type of a `cast(T)`, `cast,trunc(T)` or
+/// `cast,no_check(T)`: what follows is the cast's operand, so `cast(Dir) .WEST` names an inferred
+/// member.
+fn closes_cast_type(tokens: &[Token], close: usize) -> bool {
+    if tokens[close].tok != Tok::Punct(P::RParen) {
+        return false;
+    }
+    let Some(mut i) = matching_open(tokens, close).and_then(|open| open.checked_sub(1)) else {
+        return false;
+    };
+    // The flags between the word and its parenthesis: `,trunc`, `,no_check`.
+    let is_cast = |i: usize| matches!(&tokens[i].tok, Tok::Ident(name) if name.as_str() == "cast");
+    while i >= 2
+        && !is_cast(i)
+        && matches!(tokens[i].tok, Tok::Ident(_))
+        && tokens[i - 1].tok == Tok::Punct(P::Comma)
+    {
+        i -= 2;
+    }
+    is_cast(i)
 }
 
 /// The index of the bracket that opens the closer at `close`.

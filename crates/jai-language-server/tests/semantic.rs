@@ -836,6 +836,27 @@ assign :: () {
     assert!(kinds.iter().all(|k| k.1 == CompletionKind::EnumMember));
 }
 
+/// The operand of a cast that has no type of its own takes the cast's type, whether the name is
+/// being typed or is already written.
+#[test]
+fn inferred_enum_members_are_completed_under_a_cast() {
+    let text = "\
+Dir :: enum { NORTH; EAST; WEST; }
+typing :: () {
+    d := cast(Dir) .;
+}
+written :: () {
+    d := cast(Dir) .WEST;
+}
+";
+    let mut s = session();
+    s.open(uri(), 1, text.into()).unwrap();
+    let names = |at| -> Vec<String> { labels(&s, at).into_iter().map(|l| l.0).collect() };
+    let dirs = ["EAST", "NORTH", "WEST"];
+    assert_eq!(names(after(text, "cast(Dir) .;", 0, 1)), dirs);
+    assert_eq!(names(after(text, "cast(Dir) .WEST", 0, 0)), ["WEST"]);
+}
+
 const MEMBERS: &str =
     "Point :: struct { x: int; y: int; }\nmain :: () {\n    p: Point;\n    p.x = 1;\n}\n";
 
