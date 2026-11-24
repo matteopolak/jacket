@@ -1,3 +1,4 @@
+// test: only(.WINDOWS)
 #import "Basic";
 U :: #import "Windows_Utf8";
 
