@@ -8,6 +8,7 @@
 mod cli;
 mod commands;
 mod compile;
+mod dep;
 mod doc;
 mod fmt;
 mod migrate;
@@ -65,6 +66,9 @@ fn main() -> ExitCode {
         Command::Toolchain {
             action,
         } => commands::toolchain(action, &cwd),
+        Command::Dep {
+            action,
+        } => dep::run(action, &cwd),
         Command::Clean => commands::clean(&cwd),
         Command::Version => commands::version(),
         Command::Explain {
@@ -110,6 +114,13 @@ fn tool_command(command: &str, args: &[OsString], cwd: &Path) -> ExitCode {
     };
     if let Some(loaded) = &loaded {
         project::check_toolchain(loaded);
+    }
+    if matches!(command, "build" | "check" | "run")
+        && let Some(loaded) = &loaded
+        && let Err(error) = dep::require_checked_out(&loaded.config, loaded.dir())
+    {
+        eprintln!("jacket: error: {error}");
+        return ExitCode::from(2);
     }
     let fs = Disk;
     let ctx = compile::Context {

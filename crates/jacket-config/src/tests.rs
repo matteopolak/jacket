@@ -225,6 +225,15 @@ fn known_keys_match_the_structs() {
             "experimental",
             "parse_threads = 1\nserial_parse = true\ncodegen_units = 1\n",
         ),
+        (
+            "resolver",
+            "min_release_age = \"3d\"\nrelease_age_jitter = \"2d\"\nseed = \"k\"\ndedupe = true\n",
+        ),
+        (
+            "package",
+            "name = \"a\"\nversion = \"1\"\nmodule = \"src\"\nrequires_jacket = \">=0.40\"\n\
+             platforms = [\"macos\"]\nimport_path = [\"x\"]\n",
+        ),
         ("postgres", "managed = true\nmanaged_version = \"17.6.0\"\n"),
         (
             "test",
@@ -267,6 +276,23 @@ fn known_keys_match_the_structs() {
     known.sort_unstable();
     assert_eq!(keys, known, "[target.<name>]");
     tops.push("target");
+    let config = parse(
+        "[dependencies.d]\ngit = \"a/b\"\nversion = \"^1\"\ntag = \"t\"\nrev = \"r\"\npath = \"p\"\n\
+         module = \"m\"\nscheme = \"semver\"\ntag_prefix = \"v\"\nmin_release_age = \"0\"\n",
+    )
+    .unwrap();
+    let value = toml::Value::try_from(&config).unwrap();
+    let mut keys: Vec<&str> = value["dependencies"]["d"]
+        .as_table()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    let mut known = schema::known_keys("dependencies.d").to_vec();
+    keys.sort_unstable();
+    known.sort_unstable();
+    assert_eq!(keys, known, "[dependencies.<name>]");
+    tops.push("dependencies");
     let mut known = schema::known_keys("").to_vec();
     tops.sort_unstable();
     known.sort_unstable();
@@ -445,4 +471,25 @@ fn a_target_table_accepts_only_portable_settings() {
             "triple"
         ]
     );
+}
+
+#[test]
+fn dependencies_read_inline_tables_and_the_resolver_policy() {
+    let (config, unknown) = parse_noting(
+        "[dependencies]\njaison = { git = \"github.com/someone/jaison\", version = \"^1.2\" }\n\
+         utf8 = { git = \"x/utf8\", tag = \"v0.4.1\", min_release_age = \"0\", tag_prefix = \"v\" }\n\
+         [resolver]\nmin_release_age = \"3d\"\nseed = \"k3v9q2xh\"\nddedupe = true\n",
+    )
+    .unwrap();
+    assert_eq!(unknown, ["resolver.ddedupe"]);
+    assert_eq!(
+        config.dependencies["jaison"].version.as_deref(),
+        Some("^1.2")
+    );
+    assert_eq!(
+        config.dependencies["utf8"].min_release_age.as_deref(),
+        Some("0")
+    );
+    assert_eq!(config.resolver.seed.as_deref(), Some("k3v9q2xh"));
+    assert!(unknown_note(&unknown[0]).contains("did you mean `resolver.dedupe`?"));
 }

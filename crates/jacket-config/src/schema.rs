@@ -26,6 +26,102 @@ pub struct Config {
     /// Named build targets (`[target.pico]`) that `--target` selects.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub target: BTreeMap<String, Target>,
+    /// Git dependencies (`[dependencies.jaison]`), each a submodule pinned by its commit.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub dependencies: BTreeMap<String, Dependency>,
+    /// How `jacket dep` picks versions.
+    #[serde(default, skip_serializing_if = "Resolver::is_empty")]
+    pub resolver: Resolver,
+    /// What this project is, when other projects depend on it.
+    #[serde(default, skip_serializing_if = "Package::is_empty")]
+    pub package: Package,
+}
+
+/// One `[dependencies]` entry: where the module comes from and what was asked for. The
+/// submodule's commit is what builds; this records the request.
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+pub struct Dependency {
+    /// `user/repo` (GitHub), `host/path` (HTTPS), or a full URL or `git@...` address.
+    #[serde(default)]
+    pub git: String,
+    /// A version range (`^1.2`, `>=1.0, <2.0`); the newest allowed tag is pinned.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    /// An exact tag.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tag: Option<String>,
+    /// A commit, for a repository with no usable tags.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rev: Option<String>,
+    /// The submodule folder, relative to the project. Default `modules/<name>`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    /// The folder of the repository that holds `module.jai`. Default: its `[package] module`,
+    /// else the root.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub module: Option<String>,
+    /// How tags are read: `semver` (default), `calendar` or `integer`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scheme: Option<String>,
+    /// A fixed text stripped from tags before they are read (`alpha-`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tag_prefix: Option<String>,
+    /// Replaces `[resolver] min_release_age` for this entry (`"0"` waives it).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_release_age: Option<String>,
+}
+
+/// `[resolver]`: the release-age policy and the experimental shared-dependency mode.
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+pub struct Resolver {
+    /// How long ago a version must have been published (`3d`, `12h`, `0`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_release_age: Option<String>,
+    /// Adds a per-version offset in `[0, jitter]` to the age, so a bad release reaches projects
+    /// in stages.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub release_age_jitter: Option<String>,
+    /// Random text the jitter is hashed from; written by `jacket dep init`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seed: Option<String>,
+    /// Experimental: solve every package's ranges together and share one copy per name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dedupe: Option<bool>,
+}
+
+impl Resolver {
+    pub fn is_empty(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
+/// `[package]`: this project as a dependency of others.
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+pub struct Package {
+    /// The import name. Default: the repository's name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    /// The version this tree is; `jacket dep add` warns when it differs from the tag.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    /// The folder holding `module.jai`. Default: the repository root.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub module: Option<String>,
+    /// The jacket versions this package builds with (`>=0.40`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requires_jacket: Option<String>,
+    /// The operating systems it supports.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub platforms: Vec<String>,
+    /// More module folders searched for this package's files only.
+    #[serde(default, skip_serializing_if = "is_empty_strings")]
+    pub import_path: Strings,
+}
+
+impl Package {
+    pub fn is_empty(&self) -> bool {
+        *self == Self::default()
+    }
 }
 
 /// One `[target.<name>]`: what `--target <name>` builds for and how it runs the result.
@@ -755,6 +851,29 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "test",
             "doc",
             "target",
+            "dependencies",
+            "resolver",
+            "package",
+        ],
+        "resolver" => &["min_release_age", "release_age_jitter", "seed", "dedupe"],
+        "package" => &[
+            "name",
+            "version",
+            "module",
+            "requires_jacket",
+            "platforms",
+            "import_path",
+        ],
+        dependency if dependency.starts_with("dependencies.") => &[
+            "git",
+            "version",
+            "tag",
+            "rev",
+            "path",
+            "module",
+            "scheme",
+            "tag_prefix",
+            "min_release_age",
         ],
         "project" => &["entry", "import_path"],
         "toolchain" => &["version"],

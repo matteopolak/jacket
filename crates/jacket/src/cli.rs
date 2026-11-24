@@ -88,6 +88,11 @@ pub enum Command {
         #[command(subcommand)]
         action: Option<ToolchainAction>,
     },
+    /// Manage git dependencies pinned in `jacket.toml`
+    Dep {
+        #[command(subcommand)]
+        action: crate::dep::Action,
+    },
     /// Remove the executable `jacket build` writes
     Clean,
     /// Explain a diagnostic code such as `type-mismatch`; without one, list them all

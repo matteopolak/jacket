@@ -18,8 +18,9 @@ pub mod tools;
 
 pub use pattern::{PathPattern, PatternError, relative_text};
 pub use schema::{
-    Config, Experimental, FORMAT_SETTINGS, Fallback, Format, Freestanding, Kind, LifetimeMode,
-    Lifetimes, Lint, LintOverride, Portability, Project, Setting, Test, TestRun, Toolchain,
+    Config, Dependency, Experimental, FORMAT_SETTINGS, Fallback, Format, Freestanding, Kind,
+    LifetimeMode, Lifetimes, Lint, LintOverride, Package, Portability, Project, Resolver, Setting,
+    Test, TestRun, Toolchain,
 };
 
 /// The configuration file name.

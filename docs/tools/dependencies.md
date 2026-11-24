@@ -1,12 +1,12 @@
 # Plan: dependencies (`jacket dep`)
 
-Status: plan. Nothing here is built yet. Each milestone updates this page and the docs it names when it lands.
+Status: D1 (direct dependencies by tag and commit) is built. The rest is plan; each milestone updates this page and the docs it names when it lands.
 
 Jai projects share code as module folders under `modules/`, today mostly copied in by hand. `jacket dep` manages them as git submodules pinned in `jacket.toml`, with version ranges, version schemes and a release-age policy. The submodule's commit (its gitlink) is the lock, so there is no lockfile.
 
 ## Rules
 
-- **Builds never touch the network.** Only `dep add`, `update` and `init` fetch, and only when run. `dep check` and builds use the pinned commits.
+- **Builds never touch the network.** `dep add`, `update` and `init` fetch, and only when run. `dep check` also asks each remote for its tags (to find moved ones) unless run with `--offline`. Builds use the pinned commits and an uninitialised submodule is an error, never a fetch.
 - **Nothing is committed for you.** `dep` edits `jacket.toml` and the submodules; the user commits them.
 - **No quiet acceptance.** A version that fails the policy, or whose age can't be checked, is an error with a note giving the override, even when the user named the version.
 - **A dependency's `jacket.toml` is data.** `dep` reads its `[package]` and `[dependencies]` tables and nothing else. A dependency can never change how the program that uses it builds.
@@ -48,7 +48,7 @@ platforms = ["macos", "linux", "windows"]
 | `jacket dep list` | Name, asked-for version, resolved tag and commit, path, and whether a newer allowed version exists. |
 | `jacket dep update [name] [--to <tag>]` | Moves the submodule and the entry to the newest version the range and policy allow. |
 | `jacket dep sync` | Checks out every pinned commit (`git submodule update --init` for the managed ones), for a fresh clone. |
-| `jacket dep check` | For CI: `jacket.toml` and the gitlinks agree, every tag still points at its pinned commit, and every submodule is initialised. Never calls a forge API. |
+| `jacket dep check [--offline]` | For CI: `jacket.toml` and the gitlinks agree, every tag still points at its pinned commit (here and on the remote), and every submodule is initialised. Uses `git ls-remote`, never a forge API; `--offline` skips the remote. |
 | `jacket dep init [--reseed]` | Adopts existing submodules under the module folders into `[dependencies]`, and writes `[resolver] seed`. |
 
 A build that finds a managed submodule uninitialised fails with a note: `run jacket dep sync`.
