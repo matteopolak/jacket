@@ -27,7 +27,7 @@ main :: () {
 
     print("logged once=% text=%", log_count == 1, logged);
     assert(log_count == 1 && logged == "value = -42 (s64)\n");
-    assert(logged_line == 24);
+    assert(logged_line == 25);
 
     // The same call through the builder for comparison.
     P.print_vars_to(*builder, value, flag);
