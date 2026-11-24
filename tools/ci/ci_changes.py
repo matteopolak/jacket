@@ -233,16 +233,16 @@ def stdlib_matrix(full):
 
 
 def sanitizer_matrix(full, macos):
-    """The legs of `sanitizers`: Linux takes three shards for the fast tier's -O0 run and four
-    for the full tier's -O0 and -O2 runs, so each fits the job's time limit. macOS runs -O0 in two
-    shards (one took 41 to 45 of its 45 minutes) and, in the full tier, -O2 in one job."""
-    linux = shards(4 if full else 3)
-    legs = [dict(runner="ubuntu-24.04", shard=s) for s in linux]
-    if full:
-        legs += [dict(runner="macos-15", shard=s, mode="O0") for s in shards(2)]
-        legs.append(dict(runner="macos-15", shard="1/1", mode="O2"))
-    elif macos:
-        legs += [dict(runner="macos-15", shard=s) for s in shards(2)]
+    """The legs of `sanitizers`. The fast tier runs only the corpus and compiler sweep at -O0, a
+    few minutes, in one job per host; the stdlib under ASan (about 18 minutes a shard) is the full
+    tier's. The full tier takes four Linux shards for -O0 and -O2, so each fits the job's time
+    limit, and on macOS -O0 in two shards (one took 41 to 45 of its 45 minutes) and -O2 in one."""
+    if not full:
+        hosts = ["ubuntu-24.04"] + (["macos-15"] if macos else [])
+        return [dict(runner=runner, shard="1/1") for runner in hosts]
+    legs = [dict(runner="ubuntu-24.04", shard=s) for s in shards(4)]
+    legs += [dict(runner="macos-15", shard=s, mode="O0") for s in shards(2)]
+    legs.append(dict(runner="macos-15", shard="1/1", mode="O2"))
     return legs
 
 

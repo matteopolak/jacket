@@ -579,11 +579,13 @@ class SanitizerModes(unittest.TestCase):
                     actual[mode, suite] += share
             self.assertEqual(actual, expected)
 
-    def test_fast_mac_and_linux_assignments_are_unchanged(self):
+    def test_the_fast_tier_runs_the_sweep_in_one_job_per_host(self):
+        # The fast tier leaves the stdlib under ASan to the full tier, so the corpus sweep alone
+        # fits one job.
         for full in (False, True):
             for selected in (False, True):
                 legs = ci_changes.sanitizer_matrix(full, selected)
-                count = 4 if full else 3
+                count = 4 if full else 1
                 self.assertEqual(
                     [leg for leg in legs if leg["runner"] == "ubuntu-24.04"],
                     [{"runner": "ubuntu-24.04", "shard": f"{index}/{count}"} for index in range(1, count + 1)],
@@ -591,7 +593,7 @@ class SanitizerModes(unittest.TestCase):
                 if not full:
                     self.assertEqual(
                         [leg for leg in legs if leg["runner"] == "macos-15"],
-                        [{"runner": "macos-15", "shard": "1/2"}, {"runner": "macos-15", "shard": "2/2"}] if selected else [],
+                        [{"runner": "macos-15", "shard": "1/1"}] if selected else [],
                     )
                 keys = [(leg["runner"], leg["shard"], leg.get("mode") == "O2") for leg in legs]
                 self.assertEqual(len(keys), len(set(keys)), keys)
@@ -615,9 +617,9 @@ class SanitizerModes(unittest.TestCase):
             self.assertEqual(corpus.split("        run: ", 1)[1].splitlines()[0], command)
             self.assertEqual(stdlib.split("        run: ", 1)[1].splitlines()[0], f"tools/ci/stdlib_jacket_sanitize.sh {mode} " + "${{ matrix.shard }}")
             self.assertIn("always() && !cancelled() && steps.build-jaic.outcome == 'success'", stdlib)
+            self.assertIn("needs.changes.outputs.full == 'true'", stdlib)
             if mode == "O2":
                 self.assertIn("needs.changes.outputs.full == 'true'", corpus)
-                self.assertIn("needs.changes.outputs.full == 'true'", stdlib)
 
 
 class Tiers(unittest.TestCase):

@@ -530,7 +530,7 @@ jobs:
           node --no-warnings tools/browser/check_jaifmt_wasm.ts wasi target/jaifmt.wasm target/jaifmt
       - name: WebAssembly 32-bit stdlib
         id: wasm32-stdlib
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',diff,') && runner.os == 'Linux' && matrix.architecture == 'x86_64' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',diff,') && runner.os == 'Linux' && matrix.architecture == 'x86_64' && needs.changes.outputs.full == 'true' }}
         # Every stdlib test built for wasm32-wasi (4-byte pointers) and run under node.
         run: |
           cargo build --locked -p jaic-cli -p jacket
@@ -538,7 +538,7 @@ jobs:
           ../target/debug/jacket test --runner "node --no-warnings $PWD/../tools/wasi_run.ts" -- -target wasm32-wasi
       - name: Linux i686 stdlib
         id: i686-stdlib
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',diff,') && runner.os == 'Linux' && matrix.architecture == 'x86_64' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',diff,') && runner.os == 'Linux' && matrix.architecture == 'x86_64' && needs.changes.outputs.full == 'true' }}
         # The stdlib roots that are fully green on i686 (4-byte pointers, 4-aligned 64-bit integers),
         # linked with gcc -m32 and run natively: an x86-64 kernel runs 32-bit programs
         # (docs/compiler/targets.md). Add a root to tools/dev/i686-roots.txt when it passes; docs/native/n-bit-and-embedded.md.
@@ -552,7 +552,7 @@ jobs:
           done
       - name: Linux s390x stdlib
         id: s390x-stdlib
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',diff,') && runner.os == 'Linux' && matrix.architecture == 'x86_64' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',diff,') && runner.os == 'Linux' && matrix.architecture == 'x86_64' && needs.changes.outputs.full == 'true' }}
         # Big-endian: the roots in tools/dev/s390x-roots.txt, cross-linked with gcc and run under
         # qemu-user (docs/compiler/targets.md). Add a root there when it passes.
         run: |
@@ -566,7 +566,7 @@ jobs:
           done
       - name: Linux armv7 stdlib
         id: armv7-stdlib
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',diff,') && runner.os == 'Linux' && matrix.architecture == 'x86_64' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',diff,') && runner.os == 'Linux' && matrix.architecture == 'x86_64' && needs.changes.outputs.full == 'true' }}
         # Hard-float AAPCS: the roots in tools/dev/armv7-roots.txt, cross-linked with gcc and run
         # under qemu-user (docs/compiler/targets.md). Add a root there when it passes.
         run: |
@@ -580,7 +580,7 @@ jobs:
           done
       - name: Linux powerpc64 stdlib
         id: powerpc64-stdlib
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',diff,') && runner.os == 'Linux' && matrix.architecture == 'x86_64' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',diff,') && runner.os == 'Linux' && matrix.architecture == 'x86_64' && needs.changes.outputs.full == 'true' }}
         # Big-endian ELFv1: the roots in tools/dev/powerpc64-roots.txt, cross-linked with gcc and
         # run under qemu-user (docs/compiler/targets.md). Add a root there when it passes.
         run: |
@@ -882,7 +882,8 @@ jobs:
             --modes native --opt O2 --strict --timeout 600
       - name: Stdlib tests run by jacket test
         # Every stdlib module's tests (`[test] paths` in jacket.toml finds them), once per
-        # platform: native, interpreted and native -O2, and with `wasm`, wasm interpreted and built.
+        # platform: native, interpreted, native -O2 in the full tier only, and with `wasm`, wasm
+        # interpreted and built.
         # `jacket_test` is `all`, or `hash:K/N`: this leg's share, which spreads them over the
         # platform's tooling legs (tools/ci/stdlib_jacket_test.sh). `stdlib_changed` is the list of
         # changed files when only stdlib modules changed on a branch: only the tests they can
@@ -891,6 +892,7 @@ jobs:
         env:
           JACKET_TEST_CHANGED: ${{ needs.changes.outputs.stdlib_changed }}
           WASM: ${{ matrix.wasm }}
+          JACKET_TEST_O2: ${{ needs.changes.outputs.full }}
           JACKET_TEST_PARTITION: ${{ matrix.jacket_test }}
         run: bash tools/ci/stdlib_jacket_test.sh
       - name: glTF sample models
@@ -1230,7 +1232,8 @@ jobs:
         if: ${{ matrix.mode != 'O2' }}
         run: python3 tools/differential/jaic_sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O0 --headless --sanitize address,undefined --shard ${{ matrix.shard }} corpus regressions negative
       - name: Stdlib module tests under ASan and UBSan (-O0)
-        if: ${{ always() && !cancelled() && steps.build-jaic.outcome == 'success' && matrix.mode != 'O2' }}
+        # Full tier only, as -O2 (tools/ci/ci_changes.py sanitizer_matrix).
+        if: ${{ always() && !cancelled() && steps.build-jaic.outcome == 'success' && needs.changes.outputs.full == 'true' && matrix.mode != 'O2' }}
         run: tools/ci/stdlib_jacket_sanitize.sh O0 ${{ matrix.shard }}
       - name: Corpus and compiler tests under ASan and UBSan (-O2)
         # Full tier only (tools/ci/ci_changes.py).

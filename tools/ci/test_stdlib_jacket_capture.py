@@ -77,6 +77,13 @@ else:
         self.assertEqual(sum(args[-2:] == ["--", "-O2"] for args in commands), 1)
         self.assertEqual(sum("--partition" in args for args in commands), 3)
 
+    def test_the_fast_tier_skips_the_o2_rerun(self):
+        result = self.invoke(True, JACKET_TEST_O2="false")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        commands = [json.loads(line) for line in (self.root / "commands.jsonl").read_text().splitlines()]
+        self.assertEqual(len(commands), 2)
+        self.assertFalse(any("-O2" in args for args in commands))
+
     def test_empty_host_selection_does_not_hide_affected_wasm_cases(self):
         result = self.invoke(True, WASM="true", NARROW_WASM="true",
                              JACKET_TEST_CHANGED='["stdlib/Module/module.jai"]')
