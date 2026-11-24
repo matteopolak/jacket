@@ -27,6 +27,30 @@ class PackagesTests(unittest.TestCase):
                 pre_push_clippy.packages({"Cargo.toml"})
 
 
+class StdlibTests(unittest.TestCase):
+    def test_stdlib_sources_and_golden_outputs_need_their_tests(self):
+        files = {"stdlib/Basic/module.jai", "stdlib/Csv/tests/a.stdout", "stdlib/Csv/data.bin", "docs/a.md"}
+        with mock.patch("shutil.which", return_value=None):
+            self.assertEqual(pre_push_clippy.required(files), [pre_push_clippy.STDLIB_TESTS])
+        self.assertEqual(pre_push_clippy.stdlib_files(files), ["stdlib/Basic/module.jai", "stdlib/Csv/tests/a.stdout"])
+
+    def test_a_change_runs_the_tests_of_its_module(self):
+        files = ["stdlib/Print_Vars/tests/log-vars.jai", "stdlib/Windows_Utf8/tests/basics/main.jai",
+                 "stdlib/Extensions/Json/module.jai", "stdlib/Extensions/Json/tests/basics.stdout"]
+        self.assertEqual(pre_push_clippy.stdlib_roots(files),
+                         ["stdlib/Extensions/Json", "stdlib/Print_Vars", "stdlib/Windows_Utf8"])
+
+    def test_a_stdlib_push_needs_a_stamp_with_its_tests(self):
+        line = "refs/heads/x abc refs/heads/x " + "0" * 40
+        tests = pre_push_clippy.STDLIB_TESTS
+        with (
+            mock.patch.object(pre_push_clippy, "changed_files", return_value={"stdlib/Basic/module.jai"}),
+            mock.patch.object(pre_push_clippy, "tree_of", return_value="T"),
+        ):
+            self.assertEqual(pre_push_clippy.unlinted([line], {"T": set()}), [("abc", [tests])])
+            self.assertEqual(pre_push_clippy.unlinted([line], {"T": {tests}}), [])
+
+
 class NoCargoTests(unittest.TestCase):
     def test_opt_in_skips_clippy_without_reading_refs(self):
         with mock.patch.dict("os.environ", {"JACKET_HOOKS_NO_CARGO": "1"}), mock.patch("sys.stdin") as stdin:

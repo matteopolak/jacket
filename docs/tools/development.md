@@ -64,13 +64,13 @@ A new per-system file under `stdlib/internal` (imports `windows-api`, `posix-api
 `.githooks/pre-push` runs two checks. Skip either with `--no-verify` or `JAI_HOOK_SKIP`.
 
 - `actions`: `tools/ci/check_action_pins.py` ([action pins](action-pins.md)). A broken or unreachable check blocks the push; available updates are only printed.
-- `clippy`: checks that CI's clippy has passed for the packages whose Rust or `Cargo.toml` files differ from the remote, via `tools/dev/pre_push_clippy.py`. It never runs cargo itself: git holds the SSH connection to GitHub while the hook runs, and GitHub closes it after a few idle minutes, so a cold or lock-blocked clippy broke the push. Run the lint first:
+- `clippy`: checks that CI's clippy has passed for the packages whose Rust or `Cargo.toml` files differ from the remote, and that the tests of the stdlib modules whose `.jai` files or golden outputs differ have passed, via `tools/dev/pre_push_clippy.py`. It never runs cargo itself: git holds the SSH connection to GitHub while the hook runs, and GitHub closes it after a few idle minutes, so a cold or lock-blocked clippy broke the push. Run the lint first:
 
 ```bash
 python3 tools/dev/pre_push_clippy.py check
 ```
 
-`check` lints the packages HEAD changes against `origin/main` and, when it passes, records HEAD's tree in `.git/jacket-clippy-ok` (the latest 20 trees). The hook fails, with that command in its message, when a pushed commit changes Rust and its tree has no record covering those packages. Any change to the tree, including an amend or rebase, needs a new `check` (a warm build is quick). Uncommitted Rust changes are linted but not recorded. `check` fails, rather than skipping, when `cargo` is missing or `cargo metadata` fails.
+`check` lints the packages HEAD changes against `origin/main`, runs `jacket test --path` on the stdlib modules it changes (debug `jaic` and `jacket`; the stdlib runtime tests are not part of `cargo nextest`), and, when both pass, records HEAD's tree in `.git/jacket-clippy-ok` (the latest 20 trees, each with what it covered: the packages and `stdlib-tests`). Only the changed modules' own tests run, in seconds; the tests in other modules that a change reaches run in CI (`--changed` would compile every root with the debug compiler first, about four minutes). The hook fails, with that command in its message, when a pushed commit changes Rust or the stdlib and its tree has no record covering it. Any change to the tree, including an amend or rebase, needs a new `check` (a warm build is quick). Uncommitted Rust or stdlib changes are checked but not recorded. `check` fails, rather than skipping, when `cargo` is missing or `cargo metadata` fails.
 
 With `JACKET_HOOKS_NO_CARGO=1` the clippy check is skipped in both modes; without it, missing `cargo` fails as above.
 

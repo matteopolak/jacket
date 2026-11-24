@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Clippy for the crates a push changes.
+"""Clippy for the crates a push changes, and the stdlib tests its stdlib changes can affect.
 
 `check` runs CI's lint (`cargo clippy --all-targets --locked -- -D warnings`) on the workspace
-packages whose files differ between HEAD and the default branch, then records that HEAD's tree
-passed. Run it before pushing: a cold build takes minutes, and git holds the SSH connection to the
+packages whose files differ between HEAD and the default branch, and `jacket test` on the stdlib
+modules whose sources or golden outputs changed (the stdlib runtime tests are not part of
+`cargo nextest`, so CI would be the first to run them), then records that HEAD's tree passed.
+Only those modules' own tests run: finding every test a change can reach (`--changed`) compiles
+every root with the debug compiler, minutes where the modules take seconds, and CI runs the rest. Run it before pushing: a cold build takes minutes, and git holds the SSH connection to the
 remote while its pre-push hook runs, so a slow lint there gets the connection closed.
 
 With no argument this is the pre-push hook, called by .githooks/pre-push with git's ref lines on
@@ -20,11 +23,19 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Run as a script (`python3 tools/dev/pre_push_clippy.py check`) or by the hook, with or without PYTHONPATH=tools.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from toolkit.repo import cargo_binary  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[2]
 RUSTUP = "https://rustup.rs"
 ZERO = "0" * 40
 # Code gated to x86-64 is not compiled, so not linted, on an arm64 Mac.
 X86_TARGET = "x86_64-apple-darwin"
+# The stamp's name for "the stdlib tests the change can affect passed", beside the package names.
+STDLIB_TESTS = "stdlib-tests"
+# The stdlib files whose module's tests `check` runs: sources and golden outputs.
+STDLIB_SUFFIXES = (".jai", ".stdout", ".stderr", ".exit")
 KEPT_STAMPS = 20
 X86_ONLY_TEST = re.compile(r'#!?\[cfg\(target_arch = "x86_64"\)\]')
 
@@ -80,11 +91,36 @@ def tree_of(commit: str) -> str:
     return git("rev-parse", f"{commit}^{{tree}}").strip()
 
 
+def stdlib_files(files: set[str]) -> list[str]:
+    """The changed stdlib sources and golden outputs, whose tests `check` runs."""
+    return sorted(f for f in files if f.startswith("stdlib/") and f.endswith(STDLIB_SUFFIXES))
+
+
+def stdlib_roots(files: list[str]) -> list[str]:
+    """The test roots of the modules holding `files`: the nearest folder above each, outside its
+    `tests/`, that has a `tests/` folder."""
+    roots = set()
+    for file in files:
+        parts = Path(file).parts
+        if "tests" in parts:
+            parts = parts[: parts.index("tests")]
+        for end in range(len(parts), 1, -1):
+            if (ROOT.joinpath(*parts[:end]) / "tests").is_dir():
+                roots.add(Path(*parts[:end]).as_posix())
+                break
+    return sorted(roots)
+
+
+def required(files: set[str]) -> list[str]:
+    """What a passing `check` must have covered for `files`: the packages to lint, and STDLIB_TESTS."""
+    return packages(files) + ([STDLIB_TESTS] if stdlib_files(files) else [])
+
+
 def unlinted(lines: list[str], stamps: dict[str, set[str]]) -> list[tuple[str, list[str]]]:
-    """The pushed refs whose changed packages have no passing `check`, as (local commit, packages)."""
+    """The pushed refs whose changes have no passing `check`, as (local commit, what it must cover)."""
     missing = []
     for line in lines:
-        selected = packages(changed_files([line]))
+        selected = required(changed_files([line]))
         if selected and not set(selected) <= stamps.get(tree_of(line.split()[1]), set()):
             missing.append((line.split()[1], selected))
     return missing
@@ -162,13 +198,42 @@ def check() -> int:
         print("pre-push: JACKET_HOOKS_NO_CARGO is set; skipping clippy", file=sys.stderr)
         return 0
     head = git("rev-parse", "HEAD").strip()
-    selected = packages(changed_files([f"HEAD {head} HEAD {ZERO}"]))
-    if not selected:
-        print("pre-push: no Rust changes to lint", file=sys.stderr)
+    files = changed_files([f"HEAD {head} HEAD {ZERO}"])
+    selected = packages(files)
+    stdlib = stdlib_files(files)
+    if not selected and not stdlib:
+        print("pre-push: no Rust or stdlib changes to check", file=sys.stderr)
         return 0
-    dirty = dirty_rust()
+    dirty = dirty_rust() or bool(git("status", "--porcelain", "--", "stdlib").strip())
     if dirty:
-        print("pre-push: warning: clippy also sees uncommitted Rust changes, so this run is not recorded", file=sys.stderr)
+        print("pre-push: warning: the checks also see uncommitted changes, so this run is not recorded", file=sys.stderr)
+    code = clippy(selected) if selected else 0
+    if code == 0 and stdlib:
+        code = stdlib_tests(stdlib)
+    if code == 0 and not dirty:
+        write_stamp(stamp_file(), tree_of("HEAD"), selected + ([STDLIB_TESTS] if stdlib else []))
+    return code
+
+
+def stdlib_tests(files: list[str]) -> int:
+    """`jacket test` on the modules holding `files`, natively, with the checkout's debug jaic and jacket."""
+    roots = stdlib_roots(files)
+    if not roots:
+        return 0
+    print(f"pre-push: jacket test {' '.join(roots)}", file=sys.stderr)
+    build = subprocess.run(["cargo", "build", "--locked", "-q", "-p", "jaic-cli", "-p", "jacket"], cwd=ROOT)
+    if build.returncode:
+        return build.returncode
+    env = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"), PATH=f"{cargo_binary('jaic').parent}{os.pathsep}{os.environ['PATH']}")
+    command = [str(cargo_binary("jacket")), "test", "-q", *(arg for root in roots for arg in ("--path", root))]
+    result = subprocess.run(command, cwd=ROOT, env=env)
+    if result.returncode:
+        print("pre-push: stdlib tests failed; fix them or push with --no-verify", file=sys.stderr)
+    return result.returncode
+
+
+def clippy(selected: list[str]) -> int:
+    """Clippy for `selected`, as CI runs it."""
     print(f"pre-push: clippy {' '.join(selected)}", file=sys.stderr)
     command = ["cargo", "clippy", "--all-targets", "--locked", "--message-format", "short"]
     command += [arg for name in selected for arg in ("-p", name)]
@@ -176,10 +241,7 @@ def check() -> int:
     if result.returncode:
         print("pre-push: clippy failed; fix it or push with --no-verify", file=sys.stderr)
         return result.returncode
-    code = lint_x86_tests(selected)
-    if code == 0 and not dirty:
-        write_stamp(stamp_file(), tree_of("HEAD"), selected)
-    return code
+    return lint_x86_tests(selected)
 
 
 def main() -> int:
@@ -191,7 +253,7 @@ def main() -> int:
     missing = unlinted(sys.stdin.read().splitlines(), read_stamps(stamp_file()))
     for commit, selected in missing:
         print(
-            f"pre-push: clippy has not passed for {commit[:10]} ({' '.join(selected)})."
+            f"pre-push: `check` has not passed for {commit[:10]} ({' '.join(selected)})."
             " Run `python3 tools/dev/pre_push_clippy.py check`, then push again",
             file=sys.stderr,
         )
