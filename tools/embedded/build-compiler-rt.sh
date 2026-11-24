@@ -62,9 +62,15 @@ SRC="${LLVM_SRC:-$OUT/llvm-project-$LLVM_TAG}"
 if [ -z "${LLVM_SRC:-}" ] && [ ! -d "$SRC/compiler-rt" ]; then
     mkdir -p "$OUT"
     # Only compiler-rt and the CMake modules it includes: the full tree is over a gigabyte.
-    git clone --quiet --depth 1 --branch "$LLVM_TAG" --filter=blob:none --sparse \
+    # With GITHUB_TOKEN set (CI), authenticate: GitHub refuses anonymous clones from shared runners at times.
+    auth=()
+    if [ -n "${GITHUB_TOKEN:-}" ]; then
+        auth=(-c "http.https://github.com/.extraheader=AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')")
+    fi
+    git ${auth[@]+"${auth[@]}"} clone --quiet --depth 1 --branch "$LLVM_TAG" --filter=blob:none --sparse \
         https://github.com/llvm/llvm-project "$SRC"
-    git -C "$SRC" sparse-checkout set compiler-rt cmake third-party llvm/cmake
+    # The sparse checkout fetches the blobs it needs, so it authenticates too.
+    git ${auth[@]+"${auth[@]}"} -C "$SRC" sparse-checkout set compiler-rt cmake third-party llvm/cmake
 fi
 
 rm -rf "$WORK"

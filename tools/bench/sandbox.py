@@ -151,15 +151,22 @@ def quote(path: str) -> str:
     return '"' + path.replace('\\', '\\\\').replace('"', '\\"') + '"'
 
 
+# Credentials a CI job exports (the GitHub token, the Actions runtime and OIDC tokens): untrusted
+# code in the sandbox never sees them.
+def _credential(name: str) -> bool:
+    return name in ('GITHUB_TOKEN', 'GH_TOKEN') or name.startswith(('ACTIONS_RUNTIME_', 'ACTIONS_ID_TOKEN_'))
+
+
 def environment(scratch: Path) -> dict[str, str]:
-    """The environment for sandboxed runs: the caller's, with temporary files and jaic's cache (the
+    """The environment for sandboxed runs: the caller's without its credentials, with temporary files and jaic's cache (the
     helpers it unpacks before linking) inside the scratch folder, since the home directory is unreadable.
     Windows programs read `TEMP` and `TMP`."""
     tmp = scratch / 'tmp'
     cache = scratch / 'cache'
     tmp.mkdir(parents=True, exist_ok=True)
     cache.mkdir(parents=True, exist_ok=True)
-    env = {**os.environ, 'TMPDIR': str(tmp), 'JAIC_CACHE_DIR': str(cache)}
+    env = {name: value for name, value in os.environ.items() if not _credential(name)}
+    env.update(TMPDIR=str(tmp), JAIC_CACHE_DIR=str(cache))
     if sys.platform == 'win32':
         env.update(TEMP=str(tmp), TMP=str(tmp))
     return env

@@ -5,6 +5,7 @@ import shutil
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Mapping
 from http.client import HTTPException, IncompleteRead
@@ -13,7 +14,7 @@ from pathlib import Path
 
 from toolkit.hashing import sha256_file
 
-__all__ = ["cache_dir", "fetch", "pinned", "pinned_to"]
+__all__ = ["cache_dir", "fetch", "pinned", "pinned_to", "request"]
 
 ATTEMPTS = 6
 TRANSIENT = {408, 429, 500, 502, 503, 504}
@@ -56,6 +57,39 @@ def pinned_to(url: str, sha256: str, destination: Path, *, timeout: float = 120)
 USER_AGENT = "jacket-tools"
 
 
+# GitHub refuses or throttles anonymous downloads from shared CI runners (a 403 on an archive URL).
+# CI exports the job's read-only `GITHUB_TOKEN`, sent to GitHub's own hosts only.
+GITHUB_HOSTS = {"github.com", "codeload.github.com", "api.github.com"}
+
+
+def _is_github(url: str) -> bool:
+    return (urllib.parse.urlsplit(url).hostname or "") in GITHUB_HOSTS
+
+
+def request(url: str, headers: Mapping[str, str] | None = None) -> urllib.request.Request:
+    """The request `fetch` sends: our User-Agent, `headers`, and `GITHUB_TOKEN` for a GitHub host."""
+    sent = {"User-Agent": USER_AGENT, **(headers or {})}
+    token = os.environ.get("GITHUB_TOKEN")
+    if token and _is_github(url):
+        sent.setdefault("Authorization", f"Bearer {token}")
+    return urllib.request.Request(url, headers=sent)
+
+
+class GitHubRedirect(urllib.request.HTTPRedirectHandler):
+    """Follows redirects, dropping the token when one leaves GitHub's hosts: release assets redirect
+    to signed storage URLs, which must not receive it and refuse an extra Authorization."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        moved = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if moved is not None and not _is_github(newurl):
+            moved.remove_header("Authorization")
+        return moved
+
+
+# Installed for the process so `urlopen` (which the tests replace) follows redirects this way.
+urllib.request.install_opener(urllib.request.build_opener(GitHubRedirect))
+
+
 def fetch(
     url: str,
     *,
@@ -66,12 +100,10 @@ def fetch(
 ) -> bytes:
     """The body of `url` (`ValueError` when it is longer than `max_bytes`, which is never read past). Rate limits, 5xx answers, dropped connections and truncated bodies are retried
     with a growing pause (honouring `Retry-After`); other 4xx answers (a wrong pin) fail at once."""
-    request = urllib.request.Request(
-        url, headers={"User-Agent": USER_AGENT, **(headers or {})}
-    )
+    prepared = request(url, headers)
     for attempt in range(1, attempts + 1):
         try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
+            with urllib.request.urlopen(prepared, timeout=timeout) as response:
                 body = (
                     response.read()
                     if max_bytes is None

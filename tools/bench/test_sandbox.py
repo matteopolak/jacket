@@ -1,10 +1,13 @@
 
 
+import os
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+from unittest import mock
 
 from bench.sandbox import Sandbox, environment
 
@@ -30,6 +33,17 @@ class ProfileTests(unittest.TestCase):
 
 
 @unittest.skipUnless(sys.platform == 'darwin' and not Sandbox.available(), 'needs sandbox-exec')
+class EnvironmentTests(unittest.TestCase):
+    def test_credentials_stay_outside_the_sandbox(self):
+        secrets = {'GITHUB_TOKEN': 'a', 'GH_TOKEN': 'b', 'ACTIONS_RUNTIME_TOKEN': 'c',
+                   'ACTIONS_ID_TOKEN_REQUEST_TOKEN': 'd', 'ACTIONS_ID_TOKEN_REQUEST_URL': 'e'}
+        with tempfile.TemporaryDirectory() as scratch, mock.patch.dict(os.environ, {**secrets, 'KEEP': '1'}):
+            env = environment(Path(scratch))
+        self.assertEqual(env['KEEP'], '1')
+        for name in secrets:
+            self.assertNotIn(name, env)
+
+
 class SeatbeltTests(unittest.TestCase):
     def run_inside(self, *command: str) -> int:
         with tempfile.TemporaryDirectory() as scratch:

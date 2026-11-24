@@ -180,6 +180,40 @@ class PinnedDownloadTests(unittest.TestCase):
         self.assertEqual(path.read_bytes(), self.DATA)
 
 
+class GitHubTokenTests(unittest.TestCase):
+    def request(self, url, token):
+        env = {"GITHUB_TOKEN": token} if token else {}
+        with mock.patch.dict(os.environ, env, clear=False):
+            if not token:
+                os.environ.pop("GITHUB_TOKEN", None)
+            return download.request(url)
+
+    def test_github_requests_carry_the_job_token(self):
+        for url in (
+            "https://github.com/o/r/archive/abc.tar.gz",
+            "https://codeload.github.com/o/r/tar.gz/abc",
+            "https://api.github.com/repos/o/r",
+        ):
+            self.assertEqual(self.request(url, "t0k").get_header("Authorization"), "Bearer t0k", url)
+
+    def test_other_hosts_and_no_token_send_nothing(self):
+        self.assertIsNone(self.request("https://example.com/f", "t0k").get_header("Authorization"))
+        self.assertIsNone(self.request("https://github.com/o/r", "").get_header("Authorization"))
+        # A look-alike host is not GitHub.
+        self.assertIsNone(self.request("https://github.com.evil.test/f", "t0k").get_header("Authorization"))
+
+    def test_redirect_off_github_drops_the_token(self):
+        # Release assets redirect to signed storage URLs, which refuse an extra Authorization.
+        original = self.request("https://github.com/o/r/releases/download/v1/a.tgz", "t0k")
+        handler = download.GitHubRedirect()
+        for target, kept in (
+            ("https://codeload.github.com/o/r/tar.gz/abc", True),
+            ("https://objects.githubusercontent.com/x?sig=1", False),
+        ):
+            moved = handler.redirect_request(original, None, 302, "Found", {}, target)
+            self.assertEqual(moved.get_header("Authorization") is not None, kept, target)
+
+
 class Run(unittest.TestCase):
     def test_captures_output(self):
         result = run([PY, "-c", "print(1)"], capture=True)

@@ -36,6 +36,10 @@ permissions:
 env:
   # tools/ holds the folders the Python scripts import from (`from toolkit.repo import ROOT`).
   PYTHONPATH: ${{ github.workspace }}/tools
+  # GitHub refuses anonymous downloads from shared runners at times (a 403 on an archive URL), so
+  # tools/toolkit/download.py and build-compiler-rt.sh authenticate to GitHub with the job's
+  # read-only token. The corpus sandbox (tools/bench/sandbox.py) leaves it out.
+  GITHUB_TOKEN: ${{ github.token }}
   # No wall-clock limit on jailint and jailsp checks: shared runners are too slow and uneven for
   # one; the block budget still stops runaway compile-time code.
   JACKET_CHECK_TIME_LIMIT: '0'
