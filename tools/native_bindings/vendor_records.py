@@ -8,10 +8,6 @@ SCALARS = {'int':('s32',4,4), 'short':('s16',2,2),
            'unsigned long':('u64',8,8), 'void *':('*void',8,8)}
 
 
-def digest(data):
-    return sha256_bytes(data)
-
-
 def record_shape(record):
     if not record.get('completeDefinition') or record.get('tagUsed') != 'struct':
         raise ValueError('A complete ordinary C struct is required')

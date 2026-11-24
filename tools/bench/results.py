@@ -5,13 +5,13 @@ import json
 import os
 import platform
 import shutil
-import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 
 from bench.stats import Stat
+from toolkit.process import output
 from toolkit.repo import ROOT
 
 FORMAT_VERSION = 3
@@ -116,13 +116,6 @@ def load_report(path: Path) -> Report:
 
 # ------------------------------------------------------------------------------------ machine info
 
-def sh(*command: str) -> str:
-    try:
-        return subprocess.run(command, capture_output=True, text=True, timeout=30).stdout.strip()
-    except (OSError, subprocess.TimeoutExpired):
-        return ''
-
-
 def machine_info() -> dict:
     info = {'system': platform.system(), 'release': platform.release(), 'machine': platform.machine(),
             'python': platform.python_version(), 'cpus': os.cpu_count()}
@@ -134,8 +127,8 @@ def machine_info() -> dict:
         memory = str(facts['memory_bytes'])
         info['power_plan'] = facts['power_plan']
     elif platform.system() == 'Darwin':
-        info['cpu'] = sh('sysctl', '-n', 'machdep.cpu.brand_string')
-        memory = sh('sysctl', '-n', 'hw.memsize')
+        info['cpu'] = output('sysctl', '-n', 'machdep.cpu.brand_string')
+        memory = output('sysctl', '-n', 'hw.memsize')
     else:
         cpuinfo, meminfo = Path('/proc/cpuinfo'), Path('/proc/meminfo')
         info['cpu'] = next((line.split(':', 1)[1].strip() for line in cpuinfo.read_text().splitlines()
@@ -148,8 +141,8 @@ def machine_info() -> dict:
 
 def checkout_info() -> dict:
     """The commit this repository is at and whether tracked files differ from it."""
-    commit = sh('git', '-C', str(ROOT), 'rev-parse', 'HEAD')
-    dirty = bool(sh('git', '-C', str(ROOT), 'status', '--porcelain', '--untracked-files=no'))
+    commit = output('git', '-C', str(ROOT), 'rev-parse', 'HEAD')
+    dirty = bool(output('git', '-C', str(ROOT), 'status', '--porcelain', '--untracked-files=no'))
     return {'commit': commit, 'dirty': dirty}
 
 
@@ -157,5 +150,5 @@ def tool_version(command: list[str]) -> str:
     """A one-line `--version` answer, or '' when the tool prints something else."""
     if not shutil.which(command[0]) and not Path(command[0]).exists():
         return ''
-    text = sh(*command, '--version')
+    text = output(*command, '--version')
     return text if text and '\n' not in text and not text.startswith('Content-Length') else ''

@@ -8,8 +8,9 @@ import platform
 import subprocess
 from pathlib import Path
 
-from bench.results import machine_info, sh
+from bench.results import machine_info
 from toolkit.hashing import sha256_file
+from toolkit.process import output
 
 
 def tree_sha256(directory: Path) -> str:
@@ -51,8 +52,8 @@ def machine_specs() -> dict:
     """CPU model, cores, RAM, OS and its version."""
     info = machine_info()
     if platform.system() == 'Darwin':
-        info['os_version'] = sh('sw_vers', '-productVersion')
-        info['os_build'] = sh('sw_vers', '-buildVersion')
+        info['os_version'] = output('sw_vers', '-productVersion')
+        info['os_build'] = output('sw_vers', '-buildVersion')
     elif platform.system() == 'Windows':
         from bench import winapi
         facts = winapi.machine_facts()

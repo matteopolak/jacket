@@ -18,11 +18,12 @@ from bench.dialects import Compiler, Invocation, Mode, Request, parse_compiler
 from bench.measure import Run, run_measured, warm_file_cache
 from bench.provenance import binary_facts
 from repo_output import shared_output_dir
-from bench.results import ROOT, Report, Result, sh
+from bench.results import ROOT, Report, Result
 from bench.sandbox import Sandbox, environment
 from bench.sizes import facts_of
 from bench.stages import Bucket, Stages, with_total
 from bench.stats import Stat
+from toolkit.process import output
 from bench.workloads import Workload, all_workloads
 
 DEFAULTS = Defaults(repeat=5, warmup=1, threshold=0.10, min_seconds=0.10, timeout=900)
@@ -331,9 +332,9 @@ def library_folders(binary: Path) -> list[Path]:
 
 def linked_libraries(binary: Path) -> list[str]:
     if sys.platform == 'darwin':
-        return [line.split(' (')[0].strip() for line in sh('otool', '-L', str(binary)).splitlines()[1:]]
+        return [line.split(' (')[0].strip() for line in output('otool', '-L', str(binary)).splitlines()[1:]]
     if sys.platform.startswith('linux'):
-        return [line.split('=>')[-1].split(' (')[0].strip() for line in sh('ldd', str(binary)).splitlines()]
+        return [line.split('=>')[-1].split(' (')[0].strip() for line in output('ldd', str(binary)).splitlines()]
     return []
 
 

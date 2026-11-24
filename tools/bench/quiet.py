@@ -15,6 +15,8 @@ import sys
 import time
 from pathlib import Path
 
+from toolkit.process import output
+
 # Process names (basename of the command) that compete for CPU, memory or disk with a compiler: other
 # compilers and build tools count whenever they run.
 NOISY_NAMES = {
@@ -37,13 +39,6 @@ LOAD_RISE = 1.0
 WINDOWS_NOISY_NAMES = {name.lower() for name in NOISY_NAMES} | {'link', 'lld-link', 'cl', 'msbuild', 'devenv', 'vctip'}
 # How long the Windows load sample watches the CPU.
 WINDOWS_SAMPLE_SECONDS = 0.5
-
-
-def sh(*command: str) -> str:
-    try:
-        return subprocess.run(command, capture_output=True, text=True, timeout=30).stdout
-    except (OSError, subprocess.TimeoutExpired):
-        return ''
 
 
 # ------------------------------------------------------------------------------------------ parsers
@@ -130,7 +125,7 @@ def thermal_state() -> dict:
     if sys.platform == 'win32':
         return {'source': 'none', 'throttled': None}
     if sys.platform == 'darwin':
-        return parse_thermal_macos(sh('pmset', '-g', 'therm'))
+        return parse_thermal_macos(output('pmset', '-g', 'therm'))
     zones = sorted(Path('/sys/class/thermal').glob('thermal_zone*/temp'))
     temps = []
     for zone in zones:
@@ -146,7 +141,7 @@ def power_source() -> str:
         from bench import winapi
         return winapi.power_source()
     if sys.platform == 'darwin':
-        return parse_power_macos(sh('pmset', '-g', 'batt'))
+        return parse_power_macos(output('pmset', '-g', 'batt'))
     supplies = sorted(Path('/sys/class/power_supply').glob('*/online'))
     for supply in supplies:
         try:
@@ -165,7 +160,7 @@ def free_memory_mib() -> float | None:
         except OSError:
             return None
     if sys.platform == 'darwin':
-        return parse_vm_stat(sh('vm_stat'))
+        return parse_vm_stat(output('vm_stat'))
     try:
         return parse_meminfo(Path('/proc/meminfo').read_text())
     except OSError:
@@ -174,8 +169,8 @@ def free_memory_mib() -> float | None:
 
 def noisy_now() -> list[str]:
     if sys.platform == 'win32':
-        return parse_tasklist(sh('tasklist', '/fo', 'csv', '/nh'))
-    return noisy_processes(sh('ps', '-axo', 'pid=,pcpu=,comm='), {os.getpid(), os.getppid()})
+        return parse_tasklist(output('tasklist', '/fo', 'csv', '/nh'))
+    return noisy_processes(output('ps', '-axo', 'pid=,pcpu=,comm='), {os.getpid(), os.getppid()})
 
 
 def snapshot() -> dict:

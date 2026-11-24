@@ -16,7 +16,8 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from run import PIN, prepare, sha256
+from run import PIN, prepare
+from toolkit.hashing import sha256_bytes
 
 HERE = Path(__file__).resolve().parent
 
@@ -58,7 +59,7 @@ def main() -> int:
         common += ['--float-mode', args.community_float_mode]
         decoder = wrapper(cache / 'community-decoder', common)
         encoder = wrapper(cache / 'community-encoder', [*common, '--encode'])
-        jobs.append(('community-' + args.community_float_mode, decoder, encoder, {'pin': json.loads((HERE / 'community-pin.json').read_text()), 'float_mode': args.community_float_mode, 'community_binary_sha256': sha256(args.community.read_bytes()), 'adapter_source_sha256': sha256((HERE / 'community.jai').read_bytes()), 'mode': 'read/write interoperability pipeline; decoder includes Python tagged conversion; encoder includes own semantic construction before community parse/write'}))
+        jobs.append(('community-' + args.community_float_mode, decoder, encoder, {'pin': json.loads((HERE / 'community-pin.json').read_text()), 'float_mode': args.community_float_mode, 'community_binary_sha256': sha256_bytes(args.community.read_bytes()), 'adapter_source_sha256': sha256_bytes((HERE / 'community.jai').read_bytes()), 'mode': 'read/write interoperability pipeline; decoder includes Python tagged conversion; encoder includes own semantic construction before community parse/write'}))
     if not jobs:
         parser.error('select at least one comparator')
     summaries = {}
@@ -72,11 +73,11 @@ def main() -> int:
         report['pin'] = PIN
         report['exit_code'] = result.returncode
         report['stderr'] = result.stderr
-        report['decoder_sha256'] = sha256(decoder.read_bytes())
+        report['decoder_sha256'] = sha256_bytes(decoder.read_bytes())
         report_path = cache / f'{name}.json'
         if report_path.is_file():
             prior = report_path.read_bytes()
-            (cache / f'{name}.previous-{sha256(prior)[:12]}.json').write_bytes(prior)
+            (cache / f'{name}.previous-{sha256_bytes(prior)[:12]}.json').write_bytes(prior)
         report_path.write_text(json.dumps(report, indent=2) + '\n')
         wanted = {case for case in expected if encoder or not case.startswith('encoder/')}
         if Counter(row['path'] for row in report['tests']) != Counter({case: 1 for case in wanted}):

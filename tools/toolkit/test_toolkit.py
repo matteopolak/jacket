@@ -12,7 +12,7 @@ from unittest import mock
 from toolkit import download, llvm
 from toolkit.cli import add_jaic_argument, default_jaic
 from toolkit.hashing import sha256_bytes, sha256_file
-from toolkit.process import run, run_expect
+from toolkit.process import output, run, run_expect
 from toolkit.host import brew_prefix, exe_name, host_cpu, host_os
 from toolkit.repo import ROOT, cargo_binary, cargo_target_dir, git_files, jaifmt_path, stdlib_env
 
@@ -100,6 +100,17 @@ class RunTree(unittest.TestCase):
                 run([PY, "-c", script], echo=False, timeout=1, capture=True)
             time.sleep(3.5)
             self.assertFalse(marker.exists())
+
+
+class Output(unittest.TestCase):
+    def test_strips_stdout(self):
+        self.assertEqual(output(PY, "-c", "print(' hi ')"), "hi")
+
+    def test_missing_program_is_empty(self):
+        self.assertEqual(output("/nonexistent/program"), "")
+
+    def test_timeout_is_empty(self):
+        self.assertEqual(output(PY, "-c", "import time; time.sleep(5)", timeout=0.2), "")
 
 
 class RunExpect(unittest.TestCase):

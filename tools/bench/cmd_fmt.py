@@ -12,8 +12,9 @@ from pathlib import Path
 import benchgen
 from bench import common
 from bench.common import Defaults
-from bench.results import ROOT, Report, Result, checkout_info, sh
+from bench.results import ROOT, Report, Result, checkout_info
 from bench.scenarios import Scenario, render_report, run_scenarios, wanted
+from toolkit.process import output
 from toolkit.repo import cargo_target_dir, jaifmt_path
 
 DEFAULTS = Defaults(repeat=5, warmup=1, threshold=0.10, min_seconds=0.05, timeout=900)
@@ -40,7 +41,7 @@ def unformat(text: str) -> str:
 
 
 def supports(jaifmt: Path, word: str) -> bool:
-    return word in sh(str(jaifmt), '--help')
+    return word in output(str(jaifmt), '--help')
 
 
 class Inputs:

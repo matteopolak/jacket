@@ -32,13 +32,10 @@ import statistics
 import subprocess
 import time
 
+from toolkit.hashing import sha256_file
 from toolkit.repo import ROOT
 BASE = 'd072effb268b18d2b16ebf27d69d36c14859909d'
 FINALIZER = Path('internal/hash/meow/finalize.jai')
-
-
-def digest(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def tree_digest(path):
@@ -46,7 +43,7 @@ def tree_digest(path):
     for f in sorted(path.rglob('*')):
         if f.is_file():
             h.update(str(f.relative_to(path)).encode() + b'\0')
-            h.update(bytes.fromhex(digest(f)))
+            h.update(bytes.fromhex(sha256_file(f)))
     return h.hexdigest()
 
 
@@ -62,9 +59,9 @@ def prepare(args):
     root_rev = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     baseline = subprocess.check_output(['git', 'show', f'{BASE}:stdlib/{FINALIZER}'], cwd=ROOT)
     metadata = {'baseline_finalizer_revision': BASE, 'candidate_worktree_head': root_rev,
-                'compiler': str(compiler), 'compiler_sha256': digest(compiler),
-                'harness_sha256': digest(ROOT / 'tools/meow/benchmark.jai'),
-                'driver_sha256': digest(Path(__file__)), 'target': args.target,
+                'compiler': str(compiler), 'compiler_sha256': sha256_file(compiler),
+                'harness_sha256': sha256_file(ROOT / 'tools/meow/benchmark.jai'),
+                'driver_sha256': sha256_file(Path(__file__)), 'target': args.target,
                 'flags': ['-O2'], 'platform': platform.platform(), 'cpu_count': os.cpu_count(),
                 'machine': platform.machine(), 'processor': platform.processor(),
                 'note': 'Execution architecture and emulation must be independently identified; host machine alone does not establish native execution.'}
@@ -74,7 +71,7 @@ def prepare(args):
         if variant == 'baseline':
             (stdlib / FINALIZER).write_bytes(baseline)
         metadata[variant + '_stdlib_sha256'] = tree_digest(stdlib)
-        metadata[variant + '_finalizer_sha256'] = digest(stdlib / FINALIZER)
+        metadata[variant + '_finalizer_sha256'] = sha256_file(stdlib / FINALIZER)
         cmd = [compiler, ROOT / 'tools/meow/benchmark.jai', '-O2', '-exe', out / variant / 'bench']
         if args.target:
             cmd += ['-target', args.target]
@@ -87,7 +84,7 @@ def prepare(args):
         if result.returncode:
             (out / 'metadata.json').write_text(json.dumps(metadata, indent=2) + '\n')
             raise SystemExit(f'{variant} build failed; see {out / variant}')
-        metadata[variant + '_binary_sha256'] = digest(out / variant / 'bench')
+        metadata[variant + '_binary_sha256'] = sha256_file(out / variant / 'bench')
     (out / 'metadata.json').write_text(json.dumps(metadata, indent=2) + '\n')
 
 
@@ -110,7 +107,7 @@ def measure(args):
     out = args.out.resolve(strict=True)
     meta = json.loads((out / 'metadata.json').read_text())
     for name in ('baseline', 'candidate'):
-        if digest(out / name / 'bench') != meta[name + '_binary_sha256']:
+        if sha256_file(out / name / 'bench') != meta[name + '_binary_sha256']:
             raise SystemExit(f'{name} binary changed since preparation')
     meta['execution_label'] = args.execution_label
     meta['load_before'] = list(os.getloadavg()) if hasattr(os, 'getloadavg') else None

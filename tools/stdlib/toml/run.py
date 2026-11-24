@@ -11,7 +11,6 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 import gzip
-import hashlib
 import io
 import json
 import os
@@ -23,24 +22,21 @@ import subprocess
 import tarfile
 
 from toolkit import download
+from toolkit.hashing import sha256_bytes
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 PIN = json.loads((HERE / 'pin.json').read_text())
 
 
-def sha256(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
-
-
 def fetch(path: Path, url: str, digest: str) -> bytes:
     if not path.is_file():
         data = download.fetch(url, timeout=60)
-        if sha256(data) != digest:
+        if sha256_bytes(data) != digest:
             raise RuntimeError(f'checksum mismatch for {url}')
         path.write_bytes(data)
     data = path.read_bytes()
-    if sha256(data) != digest:
+    if sha256_bytes(data) != digest:
         raise RuntimeError(f'cached checksum mismatch: {path}')
     return data
 
@@ -112,7 +108,7 @@ def prepare(cache: Path, asset_override=None) -> tuple[Path, dict[str, str]]:
             raise RuntimeError(f'unexpected inventory entry: {name}')
         if case in expected:
             raise RuntimeError(f'duplicate inventory ID: {case}')
-        expected[case] = sha256(files['tests/' + name])
+        expected[case] = sha256_bytes(files['tests/' + name])
     counts = Counter(case.split('/')[0] for case in expected)
     if counts != Counter(PIN['expected']):
         raise RuntimeError(f'inventory counts changed: {counts}')
@@ -139,14 +135,14 @@ def main() -> int:
     suffix = '.exe' if os.name == 'nt' else ''
     adapter = args.adapter.resolve() if args.adapter else cache / f'decoder{suffix}'
     sources = [*sorted((ROOT / 'stdlib').rglob('*.jai')), HERE / 'adapter.jai']
-    snapshot = {str(path.relative_to(ROOT)): sha256(path.read_bytes()) for path in sources} if not args.adapter else None
+    snapshot = {str(path.relative_to(ROOT)): sha256_bytes(path.read_bytes()) for path in sources} if not args.adapter else None
     if not args.adapter:
         if not args.jaic:
             parser.error('--jaic or --adapter is required')
         env = dict(os.environ, JAIC_STDLIB=str(ROOT / 'stdlib'))
         command = [str(args.jaic.resolve()), str(HERE / 'adapter.jai'), '-O0', '-exe', str(adapter), '-output_path', str(cache / 'build')]
         subprocess.run(command, cwd=ROOT, env=env, check=True)
-        if snapshot != {str(path.relative_to(ROOT)): sha256(path.read_bytes()) for path in sources}:
+        if snapshot != {str(path.relative_to(ROOT)): sha256_bytes(path.read_bytes()) for path in sources}:
             raise RuntimeError("source changed during adapter build")
     encoder = cache / f'encoder{suffix}'
     shutil.copyfile(adapter, encoder)
@@ -161,13 +157,13 @@ def main() -> int:
     report['host'] = {'system': platform.system(), 'machine': platform.machine()}
     report['runner_asset'] = runner_asset(args.runner_asset)
     report['adapter_windows_cpu'] = adapter_cpu
-    report['runner_harness_sha256'] = sha256(Path(__file__).read_bytes())
+    report['runner_harness_sha256'] = sha256_bytes(Path(__file__).read_bytes())
     report['record_statements'] = args.record_statements
     report['pin'] = PIN
-    report['adapter_sha256'] = sha256(adapter.read_bytes())
+    report['adapter_sha256'] = sha256_bytes(adapter.read_bytes())
     report['source_sha256'] = snapshot
-    report['compiler_sha256'] = sha256(args.jaic.read_bytes()) if not args.adapter else None
-    report['inventory_sha256'] = sha256(json.dumps(expected, sort_keys=True).encode())
+    report['compiler_sha256'] = sha256_bytes(args.jaic.read_bytes()) if not args.adapter else None
+    report['inventory_sha256'] = sha256_bytes(json.dumps(expected, sort_keys=True).encode())
     report['runner_exit_code'] = result.returncode
     report['runner_stderr'] = result.stderr
     args.report.parent.mkdir(parents=True, exist_ok=True)

@@ -53,10 +53,6 @@ REQUIRED = {
 METADATA = "build-metadata.json"
 
 
-def sha256(contents):
-    return sha256_bytes(contents)
-
-
 def pinned_channel(root, today=None):
     channel = tomllib.loads((root / "rust-toolchain.toml").read_text())["toolchain"][
         "channel"
@@ -140,7 +136,7 @@ def assets(stage):
         if total > MAX_TOTAL_BYTES or len(records) >= MAX_FILES:
             raise ValueError("browser release exceeds its bounded inventory")
         records.append(
-            {"path": name, "size": size, "sha256": sha256(path.read_bytes())}
+            {"path": name, "size": size, "sha256": sha256_bytes(path.read_bytes())}
         )
     if not REQUIRED <= {record["path"] for record in records}:
         raise ValueError("browser release is missing required bundle files")
@@ -154,7 +150,7 @@ def write_archive(stage, destination, records):
     ) as archive:
         for record in records:
             contents = (stage / record["path"]).read_bytes()
-            if len(contents) != record["size"] or sha256(contents) != record["sha256"]:
+            if len(contents) != record["size"] or sha256_bytes(contents) != record["sha256"]:
                 raise ValueError("asset changed before archiving: " + record["path"])
             info = zipfile.ZipInfo(record["path"], date_time=(1980, 1, 1, 0, 0, 0))
             info.create_system = 3
@@ -168,7 +164,7 @@ def write_archive(stage, destination, records):
             info = archive.getinfo(record["path"])
             if (
                 info.file_size != record["size"]
-                or sha256(archive.read(info)) != record["sha256"]
+                or sha256_bytes(archive.read(info)) != record["sha256"]
             ):
                 raise ValueError("archive contents failed verification")
 
@@ -279,9 +275,9 @@ def package(root, output, target_dir=None, jaic=None):
         # The local build receipt names host paths; publish only its relocatable facts.
         receipt_path = stage / METADATA
         receipt = json.loads(receipt_path.read_text())
-        if receipt.get("wasm_sha256") != sha256((stage / "jai_wasm.wasm").read_bytes()):
+        if receipt.get("wasm_sha256") != sha256_bytes((stage / "jai_wasm.wasm").read_bytes()):
             raise ValueError("staged Wasm does not match its successful build receipt")
-        if receipt.get("jaifmt_wasm_sha256") != sha256(
+        if receipt.get("jaifmt_wasm_sha256") != sha256_bytes(
             (stage / "jaifmt.wasm").read_bytes()
         ):
             raise ValueError(
@@ -333,7 +329,7 @@ def package(root, output, target_dir=None, jaic=None):
             "archive": {
                 "name": ARCHIVE,
                 "size": archive.stat().st_size,
-                "sha256": sha256(archive.read_bytes()),
+                "sha256": sha256_bytes(archive.read_bytes()),
             },
         }
         (ready / MANIFEST).write_text(

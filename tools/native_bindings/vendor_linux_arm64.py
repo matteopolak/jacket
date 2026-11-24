@@ -11,7 +11,7 @@ from pathlib import Path
 import shlex
 import tarfile
 
-from vendor_records import record_shape, assertions, run, digest
+from vendor_records import record_shape, assertions, run
 from toolkit.hashing import sha256_bytes
 from toolkit.repo import ROOT
 
@@ -48,7 +48,7 @@ def main():
     args = parser.parse_args()
     pin = json.loads((ROOT/'tools/native_bindings/dependencies.json').read_text())['bionic']
     archive = ROOT/'.work/vendor/bionic.tar.gz'
-    if digest(archive.read_bytes()) != pin['archive']['sha256']:
+    if sha256_bytes(archive.read_bytes()) != pin['archive']['sha256']:
         raise SystemExit('Pinned native UAPI archive differs')
     vendor = ROOT/'.work/vendor'/pin['archive']['root']
     resource = Path(run(['clang','-print-resource-dir']).stdout.strip())
@@ -85,9 +85,9 @@ def main():
                 data = path.read_bytes()
                 if data != stream.extractfile(pin['archive']['root']+'/'+relative).read():
                     raise SystemExit('Native kernel header differs from pinned archive: '+relative)
-                headers[relative] = digest(data)
+                headers[relative] = sha256_bytes(data)
             elif path.is_relative_to(resource):
-                compiler_headers[str(path.relative_to(resource))] = digest(path.read_bytes())
+                compiler_headers[str(path.relative_to(resource))] = sha256_bytes(path.read_bytes())
             else:
                 raise SystemExit('Unexpected host header in kernel ABI: '+str(path))
     code = '// Generated only from pinned official Linux ARM64 UAPI C headers.\n'
@@ -108,7 +108,7 @@ def main():
               'command':[str(x) for x in [*command,'-fsyntax-only',probe]],
               'exit':checked.returncode,'status':'passed','layout':shape,'constants':constants,
               'archive_sha256':pin['archive']['sha256'],'headers':headers,
-              'compiler_resource_headers':compiler_headers,'probe_sha256':digest(probe.read_bytes()),
+              'compiler_resource_headers':compiler_headers,'probe_sha256':sha256_bytes(probe.read_bytes()),
               'generated_source_sha256':sha256_bytes(code.encode())}
     args.report.write_text(json.dumps(report,indent=2)+'\n')
     print('Linux ARM64 C kernel layout and syscall definitions verified; runtime unverified')

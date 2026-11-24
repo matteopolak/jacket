@@ -11,7 +11,7 @@ from pathlib import Path
 
 from toolkit.repo import ROOT
 
-__all__ = ["kill_tree", "run", "run_expect", "run_tree"]
+__all__ = ["kill_tree", "output", "run", "run_expect", "run_tree"]
 
 # Popen arguments that put a child in its own process group (Windows) or session (POSIX), so that
 # `kill_tree` reaches what the child started.
@@ -80,6 +80,18 @@ def run(
     if kwargs.get("timeout") is not None:
         return run_tree(argv, check=check, **kwargs)
     return subprocess.run(argv, check=check, **kwargs)
+
+
+def output(*command: object, timeout: float = 30) -> str:
+    """Stripped stdout of `command`, or `""` when it cannot be started, times out or prints nothing.
+
+    For best-effort probes such as `output("sw_vers", "-productVersion")`; the exit status is ignored.
+    """
+    try:
+        result = subprocess.run([str(item) for item in command], capture_output=True, text=True, timeout=timeout)
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    return result.stdout.strip()
 
 
 def run_expect(

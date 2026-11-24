@@ -43,7 +43,7 @@ Import them folder-qualified: `from toolkit.hashing import sha256_file`.
 | `toolkit.hashing` | `sha256_file`, `sha256_bytes` |
 | `toolkit.age_policy` | `MIN_AGE` (the 14-day rule), `parse_time`, and the JSON answer cache helpers (`load_cache`, `save_cache`, `recent`) shared by the cargo and action-pin age checks |
 | `toolkit.download` | `fetch(url, ...)` with retries (the one download path; don't call `urllib` directly); `pinned(url, sha256, name)` caches under `~/.cache/jaic/` and exits on a digest mismatch |
-| `toolkit.process` | `run(command, ...)` (checked, echoes the command); `run_expect(...)` raises unless stdout, status and stderr match |
+| `toolkit.process` | `run(command, ...)` (checked, echoes the command); `run_expect(...)` raises unless stdout, status and stderr match; `output(command...)` is stripped stdout, empty on failure |
 | `toolkit.coverage_json` | `dumps(value)`: the coverage ledger format, one declaration per line |
 | `toolkit.cli` | `add_jaic_argument(parser)`: the shared `--jaic` option |
 

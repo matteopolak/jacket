@@ -13,10 +13,6 @@ from toolkit.hashing import sha256_file
 from toolkit.repo import ROOT
 
 
-def file_sha256(path):
-    return sha256_file(path)
-
-
 def native_plan(target, native, stdlib, root=ROOT):
     system, cpu = target.split("-")
     if system not in {"windows", "macos", "linux"} or cpu not in {"x64", "arm64"}:
@@ -108,14 +104,14 @@ def verify_clipboard_build(native, root):
         for name in ["data.c", "data.h", "x11.c"]
     }
     if set(receipt["inputs"]) != inputs or any(
-        file_sha256(root / name) != receipt["inputs"][name] for name in inputs
+        sha256_file(root / name) != receipt["inputs"][name] for name in inputs
     ):
         raise ValueError("clipboard build source receipt mismatch")
     for filename, key in [
         ("libportable_clipboard.a", "archive_sha256"),
         ("libportable_clipboard.so", "shared_sha256"),
     ]:
-        if file_sha256(native / filename) != receipt[key]:
+        if sha256_file(native / filename) != receipt[key]:
             raise ValueError("clipboard build artifact receipt mismatch")
 
 
@@ -131,7 +127,7 @@ def prepare_native_dependencies(target, native, stdlib, root=ROOT):
     for path in plan["required"]:
         if not path.is_file():
             raise FileNotFoundError(f"required source-built helper missing: {path}")
-        hashes[str(path)] = file_sha256(path)
+        hashes[str(path)] = sha256_file(path)
     audio = json.loads((native / "audio-build.json").read_text())
     if audio["platform"] != target:
         raise ValueError("audio receipt does not match actual consumer platform")

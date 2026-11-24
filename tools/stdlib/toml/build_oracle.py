@@ -7,24 +7,20 @@ configuration parsing and dependencies are unchanged.
 """
 from __future__ import annotations
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
 import subprocess
 
+from toolkit.hashing import sha256_file
 from toolkit.repo import ROOT
-
-
-def digest(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def snapshot():
     files = [ROOT / 'Cargo.toml', ROOT / 'Cargo.lock', ROOT / 'rust-toolchain.toml', ROOT / 'crates/jacket-config/Cargo.toml', *sorted((ROOT / 'crates/jacket-config').rglob('*.rs'))]
     if (ROOT / '.cargo/config.toml').is_file():
         files.append(ROOT / '.cargo/config.toml')
-    return {str(path.relative_to(ROOT)): digest(path) for path in files}
+    return {str(path.relative_to(ROOT)): sha256_file(path) for path in files}
 
 
 def main():
@@ -39,7 +35,7 @@ def main():
     if snapshot() != sources:
         raise RuntimeError('oracle sources changed during compilation')
     binary = target / 'release/examples' / ('toml-oracle.exe' if os.name == 'nt' else 'toml-oracle')
-    report = dict(command=command, source_sha256=sources, binary_sha256=digest(binary), rustc=subprocess.check_output(['rustc', '--version'], cwd=ROOT, text=True, encoding='utf-8').strip(), rustflags=os.environ.get('RUSTFLAGS', ''))
+    report = dict(command=command, source_sha256=sources, binary_sha256=sha256_file(binary), rustc=subprocess.check_output(['rustc', '--version'], cwd=ROOT, text=True, encoding='utf-8').strip(), rustflags=os.environ.get('RUSTFLAGS', ''))
     args.receipt.parent.mkdir(parents=True, exist_ok=True)
     args.receipt.write_text(json.dumps(report, indent=2) + '\n')
 
