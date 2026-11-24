@@ -683,6 +683,18 @@ class Tiers(unittest.TestCase):
         for leg in ci_changes.stdlib_matrix(True):
             self.assertFalse(leg.get("platform_only"), leg)
 
+    def test_the_compiler_is_built_once_for_each_stdlib_platform(self):
+        for full in (False, True):
+            with self.subTest(full=full):
+                self.assertEqual(
+                    sorted(ci_changes.stdlib_platforms(full)),
+                    sorted({leg["platform"] for leg in ci_changes.stdlib_matrix(full)}),
+                )
+        text = (ROOT / ".github/workflows/ci.yml").read_text()
+        runtime = text[text.index("\n  stdlib-runtime:\n"):text.index("\n  images-ui-intel:\n")]
+        self.assertIn("needs: [changes, stdlib-build]", runtime)
+        self.assertNotIn("cargo build", runtime)
+
     def test_each_mac_runs_few_long_jobs_in_the_full_tier(self):
         tests = ci_changes.test_matrix(True)
         stdlib = ci_changes.stdlib_matrix(True)

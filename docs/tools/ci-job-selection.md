@@ -33,6 +33,8 @@ Hand-written policy in `ci_changes.py`:
 
 **Jacket partitions.** `jacket_test` gives each platform a complete, disjoint set of `hash:K/N` shares; `all` is one full share. The job-count limits of the fast and full tiers still apply.
 
+**Compiler build.** `stdlib-build` builds `jaic`, `jacket`, `jailint` and `jaifmt` once per platform in `stdlib_platforms` (debug and release) and uploads them as `stdlib-compiler-<platform>`; each `stdlib-runtime` leg downloads them into `target/` (the artifact's paths start there) and marks them executable. Add a program a leg needs to the artifact's `path` list, not to a leg's own `cargo build`. `stdlib_platforms` is empty when `stdlib-runtime` is not selected, which skips the build.
+
 ## Narrowing the stdlib tests
 
 **macOS pushes.** The fast tier has one `stdlib-runtime` job per Mac (`platform_only`): the catalogue, the producer suites and `jacket test` limited to the modules written for macOS. `tools/ci/platform_modules.py` lists them: a module whose sources outside `tests/` name macOS APIs or `.MACOS`. The rest of the stdlib behaves the same on every host and Linux x64 runs it. The full tier runs everything on every Mac.

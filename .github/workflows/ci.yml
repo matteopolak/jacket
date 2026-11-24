@@ -69,6 +69,7 @@ jobs:
       stdlib_changed: ${{ steps.select.outputs.stdlib_changed }}
       test_matrix: ${{ steps.select.outputs.test_matrix }}
       stdlib_matrix: ${{ steps.select.outputs.stdlib_matrix }}
+      stdlib_platforms: ${{ steps.select.outputs.stdlib_platforms }}
       sanitizer_matrix: ${{ steps.select.outputs.sanitizer_matrix }}
       windows_stdlib_matrix: ${{ steps.select.outputs.windows_stdlib_matrix }}
       windows_native_matrix: ${{ steps.select.outputs.windows_native_matrix }}
@@ -845,8 +846,48 @@ jobs:
             target/grpc-windows/*.stderr.log
             target/grpc-interop/*.log
           if-no-files-found: error
-  stdlib-runtime:
+  stdlib-build:
+    # The compiler, `jacket` and the lint tools, built once per platform for the `stdlib-runtime` legs
+    # (docs/tools/ci-job-selection.md): each leg used to build them again, several minutes a leg.
     needs: changes
+    # Empty unless `stdlib-runtime` is selected (ci_changes.py).
+    if: needs.changes.outputs.stdlib_platforms != '[]'
+    name: stdlib compiler build (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ fromJSON(needs.changes.outputs.stdlib_platforms) }}
+    runs-on: ${{ fromJSON('{"macos-arm64":"macos-15","macos-x64":"macos-15-intel","linux-x64":"ubuntu-24.04","linux-arm64":"ubuntu-24.04-arm"}')[matrix.platform] }}
+    timeout-minutes: 45
+    env:
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: ./.github/actions/setup-unix
+        with:
+          leg: build-${{ strategy.job-index }}
+          native-libs: 'false'
+          font: 'false'
+      - name: Build production compiler and lint tools
+        run: |
+          cargo build --locked -p jaic-cli -p jailint
+          cargo build --locked --release -p jaic-cli -p jacket
+          target/debug/jaic jaifmt/main.jai -O2 -exe target/jaifmt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stdlib-compiler-${{ matrix.platform }}
+          path: |
+            target/debug/jaic
+            target/debug/jailint
+            target/release/jaic
+            target/release/jacket
+            target/jaifmt
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 1
+  stdlib-runtime:
+    needs: [changes, stdlib-build]
     if: contains(fromJSON(needs.changes.outputs.jobs), 'stdlib-runtime')
     name: stdlib runtime tests (${{ matrix.platform }}, ${{ matrix.shard }})
     strategy:
@@ -877,11 +918,13 @@ jobs:
           alsa: 'true'
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: {node-version: '24'}
-      - name: Build production compiler and lint tools
-        run: |
-          cargo build --locked -p jaic-cli -p jailint
-          cargo build --locked --release -p jaic-cli -p jacket
-          target/debug/jaic jaifmt/main.jai -O2 -exe target/jaifmt
+      # The artifact's paths start at `target/` (the programs' common folder); upload-artifact drops the execute bit.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: stdlib-compiler-${{ matrix.platform }}
+          path: ${{ github.workspace }}/target
+      - name: Mark the downloaded programs executable
+        run: chmod +x target/debug/jaic target/debug/jailint target/release/jaic target/release/jacket target/jaifmt
       - uses: ./.github/actions/native-libs-cache
         with:
           helpers: 'true'

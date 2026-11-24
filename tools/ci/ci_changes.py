@@ -229,6 +229,12 @@ def stdlib_matrix(full):
     return legs
 
 
+def stdlib_platforms(full):
+    """The platforms `stdlib-runtime` runs on, in matrix order: `stdlib-build` builds the compiler once
+    for each and its legs download it."""
+    return list(dict.fromkeys(leg["platform"] for leg in stdlib_matrix(full)))
+
+
 def sanitizer_matrix(full, macos):
     """The legs of `sanitizers`. The fast tier runs only the corpus and compiler sweep at -O0, a
     few minutes, in one job per host; the stdlib under ASan (about 18 minutes a shard) is the full
@@ -499,6 +505,8 @@ def main():
     lines.append("stdlib_changed=" + stdlib_changed(files, env))
     lines.append("test_matrix=" + json.dumps(test_matrix(full)))
     lines.append("stdlib_matrix=" + json.dumps(stdlib_matrix(full)))
+    runtime = "stdlib-runtime" in selected_jobs(results, env.get("JOBS", ""))
+    lines.append("stdlib_platforms=" + json.dumps(stdlib_platforms(full) if runtime else []))
     macos_asan = "sanitizers-macos" in selected_jobs(results, env.get("JOBS", ""))
     lines.append("sanitizer_matrix=" + json.dumps(sanitizer_matrix(full, macos_asan)))
     lines.append("windows_stdlib_matrix=" + json.dumps(windows_stdlib_matrix(full)))
