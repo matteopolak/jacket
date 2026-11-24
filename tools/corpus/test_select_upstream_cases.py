@@ -30,7 +30,6 @@ class SelectTests(unittest.TestCase):
         ):
             self.assertIn(wanted, ids)
         self.assertTrue(any(i.startswith("ttwj-28-28.7-") for i in ids))
-        self.assertTrue(any(i.startswith("ttwj-30-jai-raylib-build") for i in ids))
 
 
 if __name__ == "__main__":

@@ -243,7 +243,7 @@
   {"id": "ttwj-30-cpp-library-macos", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/30/cpp_library/macos.jai", "mode": "run"},
   {"id": "ttwj-30-cpp-library-main", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/30/cpp_library/main.jai", "mode": "run", "setup": [["clang++", "-g", "-shared", "-fpic", "-install_name", "@rpath/cpp_library.dylib", "-o", "cpp_library.dylib", "cpp_library.cpp"]]},
   {"id": "ttwj-30-dynlib", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/30/dynlib.jai", "mode": "run"},
-  {"id": "ttwj-30-jai-raylib-build", "only": ["macos-x64", "linux-x64", "windows-x64"], "only_reason": "build.jai selects the x64 backend (options.backend = .X64), which needs an x86-64 host", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/30/jai_raylib/build.jai", "mode": "run"},
+  {"id": "ttwj-30-jai-raylib-build", "disabled": "generate_raylib_module uses GENERATOR_DEFAULT_SYSTEM_INCLUDE_PATH, which the Bindings_Generator spec does not define.", "only": ["macos-x64", "linux-x64", "windows-x64"], "only_reason": "build.jai selects the x64 backend (options.backend = .X64), which needs an x86-64 host", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/30/jai_raylib/build.jai", "mode": "run"},
   {"id": "ttwj-30-jai-raylib-local-modules-raylib-win64-module", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/30/jai_raylib/local_modules/raylib_win64/module.jai", "mode": "run"},
   {"id": "ttwj-30-main", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/30/main.jai", "mode": "run"},
   {"id": "ttwj-30-main2", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/30/main2.jai", "mode": "run"},
