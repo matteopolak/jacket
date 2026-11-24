@@ -36,6 +36,16 @@
       },
       "license": ["LICENSE"]
     },
+    "mimalloc": {
+      "repository": "microsoft/mimalloc",
+      "revision": "v2.2.4",
+      "archive": {
+        "url": "https://github.com/microsoft/mimalloc/archive/refs/tags/v2.2.4.tar.gz",
+        "sha256": "754a98de5e2912fddbeaf24830f982b4540992f1bab4a0a8796ee118e0752bda",
+        "root": "mimalloc-2.2.4"
+      },
+      "license": ["LICENSE"]
+    },
     "rpmalloc": {
       "repository": "mjansson/rpmalloc",
       "revision": "e4393ff85585d91400bcbad2e7266c011075b673",
@@ -244,6 +254,12 @@
       ]
     },
     "pl_mpeg": {"source": "pl_mpeg", "code": "#include <stdio.h>\n#include <stdlib.h>\n#define PL_MPEG_IMPLEMENTATION\n#include \"pl_mpeg.h\"\n"},
+    "mimalloc": {
+      "source": "mimalloc",
+      "platforms": ["macos", "linux"],
+      "include": ["include"],
+      "units": ["src/static.c"]
+    },
     "rpmalloc": {"source": "rpmalloc", "platforms": ["macos", "linux"], "builder": "rpmalloc"},
     "binding_callback_context": {"source": "repo", "local": "stdlib/internal/bindings/callback-context", "units": [], "local_units": ["bridge.c"]},
     "jai_audio_output": {

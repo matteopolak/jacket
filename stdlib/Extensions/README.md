@@ -23,6 +23,10 @@ their path, so the import says the code is jaic-only:
 | `#import "Extensions/Http";` | HTTP/1.1: a strict sans-IO codec (builds for wasm), plus on fibers a router-based server whose handlers declare typed extractors checked against the route at compile time, and a client with a connection pool, both over TLS for HTTPS |
 | `#import "Extensions/SIMD";` | Portable fixed-width vectors (`u8x16`, `f32x4`, ...) with masks, shuffles and table lookups, the same on every target |
 | `#import "Extensions/Byte_Search";` | Vectorized byte and substring search (`memchr`/`memmem`), linear time |
+| `#import "Extensions/Mimalloc";` | mimalloc as a `context.allocator`, with heaps freed in one call ([docs](../../docs/extensions/mimalloc.md)) |
+| `#import "Extensions/Tlsf";` | A constant-time two-level segregated fit allocator over memory you provide ([docs](../../docs/extensions/tlsf.md)) |
+| `#import "Extensions/Frame_Arena";` | Fixed-capacity per-frame arenas, including a double-frame pair ([docs](../../docs/extensions/frame-arena.md)) |
+| `#import "Extensions/Stack_Allocator";` | A last-in, first-out allocator with `mark` and `rewind` ([docs](../../docs/extensions/stack-allocator.md)) |
 | `#import "Extensions/Hash_Map";` | An opt-in hash map that stores each key once and probes sixteen slots per step (`Map.insert`, `find`, `get`, `entry`, `delete`) |
 | `#import "Extensions/Jai_Format";` | The Jai source formatter behind `jaifmt` (text in, text out) |
 | `#import "Extensions/Web";` | Compile-time HTML components, reusable page buffers, concurrent static-site writing and internal-link checks |

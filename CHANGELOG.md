@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+- New allocators for `context.allocator` in `Extensions`: `Mimalloc` (macOS and Linux), `Tlsf`, `Frame_Arena` (with a double-frame pair) and `Stack_Allocator` ([docs](docs/extensions/tlsf.md)).
+
 ## [0.39.0] - 2026-11-24
 
 The language server, linter, formatter and interpreter are faster. `jailsp` uses less memory, most on Windows.

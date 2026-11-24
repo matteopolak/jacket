@@ -37,6 +37,10 @@
 | `WebSocket` | RFC 6455 messages, permessage-deflate and fiber client/server upgrades | [websocket](websocket.md) |
 | `Http` | sans-IO HTTP/1.x codec, plus a fiber server and client | [codec](http-codec.md), [server](http-server.md), [client](http-client.md), [HTTP/2](http2.md) |
 | `SIMD` | portable fixed-width vectors | [simd](simd.md) |
+| `Mimalloc` | mimalloc as a `context.allocator`, with private heaps released in one call; macOS and Linux | [mimalloc](mimalloc.md) |
+| `Tlsf` | constant-time two-level segregated fit allocator over memory you provide, with an optional lock | [tlsf](tlsf.md) |
+| `Frame_Arena` | fixed-capacity per-frame bump arena, and a double-frame pair that keeps the previous frame alive | [frame-arena](frame-arena.md) |
+| `Stack_Allocator` | LIFO allocator with `mark` and `rewind` | [stack-allocator](stack-allocator.md) |
 | `Hash_Map` | opt-in SwissTable hash map: single-key, 16-slot SIMD group probing | [hash-map](hash-map.md) |
 | `Byte_Search` | vectorized `memchr`/`memmem` | [byte-search](byte-search.md) |
 | `Jai_Format` | the formatter behind `jaifmt` and the playground's Format button | [jaifmt](../tools/jaifmt.md) |
