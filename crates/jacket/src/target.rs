@@ -1,5 +1,5 @@
 //! Named build targets: `--target NAME` picks a `[target.NAME]` table of `jacket.toml` or one of
-//! the built-in boards, and `jacket targets` lists them. A name that is neither passes to jaic
+//! the built-in boards, and `jacket toolchain` lists them. A name that is neither passes to jaic
 //! as the LLVM triple it is, unless it cannot be one.
 use jacket_config::Config;
 use jacket_config::schema::Target as Table;
@@ -38,7 +38,7 @@ const BUILT_IN: &[(&str, &str, &str)] = &[
 ];
 
 /// A target `--target` can name.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Target {
     pub name: String,
     /// Written in the project's `jacket.toml` rather than built in.
@@ -46,6 +46,10 @@ pub struct Target {
     pub triple: Option<String>,
     pub board: Option<String>,
     pub runner: Option<String>,
+    /// Link settings written by meaning; `jaic` renders them for the linker it uses.
+    pub stack_size: Option<u64>,
+    pub entry: Option<String>,
+    pub gc_sections: Option<bool>,
 }
 
 impl Target {
@@ -56,7 +60,21 @@ impl Target {
             triple: table.triple.clone(),
             board: table.board.clone(),
             runner: table.runner.clone(),
+            stack_size: table.stack_size,
+            entry: table.entry.clone(),
+            gc_sections: table.gc_sections,
         }
+    }
+
+    /// The triple this target builds for: its own, else its board's.
+    pub fn effective_triple(&self) -> Option<&str> {
+        self.triple.as_deref().or_else(|| {
+            let board = self.board.as_deref()?;
+            BUILT_IN
+                .iter()
+                .find(|(name, _, _)| *name == board)
+                .map(|(_, triple, _)| *triple)
+        })
     }
 
     /// The jaic arguments that build for this target: its triple, then its board's plugin. A
@@ -67,11 +85,36 @@ impl Target {
         if let (Some(triple), None) = (&self.triple, &self.board) {
             flags.extend(["-target".into(), triple.into()]);
         }
+        // `ld.lld`'s spellings: jaic translates them for the linker it finds.
+        let mut link: Vec<String> = Vec::new();
+        match self.gc_sections {
+            Some(true) => link.push("--gc-sections".into()),
+            Some(false) => link.push("--no-gc-sections".into()),
+            None => {}
+        }
+        if let Some(entry) = &self.entry {
+            link.push(format!("--entry={entry}"));
+        }
+        if let Some(size) = self.stack_size {
+            link.extend(["-z".into(), format!("stack-size={size}")]);
+        }
+        for arg in link {
+            flags.extend(["-link_arg".into(), arg.into()]);
+        }
         let plugin = self
             .board
             .as_ref()
             .map(|board| format!("+{BOARDS}/{board}").into());
         (flags, plugin)
+    }
+
+    /// This target with `{sysroot}` in its runner filled in. Only running needs the sysroot, so
+    /// a build never looks for one.
+    pub fn with_sysroot(mut self) -> Result<Self, String> {
+        if let Some(runner) = self.runner.take() {
+            self.runner = Some(crate::toolchain::fill_sysroot(&runner, &self)?);
+        }
+        Ok(self)
     }
 
     /// The command that runs `exe`: the runner's words with `{exe}` filled in, or `exe` added
@@ -113,6 +156,7 @@ pub fn all(config: Option<&Config>) -> Vec<Target> {
                 triple: Some(triple.to_string()),
                 board: Some(name.to_string()),
                 runner: Some(runner.to_string()),
+                ..Target::default()
             });
         }
     }
@@ -126,7 +170,7 @@ pub struct Expansion {
     pub target: Option<Target>,
 }
 
-/// Resolves the `--target`/`-target` of jaic's `args`. A name `jacket targets` lists is
+/// Resolves the `--target`/`-target` of jaic's `args`. A name `jacket toolchain` lists is
 /// expanded; a triple is left for jaic; anything else is an error naming the nearest target.
 pub fn expand(args: &[OsString], config: Option<&Config>) -> Result<Expansion, String> {
     let region_end = args
@@ -225,71 +269,11 @@ fn unknown(name: &str, targets: &[Target]) -> String {
     let help = match near {
         Some(near) => format!("did you mean `{near}`?"),
         None => {
-            "`jacket targets` lists the targets; an LLVM triple such as aarch64-none-elf also works"
+            "`jacket toolchain` lists the targets; an LLVM triple such as aarch64-none-elf also works"
                 .to_string()
         }
     };
     format!("unknown target `{name}`\nhelp: {help}")
-}
-
-/// Whether `program` is an executable file in a `PATH` folder (or a path to one).
-pub fn installed(program: &str) -> bool {
-    let is_exe = |p: &Path| p.is_file();
-    if program.contains(std::path::MAIN_SEPARATOR) {
-        return is_exe(Path::new(program));
-    }
-    jacket_config::tools::on_path(Path::new(program)).is_some()
-}
-
-/// The table `jacket targets` prints.
-pub fn listing(targets: &[Target], installed: impl Fn(&str) -> bool) -> String {
-    let rows: Vec<[String; 5]> = targets
-        .iter()
-        .map(|t| {
-            let runner = match t
-                .runner
-                .as_deref()
-                .and_then(|r| r.split_whitespace().next())
-            {
-                Some(program) if installed(program) => format!("{program} (installed)"),
-                Some(program) => format!("{program} (not installed)"),
-                None => "-".to_string(),
-            };
-            [
-                t.name.clone(),
-                if t.project {
-                    "project"
-                } else {
-                    "built in"
-                }
-                .to_string(),
-                t.triple.clone().unwrap_or_else(|| "-".to_string()),
-                t.board.clone().unwrap_or_else(|| "-".to_string()),
-                runner,
-            ]
-        })
-        .collect();
-    let header = ["TARGET", "FROM", "TRIPLE", "BOARD", "RUNNER"].map(String::from);
-    let widths: Vec<usize> = (0..5)
-        .map(|c| {
-            std::iter::once(&header)
-                .chain(&rows)
-                .map(|row| row[c].len())
-                .max()
-                .unwrap_or(0)
-        })
-        .collect();
-    let mut text = String::new();
-    for row in std::iter::once(&header).chain(&rows) {
-        let line: Vec<String> = row
-            .iter()
-            .zip(&widths)
-            .map(|(cell, width)| format!("{cell:<width$}"))
-            .collect();
-        text.push_str(line.join("  ").trim_end());
-        text.push('\n');
-    }
-    text
 }
 
 #[cfg(test)]
@@ -375,7 +359,7 @@ mod tests {
         assert!(error.contains("unknown target `pic`"), "{error}");
         assert!(error.contains("did you mean `pico`?"), "{error}");
         let error = expand(&os(&["--target", "zzzzzz"]), None).unwrap_err();
-        assert!(error.contains("`jacket targets`"), "{error}");
+        assert!(error.contains("`jacket toolchain`"), "{error}");
     }
 
     #[test]
@@ -401,6 +385,28 @@ mod tests {
     }
 
     #[test]
+    fn link_settings_become_link_arguments_in_ld_lld_spelling() {
+        let table = "[target.fw]\ntriple = \"aarch64-none-elf\"\nstack_size = 65536\nentry = \"start\"\ngc_sections = true\n";
+        let got = expand(&os(&["m.jai", "--target", "fw"]), Some(&config(table))).unwrap();
+        assert_eq!(
+            got.args,
+            os(&[
+                "m.jai",
+                "-target",
+                "aarch64-none-elf",
+                "-link_arg",
+                "--gc-sections",
+                "-link_arg",
+                "--entry=start",
+                "-link_arg",
+                "-z",
+                "-link_arg",
+                "stack-size=65536",
+            ])
+        );
+    }
+
+    #[test]
     fn the_runner_gets_the_executable() {
         let targets = all(Some(&config(PROJECT)));
         let pico = targets.iter().find(|t| t.name == "pico").unwrap();
@@ -421,18 +427,15 @@ mod tests {
     }
 
     #[test]
-    fn the_listing_shows_every_target_and_whether_its_runner_is_installed() {
-        let text = listing(&all(Some(&config(PROJECT))), |program| program == "flash");
-        let line = |name: &str| text.lines().find(|l| l.starts_with(name)).unwrap_or("");
-        assert!(text.starts_with("TARGET"), "{text}");
-        assert!(
-            line("pico").contains("thumbv6m-none-eabi")
-                && line("pico").contains("flash (installed)")
+    fn a_board_builds_for_its_own_triple_unless_the_table_names_one() {
+        let targets = all(Some(&config(PROJECT)));
+        let find = |name: &str| targets.iter().find(|t| t.name == name).unwrap().clone();
+        assert_eq!(find("pico").effective_triple(), Some("thumbv6m-none-eabi"));
+        assert_eq!(find("dev").effective_triple(), Some("aarch64-none-elf"));
+        assert_eq!(
+            find("Mps2_An386").effective_triple(),
+            Some("thumbv7em-none-eabihf")
         );
-        assert!(line("dev").contains("emu (not installed)") && line("dev").contains("project"));
-        assert!(line("Qemu_Virt_Aarch64").contains("built in"));
-        // The project's `dev` is listed once, and the built-in board it does not replace stays.
-        assert_eq!(text.lines().count(), 3 + BUILT_IN.len());
     }
 
     #[test]

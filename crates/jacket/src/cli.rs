@@ -82,9 +82,12 @@ pub enum Command {
     /// Rewrite code written for an older Jai to the current language (prints the diff; `--apply`
     /// writes it)
     Migrate(MigrateArgs),
-    /// List the targets `--target` accepts: the project's `[target.*]` tables and the built-in
-    /// boards, with their triple, board and whether the runner is installed
-    Targets,
+    /// List the targets `--target` accepts with the linker, libraries and runner each needs, and
+    /// check that this machine has them
+    Toolchain {
+        #[command(subcommand)]
+        action: Option<ToolchainAction>,
+    },
     /// Remove the executable `jacket build` writes
     Clean,
     /// Explain a diagnostic code such as `type-mismatch`; without one, list them all
@@ -479,6 +482,36 @@ pub fn test_args(args: Vec<OsString>) -> Vec<OsString> {
 pub struct Passthrough {
     #[arg(allow_hyphen_values = true, num_args = 0.., value_name = "ARGS")]
     pub args: Vec<OsString>,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ToolchainAction {
+    /// Exit with a failure when something a target needs is missing, saying how to get it
+    Check {
+        /// Also require this program (a runner such as `qemu-system-arm`, or `node`)
+        #[arg(long = "tool", value_name = "NAME")]
+        tools: Vec<String>,
+        /// Targets and triples to check; the machine's own when none is named
+        targets: Vec<String>,
+    },
+    /// Fetch what no package manager provides, into jacket's cache: a Linux target's sysroot
+    /// (pinned Debian packages) or a freestanding target's compiler builtins (built with the
+    /// installed clang). This is the only command that downloads
+    Add {
+        /// Targets, boards or triples: `armv7-unknown-linux-gnueabihf`, `thumbv7em-none-eabihf`
+        #[arg(required = true)]
+        targets: Vec<String>,
+    },
+    /// Show what the cache holds for each target
+    List,
+    /// Delete what the cache holds for targets, or all of it
+    Remove {
+        /// Targets, boards or triples
+        targets: Vec<String>,
+        /// Delete every target, the downloads and the unpacked sources
+        #[arg(long)]
+        all: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

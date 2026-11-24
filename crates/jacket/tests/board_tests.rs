@@ -40,25 +40,31 @@ fn run(jacket: &Path, dir: &TempDir, args: &[&str]) -> Output {
 
 #[test]
 fn tests_run_on_the_aarch64_board_and_report_through_semihosting() {
-    tests_run_on_a_board("Qemu_Virt_Aarch64", "qemu-system-aarch64");
+    tests_run_on_a_board(
+        "Qemu_Virt_Aarch64",
+        "aarch64-none-elf",
+        "qemu-system-aarch64",
+    );
 }
 
 #[test]
 fn tests_run_on_a_cortex_m_board_and_report_through_semihosting() {
-    tests_run_on_a_board("Mps2_An386", "qemu-system-arm");
+    tests_run_on_a_board("Mps2_An386", "thumbv7em-none-eabihf", "qemu-system-arm");
 }
 
 #[test]
 fn tests_run_on_a_cortex_m33_board_and_report_through_semihosting() {
-    tests_run_on_a_board("Mps2_An505", "qemu-system-arm");
+    tests_run_on_a_board("Mps2_An505", "thumbv8m.main-none-eabihf", "qemu-system-arm");
 }
 
 /// `jacket test --target board` with the emulator `qemu`, which must be installed, and for a
-/// Cortex-M board compiler-rt's builtins for it (`JAIC_COMPILER_RT`, or an installed archive;
-/// `tools/embedded/build-compiler-rt.sh` builds one).
-fn tests_run_on_a_board(board: &str, qemu: &str) {
+/// Cortex-M board builtins for it (see `jacket toolchain`).
+fn tests_run_on_a_board(board: &str, triple: &str, qemu: &str) {
     let jacket = PathBuf::from(env!("CARGO_BIN_EXE_jacket"));
-    if toolchain::jaic_beside(&jacket).is_none() || toolchain::optional(qemu).is_none() {
+    if toolchain::jaic_beside(&jacket).is_none()
+        || toolchain::optional(qemu).is_none()
+        || !toolchain::buildable(triple)
+    {
         return;
     }
     let dir = TempDir::new("board-tests");
@@ -67,14 +73,6 @@ fn tests_run_on_a_board(board: &str, qemu: &str) {
     let stderr = String::from_utf8_lossy(&out.stderr);
     // The report goes to standard error when it is not a terminal.
     let text = format!("{}{stderr}", String::from_utf8_lossy(&out.stdout));
-    if stderr.contains("ld.lld not found") && !toolchain::strict("ld.lld") {
-        toolchain::skip(&stderr);
-        return;
-    }
-    if stderr.contains("compiler-rt") && !toolchain::strict("compiler-rt") {
-        toolchain::skip(&stderr);
-        return;
-    }
     assert_eq!(out.status.code(), Some(1), "{text}");
     assert!(text.contains("PASS") && text.contains("adds"), "{text}");
     assert!(text.contains("heap"), "{text}");

@@ -15,6 +15,7 @@ mod project;
 mod status;
 mod target;
 mod test;
+mod toolchain;
 mod tools;
 mod upgrade;
 
@@ -61,7 +62,9 @@ fn main() -> ExitCode {
             action,
         } => commands::config(action, &cwd),
         Command::Migrate(args) => migrate::run(&args, &cwd),
-        Command::Targets => commands::targets(&cwd),
+        Command::Toolchain {
+            action,
+        } => commands::toolchain(action, &cwd),
         Command::Clean => commands::clean(&cwd),
         Command::Version => commands::version(),
         Command::Explain {
@@ -208,6 +211,10 @@ fn run_program(args: &[OsString], ctx: &compile::Context) -> ExitCode {
     }
     let Some(target) = expansion.target else {
         return tools::exec(exe.as_os_str(), program_args);
+    };
+    let target = match target.with_sysroot() {
+        Ok(target) => target,
+        Err(message) => return commands::fail(message),
     };
     let Some(command) = target.command(&exe) else {
         if target.triple.is_none() && target.board.is_none() {

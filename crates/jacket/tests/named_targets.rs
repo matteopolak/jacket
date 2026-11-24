@@ -1,4 +1,4 @@
-//! `--target NAME` and `jacket targets`, with a compiler that only records its arguments.
+//! `--target NAME` and `jacket toolchain`, with a compiler that only records its arguments.
 #![cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::process::{Command, Output};
@@ -79,19 +79,19 @@ fn an_unknown_target_names_the_nearest_one() {
 }
 
 #[test]
-fn the_targets_command_lists_tables_and_boards() {
+fn the_toolchain_command_lists_tables_and_boards() {
     let (root, bin) = project();
-    let (output, _) = jacket(&root, &bin, &["targets"]);
+    let (output, _) = jacket(&root, &bin, &["toolchain"]);
     let text = String::from_utf8_lossy(&output.stdout);
     assert!(output.status.success(), "{text}");
     assert!(text.starts_with("TARGET"), "{text}");
     let row = |name: &str| text.lines().find(|l| l.starts_with(name)).unwrap_or("");
     assert!(
-        row("pico").contains("thumbv6m-none-eabi") && row("pico").contains("flash (not installed)"),
+        row("pico").contains("thumbv6m-none-eabi") && row("pico").contains("missing"),
         "{text}"
     );
     assert!(
-        row("dev").contains("Qemu_Virt_Aarch64") && row("dev").contains("project"),
+        row("dev").contains("aarch64-none-elf") && row("dev").contains("project"),
         "{text}"
     );
     assert!(row("Qemu_Virt_Aarch64").contains("built in"), "{text}");

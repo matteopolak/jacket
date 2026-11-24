@@ -389,3 +389,60 @@ fn doc_format_is_checked_like_format() {
         "warning: unknown setting `doc.format.indent_widht` in jacket.toml (ignored); did you mean `doc.format.indent_width`?"
     );
 }
+
+/// A target table says what the project is, never how one machine builds it: a key that names a
+/// linker, archiver, sysroot or builtins file is unknown, so `jacket.toml` stays portable
+/// (`docs/native/toolchain-discovery.md`).
+#[test]
+fn a_target_table_has_no_keys_that_name_a_machines_tools() {
+    let text = r#"
+[target.pi]
+triple = "armv7-unknown-linux-gnueabihf"
+linker = "arm-linux-gnueabihf-gcc"
+ar = "llvm-ar"
+sysroot = "/opt/sysroot"
+compiler_rt = "/opt/rt.a"
+"#;
+    let (config, unknown) = parse_noting(text).unwrap();
+    assert_eq!(
+        unknown,
+        [
+            "target.pi.ar",
+            "target.pi.compiler_rt",
+            "target.pi.linker",
+            "target.pi.sysroot"
+        ]
+    );
+    let target = serde_json::to_value(&config.target["pi"]).unwrap();
+    let mut keys: Vec<_> = target.as_object().unwrap().keys().cloned().collect();
+    keys.sort();
+    assert_eq!(keys, ["triple"]);
+}
+
+/// Every key a target table accepts, written out: the settings that mean something on any
+/// machine.
+#[test]
+fn a_target_table_accepts_only_portable_settings() {
+    let full = schema::Target {
+        triple: Some("t".into()),
+        board: Some("b".into()),
+        runner: Some("r {sysroot} {exe}".into()),
+        stack_size: Some(1),
+        entry: Some("e".into()),
+        gc_sections: Some(true),
+    };
+    let value = serde_json::to_value(&full).unwrap();
+    let mut keys: Vec<_> = value.as_object().unwrap().keys().cloned().collect();
+    keys.sort();
+    assert_eq!(
+        keys,
+        [
+            "board",
+            "entry",
+            "gc_sections",
+            "runner",
+            "stack_size",
+            "triple"
+        ]
+    );
+}

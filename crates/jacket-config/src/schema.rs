@@ -42,6 +42,15 @@ pub struct Target {
     /// (`qemu-system-aarch64 -M virt -kernel {exe}`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runner: Option<String>,
+    /// The program's stack in bytes, for a target that reserves it at link time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stack_size: Option<u64>,
+    /// The symbol the program starts at, when it is not the linker's default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub entry: Option<String>,
+    /// Whether the linker drops what nothing uses (`ld.lld`'s `--gc-sections`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gc_sections: Option<bool>,
 }
 
 /// A string or a list of strings (`entry = "main.jai"` is a list of one).

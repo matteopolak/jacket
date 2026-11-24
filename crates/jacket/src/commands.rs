@@ -1,5 +1,5 @@
 //! `jacket`'s own commands: `new`, `init`, `config`, `clean`, `explain` and `version`.
-use crate::cli::ConfigAction;
+use crate::cli::{ConfigAction, ToolchainAction};
 use crate::{project, tools};
 use jacket_config::{Disk, FILE_NAME};
 use std::path::{Path, PathBuf};
@@ -143,18 +143,55 @@ fn finish_scaffold(dir: &Path, name: &str, lib: bool) -> ExitCode {
 
 // ---- config ----------------------------------------------------------------------------------
 
-/// `jacket targets`: the names `--target` accepts.
-pub fn targets(cwd: &Path) -> ExitCode {
+/// `jacket toolchain`: the targets `--target` accepts, and what this machine has for each.
+/// `jacket toolchain check [--tool NAME]... [TARGET]...` fails when something is missing.
+pub fn toolchain(action: Option<ToolchainAction>, cwd: &Path) -> ExitCode {
     let loaded = match project::load(cwd) {
         Ok(loaded) => loaded,
         Err(error) => return fail(error),
     };
-    let targets = crate::target::all(loaded.as_ref().map(|loaded| &loaded.config));
-    print!(
-        "{}",
-        crate::target::listing(&targets, crate::target::installed)
-    );
-    ExitCode::SUCCESS
+    let config = loaded.as_ref().map(|loaded| &loaded.config);
+    let lookup = crate::toolchain::lookup();
+    let overrides = jaic_toolchain::Overrides::from_env();
+    let report = match action {
+        None => crate::toolchain::list(config, &lookup, &overrides),
+        Some(ToolchainAction::Check {
+            tools,
+            targets,
+        }) => crate::toolchain::check(&targets, &tools, config, &lookup, &overrides),
+        Some(ToolchainAction::Add {
+            targets,
+        }) => {
+            return match crate::toolchain::add::add(&targets, config) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(error) => fail(error),
+            };
+        }
+        Some(ToolchainAction::List) => {
+            print!("{}", crate::toolchain::add::list());
+            return ExitCode::SUCCESS;
+        }
+        Some(ToolchainAction::Remove {
+            targets,
+            all,
+        }) => {
+            return match crate::toolchain::add::remove(&targets, all, config) {
+                Ok(removed) => {
+                    for path in removed {
+                        crate::status::print("Removed", &path, false);
+                    }
+                    ExitCode::SUCCESS
+                }
+                Err(error) => fail(error),
+            };
+        }
+    };
+    print!("{}", report.text);
+    if report.complete {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
 }
 
 pub fn config(action: ConfigAction, cwd: &Path) -> ExitCode {
