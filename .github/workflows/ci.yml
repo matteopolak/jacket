@@ -289,12 +289,13 @@ jobs:
           font: 'false'
           # QEMU for the freestanding tests (qemu-system-misc has the AVR one), and what the
           # compiler-rt build below needs beyond the native libraries' clang and cmake.
-          apt-packages: ${{ matrix.runner == 'ubuntu-24.04' && 'qemu-system-arm qemu-system-misc llvm ninja-build' || '' }}
+          apt-packages: ${{ matrix.runner == 'ubuntu-24.04' && (contains(matrix.parts, ',rust,') || contains(matrix.parts, ',targets,')) && 'qemu-system-arm qemu-system-misc llvm ninja-build' || '' }}
       - name: Build compiler-rt for the Cortex-M and AVR boards
         # The builtins a board program links (64-bit division, double-precision floats); the
         # board tests below and the `board_tests` suite find them through JAIC_COMPILER_RT. macOS
-        # has no QEMU for the boards, but the AVR image size test still links the Uno program.
-        if: ${{ matrix.runner == 'ubuntu-24.04' || startsWith(matrix.runner, 'macos') }}
+        # has no QEMU for the boards, but the AVR image size test still links the Uno program. Only
+        # the legs that run the Rust tests or the board tests need them.
+        if: ${{ (matrix.runner == 'ubuntu-24.04' && (contains(matrix.parts, ',rust,') || contains(matrix.parts, ',targets,'))) || startsWith(matrix.runner, 'macos') }}
         run: |
           if [ "$RUNNER_OS" != Linux ]; then
             command -v ninja >/dev/null || brew install ninja

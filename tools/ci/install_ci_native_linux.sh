@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Shared Ubuntu native dependencies. SDL backends stay enabled. JAI_APT_EXTRA, a space-separated list, adds a job's own
-# packages to the same install (setup-unix's `apt-packages`), so they share its package index update and cache.
+# Shared Ubuntu native dependencies. SDL backends stay enabled.
 set -euo pipefail
 packages=(
   clang
@@ -56,5 +55,4 @@ if [[ "$(uname -s)" != Linux ]]; then
   echo "Native Linux dependency installation requires Linux" >&2
   exit 2
 fi
-read -r -a extra <<< "${JAI_APT_EXTRA:-}"
-exec "$(dirname "${BASH_SOURCE[0]}")/apt_install.sh" "${packages[@]}" ${extra[@]+"${extra[@]}"}
+exec "$(dirname "${BASH_SOURCE[0]}")/apt_install.sh" "${packages[@]}"

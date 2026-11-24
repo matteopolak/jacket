@@ -65,10 +65,11 @@ runs:
         echo "DEVELOPER_TOOLS_LLVM_PREFIX=$LLVM_PREFIX" >> "$GITHUB_ENV"
         # X11, GL (Mesa's software renderer), FreeType, Xvfb, ALSA and Mesa's lavapipe (the
         # Vulkan adapter of the WebGPU tests).
+        # The job's own packages go in the same apt run, sharing its index update and cache.
+        # shellcheck disable=SC2046,SC2086 # lists of package names
         if [ "$NATIVE" = true ]; then
-          bash tools/ci/install_ci_native_linux.sh
+          bash tools/ci/apt_install.sh $(bash tools/ci/install_ci_native_linux.sh --list) $JAI_APT_EXTRA
         elif [ -n "$JAI_APT_EXTRA" ]; then
-          # shellcheck disable=SC2086 # a list of package names
           bash tools/ci/apt_install.sh $JAI_APT_EXTRA
         fi
         if [ "$FONT" = true ]; then echo 'JAIC_TEST_FONT_PATH=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf' >> "$GITHUB_ENV"; fi
