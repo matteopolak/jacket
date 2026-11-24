@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.39.0] - 2026-11-24
 
 The language server, linter, formatter and interpreter are faster. `jailsp` uses less memory, most on Windows.
 
@@ -23,6 +23,7 @@ The language server, linter, formatter and interpreter are faster. `jailsp` uses
 - `jailsp` publishes compiler errors as soon as the check finishes, and the lint findings after them.
 - The first completion in a busy `jailsp` session no longer waits for the auto-import index.
 - Member completion works after a space before the dot (`value .field`).
+- Completion after a cast's type offers the enum's members: `cast(Dir) .` lists `.WEST` and the rest.
 - Hover on a `#bake_arguments` procedure's parameter shows the parameter, not the baked value.
 - Renaming a parameter also renames named arguments in calls through procedure values and variadic packs.
 - `jailsp` counts compiles for other targets toward its kept-compile limit and no longer keeps old named arguments. (#85, @ctzcs)
@@ -30,6 +31,7 @@ The language server, linter, formatter and interpreter are faster. `jailsp` uses
 - `using` a global works when its struct's fields come from `#if` or `#insert`.
 - A procedure nothing calls can use a name that another uncalled procedure declares with `#insert,scope`.
 - A type mismatch between two module instances names each one, e.g. `*Generator in Bindings_Generator(TARGET_OS = .LINUX)`.
+- `jacket test --changed` reuses the file lists earlier test compiles recorded, and builds missing ones in parallel.
 - Compile-fail `.stderr` files write project paths as `$ROOT/...`, so they match across machines ([testing](docs/tools/jacket-test.md)).
 - Doc pages render `<kbd>` keys instead of showing the tags as text.
 
