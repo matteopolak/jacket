@@ -16,6 +16,7 @@ check :: (condition: bool, what: string) {
 
 main :: () {
     version := D.dxc_get_version_string();
+
     check(begins_with(version, "v1."), "version string starts with v1.");
 
     args: D.Dxc_Shader_Compiler_Args;
@@ -26,11 +27,14 @@ main :: () {
     args.entry_point = "main";
 
     dxil := D.DXC_Compile(args);
+
     check(dxil.count > 32, "DXC returned a container");
-    magic := string.{count = 4, data = dxil.data};
+    magic := string.{ count = 4, data = dxil.data };
+
     print("magic: %\n", magic);
 
     reflection, success := D.DXC_Reflect(dxil);
+
     check(success && reflection != null, "reflection of the compiled shader");
     W.IUnknown_Release(cast(*W.IUnknown) reflection);
     print("reflected: ok\n");

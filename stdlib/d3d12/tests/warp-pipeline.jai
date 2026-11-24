@@ -27,14 +27,17 @@ release :: (object: *void) {
 main :: () {
     factory: *DXGI.IDXGIFactory4;
     factory_iid := W.uid(DXGI.IDXGIFactory4_UUID);
+
     succeeded(DXGI.CreateDXGIFactory2(0, factory_iid, cast(**void) *factory), "CreateDXGIFactory2");
 
     adapter: *DXGI.IDXGIAdapter1;
     adapter_iid := W.uid(DXGI.IDXGIAdapter1_UUID);
+
     succeeded(DXGI.IDXGIFactory4_EnumWarpAdapter(factory, *adapter_iid, cast(**void) *adapter), "EnumWarpAdapter");
 
     device: *D3D12.ID3D12Device;
     device_iid := W.uid(D3D12.ID3D12Device_UUID);
+
     succeeded(D3D12.D3D12CreateDevice(cast(*W.IUnknown) adapter, D3D12.D3D_FEATURE_LEVEL._11_0, device_iid, cast(**void) *device), "D3D12CreateDevice");
     check(device != null, "device is not null");
     print("device created\n");
@@ -47,12 +50,15 @@ main :: () {
 
     heap: *D3D12.ID3D12DescriptorHeap;
     heap_iid := W.uid(D3D12.ID3D12DescriptorHeap_UUID);
+
     succeeded(D3D12.ID3D12Device_CreateDescriptorHeap(device, *heap_desc, *heap_iid, cast(**void) *heap), "CreateDescriptorHeap");
 
     start := D3D12.ID3D12DescriptorHeap_GetCPUDescriptorHandleForHeapStart(heap);
+
     check(start.ptr != 0, "heap start handle is not null");
     check(start.ptr != cast(u64) heap, "heap start handle is not the heap object");
     increment := D3D12.ID3D12Device_GetDescriptorHandleIncrementSize(device, .RTV);
+
     check(increment > 0, "RTV increment size is positive");
     print("rtv heap: ok\n");
 
@@ -78,15 +84,18 @@ main :: () {
 
     texture: *D3D12.ID3D12Resource;
     resource_iid := W.uid(D3D12.ID3D12Resource_UUID);
+
     succeeded(D3D12.ID3D12Device_CreateCommittedResource(device, *default_props, .NONE, *texture_desc,
         .RENDER_TARGET, *clear_value, *resource_iid, cast(**void) *texture), "CreateCommittedResource (texture)");
 
     D3D12.ID3D12Device_CreateRenderTargetView(device, texture, null, start);
-    second := D3D12.D3D12_CPU_DESCRIPTOR_HANDLE.{ptr = start.ptr + increment};
+    second := D3D12.D3D12_CPU_DESCRIPTOR_HANDLE.{ ptr = start.ptr + increment };
+
     D3D12.ID3D12Device_CreateRenderTargetView(device, texture, null, second);
     print("rtv created: ok\n");
 
     back := D3D12.ID3D12Resource_GetDesc(texture);
+
     check(back.Width == 64 && back.Height == 64 && back.Format == .R8G8B8A8_UNORM, "texture desc round trips");
 
     // Command queue, allocator, list and fence.
@@ -94,18 +103,22 @@ main :: () {
     queue_desc.Type = .DIRECT;
     queue: *D3D12.ID3D12CommandQueue;
     queue_iid := W.uid(D3D12.ID3D12CommandQueue_UUID);
+
     succeeded(D3D12.ID3D12Device_CreateCommandQueue(device, *queue_desc, *queue_iid, cast(**void) *queue), "CreateCommandQueue");
 
     allocator: *D3D12.ID3D12CommandAllocator;
     allocator_iid := W.uid(D3D12.ID3D12CommandAllocator_UUID);
+
     succeeded(D3D12.ID3D12Device_CreateCommandAllocator(device, .DIRECT, *allocator_iid, cast(**void) *allocator), "CreateCommandAllocator");
 
     list: *D3D12.ID3D12GraphicsCommandList;
     list_iid := W.uid(D3D12.ID3D12GraphicsCommandList_UUID);
+
     succeeded(D3D12.ID3D12Device_CreateCommandList(device, 0, .DIRECT, allocator, null, *list_iid, cast(**void) *list), "CreateCommandList");
 
     fence: *D3D12.ID3D12Fence;
     fence_iid := W.uid(D3D12.ID3D12Fence_UUID);
+
     succeeded(D3D12.ID3D12Device_CreateFence(device, 0, .NONE, *fence_iid, cast(**void) *fence), "CreateFence");
     check(D3D12.ID3D12Fence_GetCompletedValue(fence) == 0, "fence starts at 0");
 
@@ -130,17 +143,22 @@ main :: () {
     readback_props.Type = .READBACK;
 
     upload: *D3D12.ID3D12Resource;
+
     succeeded(D3D12.ID3D12Device_CreateCommittedResource(device, *upload_props, .NONE, *buffer_desc,
         .GENERIC_READ, null, *resource_iid, cast(**void) *upload), "CreateCommittedResource (upload)");
     readback: *D3D12.ID3D12Resource;
+
     succeeded(D3D12.ID3D12Device_CreateCommittedResource(device, *readback_props, .NONE, *buffer_desc,
         .COPY_DEST, null, *resource_iid, cast(**void) *readback), "CreateCommittedResource (readback)");
 
     mapped: *u8;
     no_read: D3D12.D3D12_RANGE;
+
     succeeded(D3D12.ID3D12Resource_Map(upload, 0, *no_read, cast(**void) *mapped), "Map upload");
     for 0..SIZE - 1 mapped[it] = cast(u8) it;
-    written := D3D12.D3D12_RANGE.{Begin = 0, End = SIZE};
+
+    written := D3D12.D3D12_RANGE.{ Begin = 0, End = SIZE };
+
     D3D12.ID3D12Resource_Unmap(upload, 0, *written);
 
     D3D12.ID3D12GraphicsCommandList_CopyBufferRegion(list, readback, 0, upload, 0, SIZE);
@@ -152,6 +170,7 @@ main :: () {
     succeeded(D3D12.ID3D12CommandQueue_Signal(queue, fence, 7), "Signal");
 
     event := W.CreateEventW(null, 0, 0, null);
+
     check(event != null, "CreateEventW");
     succeeded(D3D12.ID3D12Fence_SetEventOnCompletion(fence, 7, event), "SetEventOnCompletion");
     check(W.WaitForSingleObject(event, 20000) == W.WAIT_OBJECT_0, "fence signalled within 20 s");
@@ -159,15 +178,27 @@ main :: () {
     print("fence: ok\n");
 
     data: *u8;
-    everything := D3D12.D3D12_RANGE.{Begin = 0, End = SIZE};
+    everything := D3D12.D3D12_RANGE.{ Begin = 0, End = SIZE };
+
     succeeded(D3D12.ID3D12Resource_Map(readback, 0, *everything, cast(**void) *data), "Map readback");
     mismatches := 0;
     for 0..SIZE - 1 if data[it] != cast(u8) it mismatches += 1;
-    no_write := D3D12.D3D12_RANGE.{Begin = 0, End = 0};
+
+    no_write := D3D12.D3D12_RANGE.{ Begin = 0, End = 0 };
+
     D3D12.ID3D12Resource_Unmap(readback, 0, *no_write);
     print("readback mismatches: %\n", mismatches);
 
     W.CloseHandle(event);
-    release(readback); release(upload); release(fence); release(list); release(allocator);
-    release(queue); release(texture); release(heap); release(device); release(adapter); release(factory);
+    release(readback);
+    release(upload);
+    release(fence);
+    release(list);
+    release(allocator);
+    release(queue);
+    release(texture);
+    release(heap);
+    release(device);
+    release(adapter);
+    release(factory);
 }
