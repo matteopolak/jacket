@@ -11,7 +11,7 @@ The language server, linter, formatter and interpreter are faster. `jailsp` uses
 - The interpreter plans each foreign procedure's calls once; a call-heavy benchmark takes 1.95 s instead of 3.34 s.
 - `jailint` shares parsed files across the roots of a run and no longer contends on the system allocator.
 - `jaifmt` formats files in parallel (`-j N` sets the workers); checking this repository takes a third as long.
-- On Windows, `jailsp` gives freed memory back to the system after each compile. (#85, @ctzcs)
+- Go to definition on a note lists the code that read it; `unused_note` (off by default) reports unread notes.
 
 ### Breaking changes
 
@@ -19,6 +19,7 @@ The language server, linter, formatter and interpreter are faster. `jailsp` uses
 
 ### Fixes
 
+- On Windows, `jailsp` gives freed memory back to the system after each compile. (#85, @ctzcs)
 - `jailsp` publishes compiler errors as soon as the check finishes, and the lint findings after them.
 - The first completion in a busy `jailsp` session no longer waits for the auto-import index.
 - Member completion works after a space before the dot (`value .field`).
