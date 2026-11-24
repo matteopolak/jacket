@@ -114,7 +114,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
             .interp
             .set_host(Box::new(SharedHost(host.clone())));
     }
-    if cli.deps {
+    if cli.deps || cli.deps_file.is_some() {
         Workspaces::record_source_files(&workspaces);
     }
     compiler.attach_workspaces(workspaces.clone());
@@ -149,6 +149,12 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     let settings = workspaces.borrow().top_level_settings();
     if let Err(diagnostic) = compiler.finalize_runtime_configuration() {
         eprintln!("{}", compiler.render(&diagnostic));
+        return ExitCode::from(1);
+    }
+    if let Some(file) = &cli.deps_file
+        && let Err(error) = write_deps_file(file, &compiler, &workspaces.borrow())
+    {
+        print_error(&format!("cannot write `{}`: {error}", file.display()));
         return ExitCode::from(1);
     }
     match cli.mode {
@@ -407,10 +413,9 @@ pub(super) fn disable_check_bindings(cli: &mut Cli, options: &jaic::sema::Option
     }
 }
 
-/// `-deps`: the source files the compile read (the prelude, `#import`s and `#load`s included),
-/// absolute and sorted, one per line after a line break (compile-time code may have printed text
-/// that does not end in one). Virtual sources have no file.
-fn print_deps(compiler: &Compiler, workspaces: &Workspaces) {
+/// The source files the compile read (the prelude, `#import`s and `#load`s included), absolute,
+/// sorted and unique. Virtual sources have no file.
+fn read_files(compiler: &Compiler, workspaces: &Workspaces) -> Vec<String> {
     let mut files: Vec<String> = compiler
         .src
         .sources
@@ -424,12 +429,39 @@ fn print_deps(compiler: &Compiler, workspaces: &Workspaces) {
         .collect();
     files.sort();
     files.dedup();
+    files
+}
+
+/// `-deps`: the files the compile read, one per line after a line break (compile-time code may
+/// have printed text that does not end in one).
+fn print_deps(compiler: &Compiler, workspaces: &Workspaces) {
     let mut out = String::from("\n");
-    for file in files {
+    for file in read_files(compiler, workspaces) {
         out.push_str(&file);
         out.push('\n');
     }
     print!("{out}");
+}
+
+/// `-deps_file`: the same list as `-deps`, one file per line, written to `path` through a
+/// temporary file and a rename, so a reader never sees half a list.
+fn write_deps_file(
+    path: &Path,
+    compiler: &Compiler,
+    workspaces: &Workspaces,
+) -> std::io::Result<()> {
+    let mut out = String::new();
+    for file in read_files(compiler, workspaces) {
+        out.push_str(&file);
+        out.push('\n');
+    }
+    let mut temporary = path.as_os_str().to_owned();
+    temporary.push(format!(".{}.tmp", std::process::id()));
+    let temporary = PathBuf::from(temporary);
+    std::fs::write(&temporary, out)?;
+    std::fs::rename(&temporary, path).inspect_err(|_| {
+        let _ = std::fs::remove_file(&temporary);
+    })
 }
 
 /// `-verbose`: what is about to be done.

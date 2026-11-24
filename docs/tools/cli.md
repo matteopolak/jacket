@@ -17,6 +17,7 @@ Options go before or after the file. `jaic -help` lists every option; the full t
 
 - `-check` and `-interp` can't be combined. Build-only options (`-exe`, `-o`, `-sanitize`, ...) are accepted and ignored with either, so one command line can build, check or interpret.
 - `-deps` type-checks and prints the absolute path of every source file read, sorted. CI uses it to pick jobs ([CI job selection](ci-job-selection.md)).
+- `-deps_file <file>` does the same in any mode (build, `-check` or `-interp`): once the compile has finished, it writes the list to the file, written whole or not at all, and prints nothing. A failed compile writes no file. `jacket test` records the lists its own compiles read this way ([jacket test](jacket-test.md)).
 - `-print_stdlib` prints the standard library folder in use.
 - `-add "code"` adds code to the program; `-run "code"` runs it at compile time. `-I dir` adds a module folder. `-j <n>` sets worker threads.
 - `-target <triple>` builds for an LLVM triple that `-os`/`-cpu` don't cover.

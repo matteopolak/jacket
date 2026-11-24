@@ -206,6 +206,8 @@ pub struct Cli {
     pub coverage: bool,
     /// `-deps`: check the program, then print every source file the compile read.
     pub deps: bool,
+    /// `-deps_file`: write that list to this file after any compile, whatever the mode.
+    pub deps_file: Option<PathBuf>,
     /// `-no_dce`: type-check every declaration, modules included
     /// (`Build_Options.dead_code_elimination = .NONE`).
     pub no_dce: bool,

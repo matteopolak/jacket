@@ -207,6 +207,16 @@ pub const OPTIONS: &[CliOption] = {
             "-deps",
             "like -check, then print every source file the compile read, one per line",
         ),
+        CliOption::new(
+            &["-deps_file"],
+            store!("a file name", |cli, file| cli.deps_file =
+                Some(PathBuf::from(file))),
+        )
+        .help(
+            Output,
+            "-deps_file <file>",
+            "after the compile, write the source files it read to the file, as -deps lists them",
+        ),
         CliOption::shared(&flags::ADD, Program),
         CliOption::new(
             &["-run"],

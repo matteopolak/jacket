@@ -98,3 +98,91 @@ fn deps_cannot_be_combined_with_interp() {
     assert_eq!(output.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&output.stderr).contains("`-deps` and `-interp`"));
 }
+
+fn program(dir: &TempDir) -> std::path::PathBuf {
+    std::fs::write(
+        dir.join("main.jai"),
+        "#import \"Basic\";\n#load \"part.jai\";\nmain :: () { print(\"%\\n\", part_value()); }\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("part.jai"),
+        "part_value :: () -> s32 { return 1; }\n",
+    )
+    .unwrap();
+    dir.join("main.jai")
+}
+
+fn jaic(file: &Path, extra: &[&str]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_jaic"))
+        .arg(file)
+        .args(extra)
+        .current_dir(file.parent().unwrap())
+        .output()
+        .unwrap()
+}
+
+#[test]
+fn deps_file_matches_deps_in_check_mode() {
+    let dir = TempDir::new("deps-file-check");
+    let main = program(&dir);
+    let printed = lines(&deps(&main, &[]));
+    let list = dir.join("main.deps");
+    let output = jaic(&main, &["-check", "-deps_file", list.to_str().unwrap()]);
+    assert!(output.status.success());
+    let written = std::fs::read_to_string(&list).unwrap();
+    assert_eq!(written.lines().collect::<Vec<_>>(), printed);
+    assert!(output.stdout.is_empty(), "the list goes to the file only");
+}
+
+#[test]
+fn deps_file_is_written_by_a_build() {
+    let dir = TempDir::new("deps-file-build");
+    let main = program(&dir);
+    let printed = lines(&deps(&main, &[]));
+    let list = dir.join("main.deps");
+    let output = jaic(
+        &main,
+        &[
+            "-quiet",
+            "-exe",
+            "app",
+            "-deps_file",
+            list.to_str().unwrap(),
+        ],
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let written = std::fs::read_to_string(&list).unwrap();
+    assert_eq!(written.lines().collect::<Vec<_>>(), printed);
+}
+
+#[test]
+fn deps_file_is_written_by_interp() {
+    let dir = TempDir::new("deps-file-interp");
+    let main = program(&dir);
+    let list = dir.join("main.deps");
+    let output = jaic(&main, &["-interp", "-deps_file", list.to_str().unwrap()]);
+    assert!(output.status.success());
+    let written = std::fs::read_to_string(&list).unwrap();
+    assert!(
+        written.lines().any(|f| f.ends_with("part.jai")),
+        "{written}"
+    );
+}
+
+#[test]
+fn deps_file_is_not_written_for_a_failed_compile() {
+    let dir = TempDir::new("deps-file-error");
+    std::fs::write(dir.join("main.jai"), "main :: () { missing(); }\n").unwrap();
+    let list = dir.join("main.deps");
+    let output = jaic(
+        &dir.join("main.jai"),
+        &["-check", "-deps_file", list.to_str().unwrap()],
+    );
+    assert_eq!(output.status.code(), Some(1));
+    assert!(!list.exists());
+}
