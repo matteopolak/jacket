@@ -219,13 +219,16 @@ fn fibers_switch_stacks_like_the_interpreter() {
 }
 
 /// The same stack switching in a 32-bit x86 Linux executable, run under `qemu-i386`. Skipped
-/// unless `qemu-i386` is installed (`JAIC_REQUIRE_TOOLCHAIN=qemu-i386` makes that an error);
-/// building needs an i686 C toolchain, see docs/compiler/targets.md.
+/// unless `qemu-i386` is installed; building needs an i686 sysroot (`jacket toolchain add
+/// i686-unknown-linux-gnu`).
 #[test]
 fn fibers_switch_stacks_on_i686() {
     let Some(qemu) = toolchain::optional("qemu-i386") else {
         return;
     };
+    if !toolchain::buildable("i686-unknown-linux-gnu") {
+        return;
+    }
     let dir = TempDir::new("fibers-i686");
     let source = repo_root().join("tests/compiler/native/fibers/switch.jai");
     let exe = dir.join("switch-i686");

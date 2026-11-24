@@ -1,0 +1,570 @@
+# compiler-rt 21.1.8: the builtins of each freestanding CPU. Written by
+# tools/embedded/pin_compiler_rt.py; see its docstring for the rules.
+release 21.1.8 dd54ae21aee1780fac59445b51ebff601ad016b31ac3a7de3b21126fd3ccb229 https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.8/compiler-rt-21.1.8.src.tar.xz
+# family source [definition...]
+aarch64 addtf3.c
+aarch64 comparetf2.c
+aarch64 divtc3.c
+aarch64 divtf3.c
+aarch64 extenddftf2.c
+aarch64 extendhftf2.c
+aarch64 extendsftf2.c
+aarch64 fixtfdi.c
+aarch64 fixtfsi.c
+aarch64 fixtfti.c
+aarch64 fixunstfdi.c
+aarch64 fixunstfsi.c
+aarch64 fixunstfti.c
+aarch64 floatditf.c
+aarch64 floatsitf.c
+aarch64 floattitf.c
+aarch64 floatunditf.c
+aarch64 floatunsitf.c
+aarch64 floatuntitf.c
+aarch64 multc3.c
+aarch64 multf3.c
+aarch64 powitf2.c
+aarch64 subtf3.c
+aarch64 trunctfdf2.c
+aarch64 trunctfhf2.c
+aarch64 trunctfsf2.c
+aarch64 absvdi2.c
+aarch64 absvsi2.c
+aarch64 absvti2.c
+aarch64 adddf3.c
+aarch64 addsf3.c
+aarch64 addvdi3.c
+aarch64 addvsi3.c
+aarch64 addvti3.c
+aarch64 apple_versioning.c
+aarch64 ashldi3.c
+aarch64 ashlti3.c
+aarch64 ashrdi3.c
+aarch64 ashrti3.c
+aarch64 bswapdi2.c
+aarch64 bswapsi2.c
+aarch64 clzdi2.c
+aarch64 clzsi2.c
+aarch64 clzti2.c
+aarch64 cmpdi2.c
+aarch64 cmpti2.c
+aarch64 comparedf2.c
+aarch64 comparesf2.c
+aarch64 ctzdi2.c
+aarch64 ctzsi2.c
+aarch64 ctzti2.c
+aarch64 divdc3.c
+aarch64 divdf3.c
+aarch64 divdi3.c
+aarch64 divmoddi4.c
+aarch64 divmodsi4.c
+aarch64 divmodti4.c
+aarch64 divsc3.c
+aarch64 divsf3.c
+aarch64 divsi3.c
+aarch64 divti3.c
+aarch64 extendsfdf2.c
+aarch64 extendhfsf2.c
+aarch64 extendhfdf2.c
+aarch64 ffsdi2.c
+aarch64 ffssi2.c
+aarch64 ffsti2.c
+aarch64 fixdfdi.c
+aarch64 fixdfsi.c
+aarch64 fixdfti.c
+aarch64 fixsfdi.c
+aarch64 fixsfsi.c
+aarch64 fixsfti.c
+aarch64 fixunsdfdi.c
+aarch64 fixunsdfsi.c
+aarch64 fixunsdfti.c
+aarch64 fixunssfdi.c
+aarch64 fixunssfsi.c
+aarch64 fixunssfti.c
+aarch64 floatdidf.c
+aarch64 floatdisf.c
+aarch64 floatsidf.c
+aarch64 floatsisf.c
+aarch64 floattidf.c
+aarch64 floattisf.c
+aarch64 floatundidf.c
+aarch64 floatundisf.c
+aarch64 floatunsidf.c
+aarch64 floatunsisf.c
+aarch64 floatuntidf.c
+aarch64 floatuntisf.c
+aarch64 int_util.c
+aarch64 lshrdi3.c
+aarch64 lshrti3.c
+aarch64 moddi3.c
+aarch64 modsi3.c
+aarch64 modti3.c
+aarch64 muldc3.c
+aarch64 muldf3.c
+aarch64 muldi3.c
+aarch64 mulodi4.c
+aarch64 mulosi4.c
+aarch64 muloti4.c
+aarch64 mulsc3.c
+aarch64 mulsf3.c
+aarch64 multi3.c
+aarch64 mulvdi3.c
+aarch64 mulvsi3.c
+aarch64 mulvti3.c
+aarch64 negdf2.c
+aarch64 negdi2.c
+aarch64 negsf2.c
+aarch64 negti2.c
+aarch64 negvdi2.c
+aarch64 negvsi2.c
+aarch64 negvti2.c
+aarch64 os_version_check.c
+aarch64 paritydi2.c
+aarch64 paritysi2.c
+aarch64 parityti2.c
+aarch64 popcountdi2.c
+aarch64 popcountsi2.c
+aarch64 popcountti2.c
+aarch64 powidf2.c
+aarch64 powisf2.c
+aarch64 subdf3.c
+aarch64 subsf3.c
+aarch64 subvdi3.c
+aarch64 subvsi3.c
+aarch64 subvti3.c
+aarch64 trampoline_setup.c
+aarch64 truncdfhf2.c
+aarch64 truncdfsf2.c
+aarch64 truncsfhf2.c
+aarch64 ucmpdi2.c
+aarch64 ucmpti2.c
+aarch64 udivdi3.c
+aarch64 udivmoddi4.c
+aarch64 udivmodsi4.c
+aarch64 udivmodti4.c
+aarch64 udivsi3.c
+aarch64 udivti3.c
+aarch64 umoddi3.c
+aarch64 umodsi3.c
+aarch64 umodti3.c
+aarch64 cpu_model/aarch64.c
+aarch64 aarch64/fp_mode.c
+aarch64 extendbfsf2.c
+aarch64 truncdfbf2.c
+aarch64 truncxfbf2.c
+aarch64 truncsfbf2.c
+aarch64 trunctfbf2.c
+aarch64 aarch64/lse.S L_cas SIZE=1 MODEL=1
+aarch64 aarch64/lse.S L_cas SIZE=1 MODEL=2
+aarch64 aarch64/lse.S L_cas SIZE=1 MODEL=3
+aarch64 aarch64/lse.S L_cas SIZE=1 MODEL=4
+aarch64 aarch64/lse.S L_cas SIZE=1 MODEL=5
+aarch64 aarch64/lse.S L_cas SIZE=2 MODEL=1
+aarch64 aarch64/lse.S L_cas SIZE=2 MODEL=2
+aarch64 aarch64/lse.S L_cas SIZE=2 MODEL=3
+aarch64 aarch64/lse.S L_cas SIZE=2 MODEL=4
+aarch64 aarch64/lse.S L_cas SIZE=2 MODEL=5
+aarch64 aarch64/lse.S L_cas SIZE=4 MODEL=1
+aarch64 aarch64/lse.S L_cas SIZE=4 MODEL=2
+aarch64 aarch64/lse.S L_cas SIZE=4 MODEL=3
+aarch64 aarch64/lse.S L_cas SIZE=4 MODEL=4
+aarch64 aarch64/lse.S L_cas SIZE=4 MODEL=5
+aarch64 aarch64/lse.S L_cas SIZE=8 MODEL=1
+aarch64 aarch64/lse.S L_cas SIZE=8 MODEL=2
+aarch64 aarch64/lse.S L_cas SIZE=8 MODEL=3
+aarch64 aarch64/lse.S L_cas SIZE=8 MODEL=4
+aarch64 aarch64/lse.S L_cas SIZE=8 MODEL=5
+aarch64 aarch64/lse.S L_cas SIZE=16 MODEL=1
+aarch64 aarch64/lse.S L_cas SIZE=16 MODEL=2
+aarch64 aarch64/lse.S L_cas SIZE=16 MODEL=3
+aarch64 aarch64/lse.S L_cas SIZE=16 MODEL=4
+aarch64 aarch64/lse.S L_cas SIZE=16 MODEL=5
+aarch64 aarch64/lse.S L_swp SIZE=1 MODEL=1
+aarch64 aarch64/lse.S L_swp SIZE=1 MODEL=2
+aarch64 aarch64/lse.S L_swp SIZE=1 MODEL=3
+aarch64 aarch64/lse.S L_swp SIZE=1 MODEL=4
+aarch64 aarch64/lse.S L_swp SIZE=1 MODEL=5
+aarch64 aarch64/lse.S L_swp SIZE=2 MODEL=1
+aarch64 aarch64/lse.S L_swp SIZE=2 MODEL=2
+aarch64 aarch64/lse.S L_swp SIZE=2 MODEL=3
+aarch64 aarch64/lse.S L_swp SIZE=2 MODEL=4
+aarch64 aarch64/lse.S L_swp SIZE=2 MODEL=5
+aarch64 aarch64/lse.S L_swp SIZE=4 MODEL=1
+aarch64 aarch64/lse.S L_swp SIZE=4 MODEL=2
+aarch64 aarch64/lse.S L_swp SIZE=4 MODEL=3
+aarch64 aarch64/lse.S L_swp SIZE=4 MODEL=4
+aarch64 aarch64/lse.S L_swp SIZE=4 MODEL=5
+aarch64 aarch64/lse.S L_swp SIZE=8 MODEL=1
+aarch64 aarch64/lse.S L_swp SIZE=8 MODEL=2
+aarch64 aarch64/lse.S L_swp SIZE=8 MODEL=3
+aarch64 aarch64/lse.S L_swp SIZE=8 MODEL=4
+aarch64 aarch64/lse.S L_swp SIZE=8 MODEL=5
+aarch64 aarch64/lse.S L_ldadd SIZE=1 MODEL=1
+aarch64 aarch64/lse.S L_ldadd SIZE=1 MODEL=2
+aarch64 aarch64/lse.S L_ldadd SIZE=1 MODEL=3
+aarch64 aarch64/lse.S L_ldadd SIZE=1 MODEL=4
+aarch64 aarch64/lse.S L_ldadd SIZE=1 MODEL=5
+aarch64 aarch64/lse.S L_ldadd SIZE=2 MODEL=1
+aarch64 aarch64/lse.S L_ldadd SIZE=2 MODEL=2
+aarch64 aarch64/lse.S L_ldadd SIZE=2 MODEL=3
+aarch64 aarch64/lse.S L_ldadd SIZE=2 MODEL=4
+aarch64 aarch64/lse.S L_ldadd SIZE=2 MODEL=5
+aarch64 aarch64/lse.S L_ldadd SIZE=4 MODEL=1
+aarch64 aarch64/lse.S L_ldadd SIZE=4 MODEL=2
+aarch64 aarch64/lse.S L_ldadd SIZE=4 MODEL=3
+aarch64 aarch64/lse.S L_ldadd SIZE=4 MODEL=4
+aarch64 aarch64/lse.S L_ldadd SIZE=4 MODEL=5
+aarch64 aarch64/lse.S L_ldadd SIZE=8 MODEL=1
+aarch64 aarch64/lse.S L_ldadd SIZE=8 MODEL=2
+aarch64 aarch64/lse.S L_ldadd SIZE=8 MODEL=3
+aarch64 aarch64/lse.S L_ldadd SIZE=8 MODEL=4
+aarch64 aarch64/lse.S L_ldadd SIZE=8 MODEL=5
+aarch64 aarch64/lse.S L_ldclr SIZE=1 MODEL=1
+aarch64 aarch64/lse.S L_ldclr SIZE=1 MODEL=2
+aarch64 aarch64/lse.S L_ldclr SIZE=1 MODEL=3
+aarch64 aarch64/lse.S L_ldclr SIZE=1 MODEL=4
+aarch64 aarch64/lse.S L_ldclr SIZE=1 MODEL=5
+aarch64 aarch64/lse.S L_ldclr SIZE=2 MODEL=1
+aarch64 aarch64/lse.S L_ldclr SIZE=2 MODEL=2
+aarch64 aarch64/lse.S L_ldclr SIZE=2 MODEL=3
+aarch64 aarch64/lse.S L_ldclr SIZE=2 MODEL=4
+aarch64 aarch64/lse.S L_ldclr SIZE=2 MODEL=5
+aarch64 aarch64/lse.S L_ldclr SIZE=4 MODEL=1
+aarch64 aarch64/lse.S L_ldclr SIZE=4 MODEL=2
+aarch64 aarch64/lse.S L_ldclr SIZE=4 MODEL=3
+aarch64 aarch64/lse.S L_ldclr SIZE=4 MODEL=4
+aarch64 aarch64/lse.S L_ldclr SIZE=4 MODEL=5
+aarch64 aarch64/lse.S L_ldclr SIZE=8 MODEL=1
+aarch64 aarch64/lse.S L_ldclr SIZE=8 MODEL=2
+aarch64 aarch64/lse.S L_ldclr SIZE=8 MODEL=3
+aarch64 aarch64/lse.S L_ldclr SIZE=8 MODEL=4
+aarch64 aarch64/lse.S L_ldclr SIZE=8 MODEL=5
+aarch64 aarch64/lse.S L_ldeor SIZE=1 MODEL=1
+aarch64 aarch64/lse.S L_ldeor SIZE=1 MODEL=2
+aarch64 aarch64/lse.S L_ldeor SIZE=1 MODEL=3
+aarch64 aarch64/lse.S L_ldeor SIZE=1 MODEL=4
+aarch64 aarch64/lse.S L_ldeor SIZE=1 MODEL=5
+aarch64 aarch64/lse.S L_ldeor SIZE=2 MODEL=1
+aarch64 aarch64/lse.S L_ldeor SIZE=2 MODEL=2
+aarch64 aarch64/lse.S L_ldeor SIZE=2 MODEL=3
+aarch64 aarch64/lse.S L_ldeor SIZE=2 MODEL=4
+aarch64 aarch64/lse.S L_ldeor SIZE=2 MODEL=5
+aarch64 aarch64/lse.S L_ldeor SIZE=4 MODEL=1
+aarch64 aarch64/lse.S L_ldeor SIZE=4 MODEL=2
+aarch64 aarch64/lse.S L_ldeor SIZE=4 MODEL=3
+aarch64 aarch64/lse.S L_ldeor SIZE=4 MODEL=4
+aarch64 aarch64/lse.S L_ldeor SIZE=4 MODEL=5
+aarch64 aarch64/lse.S L_ldeor SIZE=8 MODEL=1
+aarch64 aarch64/lse.S L_ldeor SIZE=8 MODEL=2
+aarch64 aarch64/lse.S L_ldeor SIZE=8 MODEL=3
+aarch64 aarch64/lse.S L_ldeor SIZE=8 MODEL=4
+aarch64 aarch64/lse.S L_ldeor SIZE=8 MODEL=5
+aarch64 aarch64/lse.S L_ldset SIZE=1 MODEL=1
+aarch64 aarch64/lse.S L_ldset SIZE=1 MODEL=2
+aarch64 aarch64/lse.S L_ldset SIZE=1 MODEL=3
+aarch64 aarch64/lse.S L_ldset SIZE=1 MODEL=4
+aarch64 aarch64/lse.S L_ldset SIZE=1 MODEL=5
+aarch64 aarch64/lse.S L_ldset SIZE=2 MODEL=1
+aarch64 aarch64/lse.S L_ldset SIZE=2 MODEL=2
+aarch64 aarch64/lse.S L_ldset SIZE=2 MODEL=3
+aarch64 aarch64/lse.S L_ldset SIZE=2 MODEL=4
+aarch64 aarch64/lse.S L_ldset SIZE=2 MODEL=5
+aarch64 aarch64/lse.S L_ldset SIZE=4 MODEL=1
+aarch64 aarch64/lse.S L_ldset SIZE=4 MODEL=2
+aarch64 aarch64/lse.S L_ldset SIZE=4 MODEL=3
+aarch64 aarch64/lse.S L_ldset SIZE=4 MODEL=4
+aarch64 aarch64/lse.S L_ldset SIZE=4 MODEL=5
+aarch64 aarch64/lse.S L_ldset SIZE=8 MODEL=1
+aarch64 aarch64/lse.S L_ldset SIZE=8 MODEL=2
+aarch64 aarch64/lse.S L_ldset SIZE=8 MODEL=3
+aarch64 aarch64/lse.S L_ldset SIZE=8 MODEL=4
+aarch64 aarch64/lse.S L_ldset SIZE=8 MODEL=5
+cortexm absvdi2.c
+cortexm absvsi2.c
+cortexm absvti2.c
+cortexm adddf3.c
+cortexm addsf3.c
+cortexm addvdi3.c
+cortexm addvsi3.c
+cortexm addvti3.c
+cortexm apple_versioning.c
+cortexm ashldi3.c
+cortexm ashlti3.c
+cortexm ashrdi3.c
+cortexm ashrti3.c
+cortexm clzti2.c
+cortexm cmpdi2.c
+cortexm cmpti2.c
+cortexm comparedf2.c
+cortexm ctzdi2.c
+cortexm ctzsi2.c
+cortexm ctzti2.c
+cortexm divdc3.c
+cortexm divdf3.c
+cortexm divdi3.c
+cortexm divmoddi4.c
+cortexm divmodti4.c
+cortexm divsc3.c
+cortexm divsf3.c
+cortexm divti3.c
+cortexm extendsfdf2.c
+cortexm extendhfsf2.c
+cortexm extendhfdf2.c
+cortexm ffsdi2.c
+cortexm ffssi2.c
+cortexm ffsti2.c
+cortexm fixdfdi.c
+cortexm fixdfsi.c
+cortexm fixdfti.c
+cortexm fixsfdi.c
+cortexm fixsfsi.c
+cortexm fixsfti.c
+cortexm fixunsdfdi.c
+cortexm fixunsdfsi.c
+cortexm fixunsdfti.c
+cortexm fixunssfdi.c
+cortexm fixunssfsi.c
+cortexm fixunssfti.c
+cortexm floatdidf.c
+cortexm floatdisf.c
+cortexm floatsidf.c
+cortexm floatsisf.c
+cortexm floattidf.c
+cortexm floattisf.c
+cortexm floatundidf.c
+cortexm floatundisf.c
+cortexm floatunsidf.c
+cortexm floatunsisf.c
+cortexm floatuntidf.c
+cortexm floatuntisf.c
+cortexm int_util.c
+cortexm lshrdi3.c
+cortexm lshrti3.c
+cortexm moddi3.c
+cortexm modti3.c
+cortexm muldc3.c
+cortexm muldf3.c
+cortexm muldi3.c
+cortexm mulodi4.c
+cortexm mulosi4.c
+cortexm muloti4.c
+cortexm mulsc3.c
+cortexm mulsf3.c
+cortexm multi3.c
+cortexm mulvdi3.c
+cortexm mulvsi3.c
+cortexm mulvti3.c
+cortexm negdf2.c
+cortexm negdi2.c
+cortexm negsf2.c
+cortexm negti2.c
+cortexm negvdi2.c
+cortexm negvsi2.c
+cortexm negvti2.c
+cortexm os_version_check.c
+cortexm paritydi2.c
+cortexm paritysi2.c
+cortexm parityti2.c
+cortexm popcountdi2.c
+cortexm popcountsi2.c
+cortexm popcountti2.c
+cortexm powidf2.c
+cortexm powisf2.c
+cortexm subdf3.c
+cortexm subsf3.c
+cortexm subvdi3.c
+cortexm subvsi3.c
+cortexm subvti3.c
+cortexm trampoline_setup.c
+cortexm truncdfhf2.c
+cortexm truncdfsf2.c
+cortexm truncsfhf2.c
+cortexm ucmpdi2.c
+cortexm ucmpti2.c
+cortexm udivdi3.c
+cortexm udivmoddi4.c
+cortexm udivmodti4.c
+cortexm udivti3.c
+cortexm umoddi3.c
+cortexm umodti3.c
+cortexm arm/fp_mode.c
+cortexm arm/bswapdi2.S
+cortexm arm/bswapsi2.S
+cortexm arm/clzdi2.S
+cortexm arm/clzsi2.S
+cortexm arm/comparesf2.S
+cortexm arm/divmodsi4.S
+cortexm arm/divsi3.S
+cortexm arm/modsi3.S
+cortexm arm/udivmodsi4.S
+cortexm arm/udivsi3.S
+cortexm arm/umodsi3.S
+cortexm arm/sync_fetch_and_add_4.S
+cortexm arm/sync_fetch_and_add_8.S
+cortexm arm/sync_fetch_and_and_4.S
+cortexm arm/sync_fetch_and_and_8.S
+cortexm arm/sync_fetch_and_max_4.S
+cortexm arm/sync_fetch_and_max_8.S
+cortexm arm/sync_fetch_and_min_4.S
+cortexm arm/sync_fetch_and_min_8.S
+cortexm arm/sync_fetch_and_nand_4.S
+cortexm arm/sync_fetch_and_nand_8.S
+cortexm arm/sync_fetch_and_or_4.S
+cortexm arm/sync_fetch_and_or_8.S
+cortexm arm/sync_fetch_and_sub_4.S
+cortexm arm/sync_fetch_and_sub_8.S
+cortexm arm/sync_fetch_and_umax_4.S
+cortexm arm/sync_fetch_and_umax_8.S
+cortexm arm/sync_fetch_and_umin_4.S
+cortexm arm/sync_fetch_and_umin_8.S
+cortexm arm/sync_fetch_and_xor_4.S
+cortexm arm/sync_fetch_and_xor_8.S
+cortexm arm/aeabi_cdcmp.S
+cortexm arm/aeabi_cdcmpeq_check_nan.c
+cortexm arm/aeabi_cfcmp.S
+cortexm arm/aeabi_cfcmpeq_check_nan.c
+cortexm arm/aeabi_dcmp.S
+cortexm arm/aeabi_div0.c
+cortexm arm/aeabi_drsub.c
+cortexm arm/aeabi_fcmp.S
+cortexm arm/aeabi_frsub.c
+cortexm arm/aeabi_idivmod.S
+cortexm arm/aeabi_ldivmod.S
+cortexm arm/aeabi_uidivmod.S
+cortexm arm/aeabi_uldivmod.S
+cortexm arm/aeabi_memcmp.S
+cortexm arm/aeabi_memcpy.S
+cortexm arm/aeabi_memmove.S
+cortexm arm/aeabi_memset.S
+cortexm arm/switch16.S
+cortexm arm/switch32.S
+cortexm arm/switch8.S
+cortexm arm/switchu8.S
+cortexm arm/sync_synchronize.S
+avr absvdi2.c
+avr absvsi2.c
+avr absvti2.c
+avr adddf3.c
+avr addsf3.c
+avr addvdi3.c
+avr addvsi3.c
+avr addvti3.c
+avr apple_versioning.c
+avr ashldi3.c
+avr ashlti3.c
+avr ashrdi3.c
+avr ashrti3.c
+avr bswapdi2.c
+avr bswapsi2.c
+avr clzdi2.c
+avr clzsi2.c
+avr clzti2.c
+avr cmpdi2.c
+avr cmpti2.c
+avr comparedf2.c
+avr comparesf2.c
+avr ctzdi2.c
+avr ctzsi2.c
+avr ctzti2.c
+avr divdc3.c
+avr divdf3.c
+avr divdi3.c
+avr divmoddi4.c
+avr divmodsi4.c
+avr divmodti4.c
+avr divsc3.c
+avr divsf3.c
+avr divsi3.c
+avr divti3.c
+avr extendsfdf2.c
+avr extendhfsf2.c
+avr extendhfdf2.c
+avr ffsdi2.c
+avr ffssi2.c
+avr ffsti2.c
+avr fixdfdi.c
+avr fixdfsi.c
+avr fixdfti.c
+avr fixsfdi.c
+avr fixsfsi.c
+avr fixsfti.c
+avr fixunsdfdi.c
+avr fixunsdfsi.c
+avr fixunsdfti.c
+avr fixunssfdi.c
+avr fixunssfsi.c
+avr fixunssfti.c
+avr floatdidf.c
+avr floatdisf.c
+avr floatsidf.c
+avr floatsisf.c
+avr floattidf.c
+avr floattisf.c
+avr floatundidf.c
+avr floatundisf.c
+avr floatunsidf.c
+avr floatunsisf.c
+avr floatuntidf.c
+avr floatuntisf.c
+avr fp_mode.c
+avr int_util.c
+avr lshrdi3.c
+avr lshrti3.c
+avr moddi3.c
+avr modsi3.c
+avr modti3.c
+avr muldc3.c
+avr muldf3.c
+avr muldi3.c
+avr mulodi4.c
+avr mulosi4.c
+avr muloti4.c
+avr mulsc3.c
+avr mulsf3.c
+avr multi3.c
+avr mulvdi3.c
+avr mulvsi3.c
+avr mulvti3.c
+avr negdf2.c
+avr negdi2.c
+avr negsf2.c
+avr negti2.c
+avr negvdi2.c
+avr negvsi2.c
+avr negvti2.c
+avr os_version_check.c
+avr paritydi2.c
+avr paritysi2.c
+avr parityti2.c
+avr popcountdi2.c
+avr popcountsi2.c
+avr popcountti2.c
+avr powidf2.c
+avr powisf2.c
+avr subdf3.c
+avr subsf3.c
+avr subvdi3.c
+avr subvsi3.c
+avr subvti3.c
+avr trampoline_setup.c
+avr truncdfhf2.c
+avr truncdfsf2.c
+avr truncsfhf2.c
+avr ucmpdi2.c
+avr ucmpti2.c
+avr udivdi3.c
+avr udivmoddi4.c
+avr udivmodsi4.c
+avr udivmodti4.c
+avr udivsi3.c
+avr udivti3.c
+avr umoddi3.c
+avr umodsi3.c
+avr umodti3.c
+avr avr/mulqi3.S
+avr avr/mulhi3.S
+avr avr/exit.S
+avr avr/divmodhi4.S
+avr avr/udivmodhi4.S
+avr avr/divmodqi4.S
+avr avr/udivmodqi4.S

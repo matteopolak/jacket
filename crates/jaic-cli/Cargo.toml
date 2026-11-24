@@ -16,6 +16,7 @@ jaic-cli-args = { path = "../jaic-cli-args" }
 jacket-config = { path = "../jacket-config" }
 jaic-llvm = { path = "../jaic-llvm", optional = true, default-features = false }
 jaic-native = { path = "../jaic-native", optional = true }
+jaic-toolchain = { path = "../jaic-toolchain", optional = true }
 mimalloc = { version = "=0.1.52", optional = true, default-features = false }
 
 # On macOS also replace the C `malloc` family, so LLVM's C++ allocations (about a fifth of a
@@ -28,7 +29,7 @@ mimalloc = { version = "=0.1.52", optional = true, default-features = false, fea
 [features]
 default = ["dynamic-llvm", "mimalloc"]
 # Native output (`jaic`); without it jaic only checks and interprets.
-llvm = ["dep:jaic-native"]
+llvm = ["dep:jaic-native", "dep:jaic-toolchain"]
 # LLVM linked into the executable, as a shared library (development) or statically.
 dynamic-llvm = ["llvm", "dep:jaic-llvm", "jaic-llvm/dynamic"]
 static-llvm = ["llvm", "dep:jaic-llvm", "jaic-llvm/static", "mimalloc"]

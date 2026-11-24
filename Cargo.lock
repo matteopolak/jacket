@@ -356,6 +356,7 @@ dependencies = [
  "jacket-config",
  "jaic",
  "jaic-cli-args",
+ "jaic-toolchain",
  "jailint",
  "pulldown-cmark",
  "regex-lite",
@@ -431,6 +432,7 @@ dependencies = [
  "jaic-cli-args",
  "jaic-llvm",
  "jaic-native",
+ "jaic-toolchain",
  "mimalloc",
  "serde_json",
  "test-support",
@@ -782,6 +784,7 @@ dependencies = [
  "jai-language-server",
  "jaic",
  "jaic-llvm",
+ "jaic-toolchain",
 ]
 
 [[package]]

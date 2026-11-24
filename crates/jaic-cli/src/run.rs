@@ -204,6 +204,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
 /// a terminal while the compile runs, and `    Finished ...` at the end. The name is the main
 /// file's, or the project's when jacket passes one in `JACKET_PROJECT`.
 fn start_progress(cli: &Cli) {
+    jaic::progress::set_verbose(cli.verbose);
     let mode = jaic::progress::mode(cli.quiet, cli.no_color || cli.msvc_format);
     if mode == jaic::progress::Mode::Off {
         return;
@@ -242,6 +243,8 @@ fn enter_main_directory(cli: &mut Cli) -> Result<(PathBuf, PathBuf), ExitCode> {
     let absolute = |p: &PathBuf| std::path::absolute(p).unwrap_or_else(|_| p.clone());
     cli.imports = cli.imports.iter().map(absolute).collect();
     cli.output_path = cli.output_path.as_ref().map(absolute);
+    cli.sysroot = cli.sysroot.as_ref().map(absolute);
+    cli.compiler_rt = cli.compiler_rt.as_ref().map(absolute);
     // `-exe` with a directory is taken from where jaic was started, like the paths above, and
     // splits into the output path and the executable's name; a bare name goes into the
     // directory jaic was started in (or into `-output_path`).

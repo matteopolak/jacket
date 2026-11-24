@@ -1,6 +1,6 @@
 //! `jaic -os wasm`: wasm64 modules linked by wasm-ld, run under node's WASI
 //! (docs/native/wasm-target.md). Each test is skipped, with a note, when node or wasm-ld is
-//! missing, unless `JAIC_REQUIRE_TOOLCHAIN` names them (CI sets it).
+//! missing, except on CI (`CI` is set), where a missing tool fails.
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
 use test_support::{TempDir, toolchain};
@@ -13,20 +13,19 @@ fn node() -> Option<Command> {
     toolchain::node()
 }
 
-/// Runs `jaic` with `args` in `dir`. `None` (the test is skipped) when there is no node or the
-/// build cannot find wasm-ld and the tests are not required.
+/// Runs `jaic` with `args` in `dir`. `None` (the test is skipped) when there is no node or no
+/// `wasm-ld` and the host is not CI.
 fn jaic(dir: &Path, args: &[&str]) -> Option<Output> {
     node()?;
+    if !toolchain::buildable("wasm64-unknown-unknown") {
+        return None;
+    }
     let output = Command::new(JAIC)
         .args(args)
         .current_dir(dir)
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&output.stderr);
-    if stderr.contains("wasm-ld not found") && !toolchain::explicitly_required("wasm-ld") {
-        toolchain::skip(&stderr);
-        return None;
-    }
     assert!(output.status.success(), "jaic {args:?} failed:\n{stderr}");
     Some(output)
 }

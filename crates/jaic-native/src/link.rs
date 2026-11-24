@@ -4,7 +4,7 @@ use super::linker::{
     check_sanitizer_target, library_args, link_failure, linker_not_run, pdb_args, render_link_arg,
 };
 use super::options::Sanitize;
-use super::toolchain::{command, lookup};
+use super::toolchain::{command, lookup, report};
 use jaic::ir::Library;
 use jaic::target::Target as BuildTarget;
 use jaic::toolchain::{Driver, Linker, Toolchain};
@@ -152,10 +152,16 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
         let cmd = command(&found);
         (found, cmd)
     };
+    report("Linker", &linker_found, &lookup, target);
     let program = linker_found.program.display().to_string();
     let mut coverage_source = None;
     let driver = link_options::driver_for_command(&program, extra_args);
-    let extra_args = link_options::render(extra_args, linker, driver)?;
+    let apple = target.unwrap_or_else(BuildTarget::host).is_apple();
+    let extra_args = link_options::render(
+        &link_options::translate(extra_args, linker, driver, apple),
+        linker,
+        driver,
+    )?;
     let msvc_style = driver != Driver::C;
     let runtime = toolchain.runtime_args(driver);
     if driver == Driver::ClangCl {
@@ -326,7 +332,7 @@ fn fuzzer_runtime(driver: &str) -> Result<PathBuf, String> {
         Ok(path)
     } else {
         Err(format!(
-            "`-sanitize fuzzer` needs {name} from the LLVM that built jaic (`{driver}` did not find it)\nhelp: install compiler-rt (Homebrew `llvm`, or `libclang-rt-23-dev` from apt.llvm.org) or set JAIC_SANITIZER_CC to its clang"
+            "`-sanitize fuzzer` needs {name} from the LLVM that built jaic (`{driver}` did not find it)\nhelp: install compiler-rt (Homebrew `llvm`, or `libclang-rt-23-dev` from apt.llvm.org) so that `clang` finds it"
         ))
     }
 }

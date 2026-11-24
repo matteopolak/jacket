@@ -8,6 +8,8 @@ pub struct Lookup<'a> {
     /// The `bin` folders of the LLVM installs jaic knows (`jacket_config::llvm::bin_dirs`), best
     /// first. Asked for only when an LLVM program is looked up: finding them starts `llvm-config`.
     llvm_bins: Box<dyn Fn() -> Vec<PathBuf> + 'a>,
+    /// The LLVM installs themselves (`jacket_config::llvm::prefixes`), best first.
+    llvm_prefixes: Box<dyn Fn() -> Vec<PathBuf> + 'a>,
 }
 
 impl<'a> Lookup<'a> {
@@ -15,6 +17,7 @@ impl<'a> Lookup<'a> {
         Lookup {
             host,
             llvm_bins: Box::new(Vec::new),
+            llvm_prefixes: Box::new(Vec::new),
         }
     }
 
@@ -22,6 +25,17 @@ impl<'a> Lookup<'a> {
     pub fn with_llvm_bins(mut self, bins: impl Fn() -> Vec<PathBuf> + 'a) -> Lookup<'a> {
         self.llvm_bins = Box::new(bins);
         self
+    }
+
+    #[must_use]
+    pub fn with_llvm_prefixes(mut self, prefixes: impl Fn() -> Vec<PathBuf> + 'a) -> Lookup<'a> {
+        self.llvm_prefixes = Box::new(prefixes);
+        self
+    }
+
+    /// The LLVM installs jaic knows, best first.
+    pub fn llvm_prefixes(&self) -> Vec<PathBuf> {
+        (self.llvm_prefixes)()
     }
 
     /// The file names `name` goes by in a folder.
@@ -91,11 +105,15 @@ impl<'a> Lookup<'a> {
 }
 
 /// The version a tool prints for `--version`: the first word that is digits and dots with at
-/// least one dot (`Homebrew LLD 21.1.8 (compatible with GNU linkers)` is `21.1.8`).
+/// least one dot, after any `v` and punctuation (`Homebrew LLD 21.1.8 (compatible with GNU
+/// linkers)` is `21.1.8`; `(Build arm-14.52)` is not a version).
 pub fn version_of(output: &str) -> Option<String> {
     output.lines().find_map(|line| {
         line.split_whitespace()
-            .map(|word| word.trim_matches(|c: char| !c.is_ascii_digit() && c != '.'))
+            .map(|word| {
+                let word = word.trim_matches(|c: char| "(),;:".contains(c));
+                word.strip_prefix('v').unwrap_or(word)
+            })
             .find(|word| {
                 word.starts_with(|c: char| c.is_ascii_digit())
                     && word.contains('.')
@@ -189,6 +207,14 @@ mod tests {
                 .as_deref(),
             Some("14.2.1")
         );
+        assert_eq!(
+            version_of(
+                "arm-none-eabi-gcc (Arm GNU Toolchain 14.2.Rel1 (Build arm-14.52)) 14.2.1 20241119"
+            )
+            .as_deref(),
+            Some("14.2.1")
+        );
+        assert_eq!(version_of("v22.23.1").as_deref(), Some("22.23.1"));
         assert_eq!(version_of("no numbers here"), None);
     }
 }

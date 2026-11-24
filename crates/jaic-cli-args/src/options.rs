@@ -346,6 +346,43 @@ pub const OPTIONS: &[CliOption] = {
             "leave out native debug information",
         ),
         CliOption::new(
+            &["-linker"],
+            store!("a program", |cli, program| cli.linker = Some(program)),
+        )
+        .help(
+            Output,
+            "-linker <program>",
+            "link with this program instead of the one found for the target (also JAIC_LINKER)",
+        ),
+        CliOption::new(
+            &["-sysroot"],
+            store!("a directory", |cli, dir| cli.sysroot = Some(PathBuf::from(dir))),
+        )
+        .help(
+            Output,
+            "-sysroot <dir>",
+            "the C library folder a cross link uses (also JAIC_SYSROOT)",
+        ),
+        CliOption::new(
+            &["-compiler_rt"],
+            store!("a file", |cli, file| cli.compiler_rt = Some(PathBuf::from(file))),
+        )
+        .help(
+            Output,
+            "-compiler_rt <file>",
+            "the compiler builtins archive a freestanding link uses (also JAIC_COMPILER_RT)",
+        ),
+        CliOption::new(
+            &["-link_arg"],
+            store!("a linker argument", |cli, arg| cli.link_args.push(arg)),
+        )
+        .help(
+            Output,
+            "-link_arg <argument>",
+            "an argument for the linker, in `ld.lld`'s spelling; repeat it for each argument.\n\
+             It is translated for the linker in use (`--gc-sections` is `/OPT:REF` for `link.exe`)",
+        ),
+        CliOption::new(
             &["-sanitize"],
             Action::Value {
                 what: "address, undefined and/or fuzzer, comma-separated",

@@ -149,7 +149,6 @@ impl Need {
                 pacman: Some("lld"),
                 winget: Some("LLVM.LLVM"),
                 elsewhere: "download LLVM from https://github.com/llvm/llvm-project/releases",
-                ..NONE
             },
             Need::Clang => Row {
                 label: "clang",
@@ -159,7 +158,6 @@ impl Need {
                 pacman: Some("clang"),
                 winget: Some("LLVM.LLVM"),
                 elsewhere: "download LLVM from https://github.com/llvm/llvm-project/releases",
-                ..NONE
             },
             Need::Archiver => Row {
                 label: "an archiver",

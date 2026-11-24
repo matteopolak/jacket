@@ -439,6 +439,33 @@ pub fn finish(summary: &str) {
     ));
 }
 
+/// Whether lines for host builds are shown: `-verbose`.
+static VERBOSE: AtomicBool = AtomicBool::new(false);
+
+/// `-verbose` shows the tool lines of host builds too.
+pub fn set_verbose(on: bool) {
+    VERBOSE.store(on, Ordering::Relaxed);
+}
+
+/// A line that says which tool a build uses, between `Compiling` and `Finished`:
+///
+/// ```text
+///       Linker /opt/homebrew/bin/ld.lld 21.1.8
+/// ```
+///
+/// Cross and bare-metal builds pass `always`; a host build shows it only under `-verbose`.
+pub fn tool(verb: &str, text: &str, always: bool) {
+    let mode = lock().mode;
+    if mode == Mode::Off || !(always || VERBOSE.load(Ordering::Relaxed)) {
+        return;
+    }
+    before_output();
+    write_err(&format!(
+        "{}\n",
+        message_line(verb, text, mode == Mode::Live)
+    ));
+}
+
 /// A line after `Finished`, such as `     Running hello`.
 pub fn announce(verb: &str, text: &str) {
     let mode = lock().mode;

@@ -151,14 +151,16 @@ fn cross_linux(lookup: &Lookup, target: Target, overrides: &Overrides) -> Result
         lookup.llvm_tool("clang")
     };
     let lld = lookup.llvm_tool("ld.lld");
-    let sysroot = find_sysroot(lookup, target, overrides, SysrootUse::Link);
+    let sysroot = find_sysroot(lookup, target, overrides, SysrootUse::Link)?;
     if let (Some(driver), Some(lld), Some(sysroot)) = (&driver, &lld, &sysroot) {
-        return Ok(Found::new(driver.clone(), Origin::System).with_args([
-            OsString::from(format!("--target={target}")),
-            OsString::from(format!("--sysroot={}", sysroot.program.display())),
-            OsString::from(format!("--ld-path={}", lld.display())),
-            OsString::from("-fuse-ld=lld"),
-        ]));
+        return Ok(Found::new(driver.clone(), Origin::System)
+            .with_args([
+                OsString::from(format!("--target={target}")),
+                OsString::from(format!("--sysroot={}", sysroot.program.display())),
+                OsString::from(format!("--ld-path={}", lld.display())),
+                OsString::from("-fuse-ld=lld"),
+            ])
+            .with_sysroot(sysroot.clone()));
     }
     let manager = PackageManager::detect(lookup);
     let packaged = matches!(manager, Some(PackageManager::Apt | PackageManager::Dnf));
@@ -205,22 +207,32 @@ pub fn find_sysroot(
     target: Target,
     overrides: &Overrides,
     purpose: SysrootUse,
-) -> Option<Found> {
+) -> Result<Option<Found>, Missing> {
     if let Some(given) = &overrides.sysroot {
-        return Some(Found::new(
+        if !lookup.host.is_dir(&given.value) {
+            return Err(Missing::new(
+                format!(
+                    "{} names `{}`, which is not a folder",
+                    given.from,
+                    given.value.display()
+                ),
+                Vec::new(),
+            ));
+        }
+        return Ok(Some(Found::new(
             given.value.clone(),
             Origin::Override(given.from),
-        ));
+        )));
     }
     if purpose == SysrootUse::Run
         && let Some(gnu) = pins::gnu_triple(target)
     {
         let system = PathBuf::from("/usr").join(gnu);
         if lookup.host.os() == Os::Linux && lookup.host.is_dir(&system.join("lib")) {
-            return Some(Found::new(system, Origin::System));
+            return Ok(Some(Found::new(system, Origin::System)));
         }
     }
-    cache::sysroot(lookup.host, target).map(|dir| Found::new(dir, Origin::Cache))
+    Ok(cache::sysroot(lookup.host, target).map(|dir| Found::new(dir, Origin::Cache)))
 }
 
 fn mingw_cpu(target: Target) -> &'static str {

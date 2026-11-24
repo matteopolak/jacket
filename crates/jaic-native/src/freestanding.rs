@@ -3,10 +3,11 @@
 //! There is no C driver, libc or startup file: the program defines its own entry point, and a
 //! linker script places its sections. `ld.lld` is the only linker used; if it is missing the
 //! build fails with a note that says how to get it.
-use crate::toolchain::{command, lookup};
+use crate::toolchain::{command, lookup, report};
 use jaic::ir::Library;
 use jaic::target::{Target, TargetCpu};
 use jaic::toolchain::freestanding;
+use jaic_toolchain::builtins::find_builtins;
 use jaic_toolchain::linker::find_linker;
 use jaic_toolchain::{Found, Overrides};
 use std::path::{Path, PathBuf};
@@ -29,6 +30,25 @@ pub struct FreestandingLink<'a> {
 fn names_script(args: &[String]) -> bool {
     args.iter()
         .any(|a| a == "-T" || a.starts_with("-T") || a == "--script" || a.starts_with("--script="))
+}
+
+/// The linker script `args` name (`-T script.ld`, `-Tscript.ld`, `--script=script.ld`).
+fn script_file(args: &[String]) -> Option<&str> {
+    let mut args = args.iter();
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "-T" | "--script" => return args.next().map(String::as_str),
+            _ => {
+                if let Some(file) = arg
+                    .strip_prefix("--script=")
+                    .or_else(|| arg.strip_prefix("-T"))
+                {
+                    return Some(file);
+                }
+            }
+        }
+    }
+    None
 }
 
 /// The `-m` emulation of `ld.lld` for a freestanding CPU; `None` for AVR, which has no name
@@ -90,19 +110,28 @@ fn lld_command(
 
 /// Link freestanding objects into an ELF executable with `ld.lld`.
 pub fn link_freestanding(link: &FreestandingLink) -> Result<(), String> {
-    let lld = find_linker(&lookup(), Some(link.target), &Overrides::from_env())
+    let overrides = Overrides::from_env();
+    let lookup = lookup();
+    let lld = find_linker(&lookup, Some(link.target), &overrides)
         .map_err(|missing| missing.to_string())?;
-    let explicit = jacket_config::env::COMPILER_RT.os().map(PathBuf::from);
-    if let Some(path) = explicit.as_deref().filter(|path| !path.exists()) {
-        return Err(format!(
-            "JAIC_COMPILER_RT names `{}`, which does not exist\nhelp: {}",
-            path.display(),
-            freestanding::compiler_rt_install(link.target)
-        ));
+    // Programs that need no builtins link without them: the lookup's error is kept for a link
+    // that fails on one. A builtins archive that was named and is not there is an error now.
+    let builtins = find_builtins(&lookup, link.target, &overrides);
+    if let (Err(missing), Some(_)) = (&builtins, &overrides.compiler_rt) {
+        return Err(missing.to_string());
     }
-    let prefixes = jacket_config::llvm::prefixes(crate::BAKED_LLVM_PREFIX);
-    let builtins = freestanding::compiler_rt_builtins(link.target, explicit.as_deref(), &prefixes);
-    let mut cmd = lld_command(&lld, link, builtins.as_deref())?;
+    report("Linker", &lld, &lookup, Some(link.target));
+    if let Ok(found) = &builtins {
+        report("Builtins", found, &lookup, Some(link.target));
+    }
+    if let Some(script) = script_file(link.extra_args) {
+        jaic::progress::tool("Script", script, true);
+    }
+    let mut cmd = lld_command(
+        &lld,
+        link,
+        builtins.as_ref().ok().map(|b| b.program.as_path()),
+    )?;
     let program = lld.program.display().to_string();
     let out = crate::linker::run_captured(&mut cmd).map_err(|e| crate::linker_not_run(&lld, &e))?;
     if out.status.success() {
@@ -114,11 +143,10 @@ pub fn link_freestanding(link: &FreestandingLink) -> Result<(), String> {
         String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     );
-    if builtins.is_none() && freestanding::undefined_builtin(&log) {
-        message += &format!(
-            "\nhelp: the program needs compiler-rt builtins: {}",
-            freestanding::compiler_rt_install(link.target)
-        );
+    if let Err(missing) = &builtins
+        && freestanding::undefined_builtin(&log)
+    {
+        message += &format!("\nnote: the program needs compiler builtins: {missing}");
     }
     Err(message)
 }
@@ -127,6 +155,18 @@ pub fn link_freestanding(link: &FreestandingLink) -> Result<(), String> {
 mod tests {
     use super::*;
     use jaic_toolchain::Origin;
+
+    fn words(args: &[&str]) -> Vec<String> {
+        args.iter().map(ToString::to_string).collect()
+    }
+
+    #[test]
+    fn the_script_is_found_in_each_spelling() {
+        assert_eq!(script_file(&words(&["-T", "board.ld"])), Some("board.ld"));
+        assert_eq!(script_file(&words(&["-Tboard.ld"])), Some("board.ld"));
+        assert_eq!(script_file(&words(&["-x", "--script=b.ld"])), Some("b.ld"));
+        assert_eq!(script_file(&words(&["-x"])), None);
+    }
 
     fn link<'a>(objects: &'a [PathBuf], extra: &'a [String]) -> FreestandingLink<'a> {
         FreestandingLink {

@@ -1,7 +1,7 @@
 //! `-os none` (`Operating_System_Tag.NONE`): freestanding aarch64 programs linked by `ld.lld` and
 //! run on QEMU's `virt` machine, which reports the exit code through semihosting
 //! (docs/native/embedded.md). Tests that need QEMU or Clang are skipped, with a note, when the
-//! tool is missing, unless `JAIC_REQUIRE_TOOLCHAIN` names it (CI sets it).
+//! tool is missing, except on CI (`CI` is set), where a missing tool fails.
 #![cfg(feature = "llvm")]
 
 use std::path::Path;
@@ -103,13 +103,11 @@ const FLASH_MAP: &str = "Embedded.link_for(*options, Embedded.Memory_Map.{ flash
 
 const SCRIPT: &str = r#"options.additional_linker_arguments = string.["-T", "board.ld"];"#;
 
-/// Whether `ld.lld` is installed, as jaic looks for it. When it is not, a link names it.
-fn lld_missing(stderr: &str) -> bool {
-    stderr.contains("ld.lld not found") || stderr.contains("could not find the linker")
-}
-
 #[test]
 fn a_none_program_runs_on_qemu_and_exits_through_semihosting() {
+    if !toolchain::buildable("aarch64-none-elf") {
+        return;
+    }
     let Some(clang) = toolchain::require("clang") else {
         return;
     };
@@ -128,10 +126,6 @@ fn a_none_program_runs_on_qemu_and_exits_through_semihosting() {
         );
         let built = build(&dir);
         let stderr = String::from_utf8_lossy(&built.stderr);
-        if lld_missing(&stderr) && !toolchain::strict("ld.lld") {
-            toolchain::skip(&stderr);
-            return;
-        }
         assert!(built.status.success(), "jaic build.jai failed:\n{stderr}");
         let run = Command::new(&qemu)
             .args([
@@ -156,6 +150,9 @@ fn a_none_program_runs_on_qemu_and_exits_through_semihosting() {
 // The ELF header of a file checked above to be little-endian, not program data.
 #[allow(clippy::disallowed_methods)]
 fn the_output_is_a_static_aarch64_elf_executable() {
+    if !toolchain::buildable("aarch64-none-elf") {
+        return;
+    }
     let Some(clang) = toolchain::require("clang") else {
         return;
     };
@@ -163,10 +160,6 @@ fn the_output_is_a_static_aarch64_elf_executable() {
     project(&dir, &Setup::default(), Some(&clang));
     let built = build(&dir);
     let stderr = String::from_utf8_lossy(&built.stderr);
-    if lld_missing(&stderr) && !toolchain::strict("ld.lld") {
-        toolchain::skip(&stderr);
-        return;
-    }
     assert!(built.status.success(), "{stderr}");
     let bytes = std::fs::read(dir.join("prog.elf")).unwrap();
     assert_eq!(&bytes[..4], b"\x7fELF");
@@ -259,16 +252,15 @@ fn a_system_entry_point_is_refused_on_a_target_with_no_system() {
 
 /// Builds `setup` and runs it on QEMU. `None` when Clang, LLD or QEMU is missing and not required.
 fn run(name: &str, setup: &Setup) -> Option<Output> {
+    if !toolchain::buildable("aarch64-none-elf") {
+        return None;
+    }
     let clang = toolchain::require("clang")?;
     let qemu = toolchain::optional("qemu-system-aarch64")?;
     let dir = TempDir::new(&format!("freestanding-{name}-{}", std::process::id()));
     project(&dir, setup, Some(&clang));
     let built = build(&dir);
     let stderr = String::from_utf8_lossy(&built.stderr);
-    if lld_missing(&stderr) && !toolchain::strict("ld.lld") {
-        toolchain::skip(&stderr);
-        return None;
-    }
     assert!(
         built.status.success(),
         "{name}: jaic build.jai failed:\n{stderr}"
@@ -443,6 +435,9 @@ fn the_heap_allocator_serves_growing_arrays_from_the_linker_script_region() {
 /// Builds `tests/freestanding/qemu_virt/<program>` with the `Qemu_Virt_Aarch64` board, which needs
 /// no assembler, linker script or startup file of its own, and runs it.
 fn run_on_board(program: &str) -> Option<Output> {
+    if !toolchain::buildable("aarch64-none-elf") {
+        return None;
+    }
     let qemu = toolchain::optional("qemu-system-aarch64")?;
     let dir = TempDir::new(&format!(
         "freestanding-board-{program}-{}",
@@ -458,10 +453,6 @@ fn run_on_board(program: &str) -> Option<Output> {
     }
     let built = build(&dir);
     let stderr = String::from_utf8_lossy(&built.stderr);
-    if lld_missing(&stderr) && !toolchain::strict("ld.lld") {
-        toolchain::skip(&stderr);
-        return None;
-    }
     assert!(
         built.status.success(),
         "{program}: jaic build.jai failed:\n{stderr}"
@@ -494,6 +485,9 @@ fn a_panic_on_the_qemu_virt_board_exits_with_status_1() {
 /// the program for the board with no metaprogram of its own.
 #[test]
 fn a_board_plugin_configures_the_build_without_a_build_file() {
+    if !toolchain::buildable("aarch64-none-elf") {
+        return;
+    }
     let Some(qemu) = toolchain::optional("qemu-system-aarch64") else {
         return;
     };
@@ -507,10 +501,6 @@ fn a_board_plugin_configures_the_build_without_a_build_file() {
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&built.stderr);
-    if lld_missing(&stderr) && !toolchain::strict("ld.lld") {
-        toolchain::skip(&stderr);
-        return;
-    }
     assert!(built.status.success(), "jaic failed:\n{stderr}");
     let out = qemu_run(&qemu, &dir.join("prog.elf"));
     assert_eq!(out.status.code(), Some(0), "{out:?}");
@@ -521,6 +511,9 @@ fn a_board_plugin_configures_the_build_without_a_build_file() {
 /// assembles it once, in the first, so the link has one `_start`.
 #[test]
 fn module_assembly_lands_in_one_object_of_a_split_build() {
+    if !toolchain::buildable("aarch64-none-elf") {
+        return;
+    }
     let dir = TempDir::new(&format!("freestanding-split-{}", std::process::id()));
     std::fs::write(
         dir.join("app.jai"),
@@ -545,8 +538,5 @@ reset :: () #c_call #no_context {
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&output.stderr);
-    if lld_missing(&stderr) {
-        return;
-    }
     assert!(output.status.success(), "{stderr}");
 }

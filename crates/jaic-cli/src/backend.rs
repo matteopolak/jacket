@@ -125,11 +125,17 @@ pub(super) fn build(
 
 #[cfg(feature = "llvm")]
 pub(super) fn native_backend(cli: &Cli) -> LlvmBackend {
+    jaic_toolchain::overrides::set_flags(
+        cli.linker.as_deref(),
+        cli.sysroot.as_deref(),
+        cli.compiler_rt.as_deref(),
+    );
     LlvmBackend {
         emit_ir: cli.emit_ir.clone(),
         debug_info: !cli.no_debug_info,
         target: cli.build_target().ok().flatten(),
         explicit_target: cli.target.is_some() || cli.os.is_some() || cli.cpu.is_some(),
+        link_args: cli.link_args.clone(),
         sanitize: cli
             .sanitize
             .iter()
@@ -208,6 +214,8 @@ pub(super) struct LlvmBackend {
     pub(super) target: Option<Target>,
     /// An explicit host OS/CPU still overrides workspace output settings.
     explicit_target: bool,
+    /// `-link_arg`: linker arguments after the metaprogram's.
+    link_args: Vec<String>,
     /// The `-sanitize` lists, comma-joined (empty: no sanitizers).
     sanitize: String,
     /// `-no_inline` and `-no_split`: they hold for every workspace this backend writes.
@@ -521,7 +529,14 @@ impl OutputBackend for LlvmBackend {
         let libraries = jaic_native::used_libraries(program);
         let wasm = target.is_some_and(jaic::target::Target::is_wasm);
         let freestanding = target.filter(|t| t.is_freestanding());
-        let mut link_args = settings.additional_linker_arguments.clone();
+        // The metaprogram's linker arguments, then `-link_arg`.
+        let metaprogram_args: Vec<String> = settings
+            .additional_linker_arguments
+            .iter()
+            .chain(&self.link_args)
+            .cloned()
+            .collect();
+        let mut link_args = metaprogram_args.clone();
         link_args.extend(extra_link_args);
         let debug_info = options.debug_info;
         let cross_library_dirs = cross_library_dirs(target);
@@ -537,7 +552,7 @@ impl OutputBackend for LlvmBackend {
                     has_start: settings.output_type == OutputType::Executable
                         && program.funcs.iter().flatten().any(|f| f.linkage == start),
                     strip_debug: !debug_info,
-                    extra_args: &settings.additional_linker_arguments,
+                    extra_args: &metaprogram_args,
                 })
             }
             OutputType::DynamicLibrary if freestanding.is_some() => Err(
@@ -551,7 +566,7 @@ impl OutputBackend for LlvmBackend {
                     output,
                     target,
                     strip_debug: !debug_info,
-                    extra_args: &settings.additional_linker_arguments,
+                    extra_args: &metaprogram_args,
                 })
             }
             OutputType::Executable | OutputType::DynamicLibrary => {

@@ -37,8 +37,10 @@ pub fn link_wasm(link: &WasmLink) -> Result<(), String> {
     } else {
         "wasm32-unknown-unknown"
     })?;
-    let wasm_ld = find_linker(&lookup(), Some(target), &Overrides::from_env())
+    let lookup = lookup();
+    let wasm_ld = find_linker(&lookup, Some(target), &Overrides::from_env())
         .map_err(|missing| missing.to_string())?;
+    crate::toolchain::report("Linker", &wasm_ld, &lookup, Some(target));
     let mut cmd = command(&wasm_ld);
     cmd.arg(if link.memory64 {
         "-mwasm64"

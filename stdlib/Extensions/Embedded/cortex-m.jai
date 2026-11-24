@@ -58,6 +58,12 @@ cortex_m_fault:
     bkpt 0xab
 2:  b   2b
 
+// The C `abort` that a GNU `libgcc.a` calls on a failed unwind: it ends the run like a fault.
+.global abort
+.thumb_func
+abort:
+    b   cortex_m_fault
+
 .text
 .global semihost
 .thumb_func

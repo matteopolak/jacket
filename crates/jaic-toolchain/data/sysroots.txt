@@ -1,0 +1,43 @@
+# Debian bookworm, snapshot 20251201T000000Z. Written by tools/embedded/pin_sysroots.py.
+mirror https://snapshot.debian.org/archive/debian/20251201T000000Z
+# architecture package version size sha256 path-under-the-mirror
+armhf libc6 2.36-9+deb12u13 2135840 f62e6fb5ec766e80ef811d11e8453e44a389900076899f7c9d4cb244955883d0 pool/main/g/glibc/libc6_2.36-9+deb12u13_armhf.deb
+armhf libc6-dev 2.36-9+deb12u13 1268972 9f85551ec562ab9b55c5784f4ca29477beb0d3b51102032e07d2a723678fcbbe pool/main/g/glibc/libc6-dev_2.36-9+deb12u13_armhf.deb
+armhf linux-libc-dev 6.1.148-1 2137656 cae7bda8b8e1f175c0dcc304096ea95a647ebab02dc08d51cd23d900d21f6057 pool/main/l/linux/linux-libc-dev_6.1.148-1_armhf.deb
+armhf libcrypt1 1:4.4.33-2 95644 6bb061a2279a27ff61791cda6edc8925455e5423e475e5e6c41ad7e04d8efc3c pool/main/libx/libxcrypt/libcrypt1_4.4.33-2_armhf.deb
+armhf libcrypt-dev 1:4.4.33-2 124528 57e8ee416fab69ed529c0ff4963f60e590613df51e46cb2293cdfcd23e10abc0 pool/main/libx/libxcrypt/libcrypt-dev_4.4.33-2_armhf.deb
+armhf libgcc-s1 12.2.0-14+deb12u1 36464 f58562bf01efd6112b914182147ee149e0d4c90869046e31844da8803669eeb3 pool/main/g/gcc-12/libgcc-s1_12.2.0-14+deb12u1_armhf.deb
+armhf libgcc-12-dev 12.2.0-14+deb12u1 741008 f4af3b766ae50185d8c94933bfb369266aeb4b9288916d2c9789bf0283f3df5a pool/main/g/gcc-12/libgcc-12-dev_12.2.0-14+deb12u1_armhf.deb
+armhf gcc-12-base 12.2.0-14+deb12u1 37604 aa50f90c440377b9219830ed3e658aedcb0a1c1bb47733eb05cf65545012f563 pool/main/g/gcc-12/gcc-12-base_12.2.0-14+deb12u1_armhf.deb
+arm64 libc6 2.36-9+deb12u13 2328568 03c3909c47a6df9f6f05357474efefca9bc30212069135a7c354fa78a1ec2415 pool/main/g/glibc/libc6_2.36-9+deb12u13_arm64.deb
+arm64 libc6-dev 2.36-9+deb12u13 1434976 337e7726f32e2b7f9399f44b2393a3b31b2f0a4813b0c40b856471882bb97d77 pool/main/g/glibc/libc6-dev_2.36-9+deb12u13_arm64.deb
+arm64 linux-libc-dev 6.1.148-1 2152576 55baaddd21bcaa7fed8894c89e4d65b684e85abcb48acf443519438185e1153f pool/main/l/linux/linux-libc-dev_6.1.148-1_arm64.deb
+arm64 libcrypt1 1:4.4.33-2 90044 eea0ad76ea5eb507127fea0c291622ea4ecdbb71c4b9a8ed9c76ae33fc1a0127 pool/main/libx/libxcrypt/libcrypt1_4.4.33-2_arm64.deb
+arm64 libcrypt-dev 1:4.4.33-2 120532 8f40a050f6d54b47b0972f77ea29932573e0e6b4521b833c9d825f46a9db8b75 pool/main/libx/libxcrypt/libcrypt-dev_4.4.33-2_arm64.deb
+arm64 libgcc-s1 12.2.0-14+deb12u1 34816 576926b283613db80168ddf76380a3bd877602778cf0d226caa7bfbfa71eacf3 pool/main/g/gcc-12/libgcc-s1_12.2.0-14+deb12u1_arm64.deb
+arm64 libgcc-12-dev 12.2.0-14+deb12u1 955600 c83d28b7c3397c25f15ae17783fce78716a3d7cd415940940cc2af8dc4db8d6d pool/main/g/gcc-12/libgcc-12-dev_12.2.0-14+deb12u1_arm64.deb
+arm64 gcc-12-base 12.2.0-14+deb12u1 37624 674cf6cba6d432bd200c45fe866c1652c7a53523cc2e7a613e05bc4abf7b5440 pool/main/g/gcc-12/gcc-12-base_12.2.0-14+deb12u1_arm64.deb
+i386 libc6 2.36-9+deb12u13 2628256 cc30f1ce0a1a836ecf7d713032dad45c924ba81e3934f78bf2b8c6f827117749 pool/main/g/glibc/libc6_2.36-9+deb12u13_i386.deb
+i386 libc6-dev 2.36-9+deb12u13 1723032 b9960164848fc5f7f5b38dddd35886098616216093f5630f2120601170c7c07c pool/main/g/glibc/libc6-dev_2.36-9+deb12u13_i386.deb
+i386 linux-libc-dev 6.1.148-1 2176352 5234c368c9a16d72cd4e76f061acb49c701b9928bc214edd68c5a7d0f6530bb3 pool/main/l/linux/linux-libc-dev_6.1.148-1_i386.deb
+i386 libcrypt1 1:4.4.33-2 95572 bbed3f2db1b1e800c7356212b4ede73ebb28f73b87857931dece725601aa67ad pool/main/libx/libxcrypt/libcrypt1_4.4.33-2_i386.deb
+i386 libcrypt-dev 1:4.4.33-2 125628 21abab6e2b9238fa8f65f29fc6d8fafab5b44afe6063c53c882a7acf77c6bc9d pool/main/libx/libxcrypt/libcrypt-dev_4.4.33-2_i386.deb
+i386 libgcc-s1 12.2.0-14+deb12u1 59560 56b95a550b342418f6c4765d5c9b08df2c7167134767e44f1f1bc82ced363ece pool/main/g/gcc-12/libgcc-s1_12.2.0-14+deb12u1_i386.deb
+i386 libgcc-12-dev 12.2.0-14+deb12u1 2429500 d25bdc547dc760f2c48aa808dcd0c4f3b5bd124daa3b47186ee6070ea57d85f1 pool/main/g/gcc-12/libgcc-12-dev_12.2.0-14+deb12u1_i386.deb
+i386 gcc-12-base 12.2.0-14+deb12u1 37608 611c6f95b952c021a9cb3e02d8c10d0bdbf20c318be567a95fb79d8a44521844 pool/main/g/gcc-12/gcc-12-base_12.2.0-14+deb12u1_i386.deb
+amd64 libc6 2.36-9+deb12u13 2757632 3d8072c73b017e907bbf44b7db870687888a991961d74f1ecbba6b9458f32a2c pool/main/g/glibc/libc6_2.36-9+deb12u13_amd64.deb
+amd64 libc6-dev 2.36-9+deb12u13 1904384 1c07eaab8aeb1c8d18c14ff16e2e5ccc8135d51e0d8926cc1c50db5b98e4aa33 pool/main/g/glibc/libc6-dev_2.36-9+deb12u13_amd64.deb
+amd64 linux-libc-dev 6.1.148-1 2176040 91eadd656d4d68934281fb648f3b2f308f0af4686d32b86160899083fb473ff1 pool/main/l/linux/linux-libc-dev_6.1.148-1_amd64.deb
+amd64 libcrypt1 1:4.4.33-2 89464 f5f60a5cdfd4e4eaa9438ade5078a57741a7a78d659fcb0c701204f523e8bd29 pool/main/libx/libxcrypt/libcrypt1_4.4.33-2_amd64.deb
+amd64 libcrypt-dev 1:4.4.33-2 118144 81ccd29130f75a9e3adabc80e61921abff42f76761e1f792fa2d1bb69af7f52f pool/main/libx/libxcrypt/libcrypt-dev_4.4.33-2_amd64.deb
+amd64 libgcc-s1 12.2.0-14+deb12u1 49856 3016e62cb4b7cd8038822870601f5ed131befe942774d0f745622cc77d8a88f7 pool/main/g/gcc-12/libgcc-s1_12.2.0-14+deb12u1_amd64.deb
+amd64 libgcc-12-dev 12.2.0-14+deb12u1 2437204 d720259380a84f2ffc6fe516eff5cbe9c8a005138e8d6a5748747ba4b3404a82 pool/main/g/gcc-12/libgcc-12-dev_12.2.0-14+deb12u1_amd64.deb
+amd64 gcc-12-base 12.2.0-14+deb12u1 37596 1896a2aacf4ad681ff5eacc24a5b0ca4d5d9c9b9c9e4b6de5197bc1e116ea619 pool/main/g/gcc-12/gcc-12-base_12.2.0-14+deb12u1_amd64.deb
+s390x libc6 2.36-9+deb12u13 2258048 a3445bb815ef415ca1c419b5c84dab873cac4d1210ace620b95600d8e0344137 pool/main/g/glibc/libc6_2.36-9+deb12u13_s390x.deb
+s390x libc6-dev 2.36-9+deb12u13 1406180 b7d1d8bfc6decda1a9bb4df3c69809c2593479774f2399e659ef86903d616100 pool/main/g/glibc/libc6-dev_2.36-9+deb12u13_s390x.deb
+s390x linux-libc-dev 6.1.148-1 2171544 99e0ea4af333fae1dc59437a4a7825a3fc29125538709abb74719185484a30f6 pool/main/l/linux/linux-libc-dev_6.1.148-1_s390x.deb
+s390x libcrypt1 1:4.4.33-2 89892 9c7fc22abd79945ee813450f7929f9349bd370bcdc979c4e128e884344169e1f pool/main/libx/libxcrypt/libcrypt1_4.4.33-2_s390x.deb
+s390x libcrypt-dev 1:4.4.33-2 118116 97ac7f93860916a7974e4d82deb7515814c8b16bf1f52ab928cc3f128f8b7bb9 pool/main/libx/libxcrypt/libcrypt-dev_4.4.33-2_s390x.deb
+s390x libgcc-s1 12.2.0-14+deb12u1 24684 58f31fb42eecc42510d5b5022f03aa7e302350637a5643b1773361c0da97f905 pool/main/g/gcc-12/libgcc-s1_12.2.0-14+deb12u1_s390x.deb
+s390x libgcc-12-dev 12.2.0-14+deb12u1 716748 ff234735fb0da45c812d459dfc39035a2f9adeb96a0d8ab2e82551f4fbfa2cb5 pool/main/g/gcc-12/libgcc-12-dev_12.2.0-14+deb12u1_s390x.deb
+s390x gcc-12-base 12.2.0-14+deb12u1 37624 95394971de33e2d3c04c8e77c5cab1ddcba3924692749513be19d8c65b4a3001 pool/main/g/gcc-12/gcc-12-base_12.2.0-14+deb12u1_s390x.deb

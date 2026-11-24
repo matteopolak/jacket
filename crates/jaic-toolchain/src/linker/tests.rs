@@ -129,6 +129,7 @@ fn a_sysroot_override_wins_over_the_cache() {
     let mut host = FakeHost::mac();
     host.file("/opt/homebrew/bin/ld.lld");
     host.file("/cache/mac/jacket/toolchains/armv7-unknown-linux-gnueabihf/sysroot/usr/lib/libc.so");
+    host.dir("/mine");
     let overrides = Overrides {
         sysroot: Some(Given {
             value: "/mine".into(),
@@ -144,6 +145,7 @@ fn a_sysroot_override_wins_over_the_cache() {
         &overrides,
         SysrootUse::Run,
     )
+    .unwrap()
     .unwrap();
     assert_eq!(sysroot.origin, Origin::Override("-sysroot"));
 }
@@ -158,6 +160,7 @@ fn qemu_runs_against_the_systems_cross_libraries_first() {
         &Overrides::default(),
         SysrootUse::Run,
     )
+    .unwrap()
     .unwrap();
     assert_eq!(found.program, PathBuf::from("/usr/arm-linux-gnueabihf"));
     // A link needs a sysroot clang can use, which Debian's cross packages are not.
@@ -168,6 +171,7 @@ fn qemu_runs_against_the_systems_cross_libraries_first() {
             &Overrides::default(),
             SysrootUse::Link
         )
+        .unwrap()
         .is_none()
     );
 }
@@ -276,4 +280,24 @@ fn the_archiver_depends_on_the_target() {
         ar("x86_64-pc-windows-gnu"),
         PathBuf::from("/opt/homebrew/bin/llvm-ar")
     );
+}
+
+#[test]
+fn a_sysroot_that_is_not_a_folder_is_an_error_naming_it() {
+    let host = FakeHost::mac();
+    let overrides = Overrides {
+        sysroot: Some(Given {
+            value: "/nope".into(),
+            from: "-sysroot",
+        }),
+        ..Overrides::default()
+    };
+    let error = find_sysroot(
+        &Lookup::new(&host),
+        target(ARMHF),
+        &overrides,
+        SysrootUse::Link,
+    )
+    .unwrap_err();
+    assert_eq!(error.what, "-sysroot names `/nope`, which is not a folder");
 }

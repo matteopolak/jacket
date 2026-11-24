@@ -63,6 +63,75 @@ pub(super) struct ExtraArgs {
     pub linker: Vec<String>,
 }
 
+/// Rewrites the `ld.lld` spellings of the link settings jacket writes from a project's
+/// `stack_size`, `entry` and `gc_sections` into what the linker in use takes. Anything else, and
+/// arguments already in the linker's own spelling, pass through.
+///
+/// | `ld.lld` | `link.exe` | macOS `ld` (through `cc`) | GNU `ld` (MinGW) |
+/// | --- | --- | --- | --- |
+/// | `--gc-sections` | `/OPT:REF` | `-Wl,-dead_strip` | `-Wl,--gc-sections` |
+/// | `--no-gc-sections` | `/OPT:NOREF` | (the default) | `-Wl,--no-gc-sections` |
+/// | `--entry=SYM` | `/ENTRY:SYM` | `-Wl,-e,SYM` | `-Wl,--entry=SYM` |
+/// | `-z stack-size=N` | `/STACK:N` | `-Wl,-stack_size,0xN` | `-Wl,--stack,N` |
+///
+/// Other Unix linkers get the `ld.lld` spelling behind `-Wl,`.
+pub(super) fn translate(
+    args: &[String],
+    linker: Linker,
+    driver: Driver,
+    apple: bool,
+) -> Vec<String> {
+    let msvc = matches!(driver, Driver::MsvcLink | Driver::ClangCl) || linker == Linker::Msvc;
+    // The linker is started directly (`ld.lld`, `link.exe`, `wasm-ld`) or through a C driver.
+    let through_driver = driver == Driver::C && !msvc;
+    let wl = |text: String| {
+        if through_driver {
+            format!("-Wl,{text}")
+        } else {
+            text
+        }
+    };
+    let mut out = Vec::new();
+    let mut args = args.iter();
+    while let Some(arg) = args.next() {
+        let stack = (arg == "-z")
+            .then(|| {
+                args.clone()
+                    .next()
+                    .and_then(|v| v.strip_prefix("stack-size="))
+            })
+            .flatten();
+        if let Some(size) = stack {
+            args.next();
+            let size_number = size.parse::<u64>().ok();
+            out.push(if msvc {
+                format!("/STACK:{size}")
+            } else if apple {
+                format!("-Wl,-stack_size,{:#x}", size_number.unwrap_or_default())
+            } else if linker == Linker::MinGw {
+                wl(format!("--stack,{size}"))
+            } else {
+                wl(format!("-z,stack-size={size}"))
+            });
+            continue;
+        }
+        match arg.as_str() {
+            "--gc-sections" if msvc => out.push("/OPT:REF".into()),
+            "--no-gc-sections" if msvc => out.push("/OPT:NOREF".into()),
+            "--gc-sections" if apple => out.push("-Wl,-dead_strip".into()),
+            "--no-gc-sections" if apple => {}
+            "--gc-sections" | "--no-gc-sections" => out.push(wl(arg.clone())),
+            _ => match arg.strip_prefix("--entry=") {
+                Some(symbol) if msvc => out.push(format!("/ENTRY:{symbol}")),
+                Some(symbol) if apple => out.push(format!("-Wl,-e,{symbol}")),
+                Some(_) => out.push(wl(arg.clone())),
+                None => out.push(arg.clone()),
+            },
+        }
+    }
+    out
+}
+
 pub(super) fn render(args: &[String], linker: Linker, driver: Driver) -> Result<ExtraArgs, String> {
     if driver == Driver::MsvcLink {
         return Ok(ExtraArgs {
@@ -230,6 +299,61 @@ mod tests {
 
     fn args(values: &[&str]) -> Vec<String> {
         values.iter().map(|v| (*v).into()).collect()
+    }
+
+    #[test]
+    fn link_settings_are_written_for_the_linker_in_use() {
+        let settings = args(&["--gc-sections", "--entry=start", "-z", "stack-size=65536"]);
+        let wl = |list: &[&str]| args(list);
+        assert_eq!(
+            translate(&settings, Linker::Unix, Driver::C, false),
+            wl(&[
+                "-Wl,--gc-sections",
+                "-Wl,--entry=start",
+                "-Wl,-z,stack-size=65536"
+            ])
+        );
+        assert_eq!(
+            translate(&settings, Linker::Unix, Driver::C, true),
+            wl(&["-Wl,-dead_strip", "-Wl,-e,start", "-Wl,-stack_size,0x10000"])
+        );
+        assert_eq!(
+            translate(&settings, Linker::MinGw, Driver::C, false),
+            wl(&[
+                "-Wl,--gc-sections",
+                "-Wl,--entry=start",
+                "-Wl,--stack,65536"
+            ])
+        );
+        assert_eq!(
+            translate(&settings, Linker::Msvc, Driver::MsvcLink, false),
+            wl(&["/OPT:REF", "/ENTRY:start", "/STACK:65536"])
+        );
+        assert_eq!(
+            translate(&settings, Linker::Msvc, Driver::C, false),
+            wl(&["/OPT:REF", "/ENTRY:start", "/STACK:65536"])
+        );
+    }
+
+    #[test]
+    fn other_arguments_and_the_linkers_own_spellings_pass_through() {
+        let input = args(&[
+            "-flto",
+            "-Wl,--gc-sections",
+            "/SUBSYSTEM:windows",
+            "--no-gc-sections",
+        ]);
+        assert_eq!(
+            translate(&input, Linker::Unix, Driver::C, false),
+            args(&[
+                "-flto",
+                "-Wl,--gc-sections",
+                "/SUBSYSTEM:windows",
+                "-Wl,--no-gc-sections"
+            ])
+        );
+        // The default on macOS: nothing to say.
+        assert!(translate(&args(&["--no-gc-sections"]), Linker::Unix, Driver::C, true).is_empty());
     }
 
     #[test]

@@ -156,12 +156,12 @@ vars! {
     LINKER {
         name: "JAIC_LINKER", group: Settings, readers: [Jaic],
         default: "the linker found for the target",
-        summary: "The program that links executables and libraries. Empty counts as unset.",
+        summary: "The program that links executables and libraries. Empty counts as unset. Also the `-linker` flag.",
     }
     SYSROOT {
         name: "JAIC_SYSROOT", group: Settings, readers: [Jaic],
         default: "the system's cross packages, else the one `jacket toolchain add` fetched",
-        summary: "The Linux sysroot a cross build links against, and a runner's `{sysroot}` stands for.",
+        summary: "The Linux sysroot a cross build links against, and a runner's `{sysroot}` stands for. Also the `-sysroot` flag.",
     }
     AR {
         name: "JAIC_AR", group: Settings, readers: [Jaic],
@@ -171,7 +171,7 @@ vars! {
     COMPILER_RT {
         name: "JAIC_COMPILER_RT", group: Settings, readers: [Jaic],
         default: "`lib/clang/<version>/lib/<triple>/libclang_rt.builtins.a` in the build's LLVM",
-        summary: "The compiler-rt builtins a freestanding build links: an archive, or a folder with a `<triple>/libclang_rt.builtins.a` per target (what `tools/embedded/build-compiler-rt.sh` writes).",
+        summary: "The compiler-rt builtins a freestanding build links: one archive. Also the `-compiler_rt` flag.",
     }
     MEMORY_LIMIT {
         name: "JAIC_MEMORY_LIMIT", group: Settings, readers: [Jaic],
@@ -267,11 +267,6 @@ vars! {
         name: "JACKET_PROJECT", group: Handoff, readers: [Jaic],
         default: "the main file's name",
         summary: "The project name `jaic` shows in its `Compiling` line; `jacket` sets it.",
-    }
-    REQUIRE_TOOLCHAIN {
-        name: "JAIC_REQUIRE_TOOLCHAIN", group: Testing, readers: [Tests],
-        default: "unset: a test whose tool is missing skips",
-        summary: "`1`, or a comma list of tool names: a missing tool fails the test instead of skipping it. Always on under `CI`.",
     }
     SPECULATIVE_BODIES {
         name: "JAIC_SPECULATIVE_BODIES", group: Testing, readers: [Jaic, Tests],

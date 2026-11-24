@@ -9,72 +9,80 @@
 //!
 //! Two strengths decide what a missing tool does:
 //!
-//! - [`require`]: a tool every CI host has. Missing on CI (`CI` is set) or with
-//!   `JAIC_REQUIRE_TOOLCHAIN=1`, the test fails; elsewhere it is skipped.
-//! - [`optional`]: a tool only some hosts have (MinGW, `node`, `lld-link`). Always skipped,
-//!   unless `JAIC_REQUIRE_TOOLCHAIN` names it (a CI job that installs it sets that).
+//! - [`require`]: a tool every CI host has. Missing on CI (`CI` is set), the test fails;
+//!   elsewhere it is skipped.
+//! - [`optional`]: a tool only some hosts have (MinGW, `node`, `lld-link`). Always skipped.
 //!
-//! `JAIC_REQUIRE_TOOLCHAIN` is `1` (every tool is required) or a comma-separated list of tool
-//! names (`node,wasm-ld`).
+//! [`buildable`] asks the same question of a whole target: can `jaic` link for it here, with the
+//! linker, sysroot and builtins its lookup finds? The answer and the install notes come from
+//! `jaic-toolchain`, the code the compiler itself runs.
 
-use std::ffi::OsStr;
+use jaic_toolchain::builtins::find_builtins;
+use jaic_toolchain::linker::find_linker;
+use jaic_toolchain::package::{Need, PackageManager};
+use jaic_toolchain::{Lookup, Overrides, System};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// Whether `JAIC_REQUIRE_TOOLCHAIN` (`1`, or a list of tool names) requires `name`.
+static SYSTEM: System = System;
+
+/// Whether a missing [`require`]d tool fails the test rather than skipping it: on CI.
 #[must_use]
-pub fn explicitly_required(name: &str) -> bool {
-    requires(jacket_config::env::REQUIRE_TOOLCHAIN.get().as_deref(), name)
+pub fn strict() -> bool {
+    jacket_config::env::CI.os().is_some()
 }
 
-fn requires(setting: Option<&str>, name: &str) -> bool {
-    setting.is_some_and(|list| list == "1" || list.split(',').any(|item| item.trim() == name))
-}
-
-/// Whether a missing [`require`]d tool fails the test rather than skipping it.
-#[must_use]
-pub fn strict(name: &str) -> bool {
-    explicitly_required(name) || jacket_config::env::CI.os().is_some()
-}
-
-/// The program `name` as `PATH` (and, on Windows, `PATHEXT`) would resolve it.
+/// The program `name` as the toolchain lookup finds it: `PATH` (and, on Windows, `PATHEXT`),
+/// then the places tools hide in.
 #[must_use]
 pub fn find(name: &str) -> Option<PathBuf> {
-    let path = jacket_config::env::PATH.os()?;
-    find_in(
-        name,
-        std::env::split_paths(&path),
-        jacket_config::env::PATHEXT.os().as_deref(),
-    )
-}
-
-/// [`find`] over explicit search directories and Windows executable extensions.
-fn find_in<I>(name: &str, dirs: I, pathext: Option<&OsStr>) -> Option<PathBuf>
-where
-    I: IntoIterator<Item = PathBuf>,
-{
     let direct = Path::new(name);
     if direct.components().count() > 1 {
         return direct.is_file().then(|| direct.to_path_buf());
     }
-    let extensions: Vec<String> = if cfg!(windows) {
-        let list = pathext.map_or_else(|| ".EXE".to_string(), |v| v.to_string_lossy().into_owned());
-        std::iter::once(String::new())
-            .chain(
-                list.split(';')
-                    .filter(|e| !e.is_empty())
-                    .map(str::to_string),
-            )
-            .collect()
-    } else {
-        vec![String::new()]
-    };
-    dirs.into_iter().find_map(|dir| {
-        extensions.iter().find_map(|extension| {
-            let candidate = dir.join(format!("{name}{extension}"));
-            candidate.is_file().then_some(candidate)
-        })
-    })
+    lookup().which(name)
+}
+
+fn lookup() -> Lookup<'static> {
+    Lookup::new(&SYSTEM).with_llvm_bins(|| jacket_config::llvm::bin_dirs(None))
+}
+
+/// Whether `jaic` can link a program for `triple` on this host. When it cannot, the test skips
+/// after printing the note that says how to get the missing tool, or on a [`strict`] host
+/// fails with it.
+///
+/// ```ignore
+/// if !toolchain::buildable("avr-none-elf") { return; }
+/// ```
+///
+/// # Panics
+/// On a [`strict`] host when something is missing, and when `triple` does not parse.
+#[must_use]
+pub fn buildable(triple: &str) -> bool {
+    let target = jaic::target::Target::parse(triple).unwrap_or_else(|e| panic!("{e}"));
+    let lookup = lookup();
+    let overrides = Overrides::from_env();
+    let mut problems = Vec::new();
+    if let Err(missing) = find_linker(&lookup, Some(target), &overrides) {
+        problems.push(missing);
+    }
+    if target.is_freestanding()
+        && !target.is_wasm()
+        && let Err(missing) = find_builtins(&lookup, target, &overrides)
+    {
+        problems.push(missing);
+    }
+    if problems.is_empty() {
+        return true;
+    }
+    let text: Vec<String> = problems
+        .iter()
+        .map(|m| format!("{}\n{}", m.what, m.notes.join("\n")))
+        .collect();
+    let text = text.join("\n");
+    assert!(!strict(), "cannot build for {triple} on this host:\n{text}");
+    skip(&format!("cannot build for {triple}:\n{text}"));
+    false
 }
 
 /// A command that starts the tool `name` as [`find`] resolves it (or by its bare name, for the
@@ -94,7 +102,7 @@ pub fn skip(reason: &str) {
 /// Panics instead on a [`strict`] host.
 #[must_use]
 pub fn require(name: &str) -> Option<PathBuf> {
-    resolve(name, strict(name))
+    resolve(name, strict())
 }
 
 /// Whether the host has every one of `names` (each checked as with [`require`]; every missing
@@ -105,36 +113,24 @@ pub fn require_all(names: &[&str]) -> bool {
     names.iter().filter(|name| require(name).is_none()).count() == 0
 }
 
-/// The tool `name`, or `None` (after a note) when this host lacks it. Panics only with
-/// `JAIC_REQUIRE_TOOLCHAIN=1`.
+/// The tool `name`, or `None` (after a note) when this host lacks it. Never fails the test.
 #[must_use]
 pub fn optional(name: &str) -> Option<PathBuf> {
-    resolve(name, explicitly_required(name))
+    resolve(name, false)
 }
 
 fn resolve(name: &str, must_exist: bool) -> Option<PathBuf> {
     let found = find(name);
     if found.is_none() {
+        let lookup = lookup();
+        let note = Need::for_program(name).note(lookup.host.os(), PackageManager::detect(&lookup));
         assert!(
             !must_exist,
-            "required test tool `{name}` is not installed{}",
-            install_hint(name)
+            "required test tool `{name}` is not installed\nnote: {note}"
         );
         skip(&format!("`{name}` is not installed"));
     }
     found
-}
-
-/// How to install `name`, for the message of a required tool that is missing.
-fn install_hint(name: &str) -> &'static str {
-    match name {
-        "wasmtime" => {
-            ": install it with `curl https://wasmtime.dev/install.sh -sSf | bash` or `brew install wasmtime`"
-        }
-        "node" => ": install Node.js 24 from https://nodejs.org",
-        "wasm-ld" => ": install LLD with `brew install lld` or Debian's `lld-23`",
-        _ => "",
-    }
 }
 
 /// The `jaic` that sits beside the `jacket` executable `jacket`, as in an unpacked archive. `None`
@@ -248,31 +244,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn finds_a_program_in_a_search_directory() {
-        let dir = crate::tmp::TempDir::new("toolchain");
-        let name = if cfg!(windows) {
-            "fake-tool.exe"
-        } else {
-            "fake-tool"
-        };
-        dir.write(name, "");
-        let found = find_in(
-            "fake-tool",
-            [dir.path().to_path_buf()],
-            Some(OsStr::new(".EXE")),
-        );
-        assert_eq!(found, Some(dir.join(name)));
-        assert_eq!(
-            find_in("absent-tool", [dir.path().to_path_buf()], None),
-            None
-        );
-    }
-
-    #[test]
     fn a_path_is_used_as_given() {
         let dir = crate::tmp::TempDir::new("toolchain-direct");
         let file = dir.write("tool", "");
-        assert_eq!(find_in(file.to_str().unwrap(), [], None), Some(file));
+        assert_eq!(find(file.to_str().unwrap()), Some(file));
     }
 
     #[test]
@@ -293,17 +268,13 @@ mod tests {
     }
 
     #[test]
-    fn the_requirement_setting_names_tools() {
-        assert!(requires(Some("1"), "node"));
-        assert!(requires(Some("node, wasm-ld"), "wasm-ld"));
-        assert!(!requires(Some("node"), "clang"));
-        assert!(!requires(None, "node"));
+    fn an_absent_optional_tool_is_skipped() {
+        assert_eq!(optional("definitely-not-a-real-tool-name"), None);
     }
 
     #[test]
-    fn an_absent_optional_tool_is_skipped() {
-        if !explicitly_required("definitely-not-a-real-tool-name") {
-            assert_eq!(optional("definitely-not-a-real-tool-name"), None);
-        }
+    fn a_target_is_buildable_when_the_host_can_link_it() {
+        // The host's own target always links where the tests run.
+        assert!(buildable(&jaic::target::Target::host().to_string()));
     }
 }

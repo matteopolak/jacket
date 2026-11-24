@@ -200,6 +200,14 @@ pub struct Cli {
     pub target: Option<String>,
     /// `-timings`: report the wall time of each phase on stderr.
     pub timings: bool,
+    /// `-linker`: the program that links (`ld.lld`, a C driver), instead of the lookup's.
+    pub linker: Option<String>,
+    /// `-sysroot`: the C library folder a cross link uses.
+    pub sysroot: Option<PathBuf>,
+    /// `-compiler_rt`: the compiler builtins archive a freestanding link uses.
+    pub compiler_rt: Option<PathBuf>,
+    /// `-link_arg` (repeatable): an argument for the linker, in `ld.lld`'s spelling.
+    pub link_args: Vec<String>,
     /// `-sanitize address,undefined` (repeatable): sanitizer instrumentation for builds.
     pub sanitize: Vec<String>,
     /// `-coverage`: line and function coverage instrumentation (docs/tools/coverage.md).

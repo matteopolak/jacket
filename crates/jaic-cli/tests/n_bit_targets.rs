@@ -99,8 +99,8 @@ fn a_wasm32_executable_keeps_traces_and_arguments() {
     assert_runtime_output(&output);
 }
 
-/// The same module under wasmtime. Skipped unless `JAIC_REQUIRE_TOOLCHAIN` names `wasmtime`,
-/// which then fails with an install hint when it is missing: there is no fallback to node.
+/// The same module under wasmtime. Skipped when `wasmtime` is not installed: there is no fallback
+/// to node.
 #[test]
 fn a_wasm32_executable_runs_under_wasmtime() {
     use test_support::{tmp::TempDir, toolchain};

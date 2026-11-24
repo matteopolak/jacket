@@ -10,7 +10,7 @@ publish = false
 [features]
 default = []
 # Compile helpers over `jaic` (`test_support::compiler`).
-compiler = ["dep:jaic"]
+compiler = []
 # Object emission, linking and running (`test_support::backend`).
 backend = ["compiler", "dep:jaic-llvm"]
 # Language-server sessions and position helpers (`test_support::lsp`).
@@ -19,7 +19,8 @@ lsp = ["compiler", "dep:jai-language-server"]
 [dependencies]
 insta = { version = "=1.49.0" }
 jacket-config = { path = "../jacket-config" }
-jaic = { path = "../jaic", optional = true }
+jaic = { path = "../jaic" }
+jaic-toolchain = { path = "../jaic-toolchain" }
 jaic-llvm = { path = "../jaic-llvm", optional = true }
 jai-language-server = { path = "../jai-language-server", optional = true }
 

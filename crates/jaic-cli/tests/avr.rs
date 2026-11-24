@@ -20,14 +20,17 @@ fn fixture(name: &str) -> PathBuf {
 /// Runs `jaic` on a fixture with `flags` before the source (a board's arguments come after its
 /// name, so every compiler flag goes first), and returns its stderr. `None`
 /// (after a note) when this host cannot build for the Uno and the test may skip: the LLVM jaic
-/// links has no AVR backend, or `ld.lld` or the compiler-rt builtins are missing. The names
-/// `avr-backend`, `ld.lld` and `compiler-rt` in `JAIC_REQUIRE_TOOLCHAIN` make each a failure.
+/// links has no AVR backend, or `ld.lld` or the compiler-rt builtins are missing. On CI each is
+/// a failure.
 fn build(
     dir: &TempDir,
     source: &str,
     flags: &[&str],
     output: &str,
 ) -> Option<std::process::Output> {
+    if !toolchain::buildable("avr-none-elf") {
+        return None;
+    }
     let built = Command::new(JAIC)
         .args(flags)
         .args(["-exe", output])
@@ -37,16 +40,9 @@ fn build(
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&built.stderr);
-    for (name, marker) in [
-        ("avr-backend", "has no backend for"),
-        ("ld.lld", "ld.lld not found"),
-        ("ld.lld", "could not find the linker"),
-        ("compiler-rt", "compiler-rt"),
-    ] {
-        if stderr.contains(marker) && !toolchain::strict(name) {
-            toolchain::skip(&stderr);
-            return None;
-        }
+    if stderr.contains("has no backend for") && !toolchain::strict() {
+        toolchain::skip(&stderr);
+        return None;
     }
     Some(built)
 }
@@ -176,7 +172,7 @@ fn code_pointers_lower_through_address_space_1() {
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&built.stderr);
-    if stderr.contains("has no backend for") && !toolchain::strict("avr-backend") {
+    if stderr.contains("has no backend for") && !toolchain::strict() {
         toolchain::skip(&stderr);
         return;
     }
@@ -200,39 +196,13 @@ fn code_pointers_lower_through_address_space_1() {
     );
 }
 
-/// A link that lacks the compiler-rt builtins says how to get them.
-#[test]
-fn missing_builtins_come_with_an_install_hint() {
-    let dir = TempDir::new("avr-builtins-hint");
-    let built = Command::new(JAIC)
-        .args(["-exe", "prog.elf"])
-        .arg(fixture("avr-hello.jai"))
-        .arg(BOARD)
-        .env("JAIC_COMPILER_RT", dir.path())
-        .current_dir(dir.path())
-        .output()
-        .unwrap();
-    let stderr = String::from_utf8_lossy(&built.stderr);
-    for marker in [
-        "has no backend for",
-        "ld.lld not found",
-        "could not find the linker",
-    ] {
-        if stderr.contains(marker) && !toolchain::strict("ld.lld") {
-            toolchain::skip(&stderr);
-            return;
-        }
-    }
-    assert!(!built.status.success(), "{stderr}");
-    assert!(stderr.contains("compiler-rt builtins"), "{stderr}");
-    assert!(stderr.contains("avr-none-elf"), "{stderr}");
-    assert!(stderr.contains("build-compiler-rt.sh"), "{stderr}");
-}
-
 /// `JAIC_COMPILER_RT` naming something that is not there is an error that says so, not a link
 /// failure on a missing file.
 #[test]
 fn a_compiler_rt_path_that_does_not_exist_is_named() {
+    if !toolchain::buildable("avr-none-elf") {
+        return;
+    }
     let dir = TempDir::new("avr-builtins-missing");
     let built = Command::new(JAIC)
         .args(["-exe", "prog.elf"])
@@ -243,18 +213,11 @@ fn a_compiler_rt_path_that_does_not_exist_is_named() {
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&built.stderr);
-    for marker in [
-        "has no backend for",
-        "ld.lld not found",
-        "could not find the linker",
-    ] {
-        if stderr.contains(marker) && !toolchain::strict("ld.lld") {
-            toolchain::skip(&stderr);
-            return;
-        }
+    if stderr.contains("has no backend for") && !toolchain::strict() {
+        toolchain::skip(&stderr);
+        return;
     }
     assert!(!built.status.success(), "{stderr}");
-    assert!(stderr.contains("JAIC_COMPILER_RT"), "{stderr}");
-    assert!(stderr.contains("does not exist"), "{stderr}");
-    assert!(stderr.contains("build-compiler-rt.sh"), "{stderr}");
+    assert!(stderr.contains("JAIC_COMPILER_RT names"), "{stderr}");
+    assert!(stderr.contains("which does not exist"), "{stderr}");
 }
