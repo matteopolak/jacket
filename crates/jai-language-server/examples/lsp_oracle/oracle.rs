@@ -40,9 +40,18 @@ pub struct Literal {
     pub fields: Vec<String>,
 }
 
+/// A note of the file that compile-time code read, and where each reader is (file, 0-based
+/// line).
+#[derive(Clone, Debug)]
+pub struct ReadNote {
+    pub at: usize,
+    pub readers: Vec<(PathBuf, u32)>,
+}
+
 pub struct Oracle {
     pub refs: Vec<Ref>,
     pub literals: Vec<Literal>,
+    pub notes: Vec<ReadNote>,
 }
 
 fn file_of(compiler: &Compiler, path: &Path) -> Option<FileId> {
@@ -163,10 +172,53 @@ pub fn compile(options: Options, path: &Path, text: &str) -> Result<Oracle, Stri
     refs.sort_by_key(|r| (r.start, r.end));
     refs.dedup_by_key(|r| (r.start, r.end));
     let literals = literals(&compiler, file, text);
+    let notes = read_notes(&compiler, path, text);
     Ok(Oracle {
         refs,
         literals,
+        notes,
     })
+}
+
+/// The notes of `path` that this compile's compile-time code read. A metaprogram runs in this
+/// compiler, so its reads of the notes of a workspace it builds are recorded here too.
+fn read_notes(compiler: &Compiler, path: &Path, text: &str) -> Vec<ReadNote> {
+    let Some(ide) = compiler.ed.facts() else {
+        return Vec::new();
+    };
+    let same = |a: &Path, b: &Path| {
+        a.canonicalize()
+            .ok()
+            .zip(b.canonicalize().ok())
+            .is_some_and(|(a, b)| a == b)
+    };
+    let mut notes: Vec<ReadNote> = Vec::new();
+    for r in &ide.note_readers {
+        if !same(Path::new(&*r.note.path), path) {
+            continue;
+        }
+        let (line, column) = r.note.start;
+        let Some(line_start) = text
+            .split_inclusive('\n')
+            .take(line.saturating_sub(1) as usize)
+            .map(str::len)
+            .sum::<usize>()
+            .checked_add(column.saturating_sub(1) as usize)
+            .filter(|&at| at < text.len())
+        else {
+            continue;
+        };
+        let reader = (PathBuf::from(&r.path), line_of(&r.text, r.offset as usize));
+        match notes.iter_mut().find(|n| n.at == line_start) {
+            Some(n) => n.readers.push(reader),
+            None => notes.push(ReadNote {
+                at: line_start,
+                readers: vec![reader],
+            }),
+        }
+    }
+    notes.sort_by_key(|n| n.at);
+    notes
 }
 
 /// Where the literal opened by the `.{` at `open` ends: the end of its closing brace.

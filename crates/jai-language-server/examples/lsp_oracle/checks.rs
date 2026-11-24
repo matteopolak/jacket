@@ -1,4 +1,4 @@
-//! Checks (a), (b) and (d): what the server reports on a file the compiler accepts, against what
+//! Checks (a), (b), (d) and (e): what the server reports on a file the compiler accepts, against what
 //! the compiler resolved.
 use super::oracle::{Oracle, Resolved};
 use super::{Finding, pos_of};
@@ -261,4 +261,49 @@ pub fn completions(
         }
     }
     probed
+}
+
+/// (e): go to definition on a note the compile-time code read lists each place that read it.
+pub fn notes(
+    session: &Session,
+    uri: &DocumentUri,
+    text: &str,
+    oracle: &Oracle,
+    findings: &mut Vec<Finding>,
+) {
+    let canonical = |p: &std::path::Path| p.canonicalize().unwrap_or_else(|_| p.to_path_buf());
+    for note in &oracle.notes {
+        let at = pos_of(text, note.at);
+        let name: String = text[note.at..]
+            .chars()
+            .take_while(|c| c.is_alphanumeric() || *c == '_')
+            .collect();
+        let locations = match session.definition(uri, at) {
+            Ok(l) => l,
+            Err(e) => {
+                findings.push(Finding::new("e-note", at, &name, format!("{e:?}")));
+                continue;
+            }
+        };
+        let got: Vec<(std::path::PathBuf, u32)> = locations
+            .iter()
+            .filter_map(|l| {
+                let u = DocumentUri::parse(&l.uri).ok()?;
+                Some((
+                    canonical(std::path::Path::new(u.path())),
+                    l.range.start.line,
+                ))
+            })
+            .collect();
+        for (path, line) in &note.readers {
+            if !got.contains(&(canonical(path), *line)) {
+                findings.push(Finding::new(
+                    "e-note-reader",
+                    at,
+                    &name,
+                    format!("compiler: {}:{}", path.display(), line + 1),
+                ));
+            }
+        }
+    }
 }

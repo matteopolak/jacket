@@ -196,7 +196,7 @@ def main() -> int:
     ap.add_argument("--jobs", type=int, default=2)
     ap.add_argument("--chunk", type=int, default=8)
     ap.add_argument("--probes", type=int, default=300)
-    ap.add_argument("--checks", default="abcd")
+    ap.add_argument("--checks", default="abcde")
     ap.add_argument("--timeout", type=int, default=120, help="seconds per file")
     ap.add_argument("--check-timeout", type=int, default=60)
     ap.add_argument("--out", type=Path, help="write reports.jsonl and summary.json here")

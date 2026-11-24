@@ -24,6 +24,7 @@ The session is set up as an editor has it: the nearest `jacket.toml` above the f
 | b | an identifier the compiler resolved has no hover, no definition, or a definition elsewhere than its declaration |
 | c | hover, definition or diagnostics change beyond shifted positions after inserting blank lines or running `jaifmt`, or editing a session into that text differs from opening it fresh |
 | d | completion after `value.` misses a member the code uses, or a struct literal misses a field |
+| e | go to definition on a note that compile-time code read misses one of the places that read it ([note readers](../compiler/note-readers.md)) |
 
 - The sessions have no wall-clock check limit (`set_check_time_limit(0.0)`): on a busy machine a limit would cut a check short in different places for each session and show up as differences. The evaluation budget still bounds runaway compile-time code.
 - A file that a neighbouring `#load` (beside it or one folder up) reaches, where that loader fails `jaic -check`, is left out: the server checks a loaded file inside the program that loads it, so a negative fixture's support file or the member of a module that is broken on purpose is wrong wherever it is opened.
@@ -47,7 +48,7 @@ The session is set up as an editor has it: the nearest `jacket.toml` above the f
 | `--shard I/N` | `1/1` | every Nth file from the Ith |
 | `--jobs`, `--chunk` | 2, 8 | parallel processes, files per process |
 | `--probes` | 300 | identifiers sampled per file |
-| `--checks` | `abcd` | which checks run |
+| `--checks` | `abcde` | which checks run |
 | `--timeout`, `--check-timeout` | 120, 60 | seconds per file |
 | `--out DIR` | none | write `reports.jsonl` and `summary.json` |
 | `--update-known` | off | rewrite `oracle-known.json` |

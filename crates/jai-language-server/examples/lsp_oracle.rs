@@ -57,6 +57,7 @@ struct Counts {
     probed_completions: usize,
     literals: usize,
     variants: usize,
+    read_notes: usize,
 }
 
 #[derive(Serialize)]
@@ -113,7 +114,7 @@ fn parse_args() -> Result<Args, String> {
     let mut parsed = Args {
         stdlib: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"),
         jaifmt: None,
-        checks: "abcd".into(),
+        checks: "abcde".into(),
         probes: 300,
         probe: None,
         files: Vec::new(),
@@ -141,7 +142,7 @@ fn parse_args() -> Result<Args, String> {
                     .extend(list.lines().filter(|l| !l.is_empty()).map(PathBuf::from));
             }
             "--help" => {
-                return Err("lsp_oracle [--stdlib DIR] [--jaifmt PATH] [--checks abcd] [--probes N] [--probe LINE:COL] [--list FILE] FILE...".into());
+                return Err("lsp_oracle [--stdlib DIR] [--jaifmt PATH] [--checks abcde] [--probes N] [--probe LINE:COL] [--list FILE] FILE...".into());
             }
             _ if arg.starts_with('-') => return Err(format!("unknown option {arg}")),
             _ => parsed.files.push(PathBuf::from(arg)),
@@ -220,6 +221,7 @@ fn check_file(args: &Args, path: &Path) -> FileReport {
     };
     report.counts.resolved = oracle.refs.len();
     report.counts.literals = oracle.literals.len();
+    report.counts.read_notes = oracle.notes.len();
     let Ok(uri) = DocumentUri::from_path(&path) else {
         return skip(report, "uri", String::new());
     };
@@ -272,6 +274,9 @@ fn check_file(args: &Args, path: &Path) -> FileReport {
             args.probes / 3,
             &mut report.findings,
         );
+    }
+    if has('e') {
+        checks::notes(&session, &uri, &text, &oracle, &mut report.findings);
     }
     if has('c') {
         let fresh = |t: &str| open(args, &path, &uri, t);
