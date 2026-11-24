@@ -25,6 +25,9 @@ pub(super) struct RootResult {
     pub(super) errors: Vec<CompileError>,
     pub(super) contexts: Vec<CheckedContext>,
     pub(super) failures: Vec<AssertFailure>,
+    /// Notes compile-time code read, in any file this root compiled: `(path, start, end)`.
+    /// A file shared by several roots is linted by one, but its notes may be read by another.
+    pub(super) read_notes: BTreeSet<(String, usize, usize)>,
 }
 
 /// What every root of a run shares.
@@ -159,6 +162,7 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
     let mut texts = BTreeMap::new();
     let mut errors = Vec::new();
     let mut contexts = Vec::new();
+    let mut read_notes = BTreeSet::new();
     for Checked {
         mut compiler,
         complete,
@@ -191,6 +195,15 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
                     path.to_string_lossy().into_owned(),
                     compiler.src.sources.get(*f).text.to_string(),
                 );
+            }
+        }
+        for (f, path) in &files {
+            for (span, _) in compiler.ide_note_readers_in(*f) {
+                read_notes.insert((
+                    path.to_string_lossy().into_owned(),
+                    span.start as usize,
+                    span.end as usize,
+                ));
             }
         }
         contexts.push(CheckedContext {
@@ -254,6 +267,7 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
         errors,
         contexts,
         failures,
+        read_notes,
     }
 }
 

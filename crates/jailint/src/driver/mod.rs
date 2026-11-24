@@ -212,6 +212,12 @@ fn run_planned(options: &Options, entries: Option<&[PathBuf]>) -> Outcome {
     }
     let mut contexts = Vec::new();
     let mut failed_asserts = Vec::new();
+    // A note is read when any root read it, not only the one that lints its file.
+    let read_notes: BTreeSet<(String, usize, usize)> = results
+        .iter()
+        .flatten()
+        .flat_map(|r| r.read_notes.iter().cloned())
+        .collect();
     // Each file once, wherever it was loaded from.
     let test_note_problems = notes
         .iter()
@@ -224,6 +230,11 @@ fn run_planned(options: &Options, entries: Option<&[PathBuf]>) -> Outcome {
         contexts.extend(r.contexts);
         failed_asserts.extend(r.failures);
         for l in r.lints {
+            if l.rule == crate::rules::unused_note::INFO.name
+                && read_notes.contains(&(l.path.clone(), l.start, l.end))
+            {
+                continue;
+            }
             if owner.get(&l.path) == Some(&i) {
                 lints.push(l);
             }
