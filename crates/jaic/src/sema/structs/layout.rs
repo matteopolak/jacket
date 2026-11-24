@@ -146,16 +146,13 @@ impl Compiler {
     }
 
     /// The field items layout consumes: those [`Self::struct_members`] already collected, or a
-    /// fresh collection whose members it records.
+    /// fresh collection. No summary is kept for the fresh one: once laid out, member queries read
+    /// the struct's info.
     fn take_field_items(&mut self, s: StructId, src: &StructSource) -> Result<Vec<FieldItem>> {
         if let Some(collected) = self.ty.collected_fields.remove(&s) {
             return Ok(collected.0);
         }
-        let items = self.struct_field_items(src)?;
-        self.ty
-            .struct_members
-            .insert(s, Arc::new(StructMembers::of(&items)));
-        Ok(items)
+        self.struct_field_items(src)
     }
 
     /// The members of a struct in declaration order: its fields, aliases and layout directives,
