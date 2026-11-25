@@ -44,26 +44,41 @@ fn tests_run_on_the_aarch64_board_and_report_through_semihosting() {
         "Qemu_Virt_Aarch64",
         "aarch64-none-elf",
         "qemu-system-aarch64",
+        false,
     );
 }
 
 #[test]
 fn tests_run_on_a_cortex_m_board_and_report_through_semihosting() {
-    tests_run_on_a_board("Mps2_An386", "thumbv7em-none-eabihf", "qemu-system-arm");
+    tests_run_on_a_board(
+        "Mps2_An386",
+        "thumbv7em-none-eabihf",
+        "qemu-system-arm",
+        true,
+    );
 }
 
 #[test]
 fn tests_run_on_a_cortex_m33_board_and_report_through_semihosting() {
-    tests_run_on_a_board("Mps2_An505", "thumbv8m.main-none-eabihf", "qemu-system-arm");
+    tests_run_on_a_board(
+        "Mps2_An505",
+        "thumbv8m.main-none-eabihf",
+        "qemu-system-arm",
+        true,
+    );
 }
 
-/// `jacket test --target board` with the emulator `qemu`, which must be installed, and for a
-/// Cortex-M board builtins for it (see `jacket toolchain`).
-fn tests_run_on_a_board(board: &str, triple: &str, qemu: &str) {
+/// `jacket test --target board` with the emulator `qemu`, which must be installed, and, when the
+/// program needs them (a Cortex-M core), builtins for the board's triple (`jacket toolchain add`).
+fn tests_run_on_a_board(board: &str, triple: &str, qemu: &str, builtins: bool) {
     let jacket = PathBuf::from(env!("CARGO_BIN_EXE_jacket"));
     if toolchain::jaic_beside(&jacket).is_none()
         || toolchain::optional(qemu).is_none()
-        || !toolchain::buildable(triple)
+        || !(if builtins {
+            toolchain::buildable_with_builtins(triple)
+        } else {
+            toolchain::buildable(triple)
+        })
     {
         return;
     }

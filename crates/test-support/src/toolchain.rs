@@ -49,16 +49,35 @@ fn lookup() -> Lookup<'static> {
 
 /// Whether `jaic` can link a program for `triple` on this host. When it cannot, the test skips
 /// after printing the note that says how to get the missing tool, or on a [`strict`] host
-/// fails with it.
+/// fails with it. A freestanding program that needs no compiler builtins links without them:
+/// use [`buildable_with_builtins`] for one that does.
 ///
 /// ```ignore
-/// if !toolchain::buildable("avr-none-elf") { return; }
+/// if !toolchain::buildable("aarch64-none-elf") { return; }
 /// ```
 ///
 /// # Panics
 /// On a [`strict`] host when something is missing, and when `triple` does not parse.
 #[must_use]
 pub fn buildable(triple: &str) -> bool {
+    can_build(triple, false)
+}
+
+/// [`buildable`] for a program that needs the compiler builtins of a freestanding `triple`
+/// (64-bit division and soft float on a 32-bit core, `jacket toolchain add` builds them).
+///
+/// ```ignore
+/// if !toolchain::buildable_with_builtins("avr-none-elf") { return; }
+/// ```
+///
+/// # Panics
+/// As [`buildable`].
+#[must_use]
+pub fn buildable_with_builtins(triple: &str) -> bool {
+    can_build(triple, true)
+}
+
+fn can_build(triple: &str, builtins: bool) -> bool {
     let target = jaic::target::Target::parse(triple).unwrap_or_else(|e| panic!("{e}"));
     let lookup = lookup();
     let overrides = Overrides::from_env();
@@ -66,7 +85,8 @@ pub fn buildable(triple: &str) -> bool {
     if let Err(missing) = find_linker(&lookup, Some(target), &overrides) {
         problems.push(missing);
     }
-    if target.is_freestanding()
+    if builtins
+        && target.is_freestanding()
         && !target.is_wasm()
         && let Err(missing) = find_builtins(&lookup, target, &overrides)
     {

@@ -8,8 +8,8 @@ use super::toolchain::{command, lookup, report};
 use jaic::ir::Library;
 use jaic::target::Target as BuildTarget;
 use jaic::toolchain::{Driver, Linker, Toolchain};
+use jaic_toolchain::Overrides;
 use jaic_toolchain::linker::{find_linker, find_sanitizer_driver};
-use jaic_toolchain::{Origin, Overrides};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -222,7 +222,7 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
         .program
         .file_name()
         .is_some_and(|name| name == "cc")
-        && linker_found.origin == Origin::System
+        && linker_found.origin == jaic_toolchain::Origin::System
         && target.is_none()
         && !dynamic_library
         && !sanitize.any()

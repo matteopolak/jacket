@@ -28,7 +28,7 @@ fn build(
     flags: &[&str],
     output: &str,
 ) -> Option<std::process::Output> {
-    if !toolchain::buildable("avr-none-elf") {
+    if !toolchain::buildable_with_builtins("avr-none-elf") {
         return None;
     }
     let built = Command::new(JAIC)

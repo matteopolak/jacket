@@ -308,18 +308,20 @@ jobs:
         # board tests need them.
         if: ${{ (matrix.runner == 'ubuntu-24.04' && (contains(matrix.parts, ',rust,') || contains(matrix.parts, ',targets,'))) || startsWith(matrix.runner, 'macos') }}
         run: cargo run --locked -q -p jacket -- toolchain add thumbv7em-none-eabihf thumbv8m.main-none-eabihf avr-none-elf
-      # Names every missing tool with its install command, before a test skips or fails on it.
-      - name: Check the tools the target tests use
-        run: >
-          cargo run --locked -q -p jacket -- toolchain check
-          --tool node
-          ${{ matrix.runner == 'ubuntu-24.04' && '--tool qemu-system-aarch64 --tool qemu-system-arm --tool qemu-system-avr' || '' }}
       # The format and lint steps below run the Justfile's recipes (docs/tools/development.md).
       - uses: ./.github/actions/install-tool
         with: {tool: just}
       # node 24: Memory64 without a flag, for the wasm64 modules `jaic -os wasm` writes.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: {node-version: '24'}
+      # Names every missing tool with its install command, before a test fails on it. Only the
+      # legs that run the Rust tests or the board tests have QEMU (installed above).
+      - name: Check the tools the target tests use
+        if: ${{ (matrix.runner == 'ubuntu-24.04' && (contains(matrix.parts, ',rust,') || contains(matrix.parts, ',targets,'))) || startsWith(matrix.runner, 'macos') }}
+        run: >
+          cargo run --locked -q -p jacket -- toolchain check
+          --tool node
+          ${{ matrix.runner == 'ubuntu-24.04' && '--tool qemu-system-aarch64 --tool qemu-system-arm --tool qemu-system-avr' || '' }}
       # Platform-neutral checks run once, on the Linux x64 `jai` leg.
       - name: Validate dependency ages before building
         if: ${{ matrix.runner == 'ubuntu-24.04' && contains(matrix.parts, ',jai,') }}

@@ -18,7 +18,7 @@
 
 `jaic` and `jaic-llvm` dev-depend on `test-support`, which depends on them only behind features. A test inside a crate's `src/` sees a different build of that crate and may use only the feature-less modules.
 
-`require(name)` fails the test on CI (`CI` is set); otherwise the test skips with a note. `optional(name)` always skips. `buildable(triple)` asks whether `jaic` can link for a target here, through the lookup `jaic` runs, and prints the note that says how to get what is missing.
+`require(name)` fails the test on CI (`CI` is set); otherwise the test skips with a note. `optional(name)` always skips. `buildable(triple)` asks whether `jaic` can link for a target here, through the lookup `jaic` runs, and prints the note that says how to get what is missing. A freestanding program that needs compiler builtins asks `buildable_with_builtins(triple)` instead; `buildable` does not require them.
 
 ## Snapshots
 

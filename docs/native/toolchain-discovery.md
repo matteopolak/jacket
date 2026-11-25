@@ -103,7 +103,7 @@ gc_sections = true
 - Status lines: `crates/jaic/src/progress.rs`; callers in `crates/jaic-native/src/`.
 - `add`, `list`, `remove`: `crates/jacket/src/toolchain/`.
 - Link-setting translation: `crates/jaic-native/src/link_options.rs`.
-- Tests that need a tool call `test_support::toolchain::buildable(triple)`: it skips with the note when the tool is missing, and fails under `CI`.
+- Tests that need a tool call `test_support::toolchain::buildable(triple)` (`buildable_with_builtins` when the program needs the compiler builtins): it skips with the note when the tool is missing, and fails under `CI`.
 
 ## Configuration
 
