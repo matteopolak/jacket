@@ -5,6 +5,7 @@
 // the caller must pass a triple itself.
 default_target_triple :: (os: Operating_System_Tag, cpu: CPU_Tag) -> string {
     arm := cpu == .ARM64;
+
     if cpu != .ARM64 && cpu != .X64 return "";
 
     if os == .MACOS return ifx arm then "arm64-apple-darwin" else "x86_64-apple-darwin";
@@ -24,6 +25,7 @@ target_triple_from_arguments :: (arguments: [] string) -> string {
 
     while index < arguments.count {
         argument := arguments[index];
+
         index += 1;
 
         if argument == "-target" {

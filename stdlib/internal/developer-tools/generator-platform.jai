@@ -437,6 +437,7 @@ gp_libc_paths :: (os: Operating_System_Tag, cpu: CPU_Tag, requested := "") -> st
 
     if os == .LINUX {
         root := gp_env("DEVELOPER_TOOLS_LINUX_SYSROOT");
+
         generic = tprint("%/usr/include", root);
         multiarch, found := gp_multiarch(triple);
         if !found return "", "", false;

@@ -15,6 +15,7 @@ gm_metadata_native_abi :: () -> bool {
     supported_cpu := begins_with(triple, "arm64-") || begins_with(triple, "aarch64-") || begins_with(triple, "x86_64-");
 
     if !supported_cpu return false;
+
     return contains(triple, "-apple-") || contains(triple, "-linux-") || contains(triple, "-windows-msvc");
 }
 

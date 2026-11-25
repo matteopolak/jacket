@@ -110,6 +110,7 @@ gm_lifecycle_primitives :: (generator: *Generator, options: Generate_Bindings_Op
         }
 
         gm_input_error("generator initialization could not obtain SDK builtin type layouts");
+
         return false;
     }
 
