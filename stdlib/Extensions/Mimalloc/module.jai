@@ -4,7 +4,7 @@
 // and Linux. `mimalloc_allocator` allocates from the calling thread's heap; `make_heap` creates a separate heap that
 // `release_heap` frees in one call.
 //
-// ```jai,skip_on(wasm,windows)
+// ```jai
 // #import "Extensions/Mimalloc";
 //
 // context.allocator = mimalloc_allocator;
@@ -13,12 +13,14 @@
 // array_free(numbers);
 // ```
 
+// test: only(.LINUX,.MACOS)
+
 #if OS == .MACOS || OS == .LINUX {
     CAPS_VERSION_STRING :: "Extensions/Mimalloc";
 
     // Allocates from the calling thread's own heap and may be used from every thread. Memory can be freed from any thread.
     //
-    // ```jai,skip_on(wasm,windows)
+    // ```jai
     // context.allocator = mimalloc_allocator;
     // block := alloc(64);
     // assert(usable_size(block) >= 64);
@@ -29,7 +31,7 @@
     // Creates a heap whose allocations `release_heap` frees together. Allocate from a heap on the thread that made it;
     // freeing its blocks works from any thread, and `release_heap` must run on a thread that has stopped using it.
     //
-    // ```jai,skip_on(wasm,windows)
+    // ```jai
     // heap := make_heap();
     // block := alloc(32,, heap);
     // assert(block != null);
@@ -41,7 +43,7 @@
 
     // Frees every block of a heap made by `make_heap`. Pointers from it are invalid afterwards.
     //
-    // ```jai,skip_on(wasm,windows)
+    // ```jai
     // heap := make_heap();
     // alloc(32,, heap);
     // alloc(64,, heap);
@@ -54,7 +56,7 @@
 
     // The number of bytes a block from this allocator can hold, at least what was requested.
     //
-    // ```jai,skip_on(wasm,windows)
+    // ```jai
     // context.allocator = mimalloc_allocator;
     // block := alloc(10);
     // assert(usable_size(block) >= 10);
@@ -66,7 +68,7 @@
 
     // Allocates `size` bytes aligned to `alignment`, a power of two. Free the block with `free` through the same allocator.
     //
-    // ```jai,skip_on(wasm,windows)
+    // ```jai
     // block := allocate_aligned(100, 4096);
     // assert((cast(u64) block & 4095) == 0);
     // mimalloc_proc(.FREE, 0, 0, block, null);
@@ -79,7 +81,7 @@
 
     // Returns unused memory to the operating system now instead of when mimalloc decides to.
     //
-    // ```jai,skip_on(wasm,windows)
+    // ```jai
     // collect();
     // ```
     collect :: (force := false) {
@@ -89,7 +91,7 @@
     // The `Allocator_Proc` of mimalloc: use it as `Allocator.{ mimalloc_proc, null }` or with a heap from `make_heap`.
     // Resize keeps the block in place when it fits.
     //
-    // ```jai,skip_on(wasm,windows)
+    // ```jai
     // block := mimalloc_proc(.ALLOCATE, 16, 0, null, null);
     // block = mimalloc_proc(.RESIZE, 64, 16, block, null);
     // mimalloc_proc(.FREE, 0, 0, block, null);
@@ -157,4 +159,6 @@
     mi_heap_malloc :: (heap: *void, size: u64) -> *void #foreign libmimalloc;
     mi_heap_realloc :: (heap: *void, block: *void, size: u64) -> *void #foreign libmimalloc;
     mi_heap_malloc_aligned :: (heap: *void, size: u64, alignment: u64) -> *void #foreign libmimalloc;
+} else {
+    #assert false, "Extensions/Mimalloc supports macOS and Linux only; use Extensions/Tlsf or the default allocator elsewhere";
 }

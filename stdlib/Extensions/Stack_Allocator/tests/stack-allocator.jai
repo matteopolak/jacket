@@ -190,54 +190,58 @@ works_as_context_allocator :: () {
     expect(stack_allocator_proc(.IS_THIS_YOURS, 0, 0, *other, *stack) == null);
 } @test
 
-Worker :: struct {
-    stack: Stack_Allocator;
-    storage: [4096] u8;
-    wrong: s32;
-}
-
-each_thread_owns_a_stack :: () {
+// Wasm has no threads.
+#if OS != .WASM {
     #import "Thread";
-    workers: [4] Worker;
-    threads: [4] Thread;
 
-    for *threads {
-        worker := *workers[it_index];
+    Worker :: struct {
+        stack: Stack_Allocator;
+        storage: [4096] u8;
+        wrong: s32;
+    }
 
-        init_in_memory(*worker.stack, worker.storage.data, worker.storage.count);
-        it.data = worker;
-        require(thread_init(it, (thread: *Thread) -> s64 {
-            worker := cast(*Worker) thread.data;
+    each_thread_owns_a_stack :: () {
+        workers: [4] Worker;
+        threads: [4] Thread;
 
-            for 0..999 {
-                a := cast(*u8) allocate(*worker.stack, 200);
-                b := cast(*u8) allocate(*worker.stack, 300);
+        for *threads {
+            worker := *workers[it_index];
 
-                if !a || !b {
-                    worker.wrong += 1;
-                    continue;
+            init_in_memory(*worker.stack, worker.storage.data, worker.storage.count);
+            it.data = worker;
+            require(thread_init(it, (thread: *Thread) -> s64 {
+                worker := cast(*Worker) thread.data;
+
+                for 0..999 {
+                    a := cast(*u8) allocate(*worker.stack, 200);
+                    b := cast(*u8) allocate(*worker.stack, 300);
+
+                    if !a || !b {
+                        worker.wrong += 1;
+                        continue;
+                    }
+
+                    memset(a, 0x11, 200);
+                    memset(b, 0x22, 300);
+                    if a[199] != 0x11 || b[299] != 0x22 worker.wrong += 1;
+
+                    release(*worker.stack, b);
+                    release(*worker.stack, a);
                 }
 
-                memset(a, 0x11, 200);
-                memset(b, 0x22, 300);
-                if a[199] != 0x11 || b[299] != 0x22 worker.wrong += 1;
+                return 0;
+            }));
+            thread_start(it);
+        }
 
-                release(*worker.stack, b);
-                release(*worker.stack, a);
-            }
+        for *threads {
+            expect(thread_is_done(it, -1));
+            thread_deinit(it);
+        }
 
-            return 0;
-        }));
-        thread_start(it);
-    }
-
-    for *threads {
-        expect(thread_is_done(it, -1));
-        thread_deinit(it);
-    }
-
-    for workers {
-        expect_equal(it.wrong, 0);
-        expect_equal(statistics(*it.stack).used, 0);
-    }
-} @test @only(.MACOS,.LINUX,.WINDOWS)
+        for workers {
+            expect_equal(it.wrong, 0);
+            expect_equal(statistics(*it.stack).used, 0);
+        }
+    } @test
+}

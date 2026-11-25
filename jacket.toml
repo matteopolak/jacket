@@ -108,6 +108,7 @@ portable = ["stdlib/**"]
 "stdlib/Linux/**" = ["linux"]
 "stdlib/X11/**" = ["linux"]
 "stdlib/Extensions/Io_Uring/**" = ["linux"]
+"stdlib/Extensions/Mimalloc/**" = ["linux", "macos"]
 # macOS.
 "stdlib/macOS/**" = ["macos"]
 "stdlib/Metal/**" = ["macos"]

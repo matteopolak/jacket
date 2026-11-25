@@ -294,54 +294,58 @@ works_as_context_allocator :: () {
     expect(caps & .MULTIPLE_THREADS == 0);
 } @test
 
-Shared :: struct {
-    tlsf: Tlsf;
-    failures: s32;
-}
-
-thread_safe_instance_serves_many_threads :: () {
+// Wasm has no threads.
+#if OS != .WASM {
     #import "Thread";
-    shared: Shared;
 
-    require(init(*shared.tlsf, 1 << 20, thread_safe = true));
-    defer fini(*shared.tlsf);
+    Shared :: struct {
+        tlsf: Tlsf;
+        failures: s32;
+    }
 
-    caps := cast(Allocator_Caps) cast(u64) tlsf_proc(.CAPS, 0, 0, null, *shared.tlsf);
+    thread_safe_instance_serves_many_threads :: () {
+        shared: Shared;
 
-    expect(caps & .MULTIPLE_THREADS != 0);
+        require(init(*shared.tlsf, 1 << 20, thread_safe = true));
+        defer fini(*shared.tlsf);
 
-    threads: [4] Thread;
-    for *threads {
-        it.data = *shared;
-        require(thread_init(it, (thread: *Thread) -> s64 {
-            shared := cast(*Shared) thread.data;
+        caps := cast(Allocator_Caps) cast(u64) tlsf_proc(.CAPS, 0, 0, null, *shared.tlsf);
 
-            for 0..4999 {
-                size := 16 + (it % 200);
-                block := cast(*u8) tlsf_proc(.ALLOCATE, size, 0, null, *shared.tlsf);
+        expect(caps & .MULTIPLE_THREADS != 0);
 
-                if !block {
-                    shared.failures += 1;
-                    continue;
+        threads: [4] Thread;
+        for *threads {
+            it.data = *shared;
+            require(thread_init(it, (thread: *Thread) -> s64 {
+                shared := cast(*Shared) thread.data;
+
+                for 0..4999 {
+                    size := 16 + (it % 200);
+                    block := cast(*u8) tlsf_proc(.ALLOCATE, size, 0, null, *shared.tlsf);
+
+                    if !block {
+                        shared.failures += 1;
+                        continue;
+                    }
+
+                    memset(block, cast(u8) size, size);
+                    for 0..size - 1 if block[it] != cast(u8) size shared.failures += 1;
+
+                    tlsf_proc(.FREE, 0, 0, block, *shared.tlsf);
                 }
 
-                memset(block, cast(u8) size, size);
-                for 0..size - 1 if block[it] != cast(u8) size shared.failures += 1;
+                return 0;
+            }));
+            thread_start(it);
+        }
 
-                tlsf_proc(.FREE, 0, 0, block, *shared.tlsf);
-            }
+        for *threads {
+            expect(thread_is_done(it, -1));
+            thread_deinit(it);
+        }
 
-            return 0;
-        }));
-        thread_start(it);
-    }
-
-    for *threads {
-        expect(thread_is_done(it, -1));
-        thread_deinit(it);
-    }
-
-    expect_equal(shared.failures, 0);
-    expect(check(*shared.tlsf));
-    expect_equal(statistics(*shared.tlsf).used_blocks, 0);
-} @test @only(.MACOS,.LINUX,.WINDOWS)
+        expect_equal(shared.failures, 0);
+        expect(check(*shared.tlsf));
+        expect_equal(statistics(*shared.tlsf).used_blocks, 0);
+    } @test
+}

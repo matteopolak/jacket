@@ -212,52 +212,56 @@ double_frame_as_allocator :: () {
     expect(caps & .HINT_I_AM_PER_FRAME_TEMPORARY_STORAGE != 0);
 } @test
 
-Worker :: struct {
-    arena: Frame_Arena;
-    storage: [4096] u8;
-    wrong: s32;
-}
-
-each_thread_owns_an_arena :: () {
+// Wasm has no threads.
+#if OS != .WASM {
     #import "Thread";
-    workers: [4] Worker;
-    threads: [4] Thread;
 
-    for *threads {
-        worker := *workers[it_index];
+    Worker :: struct {
+        arena: Frame_Arena;
+        storage: [4096] u8;
+        wrong: s32;
+    }
 
-        init_in_memory(*worker.arena, worker.storage.data, worker.storage.count);
-        it.data = worker;
-        require(thread_init(it, (thread: *Thread) -> s64 {
-            worker := cast(*Worker) thread.data;
+    each_thread_owns_an_arena :: () {
+        workers: [4] Worker;
+        threads: [4] Thread;
 
-            for frame: 0..99 {
-                for 0..9 {
-                    block := cast(*u8) allocate(*worker.arena, 100);
-                    if !block {
-                        worker.wrong += 1;
-                        continue;
+        for *threads {
+            worker := *workers[it_index];
+
+            init_in_memory(*worker.arena, worker.storage.data, worker.storage.count);
+            it.data = worker;
+            require(thread_init(it, (thread: *Thread) -> s64 {
+                worker := cast(*Worker) thread.data;
+
+                for frame: 0..99 {
+                    for 0..9 {
+                        block := cast(*u8) allocate(*worker.arena, 100);
+                        if !block {
+                            worker.wrong += 1;
+                            continue;
+                        }
+
+                        memset(block, 0x5a, 100);
+                        for 0..99 if block[it] != 0x5a worker.wrong += 1;
                     }
 
-                    memset(block, 0x5a, 100);
-                    for 0..99 if block[it] != 0x5a worker.wrong += 1;
+                    reset(*worker.arena);
                 }
 
-                reset(*worker.arena);
-            }
+                return 0;
+            }));
+            thread_start(it);
+        }
 
-            return 0;
-        }));
-        thread_start(it);
-    }
+        for *threads {
+            expect(thread_is_done(it, -1));
+            thread_deinit(it);
+        }
 
-    for *threads {
-        expect(thread_is_done(it, -1));
-        thread_deinit(it);
-    }
-
-    for workers {
-        expect_equal(it.wrong, 0);
-        expect_equal(statistics(*it.arena).frame, 100);
-    }
-} @test @only(.MACOS,.LINUX,.WINDOWS)
+        for workers {
+            expect_equal(it.wrong, 0);
+            expect_equal(statistics(*it.arena).frame, 100);
+        }
+    } @test
+}
