@@ -8,6 +8,7 @@
 /corpus/upstream
 /corpus/lsp-applications/
 **/__pycache__/
+.DS_Store
 *.jai-output
 /rustc-ice-*.txt
 /result
