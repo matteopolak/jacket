@@ -1,4 +1,4 @@
-// test: skip_on(.WASM, reason = "needs the Thread module, which has no wasm target (no OS threads)")
+// test: only(.LINUX,.MACOS)
 // The triple in extra_clang_arguments reaches clang, which decides pointer width and layout.
 #import "Basic";
 #import "String";
