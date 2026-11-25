@@ -253,6 +253,14 @@ file = "docs/guides/other-targets.md"
 name = "Other targets"
 
 [[doc.page]]
+file = "docs/guides/toolchains.md"
+name = "Toolchains"
+
+[[doc.page]]
+file = "docs/guides/dependencies.md"
+name = "Dependencies"
+
+[[doc.page]]
 file = "docs/language/context.md"
 name = "Implicit context"
 

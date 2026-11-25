@@ -138,4 +138,5 @@ On a board, only unit tests run, and everything they import has to build without
 - [Embedded and freestanding targets](../native/embedded.md): how linking works with no OS, and every setting.
 - [WebAssembly](../native/wasm-target.md): imports, exports and running in a browser.
 - [Targets](../compiler/targets.md): the exact layout and calling convention of each target.
-- [Tests on a board](../tools/jacket-test.md#tests-on-a-board) and [jacket toolchain](../tools/jacket.md#targets).
+- [Toolchains](toolchains.md): how jacket finds linkers and libraries, and `jacket toolchain`.
+- [Tests on a board](../tools/jacket-test.md#tests-on-a-board).

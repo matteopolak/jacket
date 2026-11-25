@@ -178,7 +178,7 @@ def tools_page():
         "#### jaic\n",
         block(jaic, 5),
         "`--target NAME` builds for a `[target.NAME]` of `jacket.toml` or a built-in board; `jacket toolchain` "
-        "lists them and what each needs ([toolchain](../native/toolchain-discovery.md)).\n",
+        "lists them and what each needs ([toolchains](../guides/toolchains.md)).\n",
         sub("toolchain", 5),
         "### Creating a project\n",
         "`jacket new` makes a directory with a `jacket.toml` and a `main.jai`; `jacket init` does the "
@@ -208,7 +208,7 @@ def tools_page():
         sub("migrate"),
         "### Dependencies\n",
         "`jacket dep` manages git submodules pinned in the `[dependencies]` of `jacket.toml`, with version "
-        "ranges and a release-age policy. [Dependencies](../tools/dependencies.md) says how it works.\n",
+        "ranges and a release-age policy. The [dependencies guide](../guides/dependencies.md) shows how to use it.\n",
         sub("dep"),
         "## Testing and documenting\n",
         "### Testing\n",

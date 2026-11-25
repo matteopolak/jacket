@@ -129,7 +129,7 @@ By default jaic builds a native executable. Options may come before or after the
 
 exit status: 0 success, 1 the program failed to compile, an input file cannot be read or a runtime error stopped it (`-interp` otherwise exits with the program's own status), 2 a command-line mistake, 3 a build found no `main` to make an executable from, 120 the memory limit, 121 native code crashed under the interpreter, 101 an internal compiler error
 
-`--target NAME` builds for a `[target.NAME]` of `jacket.toml` or a built-in board; `jacket toolchain` lists them and what each needs ([toolchain](../native/toolchain-discovery.md)).
+`--target NAME` builds for a `[target.NAME]` of `jacket.toml` or a built-in board; `jacket toolchain` lists them and what each needs ([toolchains](../guides/toolchains.md)).
 
 List the targets `--target` accepts with the linker, libraries and runner each needs, and check that this machine has them
 
@@ -354,7 +354,7 @@ jacket migrate [OPTIONS] [PATHS]...
 
 ### Dependencies
 
-`jacket dep` manages git submodules pinned in the `[dependencies]` of `jacket.toml`, with version ranges and a release-age policy. [Dependencies](../tools/dependencies.md) says how it works.
+`jacket dep` manages git submodules pinned in the `[dependencies]` of `jacket.toml`, with version ranges and a release-age policy. The [dependencies guide](../guides/dependencies.md) shows how to use it.
 
 Manage git dependencies pinned in `jacket.toml`
 
