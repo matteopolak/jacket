@@ -291,6 +291,8 @@ name = "Memory and allocators"
 modules = [
     "stdlib/Memory", "stdlib/Default_Allocator", "stdlib/Flat_Pool", "stdlib/Pool",
     "stdlib/Overwriting_Allocator", "stdlib/Unmapping_Allocator", "stdlib/rpmalloc",
+    "stdlib/Extensions/Frame_Arena", "stdlib/Extensions/Stack_Allocator", "stdlib/Extensions/Tlsf",
+    "stdlib/Extensions/Mimalloc",
 ]
 
 [[doc.group]]
