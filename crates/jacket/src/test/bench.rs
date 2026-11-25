@@ -90,7 +90,14 @@ fn read_samples(value: &Value) -> Result<Samples, String> {
 }
 
 impl Measure {
-    fn from_record(text: &str, case: &Case, resamples: usize) -> Result<Measure, String> {
+    /// The measure of `case` from the record its run printed. `file` is shown from `base`, the
+    /// project folder, so a saved baseline names no machine's paths.
+    fn from_record(
+        text: &str,
+        case: &Case,
+        base: &Path,
+        resamples: usize,
+    ) -> Result<Measure, String> {
         let value: Value = serde_json::from_str(text).map_err(|e| format!("bad record: {e}"))?;
         let number = |key: &str| {
             value[key]
@@ -101,7 +108,7 @@ impl Measure {
         let analysis = stats::analyze(&samples, resamples, &mut Rng::new(SEED));
         Ok(Measure {
             name: case.name.clone(),
-            file: case.file.display().to_string(),
+            file: crate::shown::path(&case.file, base),
             line: case.line,
             mode: value["mode"].as_str().unwrap_or("linear").to_string(),
             step: number("step")? as u64,
@@ -350,7 +357,9 @@ fn measure(run: &Run, case: &Case) -> Result<Measure, String> {
         _ => None,
     });
     match record {
-        Some(text) => Measure::from_record(&text, case, run.args.resamples as usize),
+        Some(text) => {
+            Measure::from_record(&text, case, run.project_dir, run.args.resamples as usize)
+        }
         None => Err(format!(
             "the program wrote no result (exit status {status})\n{}",
             String::from_utf8_lossy(&stderr).trim_end()
@@ -719,25 +728,27 @@ mod tests {
     fn records_are_read_into_measures() {
         let case = super::super::tests::case("hash", super::super::Kind::Bench);
         let text = r#"{"name":"hash","mode":"linear","samples":4,"step":100,"cpu":-1,"bytes_per_iteration":16,"items_per_iteration":0,"allocs_per_iteration":0.0,"alloc_bytes_per_iteration":0.0,"sample_iterations":[100,200,300,400],"sample_ns":[1010,2005,3020,4010]}"#;
-        let measure = Measure::from_record(text, &case, 200).unwrap();
+        let measure = Measure::from_record(text, &case, Path::new("/"), 200).unwrap();
         assert_eq!((measure.samples.len(), measure.step), (4, 100));
+        assert_eq!(measure.file, "t.jai");
         assert_eq!(measure.cpu, None);
         assert!(!measure.paused);
         assert!(
             Measure::from_record(
                 &text.replace("\"cpu\":-1", "\"cpu\":-1,\"paused\":true"),
                 &case,
+                Path::new("/p"),
                 10
             )
             .unwrap()
             .paused
         );
         assert!((measure.analysis.time.estimate - 10.0).abs() < 0.1);
-        assert!(Measure::from_record("{}", &case, 10).is_err());
+        assert!(Measure::from_record("{}", &case, Path::new("/p"), 10).is_err());
         let single = text
             .replace("[100,200,300,400]", "[100]")
             .replace("[1010,2005,3020,4010]", "[1010]");
-        assert!(Measure::from_record(&single, &case, 10).is_err());
+        assert!(Measure::from_record(&single, &case, Path::new("/p"), 10).is_err());
     }
 
     #[test]
