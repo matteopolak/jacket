@@ -1,4 +1,4 @@
-"""`stamped` in ci_native_deps.sh rebuilds exactly when the inputs, stamp or output change."""
+"""`stamped` in ci_native_deps.sh rebuilds, into an emptied output folder, exactly when the inputs, stamp or output change."""
 
 import re
 import subprocess
@@ -23,15 +23,18 @@ class Stamps(unittest.TestCase):
             script = f"""set -euo pipefail
 os=Linux
 {self.function}
+build() {{ test ! -e out/stale; mkdir out; echo BUILD; }}
 git init -q
 git add in
-stamped x out in -- echo BUILD
-stamped x out in -- echo BUILD
+touch out/stale
+stamped x out in -- build
+stamped x out in -- build
 echo b > in/f
 git add in
-stamped x out in -- echo BUILD
-rmdir out
-stamped x out in -- echo BUILD
+touch out/stale
+stamped x out in -- build
+rm -r out
+stamped x out in -- build
 """
             result = subprocess.run(
                 ["bash", "-c", script], cwd=root, text=True, capture_output=True
