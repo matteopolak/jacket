@@ -16,6 +16,9 @@ const MIN = 140;
 /** How near the area's edge a drag has to be to dock against the whole edge, in pixels. */
 const EDGE = 36;
 
+/** @param {string} id @returns {Leaf} */
+const leaf = (id) => ({ kind: 'panel', id });
+
 /** @param {Node} node @returns {Node} */
 const clone = (node) => JSON.parse(JSON.stringify(node));
 
@@ -49,8 +52,14 @@ export function dock(tree, target, id, zone) {
       if (node.id !== target) return node;
       const mine = /** @type {Leaf} */ ({ kind: 'panel', id });
       const items = before
-        ? [{ node: mine, size: 1 }, { node, size: 1 }]
-        : [{ node, size: 1 }, { node: mine, size: 1 }];
+        ? [
+            { node: mine, size: 1 },
+            { node, size: 1 },
+          ]
+        : [
+            { node, size: 1 },
+            { node: mine, size: 1 },
+          ];
       return { kind: 'split', dir, items };
     }
     const at = node.items.findIndex((i) => i.node.kind === 'panel' && i.node.id === target);
@@ -61,7 +70,11 @@ export function dock(tree, target, id, zone) {
       items.splice(before ? at : at + 1, 0, { node: { kind: 'panel', id }, size: half });
       return { kind: 'split', dir, items };
     }
-    return { kind: 'split', dir: node.dir, items: node.items.map((i) => ({ node: walk(i.node), size: i.size })) };
+    return {
+      kind: 'split',
+      dir: node.dir,
+      items: node.items.map((i) => ({ node: walk(i.node), size: i.size })),
+    };
   };
   return walk(tree);
 }
@@ -70,8 +83,17 @@ export function dock(tree, target, id, zone) {
 export function swap(tree, a, b) {
   /** @param {Node} node @returns {Node} */
   const walk = (node) => {
-    if (node.kind === 'panel') return node.id === a ? { kind: 'panel', id: b } : node.id === b ? { kind: 'panel', id: a } : node;
-    return { kind: 'split', dir: node.dir, items: node.items.map((i) => ({ node: walk(i.node), size: i.size })) };
+    if (node.kind === 'panel')
+      return node.id === a
+        ? { kind: 'panel', id: b }
+        : node.id === b
+          ? { kind: 'panel', id: a }
+          : node;
+    return {
+      kind: 'split',
+      dir: node.dir,
+      items: node.items.map((i) => ({ node: walk(i.node), size: i.size })),
+    };
   };
   return walk(tree);
 }
@@ -82,8 +104,14 @@ export function dockEdge(tree, id, edge) {
   const mine = /** @type {Leaf} */ ({ kind: 'panel', id });
   const items =
     edge === 'left' || edge === 'top'
-      ? [{ node: mine, size: 0.28 }, { node: tree, size: 0.72 }]
-      : [{ node: tree, size: 0.72 }, { node: mine, size: 0.28 }];
+      ? [
+          { node: mine, size: 0.28 },
+          { node: tree, size: 0.72 },
+        ]
+      : [
+          { node: tree, size: 0.72 },
+          { node: mine, size: 0.28 },
+        ];
   return { kind: 'split', dir, items };
 }
 
@@ -105,16 +133,32 @@ export function createLayout(body, panels, hooks) {
 
   /** The arrangement the page's CSS gives, as a tree to start changing from. @returns {Node} */
   function initial() {
-    /** @param {string} id @returns {Leaf} */
-    const leaf = (id) => ({ kind: 'panel', id });
     if (wide.matches)
-      return { kind: 'split', dir: 'row', items: [{ node: leaf('files'), size: 0.18 }, { node: leaf('code'), size: 0.46 }, { node: leaf('results'), size: 0.36 }] };
+      return {
+        kind: 'split',
+        dir: 'row',
+        items: [
+          { node: leaf('files'), size: 0.18 },
+          { node: leaf('code'), size: 0.46 },
+          { node: leaf('results'), size: 0.36 },
+        ],
+      };
     return {
       kind: 'split',
       dir: 'row',
       items: [
         { node: leaf('files'), size: 0.2 },
-        { node: { kind: 'split', dir: 'col', items: [{ node: leaf('code'), size: 0.64 }, { node: leaf('results'), size: 0.36 }] }, size: 0.8 },
+        {
+          node: {
+            kind: 'split',
+            dir: 'col',
+            items: [
+              { node: leaf('code'), size: 0.64 },
+              { node: leaf('results'), size: 0.36 },
+            ],
+          },
+          size: 0.8,
+        },
       ],
     };
   }
@@ -155,7 +199,10 @@ export function createLayout(body, panels, hooks) {
       /** @param {PointerEvent} m */
       const move = (m) => {
         const delta = (row ? m.clientX : m.clientY) - start;
-        const next = Math.min(Math.max(sizeA + delta, Math.min(MIN, sizeA)), sizeA + sizeB - Math.min(MIN, sizeB));
+        const next = Math.min(
+          Math.max(sizeA + delta, Math.min(MIN, sizeA)),
+          sizeA + sizeB - Math.min(MIN, sizeB),
+        );
         node.items[n - 1].size = (total * next) / (sizeA + sizeB);
         node.items[n].size = total - node.items[n - 1].size;
         a.style.flex = `${node.items[n - 1].size} 1 0`;
@@ -200,7 +247,11 @@ export function createLayout(body, panels, hooks) {
       if (!was || !now.width || !now.height) continue;
       el.animate(
         [
-          { transformOrigin: 'top left', transform: `translate(${was.left - now.left}px, ${was.top - now.top}px) scale(${was.width / now.width}, ${was.height / now.height})`, opacity: 0.7 },
+          {
+            transformOrigin: 'top left',
+            transform: `translate(${was.left - now.left}px, ${was.top - now.top}px) scale(${was.width / now.width}, ${was.height / now.height})`,
+            opacity: 0.7,
+          },
           { transformOrigin: 'top left', transform: 'none', opacity: 1 },
         ],
         { duration: 200, easing: 'cubic-bezier(0.2, 0, 0, 1)' },
@@ -217,7 +268,9 @@ export function createLayout(body, panels, hooks) {
       ['right', area.right - x],
       ['top', y - area.top],
       ['bottom', area.bottom - y],
-    ]).filter(([, d]) => d < EDGE).sort((p, q) => p[1] - q[1]);
+    ])
+      .filter(([, d]) => d < EDGE)
+      .toSorted((p, q) => p[1] - q[1]);
     if (edges.length) {
       const zone = edges[0][0];
       const w = area.width * 0.28;
@@ -237,7 +290,16 @@ export function createLayout(body, panels, hooks) {
       const fx = (x - r.left) / r.width;
       const fy = (y - r.top) / r.height;
       /** @type {Zone} */
-      const zone = fx < 0.25 ? 'left' : fx > 0.75 ? 'right' : fy < 0.25 ? 'top' : fy > 0.75 ? 'bottom' : 'center';
+      const zone =
+        fx < 0.25
+          ? 'left'
+          : fx > 0.75
+            ? 'right'
+            : fy < 0.25
+              ? 'top'
+              : fy > 0.75
+                ? 'bottom'
+                : 'center';
       const rect = new DOMRect(
         zone === 'right' ? r.left + r.width / 2 : r.left,
         zone === 'bottom' ? r.top + r.height / 2 : r.top,
@@ -300,8 +362,15 @@ export function createLayout(body, panels, hooks) {
         const rest = remove(base, id);
         if (!rest) return;
         if (over.id === null) free = true;
-        tree = over.id === null ? dockEdge(rest, id, over.zone) : over.zone === 'center' ? swap(base, over.id, id) : dock(rest, over.id, id, over.zone);
-        const before = Object.fromEntries(Object.entries(panels).map(([k, el]) => [k, el.getBoundingClientRect()]));
+        tree =
+          over.id === null
+            ? dockEdge(rest, id, over.zone)
+            : over.zone === 'center'
+              ? swap(base, over.id, id)
+              : dock(rest, over.id, id, over.zone);
+        const before = Object.fromEntries(
+          Object.entries(panels).map(([k, el]) => [k, el.getBoundingClientRect()]),
+        );
         render();
         glide(before);
         hooks.changed(tree, free);
@@ -318,10 +387,13 @@ export function createLayout(body, panels, hooks) {
   wide.addEventListener('change', again);
 
   return {
-    /** Shows a saved layout, or the page's own with `null`. @param {Node | null} saved @param {boolean} [wide] */
-    apply(saved, wide = false) {
-      tree = saved && ids(saved).sort().join() === Object.keys(panels).sort().join() ? clone(saved) : null;
-      free = tree !== null && wide;
+    /** Shows a saved layout, or the page's own with `null`. @param {Node | null} saved @param {boolean} [spanning] */
+    apply(saved, spanning = false) {
+      tree =
+        saved && ids(saved).toSorted().join() === Object.keys(panels).toSorted().join()
+          ? clone(saved)
+          : null;
+      free = tree !== null && spanning;
       render();
     },
     reset() {

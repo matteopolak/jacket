@@ -1,4 +1,4 @@
-// The playground page's address and option rules (crates/jacket/src/doc/site/assets/playground-state.js).
+// The playground page's address and option rules (crates/jacket/src/doc/site/assets/playground-state.mjs).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -9,7 +9,7 @@ import {
   fromBase64,
   toBase64,
   words,
-} from '../../crates/jacket/src/doc/site/assets/playground-state.js';
+} from '../../crates/jacket/src/doc/site/assets/playground-state.mjs';
 
 const one = { files: { 'main.jai': 'main :: () {}\n' }, active: 'main.jai', example: '' };
 
@@ -65,5 +65,8 @@ test('format settings are written as a [format] table, and only known values are
     formatConfig({ ...DEFAULTS, indent: '2', braces: 'preserve' }),
     '[format]\nindent_width = 2\nbrace_style = "preserve"\n',
   );
-  assert.match(formatConfig({ ...DEFAULTS, indent: '99', braces: 'x"' }), /= 4\nbrace_style = "same_line"/);
+  assert.match(
+    formatConfig({ ...DEFAULTS, indent: '99', braces: 'x"' }),
+    /= 4\nbrace_style = "same_line"/,
+  );
 });

@@ -15,5 +15,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["globals.d.ts", "../site/assets/site.js", "../site/assets/early.js", "../site/assets/playground.js", "../site/assets/playground-state.js", "../site/assets/playground-layout.js"]
+  "include": ["globals.d.ts", "../site/assets/site.js", "../site/assets/early.js", "../site/assets/playground.js", "../site/assets/playground-state.mjs", "../site/assets/playground-layout.js"]
 }

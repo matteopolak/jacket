@@ -5,14 +5,14 @@
 // brings the playground in.
 
 import { createLayout } from './playground-layout.js';
-import { DEFAULTS, STEPS, decode, encode, formatConfig, words } from './playground-state.js';
+import { DEFAULTS, STEPS, decode, encode, formatConfig, words } from './playground-state.mjs';
 
 /**
  * @typedef {{ name: string, title: string, summary: string, main: string, files: string[], assets: string[] }} Example
  * @typedef {{ severity: string, file: string, line: number, column: number, message: string, end?: { line: number, column: number }, raw?: any }} Diagnostic
  * @typedef {{ exitCode: number | null, stdout: string, stderr: string, rendered: string, output: { stream: string, text: string }[], diagnostics: Diagnostic[], failurePhase?: string | null }} Played
- * @typedef {import('./playground-state.js').Options} Options
- * @typedef {import('./playground-state.js').Workspace} Workspace
+ * @typedef {import('./playground-state.mjs').Options} Options
+ * @typedef {import('./playground-state.mjs').Workspace} Workspace
  * @typedef {{ id?: number, method?: string, result?: any, error?: unknown, params?: any }} LspMessage
  */
 
@@ -45,7 +45,13 @@ function toml(text) {
         /("(?:[^"\\]|\\.)*"?|'[^']*'?)|\b(true|false)\b|(-?\d[\w.:-]*)/g,
         (m, s, b, n) => tok(s ? 's' : b ? 'k' : n ? 'n' : '', m),
       );
-      return esc(pair[1]) + tok('t', pair[2]) + esc(pair[3]) + value.replace(/<span class="">(.*?)<\/span>/g, '$1') + tail;
+      return (
+        esc(pair[1]) +
+        tok('t', pair[2]) +
+        esc(pair[3]) +
+        value.replace(/<span class="">(.*?)<\/span>/g, '$1') +
+        tail
+      );
     })
     .join('\n');
 }
@@ -93,14 +99,21 @@ const ICONS = {
 /** A padlock, for the read-only file tab. */
 function lockIcon() {
   const svg = glyph('file');
-  svg.innerHTML = '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>';
+  svg.innerHTML =
+    '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>';
   svg.setAttribute('class', 'pg-ico pg-lock');
   return svg;
 }
 
 /** A small icon for a file's kind. @param {string} name */
 function icon(name) {
-  const kind = name.endsWith('.jai') ? 'jai' : name.endsWith('.md') ? 'md' : name.endsWith('.toml') ? 'toml' : 'file';
+  const kind = name.endsWith('.jai')
+    ? 'jai'
+    : name.endsWith('.md')
+      ? 'md'
+      : name.endsWith('.toml')
+        ? 'toml'
+        : 'file';
   return glyph(kind);
 }
 
@@ -127,6 +140,21 @@ function glyph(kind) {
   svg.setAttribute('class', 'pg-ico pg-ico-' + kind);
   svg.innerHTML = ICONS[kind];
   return svg;
+}
+
+/** @param {string} name */
+const uriOf = (name) => ROOT + name;
+
+/** Text with `code` spans as elements. @param {HTMLElement} into @param {string} text */
+function inlineCode(into, text) {
+  for (const [n, part] of text.split('`').entries()) {
+    if (!part) continue;
+    if (n % 2) {
+      const code = document.createElement('code');
+      code.innerHTML = window.jacketHighlight(part);
+      into.append(code);
+    } else into.append(part);
+  }
 }
 
 /** Ends the page that is mounted, if any. @type {(() => void) | null} */
@@ -225,7 +253,9 @@ export function mount() {
       /** @type {number | null} */
       let width = null;
       e.preventDefault();
-      /** @type {HTMLElement} */ (handle).setPointerCapture(/** @type {PointerEvent} */ (e).pointerId);
+      /** @type {HTMLElement} */ (handle).setPointerCapture(
+        /** @type {PointerEvent} */ (e).pointerId,
+      );
       handle.classList.add('dragging');
       /** @param {Event} m */
       const move = (m) => {
@@ -311,7 +341,8 @@ export function mount() {
   /** Redraws the coloured code and the line numbers from the text. */
   function paint() {
     const text = area.value;
-    code.innerHTML = colour(viewing ? viewing.name : work.active, text) + (text.endsWith('\n') ? ' ' : '');
+    code.innerHTML =
+      colour(viewing ? viewing.name : work.active, text) + (text.endsWith('\n') ? ' ' : '');
     const lines = text.split('\n').length;
     /** @type {Map<number, string>} */
     const flagged = new Map();
@@ -389,7 +420,8 @@ export function mount() {
     line.style.height = height + 'px';
     line.style.transform = `translateY(${parseFloat(style.paddingTop) + (at - 1) * height - area.scrollTop}px)`;
     line.hidden = document.activeElement !== area;
-    for (const [n, row] of [...gutter.children].entries()) row.classList.toggle('now', n + 1 === at);
+    for (const [n, row] of [...gutter.children].entries())
+      row.classList.toggle('now', n + 1 === at);
     position.textContent = `Ln ${at}, Col ${before[at - 1].length + 1}`;
   }
 
@@ -409,13 +441,13 @@ export function mount() {
     fileTabs.textContent = '';
     fileList.textContent = '';
     for (const name of names) {
-      const tab = document.createElement('button');
-      tab.type = 'button';
-      tab.setAttribute('role', 'tab');
-      tab.setAttribute('aria-selected', String(!viewing && name === work.active));
-      tab.dataset.file = name;
-      tab.append(icon(name), name);
-      fileTabs.append(tab);
+      const fileTab = document.createElement('button');
+      fileTab.type = 'button';
+      fileTab.setAttribute('role', 'tab');
+      fileTab.setAttribute('aria-selected', String(!viewing && name === work.active));
+      fileTab.dataset.file = name;
+      fileTab.append(icon(name), name);
+      fileTabs.append(fileTab);
       const item = document.createElement('li');
       const button = document.createElement('button');
       button.type = 'button';
@@ -428,16 +460,22 @@ export function mount() {
       fileList.append(item);
     }
     if (viewing) {
-      const tab = document.createElement('button');
-      tab.type = 'button';
-      tab.setAttribute('role', 'tab');
-      tab.setAttribute('aria-selected', 'true');
-      tab.title = 'Read-only: ' + viewing.uri.replace('file://', '');
-      tab.append(icon(viewing.name), viewing.name.replace(/^stdlib\//, ''), lockIcon());
-      fileTabs.append(tab);
+      const libraryTab = document.createElement('button');
+      libraryTab.type = 'button';
+      libraryTab.setAttribute('role', 'tab');
+      libraryTab.setAttribute('aria-selected', 'true');
+      libraryTab.title = 'Read-only: ' + viewing.uri.replace('file://', '');
+      libraryTab.append(icon(viewing.name), viewing.name.replace(/^stdlib\//, ''), lockIcon());
+      fileTabs.append(libraryTab);
     }
     const shown = viewing ? viewing.name : work.active;
-    language.textContent = shown.endsWith('.md') ? 'Markdown' : shown.endsWith('.toml') ? 'TOML' : shown.endsWith('.jai') ? 'Jai' : 'Plain text';
+    language.textContent = shown.endsWith('.md')
+      ? 'Markdown'
+      : shown.endsWith('.toml')
+        ? 'TOML'
+        : shown.endsWith('.jai')
+          ? 'Jai'
+          : 'Plain text';
     markExample();
   }
 
@@ -505,8 +543,7 @@ export function mount() {
     hideTip();
     cursor();
   });
-  for (const event of ['keyup', 'click', 'focus', 'blur'])
-    area.addEventListener(event, cursor);
+  for (const event of ['keyup', 'click', 'focus', 'blur']) area.addEventListener(event, cursor);
   // The caret moves on keydown and while dragging, before any of those events.
   const moved = () => {
     if (document.activeElement === area) {
@@ -533,14 +570,20 @@ export function mount() {
       const block = text.slice(from, end);
       const next = block
         .split('\n')
-        .map((l) => (e.shiftKey ? l.replace(new RegExp(`^( {1,${unit.length}}|\\t)`), '') : unit + l))
+        .map((l) =>
+          e.shiftKey ? l.replace(new RegExp(`^( {1,${unit.length}}|\\t)`), '') : unit + l,
+        )
         .join('\n');
       if (next !== block) replace(from, end, next);
     } else if (e.key === 'Enter' && plain && !e.shiftKey) {
       e.preventDefault();
       const before = text.slice(text.lastIndexOf('\n', start - 1) + 1, start);
       const indent = /^[ \t]*/.exec(before)?.[0] ?? '';
-      replace(start, end, '\n' + indent + (/\{\s*$/.test(before) ? ' '.repeat(Number(options.indent) || 4) : ''));
+      replace(
+        start,
+        end,
+        '\n' + indent + (/\{\s*$/.test(before) ? ' '.repeat(Number(options.indent) || 4) : ''),
+      );
     }
     escaped = e.key === 'Escape';
   });
@@ -640,7 +683,8 @@ export function mount() {
     box.hidden = false;
     const host = page.getBoundingClientRect();
     const at = (anchor ?? formatButton).getBoundingClientRect();
-    box.style.left = Math.max(0, Math.min(at.left - host.left, host.width - box.offsetWidth)) + 'px';
+    box.style.left =
+      Math.max(0, Math.min(at.left - host.left, host.width - box.offsetWidth)) + 'px';
     box.style.top = at.bottom - host.top + 6 + 'px';
     clearTimeout(toasting);
     toasting = setTimeout(() => (box.hidden = true), kind === 'bad' ? 5000 : 2000);
@@ -751,7 +795,10 @@ export function mount() {
       const errors = found.filter((d) => d.severity === 'error').length;
       const time = Math.max(1, Math.round(ms ?? 0)) + ' ms';
       if (r.exitCode === 0 && !errors) say(`Exited 0 in ${time}`, 'ok');
-      else if (r.failurePhase === 'compile' || (r.exitCode === null && errors && !output.textContent))
+      else if (
+        r.failurePhase === 'compile' ||
+        (r.exitCode === null && errors && !output.textContent)
+      )
         say(`Did not compile: ${errors} ${errors === 1 ? 'error' : 'errors'}`, 'bad');
       else if (r.exitCode === null) say(`Stopped by a runtime error after ${time}`, 'bad');
       else say(`Exited ${r.exitCode} in ${time}`, 'bad');
@@ -785,7 +832,8 @@ export function mount() {
     if (!runtime || formatButton.disabled) return;
     const name = work.active;
     if (viewing) return toast('The standard library is read-only.', formatButton, 'bad');
-    if (!name.endsWith('.jai')) return toast(`${name} is not Jai code, so it is not formatted.`, formatButton, 'bad');
+    if (!name.endsWith('.jai'))
+      return toast(`${name} is not Jai code, so it is not formatted.`, formatButton, 'bad');
     busy(true);
     try {
       const files = {
@@ -800,7 +848,9 @@ export function mount() {
         toast('Formatted', formatButton, 'ok');
       } else {
         toast(
-          (r.stderr || r.rendered || 'The code could not be formatted.').trim().replace(/^jaifmt: /, ''),
+          (r.stderr || r.rendered || 'The code could not be formatted.')
+            .trim()
+            .replace(/^jaifmt: /, ''),
           formatButton,
           'bad',
         );
@@ -822,9 +872,6 @@ export function mount() {
   const opened = new Set();
   /** @type {number | undefined} */
   let syncing;
-
-  /** @param {string} name */
-  const uriOf = (name) => ROOT + name;
 
   /** @param {Record<string, unknown>[]} messages @returns {Promise<LspMessage[]>} */
   async function lsp(messages) {
@@ -850,7 +897,9 @@ export function mount() {
               params: {
                 processId: null,
                 rootUri: ROOT,
-                capabilities: { textDocument: { hover: { contentFormat: ['markdown', 'plaintext'] } } },
+                capabilities: {
+                  textDocument: { hover: { contentFormat: ['markdown', 'plaintext'] } },
+                },
               },
             },
             { jsonrpc: '2.0', method: 'initialized', params: {} },
@@ -861,7 +910,7 @@ export function mount() {
           opened.clear();
         }
         const wanted = Object.entries(work.files).filter(([n]) => n.endsWith('.jai'));
-        for (const [name] of [...served]) {
+        for (const [name] of served) {
           if (!wanted.some(([n]) => n === name)) {
             out.push({
               jsonrpc: '2.0',
@@ -881,7 +930,10 @@ export function mount() {
               ? {
                   jsonrpc: '2.0',
                   method: 'textDocument/didChange',
-                  params: { textDocument: { uri: uriOf(name), version }, contentChanges: [{ text }] },
+                  params: {
+                    textDocument: { uri: uriOf(name), version },
+                    contentChanges: [{ text }],
+                  },
                 }
               : {
                   jsonrpc: '2.0',
@@ -978,7 +1030,10 @@ export function mount() {
     const target = Array.isArray(result) ? result[0] : result;
     const range = target && (target.range ?? target.targetSelectionRange ?? target.targetRange);
     const uri = target && (target.uri ?? target.targetUri);
-    const place = range && uri ? { uri: String(uri), row: range.start.line + 1, column: range.start.character + 1 } : null;
+    const place =
+      range && uri
+        ? { uri: String(uri), row: range.start.line + 1, column: range.start.character + 1 }
+        : null;
     places.set(key, place);
     return place;
   }
@@ -987,7 +1042,11 @@ export function mount() {
   function here() {
     const before = area.value.slice(0, area.selectionStart).split('\n');
     return {
-      pg: { uri: viewing ? viewing.uri : uriOf(work.active), row: before.length, column: before[before.length - 1].length + 1 },
+      pg: {
+        uri: viewing ? viewing.uri : uriOf(work.active),
+        row: before.length,
+        column: before[before.length - 1].length + 1,
+      },
     };
   }
 
@@ -995,7 +1054,7 @@ export function mount() {
    * Shows a place: a workspace file or a library file, with the caret there.
    * @param {{ uri: string, row: number, column: number }} place
    */
-  async function show_(place) {
+  async function showPlace(place) {
     if (place.uri.startsWith(ROOT)) {
       const name = place.uri.slice(ROOT.length);
       if (!(name in work.files)) return say(`${name} is not in the workspace.`, 'bad');
@@ -1004,7 +1063,9 @@ export function mount() {
       let text = sources.get(place.uri);
       if (text === undefined) {
         const sid = ++lspId;
-        const source = await lsp([{ jsonrpc: '2.0', id: sid, method: 'jai/source', params: { uri: place.uri } }]);
+        const source = await lsp([
+          { jsonrpc: '2.0', id: sid, method: 'jai/source', params: { uri: place.uri } },
+        ]);
         const got = source.find((m) => m.id === sid)?.result;
         if (typeof got !== 'string') return say('That source is not available.', 'bad');
         text = got;
@@ -1024,7 +1085,7 @@ export function mount() {
       if (!place) return say('No definition found.');
       say('');
       history.replaceState(here(), '', location.href);
-      await show_(place);
+      await showPlace(place);
       history.pushState({ pg: place }, '', location.href);
     } catch (error) {
       say(error instanceof Error ? error.message : String(error), 'bad');
@@ -1033,7 +1094,7 @@ export function mount() {
 
   // Back and Forward walk the places jumped to.
   const popped = (/** @type {PopStateEvent} */ e) => {
-    if (page.isConnected && e.state && e.state.pg) show_(e.state.pg).catch(() => {});
+    if (page.isConnected && e.state && e.state.pg) showPlace(e.state.pg).catch(() => {});
   };
   window.addEventListener('popstate', popped);
 
@@ -1058,7 +1119,7 @@ export function mount() {
     }
     if (token !== linking || !place || !(e.ctrlKey || e.metaKey)) return hideLink();
     const style = getComputedStyle(area);
-    measure && (measure.font = `${style.fontSize} ${style.fontFamily}`);
+    if (measure) measure.font = `${style.fontSize} ${style.fontFamily}`;
     const width = measure ? measure.measureText('M').width : 8;
     const height = parseFloat(style.lineHeight) || 20;
     link.style.left = parseFloat(style.paddingLeft) + at.from * width - area.scrollLeft + 'px';
@@ -1115,7 +1176,8 @@ export function mount() {
         if (!actions.length) return;
         const style = getComputedStyle(area);
         const height = parseFloat(style.lineHeight) || 20;
-        bulb.style.top = parseFloat(style.paddingTop) + row * height - area.scrollTop + (height - 18) / 2 + 'px';
+        bulb.style.top =
+          parseFloat(style.paddingTop) + row * height - area.scrollTop + (height - 18) / 2 + 'px';
         bulb.hidden = false;
       } catch {
         actions = [];
@@ -1127,7 +1189,8 @@ export function mount() {
   function applyEdit(edit) {
     /** @type {any[]} */
     let edits = [];
-    for (const [uri, list] of Object.entries(edit.changes ?? {})) if (uri === docUri()) edits.push(...list);
+    for (const [uri, list] of Object.entries(edit.changes ?? {}))
+      if (uri === docUri()) edits.push(...list);
     for (const c of edit.documentChanges ?? [])
       if (c.textDocument && c.textDocument.uri === docUri()) edits.push(...c.edits);
     const lines = area.value.split('\n');
@@ -1137,7 +1200,11 @@ export function mount() {
       for (let i = 0; i < p.line && i < lines.length; i++) n += lines[i].length + 1;
       return n + Math.min(p.character, (lines[p.line] ?? '').length);
     };
-    edits = edits.map((e) => ({ from: offset(e.range.start), to: offset(e.range.end), text: e.newText }));
+    edits = edits.map((e) => ({
+      from: offset(e.range.start),
+      to: offset(e.range.end),
+      text: e.newText,
+    }));
     edits.sort((a, b) => b.from - a.from);
     for (const e of edits) replace(e.from, e.to, e.text);
   }
@@ -1177,18 +1244,6 @@ export function mount() {
     return String(value).trim() || null;
   }
 
-  /** Text with `code` spans as elements. @param {HTMLElement} into @param {string} text */
-  function inline(into, text) {
-    for (const [n, part] of text.split('`').entries()) {
-      if (!part) continue;
-      if (n % 2) {
-        const code = document.createElement('code');
-        code.innerHTML = window.jacketHighlight(part);
-        into.append(code);
-      } else into.append(part);
-    }
-  }
-
   /**
    * Hover text from the server: a declaration, a line of facts, then Markdown notes; several
    * declarations (overloads) follow one another. Each is laid out as a block.
@@ -1217,12 +1272,12 @@ export function mount() {
       return /** @type {HTMLElement} */ (entry);
     };
     for (const raw of lines) {
-      const line = raw.trimEnd();
-      if (/^```/.test(line)) {
+      const row = raw.trimEnd();
+      if (row.startsWith('```')) {
         if (fenced) {
-          const pre = document.createElement('pre');
-          pre.innerHTML = window.jacketHighlight(fence.join('\n'));
-          host().append(pre);
+          const block = document.createElement('pre');
+          block.innerHTML = window.jacketHighlight(fence.join('\n'));
+          host().append(block);
           fence = [];
         }
         fenced = !fenced;
@@ -1233,7 +1288,7 @@ export function mount() {
         fence.push(raw);
         continue;
       }
-      const note = /^(error|warning|information|hint): (.*)$/.exec(line);
+      const note = /^(error|warning|information|hint): (.*)$/.exec(row);
       if (note) {
         const div = document.createElement('div');
         div.className = 'pg-tip-note ' + note[1];
@@ -1242,16 +1297,16 @@ export function mount() {
         entry = null;
         continue;
       }
-      if (/^[A-Za-z_$][\w.$]*\s*::?[^=]/.test(line) || /^[A-Za-z_][\w.]*\s*:=/.test(line)) {
+      if (/^[A-Za-z_$][\w.$]*\s*::?[^=]/.test(row) || /^[A-Za-z_][\w.]*\s*:=/.test(row)) {
         start();
         const sig = document.createElement('pre');
         sig.className = 'pg-sig';
-        sig.innerHTML = window.jacketHighlight(line);
+        sig.innerHTML = window.jacketHighlight(row);
         host().append(sig);
         afterSignature = true;
         continue;
       }
-      if (!line.trim()) {
+      if (!row.trim()) {
         paragraph = list = null;
         afterSignature = false;
         continue;
@@ -1259,11 +1314,11 @@ export function mount() {
       if (afterSignature) {
         const facts = document.createElement('div');
         facts.className = 'pg-facts';
-        facts.textContent = line;
+        facts.textContent = row;
         host().append(facts);
         continue;
       }
-      const item = /^\s*[-*]\s+(.*)$/.exec(line);
+      const item = /^\s*[-*]\s+(.*)$/.exec(row);
       if (item) {
         if (!list) {
           list = document.createElement('ul');
@@ -1271,7 +1326,7 @@ export function mount() {
           paragraph = null;
         }
         const li = document.createElement('li');
-        inline(li, item[1]);
+        inlineCode(li, item[1]);
         list.append(li);
         continue;
       }
@@ -1280,7 +1335,7 @@ export function mount() {
         paragraph = document.createElement('p');
         host().append(paragraph);
       } else paragraph.append(' ');
-      inline(paragraph, line.trim());
+      inlineCode(paragraph, row.trim());
     }
   }
 
@@ -1307,8 +1362,11 @@ export function mount() {
     const row = Math.floor((y - box.top - parseFloat(style.paddingTop) + area.scrollTop) / height);
     const lineText = area.value.split('\n')[row];
     if (lineText === undefined) return null;
-    const column = Math.floor((x - box.left - parseFloat(style.paddingLeft) + area.scrollLeft) / width);
-    if (column < 0 || column >= lineText.length || !/[A-Za-z0-9_#]/.test(lineText[column])) return null;
+    const column = Math.floor(
+      (x - box.left - parseFloat(style.paddingLeft) + area.scrollLeft) / width,
+    );
+    if (column < 0 || column >= lineText.length || !/[A-Za-z0-9_#]/.test(lineText[column]))
+      return null;
     let from = column;
     while (from > 0 && /[A-Za-z0-9_#]/.test(lineText[from - 1])) from--;
     let to = column + 1;
@@ -1417,10 +1475,10 @@ export function mount() {
       changed();
     });
 
-  /** Opens the menu a toolbar button names, or closes them all. @param {string} which @param {boolean} open */
-  function menu(which, open) {
+  /** Opens the menu a toolbar button names, or closes them all. @param {string} which @param {boolean} visible */
+  function menu(which, visible) {
     for (const b of page.querySelectorAll('.pg-menu > [data-act]')) {
-      const on = open && /** @type {HTMLElement} */ (b).dataset.act === which;
+      const on = visible && /** @type {HTMLElement} */ (b).dataset.act === which;
       b.setAttribute('aria-expanded', String(on));
       const panel = /** @type {HTMLElement | null} */ (b.nextElementSibling);
       if (panel) panel.hidden = !on;
@@ -1431,7 +1489,8 @@ export function mount() {
   function view(name) {
     page.dataset.view = name;
     for (const b of page.querySelectorAll('.pg-views button'))
-      if (/** @type {HTMLElement} */ (b).dataset.view === name) b.setAttribute('aria-current', 'true');
+      if (/** @type {HTMLElement} */ (b).dataset.view === name)
+        b.setAttribute('aria-current', 'true');
       else b.removeAttribute('aria-current');
   }
 
@@ -1444,7 +1503,8 @@ export function mount() {
     }
     const act = target.closest('[data-act]')?.getAttribute('data-act');
     const result = target.closest('[data-tab]');
-    if (result instanceof HTMLElement) tab(/** @type {'output' | 'problems'} */ (result.dataset.tab));
+    if (result instanceof HTMLElement)
+      tab(/** @type {'output' | 'problems'} */ (result.dataset.tab));
     if (act === 'run') run();
     else if (act === 'stop' && abort) abort();
     else if (act === 'format') format();

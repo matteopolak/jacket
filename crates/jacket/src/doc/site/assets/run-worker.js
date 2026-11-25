@@ -45,7 +45,10 @@ scope.addEventListener('message', async (event) => {
       if (!server.lsp) throw new Error('This compiler build has no language server.');
       /** @type {unknown[]} */
       const messages = [].concat(request.lsp);
-      scope.postMessage({ id, lsp: messages.flatMap((m) => /** @type {unknown[]} */ (server.lsp?.(m))) });
+      scope.postMessage({
+        id,
+        lsp: messages.flatMap((m) => /** @type {unknown[]} */ (server.lsp?.(m))),
+      });
       return;
     }
     const running = engine;

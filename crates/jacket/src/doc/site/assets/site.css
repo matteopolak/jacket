@@ -148,15 +148,6 @@ html {
   scroll-margin-top: 160px;
 }
 
-/* Containers that take focus from a script (the drawer, dialogs, the page) show no ring. */
-.side:focus-visible,
-.side > nav:focus-visible,
-dialog:focus-visible,
-main:focus-visible,
-[tabindex='-1']:focus-visible {
-  outline: none;
-}
-
 /* One card per list, rows split by hairlines, and one shared name column: as wide as the
    longest name, up to half the width. */
 .defs {
@@ -2862,4 +2853,12 @@ body[data-page='playground.html'] > .wrap {
 
 body[data-page='playground.html'] .foot {
   display: none;
+}
+
+/* Containers that take focus from a script (the drawer, dialogs, the page) show no ring. */
+.side:focus-visible,
+.side > nav:focus-visible,
+dialog:focus-visible,
+[tabindex='-1']:focus-visible {
+  outline: none;
 }
