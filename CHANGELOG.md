@@ -6,7 +6,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 
 ### Fixes
 
-- `jacket bench --save-baseline` names the saved file relative to the current folder.
+- `jacket bench` writes paths relative to the project in baselines and JSON, and prints the saved baseline's relative path.
 - `JAIC_PROGRESS=plain` status lines are coloured when `FORCE_COLOR` is set.
 
 ## [0.40.0] - 2026-11-24
