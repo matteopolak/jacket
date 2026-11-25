@@ -24,7 +24,7 @@ use std::process::ExitCode;
 pub enum Action {
     /// Add a git dependency as a submodule and an entry in `[dependencies]`
     Add {
-        /// `user/repo` (GitHub), `host/path` or a URL, with an optional `@tag` or `@rev`
+        /// `user/repo` (GitHub), `host/path` or a URL, with an optional `@range`, `@tag` or `@rev`
         spec: String,
         /// The module's name and folder under `modules/` (default: the repository's name)
         #[arg(long)]
