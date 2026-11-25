@@ -16,7 +16,7 @@ native_dir() {
 # stamped NAME OUTPUT_DIR INPUT_PATH... -- COMMAND...: run COMMAND unless an earlier run (restored from
 # the CI cache) already built OUTPUT_DIR from identical inputs. The stamp is a hash of the tracked
 # files under the INPUT_PATHs (their blob ids), the OS, the C compiler and LLVM; a changed or missing
-# stamp or output rebuilds, so a stale cache can only cost time.
+# stamp or output rebuilds into an emptied OUTPUT_DIR, so a stale cache can only cost time.
 stamped() {
   local name=$1 output=$2 inputs=() stamp fingerprint
   shift 2
@@ -35,7 +35,7 @@ stamped() {
     echo "$name: unchanged inputs, reusing $output"
     return 0
   fi
-  rm -f "$stamp"
+  rm -rf "$stamp" "$output"
   "$@"
   if [[ -n "$fingerprint" ]]; then
     mkdir -p target/native-stamps
