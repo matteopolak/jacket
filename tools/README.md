@@ -210,6 +210,13 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `jaic_sweep.py` | Run jaic over test programs and summarize results. | CI, tools |
 | `jaigen.py` | Random program generator for differential testing (csmith-style). | tools |
 
+## `embedded/`
+
+| Script | What it does | Called by |
+| --- | --- | --- |
+| `pin_compiler_rt.py` | Pins the compiler-rt release and the source files of its builtins for each freestanding CPU. | - |
+| `pin_sysroots.py` | Pins the Debian packages `jacket toolchain add` unpacks into a Linux sysroot. | - |
+
 ## `fuzz/`
 
 | Script | What it does | Called by |
