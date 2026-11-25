@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.40.0] - 2026-11-24
 
 Cross and bare-metal builds find their own tools, and `jacket dep` manages git dependencies as pinned submodules. The docs site has a playground, and `Extensions` has new allocators.
 
