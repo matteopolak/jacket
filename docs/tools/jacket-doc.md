@@ -158,9 +158,10 @@ $ jacket test
 ```
 ````
 
-- **What runs.** `jacket` (this one), `jaic` and `cat`, without a shell: quotes group words, and `|`, `>`, `$` and globs are errors. Commands run in `cwd=` (from the guide's folder; the guide's own folder without it), in turn, with stdout and stderr merged in order, colour forced, and `CI`, `NO_COLOR`, `JAIC_PROGRESS`, `JAIC_DIAGNOSTICS` and `COLUMNS` unset. Files they make are removed afterwards; changing a file that was there is an error.
+- **What runs.** `jacket` (this one), `jaic` and `cat`, without a shell: quotes group words, and `|`, `>`, `$` and globs are errors. Commands run in `cwd=` (from the guide's folder; the guide's own folder without it), in turn, with stdout and stderr merged in order, colour forced, `JAIC_PROGRESS=plain` (the `Compiling`, `Linker` and `Finished` lines a terminal shows, without the redrawn status line), and `CI`, `NO_COLOR`, `JAIC_DIAGNOSTICS` and `COLUMNS` unset. Files they make are removed afterwards; changing a file that was there is an error.
 - **Comparing.** Line ends, trailing spaces and blank lines at the end are ignored, and times in brackets (`[   0.057s]`) match any time. The diff names the guide's line.
 - **Colours.** The markdown holds plain text. What the commands printed, escapes and all, is kept beside the guide in `<guide>.console.json`; the site renders its SGR colours (bold, dim, the 16 colours) as `ansi-*` spans under a "Terminal" caption. A block whose capture is missing or stale is an error, and renders as plain text: colours never come from guessing.
+- **`cache`.** ```` ```console cwd=... cache ```` is run only when its capture is missing or no longer matches its text, so `jacket doc` keeps what it printed once. Use it for output that depends on the machine: timings, installed cross tools, the toolchain cache. To run one again, edit its text or delete its capture.
 - **`jacket doc --accept`** writes what the commands printed into the guides and the captures. A block whose text still matches, apart from times, is left alone.
 - **Example projects.** The folders the guides run in live in `docs/examples/`. Set `[test] jobs = 1` in their `jacket.toml` so tests print in a fixed order.
 

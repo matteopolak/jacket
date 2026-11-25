@@ -36,12 +36,13 @@ fn other_fences_are_not_console_blocks() {
 }
 
 #[test]
-fn a_block_must_start_with_a_command_and_take_only_cwd() {
+fn a_block_must_start_with_a_command_and_take_only_cwd_and_cache() {
     let err = blocks("\n```console\noutput first\n```\n").unwrap_err();
     assert!(
         err.starts_with("line 2: a console block starts with a command"),
         "{err}"
     );
+    assert!(blocks("```console cwd=x cache\n$ x\n```\n").unwrap()[0].cache);
     let err = blocks("```console,shell=bash\n$ x\n```\n").unwrap_err();
     assert!(
         err.contains("unknown console setting `shell=bash`"),
@@ -153,6 +154,35 @@ fn a_changed_output_fails_with_a_diff_and_accept_writes_it_and_its_colours() {
 }
 
 #[test]
+fn a_cached_block_is_not_run_while_its_capture_matches() {
+    let dir = test_support::TempDir::new("doc-console");
+    let path = dir.join("guide.md");
+    std::fs::create_dir_all(dir.join("ex")).unwrap();
+    std::fs::write(dir.join("ex/a.txt"), "\x1b[31mred\x1b[0m\n").unwrap();
+    std::fs::write(&path, "```console cwd=ex cache\n$ cat a.txt\nred\n```\n").unwrap();
+    assert!(check(&path, "guide.md", &tools(), true).unwrap().is_empty());
+    let capture = std::fs::read_to_string(capture_path(&path)).unwrap();
+
+    // What the command prints now no longer matters: the capture stands for it.
+    std::fs::write(dir.join("ex/a.txt"), "blue\n").unwrap();
+    assert!(
+        check(&path, "guide.md", &tools(), false)
+            .unwrap()
+            .is_empty()
+    );
+    assert!(check(&path, "guide.md", &tools(), true).unwrap().is_empty());
+    assert_eq!(
+        std::fs::read_to_string(capture_path(&path)).unwrap(),
+        capture
+    );
+
+    // Edited text has no capture, so the command runs again.
+    std::fs::write(&path, "```console cwd=ex cache\n$ cat a.txt\nred!\n```\n").unwrap();
+    let problems = check(&path, "guide.md", &tools(), false).unwrap();
+    assert!(problems[0].contains("-red!\n+blue\n"), "{problems:?}");
+}
+
+#[test]
 fn matching_text_without_its_colours_fails_until_accepted() {
     let dir = test_support::TempDir::new("doc-console");
     let path = guide(&dir, "red");
@@ -179,6 +209,7 @@ fn shell_block(script: &str) -> Block {
     Block {
         line: 1,
         cwd: None,
+        cache: false,
         body: 0..0,
         runs: vec![Run {
             command: format!("jacket -c '{script}'"),

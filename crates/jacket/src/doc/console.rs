@@ -13,6 +13,9 @@
 //! guide's own folder without it) and fails when the output differs from the block. The markdown
 //! holds the text alone; the colours the commands printed are kept beside the guide in
 //! `<guide>.console.json`, which the site renders them from. `--accept` writes both.
+//!
+//! A `cache` block is run only when its capture is missing or no longer matches its text, for
+//! commands whose output depends on the machine (timings, installed cross tools).
 
 use super::markdown::esc;
 use jaic::fxhash::HashMap;
@@ -39,6 +42,8 @@ pub struct Block {
     pub line: usize,
     /// The folder the commands run in, from the guide's folder.
     pub cwd: Option<String>,
+    /// Whether a capture that matches the text stands for running the commands.
+    pub cache: bool,
     /// The text between the fences, in the markdown.
     pub body: Range<usize>,
     pub runs: Vec<Run>,
@@ -58,12 +63,13 @@ pub struct Tools<'a> {
 }
 
 /// The `console` fences of `md`, parsed. A fence that does not start with a command, or has a
-/// setting other than `cwd=`, is an error.
+/// setting other than `cwd=` and `cache`, is an error.
 pub fn blocks(md: &str) -> Result<Vec<Block>, String> {
     use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
     let options = Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH | Options::ENABLE_GFM;
     let mut out = Vec::new();
-    let mut open: Option<(usize, Option<String>, Option<Range<usize>>)> = None;
+    // The open fence as a block with no runs yet, and its text so far.
+    let mut open: Option<(Block, Option<Range<usize>>)> = None;
     for (event, range) in Parser::new_ext(md, options).into_offset_iter() {
         match event {
             Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info))) => {
@@ -73,36 +79,41 @@ pub fn blocks(md: &str) -> Result<Vec<Block>, String> {
                 }
                 let line = md[..range.start].matches('\n').count() + 1;
                 let mut cwd = None;
+                let mut cache = false;
                 for word in words {
                     match word.split_once('=') {
                         Some(("cwd", dir)) => cwd = Some(dir.to_owned()),
+                        None if word == "cache" => cache = true,
                         _ => {
                             return Err(format!(
-                                "line {line}: unknown console setting `{word}`; the one setting is `cwd=FOLDER`"
+                                "line {line}: unknown console setting `{word}`; the settings are `cwd=FOLDER` and `cache`"
                             ));
                         }
                     }
                 }
-                open = Some((line, cwd, None));
+                let block = Block {
+                    line,
+                    cwd,
+                    cache,
+                    body: 0..0,
+                    runs: Vec::new(),
+                };
+                open = Some((block, None));
             }
             Event::Text(_) => {
-                if let Some((_, _, body)) = &mut open {
+                if let Some((_, body)) = &mut open {
                     let start = body.as_ref().map_or(range.start, |b| b.start);
                     *body = Some(start..range.end);
                 }
             }
             Event::End(TagEnd::CodeBlock) => {
-                let Some((line, cwd, body)) = open.take() else {
+                let Some((mut block, body)) = open.take() else {
                     continue;
                 };
-                let body = body.unwrap_or(range.start..range.start);
-                let runs = runs(&md[body.clone()]).map_err(|e| format!("line {line}: {e}"))?;
-                out.push(Block {
-                    line,
-                    cwd,
-                    body,
-                    runs,
-                });
+                block.body = body.unwrap_or(range.start..range.start);
+                block.runs = runs(&md[block.body.clone()])
+                    .map_err(|e| format!("line {}: {e}", block.line))?;
+                out.push(block);
             }
             _ => {}
         }
@@ -315,12 +326,13 @@ fn run_command(command: &str, cwd: &Path, tools: &Tools<'_>) -> Result<String, S
             )
             .stderr(writer)
             .env(jacket_config::env::STDLIB.name, tools.stdlib)
-            .env(jacket_config::env::FORCE_COLOR.name, "1");
+            .env(jacket_config::env::FORCE_COLOR.name, "1")
+            // The status lines a terminal shows, without the line redrawn in place.
+            .env(jacket_config::env::PROGRESS.name, "plain");
         // What a reader's terminal would not have, or would set differently.
         for var in [
             &jacket_config::env::CI,
             &jacket_config::env::NO_COLOR,
-            &jacket_config::env::PROGRESS,
             &jacket_config::env::DIAGNOSTICS,
             &jacket_config::env::COLUMNS,
         ] {
@@ -461,10 +473,16 @@ pub fn check(
     let mut fresh = Capture::default();
     let mut rewrites: Vec<(Range<usize>, String)> = Vec::new();
     for (n, block) in blocks.iter().enumerate() {
+        let old = stored.blocks.get(n).filter(|shot| matches(block, shot));
+        if block.cache
+            && let Some(old) = old
+        {
+            fresh.blocks.push(old.clone());
+            continue;
+        }
         let dir = here.join(block.cwd.as_deref().unwrap_or("."));
         let got =
             run_block(block, &dir, tools).map_err(|e| format!("{shown}:{}: {e}", block.line))?;
-        let old = stored.blocks.get(n).filter(|shot| matches(block, shot));
         let same = block
             .runs
             .iter()
