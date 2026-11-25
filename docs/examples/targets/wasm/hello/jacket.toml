@@ -1,0 +1,6 @@
+[project]
+entry = ["hello.jai"]
+
+[target.wasi]
+triple = "wasm32-wasi"
+runner = "wasmtime {exe}"

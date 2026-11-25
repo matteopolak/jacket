@@ -21,59 +21,86 @@ The compiler builtins cover operations a small chip has no instruction for, such
 
 ## See what was found
 
-Cross and bare-metal builds print where each tool came from:
+Cross and bare-metal builds print where each tool came from. Here the [bare-metal program](other-targets.md#bare-metal-a-program-with-no-operating-system) from Other targets, built for a Cortex-M4F board:
 
-```
-   Compiling blink (thumbv7em-none-eabihf, board Mps2_An386)
-      Linker /usr/bin/ld.lld 19.1.7
-    Builtins ~/Library/Caches/jacket/toolchains/thumbv7em-none-eabihf/builtins/libclang_rt.builtins.a compiler-rt 21.1.8 (cached)
-      Script board.ld
-    Finished debug in 0.92s
+```console cwd=../examples/targets/board/blink cache
+$ jacket build hello.jai --target Mps2_An386
+   Compiling blink (hello.jai)
+      Linker /opt/homebrew/opt/lld/bin/ld.lld 23.1.6
+    Builtins compiler-rt 21.1.8 (cached)
+      Script hello.ld
+    Finished debug [unoptimized] in 0.19s
 ```
 
 Builds for your own machine print these lines only with `-v`.
 
 `jacket toolchain` lists every target you can build for, with what each needs and whether this machine has it:
 
-```sh
-jacket toolchain
+```console cwd=../examples/targets/board/blink cache
+$ jacket toolchain
+TARGET             FROM      TRIPLE                     LINKER                                   LIBRARIES                    RUNNER
+host               -         aarch64-apple-darwin       /usr/bin/cc 21.0.0                       -                            -
+Arduino_Uno        built in  avr-none-elf               /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  missing                      /opt/homebrew/bin/qemu-system-avr 11.1.3
+Qemu_Virt_Aarch64  built in  aarch64-none-elf           /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  missing                      /opt/homebrew/bin/qemu-system-aarch64 11.1.3
+Mps2_An386         built in  thumbv7em-none-eabihf      /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  compiler-rt 21.1.8 (cached)  /opt/homebrew/bin/qemu-system-arm 11.1.3
+Mps2_An505         built in  thumbv8m.main-none-eabihf  /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  missing                      /opt/homebrew/bin/qemu-system-arm 11.1.3
+
+Arduino_Uno: no builtins for avr-none-elf
+note: run `jacket toolchain add avr-none-elf` to build its builtins, or install the AVR GNU toolchain with `brew install osx-cross/avr/avr-gcc`
+
+Qemu_Virt_Aarch64: no builtins for aarch64-none-elf
+note: run `jacket toolchain add aarch64-none-elf` to build its builtins
+
+Mps2_An505: no builtins for thumbv8m.main-none-eabihf
+note: run `jacket toolchain add thumbv8m.main-none-eabihf` to build its builtins, or install the GNU Arm embedded toolchain with `brew install --cask gcc-arm-embedded`
 ```
 
 ## When something is missing
 
-The build stops with a note that says how to get it, for the package manager it finds (`brew`, `apt`, `dnf`, `pacman` or `winget`):
-
-```
-error: no linker for thumbv7em-none-eabihf
-note: install one with `brew install lld`, or set JAIC_LINKER
-```
-
-Run the command, then build again.
+The build stops with a note that says how to get it, for the package manager it finds (`brew`, `apt`, `dnf`, `pacman` or `winget`). Run the command, then build again.
 
 Two things have no package on most systems: a Linux C library for another CPU (on macOS and Windows), and compiler builtins for a chip. For those the note names a `jacket toolchain add` command:
 
+```console cwd=../examples/targets/linux/hello cache
+$ jacket build hello.jai --target aarch64-unknown-linux-gnu
+   Compiling hello (hello.jai)
+error[cli-failure]: no Linux C library for aarch64-unknown-linux-gnu
+note: run `jacket toolchain add aarch64-unknown-linux-gnu` to fetch its C library
 ```
-error: no Linux C library for armv7-unknown-linux-gnueabihf
-note: run `jacket toolchain add armv7-unknown-linux-gnueabihf`
+
+`jacket toolchain check` reports the same for any target without building, here an Arduino Uno with no AVR builtins installed:
+
+```console cwd=../examples/targets/board/blink cache
+$ jacket toolchain check Arduino_Uno
+TARGET       FROM      TRIPLE        LINKER                                   LIBRARIES  RUNNER
+Arduino_Uno  built in  avr-none-elf  /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  missing    /opt/homebrew/bin/qemu-system-avr 11.1.3
+
+Arduino_Uno: no builtins for avr-none-elf
+note: run `jacket toolchain add avr-none-elf` to build its builtins, or install the AVR GNU toolchain with `brew install osx-cross/avr/avr-gcc`
 ```
 
 ## `jacket toolchain add`
 
-```sh
-jacket toolchain add armv7-unknown-linux-gnueabihf   # a Linux sysroot
-jacket toolchain add thumbv7em-none-eabihf           # compiler builtins for Cortex-M4F
+```console cwd=../examples/targets/board/blink cache
+$ jacket toolchain add armv7-unknown-linux-gnueabihf thumbv7em-none-eabihf
+     Sysroot ~/Library/Caches/jacket/toolchains/armv7-unknown-linux-gnueabihf/sysroot (cached)
+    Builtins compiler-rt 21.1.8 (cached)
 ```
 
 - **A Linux target** gets a sysroot: a fixed set of Debian packages (the C library, its headers and the kernel headers) downloaded and unpacked into jacket's cache.
 - **A target with no OS** gets the compiler builtins, compiled from a fixed LLVM release with your installed `clang` and `llvm-ar` (`brew install llvm`, or `apt install clang llvm`). It takes a minute or two; later runs say `(cached)`.
 
-This is the only jacket command that downloads anything. Builds never do. Every download is a pinned version checked against its SHA-256.
+An `add` for something the cache already holds says `(cached)` and downloads nothing. This is the only jacket command that downloads anything. Builds never do. Every download is a pinned version checked against its SHA-256.
 
-```sh
-jacket toolchain list                 # what the cache holds
-jacket toolchain remove armv7-unknown-linux-gnueabihf
-jacket toolchain remove --all
+```console cwd=../examples/targets/board/blink cache
+$ jacket toolchain list
+~/Library/Caches/jacket/toolchains
+TARGET                         SYSROOT   BUILTINS
+armv7-unknown-linux-gnueabihf  yes       -
+thumbv7em-none-eabihf          -         compiler-rt 21.1.8
 ```
+
+`jacket toolchain remove TARGET` deletes one target's entry, and `--all` empties the cache.
 
 The cache is `jacket/toolchains` in your user cache folder (`~/Library/Caches` on macOS, `$XDG_CACHE_HOME` or `~/.cache` on Linux, `%LOCALAPPDATA%` on Windows).
 
@@ -81,8 +108,11 @@ The cache is `jacket/toolchains` in your user cache folder (`~/Library/Caches` o
 
 `jacket toolchain check` exits with a failure, and the same notes, when something a target needs is missing. `--tool` adds a program such as an emulator:
 
-```sh
-jacket toolchain check thumbv7em-none-eabihf --tool qemu-system-arm
+```console cwd=../examples/targets/board/blink cache
+$ jacket toolchain check thumbv7em-none-eabihf --tool qemu-system-arm
+TARGET                 FROM      TRIPLE                 LINKER                                   LIBRARIES                    RUNNER
+thumbv7em-none-eabihf  built in  thumbv7em-none-eabihf  /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  compiler-rt 21.1.8 (cached)  -
+qemu-system-arm: /opt/homebrew/bin/qemu-system-arm
 ```
 
 ## `jacket.toml` stays portable

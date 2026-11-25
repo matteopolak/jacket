@@ -1,0 +1,5 @@
+[project]
+entry = ["module.jai"]
+
+[test]
+jobs = 1

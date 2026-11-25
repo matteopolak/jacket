@@ -34,21 +34,18 @@ long_title :: (b: *Bench) {
 } @bench @samples(30)
 ```
 
-```sh
-jacket bench
-```
-
-```text
+```console cwd=../examples/benchmarking/slugs cache
+$ jacket bench short_title long_title
      Running short_title
-short_title             time:   [152.8 165.1 177.7 ns]
-                        R² 0.8492   median [161.5 169.9 180.2 ns]   allocs/iter 1.00   3 attempts
+short_title             time:   [124.6 128.1 131.9 ns]
+                        R² 0.9651   median [122.6 123.9 132.5 ns]   allocs/iter 1.00   3 attempts
+Found 3 outliers among 50 measurements (6.00%)
+  3 (6.00%) high mild
 
      Running long_title
-long_title              time:   [275.4 279.4 284.5 ns]
-                        thrpt:  [210.9 214.7 217.9 MB/s]
-                        R² 0.9919   median [276.8 281.6 291.6 ns]   allocs/iter 1.00
-Found 1 outliers among 30 measurements (3.33%)
-  1 (3.33%) high mild
+long_title              time:   [279.4 286.0 293.4 ns]
+                        thrpt:  [204.5 209.8 214.8 MB/s]
+                        R² 0.9827   median [277.3 285.8 298.4 ns]   allocs/iter 1.00   3 attempts
 ```
 
 A benchmark takes a `*Bench`, or nothing, and wraps the work it measures in `for b { ... }`. The runner picks how many times the body runs and `jacket bench` divides by it. `break` and `continue` work as in any `for`.
@@ -80,10 +77,15 @@ many_titles :: (b: *Bench) {
 } @bench @min_time(500)
 ```
 
-```text
-many_titles             time:   [14.10 15.05 16.04 µs]
-                        thrpt:  [6.236 6.644 7.092 M/s]
-                        R² 0.8756   median [12.22 13.22 14.87 µs]   allocs/iter 100.00   3 attempts
+```console cwd=../examples/benchmarking/slugs cache
+$ jacket bench many_titles
+     Running many_titles
+many_titles             time:   [12.22 12.61 13.03 µs]
+                        thrpt:  [7.677 7.932 8.181 M/s]
+                        R² 0.9619   median [11.76 12.06 12.41 µs]   allocs/iter 100.00   3 attempts
+Found 3 outliers among 50 measurements (6.00%)
+  1 (2.00%) high mild
+  2 (4.00%) high severe
 ```
 
 | Call or note | Effect |
@@ -101,12 +103,12 @@ Benchmarks can also sit in `tests/*.jai` next to your tests. `jacket bench` runs
 
 ## Reading the output
 
-```text
-long_title              time:   [275.4 279.4 284.5 ns]
-                        thrpt:  [210.9 214.7 217.9 MB/s]
-                        R² 0.9919   median [276.8 281.6 291.6 ns]   allocs/iter 1.00
-Found 1 outliers among 30 measurements (3.33%)
-  1 (3.33%) high mild
+```console cwd=../examples/benchmarking/slugs cache
+$ jacket bench --exact long_title
+     Running long_title
+long_title              time:   [272.7 281.6 292.1 ns]
+                        thrpt:  [205.4 213.0 220.0 MB/s]
+                        R² 0.9793   median [271.1 281.0 290.6 ns]   allocs/iter 1.00   3 attempts
 ```
 
 - `time` is the 95% confidence interval for the time of one iteration: low, best estimate, high. A narrow interval means a steady result.
@@ -123,26 +125,41 @@ Pick benchmarks by name like tests: `jacket bench long`, `jacket bench --exact l
 
 Save the numbers before you change something:
 
-```sh
-jacket bench --save-baseline main
-```
+```console cwd=../examples/benchmarking/slugs cache
+$ jacket bench --save-baseline main
+     Running short_title
+short_title             time:   [115.2 117.5 119.8 ns]
+                        R² 0.9850   median [112.5 116.8 119.9 ns]   allocs/iter 1.00   3 attempts
+Found 3 outliers among 50 measurements (6.00%)
+  3 (6.00%) high mild
 
-```text
+     Running long_title
+long_title              time:   [280.0 287.3 294.6 ns]
+                        thrpt:  [203.7 208.8 214.3 MB/s]
+                        R² 0.9866   median [269.6 281.2 295.5 ns]   allocs/iter 1.00   3 attempts
+
+     Running many_titles
+many_titles             time:   [11.84 12.12 12.42 µs]
+                        thrpt:  [8.054 8.253 8.447 M/s]
+                        R² 0.9823   median [11.37 11.52 11.94 µs]   allocs/iter 100.00   3 attempts
+Found 2 outliers among 50 measurements (4.00%)
+  2 (4.00%) high mild
+
 jacket: saved the baseline target/bench-baselines/main.json
 ```
 
-Change the code, then compare:
+Change the code, then compare. Here `slugify` was changed to copy every character into a string of its own:
 
-```sh
-jacket bench --baseline main
-```
-
-```text
-long_title              time:   [1.135 1.151 1.167 µs]
-                        thrpt:  [51.40 52.13 52.85 MB/s]
-                        R² 0.9964   median [1.124 1.133 1.150 µs]   allocs/iter 42.00
-                        change: [+202.91% +234.79% +281.44%] (p = 0.00 < 0.05)
+```console cwd=../examples/benchmarking/slower/slugs cache
+$ jacket bench --baseline main long_title
+     Running long_title
+long_title              time:   [1.465 1.507 1.549 µs]
+                        thrpt:  [38.73 39.81 40.95 MB/s]
+                        R² 0.9831   median [1.438 1.482 1.533 µs]   allocs/iter 49.00   3 attempts
+                        change: [+438.84% +460.68% +481.44%] (p = 0.00 < 0.05)
                         Performance has regressed.
+Found 2 outliers among 30 measurements (6.67%)
+  2 (6.67%) high mild
 ```
 
 The `change` line is the interval for the change against the baseline, with a p-value. The verdict is one of:
@@ -153,22 +170,34 @@ The `change` line is the interval for the change against the baseline, with a p-
 | Change within noise threshold | the change is real but smaller than the threshold |
 | No change in performance detected | p is above 0.05 |
 
-```text
-long_title              time:   [304.6 318.1 330.5 ns]
-                        change: [-25.95% -14.50% -1.99%] (p = 0.47 > 0.05)
-                        No change in performance detected.
+The verdict is only as good as the machine is quiet. Here is the same benchmark on unchanged code, run while another program kept several cores busy:
+
+```console cwd=../examples/benchmarking/unchanged/slugs cache
+$ jacket bench --baseline main long_title
+     Running long_title
+long_title              time:   [278.6 289.3 300.0 ns]
+                        thrpt:  [200.0 207.4 215.4 MB/s]
+                        R² 0.9725   median [272.8 284.5 299.6 ns]   allocs/iter 1.00   3 attempts
+                        change: [+2.72% +7.61% +12.45%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 1 outliers among 30 measurements (3.33%)
+  1 (3.33%) high mild
 ```
 
-A benchmark missing from the baseline is shown as `new`. A baseline written by another version of the format is refused; save it again.
+Close other programs before you compare, and compare runs from the same machine. A benchmark missing from the baseline is shown as `new`. A baseline written by another version of the format is refused; save it again.
 
 To fail a build on a slowdown, add a limit. The exit status is 1 when a benchmark regressed by more than that many percent:
 
-```sh
-jacket bench --baseline main --max-regression 10
-```
+```console cwd=../examples/benchmarking/slower/slugs cache
+$ jacket bench --baseline main --max-regression 10 long_title
+     Running long_title
+long_title              time:   [1.574 1.637 1.699 µs]
+                        thrpt:  [35.31 36.66 38.11 MB/s]
+                        R² 0.9731   median [1.503 1.568 1.689 µs]   allocs/iter 49.00   3 attempts
+                        change: [+480.79% +508.78% +536.77%] (p = 0.00 < 0.05)
+                        Performance has regressed.
 
-```text
-jacket: regression: long_title is +234.8% slower than the baseline (limit 10%)
+jacket: regression: long_title is +508.8% slower than the baseline (limit 10%)
 ```
 
 Commit baselines if you want CI to compare against them, or save one in the job before the change under test. Numbers from different machines don't compare; keep the baseline and the run on the same one.
@@ -185,7 +214,7 @@ The top level holds `schema`, `os`, `cpu`, `confidence_level`, `noise_threshold_
 
 | Field | Value |
 | --- | --- |
-| `name`, `file`, `line` | the benchmark |
+| `name`, `file`, `line` | the benchmark; `file` is relative to the project folder |
 | `time_ns`, `mean_ns`, `median_ns` | `{low, estimate, high}`, in nanoseconds per iteration |
 | `r_squared`, `outliers` | fit quality; counts as `high_mild`, `high_severe`, `low_mild`, `low_severe` |
 | `mb_per_s`, `items_per_s` | throughput, when set |

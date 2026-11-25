@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+The guides show real terminal output for cross builds, toolchains and benchmarks.
+
+### Fixes
+
+- `jacket bench --save-baseline` names the saved file relative to the current folder.
+- `JAIC_PROGRESS=plain` status lines are coloured when `FORCE_COLOR` is set.
+
 ## [0.40.0] - 2026-11-24
 
 Cross and bare-metal builds find their own tools, and `jacket dep` manages git dependencies as pinned submodules. The docs site has a playground, and `Extensions` has new allocators.

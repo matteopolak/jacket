@@ -33,12 +33,20 @@ main :: () {
 }
 ```
 
-```sh
-jacket build hello.jai --target wasm32-wasi -exe hello.wasm
-wasmtime hello.wasm
+Name the target and its runner in `jacket.toml`:
+
+```toml
+[target.wasi]
+triple = "wasm32-wasi"
+runner = "wasmtime {exe}"
 ```
 
-```text
+```console cwd=../examples/targets/wasm/hello cache
+$ jacket run hello.jai --target wasi
+   Compiling hello (hello.jai)
+      Linker /opt/homebrew/opt/lld/bin/wasm-ld 23.1.6
+    Finished debug [unoptimized] in 0.45s
+     Running `hello.wasm`
 Pointers are 32 bits
 ```
 
@@ -52,11 +60,21 @@ Linux targets link against the target's C library, so you need its cross compile
 sudo apt install gcc-arm-linux-gnueabihf libc6-dev-armhf-cross qemu-user
 ```
 
-Then point Jacket at that compiler for linking, build, and run under QEMU (or copy the program to a Raspberry Pi and run it there):
+On macOS and Windows there is no such package, so fetch the C library into jacket's cache instead. `clang` and `ld.lld` link it ([Toolchains](toolchains.md)):
 
-```sh
-JAIC_LINKER=arm-linux-gnueabihf-gcc jacket build hello.jai --target armv7-unknown-linux-gnueabihf
-qemu-arm -L /usr/arm-linux-gnueabihf ./hello
+```console cwd=../examples/targets/linux/hello cache
+$ jacket toolchain add armv7-unknown-linux-gnueabihf
+     Sysroot ~/Library/Caches/jacket/toolchains/armv7-unknown-linux-gnueabihf/sysroot (jacket toolchain)
+```
+
+Then build, and run the program on a Raspberry Pi or under QEMU (`qemu-arm -L /usr/arm-linux-gnueabihf ./hello` on Linux):
+
+```console cwd=../examples/targets/linux/hello cache
+$ jacket build hello.jai --target armv7-unknown-linux-gnueabihf
+   Compiling hello (hello.jai)
+      Linker /usr/bin/cc 21.0.0
+     Sysroot ~/Library/Caches/jacket/toolchains/armv7-unknown-linux-gnueabihf/sysroot (jacket toolchain)
+    Finished debug [unoptimized] in 0.19s
 ```
 
 For x86 on 64-bit x86 Linux, install `gcc-multilib`, build with `--target i686-unknown-linux-gnu`, and run the program directly.
@@ -73,8 +91,9 @@ You need:
 - QEMU (`qemu-system-arm` for the Cortex-M boards).
 - The compiler-rt builtins for the chip, which cover things like 64-bit division and `float64` math on a 32-bit core. A GNU embedded toolchain's `libgcc.a` (`arm-none-eabi-gcc`) is used when installed. Otherwise `jacket toolchain add` compiles them in a minute or two with LLVM's `clang` and `llvm-ar` (`brew install llvm`, or `apt install clang llvm`).
 
-```sh
-jacket toolchain add thumbv7em-none-eabihf
+```console cwd=../examples/targets/board/blink cache
+$ jacket toolchain add thumbv7em-none-eabihf
+    Builtins compiler-rt 21.1.8 (built in 1.7s)
 ```
 
 Then the program:
@@ -91,8 +110,15 @@ main :: () {
 reset :: () #c_call #no_context { Board.start(main); }
 ```
 
-```sh
-jacket run hello.jai --target Mps2_An386
+```console cwd=../examples/targets/board/blink cache
+$ jacket run hello.jai --target Mps2_An386
+   Compiling blink (hello.jai)
+      Linker /opt/homebrew/opt/lld/bin/ld.lld 23.1.6
+    Builtins compiler-rt 21.1.8 (cached)
+      Script hello.ld
+    Finished debug [unoptimized] in 0.18s
+     Running `hello`
+Hello, world!
 ```
 
 `jacket run` builds with the board, then starts it in QEMU. `print` goes out through the emulator's console, and when `main` returns the board exits with status 0. A failed assert exits with 1.
@@ -108,7 +134,26 @@ triple = "thumbv6m-none-eabi"
 runner = "flash {exe}"     # whatever puts the program on your board
 ```
 
-`jacket toolchain` lists every name `--target` accepts with the linker, libraries and runner it needs, and whether this machine has them.
+`jacket toolchain` lists every name `--target` accepts with the linker, libraries and runner it needs, and whether this machine has them:
+
+```console cwd=../examples/targets/board/blink cache
+$ jacket toolchain
+TARGET             FROM      TRIPLE                     LINKER                                   LIBRARIES                    RUNNER
+host               -         aarch64-apple-darwin       /usr/bin/cc 21.0.0                       -                            -
+Arduino_Uno        built in  avr-none-elf               /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  missing                      /opt/homebrew/bin/qemu-system-avr 11.1.3
+Qemu_Virt_Aarch64  built in  aarch64-none-elf           /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  missing                      /opt/homebrew/bin/qemu-system-aarch64 11.1.3
+Mps2_An386         built in  thumbv7em-none-eabihf      /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  compiler-rt 21.1.8 (cached)  /opt/homebrew/bin/qemu-system-arm 11.1.3
+Mps2_An505         built in  thumbv8m.main-none-eabihf  /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  missing                      /opt/homebrew/bin/qemu-system-arm 11.1.3
+
+Arduino_Uno: no builtins for avr-none-elf
+note: run `jacket toolchain add avr-none-elf` to build its builtins, or install the AVR GNU toolchain with `brew install osx-cross/avr/avr-gcc`
+
+Qemu_Virt_Aarch64: no builtins for aarch64-none-elf
+note: run `jacket toolchain add aarch64-none-elf` to build its builtins
+
+Mps2_An505: no builtins for thumbv8m.main-none-eabihf
+note: run `jacket toolchain add thumbv8m.main-none-eabihf` to build its builtins, or install the GNU Arm embedded toolchain with `brew install --cask gcc-arm-embedded`
+```
 
 ## Tests on the target
 

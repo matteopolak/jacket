@@ -1,0 +1,46 @@
+{
+  "blocks": [
+    [
+      {
+        "command": "jacket build hello.jai --target Mps2_An386",
+        "output": "\u001b[1;32m   Compiling\u001b[0m blink (hello.jai)\n\u001b[1;32m      Linker\u001b[0m /opt/homebrew/opt/lld/bin/ld.lld 23.1.6\n\u001b[1;32m    Builtins\u001b[0m compiler-rt 21.1.8 (cached)\n\u001b[1;32m      Script\u001b[0m hello.ld\n\u001b[1;32m    Finished\u001b[0m debug [unoptimized] in 0.19s"
+      }
+    ],
+    [
+      {
+        "command": "jacket toolchain",
+        "output": "TARGET             FROM      TRIPLE                     LINKER                                   LIBRARIES                    RUNNER\nhost               -         aarch64-apple-darwin       /usr/bin/cc 21.0.0                       -                            -\nArduino_Uno        built in  avr-none-elf               /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  missing                      /opt/homebrew/bin/qemu-system-avr 11.1.3\nQemu_Virt_Aarch64  built in  aarch64-none-elf           /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  missing                      /opt/homebrew/bin/qemu-system-aarch64 11.1.3\nMps2_An386         built in  thumbv7em-none-eabihf      /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  compiler-rt 21.1.8 (cached)  /opt/homebrew/bin/qemu-system-arm 11.1.3\nMps2_An505         built in  thumbv8m.main-none-eabihf  /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  missing                      /opt/homebrew/bin/qemu-system-arm 11.1.3\n\nArduino_Uno: no builtins for avr-none-elf\nnote: run `jacket toolchain add avr-none-elf` to build its builtins, or install the AVR GNU toolchain with `brew install osx-cross/avr/avr-gcc`\n\nQemu_Virt_Aarch64: no builtins for aarch64-none-elf\nnote: run `jacket toolchain add aarch64-none-elf` to build its builtins\n\nMps2_An505: no builtins for thumbv8m.main-none-eabihf\nnote: run `jacket toolchain add thumbv8m.main-none-eabihf` to build its builtins, or install the GNU Arm embedded toolchain with `brew install --cask gcc-arm-embedded`"
+      }
+    ],
+    [
+      {
+        "command": "jacket build hello.jai --target aarch64-unknown-linux-gnu",
+        "output": "\u001b[1;32m   Compiling\u001b[0m hello (hello.jai)\n\u001b[1;31merror[cli-failure]\u001b[0m\u001b[1m: no Linux C library for aarch64-unknown-linux-gnu\u001b[0m\n\u001b[1;36mnote\u001b[0m\u001b[1m: run `jacket toolchain add aarch64-unknown-linux-gnu` to fetch its C library\u001b[0m"
+      }
+    ],
+    [
+      {
+        "command": "jacket toolchain check Arduino_Uno",
+        "output": "TARGET       FROM      TRIPLE        LINKER                                   LIBRARIES  RUNNER\nArduino_Uno  built in  avr-none-elf  /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  missing    /opt/homebrew/bin/qemu-system-avr 11.1.3\n\nArduino_Uno: no builtins for avr-none-elf\nnote: run `jacket toolchain add avr-none-elf` to build its builtins, or install the AVR GNU toolchain with `brew install osx-cross/avr/avr-gcc`"
+      }
+    ],
+    [
+      {
+        "command": "jacket toolchain add armv7-unknown-linux-gnueabihf thumbv7em-none-eabihf",
+        "output": "     Sysroot ~/Library/Caches/jacket/toolchains/armv7-unknown-linux-gnueabihf/sysroot (cached)\n    Builtins compiler-rt 21.1.8 (cached)"
+      }
+    ],
+    [
+      {
+        "command": "jacket toolchain list",
+        "output": "~/Library/Caches/jacket/toolchains\nTARGET                         SYSROOT   BUILTINS\narmv7-unknown-linux-gnueabihf  yes       -\nthumbv7em-none-eabihf          -         compiler-rt 21.1.8"
+      }
+    ],
+    [
+      {
+        "command": "jacket toolchain check thumbv7em-none-eabihf --tool qemu-system-arm",
+        "output": "TARGET                 FROM      TRIPLE                 LINKER                                   LIBRARIES                    RUNNER\nthumbv7em-none-eabihf  built in  thumbv7em-none-eabihf  /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  compiler-rt 21.1.8 (cached)  -\nqemu-system-arm: /opt/homebrew/bin/qemu-system-arm"
+      }
+    ]
+  ]
+}
