@@ -24,11 +24,8 @@ fn lines_with(
         quiet |= flag == "-quiet" || flag == "--quiet";
         no_color |= flag == "-no_color" || flag == "-msvc_format";
     }
-    match jaic::progress::mode_with(terminal, quiet, no_color, env) {
-        jaic::progress::Mode::Off => None,
-        jaic::progress::Mode::Plain => Some(false),
-        jaic::progress::Mode::Live => Some(true),
-    }
+    let mode = jaic::progress::mode_with(terminal, quiet, no_color, env);
+    (mode != jaic::progress::Mode::Off).then(|| mode.colored())
 }
 
 /// Prints `verb` right-aligned in 12 columns, then `text`, like jaic's status lines.

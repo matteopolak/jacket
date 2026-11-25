@@ -17,14 +17,25 @@ pub enum Mode {
     Off,
     /// The `Compiling` and `Finished` lines, without colour or control codes.
     Plain,
+    /// Those lines in colour, without the status line: `Plain` with colour forced
+    /// (`FORCE_COLOR`, `CLICOLOR_FORCE`).
+    Colored,
     /// Those lines in colour, and a status line redrawn in place.
     Live,
+}
+
+impl Mode {
+    /// Whether its lines are in colour.
+    pub fn colored(self) -> bool {
+        matches!(self, Mode::Colored | Mode::Live)
+    }
 }
 
 /// Picks the mode. `JAIC_PROGRESS=off|plain|live` wins over everything but `quiet`; otherwise a
 /// terminal gets `Live`, or `Plain` when it cannot or should not take control codes (`NO_COLOR`,
 /// `-no_color`, `TERM=dumb`, `CI`, a Windows console without ANSI support), and anything else
-/// `Off`, so logs and pipes see no change.
+/// `Off`, so logs and pipes see no change. `Plain` becomes `Colored` when colour is forced and
+/// neither `NO_COLOR` nor `-no_color` turns it off.
 pub fn mode_with(
     terminal: bool,
     quiet: bool,
@@ -34,9 +45,18 @@ pub fn mode_with(
     if quiet {
         return Mode::Off;
     }
+    let forced = |key: &str| env(key).is_some_and(|v| !v.is_empty() && v != "0");
+    let colored = !no_color
+        && env("NO_COLOR").is_none()
+        && (forced("FORCE_COLOR") || forced("CLICOLOR_FORCE"));
+    let plain = if colored {
+        Mode::Colored
+    } else {
+        Mode::Plain
+    };
     match env(jacket_config::env::PROGRESS.name).as_deref() {
         Some("off") => return Mode::Off,
-        Some("plain") => return Mode::Plain,
+        Some("plain") => return plain,
         Some("live") => return Mode::Live,
         _ => {}
     }
@@ -51,7 +71,7 @@ pub fn mode_with(
         || env("TERM").is_some();
     let ci = env("CI").is_some_and(|v| !v.is_empty() && v != "0" && v != "false");
     if no_color || dumb || ci || !ansi_console || env("NO_COLOR").is_some() {
-        Mode::Plain
+        plain
     } else {
         Mode::Live
     }
@@ -333,7 +353,7 @@ pub fn start(mode: Mode, verb: &str, name: &str, shown: &str) {
     }
     write_err(&format!(
         "{}\n",
-        message_line(verb, &format!("{name} ({shown})"), mode == Mode::Live)
+        message_line(verb, &format!("{name} ({shown})"), mode.colored())
     ));
     if mode == Mode::Live {
         start_ticker();
@@ -460,20 +480,14 @@ pub fn tool(verb: &str, text: &str, always: bool) {
         return;
     }
     before_output();
-    write_err(&format!(
-        "{}\n",
-        message_line(verb, text, mode == Mode::Live)
-    ));
+    write_err(&format!("{}\n", message_line(verb, text, mode.colored())));
 }
 
 /// A line after `Finished`, such as `     Running hello`.
 pub fn announce(verb: &str, text: &str) {
     let mode = lock().mode;
     if mode != Mode::Off {
-        write_err(&format!(
-            "{}\n",
-            message_line(verb, text, mode == Mode::Live)
-        ));
+        write_err(&format!("{}\n", message_line(verb, text, mode.colored())));
     }
 }
 
@@ -483,7 +497,7 @@ pub fn abandon() {
 }
 
 fn text_color() -> bool {
-    lock().mode == Mode::Live
+    lock().mode.colored()
 }
 
 /// Stops drawing and erases the line. The time since `start`, formatted, if it was started.
@@ -649,6 +663,11 @@ mod tests {
         let live: &[(&str, &str)] = &[("JAIC_PROGRESS", "live")];
         assert_eq!(mode_with(false, false, false, env(live)), Mode::Live);
         assert_eq!(mode_with(false, true, false, env(live)), Mode::Off);
+        let colored: &[(&str, &str)] = &[("JAIC_PROGRESS", "plain"), ("FORCE_COLOR", "1")];
+        assert_eq!(mode_with(false, false, false, env(colored)), Mode::Colored);
+        assert_eq!(mode_with(false, false, true, env(colored)), Mode::Plain);
+        let ci_forced: &[(&str, &str)] = &[("TERM", "xterm"), ("CI", "1"), ("FORCE_COLOR", "1")];
+        assert_eq!(mode_with(true, false, false, env(ci_forced)), Mode::Colored);
         let off: &[(&str, &str)] = &[("TERM", "xterm"), ("JAIC_PROGRESS", "off")];
         assert_eq!(mode_with(true, false, false, env(off)), Mode::Off);
     }

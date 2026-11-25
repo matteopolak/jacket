@@ -49,7 +49,7 @@ jaic build.jai +Check - release -- arg1 arg2
 
 ## Output
 
-On a terminal `jaic` prints a `Compiling` line, a live status line (`Parsing`, `Checking`, `Running #run`, `Generating`, `Optimizing`, `Linking`) that appears after 150 ms, and a `Finished` line. When stderr is not a terminal, or with `-quiet`, nothing is printed. `NO_COLOR`, `-no_color`, `-msvc_format`, `TERM=dumb` or `CI` give plain lines. `JAIC_PROGRESS=off|plain|live` forces a mode. Diagnostics and program output erase the status line first. The code is `crates/jaic/src/progress.rs`.
+On a terminal `jaic` prints a `Compiling` line, a live status line (`Parsing`, `Checking`, `Running #run`, `Generating`, `Optimizing`, `Linking`) that appears after 150 ms, and a `Finished` line. When stderr is not a terminal, or with `-quiet`, nothing is printed. `NO_COLOR`, `-no_color`, `-msvc_format`, `TERM=dumb` or `CI` give plain lines. `JAIC_PROGRESS=off|plain|live` forces a mode. Plain lines are coloured when `FORCE_COLOR` or `CLICOLOR_FORCE` is set. Diagnostics and program output erase the status line first. The code is `crates/jaic/src/progress.rs`.
 
 `-msvc_format` prints one `path(line,col): error: message` per diagnostic for IDEs. `-timings` prints `jaic-timing: <phase> <seconds> <calls>` per phase, plus `jaic-alloc:` lines for Rust allocations.
 
