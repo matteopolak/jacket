@@ -120,7 +120,7 @@ fn migrate(args: &MigrateArgs, cwd: &Path) -> Result<ExitCode, String> {
 /// Print the diff of each file, which migrations made it, and what needs a person.
 fn show(plan: &Plan, cwd: &Path) {
     for file in &plan.files {
-        let shown = shown_path(&file.path, cwd);
+        let shown = crate::shown::path(&file.path, cwd);
         let diff = similar::TextDiff::from_lines(&*file.before, &file.after);
         print!(
             "{}",
@@ -156,7 +156,7 @@ fn location(path: &Path, offset: usize, plan: &Plan, cwd: &Path) -> String {
         None => std::fs::read_to_string(path).unwrap_or_default(),
     };
     let (line, column) = line_column(&text, offset);
-    format!("{}:{line}:{column}", shown_path(path, cwd))
+    format!("{}:{line}:{column}", crate::shown::path(path, cwd))
 }
 
 fn line_column(text: &str, offset: usize) -> (usize, usize) {
@@ -164,14 +164,6 @@ fn line_column(text: &str, offset: usize) -> (usize, usize) {
     let line = before.matches('\n').count() + 1;
     let column = before.rsplit('\n').next().map_or(0, |l| l.chars().count()) + 1;
     (line, column)
-}
-
-fn shown_path(path: &Path, cwd: &Path) -> String {
-    let cwd = jaic::canonicalize(cwd).unwrap_or_else(|_| cwd.to_path_buf());
-    path.strip_prefix(&cwd)
-        .unwrap_or(path)
-        .to_string_lossy()
-        .replace('\\', "/")
 }
 
 /// Refuse to write unless version control can give back every file `--apply` changes: each

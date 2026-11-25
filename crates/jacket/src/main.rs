@@ -13,6 +13,7 @@ mod doc;
 mod fmt;
 mod migrate;
 mod project;
+mod shown;
 mod status;
 mod target;
 mod test;

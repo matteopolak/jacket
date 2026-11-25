@@ -72,10 +72,6 @@ fn accept(pending: &Pending) -> std::io::Result<()> {
     std::fs::rename(&pending.new, &pending.stored)
 }
 
-fn shown(path: &Path, cwd: &Path) -> String {
-    path.strip_prefix(cwd).unwrap_or(path).display().to_string()
-}
-
 /// Lists the pending snapshots of `roots`; in a terminal, asks about each.
 /// Exits 0 when none are left, 1 when some are (always the case when only listing).
 pub fn run(
@@ -92,7 +88,7 @@ pub fn run(
     }
     if !interactive {
         for item in &found {
-            let _ = writeln!(out, "{}", shown(&item.new, cwd));
+            let _ = writeln!(out, "{}", crate::shown::path(&item.new, cwd));
         }
         let _ = writeln!(
             out,
@@ -113,7 +109,7 @@ pub fn run(
             out,
             "\n[{}/{total}] {}\n{}",
             n + 1,
-            shown(&item.stored, cwd),
+            crate::shown::path(&item.stored, cwd),
             describe(item)
         );
         loop {

@@ -287,7 +287,13 @@ pub fn run(run: &Run) -> ExitCode {
             .map_or(Ok(()), std::fs::create_dir_all)
             .and_then(|()| std::fs::write(&path, format!("{document:#}\n")));
         match saved {
-            Ok(()) => eprintln!("jacket: saved the baseline {}", path.display()),
+            Ok(()) => {
+                let cwd = std::env::current_dir().unwrap_or_default();
+                eprintln!(
+                    "jacket: saved the baseline {}",
+                    crate::shown::path(&path, &cwd)
+                );
+            }
             Err(error) => return super::fail(format!("cannot write {}: {error}", path.display())),
         }
     }

@@ -104,16 +104,7 @@ pub fn module_of(file: &Path, base: &Path, known: &mut BTreeMap<PathBuf, PathBuf
                 .to_path_buf()
         })
         .clone();
-    shown(&module, base)
-}
-
-fn shown(path: &Path, base: &Path) -> String {
-    let below = path.strip_prefix(base).unwrap_or(path);
-    if below.as_os_str().is_empty() {
-        ".".to_string()
-    } else {
-        below.display().to_string()
-    }
+    crate::shown::path(&module, base)
 }
 
 /// One row per file or module, by name.
@@ -122,7 +113,7 @@ pub fn rows(data: &Data, base: &Path, group: Group) -> Vec<Row> {
     let mut modules = BTreeMap::new();
     for (path, lines) in &data.lines {
         let name = match group {
-            Group::File => shown(path, base),
+            Group::File => crate::shown::path(path, base),
             Group::Module => module_of(path, base, &mut modules),
         };
         let row = by_name.entry(name.clone()).or_insert_with(|| Row {
