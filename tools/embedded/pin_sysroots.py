@@ -13,7 +13,6 @@ To move to a newer snapshot or release, change `SNAPSHOT` or `RELEASE` and rewri
 import argparse
 import lzma
 import sys
-from pathlib import Path
 
 from toolkit.download import fetch
 from toolkit.repo import ROOT

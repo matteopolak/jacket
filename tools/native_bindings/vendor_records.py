@@ -1,7 +1,6 @@
 """Shared strict LP64 C record translation and active ABI assertion generation."""
 
 from toolkit.process import run as toolkit_run
-from toolkit.hashing import sha256_bytes
 
 SCALARS = {'int':('s32',4,4), 'short':('s16',2,2),
            'unsigned int':('u32',4,4), 'long':('s64',8,8),
