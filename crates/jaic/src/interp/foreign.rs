@@ -3,8 +3,11 @@
 use super::crash;
 use super::rets::Rets;
 use super::trap::{Trap, TrapKind};
-use super::{Interp, Res, native, probe, proc_addr, sandbox};
+use super::{Interp, Res, native, posix, probe, proc_addr, sandbox};
 use crate::ir::{self, ForeignId, FuncId, Program};
+use reach::{Reach, other_posix_library, reach};
+
+mod reach;
 
 /// C functions whose calls leave nothing observable outside the interpreter's memory, so a
 /// compile-time run that made only these can be repeated (see `Interp::effects`).
@@ -70,110 +73,6 @@ const KEEPS_MEMORY_SYMBOLS: &[&str] = &[
     "exp",
 ];
 
-/// C library procedures whose arguments, results and effects mean the same in the Linux and
-/// macOS C libraries: memory, strings, numbers, process exit, descriptor reads and writes,
-/// `FILE*` streams (opaque handles, standard mode strings, `SEEK_*` 0 to 2, 64-bit `off_t`) and
-/// path calls that take only paths, `mkdir`'s permission bits or `access`'s `F_OK` family.
-/// Their failures show only through `errno`, which is each library's own and not here.
-/// Compile-time code built for one of the two may call these natively on a host with the other.
-const SAME_IN_EVERY_C_LIBRARY: &[&str] = &[
-    "fopen",
-    "fclose",
-    "fread",
-    "fwrite",
-    "fflush",
-    "fseeko",
-    "ftello",
-    "fseek",
-    "ftell",
-    "ferror",
-    "feof",
-    "realpath",
-    "getcwd",
-    "chdir",
-    "access",
-    "mkdir",
-    "rmdir",
-    "unlink",
-    "rename",
-    "link",
-    "malloc",
-    "calloc",
-    "realloc",
-    "free",
-    "posix_memalign",
-    "aligned_alloc",
-    "memcpy",
-    "memmove",
-    "memset",
-    "memcmp",
-    "memchr",
-    "strlen",
-    "strcmp",
-    "strncmp",
-    "strchr",
-    "strrchr",
-    "strstr",
-    "strcpy",
-    "strncpy",
-    "strtod",
-    "strtof",
-    "strtol",
-    "strtoll",
-    "strtoul",
-    "strtoull",
-    "atof",
-    "atoi",
-    "atol",
-    "atoll",
-    "getenv",
-    "read",
-    "write",
-    "close",
-    "isatty",
-    "exit",
-    "_exit",
-    "abort",
-    "abs",
-    "labs",
-    "sqrt",
-    "sqrtf",
-    "sin",
-    "sinf",
-    "cos",
-    "cosf",
-    "tan",
-    "tanf",
-    "atan2",
-    "atan2f",
-    "pow",
-    "powf",
-    "floor",
-    "ceil",
-    "fmod",
-    "log",
-    "exp",
-];
-
-/// The C library a foreign procedure of `program` comes from differs from the one the
-/// compiler runs on: the C library of a Linux program on a macOS host, or the reverse, or
-/// either on a Windows host. Their symbols, records (`struct stat`), flags (`O_CREAT`) and
-/// `errno` numbers differ, so only `SAME_IN_EVERY_C_LIBRARY` may be called natively. Other
-/// libraries keep their native lookup, which names a library the host lacks. Windows targets
-/// reach their system API through `windows_native` instead.
-fn foreign_c_library(program: &Program, foreign: &ir::Foreign) -> bool {
-    use crate::target::TargetOs;
-    let c_library = foreign.library.is_some_and(|library| {
-        let library = &program.libraries[library];
-        native::is_c_library(&library.name, library.system)
-    });
-    let posix = matches!(program.target_os, Some(TargetOs::Linux | TargetOs::MacOS));
-    c_library
-        && posix
-        && program.target_os != Some(crate::sema::compiler_host().0)
-        && !SAME_IN_EVERY_C_LIBRARY.contains(&foreign.symbol.as_str())
-}
-
 /// Is this a Linux `syscall(number, ...)` that never releases memory? `io_uring_enter` (426, the
 /// same on every CPU with `io_uring`) runs once per scheduler poll in `Extensions/Io`, and the
 /// completion-ring atomics after it would otherwise ask about their pages again, which means
@@ -217,6 +116,14 @@ const SPECIAL: u8 = 16;
 
 /// The call is `fork` or `vfork`.
 const FORKS: u8 = 32;
+
+/// The call is to the target's C library, of another POSIX OS than the host's, and
+/// `posix::native` answers it in compile-time code (`Reach::Answered`).
+const ANSWERED: u8 = 64;
+
+/// The call is to the target's C library, of another POSIX OS than the host's, and runs
+/// natively in compile-time code: `errno` passes through the program's own cell.
+const TRANSLATES_ERRNO: u8 = 128;
 
 /// Is `symbol` one `call_foreign` treats specially by name, before native code runs: the
 /// executable-path queries, thread and synchronisation procedures, and the calls that end or
@@ -314,11 +221,27 @@ impl Interp {
         let foreign = &program.foreigns[id.0 as usize];
         // Checked where the address is resolved, so a call through a procedure pointer (a
         // variadic `..Any` foreign procedure, say) is refused as a direct call is.
-        if self.compile_time && self.host.native_linking() && foreign_c_library(program, foreign) {
-            return self.foreign_c_library_trap(program, id);
+        let mut symbol = foreign.symbol.as_str();
+        if self.compile_time && self.host.native_linking() {
+            match reach(program, foreign) {
+                Some(Reach::Refused) => return self.foreign_c_library_trap(program, id),
+                // Its address stays the procedure's tag, so a call through it reaches
+                // `call_foreign`, which answers it.
+                #[cfg(unix)]
+                Some(Reach::Answered(_)) => {
+                    let tag = proc_addr::foreign_word(self.proc_width(), id);
+                    if self.foreign_addrs.len() <= id.0 as usize {
+                        self.foreign_addrs.resize(id.0 as usize + 1, 0);
+                    }
+                    self.foreign_addrs[id.0 as usize] = tag;
+                    return Ok(tag);
+                }
+                Some(Reach::Renamed(name)) => symbol = name,
+                Some(Reach::Native) | None => {}
+            }
         }
         let counted = (self.host.native_linking() && !foreign.is_data)
-            .then(|| crate::memory_limit::foreign_override(&foreign.symbol))
+            .then(|| crate::memory_limit::foreign_override(symbol))
             .flatten();
         let addr = if counted.is_some() {
             counted
@@ -383,7 +306,7 @@ impl Interp {
                 }
                 None => None,
             };
-            match native::lookup_checked(lib.as_ref(), &foreign.symbol) {
+            match native::lookup_checked(lib.as_ref(), symbol) {
                 Ok(address) => address,
                 Err(error) => return self.trap(error),
             }
@@ -445,6 +368,14 @@ impl Interp {
         }
         if matches!(symbol, "fork" | "vfork") {
             flags |= FORKS;
+        }
+        if other_posix_library(program).is_some() {
+            match reach(program, &program.foreigns[id.0 as usize]) {
+                #[cfg(unix)]
+                Some(Reach::Answered(_)) => flags |= ANSWERED,
+                Some(Reach::Native | Reach::Renamed(_)) => flags |= TRANSLATES_ERRNO,
+                _ => {}
+            }
         }
         if self.foreign_flags.len() <= id.0 as usize {
             self.foreign_flags.resize(id.0 as usize + 1, 0);
@@ -521,6 +452,22 @@ impl Interp {
         {
             return Ok(Rets::from(vec![result]));
         }
+        // Compile-time code built for another POSIX OS: what its C library does differently
+        // is answered in its ABI, and `errno` passes through its own cell.
+        #[cfg(unix)]
+        let translated = match other_posix_library(program) {
+            Some(libraries)
+                if effects & (ANSWERED | TRANSLATES_ERRNO) != 0
+                    && self.compile_time
+                    && self.host.native_linking() =>
+            {
+                if effects & ANSWERED != 0 {
+                    return self.answer_other_posix(program, id, libraries, args);
+                }
+                Some(libraries)
+            }
+            _ => None,
+        };
         let addr = self.foreign_addr(program, id)?;
         if matches!(
             proc_addr::proc_of(self.proc_width(), addr),
@@ -565,6 +512,10 @@ impl Interp {
         let forks = effects & FORKS != 0;
         let plan = self.foreign_plan(program, id, addr, sig, forks);
         let scheduling = plan.scheduling;
+        #[cfg(unix)]
+        if let Some(libraries) = translated {
+            self.hand_errno_to_host(libraries);
+        }
         #[cfg(target_os = "macos")]
         let result = if forks {
             native::main_thread::direct(|| {
@@ -577,7 +528,7 @@ impl Interp {
                     scheduling,
                     Some(&plan.native),
                 )
-            })?
+            })
         } else {
             self.call_native_planned(
                 program,
@@ -587,7 +538,7 @@ impl Interp {
                 Some(symbol),
                 scheduling,
                 Some(&plan.native),
-            )?
+            )
         };
         #[cfg(not(target_os = "macos"))]
         let result = self.call_native_planned(
@@ -598,7 +549,12 @@ impl Interp {
             Some(symbol),
             scheduling,
             Some(&plan.native),
-        )?;
+        );
+        #[cfg(unix)]
+        if let Some(libraries) = translated {
+            self.take_errno_from_host(libraries);
+        }
+        let result = result?;
         if effects & FORKS != 0 && symbol == "fork" && result.first() == Some(&0) {
             self.forked_child = true;
             #[cfg(target_os = "macos")]
@@ -608,7 +564,7 @@ impl Interp {
     }
 
     /// Compile-time code called a procedure of the target's C library, which the host's does
-    /// not implement the same way (`foreign_c_library`).
+    /// not implement the same way (`reach`).
     #[cold]
     fn foreign_c_library_trap(&mut self, program: &Program, id: ForeignId) -> Res<u64> {
         let name = |os| match os {
@@ -630,6 +586,52 @@ impl Interp {
         let mut trap = self.trap::<()>(message).unwrap_err();
         trap.kind = Some(TrapKind::Unavailable);
         Err(trap)
+    }
+
+    /// Answer compile-time code's call of `id`, a procedure of its target's C library that
+    /// `posix::native` answers, or refuse it when it has no answer for these arguments.
+    #[cfg(unix)]
+    #[cold]
+    fn answer_other_posix(
+        &mut self,
+        program: &Program,
+        id: ForeignId,
+        libraries: posix::Libraries,
+        args: &[u64],
+    ) -> Res<Rets> {
+        let symbol = program.foreigns[id.0 as usize].symbol.as_str();
+        let answer = posix::native::PosixFn::from_name(symbol).and_then(|fun| {
+            let window = self.window.clone();
+            sandbox::guest::with_memory(self.addresses, self.layout, || {
+                self.posix.foreign(libraries, window.as_ref(), fun, args)
+            })
+        });
+        match answer {
+            Some(value) => Ok(Rets::from(vec![value])),
+            None => self
+                .foreign_c_library_trap(program, id)
+                .map(|_| Rets::from(vec![])),
+        }
+    }
+
+    /// The next native call starts with the program's `errno`, in the host's numbers.
+    #[cfg(unix)]
+    fn hand_errno_to_host(&mut self, libraries: posix::Libraries) {
+        let window = self.window.clone();
+        let code = sandbox::guest::with_memory(self.addresses, self.layout, || {
+            self.posix.host_errno(libraries, window.as_ref())
+        });
+        super::last_error::translate_next(code);
+    }
+
+    /// The native call is over: the program reads the `errno` it left as its own.
+    #[cfg(unix)]
+    fn take_errno_from_host(&mut self, libraries: posix::Libraries) {
+        if let Some(code) = super::last_error::take_translated() {
+            sandbox::guest::with_memory(self.addresses, self.layout, || {
+                self.posix.set_from_host_errno(libraries, code);
+            });
+        }
     }
 
     /// The call plan of foreign procedure `id` (resolved to `addr`), made on its first call.

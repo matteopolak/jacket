@@ -61,9 +61,9 @@ impl SandboxHost {
             }
             LibcFn::Open | LibcFn::Open64 => {
                 let path = self.path(arg(0));
-                let result = self
-                    .open_file(path, arg(1) as u32 as u64)
-                    .map(|fd| fd as u64);
+                // Flags the sandbox has no use for (`O_CLOEXEC`, `O_NONBLOCK`) change nothing.
+                let (open, _) = self.abi().decode_open(arg(1) as u32 as u64);
+                let result = self.open_file(path, open).map(|fd| fd as u64);
                 self.libc_result(result)
             }
             LibcFn::Close => {

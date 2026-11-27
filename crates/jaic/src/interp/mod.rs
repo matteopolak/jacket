@@ -39,6 +39,7 @@ pub mod line_cover;
 mod memory;
 mod native;
 pub mod note_watch;
+mod posix;
 mod probe;
 mod proc_addr;
 pub mod profile;
@@ -173,6 +174,9 @@ pub struct Interp {
     libraries_loaded: usize,
     libraries: HashMap<usize, Option<native::Library>>,
     windows: windows_native::NativeWindows,
+    /// What compile-time calls to the C library of another POSIX OS than the host's keep.
+    #[cfg(unix)]
+    posix: posix::native::NativePosix,
     /// `#compiler` procedures handled by the compiler, indexed by `FuncId` (checked on every call).
     pub hooks: Vec<Option<Hook>>,
     pub(crate) public_bindings: Vec<crate::build::public_api::Binding>,
@@ -414,6 +418,8 @@ impl Interp {
             foreign_addrs: Vec::new(),
             libraries: HashMap::default(),
             windows: windows_native::NativeWindows::default(),
+            #[cfg(unix)]
+            posix: posix::native::NativePosix::default(),
             hooks: Vec::new(),
             public_bindings: Vec::new(),
             public_api_state: crate::build::public_api::State::default(),

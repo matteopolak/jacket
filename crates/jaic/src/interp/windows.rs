@@ -5,9 +5,9 @@
 )]
 use super::errno::{EBADF, EEXIST, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM};
 use super::globals::ZeroedBlock;
+use super::posix::Open;
 use super::sandbox::guest::{fill, read_bytes, read_u8, write_u32, write_u64, write_units};
 use super::sandbox::symbols::WinFn;
-use super::sandbox::{O_CREAT, O_EXCL, O_RDWR, O_TRUNC, O_WRONLY};
 use super::sandbox::{absolute, join};
 use super::windows_memory::VirtualMemory;
 use crate::fxhash::HashMap;
@@ -41,7 +41,7 @@ pub(super) trait WindowsBackend {
     fn remove_dir(&mut self, path: &str) -> Result<(), u64>;
     fn delete_file(&mut self, path: &str) -> Result<(), u64>;
     fn rename_file(&mut self, from: &str, to: &str) -> Result<(), u64>;
-    fn open_file(&mut self, path: String, flags: u64) -> Result<i64, u64>;
+    fn open_file(&mut self, path: String, open: Open) -> Result<i64, u64>;
     fn has_fd(&self, fd: i64) -> bool;
     fn close_fd(&mut self, fd: i64);
     fn read_fd(&mut self, fd: i64, out: u64, count: usize) -> Option<usize>;
@@ -442,19 +442,22 @@ impl WindowsCalls {
             WinFn::CreateFileW => {
                 let path = self.wide_path(backend, arg(0));
                 let access = arg(1) & (GENERIC_READ | GENERIC_WRITE);
-                let mut flags = match access {
-                    GENERIC_WRITE => O_WRONLY,
-                    a if a == GENERIC_READ | GENERIC_WRITE => O_RDWR,
-                    _ => 0,
+                let (create, exclusive, truncate) = match arg(4) {
+                    1 => (true, true, false),   // CREATE_NEW
+                    2 => (true, false, true),   // CREATE_ALWAYS
+                    4 => (true, false, false),  // OPEN_ALWAYS
+                    5 => (false, false, true),  // TRUNCATE_EXISTING
+                    _ => (false, false, false), // OPEN_EXISTING
                 };
-                flags |= match arg(4) {
-                    1 => O_CREAT | O_EXCL,  // CREATE_NEW
-                    2 => O_CREAT | O_TRUNC, // CREATE_ALWAYS
-                    4 => O_CREAT,           // OPEN_ALWAYS
-                    5 => O_TRUNC,           // TRUNCATE_EXISTING
-                    _ => 0,                 // OPEN_EXISTING
+                let open = Open {
+                    read: access != GENERIC_WRITE,
+                    write: access & GENERIC_WRITE != 0,
+                    create,
+                    exclusive,
+                    truncate,
+                    ..Open::default()
                 };
-                match backend.open_file(path, flags) {
+                match backend.open_file(path, open) {
                     Ok(fd) => fd as u64 + HANDLE_BASE,
                     Err(errno) => {
                         self.last_error = windows_error(errno);

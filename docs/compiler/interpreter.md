@@ -51,9 +51,17 @@ To add a call: add a member to the API's enum in `sandbox/symbols.rs` (one place
 Compile-time code that stays on the target compiler was built against the target's system API, and native calls have to match it:
 
 - **Windows target on another host**: Win32 file, time and memory calls are answered over real host files (`windows_native.rs`, sharing `windows.rs` with the sandbox).
-- **Linux target on a macOS host, macOS target on a Linux host, either on Windows**: the C libraries differ in symbols (`realpath$DARWIN_EXTSN`), records (`struct stat`), flags (`O_CREAT` is `0x40` on Linux and `0x200` on macOS), `errno` numbers and system call numbers. `foreign_addr` refuses to resolve a procedure of the C library (`c`, `libc`, `m`, `pthread`, `dl`) for such a target (`foreign_c_library` in `foreign.rs`), with an `unavailable` error naming the call. Only procedures in `SAME_IN_EVERY_C_LIBRARY` (allocation, memory and string functions, number parsing, math, `read`/`write`/`close`, `FILE*` streams, path calls such as `mkdir` and `rename`, `getenv`, exit) resolve natively; `stat`, `opendir`, `open`, `syscall` and the rest are refused. Other libraries (libclang, a framework, a program's own `#library`) keep their native lookup.
+- **A target whose OS is not the host's**: the C libraries (`c`, `libc`, `m`, `pthread`, `dl`) differ in symbols (`open64`, `stat$INODE64`), records (`struct stat`, `struct dirent`), flags (`O_CREAT` is `0x40` on Linux and `0x200` on macOS), `errno` numbers and system call numbers. `reach` in `foreign.rs` decides each procedure once:
+  - `SAME_IN_EVERY_C_LIBRARY` (memory, strings, numbers every library sizes alike, `getenv`, exit) runs natively everywhere, the Windows C runtime included.
+  - Between Linux and macOS, `SAME_IN_POSIX_C_LIBRARIES` (`long` numbers, descriptor reads and writes, `FILE*` streams, path calls such as `mkdir` and `rename`) runs natively too, and `POSIX_RENAMED` maps a name only one library has (`fopen64`, `realpath$DARWIN_EXTSN`) to the other's name for the same procedure.
+  - Between Linux and macOS, `posix/native.rs` answers in the target's ABI over host files: `errno` (a cell of the program's own, in its numbers), `open`/`openat` flags, the `stat` family (Darwin's `$INODE64` names, glibc's `__stat64_time64`, the stat system calls), `opendir`/`readdir`/`closedir` and `strerror`. Around every native call of the target's C library the program's `errno` is handed to the host's and taken back (`last_error::translate_next`).
+  - Everything else (`uname`, `mmap`, `fcntl`, a Windows C runtime `fopen`) is refused with an `unavailable` error naming the call.
 
-To make more calls work there, answer them in the target's ABI over host files, as `windows_native.rs` does for Win32; never rename a symbol to the host's, since the records and constants behind it differ.
+  Other libraries (libclang, a framework, a program's own `#library`) keep their native lookup.
+
+The per-OS numbers and records live in `interp/posix.rs` and `interp/posix/records.rs`, shared with the sandbox's libc, which answers macOS programs in Darwin's flags and error numbers the same way. Values pass between the two ABIs as neutral ones: an `Open` for open flags, Linux numbers for errors. `posix/tests.rs` compiles the stdlib's generated POSIX declarations for every target and asserts each table value, so a table that drifts from the declarations fails there.
+
+To answer another call: add it to `PosixFn` in `posix/native.rs`, and the constants or record it needs to `PosixAbi` or `records.rs` with an assertion in `posix/tests.rs`. Only a procedure whose arguments, results and effects mean the same in both libraries belongs in a `SAME_IN_*` list or `POSIX_RENAMED`.
 
 ### Native foreign calls
 

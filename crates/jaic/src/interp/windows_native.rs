@@ -1,8 +1,8 @@
 //! Real host filesystem backing for Windows compile-time calls on another OS.
 use super::errno::{EEXIST, EINVAL, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM};
+use super::posix::Open;
 use super::sandbox::guest::write_bytes;
 use super::sandbox::symbols::WinFn;
-use super::sandbox::{O_CREAT, O_EXCL, O_RDWR, O_TRUNC, O_WRONLY};
 use super::windows::{FileDetails, WindowsBackend, WindowsCalls};
 use crate::fxhash::HashMap;
 use std::{
@@ -186,14 +186,13 @@ impl WindowsBackend for NativeFiles {
         fs::rename(from, to).map_err(errno)
     }
 
-    fn open_file(&mut self, path: String, flags: u64) -> Result<i64, u64> {
-        let mode = flags & 3;
+    fn open_file(&mut self, path: String, open: Open) -> Result<i64, u64> {
         let file = OpenOptions::new()
-            .read(mode != O_WRONLY)
-            .write(mode == O_WRONLY || mode == O_RDWR)
-            .create(flags & O_CREAT != 0)
-            .create_new(flags & O_EXCL != 0)
-            .truncate(flags & O_TRUNC != 0)
+            .read(open.read)
+            .write(open.write)
+            .create(open.create)
+            .create_new(open.create && open.exclusive)
+            .truncate(open.truncate)
             .open(&path)
             .map_err(errno)?;
         self.next_fd = self.next_fd.max(2) + 1;

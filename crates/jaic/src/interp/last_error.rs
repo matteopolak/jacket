@@ -29,11 +29,36 @@ thread_local! {
     static PROGRAM: std::cell::Cell<Option<u32>> = const { std::cell::Cell::new(None) };
 }
 
+// A program built for another POSIX C library keeps its `errno` in a cell of its own, in its
+// own numbers (`posix::native`). While one of its native calls runs, this holds that value in
+// the host's numbers: handed to the call, then what the call left.
+#[cfg(unix)]
+thread_local! {
+    static TRANSLATED: std::cell::Cell<Option<u32>> = const { std::cell::Cell::new(None) };
+}
+
+/// The next native call on this thread starts with `errno` set to the host's error `code`, and
+/// what it leaves is kept for `take_translated`.
+#[cfg(unix)]
+pub(super) fn translate_next(code: u32) {
+    TRANSLATED.set(Some(code));
+}
+
+/// The `errno` the native call after `translate_next` left, in the host's numbers.
+#[cfg(unix)]
+pub(super) fn take_translated() -> Option<u32> {
+    TRANSLATED.take()
+}
+
 /// Records the value a native call of the program just left. Call it right after the call returns.
 #[cfg(not(target_arch = "wasm32"))]
 pub(super) fn save_program() {
     #[cfg(windows)]
     PROGRAM.with(|program| program.set(Some(get())));
+    #[cfg(unix)]
+    if TRANSLATED.get().is_some() {
+        TRANSLATED.set(Some(get()));
+    }
 }
 
 /// Puts back the value the program's last native call left, hiding the interpreter's own system
@@ -43,6 +68,10 @@ pub(super) fn save_program() {
 pub(super) fn restore_program() {
     #[cfg(windows)]
     if let Some(code) = PROGRAM.with(std::cell::Cell::get) {
+        set(code);
+    }
+    #[cfg(unix)]
+    if let Some(code) = TRANSLATED.get() {
         set(code);
     }
 }

@@ -1,6 +1,7 @@
 //! In-memory backing for the shared Windows call layer.
 use super::symbols::WinFn;
 use super::{BASE_MTIME, EEXIST, ENOENT, Host, SandboxHost};
+use crate::interp::posix::Open;
 use crate::interp::windows::{FileDetails, WindowsBackend};
 
 impl SandboxHost {
@@ -140,8 +141,8 @@ impl WindowsBackend for SandboxHost {
         self.rename_file(from, to)
     }
 
-    fn open_file(&mut self, path: String, flags: u64) -> Result<i64, u64> {
-        self.open_file(path, flags)
+    fn open_file(&mut self, path: String, open: Open) -> Result<i64, u64> {
+        self.open_file(path, open)
     }
 
     fn has_fd(&self, fd: i64) -> bool {

@@ -698,7 +698,7 @@ impl Compiler {
             ns: Namespaces::default(),
             ty: TypeState::new(layout),
             src: SourceState::new(fs),
-            out: Output::new(cross_target, options.os),
+            out: Output::new(cross_target, options.os, options.cpu),
             meta: MetaState::default(),
             epochs: Epochs::default(),
             diag: Diagnostics::default(),

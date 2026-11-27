@@ -113,6 +113,9 @@ pub struct Program {
     /// compile-time evaluation backs Windows API calls with host files on other OSes, and
     /// refuses C library calls whose ABI differs between the target and the host.
     pub target_os: Option<crate::target::TargetOs>,
+    /// The CPU it is built for, whose C library records and system call numbers compile-time
+    /// code of another OS than the host's is answered with (`None` outside a compiler).
+    pub target_cpu: Option<crate::target::TargetCpu>,
     pub funcs: Vec<Option<Func>>,
     pub func_names: Vec<String>,
     /// Each function's signature as soon as it is reserved for a procedure, before its body

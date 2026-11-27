@@ -31,7 +31,10 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - A created workspace with no `main` fails with a clear error instead of a linker's `_main` undefined.
 - `reader_create_channel` on Windows logs the call that failed, as it does on Unix.
 - A cross build reports an `#insert #run` error once, from the host, instead of rerunning it for the target.
-- Compile-time code for Linux on macOS, or the reverse, fails clearly instead of calling the wrong C library.
+- Compile-time code for Linux on macOS, or the reverse, gets `stat`, `open`, `readdir` and `errno` in the target's ABI.
+- Compile-time code for Linux on macOS, or the reverse, fails clearly on other calls the two C libraries make differently.
+- Compile-time code for Windows on Linux or macOS refuses C runtime calls that differ from the host's, such as `fopen`.
+- The sandbox gives macOS programs Darwin's `open` flags and error numbers.
 - `jailint` treats a freed field as usable again only when the call overwrites it on every path.
 - `skip_on(.CHECK)` skips a test under `jacket test --check-only`, for a `#run` that builds and runs a program.
 - `union_read` no longer counts `v.kind == .X` as a check for a member other than the one `X` names.

@@ -1,8 +1,8 @@
 //! The working directory and directory streams.
 
 use super::{
-    DirStream, EBADF, EEXIST, ENOENT, ENOTDIR, ENOTEMPTY, LibcFn, SandboxHost, fill, write_bytes,
-    write_u8, write_u16, write_u64,
+    DirStream, EBADF, EEXIST, ENOENT, ENOTDIR, ENOTEMPTY, LibcFn, SandboxHost, records,
+    write_bytes, write_u8,
 };
 
 impl SandboxHost {
@@ -71,15 +71,12 @@ impl SandboxHost {
                     let mut entries = vec![(".".to_string(), true), ("..".to_string(), true)];
                     entries.extend(self.fs.list(&path));
                     let handle = self.alloc(16);
-                    let entry = self.alloc(if self.darwin_files {
-                        1048
-                    } else {
-                        280
-                    });
+                    let abi = self.abi();
+                    let entry = self.alloc(records::dirent_size(abi));
                     self.dirs.insert(
                         handle,
                         DirStream {
-                            darwin: self.darwin_files,
+                            abi,
                             entries,
                             next: 0,
                             entry,
@@ -100,28 +97,18 @@ impl SandboxHost {
                     let (name, dir) = stream.entries[stream.next].clone();
                     stream.next += 1;
                     let entry = stream.entry;
-                    let (size, kind_at, name_at, capacity) = if stream.darwin {
-                        (1048, 20, 21, 1023)
+                    let kind = if dir {
+                        records::DT_DIR
                     } else {
-                        (280, 18, 19, 255)
+                        records::DT_REG
                     };
-                    fill(entry, 0, size);
-                    write_u64(entry, stream.next as u64); // d_ino
-                    write_u64(entry + 8, stream.next as u64); // d_off / d_seekoff
-                    write_u16(entry + 16, size as u16);
-                    let name = &name.as_bytes()[..name.len().min(capacity)];
-                    if stream.darwin {
-                        write_u16(entry + 18, name.len() as u16);
-                    }
-                    write_u8(
-                        entry + kind_at,
-                        if dir {
-                            4
-                        } else {
-                            8
-                        },
-                    );
-                    write_bytes(entry + name_at, name);
+                    let record = records::DirEntry {
+                        inode: stream.next as u64,
+                        next: stream.next as u64,
+                        kind,
+                        name: name.as_bytes(),
+                    };
+                    records::fill_dirent(stream.abi, entry, &record);
                     entry
                 }
                 _ => 0,

@@ -24,7 +24,6 @@ mod memory;
 mod numeric;
 mod objc;
 mod process;
-mod records;
 mod sockets;
 mod stdin;
 mod streams;
@@ -37,19 +36,14 @@ mod windows;
 
 use guest::{
     copy, fill, read_bytes, read_i64, read_u8, read_u64, write_bytes, write_i32, write_u8,
-    write_u16, write_u32, write_u64,
+    write_u32, write_u64,
 };
 use symbols::{LibcFn, SandboxFn};
 
 use super::errno::{EBADF, EEXIST, EINVAL, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM};
 
-const O_ACCMODE: u64 = 3;
-pub(super) const O_WRONLY: u64 = 1;
-pub(super) const O_RDWR: u64 = 2;
-pub(super) const O_CREAT: u64 = 0o100;
-pub(super) const O_EXCL: u64 = 0o200;
-pub(super) const O_TRUNC: u64 = 0o1000;
-const O_APPEND: u64 = 0o2000;
+use super::posix::{Open, PosixAbi, StatSyscall, records};
+
 const S_IFDIR: u32 = 0o040_000;
 const S_IFREG: u32 = 0o100_000;
 
@@ -318,7 +312,7 @@ struct OpenFile {
 }
 
 struct DirStream {
-    darwin: bool,
+    abi: PosixAbi,
     entries: Vec<(String, bool)>,
     next: usize,
     /// Host address of the `dirent` returned by `readdir`.
@@ -474,11 +468,17 @@ impl SandboxHost {
         addr
     }
 
+    /// The C library ABI the program is answered in.
+    fn abi(&self) -> PosixAbi {
+        PosixAbi::new(self.darwin_files, self.cpu)
+    }
+
+    /// Set `errno` to the error Linux numbers `code`, in the program's numbering; returns -1.
     fn set_errno(&mut self, code: u64) -> u64 {
         if self.errno_cell == 0 {
             self.errno_cell = self.alloc(8);
         }
-        write_u32(self.errno_cell, code as u32);
+        write_u32(self.errno_cell, self.abi().errno(code) as u32);
         u64::MAX
     }
 
@@ -493,23 +493,22 @@ impl SandboxHost {
         )
     }
 
-    fn open_file(&mut self, path: String, flags: u64) -> Result<i64, u64> {
-        let mode = flags & O_ACCMODE;
-        let (readable, writable) = (mode != O_WRONLY, mode == O_WRONLY || mode == O_RDWR);
+    fn open_file(&mut self, path: String, open: Open) -> Result<i64, u64> {
+        let (readable, writable) = (open.read, open.write);
         if self.fs.is_dir(&path) {
             if writable {
                 return Err(EISDIR);
             }
         } else if self.fs.exists_file(&path) {
-            if flags & O_CREAT != 0 && flags & O_EXCL != 0 {
+            if open.create && open.exclusive {
                 return Err(EEXIST);
             }
             self.fs.load(&path);
-            if flags & O_TRUNC != 0 && writable {
+            if open.truncate && writable {
                 self.fs.files.insert(path.clone(), Vec::new());
                 self.fs.changed(&path);
             }
-        } else if flags & O_CREAT != 0 {
+        } else if open.create {
             if !self.parent_exists(&path) {
                 return Err(ENOENT);
             }
@@ -531,7 +530,7 @@ impl SandboxHost {
                 pos: 0,
                 readable,
                 writable,
-                append: flags & O_APPEND != 0,
+                append: open.append,
                 eof: false,
             },
         );
@@ -626,19 +625,21 @@ impl SandboxHost {
         } else {
             return Err(ENOENT);
         };
-        let os = if self.darwin_files {
-            crate::target::TargetOs::MacOS
-        } else {
-            crate::target::TargetOs::Linux
-        };
+        let mtime = self.fs.mtimes.get(path).copied().unwrap_or(BASE_MTIME) as i64;
         let file = records::FileStat {
+            dev: 1,
             inode,
             mode,
             links,
+            uid: 0,
+            gid: 0,
+            rdev: 0,
             size,
-            mtime: self.fs.mtimes.get(path).copied().unwrap_or(BASE_MTIME),
+            blksize: 4096,
+            blocks: size.div_ceil(512),
+            times: [(mtime, 0); 4],
         };
-        records::fill_stat(os, self.cpu, out, &file);
+        records::fill_stat(self.abi(), out, &file);
         Ok(())
     }
 
@@ -650,18 +651,30 @@ impl SandboxHost {
     }
 }
 
-/// The stat call a Linux x86-64 program's `syscall(number, ...)` makes, if it is one; the
-/// numbers are the target's, so `x64_linux` says whether the program is one.
-fn stat_syscall(x64_linux: bool, symbol: &str, args: &[u64]) -> Option<LibcFn> {
-    if symbol != "syscall" || !x64_linux {
+/// The stat call a Linux program's `syscall(number, ...)` makes, if it is one, with the
+/// arguments of that call. `fstatat` is answered for the working directory only.
+fn stat_syscall<'a>(abi: PosixAbi, symbol: &str, args: &'a [u64]) -> Option<(LibcFn, &'a [u64])> {
+    if symbol != "syscall" {
         return None;
     }
-    match word_or_zero(args, 0) {
-        4 => Some(LibcFn::Stat),
-        5 => Some(LibcFn::Fstat),
-        6 => Some(LibcFn::Lstat),
-        _ => None,
-    }
+    let rest = args.get(1..).unwrap_or_default();
+    Some(match abi.stat_syscall(word_or_zero(args, 0))? {
+        StatSyscall::Stat => (LibcFn::Stat, rest),
+        StatSyscall::Lstat => (LibcFn::Lstat, rest),
+        StatSyscall::Fstat => (LibcFn::Fstat, rest),
+        StatSyscall::Fstatat => {
+            if word_or_zero(rest, 0) as i32 as i64 != abi.at_working_directory() {
+                return None;
+            }
+            let no_follow = word_or_zero(rest, 3) & abi.at_no_follow() != 0;
+            let call = if no_follow {
+                LibcFn::Lstat
+            } else {
+                LibcFn::Stat
+            };
+            (call, rest.get(1..).unwrap_or_default())
+        }
+    })
 }
 
 fn cstr(ptr: u64) -> String {
@@ -711,11 +724,9 @@ impl Host for SandboxHost {
         args: &[u64],
         sig: &ir::Sig,
     ) -> Option<Result<Vec<u64>, String>> {
-        // Linux x86-64 reaches the stat family through syscall(2) (stdlib/POSIX/wrappers.jai).
-        let x64_linux =
-            !self.darwin_files && matches!(self.cpu, None | Some(crate::target::TargetCpu::X64));
-        let (fun, args) = match stat_syscall(x64_linux, symbol, args) {
-            Some(fun) => (fun, args.get(1..).unwrap_or_default()),
+        // Linux reaches the stat family through syscall(2) (stdlib/POSIX/wrappers.jai).
+        let (fun, args) = match stat_syscall(self.abi(), symbol, args) {
+            Some(call) => call,
             None => match SandboxFn::lookup(symbol)? {
                 SandboxFn::Windows(fun) => {
                     return self.windows_foreign(fun, args, sig).map(|r| Ok(vec![r]));

@@ -38,7 +38,7 @@ target Compiler                          host twin Compiler (host OS/CPU)
 
 - Code that inspects the target program through the interpreter (`Type_Info` of target types, `Code` values, `#modify`, `#insert` of `Code`) is not moved; it runs on the target compiler.
 - `#assert`, `#if` and constant folding without `#run` run on the target, so `size_of` and `OS` there describe the target.
-- A run that stays on the target and calls the target's C library on a host with another one (Linux and macOS) fails with `unavailable`, except for calls every C library makes the same way ([interpreter](interpreter.md#compile-time-code-for-another-target)).
+- A run that stays on the target and calls the target's C library on a host with another one: between Linux and macOS its file, directory and `errno` calls are answered in the target's ABI. Calls with no answer, and Windows C runtime calls that differ from the host's library, fail with `unavailable` ([interpreter](interpreter.md#compile-time-code-for-another-target)).
 - `Code`-valued results, procedures without a file-level declaration, and results with differing layouts are errors.
 
 ## How to change it

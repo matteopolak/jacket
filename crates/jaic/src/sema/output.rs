@@ -47,10 +47,15 @@ pub struct Output {
 
 impl Output {
     /// An empty program built for another platform than this compiler's when `cross_target`.
-    pub(in crate::sema) fn new(cross_target: bool, os: crate::target::TargetOs) -> Self {
+    pub(in crate::sema) fn new(
+        cross_target: bool,
+        os: crate::target::TargetOs,
+        cpu: crate::target::TargetCpu,
+    ) -> Self {
         let mut out = Self::default();
         out.program.cross_target = cross_target;
         out.program.target_os = Some(os);
+        out.program.target_cpu = Some(cpu);
         out
     }
 

@@ -1,9 +1,6 @@
 //! `FILE*` streams.
 
-use super::{
-    EBADF, EINVAL, LibcFn, O_APPEND, O_CREAT, O_RDWR, O_TRUNC, O_WRONLY, SandboxHost, cstr,
-    read_bytes,
-};
+use super::{EBADF, EINVAL, LibcFn, Open, SandboxHost, cstr, read_bytes};
 
 impl SandboxHost {
     /// `FILE*` streams over the descriptors.
@@ -13,34 +10,16 @@ impl SandboxHost {
                 let path = self.path(arg(0));
                 let mode = cstr(arg(1));
                 let plus = mode.contains('+');
-                let flags = match mode.chars().next() {
-                    Some('w') => {
-                        O_CREAT
-                            | O_TRUNC
-                            | if plus {
-                                O_RDWR
-                            } else {
-                                O_WRONLY
-                            }
-                    }
-                    Some('a') => {
-                        O_CREAT
-                            | O_APPEND
-                            | if plus {
-                                O_RDWR
-                            } else {
-                                O_WRONLY
-                            }
-                    }
-                    _ => {
-                        if plus {
-                            O_RDWR
-                        } else {
-                            0
-                        }
-                    }
+                let first = mode.chars().next();
+                let open = Open {
+                    read: plus || !matches!(first, Some('w' | 'a')),
+                    write: plus || matches!(first, Some('w' | 'a')),
+                    create: matches!(first, Some('w' | 'a')),
+                    truncate: first == Some('w'),
+                    append: first == Some('a'),
+                    ..Open::default()
                 };
-                match self.open_file(path, flags) {
+                match self.open_file(path, open) {
                     Ok(fd) => {
                         let handle = self.alloc(256);
                         self.streams.insert(handle, fd);
