@@ -25,7 +25,7 @@ wasi_accept :: (fd: s32, address: *void, address_bytes: *u32) -> s32 #c_call {
 // Linux `MSG_PEEK` and `MSG_WAITALL` become WASI's `recv_peek` and `recv_waitall`; other flags
 // are not available.
 #program_export "recv"
-wasi_recv :: (fd: s32, buffer: *void, count: u64, flags: s32) -> s64 #c_call {
+wasi_recv :: (fd: s32, buffer: *void, count: C_Size, flags: s32) -> C_Signed_Size #c_call {
     if (flags & ~0x102) != 0 {
         error_number = EINVAL;
         return -1;
@@ -42,11 +42,11 @@ wasi_recv :: (fd: s32, buffer: *void, count: u64, flags: s32) -> s64 #c_call {
 
     if code != 0 return failed(code);
 
-    return received;
+    return cast,no_check(C_Signed_Size) received;
 }
 
 #program_export "send"
-wasi_send :: (fd: s32, buffer: *void, count: u64, flags: s32) -> s64 #c_call {
+wasi_send :: (fd: s32, buffer: *void, count: C_Size, flags: s32) -> C_Signed_Size #c_call {
     if flags != 0 {
         error_number = EINVAL;
         return -1;
@@ -58,7 +58,7 @@ wasi_send :: (fd: s32, buffer: *void, count: u64, flags: s32) -> s64 #c_call {
 
     if code != 0 return failed(code);
 
-    return sent;
+    return cast,no_check(C_Signed_Size) sent;
 }
 
 // C's `SHUT_RD`, `SHUT_WR` and `SHUT_RDWR` (0, 1, 2) as WASI's bit set (1 for reading, 2 for writing).

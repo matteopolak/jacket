@@ -12,6 +12,7 @@ use super::{HashMap, Host, Rc, ZeroedBlock, ir};
 use crate::fxhash::HashSet;
 use crate::interp::word_or_zero;
 use crate::sema::FileSystem;
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -23,6 +24,7 @@ mod memory;
 mod numeric;
 mod objc;
 mod process;
+mod records;
 mod sockets;
 mod stdin;
 mod streams;
@@ -120,7 +122,7 @@ impl SandboxFs {
             && self
                 .base
                 .as_ref()
-                .is_some_and(|b| b.is_file(host_path(path)))
+                .is_some_and(|b| b.is_file(&host_path(path)))
     }
 
     fn is_dir(&self, path: &str) -> bool {
@@ -135,7 +137,7 @@ impl SandboxFs {
             && self
                 .base
                 .as_ref()
-                .is_some_and(|b| b.is_dir(host_path(path)))
+                .is_some_and(|b| b.is_dir(&host_path(path)))
     }
 
     /// Bring a base file into the overlay so it can be read and written in place.
@@ -146,7 +148,7 @@ impl SandboxFs {
         if self.removed.contains(path) {
             return false;
         }
-        match self.base.as_ref().and_then(|b| b.read(host_path(path))) {
+        match self.base.as_ref().and_then(|b| b.read(&host_path(path))) {
             Some(bytes) => {
                 self.files.insert(path.to_string(), bytes);
                 true
@@ -162,7 +164,7 @@ impl SandboxFs {
             None => self
                 .base
                 .as_ref()
-                .and_then(|b| b.read(host_path(path)))
+                .and_then(|b| b.read(&host_path(path)))
                 .map_or(0, |d| d.len()),
         }
     }
@@ -170,7 +172,7 @@ impl SandboxFs {
     fn list(&self, path: &str) -> Vec<(String, bool)> {
         let mut out: BTreeMap<String, bool> = BTreeMap::new();
         if let Some(base) = &self.base {
-            for (name, dir) in base.list_dir(host_path(path)) {
+            for (name, dir) in base.list_dir(&host_path(path)) {
                 if !self.removed.contains(&join(path, &name)) {
                     out.insert(name, dir);
                 }
@@ -206,7 +208,6 @@ pub(super) fn join(dir: &str, name: &str) -> String {
 }
 
 /// Whether `path` starts with a drive (`C:`, then a separator or nothing).
-#[cfg(windows)]
 fn drive_path(path: &str) -> bool {
     match path.as_bytes() {
         [letter, b':', rest @ ..] => {
@@ -216,41 +217,93 @@ fn drive_path(path: &str) -> bool {
     }
 }
 
-/// The host's name for the sandbox path `path`. The sandbox's paths start at `/`, so on a
-/// Windows host it names a drive's files `/C:/...`; elsewhere the two names are the same.
-pub(super) fn host_path(path: &str) -> &Path {
-    #[cfg(windows)]
-    if let Some(rest) = path.strip_prefix('/')
-        && drive_path(rest)
-    {
-        return Path::new(rest);
+/// The sandbox's name for a Windows host path, with `\` or `/` separators: `C:\x` is `/C:/x`,
+/// the share path `\\server\share\x` is `/UNC/server/share/x`, and their `\\?\` forms name the
+/// same files. A device path (`\\.\pipe\x`, `\\?\Volume{...}\x`) is `/DEVICE/...`, which
+/// names no file. `None` when `path` is none of these.
+fn from_windows(path: &str) -> Option<String> {
+    let path = path.replace('\\', "/");
+    let Some(rest) = path.strip_prefix("//") else {
+        return drive_path(&path).then(|| format!("/{path}"));
+    };
+    if let Some(rest) = rest.strip_prefix("?/") {
+        if drive_path(rest) {
+            return Some(format!("/{rest}"));
+        }
+        if let Some(share) = rest.strip_prefix("UNC/") {
+            return Some(format!("/UNC/{share}"));
+        }
+        return Some(format!("/DEVICE/{rest}"));
     }
-    Path::new(path)
+    if let Some(device) = rest.strip_prefix("./") {
+        return Some(format!("/DEVICE/{device}"));
+    }
+    Some(format!("/UNC/{rest}"))
+}
+
+/// The Windows name of the sandbox path `path` when it names a drive's or a share's files: the
+/// reverse of `from_windows`.
+fn to_windows(path: &str) -> Option<String> {
+    let rest = path.strip_prefix('/')?;
+    if drive_path(rest) {
+        return Some(rest.to_string());
+    }
+    let share = rest.strip_prefix("UNC/")?;
+    Some(format!(r"\\{}", share.replace('/', "\\")))
+}
+
+/// How many leading components of the sandbox path `parts` are the root of a Windows host's
+/// file system, which `..` cannot climb out of: a drive (`C:`), a share (`UNC/server/share`)
+/// or a device. None on other hosts.
+fn windows_root(parts: &[&str]) -> usize {
+    if !cfg!(windows) {
+        return 0;
+    }
+    let root = match parts.first() {
+        Some(&"UNC") => 3,
+        Some(&"DEVICE") => 2,
+        Some(first) if drive_path(first) => 1,
+        _ => 0,
+    };
+    root.min(parts.len())
+}
+
+/// The host's name for the sandbox path `path`. The sandbox's paths start at `/`, so on a
+/// Windows host it names a drive's files `/C:/...` and a share's `/UNC/server/share/...`;
+/// elsewhere the two names are the same.
+pub(super) fn host_path(path: &str) -> Cow<'_, Path> {
+    match to_windows(path).filter(|_| cfg!(windows)) {
+        Some(name) => Cow::Owned(name.into()),
+        None => Cow::Borrowed(Path::new(path)),
+    }
 }
 
 /// Resolve `path` against `cwd` and drop `.`/`..` components. On a Windows host a path that
-/// starts with a drive is absolute too (see `host_path`).
+/// starts with a drive, a share or a device is absolute too (see `from_windows`), and `..`
+/// stops at its root.
 pub(super) fn absolute(cwd: &str, path: &str) -> String {
-    #[cfg(windows)]
-    let drive = drive_path(path);
-    #[cfg(not(windows))]
-    let drive = false;
-    let full = if path.starts_with('/') {
+    let full = if let Some(name) = from_windows(path).filter(|_| cfg!(windows)) {
+        name
+    } else if path.starts_with('/') {
         path.to_string()
-    } else if drive {
-        format!("/{}", path.replace('\\', "/"))
     } else {
         format!("{cwd}/{path}")
     };
+    let all: Vec<&str> = full
+        .split('/')
+        .filter(|part| !part.is_empty() && *part != ".")
+        .collect();
     let mut parts: Vec<&str> = Vec::new();
-    for part in full.split('/') {
-        match part {
-            "" | "." => {}
-            ".." => {
+    let mut floor = 0;
+    for part in all {
+        if part == ".." {
+            if parts.len() > floor {
                 parts.pop();
             }
-            p => parts.push(p),
+            continue;
         }
+        parts.push(part);
+        floor = floor.max(windows_root(&parts));
     }
     format!("/{}", parts.join("/"))
 }
@@ -283,11 +336,11 @@ pub struct SandboxHost {
     /// The program's window, when its pointers are narrower than the host's: where everything
     /// the stand-ins hand the program comes from.
     window: Option<std::sync::Arc<super::Window>>,
-    #[cfg(unix)]
     mappings: BTreeMap<u64, virtual_memory::Mapping>,
-    /// Bytes held by `mappings`, capped at `virtual_memory::MAX_MAPPED_BYTES`.
-    #[cfg(unix)]
+    /// Bytes held by `mappings`, capped at `map_limit` or `virtual_memory::MAX_MAPPED_BYTES`.
     mapped_bytes: u64,
+    /// A lower cap than `MAX_MAPPED_BYTES` on the bytes `mappings` may hold.
+    map_limit: Option<u64>,
     /// Virtual clock ticks (nanoseconds) handed out by `clock_gettime`; the sandbox has no real
     /// time source on wasm32, so every query advances this by one microsecond.
     clock_ns: u64,
@@ -304,11 +357,14 @@ pub struct SandboxHost {
     dirs: HashMap<u64, DirStream>,
     /// Darwin POSIX layouts and configuration query numbers for host-target metaprograms.
     darwin_files: bool,
-    /// Linux i686 file records (`struct stat` with 4-byte alignment for 8-byte fields).
-    i686_files: bool,
+    /// The CPU whose C library records the program uses; `None` is Linux x86-64's, which the
+    /// stdlib's wasm records share.
+    cpu: Option<crate::target::TargetCpu>,
     errno_cell: u64,
     /// Windows' `GetLastError`.
     windows: super::windows::WindowsCalls,
+    /// The "C" `setlocale` returns, in program memory; 0 until first asked for.
+    locale_name: u64,
     /// `strerror` results by error number; they stay valid for the whole run, like libc's.
     error_texts: HashMap<u64, u64>,
     stdin: stdin::Stdin,
@@ -339,10 +395,9 @@ impl SandboxHost {
         self.darwin_files = os == crate::target::TargetOs::MacOS;
     }
 
-    /// Select the CPU whose C records the guest uses. Only 32-bit x86 differs from the
-    /// 64-bit Linux records the sandbox writes by default.
+    /// Select the CPU whose C library records (`struct stat`) the guest uses.
     pub fn set_cpu(&mut self, cpu: crate::target::TargetCpu) {
-        self.i686_files = cpu == crate::target::TargetCpu::X86;
+        self.cpu = Some(cpu);
     }
 
     /// Stop all code running on this host `limit` from now: the check it belongs to has a
@@ -556,76 +611,34 @@ impl SandboxHost {
         Some(target)
     }
 
-    #[allow(
-        clippy::disallowed_methods,
-        reason = "the sandbox writes interpreter memory, which is host memory"
-    )]
     fn fill_stat(&self, path: &str, out: u64) -> Result<(), u64> {
+        let inode = self.fs.inode(path);
         let links = 1 + self
             .fs
             .inodes
             .iter()
-            .filter(|(p, i)| **i == self.fs.inode(path) && p.as_str() != path)
+            .filter(|(p, i)| **i == inode && p.as_str() != path)
             .count() as u64;
         let (mode, size) = if self.fs.is_dir(path) {
             (S_IFDIR | 0o755, 4096)
         } else if self.fs.exists_file(path) {
-            (S_IFREG | 0o644, self.fs.file_size(path) as i64)
+            (S_IFREG | 0o644, self.fs.file_size(path) as u64)
         } else {
             return Err(ENOENT);
         };
-        // The 64-bit records occupy 144 bytes, but their fields differ; i686's takes 108.
-        fill(
-            out,
-            0,
-            if self.i686_files {
-                108
-            } else {
-                144
-            },
-        );
-        let put = |off: u64, v: u64, width: usize| {
-            write_bytes(out + off, &v.to_le_bytes()[..width]);
+        let os = if self.darwin_files {
+            crate::target::TargetOs::MacOS
+        } else {
+            crate::target::TargetOs::Linux
         };
-        let mtime = self.fs.mtimes.get(path).copied().unwrap_or(BASE_MTIME);
-        if self.darwin_files {
-            put(0, 1, 4); // st_dev
-            put(4, u64::from(mode), 2);
-            put(6, links, 2);
-            put(8, self.fs.inode(path), 8);
-            for off in [32, 48, 64, 80] {
-                put(off, mtime, 8);
-            }
-            put(96, size as u64, 8);
-            put(104, (size as u64).div_ceil(512), 8);
-            put(112, 4096, 4);
-            return Ok(());
-        }
-        if self.i686_files {
-            // 8-byte fields sit on 4-byte boundaries and `timespec` is 16 bytes.
-            put(0, 1, 8); // st_dev
-            put(8, self.fs.inode(path), 8); // st_ino
-            put(16, mode as u64, 4);
-            put(20, links, 4); // st_nlink
-            put(40, size as u64, 8);
-            put(48, 4096, 4); // st_blksize
-            put(52, (size as u64).div_ceil(512), 8); // st_blocks
-            for off in [60, 76, 92] {
-                put(off, mtime, 8);
-            }
-            return Ok(());
-        }
-        // Linux x86-64 `struct stat` (also the stdlib's wasm record).
-        put(0, 1, 8); // st_dev
-        put(8, self.fs.inode(path), 8); // st_ino
-        put(16, links, 8); // st_nlink
-        put(24, mode as u64, 4);
-        put(48, size as u64, 8);
-        put(56, 4096, 8); // st_blksize
-        put(64, (size as u64).div_ceil(512), 8); // st_blocks
-        for off in [72, 88, 104] {
-            put(off, mtime, 8);
-        }
+        let file = records::FileStat {
+            inode,
+            mode,
+            links,
+            size,
+            mtime: self.fs.mtimes.get(path).copied().unwrap_or(BASE_MTIME),
+        };
+        records::fill_stat(os, self.cpu, out, &file);
         Ok(())
     }
 
@@ -637,9 +650,10 @@ impl SandboxHost {
     }
 }
 
-/// The stat call a Linux x86-64 `syscall(number, ...)` makes, if it is one.
-fn stat_syscall(symbol: &str, args: &[u64]) -> Option<LibcFn> {
-    if symbol != "syscall" || !cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+/// The stat call a Linux x86-64 program's `syscall(number, ...)` makes, if it is one; the
+/// numbers are the target's, so `x64_linux` says whether the program is one.
+fn stat_syscall(x64_linux: bool, symbol: &str, args: &[u64]) -> Option<LibcFn> {
+    if symbol != "syscall" || !x64_linux {
         return None;
     }
     match word_or_zero(args, 0) {
@@ -698,7 +712,9 @@ impl Host for SandboxHost {
         sig: &ir::Sig,
     ) -> Option<Result<Vec<u64>, String>> {
         // Linux x86-64 reaches the stat family through syscall(2) (stdlib/POSIX/wrappers.jai).
-        let (fun, args) = match stat_syscall(symbol, args) {
+        let x64_linux =
+            !self.darwin_files && matches!(self.cpu, None | Some(crate::target::TargetCpu::X64));
+        let (fun, args) = match stat_syscall(x64_linux, symbol, args) {
             Some(fun) => (fun, args.get(1..).unwrap_or_default()),
             None => match SandboxFn::lookup(symbol)? {
                 SandboxFn::Windows(fun) => {
@@ -758,7 +774,7 @@ impl Host for SandboxHost {
             );
         };
         let base = (!self.cwd.is_empty()).then(|| host_path(&self.cwd));
-        services.ask(&crate::service::resolve(service, base), request)
+        services.ask(&crate::service::resolve(service, base.as_deref()), request)
     }
 }
 

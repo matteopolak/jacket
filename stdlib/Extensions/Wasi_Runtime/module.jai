@@ -22,6 +22,13 @@
 
 #scope_module
 
+// C's `size_t` and `ssize_t`: what C code linked with the runtime passes to the entry points
+// below and expects back.
+C_Size :: Libc.C_Size;
+C_Signed_Size :: Libc.C_Signed_Size;
+
+Libc :: #import "internal/libc";
+
 #load "files.jai";
 #load "math.jai";
 #load "elementary.jai";
@@ -169,19 +176,19 @@ wasi_asset_take :: (handle: s64, buffer: *u8, count: u64) -> u32 #c_call {
 }
 
 #program_export "write"
-wasi_write :: (fd: s32, buffer: *void, count: u64) -> s64 #c_call {
+wasi_write :: (fd: s32, buffer: *void, count: C_Size) -> C_Signed_Size #c_call {
     span := Span32.{ offset32(buffer), cast,no_check(u32) count };
     written: u32;
     if wasi_fd_write(fd, offset32(*span), 1, offset32(*written)) != 0 return -1;
-    return written;
+    return cast,no_check(C_Signed_Size) written;
 }
 
 #program_export "read"
-wasi_read :: (fd: s32, buffer: *void, count: u64) -> s64 #c_call {
+wasi_read :: (fd: s32, buffer: *void, count: C_Size) -> C_Signed_Size #c_call {
     span := Span32.{ offset32(buffer), cast,no_check(u32) count };
     got: u32;
     if wasi_fd_read(fd, offset32(*span), 1, offset32(*got)) != 0 return -1;
-    return got;
+    return cast,no_check(C_Signed_Size) got;
 }
 
 #program_export "exit"
@@ -241,7 +248,7 @@ wasi_clock_gettime :: (clock: s32, result: *Seconds_And_Nanoseconds) -> s32 #c_c
 
 // Like the C function, at most 256 bytes at a time.
 #program_export "getentropy"
-wasi_getentropy :: (buffer: *void, length: u64) -> s32 #c_call {
+wasi_getentropy :: (buffer: *void, length: C_Size) -> s32 #c_call {
     if length > 256 return -1;
     if wasi_random_get(offset32(buffer), cast,no_check(u32) length) != 0 return -1;
 
@@ -394,7 +401,7 @@ wasi_dup2 :: (from: s32, to: s32) -> s32 #c_call {
 // Waiting on no descriptors is a sleep; WASI's poll_oneoff could watch descriptors, but nothing
 // here produces one worth polling (no pipes or sockets).
 #program_export "poll"
-wasi_poll :: (descriptors: *void, count: u64, timeout_milliseconds: s32) -> s32 #c_call {
+wasi_poll :: (descriptors: *void, count: C_Size, timeout_milliseconds: s32) -> s32 #c_call {
     if count != 0 {
         error_number = ENOSYS;
         return -1;
@@ -505,7 +512,7 @@ load_environment :: () #no_context {
 write_all :: (fd: s32, data: *void, count: s64) #no_context {
     done: s64;
     while done < count {
-        step := wasi_write(fd, cast(*u8) data + done, cast(u64) (count - done));
+        step := wasi_write(fd, cast(*u8) data + done, cast(C_Size) (count - done));
         if step <= 0 return;
         done += step;
     }
@@ -525,20 +532,20 @@ bytes_equal :: (a: *u8, b: *u8, count: s64) -> bool #no_context {
 // Memory
 
 #program_export "memmove"
-wasi_memmove :: (destination: *void, source: *void, count: u64) -> *void #c_call {
+wasi_memmove :: (destination: *void, source: *void, count: C_Size) -> *void #c_call {
     // Becomes `memory.copy` (jaic always builds wasm with bulk memory), never a call back here.
     memcpy(destination, source, cast(s64) count);
     return destination;
 }
 
 #program_export "memcpy"
-wasi_memcpy :: (destination: *void, source: *void, count: u64) -> *void #c_call {
+wasi_memcpy :: (destination: *void, source: *void, count: C_Size) -> *void #c_call {
     memcpy(destination, source, cast(s64) count);
     return destination;
 }
 
 #program_export "memset"
-wasi_memset :: (destination: *void, value: s32, count: u64) -> *void #c_call {
+wasi_memset :: (destination: *void, value: s32, count: C_Size) -> *void #c_call {
     memset(destination, cast,no_check(u8) value, cast(s64) count);
     return destination;
 }
@@ -557,8 +564,8 @@ wasi_memcmp :: (a: *void, b: *void, count: s64) -> s32 #c_call {
 }
 
 #program_export "strlen"
-wasi_strlen :: (text: *u8) -> u64 #c_call {
-    return cast(u64) c_length(text);
+wasi_strlen :: (text: *u8) -> C_Size #c_call {
+    return cast(C_Size) c_length(text);
 }
 
 // The heap: blocks are powers of two from 32 bytes up, each starting with a 16-byte tag that
@@ -613,10 +620,10 @@ heap_take :: (bytes: u64) -> *u8 #no_context {
 }
 
 #program_export "malloc"
-wasi_malloc :: (size: u64) -> *void #c_call {
-    if size > (cast(u64) 1 << 46) return null;
+wasi_malloc :: (size: C_Size) -> *void #c_call {
+    if cast(u64) size > (cast(u64) 1 << 46) return null;
 
-    class := class_for(size + TAG_BYTES);
+    class := class_for(cast(u64) size + TAG_BYTES);
     block := cast(*u8) free_by_class[class];
 
     if block {
@@ -643,7 +650,7 @@ wasi_free :: (memory: *void) #c_call {
 }
 
 #program_export "realloc"
-wasi_realloc :: (memory: *void, size: u64) -> *void #c_call {
+wasi_realloc :: (memory: *void, size: C_Size) -> *void #c_call {
     if !memory return wasi_malloc(size);
 
     if size == 0 {
@@ -654,7 +661,7 @@ wasi_realloc :: (memory: *void, size: u64) -> *void #c_call {
     class := (cast(*s64) (cast(*u8) memory - TAG_BYTES)).*;
     room := ((cast(u64) 1) << cast(u64) class) - TAG_BYTES;
 
-    if size <= room return memory;
+    if cast(u64) size <= room return memory;
 
     moved := wasi_malloc(size);
     if !moved return null;
@@ -666,8 +673,11 @@ wasi_realloc :: (memory: *void, size: u64) -> *void #c_call {
 }
 
 #program_export "calloc"
-wasi_calloc :: (count: u64, size: u64) -> *void #c_call {
-    if size != 0 && count > 0xffff_ffff_ffff_ffff / size return null;
+wasi_calloc :: (count: C_Size, size: C_Size) -> *void #c_call {
+    largest: C_Size = 0xffff_ffff;
+
+    #if size_of(C_Size) == 8 largest = 0xffff_ffff_ffff_ffff;
+    if size != 0 && count > largest / size return null;
 
     total := count * size;
     memory := wasi_malloc(total);

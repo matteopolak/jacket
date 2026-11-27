@@ -184,12 +184,16 @@ impl Interp {
                 v
             }
         };
-        // SAFETY: frame slots lie inside the live frame at `stack_base`, which `load_raw` reads.
-        let load_frame =
-            |ty: Ty, off: u32| in_order(ty, unsafe { load_raw(ty, stack_base + u64::from(off)) });
-        // SAFETY: as for `load_frame`.
-        let store_frame = |ty: Ty, off: u32, v: u64| unsafe {
-            store_raw(ty, stack_base + u64::from(off), in_order(ty, v));
+        // `specialize` gave every frame access an integer type: a pointer is as wide as the
+        // target's.
+        let load_frame = |ty: Ty, off: u32| {
+            // SAFETY: frame slots lie inside the live frame at `stack_base`, which `load_raw`
+            // reads.
+            in_order(ty, unsafe { load_raw(ty, stack_base + u64::from(off)) })
+        };
+        let store_frame = |ty: Ty, off: u32, v: u64| {
+            // SAFETY: as for `load_frame`.
+            unsafe { store_raw(ty, stack_base + u64::from(off), in_order(ty, v)) };
         };
         let ops = code.ops.as_ptr();
         // A resumed run has done its block's entry already.

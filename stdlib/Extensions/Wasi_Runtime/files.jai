@@ -565,10 +565,10 @@ wasi_link :: (from: *u8, to: *u8) -> s32 #c_call {
 }
 
 #program_export "getcwd"
-wasi_getcwd :: (buffer: *u8, size: u64) -> *u8 #c_call {
+wasi_getcwd :: (buffer: *u8, size: C_Size) -> *u8 #c_call {
     prepare_files();
 
-    if !buffer || size < cast(u64) working_directory_bytes + 1 {
+    if !buffer || cast(u64) size < cast(u64) working_directory_bytes + 1 {
         error_number = ERANGE;
         return null;
     }
@@ -675,7 +675,7 @@ wasi_realpath :: (path: *u8, resolved: *u8) -> *u8 #c_call {
 
     into := resolved;
     if !into {
-        into = cast(*u8) wasi_malloc(cast(u64) length + 1);
+        into = cast(*u8) wasi_malloc(cast(C_Size) length + 1);
         if !into {
             error_number = ENOMEM;
             return null;
@@ -872,11 +872,11 @@ wasi_fclose :: (stream: *Stream) -> s32 #c_call {
 }
 
 #program_export "fread"
-wasi_fread :: (buffer: *void, size: u64, count: u64, stream: *Stream) -> u64 #c_call {
+wasi_fread :: (buffer: *void, size: C_Size, count: C_Size, stream: *Stream) -> C_Size #c_call {
     if !stream || size == 0 || count == 0 return 0;
 
     total := size * count;
-    done: u64;
+    done: C_Size;
 
     while done < total {
         step := wasi_read(stream.fd, cast(*u8) buffer + done, total - done);
@@ -890,18 +890,18 @@ wasi_fread :: (buffer: *void, size: u64, count: u64, stream: *Stream) -> u64 #c_
             break;
         }
 
-        done += cast(u64) step;
+        done += cast(C_Size) step;
     }
 
     return done / size;
 }
 
 #program_export "fwrite"
-wasi_fwrite :: (buffer: *void, size: u64, count: u64, stream: *Stream) -> u64 #c_call {
+wasi_fwrite :: (buffer: *void, size: C_Size, count: C_Size, stream: *Stream) -> C_Size #c_call {
     if !stream || size == 0 || count == 0 return 0;
 
     total := size * count;
-    done: u64;
+    done: C_Size;
 
     while done < total {
         step := wasi_write(stream.fd, cast(*u8) buffer + done, total - done);
@@ -910,7 +910,7 @@ wasi_fwrite :: (buffer: *void, size: u64, count: u64, stream: *Stream) -> u64 #c
             break;
         }
 
-        done += cast(u64) step;
+        done += cast(C_Size) step;
     }
 
     return done / size;

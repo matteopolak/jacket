@@ -106,18 +106,20 @@ impl Interp {
                 Ok(0)
             }
             ThreadFn::CondWait => self.cond_wait(arg(0), arg(1), None),
-            ThreadFn::CondTimedWait => match (self.fetch_u64(arg(2)), self.fetch_u64(arg(2) + 8)) {
-                (Ok(secs), Ok(nanos)) => {
-                    let deadline = absolute_deadline(secs, nanos);
-                    self.cond_wait(arg(0), arg(1), Some(deadline))
+            ThreadFn::CondTimedWait | ThreadFn::CondTimedWait64 => {
+                match self.fetch_timespec(arg(2)) {
+                    Ok((secs, nanos)) => {
+                        let deadline = absolute_deadline(secs, nanos);
+                        self.cond_wait(arg(0), arg(1), Some(deadline))
+                    }
+                    Err(trap) => Err(trap),
                 }
-                (Err(trap), _) | (_, Err(trap)) => Err(trap),
-            },
+            }
             // Sleeping and yielding only matter once another thread may exist.
-            ThreadFn::Nanosleep if started => {
-                match (self.fetch_u64(arg(0)), self.fetch_u64(arg(0) + 8)) {
-                    (Ok(secs), Ok(nanos)) => self.sleep_for(Duration::new(secs, nanos as u32)),
-                    (Err(trap), _) | (_, Err(trap)) => Err(trap),
+            ThreadFn::Nanosleep | ThreadFn::Nanosleep64 if started => {
+                match self.fetch_timespec(arg(0)) {
+                    Ok((secs, nanos)) => self.sleep_for(Duration::new(secs, nanos as u32)),
+                    Err(trap) => Err(trap),
                 }
             }
             ThreadFn::Usleep if started => {

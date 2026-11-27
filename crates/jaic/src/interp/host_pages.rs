@@ -13,7 +13,7 @@ pub(super) enum Access {
     ReadWrite,
 }
 
-pub(super) use sys::{commit, page_size, protect, release, reserve};
+pub(super) use sys::{commit, decommit, page_size, protect, release, reserve};
 
 /// The alignment of every reservation's start.
 pub(super) fn granularity() -> usize {
@@ -82,6 +82,16 @@ mod sys {
         unsafe { mprotect(base as *mut c_void, len, prot(access)) == 0 }
     }
 
+    /// Drop the pages of `base..base + len`, keeping the address space reserved with no access.
+    pub(in crate::interp) fn decommit(base: usize, len: usize) -> bool {
+        const FIXED: i32 = 0x10;
+        // SAFETY: the caller owns `base..base + len`, a page-aligned range of a reservation; a
+        // fixed mapping over it replaces only those pages.
+        let at = unsafe { mmap(base as *mut c_void, len, 0, FLAGS | FIXED, -1, 0) };
+        crate::interp::probe::invalidate();
+        at as usize == base
+    }
+
     /// Give back a whole reservation; `len` is its length from `reserve`.
     pub(in crate::interp) fn release(base: usize, len: usize) {
         // SAFETY: the caller owns the reservation and releases it once.
@@ -104,6 +114,7 @@ mod sys {
 
     const COMMIT: u32 = 0x1000;
     const RESERVE: u32 = 0x2000;
+    const DECOMMIT: u32 = 0x4000;
     const RELEASE: u32 = 0x8000;
 
     fn prot(access: Access) -> u32 {
@@ -137,6 +148,13 @@ mod sys {
         unsafe { VirtualProtect(base as *mut c_void, len, prot(access), &raw mut old) != 0 }
     }
 
+    pub(in crate::interp) fn decommit(base: usize, len: usize) -> bool {
+        // SAFETY: a page-aligned range inside a reservation the caller owns.
+        let ok = unsafe { VirtualFree(base as *mut c_void, len, DECOMMIT) } != 0;
+        crate::interp::probe::invalidate();
+        ok
+    }
+
     pub(in crate::interp) fn release(base: usize, _len: usize) {
         // SAFETY: the caller owns the reservation and releases it once.
         unsafe { VirtualFree(base as *mut c_void, 0, RELEASE) };
@@ -162,6 +180,10 @@ mod sys {
     }
 
     pub(in crate::interp) fn protect(_base: usize, _len: usize, _access: Access) -> bool {
+        false
+    }
+
+    pub(in crate::interp) fn decommit(_base: usize, _len: usize) -> bool {
         false
     }
 

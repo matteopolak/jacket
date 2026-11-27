@@ -253,8 +253,12 @@ fn volatile_accesses_use_the_targets_byte_order() {
 /// compiler's own compile-time buffers fit the 16-bit address window.
 #[test]
 fn an_avr_program_checks_at_compile_time() {
+    // The board writes its linker script beside the executable, so name one outside the tree.
+    let dir = test_support::tmp::TempDir::new("avr-check");
     let output = Command::new(JAIC)
         .arg("-check")
+        .arg("-exe")
+        .arg(dir.join("avr-hello"))
         .arg(
             Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../../tests/compiler/targets/avr-hello.jai"),
@@ -291,5 +295,80 @@ fn a_string_builder_is_sized_by_the_pointer_width() {
             "{target}: {}",
             String::from_utf8_lossy(&output.stderr)
         );
+    }
+}
+
+/// A pointer written to a stack slot is as wide as the target's, so it leaves the next member
+/// alone on a 4-byte-pointer target.
+#[test]
+fn a_pointer_stored_in_a_frame_slot_has_the_targets_width() {
+    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/compiler/targets/frame-pointer-width.jai");
+    for target in [
+        "i686-unknown-linux-gnu",
+        "armv7-unknown-linux-gnueabihf",
+        "wasm32-wasi",
+    ] {
+        assert_eq!(run(target, &source), "aabbccdd true\n", "{target}");
+    }
+}
+
+/// Atomic loads, stores, exchanges and read-modify-writes at compile time use the program's
+/// byte order: a big-endian program's counters count.
+#[test]
+fn atomics_use_the_targets_byte_order() {
+    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/compiler/targets/atomics-order.jai");
+    for target in [
+        "x86_64-unknown-linux-gnu",
+        "s390x-unknown-linux-gnu",
+        "powerpc64-unknown-linux-gnu",
+    ] {
+        assert_eq!(
+            run(target, &source),
+            "1ff 200 1ff fff f f false 1ff true 7 9\n\
+             102ffff 1030000 102ffff 102ffff 102f00f 102f00f false 102ffff true 7 9\n\
+             1020304ffffffff 102030500000000 1020304ffffffff 1020304ffffffff 1020304fffff00f \
+             1020304fffff00f false 1020304ffffffff true 7 9\n",
+            "{target}"
+        );
+    }
+}
+
+/// The emulated C library fills `struct stat`, `struct tm`, `struct timespec` and an `strto*`
+/// end pointer at the program's own widths, alignments and byte order, so a narrow or
+/// big-endian program reads back what a native one would.
+#[test]
+fn the_emulated_c_library_writes_records_at_the_targets_layout() {
+    let source =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/compiler/targets/libc-records.jai");
+    for target in [
+        "i686-unknown-linux-gnu",
+        "armv7-unknown-linux-gnueabihf",
+        "s390x-unknown-linux-gnu",
+        "powerpc64-unknown-linux-gnu",
+    ] {
+        assert_eq!(
+            run(target, &source),
+            "file 0 11 true\ndirectory 0 true\ndated true\nlisted true\nstrtod 12.5 4 aabbccdd\n\
+             strtol 77 aabbccdd\nclock true true\ntm 71 0 1\n",
+            "{target}"
+        );
+    }
+}
+
+/// Integers cast to pointers at compile time stay integers in a 32-bit program: its
+/// compile-time memory ends before them, so they are not frozen as addresses.
+#[test]
+fn integer_handles_made_at_compile_time_keep_their_values() {
+    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/compiler/targets/integer-handles.jai");
+    for target in [
+        "x86_64-unknown-linux-gnu",
+        "i686-unknown-linux-gnu",
+        "armv7-unknown-linux-gnueabihf",
+        "wasm32-wasi",
+    ] {
+        assert_eq!(run(target, &source), "true true true true\n", "{target}");
     }
 }

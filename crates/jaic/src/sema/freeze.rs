@@ -14,13 +14,6 @@ struct Run {
     count: u64,
 }
 
-/// A pointer value that cannot address compile-time memory, so it is an integer cast to a
-/// pointer: the first 64 KiB (never mapped), or any address with the top bit set, which on the
-/// 64-bit hosts jaic runs on is never user-space memory (`cast(HKEY) cast(s32) 0x80000000`).
-fn is_integer_handle(p: u64) -> bool {
-    p < 0x10000 || (p as i64) < 0
-}
-
 /// Whether the union word `p`, which points into no global, is an address of memory only the
 /// interpreter holds, `readable` saying whether the interpreter can read it. A host with
 /// 64-bit addresses keeps them far from the numbers programs store, so a readable word is an
@@ -234,7 +227,7 @@ impl Compiler {
                         target: ir::RelocTarget::Func(func),
                         addend: 0,
                     });
-                } else if is_integer_handle(p) {
+                } else if self.ct.interp.is_integer_address(p) {
                     // Sentinels cast to a procedure type (`SIG_IGN`, `SIG_ERR`) stay integers.
                     self.put_frozen_ptr(agg, offset, p);
                 } else {
@@ -297,7 +290,7 @@ impl Compiler {
                 break;
             };
             let p = self.options.layout.read_ptr(bytes);
-            if p == 0 || is_integer_handle(p) {
+            if p == 0 || self.ct.interp.is_integer_address(p) {
                 continue;
             }
             if let Some((g, off)) = self.ct.interp.global_at(p)
@@ -344,7 +337,7 @@ impl Compiler {
             });
             return Ok(());
         }
-        if is_integer_handle(p) {
+        if self.ct.interp.is_integer_address(p) {
             // Integers cast to pointers (handle-like constants such as `cast(*void) 32512` or
             // `HKEY_CLASSES_ROOT`) have no memory to freeze.
             self.put_frozen_ptr(agg, offset, p);

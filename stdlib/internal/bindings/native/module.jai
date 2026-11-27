@@ -1,6 +1,6 @@
 // Private native buffer operations used by explicit public wrappers.
 terminated_copy :: (text: string) -> *u8 #no_context {
-    p := cast(*u8) malloc(cast(u64) text.count + 1);
+    p := cast(*u8) malloc(cast(C_Size) text.count + 1);
     if !p c_abort();
     for i: 0..text.count - 1 p[i] = text[i];
 
@@ -14,14 +14,15 @@ release :: (memory: *void) #no_context {
 }
 
 allocate :: (bytes: s64) -> *void #no_context {
-    p := malloc(cast(u64) bytes);
+    p := malloc(cast(C_Size) bytes);
     if !p && bytes != 0 c_abort();
     return p;
 }
 
 #scope_file
 libc :: #library,system "c"; @native(external)
-malloc :: (bytes: u64) -> *void #foreign libc;
+malloc :: (bytes: C_Size) -> *void #foreign libc;
+
 free :: (memory: *void) #foreign libc; @FreesArgument
 
 #import "internal/libc";

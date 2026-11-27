@@ -11,8 +11,10 @@
             if result == 0 binding_copy_kernel_stat(buf, native);
 
             return result;
-        } else #if ARCHITECTURE == .X86 {
+        } else #if ARCHITECTURE == .X86 || ARCHITECTURE == .ARM {
             return cast(s64) time64_stat(path, buf);
+        } else #if ARCHITECTURE == .S390X || ARCHITECTURE == .POWERPC64 {
+            return cast(s64) c_stat(path, buf);
         } else {
             return syscall(SYS_stat, path, buf);
         }
@@ -28,8 +30,10 @@
             if result == 0 binding_copy_kernel_stat(buf, native);
 
             return result;
-        } else #if ARCHITECTURE == .X86 {
+        } else #if ARCHITECTURE == .X86 || ARCHITECTURE == .ARM {
             return cast(s64) time64_lstat(path, buf);
+        } else #if ARCHITECTURE == .S390X || ARCHITECTURE == .POWERPC64 {
+            return cast(s64) c_lstat(path, buf);
         } else {
             return syscall(SYS_lstat, path, buf);
         }
@@ -45,8 +49,10 @@
             if result == 0 binding_copy_kernel_stat(buf, native);
 
             return result;
-        } else #if ARCHITECTURE == .X86 {
+        } else #if ARCHITECTURE == .X86 || ARCHITECTURE == .ARM {
             return cast(s64) time64_fstat(fd, buf);
+        } else #if ARCHITECTURE == .S390X || ARCHITECTURE == .POWERPC64 {
+            return cast(s64) c_fstat(fd, buf);
         } else {
             return syscall(SYS_fstat, fd, buf);
         }
@@ -54,14 +60,24 @@
 }
 
 #scope_file
-// 32-bit x86 has no `stat` system call with a 64-bit `time_t`: the C library's own entry points
+// 32-bit Linux has no `stat` system call with a 64-bit `time_t`: the C library's own entry points
 // (what `<sys/stat.h>` links to there) fill the record.
-#if OS == .LINUX && ARCHITECTURE == .X86 {
+#if OS == .LINUX && (ARCHITECTURE == .X86 || ARCHITECTURE == .ARM) {
     c_library :: #library,system "c";
 
     time64_stat :: (path: *u8, buf: *stat_t) -> s32 #foreign c_library "__stat64_time64";
     time64_lstat :: (path: *u8, buf: *stat_t) -> s32 #foreign c_library "__lstat64_time64";
     time64_fstat :: (fd: s32, buf: *stat_t) -> s32 #foreign c_library "__fstat64_time64";
+}
+
+// s390x and powerpc64 call the C library's `stat`, which fills the declared record on every
+// host, including the interpreter's emulated library.
+#if OS == .LINUX && (ARCHITECTURE == .S390X || ARCHITECTURE == .POWERPC64) {
+    c_library :: #library,system "c";
+
+    c_stat :: (path: *u8, buf: *stat_t) -> s32 #foreign c_library "stat";
+    c_lstat :: (path: *u8, buf: *stat_t) -> s32 #foreign c_library "lstat";
+    c_fstat :: (fd: s32, buf: *stat_t) -> s32 #foreign c_library "fstat";
 }
 
 #if OS == .LINUX && CPU == .ARM64 {

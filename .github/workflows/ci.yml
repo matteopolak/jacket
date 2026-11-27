@@ -1761,6 +1761,20 @@ jobs:
         with:
           cpu: ${{ matrix.cpu }}
           triple: ${{ matrix.triple }}
+      # The interpreter tests that behave differently on a Windows host: mappings, share paths,
+      # the command line and kernel thread handles. No other job runs jaic's Rust tests on
+      # Windows; the rest of jaic's tests assume a Unix host (`/tmp`, POSIX paths), so only these
+      # run. `cargo test`, since no Windows nextest is pinned (tools/ci/install_pinned.py); it
+      # reuses the dependencies the build step above compiled.
+      - name: Interpreter Windows host tests
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && matrix.part == 'programs' }}
+        run: >-
+          cargo test --locked -p jaic --lib --
+          interp::sandbox::tests::mappings
+          interp::sandbox::tests::windows_drive_and_share_paths
+          interp::sandbox::tests::a_share_working_directory
+          interp::executable_path
+          interp::threads::slot_tests
       - name: Native C++ vtable generation and dispatch
         if: ${{ matrix.part == 'programs' }}
         run: |

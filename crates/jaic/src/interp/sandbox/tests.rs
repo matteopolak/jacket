@@ -2,6 +2,8 @@
 use super::guest::read_u32;
 use super::*;
 
+mod mappings;
+
 fn sig() -> ir::Sig {
     ir::Sig {
         params: vec![],
@@ -13,7 +15,9 @@ fn sig() -> ir::Sig {
     }
 }
 
+/// A sandbox host whose stand-ins, called directly by the test, reach host memory.
 fn host() -> SandboxHost {
+    super::guest::use_host_memory();
     let mut host = SandboxHost {
         cwd: "/tmp".to_string(),
         ..Default::default()
@@ -81,58 +85,6 @@ fn process_creation_and_shared_memory_are_refused() {
     // posix_spawn returns the error number itself.
     assert_eq!(call(&mut h, "posix_spawn", &[0, 0, 0, 0, 0, 0]), EPERM);
     assert_eq!(call(&mut h, "posix_spawnp", &[0, 0, 0, 0, 0, 0]), EPERM);
-}
-
-/// A 32-bit Linux program's `mmap` links to `mmap64` (64-bit file offsets); the sandbox answers both.
-#[cfg(unix)]
-#[test]
-fn mmap64_maps_like_mmap() {
-    let mut h = host();
-    h.darwin_files = cfg!(target_os = "macos");
-    let flags = if h.darwin_files {
-        2 | 0x1000
-    } else {
-        2 | 0x20
-    };
-    let page = virtual_memory::page_size();
-    let at = call(&mut h, "mmap64", &[0, page, 3, flags, u64::MAX, 0]);
-    assert_ne!(at, u64::MAX);
-    assert_eq!(call(&mut h, "munmap", &[at, page]), 0);
-}
-
-#[cfg(unix)]
-#[test]
-fn anonymous_mappings_share_one_total_cap_per_host() {
-    const ENOMEM: u32 = 12;
-    let mut h = host();
-    h.darwin_files = cfg!(target_os = "macos");
-    let flags = if h.darwin_files {
-        2 | 0x1000
-    } else {
-        2 | 0x20
-    };
-    let map = |h: &mut SandboxHost, len: u64| call(h, "mmap", &[0, len, 3, flags, u64::MAX, 0]);
-    let half = virtual_memory::MAX_MAPPED_BYTES / 2;
-    let page = virtual_memory::page_size();
-
-    // One request over the cap is refused outright.
-    assert_eq!(map(&mut h, 2 * half + page), u64::MAX);
-    assert_eq!(errno(&h), ENOMEM);
-
-    let first = map(&mut h, half);
-    let second = map(&mut h, half);
-    assert_ne!(first, u64::MAX);
-    assert_ne!(second, u64::MAX);
-    // The total, not each request, is capped.
-    assert_eq!(map(&mut h, page), u64::MAX);
-    assert_eq!(errno(&h), ENOMEM);
-
-    // Unmapping gives the bytes back, whole or in part.
-    assert_eq!(call(&mut h, "munmap", &[first, half]), 0);
-    let again = map(&mut h, page);
-    assert_ne!(again, u64::MAX);
-    assert_eq!(call(&mut h, "munmap", &[second, page]), 0);
-    assert_eq!(call(&mut h, "munmap", &[again, page]), 0);
 }
 
 #[test]
@@ -1005,14 +957,19 @@ fn i686_linux_stat_record_has_the_32_bit_layout() {
     h.set_cpu(crate::target::TargetCpu::X86);
     let root = cstring("/tmp");
     let mut st = [0xa5_u8; 120];
-    assert_eq!(
+    let layout = crate::target::Target::new(
+        crate::target::TargetOs::Linux,
+        crate::target::TargetCpu::X86,
+    )
+    .data_layout();
+    let result = super::guest::with_memory(0, layout, || {
         call(
             &mut h,
             "stat",
-            &[root.as_ptr() as u64, st.as_mut_ptr() as u64]
-        ),
-        0
-    );
+            &[root.as_ptr() as u64, st.as_mut_ptr() as u64],
+        )
+    });
+    assert_eq!(result, 0);
     let word = |at: usize| u32::from_le_bytes(st[at..at + 4].try_into().unwrap());
     assert_eq!(word(16) & 0xf000, S_IFDIR);
     assert_eq!(word(20), 1);
@@ -1021,6 +978,40 @@ fn i686_linux_stat_record_has_the_32_bit_layout() {
     assert_eq!(word(76), BASE_MTIME as u32);
     assert_eq!(word(92), BASE_MTIME as u32);
     assert!(st[108..].iter().all(|&byte| byte == 0xa5));
+}
+
+/// The s390x Linux `struct stat` is big-endian, with the times before the block counts.
+#[test]
+#[allow(
+    clippy::disallowed_methods,
+    reason = "the sandbox's records are read back from host memory"
+)]
+fn s390x_linux_stat_record_is_big_endian() {
+    let mut h = host();
+    h.set_file_target(crate::target::TargetOs::Linux);
+    h.set_cpu(crate::target::TargetCpu::S390x);
+    let root = cstring("/tmp");
+    let mut st = [0xa5_u8; 152];
+    let layout = crate::target::Target::new(
+        crate::target::TargetOs::Linux,
+        crate::target::TargetCpu::S390x,
+    )
+    .data_layout();
+    let result = super::guest::with_memory(0, layout, || {
+        call(
+            &mut h,
+            "stat",
+            &[root.as_ptr() as u64, st.as_mut_ptr() as u64],
+        )
+    });
+    assert_eq!(result, 0);
+    let word = |at: usize| u32::from_be_bytes(st[at..at + 4].try_into().unwrap());
+    let long = |at: usize| u64::from_be_bytes(st[at..at + 8].try_into().unwrap());
+    assert_eq!(long(16), 1); // st_nlink
+    assert_eq!(word(24) & 0xf000, S_IFDIR);
+    assert_eq!(long(56), BASE_MTIME); // st_atim
+    assert_eq!(long(104), 4096); // st_blksize
+    assert!(st[144..].iter().all(|&byte| byte == 0xa5));
 }
 
 #[test]
@@ -1112,6 +1103,7 @@ fn a_host_folder_is_listed_by_its_full_name_and_from_inside_it() {
         .unwrap()
         .to_string_lossy()
         .into_owned();
+    super::guest::use_host_memory();
     let mut h = SandboxHost::with_files(Rc::new(crate::sema::NativeFs), &cwd);
     let names = |h: &mut SandboxHost, path: &str| {
         let path = cstring(path);
@@ -1138,4 +1130,62 @@ fn a_host_folder_is_listed_by_its_full_name_and_from_inside_it() {
     let file = cstring(&format!("{full}/a.jai"));
     assert_eq!(call(&mut h, "access", &[file.as_ptr() as u64, 0]), 0);
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Drive and share paths map to sandbox paths and back, in their plain and `\\?\` forms.
+#[test]
+fn windows_drive_and_share_paths_have_sandbox_names() {
+    for (windows, sandbox, back) in [
+        (r"C:\a\b", "/C:/a/b", "C:/a/b"),
+        (r"\\?\D:\x", "/D:/x", "D:/x"),
+        (
+            r"\\server\share\dir",
+            "/UNC/server/share/dir",
+            r"\\server\share\dir",
+        ),
+        (
+            r"\\?\UNC\server\share",
+            "/UNC/server/share",
+            r"\\server\share",
+        ),
+    ] {
+        assert_eq!(from_windows(windows).as_deref(), Some(sandbox), "{windows}");
+        assert_eq!(to_windows(sandbox).as_deref(), Some(back), "{sandbox}");
+    }
+    assert_eq!(
+        from_windows("//server/share/x").as_deref(),
+        Some("/UNC/server/share/x")
+    );
+    // Device paths get a name of their own that no file has.
+    for (device, name) in [
+        (r"\\.\pipe\x", "/DEVICE/pipe/x"),
+        (r"\\?\Volume{0a}\x", "/DEVICE/Volume{0a}/x"),
+    ] {
+        assert_eq!(from_windows(device).as_deref(), Some(name), "{device}");
+        assert_eq!(to_windows(name), None, "{name}");
+    }
+    assert_eq!(from_windows("relative\\name"), None);
+    assert_eq!(to_windows("/tmp/x"), None);
+}
+
+/// A Windows host's share directory is the sandbox's working directory, and relative paths
+/// resolve inside it.
+#[cfg(windows)]
+#[test]
+fn a_share_working_directory_resolves_relative_paths() {
+    let cwd = absolute("/", r"\\server\share\project");
+    assert_eq!(cwd, "/UNC/server/share/project");
+    assert_eq!(
+        absolute(&cwd, "src/main.jai"),
+        "/UNC/server/share/project/src/main.jai"
+    );
+    // `..` stops at the share, the drive and the device it starts from.
+    assert_eq!(absolute(&cwd, "../../../x"), "/UNC/server/share/x");
+    assert_eq!(absolute("/", r"\\srv\share\..\x"), "/UNC/srv/share/x");
+    assert_eq!(absolute("/", r"C:\..\x"), "/C:/x");
+    assert_eq!(absolute(&cwd, r"\\.\pipe\..\..\x"), "/DEVICE/pipe/x");
+    assert_eq!(
+        host_path("/UNC/server/share/project/src").as_ref(),
+        Path::new(r"\\server\share\project\src")
+    );
 }

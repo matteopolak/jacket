@@ -1,7 +1,8 @@
 //! C-locale subject scanning and direct binary32/binary64 conversion, and the `strtod` and
 //! `strtol` families built on it.
 
-use super::{LibcFn, SandboxHost, cstr, write_u64};
+use super::guest::write_word;
+use super::{LibcFn, SandboxHost, cstr};
 
 pub(super) struct Parsed {
     pub bits: u64,
@@ -268,7 +269,7 @@ impl SandboxHost {
                     },
                 );
                 if fun != LibcFn::Atof && arg(1) != 0 {
-                    write_u64(arg(1), arg(0) + parsed.used as u64);
+                    write_word(arg(1), arg(0) + parsed.used as u64);
                 }
                 if parsed.range_error {
                     self.set_errno(34);
@@ -291,7 +292,7 @@ impl SandboxHost {
                 };
                 let (value, used) = parse_int_prefix(&text, base);
                 if !from_ascii && arg(1) != 0 {
-                    write_u64(arg(1), arg(0) + used as u64);
+                    write_word(arg(1), arg(0) + used as u64);
                 }
                 value as i64 as u64
             }

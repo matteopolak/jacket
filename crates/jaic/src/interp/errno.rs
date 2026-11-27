@@ -7,7 +7,6 @@ pub(super) const EPERM: u64 = 1;
 pub(super) const ENOENT: u64 = 2;
 pub(super) const EBADF: u64 = 9;
 
-#[cfg(unix)]
 pub(super) const ENOMEM: u64 = 12;
 
 pub(super) const EBUSY: u64 = 16;

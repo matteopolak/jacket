@@ -37,6 +37,16 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - `jacket doc -- -os X` no longer changes the check of which modules build for wasm.
 - `jacket test` deletes dependency-store entries unused for 30 days.
 - A compile-fail `.stderr` writes files under an `-import_dir` as `$IMPORT1/...`, not as absolute paths.
+- Compile-time code for 32-bit targets stores a pointer in a local without overwriting the next member.
+- Atomic operations in compile-time code for s390x and powerpc64 use the program's byte order.
+- `stat`, `lstat` and `fstat` fill the right record on armv7 Linux and work at compile time on s390x and powerpc64.
+- Compile-time C library calls on 32-bit and big-endian targets fill `stat`, `tm`, `timespec` and end pointers at the program's layout.
+- On 32-bit targets the runtime and `Wasi_Runtime` pass `size_t` at C's width, so linked C code sees the right sizes.
+- Threads in wasm32 programs no longer trap: the green-thread runtime finds its control record's pointers at 4 bytes.
+- Compile-time `mmap`, `mprotect` and `munmap` work when the compiler runs on Windows.
+- Compile-time code finds its files when the compiler runs from a Windows network share (`\\server\share`).
+- Integers cast to procedures or pointers at compile time, like `SIG_ERR`, keep their values on 32-bit targets.
+- `GetCommandLineW` in compile-time code for 32-bit Windows programs returns an address in the program's memory.
 
 ## [0.40.0] - 2026-11-24
 

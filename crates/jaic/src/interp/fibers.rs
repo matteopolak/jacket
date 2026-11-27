@@ -141,109 +141,35 @@ impl Region {
     }
 }
 
-#[cfg(all(unix, any(target_arch = "x86_64", target_arch = "aarch64")))]
-mod map {
-    use super::{GUARD, Region};
-    use std::ffi::c_void;
-
-    unsafe extern "C" {
-        fn mmap(
-            addr: *mut c_void,
-            len: usize,
-            prot: i32,
-            flags: i32,
-            fd: i32,
-            off: i64,
-        ) -> *mut c_void;
-
-        fn mprotect(addr: *mut c_void, len: usize, prot: i32) -> i32;
-        fn munmap(addr: *mut c_void, len: usize) -> i32;
-    }
-
-    // PROT_READ | PROT_WRITE; MAP_PRIVATE | MAP_ANON | MAP_NORESERVE.
-    const READ_WRITE: i32 = 3;
-
-    #[cfg(target_os = "macos")]
-    const FLAGS: i32 = 0x0002 | 0x1000 | 0x0040;
-
-    #[cfg(not(target_os = "macos"))]
-    const FLAGS: i32 = 0x0002 | 0x0020 | 0x4000;
-
-    impl Region {
-        pub(super) fn new(len: usize) -> Option<Self> {
-            // SAFETY: an anonymous mapping of fresh address space.
-            let base = unsafe { mmap(std::ptr::null_mut(), len, READ_WRITE, FLAGS, -1, 0) };
-            if base as isize == -1 {
-                return None;
-            }
-            // SAFETY: the first `GUARD` bytes of the mapping.
-            if unsafe { mprotect(base, GUARD, 0) } != 0 {
-                // SAFETY: unmapping what was just mapped.
-                unsafe { munmap(base, len) };
-                return None;
-            }
-            Some(Region {
-                base: base.cast(),
-                len,
-            })
+#[cfg(all(
+    any(unix, windows),
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
+impl Region {
+    /// `len` bytes of fresh stack whose lowest `GUARD` bytes stay inaccessible, so running
+    /// off the end faults instead of writing into a neighbour.
+    fn new(len: usize) -> Option<Self> {
+        use super::host_pages::{self, Access};
+        let base = host_pages::reserve(len)?;
+        if !host_pages::commit(base + GUARD, len - GUARD, Access::ReadWrite) {
+            host_pages::release(base, len);
+            return None;
         }
-    }
-
-    impl Drop for Region {
-        fn drop(&mut self) {
-            if self.len > 0 {
-                // SAFETY: the mapping `new` made.
-                unsafe { munmap(self.base.cast(), self.len) };
-            }
-        }
+        Some(Region {
+            base: base as *mut u8,
+            len,
+        })
     }
 }
 
-#[cfg(all(windows, any(target_arch = "x86_64", target_arch = "aarch64")))]
-mod map {
-    use super::{GUARD, Region};
-    use std::ffi::c_void;
-
-    #[link(name = "kernel32")]
-    unsafe extern "system" {
-        fn VirtualAlloc(addr: *mut c_void, len: usize, kind: u32, protect: u32) -> *mut c_void;
-        fn VirtualProtect(addr: *mut c_void, len: usize, protect: u32, old: *mut u32) -> i32;
-        fn VirtualFree(addr: *mut c_void, len: usize, kind: u32) -> i32;
-    }
-
-    const COMMIT_RESERVE: u32 = 0x1000 | 0x2000;
-    const READ_WRITE: u32 = 0x04;
-    const NO_ACCESS: u32 = 0x01;
-    const RELEASE: u32 = 0x8000;
-
-    impl Region {
-        pub(super) fn new(len: usize) -> Option<Self> {
-            // SAFETY: fresh address space.
-            let base =
-                unsafe { VirtualAlloc(std::ptr::null_mut(), len, COMMIT_RESERVE, READ_WRITE) };
-            if base.is_null() {
-                return None;
-            }
-            let mut old = 0u32;
-            // SAFETY: the first `GUARD` bytes of the allocation.
-            if unsafe { VirtualProtect(base, GUARD, NO_ACCESS, &raw mut old) } == 0 {
-                // SAFETY: releasing what was just allocated.
-                unsafe { VirtualFree(base, 0, RELEASE) };
-                return None;
-            }
-            Some(Region {
-                base: base.cast(),
-                len,
-            })
-        }
-    }
-
-    impl Drop for Region {
-        fn drop(&mut self) {
-            if self.len > 0 {
-                // SAFETY: the allocation `new` made.
-                unsafe { VirtualFree(self.base.cast(), 0, RELEASE) };
-            }
+#[cfg(all(
+    any(unix, windows),
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
+impl Drop for Region {
+    fn drop(&mut self) {
+        if self.len > 0 {
+            super::host_pages::release(self.base as usize, self.len);
         }
     }
 }

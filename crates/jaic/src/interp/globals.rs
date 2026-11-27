@@ -316,6 +316,18 @@ impl Interp {
         self.globals.get(g.0 as usize)?.as_ref().map(|m| m.addr)
     }
 
+    /// Whether the pointer value `p` cannot address compile-time memory, so it is an integer
+    /// cast to a pointer (`cast(*void) 32512`, `SIG_ERR`): below 64 KiB, past a narrow
+    /// program's window, or, with host-width pointers, an address with the top bit set, which
+    /// is never user-space memory on the 64-bit hosts jaic runs on
+    /// (`cast(HKEY) cast(s32) 0x80000000`).
+    pub fn is_integer_address(&self, p: u64) -> bool {
+        match &self.window {
+            Some(window) => window.never_memory(p),
+            None => p < 0x10000 || (p as i64) < 0,
+        }
+    }
+
     /// The global containing `addr`, with the offset into it.
     pub fn global_at(&self, addr: u64) -> Option<(GlobalId, u64)> {
         let (&start, &(end, g)) = self.ranges.range(..=addr).next_back()?;

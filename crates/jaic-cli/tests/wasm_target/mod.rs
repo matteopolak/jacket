@@ -290,15 +290,19 @@ main :: () {
 fn threads_runtime_provider_runs_as_wasi_with_real_workers() {
     let dir = TempDir::new("wasm-threads-runtime");
     let source = repo_root().join("tests/compiler/language/threads-runtime/main.jai");
-    for (flag, name) in [("-O0", "unoptimized"), ("-O2", "optimized")] {
-        let module = dir.join(format!("{name}.wasm"));
+    // wasm32 places `Green_Control`'s pointers at 4 bytes, so its offsets differ from wasm64's.
+    let runs = [("-os", "wasm"), ("-target", "wasm32-wasi")]
+        .into_iter()
+        .flat_map(|target| [(target, "-O0"), (target, "-O2")]);
+    for ((option, target), flag) in runs {
+        let module = dir.join(format!("{target}{flag}.wasm"));
         assert!(
             jaic(
                 &dir,
                 &[
                     source.to_str().unwrap(),
-                    "-os",
-                    "wasm",
+                    option,
+                    target,
                     flag,
                     "-exe",
                     module.to_str().unwrap(),

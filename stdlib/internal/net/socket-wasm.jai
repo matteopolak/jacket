@@ -8,6 +8,13 @@ sa_family_t :: u16;
 in_port_t :: u16;
 in_addr_t :: u32;
 socklen_t :: u32;
+size_t :: Wasi.size_t;
+
+#if size_of(*void) == 4 {
+    ssize_t :: s32;
+} else {
+    ssize_t :: s64;
+}
 
 // A socket handle: the file descriptor. Compare a handle against `INVALID_SOCKET`, never against a number.
 Socket :: s32;
@@ -139,8 +146,8 @@ inet_pton :: (family: s32, source: *u8, destination: *void) -> s32 {
 
 // The calls WASI has, for a socket the host pre-opened (Extensions/Wasi_Runtime answers them).
 accept :: (fd: s32, address: *sockaddr, length: *socklen_t) -> s32 #foreign libc;
-recv :: (fd: s32, buffer: *void, count: u64, flags: MSG) -> s64 #foreign libc;
-send :: (fd: s32, buffer: *void, count: u64, flags: MSG) -> s64 #foreign libc;
+recv :: (fd: s32, buffer: *void, count: size_t, flags: MSG) -> ssize_t #foreign libc;
+send :: (fd: s32, buffer: *void, count: size_t, flags: MSG) -> ssize_t #foreign libc;
 shutdown :: (fd: s32, how: SHUT) -> s32 #foreign libc;
 
 // The calls WASI does not have.
