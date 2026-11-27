@@ -3,8 +3,22 @@ use std::{path::PathBuf, process::Command};
 use test_support::TempDir;
 use test_support::process::succeeded as checked;
 
+/// Native output needs the `llvm` feature; without it these tests say so and pass.
+fn needs_native_output() -> bool {
+    if cfg!(feature = "llvm") {
+        return false;
+    }
+    eprintln!(
+        "skipping: this jaic was built without the `llvm` feature, so it cannot write native programs; build with `--features llvm`"
+    );
+    true
+}
+
 #[test]
 fn finalized_workspace_sizes_allocate_real_runtime_storage() {
+    if needs_native_output() {
+        return;
+    }
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .canonicalize()
@@ -136,6 +150,9 @@ fn finalized_workspace_sizes_allocate_real_runtime_storage() {
 
 #[test]
 fn one_megabyte_private_startup_allocates_for_root_and_child_workspaces() {
+    if needs_native_output() {
+        return;
+    }
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let library = jacket_config::env::STDLIB
         .os()

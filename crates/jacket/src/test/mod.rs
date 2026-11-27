@@ -527,6 +527,16 @@ fn run_once(
     let cross = !args.interp && (os != host_os() || cpu != host_cpu());
     let cross_skip = (cross && toolchain.runner.is_empty())
         .then(|| format!("built for {os} {cpu}; `--runner <command>` runs it"));
+    // A target named on the command line is one the user wants the tests run on: with no runner
+    // for it, fail now (as `jacket run` does) instead of building and skipping every test.
+    if let (Some(name), Some(_)) = (&args.target, &cross_skip)
+        && !args.list
+        && !args.check_only
+    {
+        return fail(format!(
+            "`{name}` is not this machine's target ({os} {cpu}), so jacket cannot run the tests it builds\nhelp: name a runner with `--runner COMMAND` or `runner` under `[target.NAME]` in jacket.toml, or run with `--interp`"
+        ));
+    }
 
     let mut roots: Vec<discover::Root> = Vec::new();
     let import_dirs = jaic_cli_args::arguments::import_dirs(&toolchain.flags);

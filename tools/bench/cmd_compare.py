@@ -24,6 +24,7 @@ from bench.dialects import Compiler, Mode, PlainDialect, Request, parse_compiler
 from bench.measure import Run, run_measured, warm_file_cache
 from bench.sandbox import Sandbox
 from bench.results import ROOT
+from bench.stages import with_total
 from bench.stats import Stat
 from bench.workloads import ALL_BUILD_MODES, Category, Generated, Workload, all_workloads, single
 
@@ -223,7 +224,7 @@ def render(results: dict) -> str:
         out.append('')
     staged = [b for b in done if b['phase'] == 'warm' and b['summary'].get('stages')]
     if staged:
-        out += ['## Steps (warm, from `-timings`, both binaries)', '', '| workload | mode | step | baseline s | candidate s | ratio |',
+        out += ['## Steps (warm, from `-timings` or the phase-timing metaprogram, both binaries)', '', '| workload | mode | step | baseline s | candidate s | ratio |',
                 '|---|---|---|---:|---:|---:|']
         for b in staged:
             for step, v in b['summary']['stages'].items():
@@ -286,8 +287,9 @@ class Comparison:
         self.runner = JobRunner(list(compilers.values()), scratch, args)
         self.max_load = args.max_load or quiet.default_max_load(os.cpu_count())
         self.purge_ok, self.purge_note = (False, 'skipped (--no-purge)') if args.no_purge else quiet.purge_caches()
-        # Per-step seconds come from `-timings`, which only a jaic-dialect binary prints: both or neither.
-        self.report_steps = all(c.dialect.name == 'jaic' for c in compilers.values())
+        # A run through the phase-timing metaprogram reports the same steps for every compiler; any other run
+        # reports them from `-timings`, which only a jaic-dialect binary prints: both or neither.
+        self.all_jaic = all(c.dialect.name == 'jaic' for c in compilers.values())
         self.samples: list[dict] = []
         self.blocks: list[dict] = []
         self.programs: list[dict] = []
@@ -311,11 +313,16 @@ class Comparison:
         request = Request(workdir / plan.entry, workdir, job.mode, plan.metaprogram_args, where,
                           plan.redirect_output, imports)
         compiler = self.compilers[name]
-        # Executables are built through the phase-timing metaprogram, so both binaries link with the
-        # same system linker and the timed work is the same.
-        if job.mode.writes_executable and not JobRunner.has_own_build(request):
+        if self.phased(job):
             return compiler.dialect.phase_invocation(compiler.path, request)
         return compiler.dialect.invocation(compiler.path, request)
+
+    @staticmethod
+    def phased(job: Job) -> bool:
+        """Whether the job's executable is built through the phase-timing metaprogram, so both binaries link
+        with the same system linker and the timed work is the same."""
+        plan = job.workload.plans[job.mode]
+        return job.mode.writes_executable and not (plan.metaprogram_args or not plan.redirect_output)
 
     def run_once(self, job: Job, name: str, workdir: Path, tag: str) -> tuple[Run, object]:
         invocation = self.invocation(job, name, workdir, tag)
@@ -388,7 +395,8 @@ class Comparison:
                 sample = {'workload': job.workload.name, 'mode': job.mode.value, 'phase': phase, 'round': number,
                           'position': position, 'compiler': name, 'wall_s': round(run.wall, 6),
                           'cpu_s': round(run.cpu, 6), 'rss_mib': round(run.rss_mib, 2), 'exit': run.returncode,
-                          'stages': stage_seconds(self.compilers[name], run) if self.report_steps else {}}
+                          'stages': stage_seconds(self.compilers[name], run, self.phased(job))
+                          if self.phased(job) or self.all_jaic else {}}
                 samples.append(sample)
                 if not run.ok:
                     failure = f'{name}: {run.failure()}'
@@ -443,10 +451,16 @@ class Comparison:
     on_save = staticmethod(lambda blocks, samples, programs: None)
 
 
-def stage_seconds(compiler: Compiler, run: Run) -> dict[str, float]:
+def stage_seconds(compiler: Compiler, run: Run, phased: bool = False) -> dict[str, float]:
+    """Seconds per step of one run: from the phase-timing metaprogram's lines when the run went through it
+    (any compiler), else from the compiler's own report."""
     if not run.ok:
         return {}
-    return {bucket.value: round(seconds, 6) for bucket, seconds in compiler.dialect.detail(run).items()}
+    if phased:
+        found = with_total(compiler.dialect.phase_parser.parse(run.stdout), run.wall)
+    else:
+        found = compiler.dialect.detail(run)
+    return {bucket.value: round(seconds, 6) for bucket, seconds in found.items()}
 
 
 def skipped_block(job: Job, phase: str, status: str, reason: str, source: dict | None = None) -> dict:

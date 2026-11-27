@@ -192,10 +192,17 @@ fn ensure_debug_helper() -> Result<(), String> {
         return Ok(());
     }
     let script = repo_root().join("tools/developer_checks/build_developer_debug.py");
-    match Command::new("python3").arg(script).output() {
+    // The script imports its helpers from `tools/`.
+    match Command::new("python3")
+        .env("PYTHONPATH", repo_root().join("tools"))
+        .arg(script)
+        .output()
+    {
         Ok(out) if out.status.success() => Ok(()),
         Ok(out) => Err(String::from_utf8_lossy(&out.stderr).trim().to_string()),
-        Err(error) => Err(error.to_string()),
+        Err(error) => Err(format!(
+            "python3 could not be started ({error}); install Python 3"
+        )),
     }
 }
 

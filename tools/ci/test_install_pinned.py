@@ -226,7 +226,7 @@ class LlvmRelease(unittest.TestCase):
             environment = {"RUNNER_TEMP": str(temp), "GITHUB_ENV": str(env_file)}
             with (
                 mock.patch.dict(os.environ, environment),
-                mock.patch.object(install_pinned, "download", fake_download),
+                mock.patch.object(install_pinned, "fetch_to", fake_download),
                 redirect_stdout(io.StringIO()),
             ):
                 for _ in range(2):

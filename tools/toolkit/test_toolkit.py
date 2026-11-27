@@ -1,5 +1,7 @@
 import argparse
+import io
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -265,6 +267,71 @@ class Fetch(unittest.TestCase):
             with self.assertRaisesRegex(urllib.error.HTTPError, "404: no for https://example.invalid/f"):
                 download.fetch("https://example.invalid/f")
         sleep.assert_not_called()
+
+
+class StreamedResponse(io.BytesIO):
+    """What `urlopen` returns, for a body that is streamed: a file with headers and context management."""
+
+    def __init__(self, body: bytes, announced: int | None = None):
+        super().__init__(body)
+        self.headers = {} if announced is None else {"Content-Length": str(announced)}
+
+
+class FetchTo(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.path = Path(self.tmp.name) / "deep" / "archive.bin"
+
+    def test_streams_to_the_path_and_leaves_no_partial_file(self):
+        with mock.patch("urllib.request.urlopen", return_value=StreamedResponse(b"abc", 3)):
+            download.fetch_to("https://example.invalid/f", self.path)
+        self.assertEqual(self.path.read_bytes(), b"abc")
+        self.assertEqual(os.listdir(self.path.parent), ["archive.bin"])
+
+    def test_transient_failures_are_retried(self):
+        import urllib.error
+
+        broken = urllib.error.HTTPError("https://example.invalid/f", 503, "down", {}, None)
+        truncated = StreamedResponse(b"ab", 3)
+        with (
+            mock.patch("urllib.request.urlopen", side_effect=[broken, truncated, StreamedResponse(b"abc", 3)]),
+            mock.patch("time.sleep") as sleep,
+        ):
+            download.fetch_to("https://example.invalid/f", self.path)
+        self.assertEqual(sleep.call_count, 2)
+        self.assertEqual(self.path.read_bytes(), b"abc")
+
+    def test_two_downloads_of_one_path_use_different_partial_files(self):
+        names = []
+        real = shutil.copyfileobj
+
+        def spy(source, out, *rest):
+            names.append(out.name)
+            return real(source, out, *rest)
+
+        with (
+            mock.patch("urllib.request.urlopen", side_effect=lambda *a, **k: StreamedResponse(b"abc", 3)),
+            mock.patch("shutil.copyfileobj", spy),
+        ):
+            download.fetch_to("https://example.invalid/f", self.path)
+            download.fetch_to("https://example.invalid/f", self.path)
+        self.assertEqual(len(set(names)), 2)
+        self.assertTrue(all(name.endswith(".part") for name in names))
+
+    def test_a_failure_leaves_nothing_behind(self):
+        import urllib.error
+
+        missing = urllib.error.HTTPError("https://example.invalid/f", 404, "no", {}, None)
+        with mock.patch("urllib.request.urlopen", side_effect=missing), mock.patch("time.sleep") as sleep:
+            with self.assertRaisesRegex(urllib.error.HTTPError, "404: no for https://example.invalid/f"):
+                download.fetch_to("https://example.invalid/f", self.path)
+        sleep.assert_not_called()
+        self.assertEqual(os.listdir(self.path.parent), [])
+        with mock.patch("urllib.request.urlopen", return_value=StreamedResponse(b"ab", 3)), mock.patch("time.sleep"):
+            with self.assertRaises(Exception):
+                download.fetch_to("https://example.invalid/f", self.path, attempts=2)
+        self.assertEqual(os.listdir(self.path.parent), [])
 
 
 class Llvm(unittest.TestCase):

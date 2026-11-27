@@ -10,6 +10,10 @@ use crate::upgrade::checksum;
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
+use std::time::{Duration, SystemTime};
+
+/// An entry nobody has read or written for this long is deleted when the store is opened.
+const MAX_AGE: Duration = Duration::from_hours(30 * 24);
 
 /// The program a list is for.
 #[derive(Clone, Copy, Debug)]
@@ -44,7 +48,38 @@ impl Store {
                 .join("jacket")
                 .join("test-deps"),
         };
-        Some(Self::at(dir, jaic))
+        Some(Self::opened(dir, jaic))
+    }
+
+    /// The store in `dir` with its old entries pruned.
+    fn opened(dir: PathBuf, jaic: &Path) -> Self {
+        let store = Self::at(dir, jaic);
+        store.prune(MAX_AGE, SystemTime::now());
+        store
+    }
+
+    /// Deletes the entries last read or written more than `max_age` before `now`. A compiler that
+    /// changes leaves its entries behind, since the compiler is part of the name; this is what
+    /// removes them. An entry that cannot be opened for writing stays: reading cannot renew its
+    /// time, so its age says nothing about use.
+    fn prune(&self, max_age: Duration, now: SystemTime) {
+        let Ok(entries) = std::fs::read_dir(&self.dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let old = path.extension().is_some_and(|ext| ext == "deps")
+                && std::fs::File::options().write(true).open(&path).is_ok()
+                && entry
+                    .metadata()
+                    .and_then(|meta| meta.modified())
+                    .is_ok_and(|modified| {
+                        now.duration_since(modified).is_ok_and(|age| age > max_age)
+                    });
+            if old {
+                let _ = std::fs::remove_file(path);
+            }
+        }
     }
 
     /// The store in `dir`, for the lists `jaic` writes.
@@ -113,9 +148,13 @@ impl Store {
     }
 }
 
-/// The files listed in `entry`, or `None` when there is no such list.
+/// The files listed in `entry`, or `None` when there is no such list. Reading counts as use: the
+/// entry's time moves to now, so pruning keeps the lists a run still asks for.
 pub fn read(entry: &Path) -> Option<Vec<String>> {
     let text = std::fs::read_to_string(entry).ok()?;
+    if let Ok(file) = std::fs::File::options().write(true).open(entry) {
+        let _ = file.set_modified(SystemTime::now());
+    }
     Some(text.lines().map(str::to_string).collect())
 }
 
@@ -213,6 +252,76 @@ mod tests {
             entry(&changed, file, &["-os", "wasm"], false),
             "compiler"
         );
+    }
+
+    #[test]
+    fn pruning_removes_only_old_lists() {
+        let dir = temp("prune");
+        let store = store(&dir);
+        store.prepare(&dir.join("store/x.deps"));
+        let old = dir.join("store/old.deps");
+        let fresh = dir.join("store/fresh.deps");
+        let other = dir.join("store/old.txt");
+        for file in [&old, &fresh, &other] {
+            std::fs::write(file, "/a.jai\n").unwrap();
+        }
+        let day = Duration::from_hours(24);
+        let aged = |file: &Path, days: u32| {
+            let handle = std::fs::File::options().write(true).open(file).unwrap();
+            handle.set_modified(SystemTime::now() - day * days).unwrap();
+        };
+        aged(&old, 40);
+        aged(&other, 40);
+        aged(&fresh, 2);
+        store.prune(MAX_AGE, SystemTime::now());
+        assert!(!old.exists(), "a list unused for 40 days");
+        assert!(fresh.exists());
+        assert!(other.exists(), "only lists are the store's to delete");
+        // Reading an old list keeps it.
+        let kept = dir.join("store/kept.deps");
+        std::fs::write(&kept, "/a.jai\n").unwrap();
+        aged(&kept, 40);
+        assert_eq!(read(&kept), Some(vec!["/a.jai".into()]));
+        store.prune(MAX_AGE, SystemTime::now());
+        assert!(kept.exists());
+    }
+
+    #[test]
+    fn opening_prunes_and_a_pruned_list_is_a_miss() {
+        let dir = temp("open");
+        let jaic = dir.join("jaic");
+        std::fs::write(&jaic, "compiler").unwrap();
+        let old = dir.join("store/old.deps");
+        std::fs::create_dir_all(dir.join("store")).unwrap();
+        std::fs::write(&old, "/a.jai\n").unwrap();
+        let handle = std::fs::File::options().write(true).open(&old).unwrap();
+        handle
+            .set_modified(SystemTime::now() - Duration::from_hours(24 * 40))
+            .unwrap();
+        let store = Store::opened(dir.join("store"), &jaic);
+        assert_eq!(read(&old), None, "pruned between a query and its read");
+        store.prepare(&old);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_list_that_cannot_be_renewed_is_not_pruned() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = temp("readonly");
+        let store = store(&dir);
+        store.prepare(&dir.join("store/x.deps"));
+        let old = dir.join("store/old.deps");
+        std::fs::write(&old, "/a.jai\n").unwrap();
+        let handle = std::fs::File::options().write(true).open(&old).unwrap();
+        handle
+            .set_modified(SystemTime::now() - Duration::from_hours(24 * 40))
+            .unwrap();
+        std::fs::set_permissions(&old, std::fs::Permissions::from_mode(0o444)).unwrap();
+        // Root can still open it for writing, and then the entry may go.
+        if std::fs::File::options().write(true).open(&old).is_err() {
+            store.prune(MAX_AGE, SystemTime::now());
+            assert!(old.exists());
+        }
     }
 
     #[test]

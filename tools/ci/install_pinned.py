@@ -22,19 +22,15 @@ from __future__ import annotations
 import argparse
 import os
 import re
-import shutil
 import subprocess
 import sys
 import tarfile
 import tempfile
-import time
-import urllib.error
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
 from ci import pins
-from toolkit.download import USER_AGENT, fetch, request
+from toolkit.download import fetch, fetch_to
 from toolkit.hashing import sha256_bytes
 from toolkit.host import host_cpu, host_os
 from toolkit.repo import ROOT
@@ -203,28 +199,6 @@ def install_rust(root: Path, components: list[str], targets: list[str]) -> None:
         )
 
 
-def download(url: str, path: Path, attempts: int = 5, pause: int = 5) -> None:
-    """Stream `url` to `path` (the archives are too large to hold in memory), retrying transient failures."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    partial = path.with_name(path.name + ".part")
-    for attempt in range(1, attempts + 1):
-        try:
-            with (
-                urllib.request.urlopen(
-                    request(url, {"User-Agent": USER_AGENT}), timeout=120
-                ) as response,
-                partial.open("wb") as out,
-            ):
-                shutil.copyfileobj(response, out, 1 << 20)
-            partial.replace(path)
-            return
-        except (OSError, urllib.error.URLError):
-            if attempt == attempts:
-                raise
-            print(f"  attempt {attempt} failed; retrying in {pause}s", file=sys.stderr)
-            time.sleep(pause)
-
-
 def install_llvm_release(manifest: dict, archive: str) -> None:
     version = manifest["llvm"]
     archive = archive.replace("{version}", version)
@@ -232,7 +206,7 @@ def install_llvm_release(manifest: dict, archive: str) -> None:
     download_dir = temp / "llvm-download"
     llvm = temp / "llvm"
     if not (download_dir / archive).is_file():
-        download(
+        fetch_to(
             f"https://github.com/llvm/llvm-project/releases/download/llvmorg-{version}/{archive}",
             download_dir / archive,
         )

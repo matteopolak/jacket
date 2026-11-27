@@ -3,6 +3,7 @@
 import os
 import shutil
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -14,7 +15,7 @@ from pathlib import Path
 
 from toolkit.hashing import sha256_file
 
-__all__ = ["cache_dir", "fetch", "pinned", "pinned_to", "request"]
+__all__ = ["cache_dir", "fetch", "fetch_to", "pinned", "pinned_to", "request"]
 
 ATTEMPTS = 6
 TRANSIENT = {408, 429, 500, 502, 503, 504}
@@ -90,35 +91,14 @@ class GitHubRedirect(urllib.request.HTTPRedirectHandler):
 urllib.request.install_opener(urllib.request.build_opener(GitHubRedirect))
 
 
-def fetch(
-    url: str,
-    *,
-    timeout: float = 120,
-    attempts: int = ATTEMPTS,
-    headers: Mapping[str, str] | None = None,
-    max_bytes: int | None = None,
-) -> bytes:
-    """The body of `url` (`ValueError` when it is longer than `max_bytes`, which is never read past). Rate limits, 5xx answers, dropped connections and truncated bodies are retried
-    with a growing pause (honouring `Retry-After`); other 4xx answers (a wrong pin) fail at once."""
+def _retrying(url: str, consume, *, timeout: float, attempts: int, headers: Mapping[str, str] | None):
+    """`consume(response)` for `url`, opened again after a rate limit, a 5xx answer, a dropped connection or a
+    truncated body, with a growing pause (honouring `Retry-After`); other 4xx answers (a wrong pin) fail at once."""
     prepared = request(url, headers)
     for attempt in range(1, attempts + 1):
         try:
             with urllib.request.urlopen(prepared, timeout=timeout) as response:
-                body = (
-                    response.read()
-                    if max_bytes is None
-                    else response.read(max_bytes + 1)
-                )
-                # `read(amount)` does not notice a connection that closed early: compare with the header.
-                announced = response.headers.get("Content-Length", "")
-                wanted = int(announced) if announced.isdigit() else None
-                if wanted is not None and len(body) < min(
-                    wanted, (max_bytes or wanted) + 1
-                ):
-                    raise IncompleteRead(body, wanted - len(body))
-            if max_bytes is not None and len(body) > max_bytes:
-                raise ValueError(f"{url}: more than {max_bytes} bytes")
-            return body
+                return consume(response)
         except urllib.error.HTTPError as error:
             if error.code not in TRANSIENT or attempt == attempts:
                 # `str(HTTPError)` leaves out the URL; keep the type and code, name the URL.
@@ -131,6 +111,67 @@ def fetch(
         print(f"  attempt {attempt} failed; retrying in {wait}s", file=sys.stderr)
         time.sleep(wait)
     raise AssertionError("unreachable")
+
+
+def _announced(response) -> int | None:
+    """The body length the server announced, if it did."""
+    announced = response.headers.get("Content-Length", "")
+    return int(announced) if announced.isdigit() else None
+
+
+def fetch(
+    url: str,
+    *,
+    timeout: float = 120,
+    attempts: int = ATTEMPTS,
+    headers: Mapping[str, str] | None = None,
+    max_bytes: int | None = None,
+) -> bytes:
+    """The body of `url` (`ValueError` when it is longer than `max_bytes`, which is never read past). Rate limits, 5xx answers, dropped connections and truncated bodies are retried
+    with a growing pause (honouring `Retry-After`); other 4xx answers (a wrong pin) fail at once."""
+
+    def read(response) -> bytes:
+        body = response.read() if max_bytes is None else response.read(max_bytes + 1)
+        # `read(amount)` does not notice a connection that closed early: compare with the header.
+        wanted = _announced(response)
+        if wanted is not None and len(body) < min(wanted, (max_bytes or wanted) + 1):
+            raise IncompleteRead(body, wanted - len(body))
+        if max_bytes is not None and len(body) > max_bytes:
+            raise ValueError(f"{url}: more than {max_bytes} bytes")
+        return body
+
+    return _retrying(url, read, timeout=timeout, attempts=attempts, headers=headers)
+
+
+def fetch_to(
+    url: str,
+    path: Path,
+    *,
+    timeout: float = 120,
+    attempts: int = ATTEMPTS,
+    headers: Mapping[str, str] | None = None,
+) -> None:
+    """Stream `url` to `path` without holding it in memory (for archives), retrying as `fetch` does. The file
+    appears whole or not at all: it is written beside `path` as `NAME.part` and moved into place."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    def write(response) -> None:
+        # A name of its own, so two downloads of one path never write the same file.
+        with tempfile.NamedTemporaryFile(dir=path.parent, prefix=path.name + ".", suffix=".part", delete=False) as out:
+            partial = Path(out.name)
+            try:
+                shutil.copyfileobj(response, out, 1 << 20)
+                out.flush()
+                wanted = _announced(response)
+                if wanted is not None and out.tell() < wanted:
+                    raise IncompleteRead(b"", wanted - out.tell())
+            except BaseException:
+                out.close()
+                partial.unlink(missing_ok=True)
+                raise
+        partial.replace(path)
+
+    _retrying(url, write, timeout=timeout, attempts=attempts, headers=headers)
 
 
 def _retry_after(error: urllib.error.HTTPError) -> int | None:

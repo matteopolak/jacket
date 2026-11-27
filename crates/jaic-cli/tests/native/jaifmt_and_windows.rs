@@ -1,8 +1,39 @@
 //! The formatter build, Windows runtime programs and PDBs.
 use super::{build_and_run, exe_path, formatter_fixtures, jaic, repo_root};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use test_support::{TempDir, toolchain};
+
+/// Whether a Windows crash runtime library is anywhere jaic looks for one: beside its source, in
+/// the compiler's cache of built runtimes, or in a `native-libs` folder under the build output.
+fn windows_crash_runtime_exists() -> bool {
+    const NAMES: [&str; 6] = [
+        "platform_io_windows_crash.lib",
+        "platform_io_windows_crash.a",
+        "libplatform_io_windows_crash.a",
+        "platform_io_windows_crash.dll.a",
+        "libplatform_io_windows_crash.dll.a",
+        "platform_io_windows_crash.dll",
+    ];
+    let holds = |dir: &Path| NAMES.iter().any(|name| dir.join(name).is_file());
+    let subfolders = |dir: PathBuf| -> Vec<PathBuf> {
+        std::fs::read_dir(dir)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .map(|entry| entry.path())
+            .collect()
+    };
+    let target = jacket_config::env::OUTPUT_DIR
+        .os()
+        .map_or_else(|| repo_root().join("target"), PathBuf::from);
+    let mut places = vec![repo_root().join("stdlib/internal/runtime/crash-native")];
+    places.extend(subfolders(target.join("native-libs")));
+    if let Ok(cache) = jacket_config::user_cache_dir() {
+        places.extend(subfolders(cache.join("jaic/crash-runtime")));
+    }
+    places.iter().any(|dir| holds(dir))
+}
 
 /// `jaifmt/` builds natively and behaves as documented: `--stdin` formats to stdout,
 /// `--check` lists files that would change (exit 1) without writing, a plain run rewrites them,
@@ -389,6 +420,12 @@ fn windows_runtime_program() {
         ("arm64", "aarch64-w64-mingw32-clang", 0xaa64),
     ] {
         if Command::new(toolchain).arg("--version").output().is_err() {
+            continue;
+        }
+        if !windows_crash_runtime_exists() {
+            eprintln!(
+                "skipping {cpu}: the Windows crash runtime (platform_io_windows_crash) is not built here; `tools/native/windows_cross.py` builds it"
+            );
             continue;
         }
         let name = format!("cross-{cpu}");

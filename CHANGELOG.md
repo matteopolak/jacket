@@ -11,9 +11,13 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - A failed `assert` in a test or doc example shows its line, not a crash and stack trace.
 - `jailsp` analyses test files as programs of their own and no longer notes them `not-in-program` (#87, @zhylmzr).
 - `jacket run --target TRIPLE` for another machine says to add a runner instead of starting the program on the host.
+- `jacket test --target TRIPLE` for another machine asks for a runner instead of running the tests on the host.
 - `jailint` lifetime rules scale linearly with procedure size, and `jailsp` keeps finished files when indexing is interrupted (#88, @ctzcs).
 - A `main` with parameters, no body or a non-integer result is reported as such, not as never lowered.
 - A compile-time `#if` case follows `#through;`, and takes `case;` only when nothing matches (#89, @ElectronPie).
+- `jacket doc -- -os X` no longer changes the check of which modules build for wasm.
+- `jacket test` deletes dependency-store entries unused for 30 days.
+- A compile-fail `.stderr` writes files under an `-import_dir` as `$IMPORT1/...`, not as absolute paths.
 
 ## [0.40.0] - 2026-11-24
 

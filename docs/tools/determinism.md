@@ -26,7 +26,7 @@ A full run with `--scramble 1,2` takes about an hour. CI runs it nightly (`deter
 - **Fast guard.** `cargo test -p jaic-cli --test symbol_order` compiles a few programs from `tests/fixtures/symbol-order/` (and the type-table and metaprogramming cases) under three seeds with `-serial_parse` and requires identical output (`test_support::determinism::assert_stable`); it takes about a second. Add a program there when a new visible symptom is fixed.
 - **Machine code.** Compared byte for byte, except that unoptimized macOS links hash the kept objects (the debug map stores object times).
 - **Host addresses.** Compile-time values placed in the program hold compiler memory addresses, so the check normalizes byte-string payloads of `@compiler.global_data.g<id>` globals (`strip_global_data`). LLVM renders bytes as printable characters, hex escapes or escaped backslashes; the matcher accepts all three. It still compares symbol identity, storage layout, alignment and all other globals. `HOST_ADDRESS_CASES` lists programs that do this on purpose and compare only diagnostics.
-- A timeout is repeated once; only a second timeout counts.
+- A timeout is repeated once. A second timeout fails the run, reported as a timeout and not as a difference in output (a hang under one configuration or seed is a bug). When every run of a case timed out, the failure says it is too slow to compare.
 
 ## How to change it
 

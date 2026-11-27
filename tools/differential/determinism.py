@@ -82,6 +82,17 @@ def scrambled(seed: str | None) -> dict:
     return env
 
 
+class TimedOut:
+    """What `run` returns for a command that timed out twice. A class of its own, so no real result (a tuple of
+    exit code and output) can be taken for it."""
+
+    def __repr__(self):
+        return "timed out"
+
+
+TIMED_OUT = TimedOut()
+
+
 def run(argv, cwd, timeout=TIMEOUT, seed=None):
     """(exit code, stdout, stderr) of a command; a timeout is reported as a result, not raised."""
     for attempt in range(2):
@@ -92,7 +103,7 @@ def run(argv, cwd, timeout=TIMEOUT, seed=None):
             # crash); a program that hangs again is reported.
             continue
         return (p.returncode, p.stdout, p.stderr)
-    return (-1, b"", b"timeout")
+    return TIMED_OUT
 
 
 GLOBAL_DATA = re.compile(rb"^@compiler\.global_data\.g\d+ = .*$", re.MULTILINE)
@@ -114,12 +125,25 @@ class Report:
     def __init__(self):
         self.lock = threading.Lock()
         self.failures: list[str] = []
+        self.timeouts = 0
         self.checked = 0
 
     def compare(self, label: str, results: list[tuple[str, object]]):
-        """`results` are (config, value) pairs; they must all equal the first."""
+        """`results` are (config, value) pairs; they must all equal the first. A run that timed out is a failure
+        of its own kind: reported as a timeout, not as a difference in output. When every run timed out the case is
+        too slow to compare."""
         with self.lock:
             self.checked += 1
+        timed_out = [name for name, value in results if isinstance(value, TimedOut)]
+        if timed_out:
+            if len(timed_out) == len(results):
+                message = f"{label}: too slow to compare: every run timed out"
+            else:
+                message = f"{label}: timeout: `{'`, `'.join(timed_out)}` did not finish while the others did"
+            with self.lock:
+                self.failures.append(message)
+                self.timeouts += 1
+            return
         first_name, first = results[0]
         for name, value in results[1:]:
             if value != first:
@@ -289,7 +313,8 @@ def main() -> int:
 
     with ThreadPoolExecutor(args.jobs) as pool:
         list(pool.map(work, cases))
-    print(f"{len(cases)} files, {report.checked} comparisons, {len(report.failures)} differences", file=sys.stderr)
+    print(f"{len(cases)} files, {report.checked} comparisons, {len(report.failures)} failures "
+          f"({report.timeouts} of them timeouts)", file=sys.stderr)
     for failure in report.failures:
         print(failure)
     return 1 if report.failures else 0

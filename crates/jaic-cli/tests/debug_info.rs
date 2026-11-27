@@ -309,6 +309,9 @@ fn macos_debug_builds_keep_objects_and_optimized_builds_write_a_dsym() {
     assert!(!exe.parent().unwrap().join(".build").exists());
 }
 
+/// How long lldb gets to run the debug session; without permission to debug it can wait forever.
+const LLDB_LIMIT: std::time::Duration = std::time::Duration::from_secs(120);
+
 fn lldb_available() -> bool {
     toolchain::command("lldb")
         .arg("--version")
@@ -325,17 +328,44 @@ fn lldb_breakpoints_backtraces_and_variables() {
         return;
     }
     let (_dir, exe) = build("debug-info-lldb", "prog", &[], None, false);
-    let out = toolchain::command("lldb")
-        // User startup scripts/formatters are outside the compiler's test inputs.
-        .arg("--no-lldbinit")
-        .arg("--batch")
-        .args(["-o", "b shapes.jai:25", "-o", "b main.jai:27", "-o", "run"])
-        .args(["-o", "bt", "-o", "frame variable"])
-        .args(["-o", "breakpoint delete 1", "-o", "continue"])
-        .args(["-o", "frame variable", "-o", "p counter", "-o", "p *p"])
-        .arg(&exe)
-        .output()
-        .unwrap();
+    // Without permission to debug, lldb can wait forever: run the program under it once, plainly,
+    // and skip only when that fails or hangs. A hang after this is a failure.
+    let mut plain = toolchain::command("lldb");
+    let launched = test_support::process::output_within(
+        plain
+            .args(["--no-lldbinit", "--batch", "-o", "run"])
+            .arg(&exe),
+        LLDB_LIMIT,
+    );
+    match launched {
+        None => {
+            eprintln!(
+                "skipped: lldb could not run a program in {LLDB_LIMIT:?} (no debugger access?)"
+            );
+            return;
+        }
+        Some(out)
+            if String::from_utf8_lossy(&out.stdout).contains("error: process launch failed") =>
+        {
+            eprintln!("skipped: lldb cannot launch processes here");
+            return;
+        }
+        Some(_) => {}
+    }
+    let mut lldb = toolchain::command("lldb");
+    // User startup scripts/formatters are outside the compiler's test inputs.
+    let Some(out) = test_support::process::output_within(
+        lldb.arg("--no-lldbinit")
+            .arg("--batch")
+            .args(["-o", "b shapes.jai:25", "-o", "b main.jai:27", "-o", "run"])
+            .args(["-o", "bt", "-o", "frame variable"])
+            .args(["-o", "breakpoint delete 1", "-o", "continue"])
+            .args(["-o", "frame variable", "-o", "p counter", "-o", "p *p"])
+            .arg(&exe),
+        LLDB_LIMIT,
+    ) else {
+        panic!("lldb did not finish the debug session in {LLDB_LIMIT:?}");
+    };
     let text = String::from_utf8_lossy(&out.stdout).into_owned();
     if text.contains("error: process launch failed") {
         eprintln!("skipped: lldb cannot launch processes here:\n{text}");

@@ -356,3 +356,85 @@ fn forwarded_check_docs_use_the_effective_checking_target_without_running() {
         "{invocations:?}"
     );
 }
+
+fn target_run(extra: &[&str], config: Option<&str>) -> (std::process::Output, Vec<Vec<String>>) {
+    let (root, jacket) = fixture();
+    let test = root.join("tests/target.jai");
+    std::fs::write(&test, "placeholder :: () {} @test\n").unwrap();
+    if let Some(config) = config {
+        std::fs::write(root.join("jacket.toml"), config).unwrap();
+    }
+    let log = root.join("args.jsonl");
+    let output = Command::new(&jacket)
+        .current_dir(&root)
+        .arg("test")
+        .args(extra)
+        .env("JAIC_STDLIB", root.join("stdlib"))
+        .env("TARGET_LOG", &log)
+        .env("TARGET_TEST", &test)
+        .output()
+        .unwrap();
+    let calls = std::fs::read_to_string(&log)
+        .unwrap_or_default()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    (output, calls)
+}
+
+fn host_triple() -> String {
+    jaic::target::Target::host().to_string()
+}
+
+#[test]
+fn a_foreign_target_without_a_runner_fails_before_building() {
+    let (output, calls) = target_run(&["--target", "aarch64-unknown-none-elf"], None);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(!output.status.success(), "{stderr}");
+    assert!(stderr.contains("not this machine's target"), "{stderr}");
+    assert!(stderr.contains("--runner"), "{stderr}");
+    assert!(
+        !calls.iter().any(|args| args.iter().any(|a| a == "-exe")),
+        "built before failing: {calls:?}"
+    );
+    let (output, _) = target_run(
+        &[
+            "--target",
+            "aarch64-unknown-none-elf",
+            "--runner",
+            "python3",
+        ],
+        None,
+    );
+    assert!(output.status.success());
+}
+
+#[test]
+fn a_named_target_for_this_machine_needs_no_runner() {
+    let config = format!("[target.native]\ntriple = \"{}\"\n", host_triple());
+    let (output, _) = target_run(&["--target", "native"], Some(&config));
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let (output, _) = target_run(&["--target", &host_triple()], None);
+    assert!(output.status.success());
+}
+
+#[test]
+fn another_abi_on_this_os_and_cpu_runs_here() {
+    let triple = if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+        "x86_64-unknown-linux-musl"
+    } else if cfg!(all(target_os = "linux", target_arch = "aarch64")) {
+        "aarch64-unknown-linux-musl"
+    } else {
+        return;
+    };
+    let (output, _) = target_run(&["--target", triple], None);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}

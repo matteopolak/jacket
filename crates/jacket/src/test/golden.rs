@@ -458,11 +458,29 @@ pub fn golden(
     checked
 }
 
-/// `text` with `dir` written `$DIR`, `stdlib` `$STDLIB` and `project` (the folder with
-/// `jacket.toml`) `$ROOT`, separators as `/`. Paths outside all three stay as printed.
-pub fn normalize_paths(text: &str, dir: &Path, stdlib: &Path, project: &Path) -> String {
+/// `text` with `dir` written `$DIR`, `stdlib` `$STDLIB`, `project` (the folder with
+/// `jacket.toml`) `$ROOT` and the `imports` folders `$IMPORT1`, `$IMPORT2`, ... in the order given,
+/// separators as `/`. Paths outside all of them stay as printed.
+pub fn normalize_paths(
+    text: &str,
+    dir: &Path,
+    stdlib: &Path,
+    project: &Path,
+    imports: &[PathBuf],
+) -> String {
     let mut text = text.replace("\r\n", "\n");
-    for (path, name) in [(stdlib, "$STDLIB"), (dir, "$DIR"), (project, "$ROOT")] {
+    let imports: Vec<(&Path, String)> = imports
+        .iter()
+        .enumerate()
+        .filter(|(_, path)| path.is_absolute())
+        .map(|(i, path)| (path.as_path(), format!("$IMPORT{}", i + 1)))
+        .collect();
+    let named = [(stdlib, "$STDLIB"), (dir, "$DIR"), (project, "$ROOT")]
+        .into_iter()
+        .map(|(path, name)| (path, name.to_string()))
+        .chain(imports);
+    for (path, name) in named {
+        let name = name.as_str();
         // The compiler prints resolved paths, so `a/../stdlib` must match its canonical form too.
         let real = path.canonicalize().ok();
         for path in [Some(path), real.as_deref()].into_iter().flatten() {
@@ -479,7 +497,7 @@ pub fn normalize_paths(text: &str, dir: &Path, stdlib: &Path, project: &Path) ->
     // Paths after `$DIR`, `$STDLIB` and `$ROOT` keep their own separators on Windows; make them alike.
     text.lines()
         .map(|line| {
-            if ["$DIR\\", "$STDLIB\\", "$ROOT\\"]
+            if ["$DIR\\", "$STDLIB\\", "$ROOT\\", "$IMPORT"]
                 .iter()
                 .any(|p| line.contains(p))
             {
@@ -583,11 +601,15 @@ pub fn compile_fail(
             .push("it compiled; a compile-fail test must not".into());
         return checked;
     }
+    // The import folders the build named (`-import_dir`), each written `$IMPORTn`.
+    let flags: Vec<String> = toolchain.flags.iter().chain(root_flags).cloned().collect();
+    let imports = jaic_cli_args::arguments::import_dirs(&flags);
     let got = normalize_paths(
         &compile_output(&output),
         dir,
         folders.stdlib,
         folders.project,
+        &imports,
     );
     let expected = source.with_extension("stderr");
     if let Some(part) = &options.diagnostic_contains {
@@ -628,7 +650,8 @@ mod tests {
                 text,
                 Path::new("/r/tests/compile_fail"),
                 Path::new("/s"),
-                Path::new("/r")
+                Path::new("/r"),
+                &[]
             ),
             "$DIR/bad.jai:3:1: error: x\n$STDLIB/Basic/module.jai:9: note\n"
         );
@@ -637,7 +660,8 @@ mod tests {
                 "C:\\r\\t\\bad.jai:1: e\r\n",
                 Path::new("C:\\r\\t"),
                 Path::new("C:\\s"),
-                Path::new("C:\\r")
+                Path::new("C:\\r"),
+                &[]
             ),
             "$DIR/bad.jai:1: e\n"
         );
@@ -646,7 +670,8 @@ mod tests {
                 "..\\..\\layout.jai:67:13: error: a\\b\n",
                 Path::new("C:\\r\\t"),
                 Path::new("C:\\s"),
-                Path::new("C:\\r")
+                Path::new("C:\\r"),
+                &[]
             ),
             "../../layout.jai:67:13: error: a\\b\n"
         );
@@ -656,7 +681,8 @@ mod tests {
                 "..\\fixtures/clash.proto:3:15: error: a\\b\nnote: C:\\x 1:2\n",
                 Path::new("C:\\r\\t"),
                 Path::new("C:\\s"),
-                Path::new("C:\\r")
+                Path::new("C:\\r"),
+                &[]
             ),
             "../fixtures/clash.proto:3:15: error: a\\b\nnote: C:\\x 1:2\n"
         );
@@ -667,7 +693,7 @@ mod tests {
         let dir = Path::new("/r/tests/compile_fail");
         let text = "/r/src/lib.jai:4:2: error: x\n/r/tests/other/a.jai:1:1: note\n/r/tests/compile_fail/bad.jai:3:1: e\n/s/Basic/module.jai:9: note\n/elsewhere/f.jai:1:1: e\n";
         assert_eq!(
-            normalize_paths(text, dir, Path::new("/s"), Path::new("/r")),
+            normalize_paths(text, dir, Path::new("/s"), Path::new("/r"), &[]),
             "$ROOT/src/lib.jai:4:2: error: x\n$ROOT/tests/other/a.jai:1:1: note\n$DIR/bad.jai:3:1: e\n$STDLIB/Basic/module.jai:9: note\n/elsewhere/f.jai:1:1: e\n"
         );
         // The stdlib inside the project stays `$STDLIB`, and `\` after `$ROOT` becomes `/`.
@@ -676,9 +702,22 @@ mod tests {
                 "C:\\r\\stdlib\\B\\m.jai:1: e\nC:\\r\\src\\lib.jai:2: e\n",
                 Path::new("C:\\r\\t"),
                 Path::new("C:\\r\\stdlib"),
-                Path::new("C:\\r")
+                Path::new("C:\\r"),
+                &[]
             ),
             "$STDLIB/B/m.jai:1: e\n$ROOT/src/lib.jai:2: e\n"
+        );
+    }
+
+    #[test]
+    fn import_folders_are_numbered_in_flag_order() {
+        let dir = Path::new("/r/tests/compile_fail");
+        let imports = [PathBuf::from("/libs/a"), PathBuf::from("/libs/b")];
+        let text =
+            "/libs/b/x.jai:1:1: error: x\n/libs/a/y/z.jai:2:2: note\n/libs/ab/q.jai:3:3: e\n";
+        assert_eq!(
+            normalize_paths(text, dir, Path::new("/s"), Path::new("/r"), &imports),
+            "$IMPORT2/x.jai:1:1: error: x\n$IMPORT1/y/z.jai:2:2: note\n/libs/ab/q.jai:3:3: e\n"
         );
     }
 
@@ -700,10 +739,13 @@ mod tests {
         let linked = base.join("link/stdlib");
         let dotted = base.join("real/case/../stdlib");
         for stdlib in [&canonical, &linked, &dotted] {
-            assert_eq!(normalize_paths(&printed, &dir, stdlib, &base), want);
+            assert_eq!(normalize_paths(&printed, &dir, stdlib, &base, &[]), want);
         }
         let through_link = format!("{}/Basic/module.jai:9: note\n", linked.display());
-        assert_eq!(normalize_paths(&through_link, &dir, &linked, &base), want);
+        assert_eq!(
+            normalize_paths(&through_link, &dir, &linked, &base, &[]),
+            want
+        );
         let _ = std::fs::remove_dir_all(&base);
     }
 

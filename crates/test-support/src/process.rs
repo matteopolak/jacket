@@ -1,7 +1,10 @@
 //! Running child processes and checking what they did.
 
 use std::borrow::Borrow;
-use std::process::{Command, Output};
+use std::io::Read;
+use std::process::{Command, Output, Stdio};
+use std::sync::mpsc;
+use std::time::{Duration, Instant};
 
 /// `output` rendered for a failure message: the status, then standard output and error.
 #[must_use]
@@ -20,6 +23,52 @@ pub fn output(command: &mut Command) -> Output {
     command
         .output()
         .unwrap_or_else(|error| panic!("cannot run {command:?}: {error}"))
+}
+
+/// Runs `command` and returns its output, or `None` after killing it when it is still running
+/// once `limit` has passed, or when a process it started still holds its output open a few seconds
+/// after it exited. For tools that can hang on a machine that lacks something they need
+/// (a debugger without permission to attach). Panics only when the process cannot be started.
+pub fn output_within(command: &mut Command, limit: Duration) -> Option<Output> {
+    let mut child = command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap_or_else(|error| panic!("cannot run {command:?}: {error}"));
+    fn drain(mut pipe: impl Read + Send + 'static) -> mpsc::Receiver<Vec<u8>> {
+        let (send, receive) = mpsc::channel();
+        std::thread::spawn(move || {
+            let mut bytes = Vec::new();
+            let _ = pipe.read_to_end(&mut bytes);
+            let _ = send.send(bytes);
+        });
+        receive
+    }
+    let stdout = drain(child.stdout.take().expect("piped"));
+    let stderr = drain(child.stderr.take().expect("piped"));
+    let deadline = Instant::now() + limit;
+    let status = loop {
+        if let Some(status) = child.try_wait().expect("waiting for the child") {
+            break status;
+        }
+        if Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            return None;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    // A process the child started can hold the pipes open after the child is gone, so the readers
+    // get a few seconds, not forever.
+    let grace = Duration::from_secs(5);
+    let stdout = stdout.recv_timeout(grace).ok()?;
+    let stderr = stderr.recv_timeout(grace).ok()?;
+    Some(Output {
+        status,
+        stdout,
+        stderr,
+    })
 }
 
 /// Runs `command`, fails the test with its output unless it succeeds, and returns it.
@@ -68,6 +117,20 @@ mod tests {
         let mut command = Command::new("sh");
         command.args(["-c", script]);
         command
+    }
+
+    #[test]
+    fn a_command_that_outlives_its_limit_is_killed() {
+        let started = Instant::now();
+        assert!(output_within(&mut shell("sleep 30"), Duration::from_millis(200)).is_none());
+        assert!(started.elapsed() < Duration::from_secs(10));
+        // A grandchild that keeps the pipes open after the kill does not hold the call up.
+        let started = Instant::now();
+        let held = shell("sleep 30 & wait");
+        assert!(output_within(&mut { held }, Duration::from_millis(200)).is_none());
+        assert!(started.elapsed() < Duration::from_secs(10));
+        let done = output_within(&mut shell("printf hi"), Duration::from_secs(30)).unwrap();
+        assert_eq!(done.stdout, b"hi");
     }
 
     #[test]

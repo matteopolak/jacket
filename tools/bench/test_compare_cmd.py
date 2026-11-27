@@ -11,7 +11,9 @@ from bench import cmd_compare
 from bench import pairing
 from bench import provenance
 from bench import quiet
-from bench.cmd_compare import Observed, compare_outputs, plan_jobs, summarize_samples
+from bench.cmd_compare import Observed, compare_outputs, plan_jobs, stage_seconds, summarize_samples
+from bench.dialects import Compiler, JaicDialect, PlainDialect
+from bench.measure import Run
 from bench.workloads import RUNTIME_PROGRAMS
 
 
@@ -303,10 +305,6 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(json.dumps(sorted(n for n in names if n.startswith('gen-'))), '["gen-100k", "gen-10k"]')
 
 
-if __name__ == '__main__':
-    unittest.main()
-
-
 class SameCommandLineTests(unittest.TestCase):
     def test_a_mixed_pair_runs_both_binaries_the_portable_way(self):
         from bench.dialects import Compiler, JaicDialect, PlainDialect
@@ -316,3 +314,25 @@ class SameCommandLineTests(unittest.TestCase):
         self.assertEqual({c.dialect.name for c in same_command_line(mixed).values()}, {'plain'})
         both = {n: Compiler(n, Path('/' + n), JaicDialect()) for n in ('baseline', 'candidate')}
         self.assertEqual({c.dialect.name for c in same_command_line(both).values()}, {'jaic'})
+
+
+class StageSourceTests(unittest.TestCase):
+    PHASES = 'bench-phase: parsed 0.1\nbench-phase: typechecked 0.3\nbench-phase: pre_write 0.5\nbench-phase: complete 0.6\n'
+
+    def run_of(self, stdout='', stderr=''):
+        return Run(wall=1.0, cpu=1.0, rss_mib=1.0, returncode=0, stdout=stdout, stderr=stderr, timed_out=False)
+
+    def test_a_phased_run_has_steps_for_any_compiler(self):
+        for dialect in (PlainDialect(), JaicDialect()):
+            stages = stage_seconds(Compiler('x', Path('/x'), dialect), self.run_of(stdout=self.PHASES), phased=True)
+            self.assertAlmostEqual(stages['front end'], 0.3)
+            self.assertAlmostEqual(stages['codegen'], 0.2)
+            self.assertAlmostEqual(stages['total'], 1.0)
+
+    def test_an_unphased_run_has_only_the_compilers_own_report(self):
+        plain = Compiler('x', Path('/x'), PlainDialect())
+        self.assertEqual(stage_seconds(plain, self.run_of(stdout=self.PHASES)), {})
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -41,6 +41,7 @@ To add a recipe, give it a doc comment and a `[group(...)]`, keep the body to on
 | `*.jai` | `jaifmt --check`; `jailint -D warnings` |
 | `crates/**/*.rs` | `rustfmt --check`; `rust_item_spacing.py --check` |
 | shell scripts | `shellcheck` (skipped if not installed) |
+| `tools/**/*.py`, `.github/**/*.py` | `ruff check` with `ruff.toml`, as CI does (skipped if not installed) |
 | `.github/workflows/*.yml` | `actionlint` (skipped if not installed) |
 | anything | `just repo-checks` |
 | `Cargo.toml`, `Cargo.lock` | `cargo metadata --locked --offline` for the workspace and `fuzz/` |
@@ -50,12 +51,13 @@ Tools are built from this checkout (`jailint` through cargo, `jaifmt` rebuilt wh
 
 | Variable | Effect |
 | --- | --- |
-| `JAI_HOOK_SKIP` | Space-separated checks to skip: `jaifmt jailint rustfmt spacing shellcheck actionlint repo locks editor` (pre-commit); `actions clippy` (pre-push) |
+| `JAI_HOOK_SKIP` | Space-separated checks to skip: `jaifmt jailint rustfmt spacing shellcheck ruff actionlint repo locks editor` (pre-commit); `actions clippy` (pre-push) |
 | `JAI_HOOK_NO_BUILD=1` | Never build a tool; use what exists |
 | `JAI_HOOK_VERBOSE=1` | Say which checks run |
+| `JACKET_JAIFMT=PATH` | Use the `jaifmt` at `PATH` as is, with no staleness or origin check; for a job whose prebuilt toolchain matches this checkout |
 | `JACKET_HOOKS_NO_CARGO=1` | For jobs with only a prebuilt toolchain and no Rust: skip the cargo steps (below) |
 
-Cargo is needed to build `jaic` and `jailint`, run `rustfmt` and check lock files. When it is missing the hook fails with an install hint. Set `JACKET_HOOKS_NO_CARGO=1` to opt out: those steps are skipped, nothing is built, and `jaifmt` and `jailint` must already exist (otherwise the hook warns and skips their checks, as above). Everything else still runs: item spacing, shellcheck, actionlint, repo checks, the editor check. No CI job runs the hooks today; a job that does and has no Rust should set it.
+Cargo is needed to build `jaic` and `jailint`, run `rustfmt` and check lock files. When it is missing the hook fails with an install hint. Set `JACKET_HOOKS_NO_CARGO=1` to opt out: those steps are skipped, nothing is built, and `jaifmt` (`target/jaifmt` or `JACKET_JAIFMT`) and `jailint` must already exist (otherwise the hook warns and skips their checks, as above). Everything else still runs: item spacing, shellcheck, actionlint, repo checks, the editor check. No CI job runs the hooks today; a job that does and has no Rust should set it.
 
 A new per-system file under `stdlib/internal` (imports `windows-api`, `posix-api`, X11, or `#assert`s an OS) must be listed in `[lint.portability.platforms]` in `jacket.toml`, or the `platform_leak` check fails. Tests: `tools/ci/test_pre_commit_hook.py`.
 

@@ -689,8 +689,16 @@ def hook_jaic(hook: Hook) -> Path | None:
 
 
 def hook_jaifmt(hook: Hook) -> str | None:
-    """target/jaifmt built from this checkout (rebuilt when stale), else None. Never another checkout's build or an
-    installed jaifmt: their rules can differ from this checkout's and fail files that are formatted."""
+    """`JACKET_JAIFMT` when set, else target/jaifmt built from this checkout (rebuilt when stale), else None. Never
+    another checkout's build or an installed jaifmt: their rules can differ from this checkout's and fail files that
+    are formatted. `JACKET_JAIFMT` is the caller's promise that its jaifmt matches this checkout, for a job with
+    a prebuilt toolchain and no cargo; the hook runs it as is, without the staleness or origin checks."""
+    prebuilt = os.environ.get("JACKET_JAIFMT")
+    if prebuilt:
+        if shutil.which(prebuilt):
+            return prebuilt
+        hook_warn(f"JACKET_JAIFMT={prebuilt} is not an executable")
+        return None
     out = jaifmt_path()
     jaic = hook_jaic(hook)
     if jaic is not None and stale_jaifmt(out, jaic):
@@ -795,6 +803,20 @@ def check_shell(hook: Hook, shell: list[str]) -> None:
         hook.fail("shellcheck <files>", output)
 
 
+def check_python(hook: Hook, python: list[str]) -> None:
+    """CI runs `ruff check tools .github` with ruff.toml; the staged copies get the same rules here."""
+    if hook.skipped("ruff"):
+        return
+    if not shutil.which("ruff"):
+        hook_warn("ruff not found (pip install ruff, see docs/tools/development.md#pre-commit-hook); "
+                  "skipping the Python lint check")
+        return
+    hook.say("ruff check")
+    status, output = run_captured(["ruff", "check", "--no-cache", *python], cwd=hook.tmp)
+    if status:
+        hook.fail("ruff check <files>", output)
+
+
 def check_workflows(hook: Hook, workflows: list[str]) -> None:
     """GitHub rejects a whole workflow file it cannot parse, and then none of its jobs run."""
     if hook.skipped("actionlint"):
@@ -846,7 +868,8 @@ def cmd_precommit(args) -> int:
     with tempfile.TemporaryDirectory(prefix="jai-pre-commit.") as tmp:
         hook = Hook(Path(tmp))
         # Check what will be committed, not what is in the working tree: export the staged blobs.
-        exported = "".join(f + "\0" for f in (*jai, *rust, *shell))
+        python = [f for f in everything if f.endswith(".py") and f.startswith(("tools/", ".github/"))]
+        exported = "".join(f + "\0" for f in (*jai, *rust, *shell, *python))
         done = subprocess.run(["git", "checkout-index", f"--prefix={tmp}/", "-z", "--stdin"], cwd=ROOT,
                               input=exported, text=True, capture_output=True)
         if done.returncode:
@@ -855,7 +878,7 @@ def cmd_precommit(args) -> int:
         # Config the tools read, as staged. A folder's own jacket.toml (a theme's, a package's) sets its
         # jaifmt rules, so every one goes along, not just the root's.
         configs = run_captured(["git", "-c", "core.quotepath=off", "ls-files", "--", "*jacket.toml"])[1].split("\n")
-        for cfg in (*filter(None, configs), "rustfmt.toml", "rust-toolchain.toml"):
+        for cfg in (*filter(None, configs), "rustfmt.toml", "rust-toolchain.toml", "ruff.toml"):
             status, text = run_captured(["git", "show", f":{cfg}"])
             if status == 0:
                 (hook.tmp / cfg).parent.mkdir(parents=True, exist_ok=True)
@@ -866,6 +889,8 @@ def cmd_precommit(args) -> int:
             check_rust(hook, rust)
         if shell:
             check_shell(hook, shell)
+        if python:
+            check_python(hook, python)
         workflows = [f for f in everything if f.startswith(".github/workflows/") and f.endswith((".yml", ".yaml"))]
         if workflows:
             check_workflows(hook, workflows)

@@ -1,7 +1,7 @@
 """Compiler-owned host data is normalized without hiding artifact structure."""
 import unittest
 
-from differential.determinism import strip_global_data
+from differential.determinism import TIMED_OUT, Report, strip_global_data
 
 
 def data_global(symbol="compiler.global_data.g9", payload=r"\01\02\03\04", size=4, align=4):
@@ -33,6 +33,29 @@ class HostDataNormalizationTests(unittest.TestCase):
         reference = strip_global_data(data_global())
         for changed in [data_global(size=8), data_global(align=8), data_global(symbol="compiler.global_data.g10")]:
             self.assertNotEqual(reference, strip_global_data(changed))
+
+
+class TimeoutTests(unittest.TestCase):
+    OK = (0, b"ok", b"")
+
+    def test_a_timeout_is_a_failure_reported_as_one(self):
+        report = Report()
+        report.compare("check a.jai", [("one", self.OK), ("two", TIMED_OUT), ("three", self.OK)])
+        self.assertEqual(len(report.failures), 1)
+        self.assertIn("timeout: `two`", report.failures[0])
+        self.assertNotIn("differs", report.failures[0])
+        self.assertEqual(report.timeouts, 1)
+
+    def test_every_run_timing_out_is_too_slow_to_compare(self):
+        report = Report()
+        report.compare("check a.jai", [("one", TIMED_OUT), ("two", TIMED_OUT)])
+        self.assertIn("too slow to compare", report.failures[0])
+
+    def test_a_real_result_that_looks_like_the_old_marker_is_a_difference(self):
+        report = Report()
+        report.compare("check a.jai", [("one", self.OK), ("two", (-1, b"", b"timeout"))])
+        self.assertIn("differs", report.failures[0])
+        self.assertEqual(report.timeouts, 0)
 
 
 if __name__ == "__main__":

@@ -337,6 +337,39 @@ class PreCommitHookTests(unittest.TestCase):
         self.assertIn("b.jai: BAD", result.stderr)
         self.assertNotIn("cargo", result.stderr.replace("JACKET_HOOKS_NO_CARGO", ""))
 
+    def test_a_prebuilt_jaifmt_can_be_named(self):
+        self.without_cargo()
+        self.env["JACKET_HOOKS_NO_CARGO"] = "1"
+        self.tool("elsewhere/jaifmt")
+        self.env["JACKET_JAIFMT"] = str(self.repo / "elsewhere/jaifmt")
+        self.write("b.jai", "BAD\n")
+        sh(["git", "add", "b.jai"], self.repo)
+        result = self.commit()
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("b.jai: BAD", result.stderr)
+        self.assertNotIn("no jaifmt built", result.stderr)
+
+    def test_a_named_jaifmt_that_is_missing_is_reported(self):
+        self.env["JACKET_JAIFMT"] = str(self.repo / "nowhere/jaifmt")
+        self.write("a.jai", "main :: () {}\n")
+        sh(["git", "add", "a.jai"], self.repo)
+        result = self.commit()
+        self.assertIn("is not an executable", result.stderr)
+
+    @unittest.skipUnless(shutil.which("ruff"), "ruff is not installed")
+    def test_staged_python_is_linted_with_ruff(self):
+        shutil.copy(REPO / "ruff.toml", self.repo / "ruff.toml")
+        sh(["git", "add", "ruff.toml"], self.repo)
+        self.write("tools/x.py", "import os\n")
+        sh(["git", "add", "tools/x.py"], self.repo)
+        result = self.commit()
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("F401", result.stderr)
+        self.write("tools/x.py", "import os\nprint(os.name)\n")
+        sh(["git", "add", "tools/x.py"], self.repo)
+        result = self.commit()
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_item_spacing_is_checked(self):
         self.write("crates/x/src/lib.rs", "fn a() {\n    1;\n}\nfn b() {\n    2;\n}\n")
         sh(["git", "add", "crates"], self.repo)

@@ -54,6 +54,7 @@ python tools\bench\main.py compare --baseline C:\jai\bin\jai.exe --candidate C:\
 ## How to change it
 
 - **New compile workload:** add it to `all_workloads()` in `workloads.py` (source, category, a `Plan` per mode). Set `compare_output` when output is deterministic and `runtime` to time the executable.
+- **`compare` steps:** a build or optimized job runs both binaries through the phase-timing metaprogram, so any compiler, the reference included, gets front end, codegen and link columns. A check job takes them from `-timings`, so only when both binaries are jaic.
 - **New jaic phase:** wrap the code in `timings::time("name", ...)` in `crates/jaic-cli/src/main.rs`, add it to `JaicTimings` in `stages.py`, and update `timings_report_phases` in `crates/jaic-cli/tests/cli.rs`.
 - **New LSP probe:** add a function and a `Probe` in `lsp_session.py`.
 - **New stress action:** add a method to `Run` in `cmd_stress.py` and a weight in `Run.run`. Keep the model of each open document (`Doc`) in step with every edit it sends, or later positions drift.
