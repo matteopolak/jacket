@@ -127,13 +127,13 @@ impl Measure {
     /// Megabytes (10^6 bytes) per second, when the benchmark set its bytes.
     pub fn mb_per_s(&self) -> Option<f64> {
         let time = self.analysis.time.estimate;
-        (self.bytes > 0 && time > 0.0).then(|| self.bytes as f64 / time * 1000.0)
+        (self.bytes > 0 && time > 0.0).then_some(self.bytes as f64 / time * 1000.0)
     }
 
     /// Items per second, when the benchmark set its items.
     pub fn items_per_s(&self) -> Option<f64> {
         let time = self.analysis.time.estimate;
-        (self.items > 0 && time > 0.0).then(|| self.items as f64 * 1e9 / time)
+        (self.items > 0 && time > 0.0).then_some(self.items as f64 * 1e9 / time)
     }
 
     fn json(&self) -> Value {

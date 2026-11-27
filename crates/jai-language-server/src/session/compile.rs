@@ -143,7 +143,7 @@ impl Session {
                         crate::lexical_recovery::update(&d.text, text, &d.lexical_damage)
                     };
                     crate::lexical_recovery::mask(text, &damage)
-                        .map_or_else(|| Cow::Borrowed(text), Cow::Owned)
+                        .map_or(Cow::Borrowed(text), Cow::Owned)
                 } else {
                     d.ide_text()
                 };

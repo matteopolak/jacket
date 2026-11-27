@@ -359,7 +359,7 @@ fn affected(selected: Vec<Case>, changed: &[PathBuf], ctx: &Context) -> Vec<Case
         }
     }
     let read = read_all(&queries, root_flags, toolchain, work, jobs);
-    let found = |query: Option<usize>| query.and_then(|q| read[q].clone()).map(&canon);
+    let found = |query: Option<usize>| query.and_then(|q| read[q].clone()).map(canon);
     let unit: BTreeMap<usize, Option<BTreeSet<PathBuf>>> =
         unit.into_iter().map(|(k, q)| (k, found(q))).collect();
     let alone: BTreeMap<PathBuf, Option<BTreeSet<PathBuf>>> =

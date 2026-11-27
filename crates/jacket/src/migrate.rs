@@ -275,8 +275,8 @@ fn write(path: &Path, before: &str, after: &str) -> Result<(), String> {
         std::fs::remove_file(&temp).ok();
         format!("cannot write `{}`: {}", path.display(), jaic::io_reason(&e))
     };
-    let permissions = std::fs::metadata(path).map_err(&failed)?.permissions();
-    std::fs::write(&temp, after).map_err(&failed)?;
-    std::fs::set_permissions(&temp, permissions).map_err(&failed)?;
-    std::fs::rename(&temp, path).map_err(&failed)
+    let permissions = std::fs::metadata(path).map_err(failed)?.permissions();
+    std::fs::write(&temp, after).map_err(failed)?;
+    std::fs::set_permissions(&temp, permissions).map_err(failed)?;
+    std::fs::rename(&temp, path).map_err(failed)
 }

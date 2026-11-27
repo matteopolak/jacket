@@ -631,18 +631,17 @@ impl Compiler {
             self.ide_note_value_named_args(&info.names, &pt.params, &slots, &args);
         }
         let mut mapped = Vec::new();
-        let allocator = if f.lifetimes.is_some() && !f.type_only {
-            self.preload_type(crate::sema::PreludeType::Allocator, span)
+        let allocator = f.lifetimes.is_some()
+            && !f.type_only
+            && self
+                .preload_type(crate::sema::PreludeType::Allocator, span)
                 .ok()
                 .and_then(|t| self.ty.types.as_struct(t))
                 .is_some_and(|st| {
                     self.ty.types.struct_info(st).fields.iter().any(|field| {
                         field.name.is_some_and(|n| n.as_str() == "proc") && field.ty == ty
                     })
-                })
-        } else {
-            false
-        };
+                });
         let mut values = Vec::new();
         if !pt.no_context {
             // Without a context (e.g. inside #c_call code) the callee receives null.

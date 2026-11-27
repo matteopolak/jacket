@@ -200,7 +200,7 @@ mod tests {
         let folder = snapshots(&root);
         std::fs::write(folder.join("a.snap.new"), "x\n").expect("write");
         let mut out = Vec::new();
-        run(
+        let code = run(
             std::slice::from_ref(&root),
             &root,
             false,
@@ -208,6 +208,7 @@ mod tests {
             &mut out,
         );
         let text = String::from_utf8(out).expect("utf-8");
+        assert_eq!(code, ExitCode::from(1), "{text}");
         assert!(
             text.contains("tests/__snapshots__/file/a.snap.new"),
             "{text}"
@@ -226,7 +227,7 @@ mod tests {
         std::fs::write(folder.join("a.snap"), "old\n").expect("write");
         let mut input = std::io::Cursor::new("?\na\nr\ns\n");
         let mut out = Vec::new();
-        run(
+        let code = run(
             std::slice::from_ref(&root),
             &root,
             true,
@@ -234,6 +235,11 @@ mod tests {
             &mut out,
         );
         let text = String::from_utf8(out).expect("utf-8");
+        assert_eq!(
+            code,
+            ExitCode::from(1),
+            "one snapshot is left pending: {text}"
+        );
         assert!(text.contains('-') && text.contains("+ new"), "{text}");
         assert_eq!(
             std::fs::read_to_string(folder.join("a.snap")).expect("accepted"),

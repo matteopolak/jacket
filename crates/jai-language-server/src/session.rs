@@ -22,7 +22,7 @@ pub(crate) struct Document {
 impl Document {
     pub(crate) fn ide_text(&self) -> Cow<'_, str> {
         crate::lexical_recovery::mask(&self.text, &self.lexical_damage)
-            .map_or_else(|| Cow::Borrowed(self.text.as_str()), Cow::Owned)
+            .map_or(Cow::Borrowed(self.text.as_str()), Cow::Owned)
     }
 
     pub(crate) fn same_positions(&self, text: &str) -> bool {
