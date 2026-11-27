@@ -473,9 +473,7 @@ impl Interp {
             crate::progress::before_output();
         }
         if effects & SPECIAL != 0 {
-            if !self.compile_time
-                && let Some(result) = self.executable_path_foreign(symbol, args)
-            {
+            if let Some(result) = self.executable_path_foreign(symbol, args) {
                 return result.map(Rets::from);
             }
             if self.host.cooperative_threads() {

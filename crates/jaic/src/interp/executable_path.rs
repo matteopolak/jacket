@@ -3,7 +3,9 @@
 //! would name `jaic` itself. With `Interp::run_executable` set, these calls instead report the
 //! executable `jaic` would write, so a program that finds its data next to itself
 //! (`join(path_strip_filename(get_path_of_running_executable()), "../assets")`) runs the same
-//! either way. Compile-time code keeps the real answer (the compiler, as with any compiler).
+//! either way. Compile-time code gets the compiler's own path, as with any compiler, answered
+//! here rather than by the OS so it is the same when the target's C library is not the host's
+//! (a Linux target's `readlink` on a macOS host).
 //!
 //! The same goes for the command line on Windows: `Runtime_Support` reads the arguments again
 //! from `GetCommandLineW` (the C runtime's `argv` is in the ANSI code page), which would give
@@ -32,7 +34,15 @@ impl Interp {
         if !handles(symbol) {
             return None;
         }
-        let path = self.run_executable.clone()?;
+        let path = if self.compile_time {
+            // Compile-time code is not handed a substituted command line.
+            if symbol == "GetCommandLineW" {
+                return None;
+            }
+            std::env::current_exe().ok()?.to_string_lossy().into_owned()
+        } else {
+            self.run_executable.clone()?
+        };
         let arg = |i: usize| word_or_zero(args, i);
         let result = match symbol {
             // int _NSGetExecutablePath(char *buf, uint32_t *size): -1 and the size needed
@@ -196,6 +206,7 @@ mod tests {
     #[test]
     fn omitted_interpreter_arguments_still_name_the_windows_executable() {
         let mut interp = Interp::native(crate::layout::DataLayout::host());
+        interp.compile_time = false;
         interp.run_executable = Some(r"C:\program files\雪\probe.exe".into());
         let address = interp
             .executable_path_foreign("GetCommandLineW", &[])
@@ -214,6 +225,7 @@ mod tests {
         use crate::target::{Target, TargetCpu, TargetOs};
         let layout = Target::new(TargetOs::Windows, TargetCpu::X86).data_layout();
         let mut interp = Interp::native(layout);
+        interp.compile_time = false;
         interp.run_executable = Some(r"C:\probe.exe".into());
         let address = interp
             .executable_path_foreign("GetCommandLineW", &[])
@@ -226,6 +238,7 @@ mod tests {
     #[test]
     fn command_line_parser_keeps_native_success_and_error_semantics() {
         let mut interp = Interp::native(crate::layout::DataLayout::host());
+        interp.compile_time = false;
         interp.run_executable = Some(r"C:\probe.exe".into());
         let address = interp
             .executable_path_foreign("GetCommandLineW", &[])
@@ -249,6 +262,7 @@ mod tests {
             vec!["", "explicit empty argv zero"],
         ] {
             let mut interp = Interp::native(crate::layout::DataLayout::host());
+            interp.compile_time = false;
             interp.run_executable = Some(r"C:\probe.exe".into());
             interp.run_arguments = args.into_iter().map(String::from).collect();
             let expected = windows_command_line(&interp.run_arguments);

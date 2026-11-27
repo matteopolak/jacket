@@ -60,3 +60,15 @@ fn calls_every_c_library_makes_the_same_way_still_run() {
     )
     .unwrap_or_else(|error| panic!("{error}"));
 }
+
+#[test]
+fn compile_time_code_for_another_c_library_finds_the_compiler_as_its_executable() {
+    // The executable compile-time code runs in is the compiler, whichever OS the target is.
+    for os in [TargetOs::Linux, TargetOs::MacOS, TargetOs::Windows] {
+        compile(
+            os,
+            r#"#import "System"; path := get_path_of_running_executable(); assert(path.count > 0, "no path");"#,
+        )
+        .unwrap_or_else(|error| panic!("{os:?}: {error}"));
+    }
+}
