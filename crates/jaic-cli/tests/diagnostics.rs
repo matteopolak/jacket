@@ -145,6 +145,27 @@ main :: () {
 }
 
 #[test]
+fn a_float32_literal_warning_offers_the_float32_spelling() {
+    let dir = TempDir::new("float32-rounding-fix");
+    let source = "\
+main :: () {
+    a: float = 31415.92653;
+    b: float = 16777217.0;
+}
+";
+    let output = jaic_on(&dir, "t.jai", source, "-check", &[]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    let text = stderr(&output);
+    assert_in_order(
+        &text,
+        &[
+            "help: write `31415.926`, the float32 the program gets",
+            "help: write `16777216.0`, the float32 the program gets",
+        ],
+    );
+}
+
+#[test]
 fn a_body_that_can_fall_off_its_end_gets_a_warning() {
     let dir = TempDir::new("missing-return-warning");
     let source = "\

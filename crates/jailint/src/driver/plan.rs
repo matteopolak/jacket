@@ -114,11 +114,8 @@ fn program_of(options: &Options, configs: &Configs, file: &Path, cache: &mut Loa
 // A flat file under an import directory can also be a standalone test.
 // Keep its module checking semantics, but identify its process entry separately
 // for lifetime proofs: the virtual importer has a different main module.
-pub(super) fn declares_entry(path: &Path, entry: &str) -> bool {
-    let Ok(text) = std::fs::read_to_string(path) else {
-        return false;
-    };
-    let Ok(file) = jaic::parser::parse_file(jaic::source::FileId(0), &text) else {
+pub(super) fn declares_entry(text: &str, entry: &str) -> bool {
+    let Ok(file) = jaic::parser::parse_file(jaic::source::FileId(0), text) else {
         return false;
     };
     file.stmts.iter().any(|stmt| {
@@ -208,4 +205,17 @@ pub(super) fn plan(
     // A file the scan left out is not reported, so its notes are not either.
     notes.retain(|file, _| report.contains(file) || roots.iter().any(|r| r.path() == file));
     (roots, report, notes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::declares_entry;
+
+    #[test]
+    fn an_entry_needs_a_procedure_with_a_body() {
+        assert!(declares_entry("main :: () {}", "main"));
+        assert!(!declares_entry("main :: () #foreign lib;", "main"));
+        assert!(!declares_entry("other :: () {}", "main"));
+        assert!(!declares_entry("main :: (", "main"));
+    }
 }

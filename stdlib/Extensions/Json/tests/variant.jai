@@ -345,7 +345,7 @@ nesting :: () {
     // A variant as the case of another.
     nested := decode(Tree, "{\"leaf_or_count\":{\"s64\":9}}");
 
-    check(nested.which == .LEAF_OR_COUNT && nested.leaf_or_count.s64_ == 9, "a variant inside a variant");
+    check(nested.which == .LEAF_OR_COUNT && nested.leaf_or_count.which == .S64 && nested.leaf_or_count.s64_ == 9, "a variant inside a variant");
 
     free_json(*nested);
 }

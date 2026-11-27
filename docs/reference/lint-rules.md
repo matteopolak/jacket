@@ -1,6 +1,6 @@
 # Lint rules
 
-The 109 rules `jailint` checks, by category. [jailint](../tools/jailint.md) says how to run it, configure rules and silence a finding.
+The 108 rules `jailint` checks, by category. [jailint](../tools/jailint.md) says how to run it, configure rules and silence a finding.
 
 A rule's category sets its default level. Name a category wherever a rule name works (`[lint.rules]`, `-W`, `// jailint: allow(...)`). The compiler's warnings are reported too and take levels the same way, by code (`struct-literal-as-dynamic-array`), as `leniencies`, or all at once as `compiler`; `// jailint: allow(...)` does not cover them.
 
@@ -3117,46 +3117,6 @@ main :: () {
 ```
 
 Two or more members, all beginning with the enum's name once case and `_` are ignored (`Token_Kind` and `TOKEN_KIND_IDENT`) and each with something left after it.
-
-### lossy_float_literal
-
-Finds a `float32` literal with more digits than a `float32` keeps (`31415.92653`).
-
-Category `style`, `warn` by default.
-
-```jai example
-#import "Basic";
-
-main :: () {
-    scale: float32 = 16777.2171234;
-    print("%\n", scale);
-}
-```
-
-```diagnostic
-warning[lossy_float_literal]: `16777.2171234` has 12 significant digits, but a `float32` keeps 8
-  --> example.jai:4:22
-   |
- 4 |     scale: float32 = 16777.2171234;
-   |                      ^^^^^^^^^^^^^
-   |
-help: write `16777.217`, which is the same `float32`
-   |
- 4 ~     scale: float32 = 16777.217;
-   |
-   = note: `lossy_float_literal` is `warn` by default
-```
-
-```jai fixed
-#import "Basic";
-
-main :: () {
-    scale: float32 = 16777.217;
-    print("%\n", scale);
-}
-```
-
-A `float32` keeps about seven decimal digits. Digits past the shortest spelling that reads back as the same `float32` change nothing and suggest a precision the program does not have.
 
 ### mixed_case_hex_literals
 

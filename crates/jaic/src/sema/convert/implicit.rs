@@ -6,6 +6,7 @@ use crate::sema::TypeState;
 use crate::sema::lower::{FnCtx, Operand, Origin};
 use crate::sema::modules::INFERRED_PARAM;
 use crate::sema::{Compiler, Diagnostic, ProcId, Result, Span, TypeId, Value, err};
+use crate::source::{Applicability, Suggestion};
 use crate::types::TypeKind;
 
 impl Compiler {
@@ -339,7 +340,12 @@ impl TypeState {
 impl Compiler {
     /// A decimal literal that becomes a `float32` with a different value (`16777217.0` is
     /// 16777216 there): the digits written are not the number the program gets.
-    fn warn_float32_rounding(&mut self, value: f64, origin: Origin, span: Span) {
+    pub(in crate::sema) fn warn_float32_rounding(
+        &mut self,
+        value: f64,
+        origin: Origin,
+        span: Span,
+    ) {
         let rounded = value as f32;
         if !origin.decimal_fraction()
             || !rounded.is_finite()
@@ -347,6 +353,7 @@ impl Compiler {
         {
             return;
         }
+        let spelled = format!("{rounded:?}");
         self.warn(
             Diagnostic::new(
                 Code::ConvertLiteralFloat32,
@@ -354,7 +361,13 @@ impl Compiler {
                 format!("this literal is {} as a float32", rounded as f64),
             )
             .with_label("float32 cannot hold these digits")
-            .with_help("make it a float64, or write the float32 value"),
+            .with_suggestion(Suggestion::replace(
+                format!("write `{spelled}`, the float32 the program gets"),
+                span,
+                spelled,
+                Applicability::MachineApplicable,
+            ))
+            .with_help("or make it a float64"),
         );
     }
 }

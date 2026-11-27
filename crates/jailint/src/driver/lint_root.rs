@@ -221,7 +221,15 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
             .collect();
         if !own.is_empty() {
             let entry = if matches!(&root.root, jaic::project::Root::Module { entry, .. } if !jaic::paths::is_module_entry(entry))
-                && super::plan::declares_entry(root.path(), &compiler.options.entry_point)
+                && files
+                    .iter()
+                    .find(|(_, path)| path == root.path())
+                    .is_some_and(|(id, _)| {
+                        super::plan::declares_entry(
+                            &compiler.src.sources.get(*id).text,
+                            &compiler.options.entry_point,
+                        )
+                    })
                 && compiler.src.files.iter().any(|f| {
                     Some(f.module) == compiler.ns.main_module
                         && compiler

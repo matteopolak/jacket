@@ -307,9 +307,6 @@ A call of a procedure that allocates its result (`sprint`, `join`, `copy_string`
 ### loop_with_break_condition
 A `while true` (macros aside) whose body starts with an `if` without an `else` that only does an unlabelled `break`, with or without braces.
 
-### lossy_float_literal
-A `float32` keeps about seven decimal digits. Digits past the shortest spelling that reads back as the same `float32` change nothing and suggest a precision the program does not have.
-
 ### lossy_xx
 Off by default: narrowing with `xx` is common Jai style.
 

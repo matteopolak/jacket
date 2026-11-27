@@ -433,3 +433,21 @@ fn fix_applies_the_compilers_safe_suggestions() {
     );
     assert_eq!(code, Some(0), "{text}");
 }
+
+#[test]
+fn fix_writes_the_float32_spelling_of_a_literal_float32_cannot_hold() {
+    let dir = scratch("fix-float32-literal");
+    let file = dir.join("game.jai");
+    std::fs::write(
+        &file,
+        "A: float32 : 16777.2171234;\nmain :: () {\n    pi: float32 = 31415.92653;\n    pi = -98765.43210987;\n    _ = pi + A;\n}\n",
+    )
+    .unwrap();
+    let (text, code) = jailint(&dir, &["--fix", "-A", "all", "game.jai"]);
+    assert_eq!(
+        std::fs::read_to_string(&file).unwrap(),
+        "A: float32 : 16777.217;\nmain :: () {\n    pi: float32 = 31415.926;\n    pi = -98765.43;\n    _ = pi + A;\n}\n",
+        "{text}"
+    );
+    assert_eq!(code, Some(0), "{text}");
+}

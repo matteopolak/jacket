@@ -70,7 +70,7 @@ rules = { compiler = "allow" }
 # one-element arrays, wide shifts and unsigned bounds are the inputs under test.
 [[lint.overrides]]
 paths = ["tests/**", "benchmarks/**", "stdlib/**/tests/**"]
-rules = { manual_memcpy = "allow", manual_array_find = "allow", useless_format = "allow", unsigned_range_end_minus_one = "allow", useless_resizable = "allow", shift_overflow = "allow", lossy_float_literal = "allow", format_push_string = "allow" }
+rules = { manual_memcpy = "allow", manual_array_find = "allow", useless_format = "allow", unsigned_range_end_minus_one = "allow", useless_resizable = "allow", shift_overflow = "allow", format_push_string = "allow" }
 
 # The freestanding runtime defines `memcpy` and `memmove` themselves, so their loops cannot call it.
 [[lint.overrides]]

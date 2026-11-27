@@ -131,7 +131,6 @@ rules! {
     integer_division_in_float,
     leaked_allocation,
     leaked_temporary,
-    lossy_float_literal,
     loop_with_break_condition,
     lossy_xx,
     manual_array_find,

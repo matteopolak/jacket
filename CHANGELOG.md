@@ -11,6 +11,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 
 ### Fixes
 
+- The `float32` literal warning also covers typed constants, and `jailint --fix` writes the `float32` spelling (replaces `lossy_float_literal`).
 - On a Mac, `jaic` takes libclang only from the selected developer folder, and says how to select another when missing.
 - A freestanding link with a trailing `-T` reports the missing linker script instead of failing inside `ld.lld`.
 - `jaic` passes linker arguments and paths that are not UTF-8 through unchanged, and reports other such arguments instead of crashing.

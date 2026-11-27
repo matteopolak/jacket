@@ -462,6 +462,7 @@ impl Compiler {
             let what = "constant declaration needs a constant value";
             self.eval_const_as(scope, value, expected, Some(what))?
         };
+        let value_span = value.span;
         match op.without_callable() {
             Operand::Type(t) => Ok(Resolved::Const {
                 value: Value::Type(t),
@@ -471,7 +472,7 @@ impl Compiler {
                 ty,
                 value,
                 untyped,
-                ..
+                origin,
             } => {
                 let ty = match expected {
                     Some(t) => t,
@@ -484,6 +485,19 @@ impl Compiler {
                 let value = if self.ty.types.is_float(ty) {
                     match value {
                         Value::Int(i) => Value::float(i as f64),
+                        Value::Float(x, _)
+                            if untyped
+                                && expected.is_some()
+                                && matches!(
+                                    self.ty.types.kind(self.ty.types.repr(ty)),
+                                    TypeKind::Float {
+                                        bits: 32
+                                    }
+                                ) =>
+                        {
+                            self.warn_float32_rounding(x, origin, value_span);
+                            Value::float(x as f32 as f64)
+                        }
                         v => v,
                     }
                 } else if let Value::Int(i) = value
