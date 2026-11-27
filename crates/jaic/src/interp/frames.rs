@@ -111,7 +111,7 @@ impl ValueStack {
         };
         let block = super::ZeroedBlock::in_window(Some(window), len * 8, 4096)?;
         Some(ValueStack {
-            words: (window.base() + block.addr()) as *mut u64,
+            words: window.addresses().host(block.addr()) as *mut u64,
             len,
             owner: Owner::Block(block),
         })
@@ -258,6 +258,7 @@ impl Interp {
             },
             (self.profile.is_none() || !profile::exact()) && self.lines.is_none(),
             &self.layout,
+            self.addresses,
         );
         let node_size = match &program.stack_trace {
             Some(layout) if func.trace.is_some() => layout.node.size.next_multiple_of(8),

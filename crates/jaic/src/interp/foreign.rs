@@ -393,8 +393,8 @@ impl Interp {
         let addr = match addr {
             Some(a) => a,
             None if foreign.is_data => {
-                let (base, layout) = (self.base, self.layout);
-                let data = sandbox::guest::with_memory(base, layout, || {
+                let (addresses, layout) = (self.addresses, self.layout);
+                let data = sandbox::guest::with_memory(addresses, layout, || {
                     self.host.foreign_data(&foreign.symbol)
                 });
                 if let Some(addr) = data {
@@ -497,10 +497,10 @@ impl Interp {
             }
         }
         if self.host.answers_foreign() {
-            let (base, layout) = (self.base, self.layout);
-            if let Some(result) =
-                sandbox::guest::with_memory(base, layout, || self.host.foreign(symbol, args, sig))
-            {
+            let (addresses, layout) = (self.addresses, self.layout);
+            if let Some(result) = sandbox::guest::with_memory(addresses, layout, || {
+                self.host.foreign(symbol, args, sig)
+            }) {
                 let exits = matches!(symbol, "exit" | "_exit");
                 return result.map(Rets::from).map_err(|m| {
                     Trap::new(m).at(self.loc).of_kind(
@@ -515,7 +515,7 @@ impl Interp {
             && program.target_os == Some(crate::target::TargetOs::Windows)
             && !cfg!(windows)
             && self.host.native_linking()
-            && let Some(result) = sandbox::guest::with_memory(self.base, self.layout, || {
+            && let Some(result) = sandbox::guest::with_memory(self.addresses, self.layout, || {
                 self.windows.foreign(symbol, args, sig)
             })
         {
@@ -731,7 +731,8 @@ impl Interp {
         let loc = mine.loc;
         // A crash in C names `symbol` and this thread's interpreted call stack.
         #[cfg(not(target_arch = "wasm32"))]
-        let crash_report = symbol.map(|symbol| crash::ForeignCall::enter(symbol, &mine, program));
+        let crash_report =
+            symbol.map(|symbol| crash::ForeignCall::enter(symbol, &mine, program, self.addresses));
         #[cfg(target_arch = "wasm32")]
         let _ = symbol;
         let result = self.call_unlocked(addr, argv, sig, scheduling, plan);

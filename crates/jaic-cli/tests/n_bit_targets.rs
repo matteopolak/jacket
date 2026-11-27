@@ -372,3 +372,43 @@ fn integer_handles_made_at_compile_time_keep_their_values() {
         assert_eq!(run(target, &source), "true true true true\n", "{target}");
     }
 }
+
+/// Pointer arithmetic and integers cast to pointers wrap at the target's pointer width, and a
+/// procedure value read back from a struct equals the inline constant it was set from.
+#[test]
+fn pointers_wrap_at_the_targets_width() {
+    let source =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/compiler/targets/pointer-wrap.jai");
+    let wide = "18446744073709551600 16 16 18446744073709551600\ntrue 18446744073709551615\n";
+    let narrow = "4294967280 16 16 4294967280\ntrue 4294967295\n";
+    for (target, expected) in [
+        ("x86_64-unknown-linux-gnu", wide),
+        ("s390x-unknown-linux-gnu", wide),
+        ("i686-unknown-linux-gnu", narrow),
+        ("armv7-unknown-linux-gnueabihf", narrow),
+        ("wasm32-wasi", narrow),
+    ] {
+        assert_eq!(run(target, &source), expected, "{target}");
+    }
+}
+
+/// A compile-time fault in a narrow program names the address the program used, not where
+/// the interpreter keeps that memory.
+#[test]
+fn a_compile_time_fault_names_the_programs_address() {
+    let source =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/compiler/targets/wild-read.jai");
+    for target in ["x86_64-unknown-linux-gnu", "i686-unknown-linux-gnu"] {
+        let output = Command::new(JAIC)
+            .arg("-check")
+            .arg(&source)
+            .args(["-target", target])
+            .output()
+            .unwrap();
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("read from address 0x80000000 faulted"),
+            "{target}: {stderr}"
+        );
+    }
+}

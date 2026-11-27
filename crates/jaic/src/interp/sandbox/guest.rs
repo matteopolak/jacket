@@ -1,7 +1,7 @@
 //! The sandboxed program's memory, reached through the addresses it passes to the libc
-//! stand-ins, read and written at the program's own layout: the window base, the byte order
-//! and the widths of a pointer and a `size_t` come from the interpreter's
-//! `DataLayout` for the length of each call (`with_memory`).
+//! stand-ins, read and written at the program's own layout: where its addresses are in host
+//! memory comes from the interpreter's `AddressMap`, the byte order and the widths of a pointer
+//! and a `size_t` from its `DataLayout`, for the length of each call (`with_memory`).
 //!
 //! The interpreter hands programs real host addresses and checks none of them: an interpreted
 //! load or store dereferences its address as is. A stand-in that reads or writes through an
@@ -9,15 +9,15 @@
 //! is the program's bug, as it would be in native code. These functions are the one place that
 //! says so; the stand-ins call them instead of dereferencing raw addresses themselves.
 
+use crate::interp::addresses::AddressMap;
 use crate::layout::DataLayout;
 use std::cell::Cell;
 
 /// The program memory a stand-in sees.
 #[derive(Clone, Copy)]
 struct Memory {
-    /// The host address of program address 0: the window's start for a program with narrow
-    /// pointers, 0 otherwise.
-    base: u64,
+    /// Where the program's addresses are in host memory.
+    addresses: AddressMap,
     layout: DataLayout,
 }
 
@@ -35,11 +35,14 @@ fn memory() -> Memory {
         .expect("a libc stand-in reached program memory outside `with_memory`")
 }
 
-/// Run `f`, a stand-in, on program memory laid out as `layout` whose address 0 is host
-/// address `base`.
-pub(in crate::interp) fn with_memory<R>(base: u64, layout: DataLayout, f: impl FnOnce() -> R) -> R {
+/// Run `f`, a stand-in, on program memory laid out as `layout` and mapped by `addresses`.
+pub(in crate::interp) fn with_memory<R>(
+    addresses: AddressMap,
+    layout: DataLayout,
+    f: impl FnOnce() -> R,
+) -> R {
     let outer = MEMORY.replace(Some(Memory {
-        base,
+        addresses,
         layout,
     }));
     let result = f();
@@ -52,7 +55,7 @@ pub(in crate::interp) fn with_memory<R>(base: u64, layout: DataLayout, f: impl F
 #[cfg(test)]
 pub(in crate::interp) fn use_host_memory() {
     MEMORY.set(Some(Memory {
-        base: 0,
+        addresses: AddressMap::HOST,
         layout: DataLayout::host(),
     }));
 }
@@ -65,7 +68,7 @@ pub(in crate::interp) fn layout() -> DataLayout {
 /// The host address of program address `addr`.
 #[inline]
 fn host(addr: u64) -> u64 {
-    addr.wrapping_add(memory().base)
+    memory().addresses.host(addr)
 }
 
 /// The unsigned integer of `width` bytes at `addr`, in the program's byte order.

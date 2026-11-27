@@ -22,6 +22,7 @@
 #![allow(unsafe_code)]
 
 use super::ExecState;
+use super::addresses::AddressMap;
 use crate::ir::Program;
 use std::cell::Cell;
 
@@ -32,19 +33,22 @@ pub const CRASH_STATUS: i32 = 121;
 const MAX_SHOWN_FRAMES: usize = 24;
 
 /// The foreign call in progress, read by the fault handler: the symbol's bytes, the calling
-/// thread's interpreter state (its call stack and line) and the program (null when no call is
-/// in progress).
+/// thread's interpreter state (its call stack and line), the program (null when no call is
+/// in progress) and how the program's addresses map to host memory, so a fault is reported at
+/// the address the program knows.
 #[derive(Clone, Copy)]
 struct Current {
     symbol: (*const u8, usize),
     state: *const ExecState,
     program: *const Program,
+    addresses: AddressMap,
 }
 
 const NONE: Current = Current {
     symbol: (std::ptr::null(), 0),
     state: std::ptr::null(),
     program: std::ptr::null(),
+    addresses: AddressMap::HOST,
 };
 
 thread_local! {
@@ -74,13 +78,20 @@ pub(super) struct ForeignCall {
 }
 
 impl ForeignCall {
-    /// `state` is the calling thread's interpreter state, set aside for the call.
-    pub(super) fn enter(symbol: &str, state: &ExecState, program: &Program) -> Self {
+    /// `state` is the calling thread's interpreter state, set aside for the call; `addresses`
+    /// maps the program's addresses to host memory.
+    pub(super) fn enter(
+        symbol: &str,
+        state: &ExecState,
+        program: &Program,
+        addresses: AddressMap,
+    ) -> Self {
         install();
         let previous = exchange(Current {
             symbol: (symbol.as_ptr(), symbol.len()),
             state,
             program,
+            addresses,
         });
         Self {
             previous,
@@ -242,6 +253,12 @@ fn write_report(current: Current, what: &str, out: &mut Report<8192>) {
     );
 }
 
+/// The address to name for a fault at host address `host`: the program's own address when the
+/// call in progress is a narrow program's and `host` is in its address space.
+fn reported(host: usize) -> usize {
+    current().addresses.reported(host as u64) as usize
+}
+
 /// Report the fault if a foreign call is in progress; false when it is not ours.
 fn report_and_exit(what: &str) -> bool {
     let current = current();
@@ -377,7 +394,7 @@ mod sys {
 
         let mut text = super::Report::<{ super::WHAT_BYTES }>::new();
 
-        let what = describe(sig, address, &mut text);
+        let what = describe(sig, super::reported(address), &mut text);
 
         if super::report_and_exit(what) {
             return;
@@ -546,7 +563,11 @@ mod sys {
             use std::fmt::Write;
             let _ = match record.code {
                 EXCEPTION_ACCESS_VIOLATION | EXCEPTION_IN_PAGE_ERROR => {
-                    write!(text, "access violation at address {target:#x}")
+                    write!(
+                        text,
+                        "access violation at address {:#x}",
+                        super::reported(target)
+                    )
                 }
                 EXCEPTION_ILLEGAL_INSTRUCTION | EXCEPTION_PRIV_INSTRUCTION => {
                     write!(text, "illegal instruction at {address:#x}")
@@ -643,6 +664,7 @@ mod tests {
             symbol: (symbol.as_ptr(), symbol.len()),
             state,
             program,
+            addresses: AddressMap::HOST,
         };
         let mut out = Report::<8192>::new();
         write_report(current, "SIGSEGV, test", &mut out);
@@ -774,10 +796,10 @@ mod tests {
         let state = ExecState::default();
         assert!(current().program.is_null());
         {
-            let _outer = ForeignCall::enter("outer", &state, &program);
+            let _outer = ForeignCall::enter("outer", &state, &program, AddressMap::HOST);
             assert_eq!(current().symbol.1, "outer".len());
             {
-                let _inner = ForeignCall::enter("nested", &state, &program);
+                let _inner = ForeignCall::enter("nested", &state, &program, AddressMap::HOST);
                 assert_eq!(current().symbol.1, "nested".len());
             }
             assert_eq!(current().symbol.1, "outer".len());
@@ -787,12 +809,24 @@ mod tests {
         assert!(!report_and_exit("SIGSEGV"));
     }
 
+    /// A narrow program's addresses are offsets into its window: a fault in its memory is named
+    /// at the address the program used, one outside it at the host's.
+    #[test]
+    fn a_fault_in_a_narrow_programs_call_names_the_programs_address() {
+        let program = program();
+        let state = ExecState::default();
+        let window = AddressMap::window(0x7000_0000_0000, 4, 64 << 10, 0xC000_0000);
+        let _call = ForeignCall::enter("memcpy", &state, &program, window);
+        assert_eq!(reported(0x7000_8000_0010), 0x8000_0010);
+        assert_eq!(reported(0x10), 0x10);
+    }
+
     #[cfg(target_os = "macos")]
     #[test]
     fn a_call_carried_to_another_thread_is_attributed_there() {
         let program = program();
         let state = ExecState::default();
-        let _call = ForeignCall::enter("carried", &state, &program);
+        let _call = ForeignCall::enter("carried", &state, &program, AddressMap::HOST);
         let carried = Attribution::of_this_thread();
         let program_address = &raw const program as usize;
         struct Moved(Attribution);

@@ -6,21 +6,16 @@ use super::{Interp, Res, code};
 use crate::ir::Ty;
 
 impl Interp {
-    /// The host address of program address `addr`: the same address, or its offset into the
-    /// window when the program's pointers are narrower than the host's.
+    /// The host address of program address `addr` (`AddressMap::host`).
     #[inline(always)]
     pub(crate) fn host_addr(&self, addr: u64) -> u64 {
-        addr.wrapping_add(self.base)
+        self.addresses.host(addr)
     }
 
-    /// The type an access moves: a pointer is as wide as the target's.
+    /// How the program's addresses map to host memory.
     #[inline(always)]
-    fn memory_ty(&self, ty: Ty) -> Ty {
-        if ty == Ty::Ptr {
-            self.ptr_ty
-        } else {
-            ty
-        }
+    pub(crate) fn addresses(&self) -> super::AddressMap {
+        self.addresses
     }
 
     /// The unsigned integer of `size` bytes at `addr`, in the program's byte order.
@@ -105,7 +100,7 @@ impl Interp {
     /// The program address of host address `host`, the inverse of `host_addr`.
     #[inline(always)]
     pub(crate) fn program_addr(&self, host: u64) -> u64 {
-        host.wrapping_sub(self.base)
+        self.addresses.program(host)
     }
 
     // The compiler's own accesses to program memory (reading `#run` results, the arguments of
@@ -224,8 +219,8 @@ impl Interp {
     /// never-mapped first page, or a procedure's tagged address, is refused.
     #[inline(always)]
     pub(super) fn load(&self, ty: Ty, addr: u64) -> Res<u64> {
-        let ty = self.memory_ty(ty);
-        if !plain_address(addr, self.data_limit) {
+        let ty = self.addresses.int_ty(ty);
+        if !plain_address(addr, self.addresses.data_limit()) {
             return self.load_unusual(ty, addr);
         }
         // SAFETY: the address is the program's own, as for native code.
@@ -251,7 +246,7 @@ impl Interp {
         if proc_of(self.proc_width(), addr).is_some() {
             return self.trap("read through a procedure address");
         }
-        if addr >= self.data_limit {
+        if addr >= self.addresses.data_limit() {
             return self.trap(format!("read through an address no memory has ({addr:#x})"));
         }
         // SAFETY: the address is the program's own, as for native code.
@@ -260,9 +255,11 @@ impl Interp {
 
     #[inline(always)]
     pub(super) fn store(&self, ty: Ty, addr: u64, v: u64) -> Res<()> {
-        let ty = self.memory_ty(ty);
+        let ty = self.addresses.int_ty(ty);
         let host = self.host_addr(addr);
-        if addr.wrapping_sub(4096) >= self.data_limit - 4096 || self.read_only.contains(host) {
+        if addr.wrapping_sub(4096) >= self.addresses.data_limit() - 4096
+            || self.read_only.contains(host)
+        {
             return self.refused_store(addr);
         }
         // SAFETY: the address is the program's own, as for native code.
@@ -284,7 +281,7 @@ impl Interp {
         if addr < 4096 {
             return self.null_trap(null_access("write", addr));
         }
-        if addr >= self.data_limit {
+        if addr >= self.addresses.data_limit() {
             return self.trap(format!(
                 "write through an address no memory has ({addr:#x})"
             ));

@@ -11,6 +11,7 @@
 //! A target with 2-byte pointers (AVR) gets a 64 KiB window: the top 16 KiB hold procedure
 //! addresses and the first 256 bytes are never mapped. It has no read-only region, so read-only
 //! data lives in ordinary memory, as it does in the RAM of the real part.
+use super::addresses::AddressMap;
 use super::host_pages::{self, Access};
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
@@ -120,9 +121,14 @@ impl Window {
         self.pointer_size
     }
 
-    /// The host address of offset 0.
-    pub(crate) fn base(&self) -> u64 {
-        self.base as u64
+    /// How the program's addresses map to this window's host memory.
+    pub(crate) fn addresses(&self) -> AddressMap {
+        AddressMap::window(
+            self.base as u64,
+            self.pointer_size,
+            self.first as u64,
+            super::proc_addr::data_limit(self.pointer_size),
+        )
     }
 
     /// A region of the host range kept for read-only data: its slot, start and length. `None`
@@ -230,14 +236,17 @@ mod tests {
         let a = window.alloc(100, 64).unwrap();
         assert_eq!(a % 64, 0);
         assert!(a as usize >= FIRST + READ_ONLY);
-        let host = (window.base() + a) as *mut u8;
+        let host = window.addresses().host(a) as *mut u8;
         // SAFETY: the block is committed and ours.
         unsafe { host.write(7) };
         window.free(a, 100);
         let b = window.alloc(100, 64).unwrap();
         assert_eq!(a, b, "a freed block is reused");
         // SAFETY: as above.
-        assert_eq!(unsafe { ((window.base() + b) as *const u8).read() }, 0);
+        assert_eq!(
+            unsafe { (window.addresses().host(b) as *const u8).read() },
+            0
+        );
         assert!(window.alloc(SPAN, 16).is_none());
     }
 
@@ -257,7 +266,11 @@ mod tests {
         assert!(last as usize + 1024 <= SPAN16);
         assert!(window.alloc(SPAN16, 16).is_none());
         // SAFETY: the block is committed and ours.
-        unsafe { ((window.base() + last) as *mut u8).add(1023).write(1) };
+        unsafe {
+            (window.addresses().host(last) as *mut u8)
+                .add(1023)
+                .write(1)
+        };
     }
 
     #[test]
@@ -275,7 +288,7 @@ mod tests {
         let window = Window::new(4).expect("a window");
         for size in [1usize, 100, 5000, 32 << 20, 3 << 20, 7] {
             let at = window.alloc(size, 4096).unwrap();
-            let host = (window.base() + at) as *mut u8;
+            let host = window.addresses().host(at) as *mut u8;
             // SAFETY: the block is committed and ours.
             unsafe {
                 host.write(1);

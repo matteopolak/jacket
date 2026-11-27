@@ -17,7 +17,8 @@ main :: () {
 
     assert(t.on_signal == IGNORE);
     assert(cast(s64) cast(*void) t.on_signal == 1);
-    assert(cast(s64) cast(*void) ERROR == -1);
+    // All ones at the pointer's width; a 4-byte pointer zero-extends to `s64`.
+    assert(cast(s64) cast(*void) ERROR == ifx size_of(*void) == 8 then -1 else 0xFFFF_FFFF);
 
     // The reviewed macOS dispositions are raw pointers; Linux types handlers.
     action: sigaction_t;

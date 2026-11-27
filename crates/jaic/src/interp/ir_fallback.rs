@@ -48,7 +48,7 @@ impl Interp {
                 dst,
                 ty,
                 value,
-            } => vals[dst.0 as usize] = mask(*ty, *value),
+            } => vals[dst.0 as usize] = mask(self.addresses().int_ty(*ty), *value),
             Inst::FConst {
                 dst,
                 ty,
@@ -68,7 +68,7 @@ impl Interp {
                 b,
             } => {
                 let (x, y) = (vals[a.0 as usize], vals[b.0 as usize]);
-                vals[dst.0 as usize] = self.bin(*op, *ty, x, y)?;
+                vals[dst.0 as usize] = self.bin(*op, self.addresses().int_ty(*ty), x, y)?;
             }
             Inst::Un {
                 dst,
@@ -77,11 +77,12 @@ impl Interp {
                 a,
             } => {
                 let x = vals[a.0 as usize];
+                let ty = self.addresses().int_ty(*ty);
                 vals[dst.0 as usize] = match op {
-                    UnOp::Neg => mask(*ty, x.wrapping_neg()),
-                    UnOp::Not => mask(*ty, !x),
+                    UnOp::Neg => mask(ty, x.wrapping_neg()),
+                    UnOp::Not => mask(ty, !x),
                     UnOp::FNeg => {
-                        if *ty == Ty::F32 {
+                        if ty == Ty::F32 {
                             (-f32::from_bits(x as u32)).to_bits() as u64
                         } else {
                             (-f64::from_bits(x)).to_bits()
@@ -97,7 +98,7 @@ impl Interp {
                 b,
             } => {
                 let (x, y) = (vals[a.0 as usize], vals[b.0 as usize]);
-                vals[dst.0 as usize] = cmp(*op, *ty, x, y) as u64;
+                vals[dst.0 as usize] = cmp(*op, self.addresses().int_ty(*ty), x, y) as u64;
             }
             Inst::Conv {
                 dst,
@@ -105,7 +106,15 @@ impl Interp {
                 from,
                 to,
                 src,
-            } => vals[dst.0 as usize] = conv(*op, *from, *to, vals[src.0 as usize]),
+            } => {
+                let map = self.addresses();
+                vals[dst.0 as usize] = conv(
+                    *op,
+                    map.int_ty(*from),
+                    map.int_ty(*to),
+                    vals[src.0 as usize],
+                );
+            }
             Inst::SlotAddr {
                 dst,
                 slot,
@@ -146,7 +155,11 @@ impl Interp {
                 base,
                 offset,
                 ..
-            } => vals[dst.0 as usize] = vals[base.0 as usize].wrapping_add(vals[offset.0 as usize]),
+            } => {
+                vals[dst.0 as usize] = self
+                    .addresses()
+                    .offset(vals[base.0 as usize], vals[offset.0 as usize]);
+            }
             Inst::Copy {
                 dst,
                 src,

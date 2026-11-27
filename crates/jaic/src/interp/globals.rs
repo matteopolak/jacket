@@ -159,7 +159,7 @@ impl Interp {
         let placed = size_align
             .filter(|_| global.read_only)
             .and_then(|(size, align)| self.read_only.place(size, align))
-            .map(|host| host - self.base);
+            .map(|host| self.program_addr(host));
         let mem = if let Some(addr) = placed {
             GlobalMem {
                 _storage: None,

@@ -269,7 +269,7 @@ impl Interp {
                 Op::FrameAddr {
                     dst,
                     off,
-                } => set(dst, stack_base.wrapping_sub(self.base) + off),
+                } => set(dst, self.program_addr(stack_base) + off),
                 Op::Add {
                     dst,
                     a,

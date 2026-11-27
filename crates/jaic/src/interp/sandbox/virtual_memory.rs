@@ -90,7 +90,7 @@ impl Mapping {
             Backing::Host {
                 ..
             } => addr as usize,
-            Backing::Window(window) => (addr + window.base()) as usize,
+            Backing::Window(window) => window.addresses().host(addr) as usize,
         }
     }
 

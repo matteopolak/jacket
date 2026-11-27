@@ -162,7 +162,7 @@ impl Interp {
         };
         let mut trap = Trap::new(format!(
             "invalid memory access: {access} address {:#x} faulted; it is not memory the program owns",
-            fault.address
+            self.addresses.reported(fault.address)
         ))
         .at(self.loc)
         .of_kind(Some(TrapKind::MemoryFault));

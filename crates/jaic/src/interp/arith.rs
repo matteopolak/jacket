@@ -134,9 +134,8 @@ pub(crate) fn bin_total(op: BinOp, ty: Ty, x: u64, y: u64) -> u64 {
     }
 }
 
-/// The bits an arithmetic result of `ty` keeps. A register is 64 bits wide and a pointer fills
-/// one, so a pointer wraps like an `s64`; a narrower program address stays in range because every
-/// address the program is given is.
+/// The bits an arithmetic result of `ty` keeps. A pointer reaches here as the integer of the
+/// program's pointer width (`AddressMap::int_ty`), so it wraps at that width.
 #[inline]
 fn register_bits(ty: Ty) -> u8 {
     match ty {

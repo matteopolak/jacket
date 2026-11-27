@@ -962,13 +962,14 @@ fn i686_linux_stat_record_has_the_32_bit_layout() {
         crate::target::TargetCpu::X86,
     )
     .data_layout();
-    let result = super::guest::with_memory(0, layout, || {
-        call(
-            &mut h,
-            "stat",
-            &[root.as_ptr() as u64, st.as_mut_ptr() as u64],
-        )
-    });
+    let result =
+        super::guest::with_memory(crate::interp::addresses::AddressMap::HOST, layout, || {
+            call(
+                &mut h,
+                "stat",
+                &[root.as_ptr() as u64, st.as_mut_ptr() as u64],
+            )
+        });
     assert_eq!(result, 0);
     let word = |at: usize| u32::from_le_bytes(st[at..at + 4].try_into().unwrap());
     assert_eq!(word(16) & 0xf000, S_IFDIR);
@@ -997,13 +998,14 @@ fn s390x_linux_stat_record_is_big_endian() {
         crate::target::TargetCpu::S390x,
     )
     .data_layout();
-    let result = super::guest::with_memory(0, layout, || {
-        call(
-            &mut h,
-            "stat",
-            &[root.as_ptr() as u64, st.as_mut_ptr() as u64],
-        )
-    });
+    let result =
+        super::guest::with_memory(crate::interp::addresses::AddressMap::HOST, layout, || {
+            call(
+                &mut h,
+                "stat",
+                &[root.as_ptr() as u64, st.as_mut_ptr() as u64],
+            )
+        });
     assert_eq!(result, 0);
     let word = |at: usize| u32::from_be_bytes(st[at..at + 4].try_into().unwrap());
     let long = |at: usize| u64::from_be_bytes(st[at..at + 8].try_into().unwrap());

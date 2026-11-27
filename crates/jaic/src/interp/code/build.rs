@@ -2,6 +2,7 @@
 use super::super::mask;
 use super::op::{Code, CodeBlock, NO_LOC, Op};
 use super::{flow, promote, sink};
+use crate::interp::addresses::AddressMap;
 use crate::ir::{self, BinOp, GlobalId, Inst, Ty, Val, inst_vals, term_uses};
 use crate::layout::DataLayout;
 
@@ -147,6 +148,8 @@ pub(super) struct Builder<'a> {
     pub(super) late_value: &'a dyn Fn(ir::FuncId) -> bool,
     /// How the program's data is laid out.
     pub(super) layout: &'a DataLayout,
+    /// How wide the program's addresses are, which its pointer arithmetic wraps at.
+    pub(super) addresses: AddressMap,
     pub(super) defs: Vec<u32>,
     /// Uses not folded away yet.
     pub(super) uses: Vec<u32>,
@@ -169,6 +172,7 @@ pub(in crate::interp) fn build(
     read_only: &dyn Fn(GlobalId) -> bool,
     straighten: bool,
     layout: &DataLayout,
+    addresses: AddressMap,
 ) -> Code {
     let n = func.vals.len();
     let mut defs = vec![0u32; n];
@@ -193,7 +197,7 @@ pub(in crate::interp) fn build(
                     ty,
                     value,
                 } if defs[dst.0 as usize] == 1 => {
-                    known[dst.0 as usize] = Known::Int(mask(ty, value));
+                    known[dst.0 as usize] = Known::Int(mask(addresses.int_ty(ty), value));
                 }
                 Inst::GlobalAddr {
                     dst,
@@ -214,6 +218,7 @@ pub(in crate::interp) fn build(
                     a,
                     b,
                 } if defs[dst.0 as usize] == 1 => {
+                    let ty = addresses.int_ty(ty);
                     if let (Known::Int(x), Known::Int(y)) =
                         (known[a.0 as usize], known[b.0 as usize])
                         && let Some(value) = fold_bin(op, ty, x, y)
@@ -240,6 +245,7 @@ pub(in crate::interp) fn build(
         func,
         late_value,
         layout,
+        addresses,
         defs,
         uses,
         known,
@@ -341,7 +347,7 @@ pub(in crate::interp) fn build(
         layout,
     );
     for op in &mut ops {
-        *op = specialize(*op, layout);
+        *op = specialize(*op, layout, addresses);
     }
     if straighten && !switches().no_flow {
         flow::straighten(&mut ops, &mut blocks);
@@ -407,15 +413,8 @@ pub(in crate::interp) fn build(
 /// The op for the loads and stores of the widths most code uses (bytes, 32 and 64 bits) that
 /// needs no dispatch on the type; any other op as is. A pointer moves as the integer of the
 /// target's pointer width, so running an op never asks how wide a pointer is.
-fn specialize(op: Op, layout: &DataLayout) -> Op {
-    let word = Ty::int(u64::from(layout.pointer_size));
-    let in_memory = |ty: Ty| {
-        if ty == Ty::Ptr {
-            word
-        } else {
-            ty
-        }
-    };
+fn specialize(op: Op, layout: &DataLayout, addresses: AddressMap) -> Op {
+    let in_memory = |ty: Ty| addresses.int_ty(ty);
     let op = match op {
         Op::Load {
             ty,
@@ -738,6 +737,12 @@ mod tests {
 
     /// Every load and store of a pointer runs as an access of the target's pointer width, so
     /// the run loop needs no check of its own.
+    /// The addresses of a window for `pointer_size`-byte pointers, as an interpreter makes.
+    fn narrow(pointer_size: u8) -> AddressMap {
+        let limit = crate::interp::proc_addr::data_limit(pointer_size);
+        AddressMap::window(0, pointer_size, 0x100, limit)
+    }
+
     #[test]
     fn pointer_accesses_become_integer_accesses_of_the_pointer_width() {
         let layout = Target::new(TargetOs::Linux, TargetCpu::X86).data_layout();
@@ -748,6 +753,7 @@ mod tests {
                 off: 8,
             },
             &layout,
+            narrow(4),
         );
         assert!(
             matches!(
@@ -766,6 +772,7 @@ mod tests {
                 imm: -1,
             },
             &layout,
+            narrow(4),
         );
         assert!(
             matches!(
@@ -787,6 +794,7 @@ mod tests {
                 off: 0,
             },
             &avr,
+            narrow(2),
         );
         assert!(
             matches!(

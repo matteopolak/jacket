@@ -227,7 +227,7 @@ impl Builder<'_> {
             } => {
                 let op = Op::Const {
                     dst: self.v(dst),
-                    value: mask(ty, value),
+                    value: mask(self.addresses.int_ty(ty), value),
                 };
                 self.push(op, self.single(dst).then_some(dst));
             }
@@ -268,13 +268,14 @@ impl Builder<'_> {
                 ty,
                 a,
                 b,
-            } => self.bin(dst, op, ty, a, b),
+            } => self.bin(dst, op, self.addresses.int_ty(ty), a, b),
             Inst::Un {
                 dst,
                 op,
                 ty,
                 a,
             } => {
+                let ty = self.addresses.int_ty(ty);
                 let op = Op::Un {
                     op,
                     ty,
@@ -290,6 +291,7 @@ impl Builder<'_> {
                 a,
                 b,
             } => {
+                let ty = self.addresses.int_ty(ty);
                 let pure = self.single(dst).then_some(dst);
                 if let Some(x) = self.int(b)
                     && let Some(imm) = imm(x, ty)
@@ -320,6 +322,7 @@ impl Builder<'_> {
                 to,
                 src,
             } => {
+                let (from, to) = (self.addresses.int_ty(from), self.addresses.int_ty(to));
                 // Registers hold values masked to their type, so these three only mask.
                 let width = match op {
                     ConvOp::Trunc | ConvOp::Bitcast => Some(to),
@@ -559,6 +562,7 @@ impl Builder<'_> {
             if let Known::Frame(off) = self.known[base.0 as usize]
                 && self.single(dst)
                 && let Some(sum) = (off as i64).checked_add(x).filter(|s| *s >= 0)
+                && self.addresses.never_wraps(sum)
             {
                 self.known[dst.0 as usize] = Known::Frame(sum as u64);
                 self.fold(base);
@@ -575,6 +579,7 @@ impl Builder<'_> {
             if let Known::Global(global, off) = self.known[base.0 as usize]
                 && self.single(dst)
                 && let Some(sum) = i32::try_from(x).ok().and_then(|x| off.checked_add(x))
+                && self.addresses.never_wraps(i64::from(sum))
             {
                 self.known[dst.0 as usize] = Known::Global(global, sum);
                 self.fold(base);
@@ -586,6 +591,19 @@ impl Builder<'_> {
                 };
                 return self.push(op, Some(dst));
             }
+        }
+        // A narrower address wraps at its own width, which the 64-bit adds below do not.
+        if self.addresses.pointer_size() < 8 {
+            return self.bin(
+                dst,
+                BinOp::Add,
+                self.addresses.int_ty(Ty::Ptr),
+                base,
+                offset,
+            );
+        }
+        if let Some(x) = self.int(offset) {
+            let x = x as i64;
             // Remember `base + x` for loads and stores later in this block.
             let (root, total) = match self.offsets[base.0 as usize] {
                 Some(o) => (o.base, o.off.checked_add(x)),

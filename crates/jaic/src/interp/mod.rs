@@ -18,6 +18,7 @@ mod crash;
 mod errno;
 #[cfg(not(target_arch = "wasm32"))]
 pub use crash::CRASH_STATUS;
+mod addresses;
 mod arith;
 mod calls;
 #[cfg(test)]
@@ -55,6 +56,7 @@ mod window;
 mod windows;
 mod windows_memory;
 mod windows_native;
+use self::addresses::AddressMap;
 pub(super) use self::arith::{bin_total, cmp_shifted, divides, shift_of};
 use self::arith::{conv, int_bin, mask};
 use self::calls::{FrameExit, suspended};
@@ -140,15 +142,11 @@ pub struct Interp {
     /// The host region program addresses are offsets into, for a target whose pointers are
     /// narrower than the host's; `None` when program addresses are host addresses.
     window: Option<std::sync::Arc<Window>>,
-    /// What an interpreted pointer load or store moves: the target's pointer as an integer.
-    ptr_ty: Ty,
+    /// How program addresses map to host memory and how wide they are.
+    addresses: AddressMap,
     /// Whether program memory holds multi-byte values in the other byte order than the host:
     /// loads and stores of integers and floats swap their bytes.
     swap_bytes: bool,
-    /// The lowest address that is a procedure value, not data (`proc_addr::data_limit`).
-    data_limit: u64,
-    /// The host address of program address 0: the window's start, or 0 without a window.
-    base: u64,
     /// Blocks of program memory the interpreter made for the program to read (names, tables)
     /// and keeps until it is dropped.
     kept: Vec<ZeroedBlock>,
@@ -381,7 +379,7 @@ impl Interp {
     /// The pointer size of the program's address space in bytes, 8 when it is the host's: the
     /// width `proc_addr` encodes procedure values for.
     pub(super) fn proc_width(&self) -> u8 {
-        self.window.as_ref().map_or(8, |w| w.pointer_size())
+        self.addresses.pointer_size()
     }
 
     /// An interpreter whose program memory is laid out as `layout` says.
@@ -397,26 +395,14 @@ impl Interp {
         if let Some(window) = &window {
             host.attach_window(window);
         }
-        let narrow = window.is_some();
-        let width = if narrow {
-            layout.pointer_size
-        } else {
-            8
-        };
         let read_only = read_only_in(window.as_ref());
-        let base = window.as_ref().map_or(0, |w| w.base());
+        let addresses = window.as_ref().map_or(AddressMap::HOST, |w| w.addresses());
         Self {
             layout,
             window,
-            data_limit: proc_addr::data_limit(width),
             swap_bytes: matches!(layout.endian, crate::layout::Endian::Big)
                 != cfg!(target_endian = "big"),
-            ptr_ty: if narrow {
-                Ty::int(u64::from(layout.pointer_size))
-            } else {
-                Ty::Ptr
-            },
-            base,
+            addresses,
             kept: Vec::new(),
             stack: ValueStack::default(),
             sp: 0,
