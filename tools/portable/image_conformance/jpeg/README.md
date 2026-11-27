@@ -2,7 +2,7 @@
 
 This runner verifies the complete pinned 258-file JPEG inventory against a chosen source receipt in native ASan/bounds, native O2 and WASI O2 configurations. It preserves strict suite failures separately from damaged-data recovery, unsupported process rejection and owner-reviewed suite classifications. T.83 paid compliance data is unavailable; this is not official certification.
 
-Use `PYTHONPATH="$REPO/tools"` for these repository helpers. Run `python3 check.py` for inventory and policy invariants and `python3 test_inventory.py` for the derivation, without any compiler/decoder execution.
+Use `PYTHONPATH="$REPO/tools"` for these repository helpers. Run `python3 check.py` for inventory and policy invariants, `python3 test_inventory.py` for the derivation and `python3 test_summary.py` for how outcomes and the status are named, without any compiler/decoder execution.
 
 ## Fetch and execute
 

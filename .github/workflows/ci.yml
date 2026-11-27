@@ -1195,6 +1195,7 @@ jobs:
           python3 tools/portable/image_conformance/test_registration.py
           python3 tools/portable/image_conformance/jpeg/check.py
           python3 tools/portable/image_conformance/jpeg/test_inventory.py
+          python3 tools/portable/image_conformance/jpeg/test_summary.py
           python3 tools/portable/image_conformance/jpeg/check_node_sandbox.py --require-external-prefix
       - name: Build the production compiler and Jacket runner
         run: cargo build --locked -p jaic-cli -p jacket

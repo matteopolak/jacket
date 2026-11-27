@@ -257,376 +257,11 @@ def decision_known(row):
     return row["process"]["exit"] == 0 and row.get("result_observed", False)
 
 
-def main():
-    args = parse_args()
-    if args.heavy and os.environ.get("JPEG_FINAL_GATE_ADMITTED") != "1":
-        env = dict(os.environ, JPEG_FINAL_GATE_ADMITTED="1")
-        return subprocess.run(
-            [
-                sys.executable,
-                str(args.heavy),
-                "--",
-                sys.executable,
-                str(Path(__file__).resolve()),
-                *sys.argv[1:],
-            ],
-            env=env,
-        ).returncode
-    if os.name != "posix":
-        raise SystemExit(
-            "This sanitizer gate requires a POSIX host; no silent Windows skip."
-        )
-    for key in (
-        "repo",
-        "jaic",
-        "corpus",
-        "output",
-        "reference_include",
-        "reference_library",
-        "manifest",
-    ):
-        setattr(args, key, getattr(args, key).resolve())
-    modes = args.modes.split(",")
-    if len(modes) != len(set(modes)) or any(mode not in MODES for mode in modes):
-        raise SystemExit("Invalid/duplicate mode; use native-asan,native-o2,wasi-o2.")
-    manifest = json.loads(args.manifest.read_text())
-    cases = manifest_cases(manifest)
-    errors = check_corpus(manifest, args.corpus, digest)
-    if errors:
-        raise SystemExit("Corpus integrity failure:\n" + "\n".join(errors))
-    dispositions = review_map(args.reviewed_dispositions, cases)
-    head = subprocess.check_output(
-        ["git", "-C", str(args.repo), "rev-parse", "HEAD"], text=True
-    ).strip()
-    if args.expected_source and head != args.expected_source:
-        raise SystemExit("Source HEAD does not match reviewed receipt.")
-    if args.expected_jaic_sha256 and digest(args.jaic) != args.expected_jaic_sha256:
-        raise SystemExit("Compiler hash does not match reviewed receipt.")
-    if args.expected_reference_library_sha256 and (
-        not args.reference_library.is_file()
-        or digest(args.reference_library) != args.expected_reference_library_sha256
-    ):
-        raise SystemExit("Reference library file does not match the pinned hash.")
-    # Refuse overwrite, including a failed earlier run. Every attempt receives a new directory.
-    args.output.mkdir(parents=True, exist_ok=False)
-    work = args.output / "work"
-    work.mkdir()
-    receipt = {
-        "source_head": head,
-        "compiler_sha256": digest(args.jaic),
-        "manifest_sha256": digest(args.manifest),
-        "policy": POLICY,
-        "modes": modes,
-        "source_status": subprocess.check_output(
-            ["git", "-C", str(args.repo), "status", "--porcelain"], text=True
-        ),
-        "image_source_hashes": {
-            str(p.relative_to(args.repo)): digest(p)
-            for p in (args.repo / "stdlib/Extensions/Image").rglob("*.jai")
-        },
-        "harness_hashes": {
-            p.name: digest(p)
-            for p in Path(__file__).parent.iterdir()
-            if p.is_file() and p.suffix in (".py", ".jai", ".c", ".json", ".ts")
-        },
-        "bounds": {
-            "cpu_seconds": args.cpu_seconds,
-            "wall_seconds": args.wall_seconds,
-            "file_bytes": args.file_bytes,
-        },
-        "reviewed_dispositions_sha256": digest(args.reviewed_dispositions)
-        if args.reviewed_dispositions
-        else None,
-    }
-    save(args.output / "receipt.json", receipt)
-    node = shutil.which(args.node)
-    if node is None:
-        raise SystemExit("Node executable unavailable: " + args.node)
-    args.node = str(Path(node).resolve())
-    node_install = Path(args.node).parent.parent
-    receipt["node_executable_sha256"] = digest(Path(args.node))
-    runtime_sandbox = Sandbox(
-        reads=[
-            node_install,
-            args.corpus,
-            args.output,
-            Path(__file__).with_name("wasi_probe.ts"),
-            args.reference_include,
-            args.reference_library,
-        ],
-        writes=[work],
-    )
-    env = dict(
-        os.environ,
-        JAIC_STDLIB=str(args.repo / "stdlib"),
-        CARGO_TARGET_DIR=str(cargo_target_dir(resolve=True)),
-    )
-    # Address/bounds checking stays enabled. Leak checking is the repository's existing policy.
-    env["ASAN_OPTIONS"] = "detect_leaks=0:abort_on_error=1"
-    env["UBSAN_OPTIONS"] = "halt_on_error=1"
-    here = Path(__file__).resolve().parent
-    reference = args.output / "reference"
-    reference_link = (
-        [str(args.reference_library)]
-        if args.reference_library.is_file()
-        else ["-L" + str(args.reference_library), "-ljpeg"]
-    )
-    reference_directory = (
-        args.reference_library.parent
-        if args.reference_library.is_file()
-        else args.reference_library
-    )
-    reference_env = dict(env)
-    if sys.platform.startswith("linux"):
-        reference_env["LD_LIBRARY_PATH"] = (
-            str(reference_directory) + os.pathsep + env.get("LD_LIBRARY_PATH", "")
-        )
-    reference_link += ["-Wl,-rpath," + str(reference_directory)]
-    if sys.platform.startswith("linux"):
-        reference_link += ["-ldl"]
-    commands = [
-        (
-            "reference",
-            [
-                args.cc,
-                "-I" + str(args.reference_include),
-                str(here / "reference.c"),
-                *reference_link,
-                "-o",
-                str(reference),
-            ],
-        )
-    ]
-    binaries = {}
-    for mode in modes:
-        binary = args.output / (
-            "probe-" + mode + (".wasm" if mode == "wasi-o2" else "")
-        )
-        binaries[mode] = binary
-        flags = (
-            ["-O0", "-sanitize", "address,undefined"]
-            if mode == "native-asan"
-            else ["-O2"]
-        )
-        if mode == "wasi-o2":
-            flags += ["-os", "wasm"]
-        commands.append(
-            (
-                mode,
-                [str(args.jaic), *flags, str(here / "probe.jai"), "-exe", str(binary)],
-            )
-        )
-    builds = []
-    for name, command in commands:
-        # Compilation can spawn linkers: its ordinary bound is the whole CI job, not a parent-only timer.
-        result = process(command, cwd=args.repo, env=env, timeout=None)
-        builds.append({"mode": name, "command": command, **result})
-        save(args.output / "builds.json", builds)
-        if result["exit"] != 0:
-            save(
-                args.output / "summary.json",
-                {"status": "ERROR", "reason": "build failed", "mode": name},
-            )
-            return 2
-    version = process(
-        [reference, "--version"],
-        cwd=work,
-        env=reference_env,
-        timeout=10,
-        sandbox=runtime_sandbox,
-    )
-    receipt["reference_version"] = version
-    receipt["reference_header_hashes"] = {
-        p.name: digest(p) for p in args.reference_include.glob("j*.h")
-    }
-    reference_files = (
-        [args.reference_library]
-        if args.reference_library.is_file()
-        else list(args.reference_library.glob("libjpeg*"))
-    )
-    receipt["reference_library_hashes"] = {
-        p.name: digest(p) for p in reference_files if p.is_file()
-    }
-    loaded_match = re.search(r"^LIBRARY (.+)$", version["stdout"], re.M)
-    loaded_library = Path(loaded_match[1]).resolve() if loaded_match else None
-    allowed_libraries = {path.resolve() for path in reference_files if path.is_file()}
-    runtime_library_matches = loaded_library in allowed_libraries
-    receipt["runtime_reference_library_matches"] = runtime_library_matches
-    if runtime_library_matches:
-        receipt["runtime_reference_library_sha256"] = digest(loaded_library)
-    receipt["binary_hashes"] = {name: digest(path) for name, path in binaries.items()}
-    save(args.output / "receipt.json", receipt)
-    if (
-        version["exit"] != 0
-        or not runtime_library_matches
-        or ("libjpeg-turbo " + args.reference_version + " ") not in version["stdout"]
-    ):
-        save(
-            args.output / "summary.json",
-            {"status": "ERROR", "reason": "reference version mismatch"},
-        )
-        return 2
-    rows = []
-    above_cap_ids = manifest["above_production_cap_cases"]
-    reference_default_limit = manifest["production_default_pixels"]
-    for number, case in enumerate(cases, 1):
-        input_path = args.corpus / case["id"]
-        ref_path = work / "reference.raw"
-        ref_path.unlink(missing_ok=True)
-        ref_process = process(
-            [reference, input_path, ref_path, str(reference_default_limit)],
-            cwd=work,
-            env=reference_env,
-            timeout=args.wall_seconds,
-            sandbox=runtime_sandbox,
-            cpu=args.cpu_seconds,
-            file_bytes=args.file_bytes,
-        )
-        match = re.search(
-            r"^REF (\d+) (\d+) (\d+) (\d+) (\d+)$", ref_process["stdout"], re.M
-        )
-        warning_match = re.search(r"^WARN (\d+)$", ref_process["stdout"], re.M)
-        warning_count = int(warning_match[1]) if warning_match else None
-        ref = {
-            "exit": ref_process["exit"],
-            "warnings": warning_count,
-            "clean": ref_process["exit"] == 0
-            and warning_count == 0
-            and not ref_process["stderr"],
-            "process": ref_process,
-        }
-        baseline = case["baseline_reference"]
-        ref["warning_regression"] = (
-            ref_process["exit"] != baseline["exit"]
-            or warning_count != baseline["warnings"]
-            or ref_process["stderr"] != baseline["stderr"]
-        )
-        for mode in modes:
-            actual_path = work / "actual.raw"
-            actual_path.unlink(missing_ok=True)
-            command = [binaries[mode], input_path, actual_path]
-            if mode == "wasi-o2":
-                command = [
-                    args.node,
-                    "--no-warnings",
-                    here / "wasi_probe.ts",
-                    binaries[mode],
-                    args.corpus,
-                    work,
-                    case["id"],
-                    actual_path.name,
-                ]
-            p = process(
-                command,
-                cwd=work,
-                env=env,
-                timeout=args.wall_seconds,
-                sandbox=runtime_sandbox,
-                cpu=args.cpu_seconds,
-                file_bytes=args.file_bytes,
-            )
-            match_actual = result_match(p["stdout"])
-            row = {
-                "case": case["id"],
-                "sha256": case["sha256"],
-                "class": case["class"],
-                "mode": mode,
-                "process": p,
-                "reference": ref,
-                "accepted": False,
-                "result_observed": match_actual is not None,
-                "sanitizer_diagnostic": bool(
-                    re.search(
-                        r"AddressSanitizer|UndefinedBehaviorSanitizer|runtime error:",
-                        p["stderr"],
-                    )
-                ),
-                "above_cap_ids": above_cap_ids,
-            }
-            for field, token in [
-                ("parity", "PARITY"),
-                ("invariant", "INVARIANT"),
-                ("cap_minus_one", "CAP_MINUS_ONE"),
-                ("cap_exact", "CAP_EXACT"),
-                ("reject_empty", "REJECT_EMPTY"),
-            ]:
-                row[field] = bool(re.search("^" + token + r" true$", p["stdout"], re.M))
-            limit = re.search(r"^LIMIT (\d+)$", p["stdout"], re.M)
-            row["default_limit"] = int(limit[1]) if limit else None
-            if match_actual:
-                row["accepted"] = match_actual[1] == "true"
-                row["decoded"] = dict(
-                    zip(
-                        ("width", "height", "channels"),
-                        map(int, match_actual.group(2, 3, 4)),
-                    )
-                )
-                row["error"] = match_actual[5]
-                row["cap_rejection"] = (
-                    not row["accepted"] and "pixel limit" in row["error"]
-                )
-            if (
-                row["accepted"]
-                and match
-                and ref_process["exit"] == 0
-                and actual_path.exists()
-                and ref_path.exists()
-            ):
-                row["pixels"] = pixel_compare(
-                    actual_path,
-                    ref_path,
-                    list(map(int, match.groups())),
-                    row["decoded"],
-                )
-            failures, review = classify(case, row, ref, dispositions.get(case["id"]))
-            if row["default_limit"] is None:
-                failures.append("production-default-not-observed")
-            elif row["default_limit"] != reference_default_limit:
-                failures.append("production-default-changed-review-required")
-            row.pop("above_cap_ids")
-            row["failures"], row["review"] = failures, review
-            row["disposition"] = dispositions.get(case["id"])
-            row["pixel_sha256"] = digest(actual_path) if actual_path.exists() else None
-            row["pixel_reference_class"] = (
-                "clean" if ref["clean"] else "warning-bearing-or-unavailable"
-            )
-            blocking = [
-                item
-                for item in review
-                if not item.startswith("reviewed-invalid-class-acceptance:")
-            ]
-            row["outcome"] = (
-                "error"
-                if p["exit"] != 0 or row["sanitizer_diagnostic"]
-                else "fail"
-                if failures
-                else "review"
-                if blocking
-                else "accepted-clean-reference"
-                if row["accepted"] and ref["clean"]
-                else "accepted-damaged-or-unverified"
-                if row["accepted"]
-                else "rejected-above-cap"
-                if case["id"] in above_cap_ids
-                else "rejected-unsupported-process"
-                if case["unsupported_process"]
-                else "rejected-external-context-required"
-                if (row.get("disposition") or {}).get("classification")
-                == "external-context-required"
-                else "rejected-structural-or-malformed"
-            )
-            row["recovery_pixel_mismatch"] = bool(
-                row.get("pixels") and not row["pixels"]["pass"] and not ref["clean"]
-            )
-            rows.append(row)
-            save(args.output / "cases.json", rows)
-            actual_path.unlink(missing_ok=True)
-            print(
-                f"{number}/{len(cases)} {mode} {case['id']}: {'ERROR' if not decision_known(row) else 'ACCEPT' if row['accepted'] else 'REJECT'}; "
-                f"failures={len(failures)} review={len(review)}",
-                flush=True,
-            )
-        ref_path.unlink(missing_ok=True)
+def summarize(rows, cases, modes, dispositions):
+    """Fold the per-case rows into the gate summary: counts per mode, cross-mode differences and the final status.
+
+    Example: `summarize(rows, cases, ["native-o2"], {})["status"]` is `"PARTIAL"` until all three modes ran.
+    """
     expected = {(mode, c["id"], c["sha256"]) for mode in modes for c in cases}
     observed = {(r["mode"], r["case"], r["sha256"]) for r in rows}
     summary = {
@@ -709,6 +344,492 @@ def main():
     )
     if not summary["inventory_exact"] or not summary["complete_mode_matrix"]:
         summary["status"] = "PARTIAL"
+    return summary
+
+
+def row_outcome(row, case, process_result, failures, review, above_cap_ids):
+    """Name what happened to one case in one mode, most serious first.
+
+    Example: a clean acceptance with no failures or review items is `"accepted-clean-reference"`.
+    """
+    blocking = [
+        item
+        for item in review
+        if not item.startswith("reviewed-invalid-class-acceptance:")
+    ]
+    if process_result["exit"] != 0 or row["sanitizer_diagnostic"]:
+        return "error"
+    if failures:
+        return "fail"
+    if blocking:
+        return "review"
+    if row["accepted"]:
+        return (
+            "accepted-clean-reference"
+            if row["reference"]["clean"]
+            else "accepted-damaged-or-unverified"
+        )
+    if case["id"] in above_cap_ids:
+        return "rejected-above-cap"
+    if case["unsupported_process"]:
+        return "rejected-unsupported-process"
+    if (row.get("disposition") or {}).get(
+        "classification"
+    ) == "external-context-required":
+        return "rejected-external-context-required"
+    return "rejected-structural-or-malformed"
+
+
+def run_reference(
+    reference, input_path, ref_path, case, default_limit, work, env, sandbox, args
+):
+    """Decode one case with the reference program; returns its process, the `REF` header match and the summary row.
+
+    Example: `ref["warning_regression"]` is true when exit, warning count or stderr differ from the manifest baseline.
+    """
+    ref_process = process(
+        [reference, input_path, ref_path, str(default_limit)],
+        cwd=work,
+        env=env,
+        timeout=args.wall_seconds,
+        sandbox=sandbox,
+        cpu=args.cpu_seconds,
+        file_bytes=args.file_bytes,
+    )
+    match = re.search(
+        r"^REF (\d+) (\d+) (\d+) (\d+) (\d+)$", ref_process["stdout"], re.M
+    )
+    warning_match = re.search(r"^WARN (\d+)$", ref_process["stdout"], re.M)
+    warning_count = int(warning_match[1]) if warning_match else None
+    ref = {
+        "exit": ref_process["exit"],
+        "warnings": warning_count,
+        "clean": ref_process["exit"] == 0
+        and warning_count == 0
+        and not ref_process["stderr"],
+        "process": ref_process,
+    }
+    baseline = case["baseline_reference"]
+    ref["warning_regression"] = (
+        ref_process["exit"] != baseline["exit"]
+        or warning_count != baseline["warnings"]
+        or ref_process["stderr"] != baseline["stderr"]
+    )
+    return ref_process, match, ref
+
+
+def observe_row(
+    case, mode, p, ref, ref_process, match, actual_path, ref_path, above_cap_ids
+):
+    """Read one mode's transcript of one case into a row: what the probe printed and how its pixels compare.
+
+    Example: `row["accepted"]` is true when the probe printed `RESULT true ...`.
+    """
+    match_actual = result_match(p["stdout"])
+    row = {
+        "case": case["id"],
+        "sha256": case["sha256"],
+        "class": case["class"],
+        "mode": mode,
+        "process": p,
+        "reference": ref,
+        "accepted": False,
+        "result_observed": match_actual is not None,
+        "sanitizer_diagnostic": bool(
+            re.search(
+                r"AddressSanitizer|UndefinedBehaviorSanitizer|runtime error:",
+                p["stderr"],
+            )
+        ),
+        "above_cap_ids": above_cap_ids,
+    }
+    for field, token in [
+        ("parity", "PARITY"),
+        ("invariant", "INVARIANT"),
+        ("cap_minus_one", "CAP_MINUS_ONE"),
+        ("cap_exact", "CAP_EXACT"),
+        ("reject_empty", "REJECT_EMPTY"),
+    ]:
+        row[field] = bool(re.search("^" + token + r" true$", p["stdout"], re.M))
+    limit = re.search(r"^LIMIT (\d+)$", p["stdout"], re.M)
+    row["default_limit"] = int(limit[1]) if limit else None
+    if match_actual:
+        row["accepted"] = match_actual[1] == "true"
+        row["decoded"] = dict(
+            zip(
+                ("width", "height", "channels"),
+                map(int, match_actual.group(2, 3, 4)),
+            )
+        )
+        row["error"] = match_actual[5]
+        row["cap_rejection"] = not row["accepted"] and "pixel limit" in row["error"]
+    if (
+        row["accepted"]
+        and match
+        and ref_process["exit"] == 0
+        and actual_path.exists()
+        and ref_path.exists()
+    ):
+        row["pixels"] = pixel_compare(
+            actual_path,
+            ref_path,
+            list(map(int, match.groups())),
+            row["decoded"],
+        )
+    return row
+
+
+def initial_receipt(args, head, modes):
+    """The receipt written before anything runs: source, compiler, manifest and harness hashes plus the bounds.
+
+    Example: `initial_receipt(args, head, ["native-o2"])["modes"]` is `["native-o2"]`.
+    """
+    return {
+        "source_head": head,
+        "compiler_sha256": digest(args.jaic),
+        "manifest_sha256": digest(args.manifest),
+        "policy": POLICY,
+        "modes": modes,
+        "source_status": subprocess.check_output(
+            ["git", "-C", str(args.repo), "status", "--porcelain"], text=True
+        ),
+        "image_source_hashes": {
+            str(p.relative_to(args.repo)): digest(p)
+            for p in (args.repo / "stdlib/Extensions/Image").rglob("*.jai")
+        },
+        "harness_hashes": {
+            p.name: digest(p)
+            for p in Path(__file__).parent.iterdir()
+            if p.is_file() and p.suffix in (".py", ".jai", ".c", ".json", ".ts")
+        },
+        "bounds": {
+            "cpu_seconds": args.cpu_seconds,
+            "wall_seconds": args.wall_seconds,
+            "file_bytes": args.file_bytes,
+        },
+        "reviewed_dispositions_sha256": digest(args.reviewed_dispositions)
+        if args.reviewed_dispositions
+        else None,
+    }
+
+
+def record_reference(receipt, args, version):
+    """Add the reference headers, libraries and loaded library to the receipt; true when the loaded library is a pinned one.
+
+    Example: a `LIBRARY /elsewhere/libjpeg.so` line outside the pinned files returns false.
+    """
+    receipt["reference_header_hashes"] = {
+        p.name: digest(p) for p in args.reference_include.glob("j*.h")
+    }
+    reference_files = (
+        [args.reference_library]
+        if args.reference_library.is_file()
+        else list(args.reference_library.glob("libjpeg*"))
+    )
+    receipt["reference_library_hashes"] = {
+        p.name: digest(p) for p in reference_files if p.is_file()
+    }
+    loaded_match = re.search(r"^LIBRARY (.+)$", version["stdout"], re.M)
+    loaded_library = Path(loaded_match[1]).resolve() if loaded_match else None
+    allowed_libraries = {path.resolve() for path in reference_files if path.is_file()}
+    runtime_library_matches = loaded_library in allowed_libraries
+    receipt["runtime_reference_library_matches"] = runtime_library_matches
+    if runtime_library_matches:
+        receipt["runtime_reference_library_sha256"] = digest(loaded_library)
+    return runtime_library_matches
+
+
+def run_cases(
+    args,
+    manifest,
+    cases,
+    modes,
+    binaries,
+    reference,
+    work,
+    env,
+    reference_env,
+    runtime_sandbox,
+    dispositions,
+):
+    """Run every case through the reference and each mode's probe; returns one row per (case, mode).
+
+    `cases.json` in the output folder is rewritten after each row, so a killed run keeps what it finished.
+    """
+    here = Path(__file__).resolve().parent
+    rows = []
+    above_cap_ids = manifest["above_production_cap_cases"]
+    reference_default_limit = manifest["production_default_pixels"]
+    for number, case in enumerate(cases, 1):
+        input_path = args.corpus / case["id"]
+        ref_path = work / "reference.raw"
+        ref_path.unlink(missing_ok=True)
+        ref_process, match, ref = run_reference(
+            reference,
+            input_path,
+            ref_path,
+            case,
+            reference_default_limit,
+            work,
+            reference_env,
+            runtime_sandbox,
+            args,
+        )
+        for mode in modes:
+            actual_path = work / "actual.raw"
+            actual_path.unlink(missing_ok=True)
+            command = [binaries[mode], input_path, actual_path]
+            if mode == "wasi-o2":
+                command = [
+                    args.node,
+                    "--no-warnings",
+                    here / "wasi_probe.ts",
+                    binaries[mode],
+                    args.corpus,
+                    work,
+                    case["id"],
+                    actual_path.name,
+                ]
+            p = process(
+                command,
+                cwd=work,
+                env=env,
+                timeout=args.wall_seconds,
+                sandbox=runtime_sandbox,
+                cpu=args.cpu_seconds,
+                file_bytes=args.file_bytes,
+            )
+            row = observe_row(
+                case,
+                mode,
+                p,
+                ref,
+                ref_process,
+                match,
+                actual_path,
+                ref_path,
+                above_cap_ids,
+            )
+            failures, review = classify(case, row, ref, dispositions.get(case["id"]))
+            if row["default_limit"] is None:
+                failures.append("production-default-not-observed")
+            elif row["default_limit"] != reference_default_limit:
+                failures.append("production-default-changed-review-required")
+            row.pop("above_cap_ids")
+            row["failures"], row["review"] = failures, review
+            row["disposition"] = dispositions.get(case["id"])
+            row["pixel_sha256"] = digest(actual_path) if actual_path.exists() else None
+            row["pixel_reference_class"] = (
+                "clean" if ref["clean"] else "warning-bearing-or-unavailable"
+            )
+            row["outcome"] = row_outcome(row, case, p, failures, review, above_cap_ids)
+            row["recovery_pixel_mismatch"] = bool(
+                row.get("pixels") and not row["pixels"]["pass"] and not ref["clean"]
+            )
+            rows.append(row)
+            save(args.output / "cases.json", rows)
+            actual_path.unlink(missing_ok=True)
+            print(
+                f"{number}/{len(cases)} {mode} {case['id']}: {'ERROR' if not decision_known(row) else 'ACCEPT' if row['accepted'] else 'REJECT'}; "
+                f"failures={len(failures)} review={len(review)}",
+                flush=True,
+            )
+        ref_path.unlink(missing_ok=True)
+    return rows
+
+
+def build_programs(args, modes, env):
+    """Compile the reference program and one probe per mode; returns `(reference, reference_env, binaries)`.
+
+    A failed build writes `summary.json` with status `ERROR` and returns `None`.
+    """
+    here = Path(__file__).resolve().parent
+    reference = args.output / "reference"
+    reference_link = (
+        [str(args.reference_library)]
+        if args.reference_library.is_file()
+        else ["-L" + str(args.reference_library), "-ljpeg"]
+    )
+    reference_directory = (
+        args.reference_library.parent
+        if args.reference_library.is_file()
+        else args.reference_library
+    )
+    reference_env = dict(env)
+    if sys.platform.startswith("linux"):
+        reference_env["LD_LIBRARY_PATH"] = (
+            str(reference_directory) + os.pathsep + env.get("LD_LIBRARY_PATH", "")
+        )
+    reference_link += ["-Wl,-rpath," + str(reference_directory)]
+    if sys.platform.startswith("linux"):
+        reference_link += ["-ldl"]
+    commands = [
+        (
+            "reference",
+            [
+                args.cc,
+                "-I" + str(args.reference_include),
+                str(here / "reference.c"),
+                *reference_link,
+                "-o",
+                str(reference),
+            ],
+        )
+    ]
+    binaries = {}
+    for mode in modes:
+        binary = args.output / (
+            "probe-" + mode + (".wasm" if mode == "wasi-o2" else "")
+        )
+        binaries[mode] = binary
+        flags = (
+            ["-O0", "-sanitize", "address,undefined"]
+            if mode == "native-asan"
+            else ["-O2"]
+        )
+        if mode == "wasi-o2":
+            flags += ["-os", "wasm"]
+        commands.append(
+            (
+                mode,
+                [str(args.jaic), *flags, str(here / "probe.jai"), "-exe", str(binary)],
+            )
+        )
+    builds = []
+    for name, command in commands:
+        # Compilation can spawn linkers: its ordinary bound is the whole CI job, not a parent-only timer.
+        result = process(command, cwd=args.repo, env=env, timeout=None)
+        builds.append({"mode": name, "command": command, **result})
+        save(args.output / "builds.json", builds)
+        if result["exit"] != 0:
+            save(
+                args.output / "summary.json",
+                {"status": "ERROR", "reason": "build failed", "mode": name},
+            )
+            return None
+    return reference, reference_env, binaries
+
+
+def main():
+    args = parse_args()
+    if args.heavy and os.environ.get("JPEG_FINAL_GATE_ADMITTED") != "1":
+        env = dict(os.environ, JPEG_FINAL_GATE_ADMITTED="1")
+        return subprocess.run(
+            [
+                sys.executable,
+                str(args.heavy),
+                "--",
+                sys.executable,
+                str(Path(__file__).resolve()),
+                *sys.argv[1:],
+            ],
+            env=env,
+        ).returncode
+    if os.name != "posix":
+        raise SystemExit(
+            "This sanitizer gate requires a POSIX host; no silent Windows skip."
+        )
+    for key in (
+        "repo",
+        "jaic",
+        "corpus",
+        "output",
+        "reference_include",
+        "reference_library",
+        "manifest",
+    ):
+        setattr(args, key, getattr(args, key).resolve())
+    modes = args.modes.split(",")
+    if len(modes) != len(set(modes)) or any(mode not in MODES for mode in modes):
+        raise SystemExit("Invalid/duplicate mode; use native-asan,native-o2,wasi-o2.")
+    manifest = json.loads(args.manifest.read_text())
+    cases = manifest_cases(manifest)
+    errors = check_corpus(manifest, args.corpus, digest)
+    if errors:
+        raise SystemExit("Corpus integrity failure:\n" + "\n".join(errors))
+    dispositions = review_map(args.reviewed_dispositions, cases)
+    head = subprocess.check_output(
+        ["git", "-C", str(args.repo), "rev-parse", "HEAD"], text=True
+    ).strip()
+    if args.expected_source and head != args.expected_source:
+        raise SystemExit("Source HEAD does not match reviewed receipt.")
+    if args.expected_jaic_sha256 and digest(args.jaic) != args.expected_jaic_sha256:
+        raise SystemExit("Compiler hash does not match reviewed receipt.")
+    if args.expected_reference_library_sha256 and (
+        not args.reference_library.is_file()
+        or digest(args.reference_library) != args.expected_reference_library_sha256
+    ):
+        raise SystemExit("Reference library file does not match the pinned hash.")
+    # Refuse overwrite, including a failed earlier run. Every attempt receives a new directory.
+    args.output.mkdir(parents=True, exist_ok=False)
+    work = args.output / "work"
+    work.mkdir()
+    receipt = initial_receipt(args, head, modes)
+    save(args.output / "receipt.json", receipt)
+    node = shutil.which(args.node)
+    if node is None:
+        raise SystemExit("Node executable unavailable: " + args.node)
+    args.node = str(Path(node).resolve())
+    node_install = Path(args.node).parent.parent
+    receipt["node_executable_sha256"] = digest(Path(args.node))
+    runtime_sandbox = Sandbox(
+        reads=[
+            node_install,
+            args.corpus,
+            args.output,
+            Path(__file__).with_name("wasi_probe.ts"),
+            args.reference_include,
+            args.reference_library,
+        ],
+        writes=[work],
+    )
+    env = dict(
+        os.environ,
+        JAIC_STDLIB=str(args.repo / "stdlib"),
+        CARGO_TARGET_DIR=str(cargo_target_dir(resolve=True)),
+    )
+    # Address/bounds checking stays enabled. Leak checking is the repository's existing policy.
+    env["ASAN_OPTIONS"] = "detect_leaks=0:abort_on_error=1"
+    env["UBSAN_OPTIONS"] = "halt_on_error=1"
+    built = build_programs(args, modes, env)
+    if built is None:
+        return 2
+    reference, reference_env, binaries = built
+    version = process(
+        [reference, "--version"],
+        cwd=work,
+        env=reference_env,
+        timeout=10,
+        sandbox=runtime_sandbox,
+    )
+    receipt["reference_version"] = version
+    runtime_library_matches = record_reference(receipt, args, version)
+    receipt["binary_hashes"] = {name: digest(path) for name, path in binaries.items()}
+    save(args.output / "receipt.json", receipt)
+    if (
+        version["exit"] != 0
+        or not runtime_library_matches
+        or ("libjpeg-turbo " + args.reference_version + " ") not in version["stdout"]
+    ):
+        save(
+            args.output / "summary.json",
+            {"status": "ERROR", "reason": "reference version mismatch"},
+        )
+        return 2
+    rows = run_cases(
+        args,
+        manifest,
+        cases,
+        modes,
+        binaries,
+        reference,
+        work,
+        env,
+        reference_env,
+        runtime_sandbox,
+        dispositions,
+    )
+    summary = summarize(rows, cases, modes, dispositions)
     save(args.output / "summary.json", summary)
     print(json.dumps(summary, indent=2))
     return 0 if summary["status"] in ("PASS", "PASS_WITH_REVIEWED_SCOPE") else 1
