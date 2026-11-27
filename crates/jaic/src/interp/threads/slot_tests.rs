@@ -360,5 +360,6 @@ check :: ()->bool #no_context {{
 }}
 "
     );
-    assert!(slots_after(&source) <= 4);
+    let slots = slots_after(&source);
+    assert!(slots <= 4, "{slots} slots for 50 closed threads");
 }
