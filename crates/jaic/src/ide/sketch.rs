@@ -624,6 +624,11 @@ impl Compiler {
             } => {
                 let values = then_value.iter().chain(else_value).map(|e| ty_of(self, e));
                 let values: Vec<TypeId> = values.flatten().collect();
+                // Like every other arm, only a stand-in is the reason to recover: an `ifx`
+                // that fails on its own (an unknown name in a branch) keeps its error.
+                if !values.iter().any(|&t| self.is_stand_in(t)) {
+                    return None;
+                }
                 values
                     .iter()
                     .copied()

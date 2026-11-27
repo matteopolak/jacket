@@ -14,6 +14,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 
 - `jacket migrate` drops a migration that would add errors and applies the rest; it skips non-UTF-8 files.
 - `jacket migrate` rewrites `f(allocator = a)` to `f(,, allocator = a)`.
+- An error inside an `ifx` branch is reported by `jailint` and `jacket migrate`, not hidden by editor recovery.
 - A typed `[..] Toml_Value` field reads `[[x]]` headers.
 - Sound_Player on macOS counts only the unplayed part of a half-played buffer, so it refills on time.
 - The C-backed `Default_Allocator` refuses a free or resize whose `old_size` exceeds the block, as the x64 heap does.
