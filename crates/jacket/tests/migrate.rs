@@ -376,6 +376,33 @@ fn a_file_that_is_not_utf8_is_left_alone_with_a_note() {
 }
 
 #[test]
+fn an_allocator_that_is_the_first_argument_moves_to_the_context() {
+    assert_migrates(
+        "migrate-allocator-first",
+        r#"#import "Basic";
+main :: () {
+    a := make_text(allocator = temp);
+    g(allocator = temp);
+    c := f(allocator = temp, n = 2);
+}
+make_text :: () -> string { return ""; }
+g :: () {}
+f :: (n := 1) -> int { return n; }
+"#,
+        r#"#import "Basic";
+main :: () {
+    a := make_text(,, allocator = temp);
+    g(,, allocator = temp);
+    c := f(n = 2,, allocator = temp);
+}
+make_text :: () -> string { return ""; }
+g :: () {}
+f :: (n := 1) -> int { return n; }
+"#,
+    );
+}
+
+#[test]
 fn arguments_after_the_allocator_stay_ordinary_arguments() {
     assert_migrates(
         "migrate-allocator-order",

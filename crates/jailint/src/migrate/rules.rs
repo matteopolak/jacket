@@ -288,16 +288,19 @@ fn allocator_argument(e: &CompileError, source: &Source) -> Option<Answer> {
     let value = tokens
         .iter()
         .position(|t| t.span.start as usize == e.start)?;
-    let [.., comma, name, eq] = tokens.get(..value)? else {
+    let [.., before, name, eq] = tokens.get(..value)? else {
         return None;
     };
     let is = |t: &Token, p: P| t.tok == Tok::Punct(p);
+    // The argument follows a comma, or the call's `(` when it is the first one.
+    let first = is(before, P::LParen);
     if !is(eq, P::Eq)
         || !matches!(&name.tok, Tok::Ident(n) if n.as_str() == "allocator")
-        || !is(comma, P::Comma)
+        || !(first || is(before, P::Comma))
     {
         return None;
     }
+    let comma = before;
     let call = calls_containing(tokens, e.start).into_iter().next()?;
     // Already after `,,`: the error is about something else.
     let double_comma = |range: &[Token]| {
@@ -329,8 +332,18 @@ fn allocator_argument(e: &CompileError, source: &Source) -> Option<Answer> {
     }
     let argument_end = tokens[end].span.start as usize;
     let list_end = tokens[call.close].span.start as usize;
-    let argument = source.slice(comma.span.end as usize, argument_end);
     let rest = source.slice(argument_end, list_end);
+    if first {
+        // Nothing before it: the rest of the list, then `,,` and the argument.
+        let rest = rest.strip_prefix(',').unwrap_or(rest).trim_start();
+        let argument = source.slice(name.span.start as usize, argument_end);
+        return Some(Answer::Edit {
+            start: comma.span.end as usize,
+            end: list_end,
+            text: format!("{rest},, {argument}"),
+        });
+    }
+    let argument = source.slice(comma.span.end as usize, argument_end);
     Some(Answer::Edit {
         start: comma.span.start as usize,
         end: list_end,

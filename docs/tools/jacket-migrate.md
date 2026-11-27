@@ -77,7 +77,7 @@ Migrations are written from what changed, not from another compiler's sources. N
 | `renamed-arguments` | `file_list(p, follow_symlinks = f)` | `file_list(p, follow_directory_symlinks = f)` |
 | `assert-message-positional` | `#assert(c, message = "m")` | `#assert(c, "m")` |
 | `removed-modules` | `#import "Render";` | a note: `Dynamic_Font` is in `Simp`; no rewrite |
-| `allocator-context-argument` | `New(T, allocator = a)` | `New(T,, allocator = a)` |
+| `allocator-context-argument` | `New(T, allocator = a)`, `f(allocator = a)` | `New(T,, allocator = a)`, `f(,, allocator = a)` |
 | `versioned-module-import` | `#import "freetype-2.12.1";` | `#import "freetype";`, when a module named `freetype` exists |
 
 ## Configuration
