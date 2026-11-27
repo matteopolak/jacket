@@ -27,6 +27,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - `stat`, `lstat` and `fstat` fill the right record on armv7 Linux and work at compile time on s390x and powerpc64.
 - Compile-time C library calls on 32-bit and big-endian targets fill `stat`, `tm`, `timespec` and end pointers at the program's layout.
 - On 32-bit targets the runtime and `Wasi_Runtime` pass `size_t` at C's width, so linked C code sees the right sizes.
+- Threads in wasm32 programs no longer trap: the green-thread runtime finds its control record's pointers at 4 bytes.
 
 ## [0.40.0] - 2026-11-24
 

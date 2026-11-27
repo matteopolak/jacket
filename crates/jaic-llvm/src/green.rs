@@ -34,12 +34,12 @@ const CONTROL: &str = "jaic_wasi_green_control";
 const EXHAUSTED: &str = "jaic_wasi_frames_exhausted";
 const SPAWN: &str = "pthread_create";
 
-/// `Green_Control` field offsets: `state` is at 0, then `top`, `limit` and `enabled`.
-const TOP: u64 = 8;
-
-const LIMIT: u64 = 16;
-const ENABLED: u64 = 24;
-const CONTROL_SIZE: u64 = 32;
+/// `Green_Control`'s members (`state: s64`, `top: *u8`, `limit: *u8`, `enabled: s64`) as the
+/// target places them: on wasm32 the pointers are 4 bytes.
+fn control_layout(layout: &jaic::layout::DataLayout) -> jaic::layout::Packed {
+    use jaic::layout::Member::{Int, Ptr};
+    layout.pack(&[Int(8), Ptr, Ptr, Int(8)])
+}
 
 /// `Green_Control.state` values.
 const UNWINDING: u64 = 1;
@@ -78,7 +78,8 @@ pub fn instrument(program: &Program, layout: &jaic::layout::DataLayout) -> Optio
     let exhausted = *exports.get(EXHAUSTED)?;
     let spawn = *exports.get(SPAWN)?;
     let control = control_global(program.funcs[*exports.get(CONTROL)?].as_ref()?)?;
-    if program.globals.get(control.0 as usize)?.size < CONTROL_SIZE {
+    let fields = control_layout(layout);
+    if program.globals.get(control.0 as usize)?.size < fields.size {
         return None;
     }
     // A `#foreign` procedure that the program itself `#program_export`s is that procedure.
@@ -195,9 +196,8 @@ pub fn instrument(program: &Program, layout: &jaic::layout::DataLayout) -> Optio
     let global = &mut out.globals[control.0 as usize];
     global
         .init
-        .resize(global.init.len().max(CONTROL_SIZE as usize), 0);
-    let enabled = ENABLED as usize;
-    layout.write_u64(&mut global.init[enabled..], 1);
+        .resize(global.init.len().max(fields.size as usize), 0);
+    layout.write_u64(&mut global.init[fields.offsets[3] as usize..], 1);
     let may_block = |callee: &Callee| match callee {
         Callee::Func(f) => blocks[f.0 as usize],
         Callee::Foreign(f) => bound[f.0 as usize].is_some_and(|f| blocks[f]),
@@ -205,6 +205,7 @@ pub fn instrument(program: &Program, layout: &jaic::layout::DataLayout) -> Optio
     };
     let names = Runtime {
         control,
+        fields,
         exhausted: FuncId(exhausted as u32),
     };
     for (f, func) in out.funcs.iter_mut().enumerate() {
@@ -237,6 +238,8 @@ fn control_global(func: &Func) -> Option<GlobalId> {
 
 struct Runtime {
     control: GlobalId,
+    /// Where `Green_Control`'s members are.
+    fields: jaic::layout::Packed,
     exhausted: FuncId,
 }
 
@@ -670,7 +673,7 @@ fn emit_prologue(
         dst: control,
         global: rt.control,
     });
-    let top_addr = body.at(&mut entry, control, TOP);
+    let top_addr = body.at(&mut entry, control, rt.fields.offsets[1]);
     let old_top = body.val(Ty::Ptr);
     entry.push(Inst::Load {
         dst: old_top,
@@ -707,7 +710,7 @@ fn emit_prologue(
     let dynamic_top_addr = body.at(&mut entry, frame, 8);
     let new_top = body.at(&mut entry, frame, size);
     let new_top_int = body.int_of(&mut entry, new_top);
-    let limit_addr = body.at(&mut entry, control, LIMIT);
+    let limit_addr = body.at(&mut entry, control, rt.fields.offsets[2]);
     let limit = body.val(Ty::Ptr);
     entry.push(Inst::Load {
         dst: limit,
