@@ -4487,7 +4487,7 @@ operator == :: (a: GUID, b: GUID) -> bool {
 
 safe_release :: (obj: *IUnknown) {
     if obj != null obj.vtable.Release(obj);
-} @FreesArgument
+}
 
 safe_release_and_reset :: (b: **$T/interface IUnknown) {
     if <<b != null {

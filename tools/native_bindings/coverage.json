@@ -13140,7 +13140,7 @@
     },
     "Objective_C": {
       "spec": "docs/specs/stdlib/modules/objective-c.md",
-      "spec_sha256": "2621d04064c9034c26ee4a7f8853a69c1431da86ef9b884d8ed6c920b5a90657",
+      "spec_sha256": "9b8f97fdade17b8efc4b6c69d4d479c879fbfba73d66c8d2510bab572af16f71",
       "counts": {
         "implemented": 28,
         "declared": 449,
@@ -13165,7 +13165,7 @@
         {"name": "objc_alloc", "signature": "objc_alloc :: (class: Class) -> id #no_context", "condition": "", "spec_line": 21, "status": "implemented"},
         {"name": "objc_copy", "signature": "objc_copy :: (self: *$instancetype) -> *instancetype #no_context", "condition": "", "spec_line": 22, "status": "implemented"},
         {"name": "autorelease", "signature": "autorelease :: (self: *$instancetype) -> id #no_context", "condition": "", "spec_line": 23, "status": "implemented"},
-        {"name": "release", "signature": "release :: (self: *$instancetype) -> id #no_context @FreesArgument", "condition": "", "spec_line": 24, "status": "implemented"},
+        {"name": "release", "signature": "release :: (self: *$instancetype) -> id #no_context", "condition": "", "spec_line": 24, "status": "implemented"},
         {"name": "retain", "signature": "retain :: (self: *$instancetype) -> *instancetype #no_context", "condition": "", "spec_line": 25, "status": "implemented"},
         {"name": "class", "signature": "class :: (self: id) -> Class #no_context", "condition": "", "spec_line": 26, "status": "implemented"},
         {"name": "superclass", "signature": "superclass :: (self: id) -> Class #no_context", "condition": "", "spec_line": 27, "status": "implemented"},
@@ -29818,7 +29818,7 @@
     },
     "Windows": {
       "spec": "docs/specs/stdlib/modules/windows.md",
-      "spec_sha256": "d3a52f1070be92e2f9c8f1dd629666d1ea53952b67e5b534bfc36eb8aa91997a",
+      "spec_sha256": "1e70fccaf07de697761371a5fdcfe00103b5c15653b043f010c2353de27c2b10",
       "counts": {
         "declared": 1549,
         "implemented": 9,
@@ -31365,7 +31365,7 @@
         {"name": "vtable", "signature": "vtable :: (obj: *IUnknown) -> *IUnknown_VTable", "condition": "OS == .WINDOWS", "spec_line": 1542, "status": "forwarded"},
         {"name": "IUnknown_UUID", "signature": "IUnknown_UUID :: \"00000000-0000-0000-C000-000000000046\"", "condition": "OS == .WINDOWS", "spec_line": 1543, "status": "declared"},
         {"name": "IUnknown", "signature": "IUnknown :: struct", "condition": "OS == .WINDOWS", "spec_line": 1544, "status": "declared"},
-        {"name": "safe_release", "signature": "safe_release :: (obj: *IUnknown) @FreesArgument", "condition": "OS == .WINDOWS", "spec_line": 1545, "status": "implemented"},
+        {"name": "safe_release", "signature": "safe_release :: (obj: *IUnknown)", "condition": "OS == .WINDOWS", "spec_line": 1545, "status": "implemented"},
         {"name": "safe_release_and_reset", "signature": "safe_release_and_reset :: (b: **$T/interface IUnknown)", "condition": "OS == .WINDOWS", "spec_line": 1546, "status": "implemented"},
         {"name": "safe_release_and_reset", "signature": "safe_release_and_reset :: (b: **IUnknown)", "condition": "OS == .WINDOWS", "spec_line": 1547, "status": "implemented"},
         {"name": "string_to_guid", "signature": "string_to_guid :: uid", "condition": "OS == .WINDOWS", "spec_line": 1548, "status": "declared"},
