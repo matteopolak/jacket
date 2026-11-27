@@ -36,7 +36,7 @@ gm_vtable_value_type :: (type: *CType, depth := 0) -> bool {
 
         cursor := gm_declaration_cursor(cast(*Declaration) record);
         if clang_Cursor_isNull(cursor) != 0 || !gm_build_declaration(cursor, clang_getCursorSemanticParent(cursor), false) return false;
-        if record.flags & (.HAS_COPY_CONSTRUCTOR | .HAS_MOVE_CONSTRUCTOR | .HAS_DESTRUCTOR | .IS_UNION) return false;
+        if record.flags & (.HAS_CONSTRUCTOR | .HAS_COPY_CONSTRUCTOR | .HAS_MOVE_CONSTRUCTOR | .HAS_DESTRUCTOR | .IS_UNION) return false;
         if record.decl_flags & .TEMPLATE return false;
         if record.parents.count || record.virtual_functions.count || record.template_type_params.count || record.type.template_instantiation_params.count return false;
 
@@ -103,39 +103,11 @@ gm_vtable_slot_type :: (function: *Function) -> *CType {
     signature := GM_Sessions.new_owned(session, Function_Type);
 
     type.type_of_function = signature;
+    // `#cpp_method` places an MSVC aggregate result's hidden pointer after `this` itself.
     signature.return_type = native.return_type;
     signature.flags = (native.flags & ~Function_Type.Flags.INLINE) | .CPP_METHOD;
-    result := gm_underlying(native.return_type);
-    indirect := TARGET_OS == .WINDOWS && result && result.type_of_struct != null;
 
-    for argument, index: native.arguments {
-        GM_Sessions.append_owned(session, *signature.arguments, argument);
-        if index != 0 || !indirect continue;
-
-        // MSVC member returns put the result pointer after this, including small PODs.
-        pointer := GM_Sessions.new_owned(session, CType);
-        pointer.size = gm_pointer_size();
-        pointer.alignment = pointer.size;
-        pointer.pointer_to = native.return_type;
-        output := GM_Sessions.new_owned(session, Declaration);
-        output.kind = .DECLARATION;
-        output.type = pointer;
-
-        for suffix: 0..native.arguments.count {
-            name := tprint("__result_%", suffix);
-            taken := false;
-
-            for parameter: native.arguments if parameter.output_name == name taken = true;
-            if taken continue;
-
-            output.name = GM_Sessions.copy_text(session, name);
-            output.output_name = output.name;
-            break;
-        }
-
-        GM_Sessions.append_owned(session, *signature.arguments, output);
-        signature.return_type = generator.type_def_void;
-    }
+    for argument: native.arguments GM_Sessions.append_owned(session, *signature.arguments, argument);
 
     return type;
 }

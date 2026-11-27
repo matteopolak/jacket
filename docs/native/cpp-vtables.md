@@ -11,7 +11,12 @@
 - If the record's own fields start inside the base's tail padding, the base cannot be embedded (`gm_can_embed_parent`); the record repeats the base's fields and gets its own copy of each inherited wrapper.
 - Only added slots get wrappers (`<Record>_<method>`). `print_struct_vtable` writes the table, the wrappers and `vtable(obj)`.
 
-Supported signatures are scalars, pointers and small trivial records (up to 32 bytes, alignment at most eight; `generator-vtable-abi.jai`). Refused: unions, bitfields, packed or polymorphic record values, extended floats, variadic methods, multiple inheritance and virtual bases. Destructors keep two opaque slots on Itanium and one on MSVC and are never callable. On Windows an aggregate-return slot returns void with an explicit result pointer right after `this`.
+Supported signatures are scalars, pointers and small trivial records (up to 32 bytes, alignment at most eight; `generator-vtable-abi.jai`). Refused: unions, bitfields, packed or polymorphic record values, records with a user-provided constructor, copy or move constructor or destructor, extended floats, variadic methods, multiple inheritance and virtual bases. Destructors keep two opaque slots on Itanium and one on MSVC and are never callable. A record-returning slot keeps its natural signature on every target. MSVC returns every class or struct from an instance method through a hidden pointer after `this`, on x64 and arm64, whatever its size or shape (clang's IR for both shows `sret` after `this` for 4, 8, 16 and 24 byte records and float and double HFAs), and `#cpp_method` supplies that pointer itself.
+
+What is verified:
+
+- Generated text for a Windows target, on any host: `stdlib/Bindings_Generator/tests/generator-windows-vtable-slots.jai` (natural signatures, no hidden parameter, a constructor-bearing record refused).
+- Runtime dispatch of 4, 8, 16 and 24 byte records and float and double HFAs, on the host running the checker. CI runs it on `windows-native` for x64 whenever that job runs and for arm64 in the full tier (`tools/ci/ci_changes.py`). Nothing here has run it on arm64 Windows by hand.
 
 The target triple and the module's `TARGET_OS` must agree.
 

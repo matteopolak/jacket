@@ -7,8 +7,8 @@ Pinned C libraries that `Bindings_Generator` binds, checked struct by struct aga
 `tools/corpus/bindings_corpus.py` runs every library in `corpus/bindings/libraries.json` against every triple in the same file:
 
 1. Downloads the archive with `toolkit.download.pinned`, which checks its SHA-256. The tree is extracted once under `~/.cache/jaic/bindings-corpus/trees/`.
-2. For each listed header, runs the generator (`tools/corpus/bindings-corpus/generate.jai`) with that header as its one source. The output holds `#assert(size_of(R) == N)`, `align_of` and `offset_of` lines.
-3. Runs clang on the same header with `-fdump-record-layouts-complete`, the same triple and the same include paths.
+2. For each listed header, runs the generator (`tools/corpus/bindings-corpus/generate.jai`) with that header as its source. The output holds `#assert(size_of(R) == N)`, `align_of` and `offset_of` lines.
+3. Parses the same header with clang (`-ast-dump=json`, same triple and include paths) to learn each record's C name (the dump goes to a file and is read node by node, keeping only records and typedefs, so its size does not bound memory), then compiles a probe that includes the header and holds `sizeof`, `_Alignof` and `offsetof` of every record and field the generator asserts on. The numbers are read from the probe's LLVM IR.
 4. Compares every record and field both sides name. Any difference is a `MISMATCH` line.
 
 Each library is one row, each triple one column. A cell is `ok`, `MISMATCH`, `ERROR` (generation or the oracle failed) or `skip` (the manifest gives a reason).
@@ -20,13 +20,15 @@ JAIC=... PYTHONPATH=tools python3 tools/corpus/bindings_corpus.py --library lwip
 
 Exit status is 1 on any `MISMATCH` or `ERROR`. Skips do not fail the run.
 
-### Why one source per header
+### One source per header
 
-The generator emits the declarations of each source file it is given, not those of the headers it includes. An entry header that `#include`s the others yields nothing, so each listed header is generated and parsed on its own. Headers that need an earlier one (`task.h` needs `FreeRTOS.h`) name it in `prelude`, which becomes a `-include`.
+Each listed header is generated and parsed on its own, so a failure names its header. Declarations of the headers it includes are bound too, unless a header marks itself a system header (`#pragma clang system_header`, which CMSIS uses): the generator ignores such included headers, but never a header it was given as a source. Headers that need an earlier one (`task.h` needs `FreeRTOS.h`) name it in `prelude`, which becomes a `-include`.
 
 ### Matching records
 
-A record with a C tag matches by name. A typedef'd anonymous record has no tag in clang's dump, so it matches the one anonymous record with exactly the same field names. Zero or several candidates leave it unmatched. The report counts unmatched records; they are not checked.
+A record with a C tag is named `struct tag` (or `union tag`). A typedef'd anonymous record is named by its typedef, which the AST links to the record. Bitfields and anonymous members have no `offsetof` and are skipped. A generated record clang has no complete definition for is unmatched, counted in the report and not checked.
+
+The probe is compiled instead of dumping layouts with `-fdump-record-layouts-complete` because the dump runs at the record's closing brace. A trailing `__attribute__((packed))` (lwIP writes its headers that way) applies after that, so the dump shows an unpacked record the compiler does not use.
 
 ### Sandbox
 
@@ -64,21 +66,20 @@ Recorded with the driver at this commit (see the manifest for the pins):
 | littlefs | ok | ok | ok | ok | |
 | FatFs R0.15 | ok | ok | ok | ok | |
 | FreeRTOS 11.1.0 | ok | ok | ok | ok | Posix port on x86, ARM_CM4F, ATMega323 |
-| mbedTLS 3.6.2 | ok | ok | ok | ok | 26 records unmatched |
+| mbedTLS 3.6.2 | ok | ok | ok | ok | |
 | nanopb 0.4.9.1 | ok | ok | ok | ok | |
-| TinyUSB 0.17.0 | ok | ok | ok | ok | 9-11 records unmatched |
+| TinyUSB 0.17.0 | ok | ok | ok | ok | |
 | CMSIS-Core 5.9.0 | skip | skip | ok | skip | Arm-only; see the manifest reasons |
-| lwIP 2.2.1 | MISMATCH | MISMATCH | MISMATCH | ok | packed-struct bug, see TODO.md |
-| LVGL 9.2.2 | ERROR | ERROR | ERROR | ERROR | generator bug, see TODO.md |
+| lwIP 2.2.1 | ok | ok | ok | ok | |
+| LVGL 9.2.2 | ok | ok | ok | ok | |
 
-The lwIP mismatch is a generator bug: clang ignores `__attribute__((packed))` written after a struct's closing brace, and the generator emits those structs as packed (`align 1`). The LVGL error is raised for `lv_label.h` alone.
 
 ## Change it
 
 - New library: add an entry; put its config headers in `corpus/bindings/config/<id>/`. Run the driver with `--library <id>` and fix the first `ERROR` line it prints.
 - New triple: add it to the top-level `triples` with its `os` and flags, then give each library a row (a run or a reason to skip).
 - Changing the generator: rerun the driver. A regression shows as a new `MISMATCH` or `ERROR`.
-- Tests: `PYTHONPATH=tools python3 -m unittest corpus.test_bindings_corpus` covers the manifest checks, the parsers and the comparison. It needs no network and no jaic.
+- Tests: `PYTHONPATH=tools python3 -m unittest corpus.test_bindings_corpus` covers the manifest checks, the parsers and the comparison. It needs no network and no jaic. One test compiles a packed record with `clang` from `PATH`: a local run skips it without clang, and with `CI` set it fails.
 
 ## Configuration
 

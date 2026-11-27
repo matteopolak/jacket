@@ -1,9 +1,13 @@
 """Unit tests for the bindings corpus driver: manifest checks, layout parsing and comparison."""
 
 import json
+import os
+import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from corpus import bindings_corpus as bc
 
@@ -29,26 +33,36 @@ Q :: struct #no_padding {
 #assert(offset_of(Q, "x") == 0);
 """
 
-CLANG = """\
-*** Dumping AST Record Layout
-         0 | struct P
-         0 |   uint8_t a
-         4 |   uint32_t b
-         8 |   uint8_t bits
-           | [sizeof=12, align=4]
+def tag(name, keyword="struct", fields=(), **extra):
+    members = [{"kind": "FieldDecl", "name": n, **({"isBitfield": True} if n.startswith("flag") else {})} for n in fields]
+    return {"id": f"0x{name}", "kind": "RecordDecl", "name": name, "tagUsed": keyword, "completeDefinition": True, "inner": members, **extra}
 
-*** Dumping AST Record Layout
-         0 | struct (unnamed at /lib/q.h:3:9)
-         0 |   uint16_t x
-           | [sizeof=2, align=2]
 
-*** Dumping AST Record Layout
-         0 | struct Outer
-         0 |   struct Inner
-         0 |     int deep
-         4 |   int tail[2]
-         0 |   unsigned int flags:3
-           | [sizeof=12, align=4]
+# `typedef struct { uint16_t x; } Renamed;` and `typedef struct P P_t;` as clang's JSON shows them.
+AST = {"inner": [
+    tag("P", fields=["a", "b", "bits", "flags"]),
+    {"id": "0xanon", "kind": "RecordDecl", "tagUsed": "struct", "completeDefinition": True,
+     "inner": [{"kind": "FieldDecl", "name": "x"}, {"kind": "FieldDecl"}]},
+    {"id": "0xt1", "kind": "TypedefDecl", "name": "Renamed",
+     "inner": [{"kind": "ElaboratedType", "ownedTagDecl": {"id": "0xanon", "kind": "RecordDecl"},
+                "inner": [{"kind": "RecordType", "decl": {"id": "0xanon", "kind": "RecordDecl"}}]}]},
+    {"id": "0xt2", "kind": "TypedefDecl", "name": "P_t",
+     "inner": [{"kind": "ElaboratedType", "inner": [{"kind": "RecordType", "decl": {"id": "0xP", "kind": "RecordDecl"}}]}]},
+    # `typedef struct P *PP;`, `typedef struct P PA[4];` and `typedef P_t P_again;` are not records.
+    {"id": "0xt4", "kind": "TypedefDecl", "name": "PP",
+     "inner": [{"kind": "PointerType", "inner": [{"kind": "ElaboratedType", "inner": [{"kind": "RecordType", "decl": {"id": "0xP"}}]}]}]},
+    {"id": "0xt5", "kind": "TypedefDecl", "name": "PA",
+     "inner": [{"kind": "ConstantArrayType", "inner": [{"kind": "ElaboratedType", "inner": [{"kind": "RecordType", "decl": {"id": "0xP"}}]}]}]},
+    {"id": "0xt6", "kind": "TypedefDecl", "name": "P_again", "inner": [{"kind": "TypedefType", "decl": {"id": "0xt2"}}]},
+    {"kind": "TypedefDecl"},
+    tag("Fwd", keyword="union", fields=["v"], completeDefinition=False),
+    tag("U", keyword="union", fields=["i", "f"]),
+    {"id": "0xt3", "kind": "TypedefDecl", "name": "int_t", "inner": [{"kind": "BuiltinType"}]},
+]}
+
+# The IR for `probe_source(..., {"P", "Renamed"})`: P size, align, a, b, bits; Renamed size, align, x.
+IR = """\
+@jai_probe = dso_local constant [8 x i64] [i64 12, i64 4, i64 0, i64 4, i64 8, i64 2, i64 2, i64 0], align 16
 """
 
 
@@ -128,57 +142,136 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(layouts["P"], {"fields": {"a": 0, "b": 4, "bits": 8}, "size": 12, "align": 4})
         self.assertEqual(layouts["Q"]["size"], 2)
 
-    def test_clang_records_keep_direct_members_and_skip_nested_and_bitfields(self):
-        layouts = bc.clang_layouts(CLANG)
-        self.assertEqual(layouts["P"], {"fields": {"a": 0, "b": 4, "bits": 8}, "size": 12, "align": 4})
-        self.assertEqual(layouts["Outer"]["fields"], {"tail": 4})
-        self.assertNotIn("Inner", layouts)
-        self.assertNotIn("deep", layouts["Outer"]["fields"])
-        self.assertNotIn("flags", layouts["Outer"]["fields"])
+    def test_tagged_records_are_spelled_by_their_tag_and_skip_bitfields(self):
+        records = bc.clang_records(AST["inner"])
+        self.assertEqual(records["P"], {"spelling": "struct P", "fields": ["a", "b", "bits"]})
+        self.assertEqual(records["U"]["spelling"], "union U")
 
-    def test_an_unnamed_clang_record_is_kept_under_an_anonymous_key(self):
-        layouts = bc.clang_layouts(CLANG)
-        anonymous = [name for name in layouts if bc.is_anonymous(name)]
-        self.assertEqual(len(anonymous), 1)
-        self.assertEqual(layouts[anonymous[0]]["fields"], {"x": 0})
+    def test_a_typedef_names_an_anonymous_record_and_is_spelled_by_itself(self):
+        records = bc.clang_records(AST["inner"])
+        self.assertEqual(records["Renamed"], {"spelling": "Renamed", "fields": ["x"]})
+        self.assertEqual(records["P_t"]["spelling"], "P_t")
+
+    def test_pointer_array_and_alias_typedefs_are_not_records(self):
+        records = bc.clang_records(AST["inner"])
+        for name in ("PP", "PA", "P_again"):
+            self.assertNotIn(name, records)
+
+    def test_the_dump_is_read_node_by_node_across_chunk_boundaries(self):
+        document = json.dumps({"id": "0x1", "kind": "TranslationUnitDecl", "loc": {}, "inner": AST["inner"]}, indent=1)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "ast.json"
+            path.write_text(document)
+            for chunk in (7, 64, 1 << 20):
+                self.assertEqual(list(bc.top_level_nodes(path, chunk)), AST["inner"], chunk)
+            self.assertEqual(bc.clang_records(bc.top_level_nodes(path, 16)), bc.clang_records(AST["inner"]))
+
+    def test_a_truncated_dump_is_an_error_not_a_partial_result(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "ast.json"
+            path.write_text('{"kind": "TranslationUnitDecl", "inner": [{"kind": "RecordDecl", "na')
+            with self.assertRaisesRegex(ValueError, "ends inside a node"):
+                list(bc.top_level_nodes(path, 8))
+            path.write_text('{"kind": "TranslationUnitDecl"}')
+            with self.assertRaisesRegex(ValueError, "no translation unit children"):
+                list(bc.top_level_nodes(path))
+
+    def test_incomplete_records_and_scalar_typedefs_are_not_records(self):
+        records = bc.clang_records(AST["inner"])
+        self.assertNotIn("Fwd", records)
+        self.assertNotIn("int_t", records)
+
+    def test_the_probe_asks_for_each_generated_record_and_known_field(self):
+        generated = bc.generated_layouts(GENERATED)
+        generated["P"]["fields"]["gone"] = 0
+        generated["Renamed"] = generated.pop("Q")
+        source, order = bc.probe_source("/lib/demo.h", bc.clang_records(AST["inner"]), generated)
+        self.assertTrue(source.startswith('#include "/lib/demo.h"\n'))
+        self.assertIn("sizeof(struct P)", source)
+        self.assertIn("_Alignof(Renamed)", source)
+        self.assertNotIn("gone", source)
+        self.assertEqual(order[:5], [("P", "size", None), ("P", "align", None), ("P", "offset", "a"), ("P", "offset", "b"), ("P", "offset", "bits")])
+
+    def test_the_probe_ir_becomes_layouts(self):
+        generated = bc.generated_layouts(GENERATED)
+        generated["Renamed"] = generated.pop("Q")
+        _, order = bc.probe_source("/lib/demo.h", bc.clang_records(AST["inner"]), generated)
+        layouts = bc.probe_layouts(IR, order)
+        self.assertEqual(layouts["P"], {"fields": {"a": 0, "b": 4, "bits": 8}, "size": 12, "align": 4})
+        self.assertEqual(layouts["Renamed"], {"fields": {"x": 0}, "size": 2, "align": 2})
+
+    def test_a_field_named_size_does_not_replace_the_record_size(self):
+        order = [("R", "size", None), ("R", "align", None), ("R", "offset", "size")]
+        layouts = bc.probe_layouts("@jai_probe = constant [3 x i64] [i64 32, i64 8, i64 8]", order)
+        self.assertEqual(layouts["R"], {"size": 32, "align": 8, "fields": {"size": 8}})
+
+    def test_a_probe_with_the_wrong_number_of_values_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "holds 2 values for 3"):
+            bc.probe_layouts("@jai_probe = constant [2 x i64] [i64 1, i64 2]", [("A", "size", None), ("A", "align", None), ("A", "offset", "x")])
+
+
+class ClangProbeTest(unittest.TestCase):
+    """A packed attribute after the closing brace: the compiler packs the record, `-fdump-record-layouts`
+    does not show it. The probe must agree with the compiler."""
+
+    HEADER = """\
+typedef unsigned char u8;
+typedef unsigned int u32;
+struct pre { u8 a; u32 b; } __attribute__((packed));
+typedef struct { u8 a; u32 b; } plain;
+"""
+
+    def setUp(self):
+        if shutil.which("clang"):
+            return
+        # A runner without clang must not hide this test: CI fails here, a local run skips with the reason.
+        if os.environ.get("CI"):
+            self.fail("clang is not on PATH, but this test needs it")
+        self.skipTest("clang is not on PATH")
+
+    def run_clang(self, *args):
+        return subprocess.run(["clang", "-x", "c", "-w", "--target=x86_64-linux-gnu", *args], capture_output=True, text=True, check=True).stdout
+
+    def test_a_trailing_packed_attribute_is_part_of_the_probed_layout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            header = Path(tmp) / "pk.h"
+            header.write_text(self.HEADER)
+            dump = Path(tmp) / "ast.json"
+            dump.write_text(self.run_clang("-fsyntax-only", "-Xclang", "-ast-dump=json", str(header)))
+            records = bc.clang_records(bc.top_level_nodes(dump))
+            generated = {"pre": {"fields": {"b": 1}}, "plain": {"fields": {"b": 4}}}
+            source, order = bc.probe_source(str(header), records, generated)
+            probe = Path(tmp) / "probe.c"
+            probe.write_text(source)
+            layouts = bc.probe_layouts(self.run_clang("-S", "-emit-llvm", "-o", "-", str(probe)), order)
+        self.assertEqual(layouts["pre"], {"size": 5, "align": 1, "fields": {"b": 1}})
+        self.assertEqual(layouts["plain"], {"size": 8, "align": 4, "fields": {"b": 4}})
+
+
+ORACLE = {
+    "P": {"size": 12, "align": 4, "fields": {"a": 0, "b": 4, "bits": 8}},
+    "Q": {"size": 2, "align": 2, "fields": {"x": 0}},
+}
 
 
 class CompareTest(unittest.TestCase):
     def test_matching_layouts_count_records_and_fields(self):
-        result = bc.compare(bc.generated_layouts(GENERATED), bc.clang_layouts(CLANG))
+        result = bc.compare(bc.generated_layouts(GENERATED), ORACLE)
         self.assertEqual(result.mismatches, [])
         self.assertEqual(result.records, 2)
         self.assertEqual(result.fields, 3 + 1)
 
     def test_a_wrong_offset_is_a_mismatch(self):
         generated = {"P": {"size": 12, "align": 4, "fields": {"b": 8}}}
-        result = bc.compare(generated, bc.clang_layouts(CLANG))
+        result = bc.compare(generated, ORACLE)
         self.assertEqual(result.mismatches, ["P.b: offset generator 8 clang 4"])
 
     def test_a_wrong_size_and_alignment_are_mismatches(self):
         generated = {"P": {"size": 8, "align": 2, "fields": {}}}
-        result = bc.compare(generated, bc.clang_layouts(CLANG))
+        result = bc.compare(generated, ORACLE)
         self.assertEqual(result.mismatches, ["P: size generator 8 clang 12", "P: align generator 2 clang 4"])
 
-    def test_a_typedef_of_an_unnamed_record_matches_by_its_fields(self):
-        generated = {"Renamed": {"size": 2, "align": 2, "fields": {"x": 0}}}
-        result = bc.compare(generated, bc.clang_layouts(CLANG))
-        self.assertEqual(result.unmatched, [])
-        self.assertEqual(result.records, 1)
-
-    def test_an_ambiguous_anonymous_match_is_unmatched_not_passed(self):
-        text = CLANG + """
-*** Dumping AST Record Layout
-         0 | struct (unnamed at /lib/other.h:1:1)
-         0 |   uint16_t x
-           | [sizeof=2, align=2]
-"""
-        generated = {"Renamed": {"size": 2, "align": 2, "fields": {"x": 0}}}
-        result = bc.compare(generated, bc.clang_layouts(text))
-        self.assertEqual(result.unmatched, ["Renamed"])
-        self.assertEqual(result.records, 0)
-
-    def test_a_record_clang_never_dumped_is_unmatched(self):
+    def test_a_record_clang_has_no_layout_for_is_unmatched(self):
         result = bc.compare({"Missing": {"size": 1, "align": 1, "fields": {}}}, {})
         self.assertEqual(result.unmatched, ["Missing"])
 
@@ -197,6 +290,51 @@ class FormatTest(unittest.TestCase):
         line = bc.format_line({"library": "demo", "triple": "avr", "status": "ok", "records": 2, "fields": 4, "unmatched": []})
         self.assertIn("2 records, 4 fields", line)
         self.assertNotIn("unmatched", line)
+
+
+class UnreadableOutputTest(unittest.TestCase):
+    """A header whose clang output cannot be read is an ERROR cell, not a crashed run."""
+
+    def run_with(self, ast_text, probe_ir="@jai_probe = constant [1 x i64] [i64 1]"):
+        def fake(command, scratch, reads, sandboxed, stdout_to=None):
+            if command[0] == "gen":
+                Path(command[command.index("--out") + 1]).write_text(GENERATED)
+                return subprocess.CompletedProcess(command, 0, "", "")
+            if stdout_to is not None:
+                Path(stdout_to).write_text(ast_text)
+                return subprocess.CompletedProcess(command, 0, "", "")
+            return subprocess.CompletedProcess(command, 0, probe_ir, "")
+
+        lib = library(triples={"avr": {}})
+        context = {"triples": {"avr": {"os": "none"}}, "libc": "x", "config": "y", "libraries": [lib]}
+        with mock.patch.object(bc, "run_sandboxed", fake), mock.patch.object(bc, "library_tree", lambda _lib: Path("/tree")):
+            return bc.run_cell(context, lib, "avr", Path("gen"), "clang", False)
+
+    def test_a_dump_that_is_not_json_names_the_header(self):
+        result = self.run_with("not json")
+        self.assertEqual(result["status"], "error")
+        self.assertIn("demo.h: clang AST dump", result["first_error"])
+
+    def test_a_node_of_the_wrong_shape_is_an_error(self):
+        result = self.run_with('{"inner": [ [1, 2] ]}')
+        self.assertEqual(result["status"], "error")
+        self.assertIn("clang AST dump", result["first_error"])
+
+    def test_a_header_with_no_records_to_compare_is_not_a_probe_error(self):
+        # No generated record matches clang's: the cell reports that nothing was compared.
+        result = self.run_with(json.dumps({"inner": []}))
+        self.assertEqual(result["status"], "error")
+        self.assertIn("nothing was checked", result["first_error"])
+
+    def test_a_header_that_binds_only_functions_compiles_no_probe(self):
+        _, order = bc.probe_source("/lib/demo.h", {}, {})
+        self.assertEqual(order, [])
+
+    def test_a_probe_with_the_wrong_values_is_an_error(self):
+        ast = json.dumps({"inner": [tag("P", fields=["a", "b", "bits"]), tag("Q", fields=["x"])]})
+        result = self.run_with(ast, "@jai_probe = constant [1 x i64] [i64 1]")
+        self.assertEqual(result["status"], "error")
+        self.assertIn("clang layout probe", result["first_error"])
 
 
 class SandboxTest(unittest.TestCase):

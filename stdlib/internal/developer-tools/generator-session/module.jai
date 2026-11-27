@@ -29,6 +29,8 @@ Parse_Input :: struct {
     filename: string;
     arguments: [] string;
     overlays: [] Source_Overlay;
+    // The absolute paths of the listed sources when they are included by one aggregate file.
+    sources: [] string;
 }
 
 Session :: struct {

@@ -116,6 +116,9 @@ def check_abi(run, prefix, jaic, source, work, flags, library, system):
     consumer = work / "abi-roundtrip.jai"
     text = ('#import "Basic";\n#load "abi-table.jai";\n'
             'DispatchSmall :: struct { a: s32; }\n'
+            'DispatchEight :: struct { a: s32; b: s32; }\n'
+            'DispatchSixteen :: struct { a: s64; b: s64; }\n'
+            'DispatchDoublePair :: struct { a: float64; b: float64; }\n'
             'DispatchBig :: struct { a: s64; b: s64; c: s64; }\n'
             'DispatchFloatPair :: struct { a: float32; b: float32; }\n'
             'DispatchBase :: struct { vtable: *DispatchDerived_VTable; }\n'
@@ -130,15 +133,20 @@ def check_abi(run, prefix, jaic, source, work, flags, library, system):
             continue
         receiver = "cast(*DispatchBase) object" if "DispatchBase::" in entry else "object"
         name = expected_names[index]
-        if name in {"small", "big", "pair"}:
-            shape = {"small": "DispatchSmall", "big": "DispatchBig", "pair": "DispatchFloatPair"}[name]
-            argument = "cast(float32) 2" if name == "pair" else "2"
-            if system == "Windows":
-                text += f" result_{index}: {shape};\n object.vtable.{slot_names[index]}(object, *result_{index}, {argument});\n"
-            else:
-                text += f" result_{index} := object.vtable.{slot_names[index]}(object, {argument});\n"
-            assertion = f"result_{index}.a == 72" if name == "small" else f"result_{index}.a == 82 && result_{index}.b == 92 && result_{index}.c == 102" if name == "big" else f"result_{index}.a == 3.5 && result_{index}.b == 4.5"
-            text += f" assert({assertion});\n"
+        # Every record-returning slot, by size and shape: 4, 8 and 24 byte integer records, a 16 byte one, and
+        # float and double homogeneous aggregates. MSVC x64 and arm64 both return each through a pointer after `this`.
+        results = {
+            "small": ("2", "result_{i}.a == 72"),
+            "eight": ("2", "result_{i}.a == 112 && result_{i}.b == 122"),
+            "sixteen": ("2", "result_{i}.a == 132 && result_{i}.b == 142"),
+            "big": ("2", "result_{i}.a == 82 && result_{i}.b == 92 && result_{i}.c == 102"),
+            "pair": ("cast(float32) 2", "result_{i}.a == 3.5 && result_{i}.b == 4.5"),
+            "doubles": ("2", "result_{i}.a == 7.25 && result_{i}.b == 8.25"),
+        }
+        if name in results:
+            argument, assertion = results[name]
+            text += f" result_{index} := object.vtable.{slot_names[index]}(object, {argument});\n"
+            text += f" assert({assertion.format(i=index)});\n"
             continue
         if name == "take":
             text += f" assert(object.vtable.{slot_names[index]}(object, .{{7}}, .{{11, 13, 17}}) == 48);\n"

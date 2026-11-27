@@ -389,8 +389,10 @@ gr_parse_input :: (owner: *GM_Sessions.Session, options: *Generate_Bindings_Opti
         overlay.contents = GM_Sessions.copy_text(owner, contents);
     } else {
         combined: String_Builder;
+        sources: [..] string;
 
         defer free_buffers(*combined);
+        defer array_free(sources);
 
         for source: options.source_files {
             absolute, ok := GR_File.get_absolute_path(source);
@@ -408,7 +410,10 @@ gr_parse_input :: (owner: *GM_Sessions.Session, options: *Generate_Bindings_Opti
             }
 
             print_to_builder(*combined, "#include \"%\"\n", absolute);
+            array_add(*sources, GM_Sessions.copy_text(owner, absolute));
         }
+
+        input.sources = GM_Sessions.copy_array(owner, sources);
 
         if combined.failed {
             gm_input_error("generator aggregate source allocation failed");
@@ -559,6 +564,27 @@ gr_system_ignored :: (cur: CXCursor, options: *Generate_Bindings_Options) -> boo
     location := clang_getCursorLocation(cur);
     if clang_Location_isInSystemHeader(location) == 0 return false;
 
+    // A listed source is never a system header, whatever pragma it carries; clang only honours the pragma
+    // because the aggregate file includes it, where a lone source would be the main file and exempt.
+    owner := gm_current_session();
+
+    if owner && owner.parse_input && owner.parse_input.sources.count > 0 {
+        listed: CXFile;
+
+        clang_getExpansionLocation(location, *listed, null, null, null);
+
+        if listed {
+            listed_name := clang_getFileName(listed);
+
+            defer clang_disposeString(listed_name);
+            // Clang names a file by the first spelling that reached it (a `..` part, a link), so compare real paths.
+            canonical, resolved := GR_File.get_absolute_path(to_string(clang_getCString(listed_name)));
+
+            defer free(canonical);
+            if resolved for source: owner.parse_input.sources if source == canonical return false;
+        }
+    }
+
     spelling := clang_getCursorSpelling(cur);
 
     defer clang_disposeString(spelling);
@@ -615,6 +641,13 @@ gr_toplevel :: (cur: CXCursor, parent: CXCursor) -> CXChildVisitResult {
 
     declaration := create_declaration(cur, effective_parent, ignore_non_structs = ignored_system);
     if !declaration return ifx owner.failed then .Break else .Continue;
+
+    // A variable of a record the headers never define has no layout to bind; the record's users still can.
+    if cur.kind == .VarDecl && declaration.kind == .DECLARATION && declaration.type && !binding_value_type_supported(declaration.type) {
+        declaration.decl_flags |= .OMIT_FROM_OUTPUT;
+        generator.counts.stripped += 1;
+        if options.log_stripped_declarations log("Bindings_Generator: omitted %: incomplete record type\n", declaration.name);
+    }
 
     for existing, index: generator.global_scope.members {
         if existing == declaration return .Continue;

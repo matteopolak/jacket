@@ -2,8 +2,9 @@
 """Checks Bindings_Generator's struct sizes, alignments and field offsets against clang for pinned C libraries.
 
 For every library and triple in corpus/bindings/libraries.json: fetch the pinned archive, generate
-bindings with tools/corpus/bindings-corpus/generate.jai, dump clang's record layouts for the same
-headers and triple (`-fdump-record-layouts-complete`), and compare each record both sides name.
+bindings with tools/corpus/bindings-corpus/generate.jai, ask clang for the layout of every record the
+generator names (names from `-ast-dump=json`, numbers from `sizeof`/`_Alignof`/`offsetof` compiled to
+LLVM IR), and compare them.
 The upstream headers are parsed only inside tools/corpus/upstream_sandbox.py. Exits 1 on any mismatch,
 generation error or manifest problem. Docs: docs/tools/bindings-corpus.md.
 
@@ -33,11 +34,6 @@ CACHE = download.cache_dir() / "bindings-corpus"
 
 # The `#assert`s the generator emits for each record and field (`offset_of` takes a field name).
 ASSERT = re.compile(r'^#assert\((size_of|align_of|offset_of)\((\w+)(?:, "(\w+)")?\) == (\d+)\);$', re.MULTILINE)
-# A record header in clang's dump: `         0 | struct NAME` (nested records are indented further and skipped).
-RECORD_HEAD = re.compile(r"^ *\d+ \| (?:struct|union) (.+?)\s*$")
-# A direct member: an offset, then exactly three spaces and the declaration. Bitfield offsets (`0:3-5`) are skipped.
-MEMBER = re.compile(r"^ *(\d+) \| {3}(?! )(.+)$")
-RECORD_FOOT = re.compile(r"^ *\| \[sizeof=(\d+), (?:dsize=\d+, )?align=(\d+)")
 
 
 class ManifestError(Exception):
@@ -100,72 +96,152 @@ def generated_layouts(text: str) -> dict:
     return layouts
 
 
-def clang_layouts(text: str) -> dict:
-    """`{record: {"size", "align", "fields": {name: offset}}}` from `-fdump-record-layouts-complete`.
+def top_level_nodes(path: Path, chunk: int = 1 << 24):
+    """The children of the translation unit in a `-ast-dump=json` file, one at a time.
 
-    Only direct members are kept. Bitfields, anonymous members and nested record bodies are skipped,
-    since the generator's asserts name fields, not bit positions."""
+    A library's dump is hundreds of megabytes, so it is neither loaded whole nor kept: each child is
+    decoded from a bounded buffer and handed out before the next is read. Raises `ValueError` when the
+    file is not a translation unit's dump."""
+    decoder = json.JSONDecoder()
+    separators = re.compile(r"[ \t\r\n,]*")
+    # The unit's own keys come first and hold no `inner`; its children follow the first one.
+    marker = '"inner": ['
+    with open(path, encoding="utf-8") as handle:
+        buffer = handle.read(chunk)
+        while marker not in buffer:
+            more = handle.read(chunk)
+            if not more:
+                raise ValueError("the AST dump has no translation unit children")
+            buffer += more
+        position = buffer.index(marker) + len(marker)
+        while True:
+            position = separators.match(buffer, position).end()
+            if position >= len(buffer):
+                more = handle.read(chunk)
+                if not more:
+                    raise ValueError("the AST dump ends before its children close")
+                buffer = buffer[position:] + more
+                position = 0
+                continue
+            if buffer[position] == "]":
+                return
+            try:
+                node, position = decoder.raw_decode(buffer, position)
+            except json.JSONDecodeError:
+                more = handle.read(chunk)
+                if not more:
+                    raise ValueError("the AST dump ends inside a node") from None
+                buffer = buffer[position:] + more
+                position = 0
+                continue
+            yield node
+
+
+def typedef_record(node: dict):
+    """The id of the record a typedef names directly, `None` for a pointer, array or other typedef.
+
+    `typedef struct S S_t;` and `typedef struct {...} S_t;` name the record; `typedef struct S *SP;`
+    names a pointer type and is not a record called `SP`."""
+    inner = node.get("inner") or []
+    child = inner[0] if inner else None
+    while isinstance(child, dict) and child.get("kind") == "ElaboratedType":
+        children = child.get("inner") or []
+        child = children[0] if children else None
+    if isinstance(child, dict) and child.get("kind") == "RecordType":
+        return (child.get("decl") or {}).get("id")
+    return None
+
+
+def clang_records(nodes) -> dict:
+    """`{name: {"spelling", "fields"}}` for each complete record among the translation unit's children
+    (`top_level_nodes`).
+
+    A tagged record is named by its tag and spelled `struct tag`. A typedef of a record names it and is
+    spelled by the typedef, which is the only way to name a typedef'd anonymous record. `fields` are the
+    named direct members that are not bitfields, so `offsetof` accepts them. Only what these need is kept
+    of each node."""
+    complete = {}
+    typedefs = []
+    for node in nodes:
+        kind = node.get("kind")
+        if kind == "RecordDecl" and node.get("completeDefinition") and node.get("id"):
+            fields = [
+                member["name"] for member in node.get("inner") or []
+                if member.get("kind") == "FieldDecl" and member.get("name") and not member.get("isBitfield")
+            ]
+            complete[node["id"]] = {"tag": node.get("name"), "keyword": node.get("tagUsed") or "struct", "fields": fields}
+        elif kind == "TypedefDecl" and node.get("name"):
+            typedefs.append((node["name"], typedef_record(node)))
+    records = {}
+    for info in complete.values():
+        if info["tag"]:
+            records[info["tag"]] = {"spelling": f"{info['keyword']} {info['tag']}", "fields": info["fields"]}
+    for name, ref in typedefs:
+        if ref in complete and name not in records:
+            records[name] = {"spelling": name, "fields": complete[ref]["fields"]}
+    return records
+
+
+PROBE = "jai_probe"
+
+
+def probe_source(header: str, records: dict, generated: dict) -> tuple[str, list]:
+    """A C file that includes `header` and holds `sizeof`, `_Alignof` and `offsetof` of every record the
+    generator asserts on. The second result lists what each array element answers, as `(record, kind, field)`.
+
+    The numbers come from compiled constants, not `-fdump-record-layouts`: the dump forces a record's
+    layout at its closing brace, before a trailing `__attribute__((packed))` applies, and so reports
+    sizes the compiler does not use."""
+    order = []
+    values = []
+    # With nothing to ask, `order` is empty and the source is not worth compiling (see `run_cell`).
+    for name, gen in sorted(generated.items()):
+        record = records.get(name)
+        if record is None:
+            continue
+        spelling = record["spelling"]
+        order += [(name, "size", None), (name, "align", None)]
+        values += [f"sizeof({spelling})", f"_Alignof({spelling})"]
+        for field in sorted(gen["fields"]):
+            if field in record["fields"]:
+                order.append((name, "offset", field))
+                values.append(f"__builtin_offsetof({spelling}, {field})")
+    body = ",\n  ".join(values)
+    return f'#include "{header}"\nconst unsigned long long {PROBE}[] = {{\n  {body}\n}};\n', order
+
+
+def probe_layouts(ir: str, order: list) -> dict:
+    """`{record: {"size", "align", "fields": {name: offset}}}` from the LLVM IR of a `probe_source`."""
+    found = re.search(rf"@{PROBE} = [^\[]*\[\d+ x i64\] \[(.*?)\]", ir, re.DOTALL)
+    if not found:
+        raise ValueError("the probe's constant array is missing from the compiler output")
+    numbers = [int(number) for number in re.findall(r"i64 (-?\d+)", found.group(1))]
+    if len(numbers) != len(order):
+        raise ValueError(f"the probe holds {len(numbers)} values for {len(order)} questions")
     layouts: dict = {}
-    current = None
-    anonymous = 0
-    for line in text.splitlines():
-        head = RECORD_HEAD.match(line)
-        if head:
-            current = head.group(1)
-            if current.startswith("(unnamed") or current.startswith("(anonymous"):
-                # A typedef'd or unnamed record: clang gives no name, so it is matched by its fields.
-                anonymous += 1
-                current = f"<anonymous {anonymous}>"
-            layouts[current] = {"fields": {}}
-            continue
-        if current is None:
-            continue
-        foot = RECORD_FOOT.match(line)
-        if foot:
-            layouts[current]["size"] = int(foot.group(1))
-            layouts[current]["align"] = int(foot.group(2))
-            current = None
-            continue
-        member = MEMBER.match(line)
-        if member and member.group(1).isdigit():
-            declaration = member.group(2).strip()
-            if declaration.startswith(("struct ", "union ")) and " " not in declaration[7:]:
-                continue  # a nested record's header, not a member
-            name = re.sub(r"\[.*", "", re.split(r"[\s*]+", declaration)[-1])
-            if name and name.isidentifier():
-                layouts[current]["fields"][name] = int(member.group(1))
+    for (record, kind, field), number in zip(order, numbers):
+        entry = layouts.setdefault(record, {"fields": {}})
+        if kind == "offset":
+            entry["fields"][field] = number
+        else:
+            entry[kind] = number
     return layouts
-
-
-def is_anonymous(record: str) -> bool:
-    return record.startswith("<anonymous ")
 
 
 @dataclasses.dataclass
 class Comparison:
-    records: int = 0           # records the generator names that clang also dumped
+    records: int = 0           # records the generator names that clang also has a layout for
     fields: int = 0            # fields compared
-    unmatched: list = dataclasses.field(default_factory=list)  # generator records clang did not dump
+    unmatched: list = dataclasses.field(default_factory=list)  # generator records clang has no layout for
     mismatches: list = dataclasses.field(default_factory=list)
 
 
 def compare(generated: dict, oracle: dict) -> Comparison:
-    """Compare the generator's records with clang's. A record is matched by its C tag; a typedef'd
-    anonymous record in clang's dump has no tag, so it matches the one anonymous record with exactly
-    the same field names. Zero or several candidates leave the record unmatched, never silently passed."""
+    """Compare the generator's records with clang's by name. A record clang has no layout for is
+    unmatched, never silently passed."""
     result = Comparison()
-    claimed: set = set()
     for record, gen in sorted(generated.items()):
         ref = oracle.get(record)
-        if ref is None:
-            names = set(gen["fields"])
-            candidates = [
-                other for other, layout in oracle.items()
-                if is_anonymous(other) and other not in claimed and names and set(layout["fields"]) == names
-            ]
-            if len(candidates) == 1:
-                ref = oracle[candidates[0]]
-                claimed.add(candidates[0])
         if ref is None:
             result.unmatched.append(record)
             continue
@@ -223,22 +299,26 @@ def include_flags(manifest: dict, lib: dict, plan: dict, tree: Path) -> dict:
     return {"includes": includes, "system": [str(ROOT / manifest["libc"])]}
 
 
-def run_sandboxed(command: list[str], scratch: Path, reads: list[Path], sandboxed: bool) -> subprocess.CompletedProcess:
+def run_sandboxed(command: list[str], scratch: Path, reads: list[Path], sandboxed: bool, stdout_to: Path | None = None) -> subprocess.CompletedProcess:
     """Run one generator or oracle command. It starts in the scratch directory: the repository as
-    working directory is not readable inside the sandbox, and nothing here should depend on it."""
+    working directory is not readable inside the sandbox, and nothing here should depend on it.
+    `stdout_to` sends standard output to a file instead of memory (`stdout` is then empty)."""
     env = None
     if sandboxed:
         box = usb.make_sandbox(reads=reads, writes=[scratch])
         command, env = usb.confine(box, scratch, command, None)
-    return subprocess.run(command, capture_output=True, text=True, env=env, timeout=600, cwd=scratch)
+    if stdout_to is None:
+        return subprocess.run(command, capture_output=True, text=True, env=env, timeout=600, cwd=scratch)
+    with open(stdout_to, "w", encoding="utf-8") as sink:
+        return subprocess.run(command, stdout=sink, stderr=subprocess.PIPE, text=True, env=env, timeout=600, cwd=scratch)
 
 
 def run_cell(manifest: dict, lib: dict, triple: str, generator: Path, clang: str, sandboxed: bool) -> dict:
     """Generate and check every listed header of one library at one triple.
 
-    The generator binds the declarations of each source file it is given, not those of the headers
-    that file includes, so each listed header is one source and one clang translation unit. Records
-    are compared per header; a header that fails to generate fails the cell."""
+    Each listed header is one generation and one pair of clang runs (its AST, then a layout probe), so a
+    failure names its header. Records are compared per header. A header that fails to generate, or whose
+    clang output cannot be read, fails the cell with an `ERROR` naming it."""
     plan = cell_plan(lib, triple)
     result = {"library": lib["id"], "triple": triple}
     if "skip" in plan:
@@ -267,16 +347,39 @@ def run_cell(manifest: dict, lib: dict, triple: str, generator: Path, clang: str
             gen = run_sandboxed(generate, scratch, reads, sandboxed)
             if gen.returncode != 0 or not out.exists():
                 return failed(result, "error", f"{header}: {first_error(gen.stdout + gen.stderr)}", gen.stdout + gen.stderr)
-            oracle = [clang, "-x", "c", "-fsyntax-only", "-w", "-Xclang", "-fdump-record-layouts-complete", f"--target={triple}", *extra]
+            generated = generated_layouts(out.read_text())
+            frontend = [clang, "-x", "c", "-w", f"--target={triple}", *extra]
             for directory in dirs["includes"]:
-                oracle += ["-I", directory]
+                frontend += ["-I", directory]
             for directory in dirs["system"]:
-                oracle += ["-isystem", directory]
-            dump = run_sandboxed([*oracle, source], scratch, reads, sandboxed)
-            if dump.returncode != 0:
-                text = dump.stdout + dump.stderr
+                frontend += ["-isystem", directory]
+            ast_path = scratch / f"{Path(header).stem}-ast.json"
+            tree_dump = run_sandboxed([*frontend, "-fsyntax-only", "-Xclang", "-ast-dump=json", source], scratch, reads, sandboxed, stdout_to=ast_path)
+            if tree_dump.returncode != 0:
+                return failed(result, "error", f"{header}: clang oracle: {first_error(tree_dump.stderr)}", tree_dump.stderr)
+            try:
+                records = clang_records(top_level_nodes(ast_path))
+            except (ValueError, KeyError, TypeError, AttributeError) as error:
+                return failed(result, "error", f"{header}: clang AST dump: {error}", repr(error))
+            finally:
+                ast_path.unlink(missing_ok=True)
+            source_text, order = probe_source(source, records, generated)
+            if not order:
+                # A header that binds only functions or macros has no record to ask clang about, and an
+                # empty initializer is not C.
+                total.unmatched += [f"{header}: {name}" for name in sorted(generated)]
+                continue
+            probe = scratch / f"{Path(header).stem}-probe.c"
+            probe.write_text(source_text)
+            compiled = run_sandboxed([*frontend, "-S", "-emit-llvm", "-o", "-", str(probe)], scratch, reads, sandboxed)
+            if compiled.returncode != 0:
+                text = compiled.stdout + compiled.stderr
                 return failed(result, "error", f"{header}: clang oracle: {first_error(text)}", text)
-            comparison = compare(generated_layouts(out.read_text()), clang_layouts(dump.stdout + dump.stderr))
+            try:
+                oracle = probe_layouts(compiled.stdout, order)
+            except (ValueError, KeyError) as error:
+                return failed(result, "error", f"{header}: clang layout probe: {error}", repr(error))
+            comparison = compare(generated, oracle)
             total.records += comparison.records
             total.fields += comparison.fields
             total.unmatched += [f"{header}: {name}" for name in comparison.unmatched]
