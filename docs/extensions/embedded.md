@@ -104,7 +104,7 @@ reset :: () #c_call #no_context { Board.start(main); }
 
 ## How to change it
 
-- A new board: add `Boards/<Name>/module.jai` with a `memory_map`, a `configure` for the host, a `get_plugin` that returns `Embedded.board_plugin("<import path>", configure)`, and a `start` for the target that calls `Embedded.start_semihosted` (or your own startup). Add it to `BUILT_IN` in `crates/jacket/src/target.rs`. Boards that use another CPU need that CPU's compiler support first.
+- A new board: add `Boards/<Name>/module.jai` with a `memory_map`, a `configure` for the host, a `get_plugin` that returns `Embedded.board_plugin("<import path>", configure)`, and a `start` for the target that calls `Embedded.start_semihosted` (or your own startup). Give it string constants `triple` (which `configure` uses) and `runner` (the emulator command, with `{exe}` and `{args}`), and add its module to `BOARD_SOURCES` in `crates/jacket/src/target.rs`. Boards that use another CPU need that CPU's compiler support first.
 - A Cortex-M board needs nothing but its memory map and triple: `cortex-m.jai` has the vector table (the stack top, reset, and a fault handler that exits with status 1), the reset code that enables the FPU and calls `jai_start`, and the semihosting trap (`bkpt 0xab`). The core boots from address 0, so the memory map's `flash` region must be there.
 - Semihosting (`semihosting.jai`: console, exit, command line) is shared by the boards that use it. A board with a UART sets its own `set_console_hook` instead.
 - A new CPU's hints: add them under `#if CPU == ...` in `intrinsics.jai`.

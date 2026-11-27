@@ -41,6 +41,11 @@
 // The console goes to QEMU's standard output and the process exits with the program's status (a
 // returning `main` is 0, a panic is 1).
 
+// The target triple, and the command `jacket test --target` and `jacket run --target` use to
+// run a program on this board. `{exe}` is the program and `{args}` the test arguments.
+triple :: "aarch64-none-elf";
+runner :: "qemu-system-aarch64 -M virt -cpu cortex-a53 -nographic -nic none -semihosting-config enable=on,target=native -kernel {exe} -append {args}";
+
 Embedded :: #import "Extensions/Embedded";
 
 // RAM is all there is: QEMU loads the ELF file's segments into it.
@@ -57,7 +62,7 @@ memory_map :: Embedded.Memory_Map.{
     configure :: (options: *Build_Options) {
         options.os_target = .NONE;
         options.cpu_target = .ARM64;
-        options.llvm_options.target_system_triple = "aarch64-none-elf";
+        options.llvm_options.target_system_triple = triple;
         options.runtime_support_definitions = .ONLY_INIT;
         Embedded.link_for(options, memory_map);
     }

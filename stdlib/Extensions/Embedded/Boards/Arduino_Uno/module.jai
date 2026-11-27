@@ -27,6 +27,11 @@
 // qemu-system-avr -M uno -bios app.elf -nographic -serial stdio -monitor none
 // ```
 
+// The target triple, and the command `jacket test --target` and `jacket run --target` use to
+// run a program on this board. `{exe}` is the program and `{args}` the test arguments.
+triple :: "avr-none-elf";
+runner :: "qemu-system-avr -M uno -bios {exe} -nographic -serial stdio -monitor none";
+
 Embedded :: #import "Extensions/Embedded";
 
 // Data memory starts at 0x100 (the registers and I/O come first); the linker places it at
@@ -46,7 +51,7 @@ memory_map :: Embedded.Memory_Map.{
     // linker script.
     configure :: (options: *Build_Options) {
         options.os_target = .NONE;
-        options.llvm_options.target_system_triple = "avr-none-elf";
+        options.llvm_options.target_system_triple = triple;
         options.llvm_options.target_system_cpu = "atmega328p";
         options.runtime_support_definitions = .ONLY_INIT;
         // Everything below is RAM: 2 KiB for `.data`, `.bss`, the heap and the stack. The trace

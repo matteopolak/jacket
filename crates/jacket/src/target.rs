@@ -9,33 +9,54 @@ use std::path::Path;
 /// Where the boards live in the standard library.
 pub const BOARDS: &str = "Extensions/Embedded/Boards";
 
-/// What jacket knows about a board of the standard library: the triple it builds for and the
-/// command that runs its programs. A test keeps this in step with [`BOARDS`].
-const BUILT_IN: &[(&str, &str, &str)] = &[
+/// The source of each board module of the standard library, which says the triple it builds for
+/// (`triple`) and the command that runs its programs (`runner`) as string constants. A test
+/// keeps this list in step with [`BOARDS`].
+const BOARD_SOURCES: &[(&str, &str)] = &[
     (
         "Arduino_Uno",
-        "avr-none-elf",
-        "qemu-system-avr -M uno -bios {exe} -nographic -serial stdio -monitor none",
+        include_str!("../../../stdlib/Extensions/Embedded/Boards/Arduino_Uno/module.jai"),
     ),
     (
         "Qemu_Virt_Aarch64",
-        "aarch64-none-elf",
-        "qemu-system-aarch64 -M virt -cpu cortex-a53 -nographic -nic none \
-         -semihosting-config enable=on,target=native -kernel {exe} -append {args}",
+        include_str!("../../../stdlib/Extensions/Embedded/Boards/Qemu_Virt_Aarch64/module.jai"),
     ),
     (
         "Mps2_An386",
-        "thumbv7em-none-eabihf",
-        "qemu-system-arm -M mps2-an386 -cpu cortex-m4 -nographic \
-         -semihosting-config enable=on,target=native -kernel {exe} -append {args}",
+        include_str!("../../../stdlib/Extensions/Embedded/Boards/Mps2_An386/module.jai"),
     ),
     (
         "Mps2_An505",
-        "thumbv8m.main-none-eabihf",
-        "qemu-system-arm -M mps2-an505 -cpu cortex-m33 -nographic \
-         -semihosting-config enable=on,target=native -kernel {exe} -append {args}",
+        include_str!("../../../stdlib/Extensions/Embedded/Boards/Mps2_An505/module.jai"),
     ),
 ];
+
+/// What a board of the standard library says of itself: the board's name, the triple it builds
+/// for and the command that runs its programs.
+type Board = (&'static str, &'static str, &'static str);
+
+/// The built-in boards, read from their modules.
+fn built_in() -> impl Iterator<Item = Board> {
+    BOARD_SOURCES.iter().map(|&(name, source)| {
+        let constant = |constant: &str| {
+            string_constant(source, constant)
+                .unwrap_or_else(|| panic!("board {name} has no `{constant} :: \"...\";`"))
+        };
+        (name, constant("triple"), constant("runner"))
+    })
+}
+
+/// The text of the module-level string constant `name :: "...";` in the Jai `source`.
+fn string_constant<'a>(source: &'a str, name: &str) -> Option<&'a str> {
+    source.lines().find_map(|line| {
+        line.strip_prefix(name)?
+            .trim_start()
+            .strip_prefix("::")?
+            .trim()
+            .strip_prefix('"')?
+            .strip_suffix("\";")
+    })
+}
 
 /// A target `--target` can name.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -70,10 +91,9 @@ impl Target {
     pub fn effective_triple(&self) -> Option<&str> {
         self.triple.as_deref().or_else(|| {
             let board = self.board.as_deref()?;
-            BUILT_IN
-                .iter()
+            built_in()
                 .find(|(name, _, _)| *name == board)
-                .map(|(_, triple, _)| *triple)
+                .map(|(_, triple, _)| triple)
         })
     }
 
@@ -148,7 +168,7 @@ pub fn all(config: Option<&Config>) -> Vec<Target> {
         .flat_map(|config| &config.target)
         .map(|(name, table)| Target::from_table(name, table))
         .collect();
-    for &(name, triple, runner) in BUILT_IN {
+    for (name, triple, runner) in built_in() {
         if !targets.iter().any(|target| target.name == name) {
             targets.push(Target {
                 name: name.to_string(),
@@ -473,8 +493,25 @@ mod tests {
             .map(|e| e.file_name().to_string_lossy().into_owned())
             .collect();
         library.sort();
-        let mut known: Vec<&str> = BUILT_IN.iter().map(|b| b.0).collect();
+        let mut known: Vec<&str> = built_in().map(|b| b.0).collect();
         known.sort_unstable();
         assert_eq!(library, known);
+    }
+
+    #[test]
+    fn every_board_names_its_triple_and_runner() {
+        let boards: Vec<Board> = built_in().collect();
+        assert_eq!(boards.len(), BOARD_SOURCES.len());
+        for (name, triple, runner) in boards {
+            assert!(!triple.is_empty() && !triple.contains(' '), "{name}");
+            assert!(runner.starts_with("qemu-system-"), "{name}: {runner}");
+        }
+    }
+
+    #[test]
+    fn a_string_constant_is_read_from_a_module() {
+        let source = "// triple :: \"no\";\ntriple :: \"avr-none-elf\";\nmore :: 1;\n";
+        assert_eq!(string_constant(source, "triple"), Some("avr-none-elf"));
+        assert_eq!(string_constant(source, "runner"), None);
     }
 }

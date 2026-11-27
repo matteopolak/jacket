@@ -41,7 +41,7 @@ jacket toolchain           # what --target accepts, and whether this machine can
 
 ## How to change it
 
-- Another board for `--target`: give its module a `get_plugin` that runs its `configure` (see `Qemu_Virt_Aarch64`) and add it to `BUILT_IN` in `crates/jacket/src/target.rs` with its triple and runner.
+- Another board for `--target`: give its module a `get_plugin` that runs its `configure` (see `Qemu_Virt_Aarch64`) give it string constants `triple` (which `configure` uses) and `runner`, and add its module to `BOARD_SOURCES` in `crates/jacket/src/target.rs`.
 - Another OS-only procedure on NONE: put it behind `#if OS != .NONE`, so calling it is a compile error naming it. Never add a stub that fails at run time.
 - Another freestanding CPU or core: `Target::parse` (and `CortexM` for another Cortex-M), `emulation` in `jaic-native/src/freestanding.rs`, the LLVM CPU in `baseline_cpu` of `jaic-llvm/src/machine.rs`, and the compiler-rt file name in `toolchain/freestanding.rs`.
 

@@ -43,6 +43,11 @@
 // The console goes to QEMU's standard output and the process exits with the program's status (a
 // returning `main` is 0, a panic or a fault is 1).
 
+// The target triple, and the command `jacket test --target` and `jacket run --target` use to
+// run a program on this board. `{exe}` is the program and `{args}` the test arguments.
+triple :: "thumbv8m.main-none-eabihf";
+runner :: "qemu-system-arm -M mps2-an505 -cpu cortex-m33 -nographic -semihosting-config enable=on,target=native -kernel {exe} -append {args}";
+
 Embedded :: #import "Extensions/Embedded";
 
 // Code in the memory the secure state boots from, data in RAM.
@@ -59,7 +64,7 @@ memory_map :: Embedded.Memory_Map.{
     // linker script.
     configure :: (options: *Build_Options) {
         options.os_target = .NONE;
-        options.llvm_options.target_system_triple = "thumbv8m.main-none-eabihf";
+        options.llvm_options.target_system_triple = triple;
         options.runtime_support_definitions = .ONLY_INIT;
         Embedded.link_for(options, memory_map);
     }
