@@ -58,6 +58,37 @@ class NoCargoTests(unittest.TestCase):
         stdin.read.assert_not_called()
 
 
+class ChangedFilesTests(unittest.TestCase):
+    def test_a_rebased_push_counts_only_the_branch_changes(self):
+        with tempfile.TemporaryDirectory() as dir:
+            def run(*args):
+                return subprocess.run(["git", *args], cwd=dir, check=True, capture_output=True, text=True).stdout.strip()
+
+            def commit(name):
+                Path(dir, name).write_text(name)
+                run("add", name)
+                run("commit", "-q", "-m", name)
+                return run("rev-parse", "HEAD")
+
+            run("init", "-q", "-b", "main")
+            run("config", "user.email", "t@t")
+            run("config", "user.name", "t")
+            run("config", "commit.gpgsign", "false")
+            commit("base.rs")
+            run("checkout", "-q", "-b", "x")
+            pushed = commit("branch.rs")
+            run("checkout", "-q", "main")
+            commit("main.rs")
+            run("update-ref", "refs/remotes/origin/main", "main")
+            run("checkout", "-q", "-b", "rebased")
+            rebased = commit("branch.rs")
+            with mock.patch.object(pre_push_clippy, "ROOT", Path(dir)):
+                files = pre_push_clippy.changed_files([f"refs/heads/x {rebased} refs/heads/x {pushed}"])
+                self.assertEqual(files, {"branch.rs"})
+                plain = pre_push_clippy.changed_files([f"refs/heads/x {pushed} refs/heads/x {run('rev-parse', 'main~1')}"])
+                self.assertEqual(plain, {"branch.rs"})
+
+
 class StampTests(unittest.TestCase):
     def test_stamps_round_trip_and_keep_the_latest(self):
         with tempfile.TemporaryDirectory() as dir:

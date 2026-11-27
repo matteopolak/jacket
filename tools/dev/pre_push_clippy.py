@@ -56,8 +56,20 @@ def changed_files(lines: list[str]) -> set[str]:
             remote = git("merge-base", local, "origin/main").strip()
             if not remote:
                 continue
+        else:
+            remote = newer_base(local, remote)
         files.update(git("diff", "--name-only", f"{remote}...{local}").split())
     return files
+
+
+def newer_base(local: str, remote: str) -> str:
+    """Where a push of `local` over `remote` starts: after a rebase onto the default branch the
+    old tip's merge base is behind it, and the default branch's own commits are not the push's."""
+    pushed = git("merge-base", local, remote).strip()
+    main = git("merge-base", local, "origin/main").strip()
+    if main and pushed != main and subprocess.run(["git", "merge-base", "--is-ancestor", pushed, main], cwd=ROOT).returncode == 0:
+        return main
+    return remote
 
 
 def stamp_file() -> Path:
