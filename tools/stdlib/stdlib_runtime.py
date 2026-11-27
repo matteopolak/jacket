@@ -302,8 +302,6 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
             env,
         )
         out = stdout + stderr
-        if lacks_main(code, out):
-            return check_compile_time_only(args, path, target, env, out)
         return contract_result(
             metadata or {}, code, stdout, stderr
         ), out if code is not None else f"timed out after {args.timeout:.0f}s\n{out}"

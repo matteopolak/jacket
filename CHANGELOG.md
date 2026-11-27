@@ -27,7 +27,6 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - `jacket test --target TRIPLE` for another machine asks for a runner instead of running the tests on the host.
 - `jailint` lifetime rules scale linearly with procedure size, and `jailsp` keeps finished files when indexing is interrupted (#88, @ctzcs).
 - A `main` with parameters, no body or a non-integer result is reported as such, not as never lowered.
-- `jaic FILE -interp` on a file without `main` now fails with exit 3, like a build.
 - A missing `git`, `curl`, `tar`, `python3`, `node`, `jaifmt`, `jailint` or runner stops the command first and names the install command.
 - An unwritable cache folder, a missing `dsymutil` or a missing standard library each give an error with the next step.
 - Renaming a global in `jailsp` also renames the `using` line that names it.

@@ -169,16 +169,6 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
             jaic::progress::finish("interp");
             jaic::progress::announce("Running", &shown(&path));
             if cli.plugins.is_empty() {
-                // A file whose metaprogram turned its output off is a build file, which may have
-                // no `main`; any other file needs one to run.
-                let created = workspaces.borrow().created_workspaces();
-                if settings.do_output
-                    && settings.output_type != OutputType::NoOutput
-                    && let Some(code) =
-                        missing_main(&compiler, &path, &settings, created, "nothing to run")
-                {
-                    return code;
-                }
                 interpret(&mut compiler, &cli, &path, &main_dir, sandbox.as_ref())
             } else if let Some(program) = Workspaces::take_program_to_run(&workspaces) {
                 let mut program = LeakOnExit::new(*program, |c| c.ct.interp.stop_for_exit());
@@ -604,14 +594,12 @@ fn interpret(
 
 /// The error for a program with no usable `main`, or `None` when it has one or its output is
 /// not an executable. `created` is how many workspaces the file's compile-time code made: a file
-/// with no `main` that made one is a build file that forgot to turn its own output off. `nothing`
-/// ends the first line: what the missing `main` leaves the command without.
+/// with no `main` that made one is a build file that forgot to turn its own output off.
 fn missing_main(
     compiler: &Compiler,
     path: &Path,
     settings: &BuildSettings,
     created: usize,
-    nothing: &str,
 ) -> Option<ExitCode> {
     if settings.output_type != OutputType::Executable
         || (compiler.exported_func("main").is_some() && !compiler.lacks_main())
@@ -630,7 +618,7 @@ fn missing_main(
         )
     };
     print_error(&format!(
-        "`{file}` has no `main` procedure, so there is {nothing}\nhelp: {help}"
+        "`{file}` has no `main` procedure, so there is no program to write\nhelp: {help}"
     ));
     Some(ExitCode::from(NO_MAIN_STATUS))
 }
@@ -648,7 +636,7 @@ fn write_program(
     if !settings.do_output || settings.output_type == OutputType::NoOutput {
         return ExitCode::SUCCESS;
     }
-    if let Some(code) = missing_main(compiler, path, &settings, created, "no program to write") {
+    if let Some(code) = missing_main(compiler, path, &settings, created) {
         return code;
     }
     match build(compiler, cli, path, settings) {
