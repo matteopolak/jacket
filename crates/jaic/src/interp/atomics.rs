@@ -14,6 +14,16 @@ fn order(value: u8) -> Res<Ordering> {
     })
 }
 
+/// The strongest ordering a failed compare-exchange may have when the successful one has
+/// `success`: a failure only loads.
+fn failure_of(success: Ordering) -> Ordering {
+    match success {
+        Ordering::Release | Ordering::Relaxed => Ordering::Relaxed,
+        Ordering::AcqRel | Ordering::Acquire => Ordering::Acquire,
+        _ => Ordering::SeqCst,
+    }
+}
+
 impl Interp {
     pub(super) fn atomic_access(&mut self, op: ir::Intrinsic, args: &[u64]) -> Res<Rets> {
         use ir::Intrinsic as I;
@@ -52,8 +62,19 @@ impl Interp {
             }
             _ => {}
         }
+        // A big-endian program's memory holds every scalar byte-swapped. Exchange,
+        // compare-exchange and the bitwise operations act on the swapped bytes directly;
+        // addition and subtraction carry across bytes, so they retry a compare-exchange.
+        let swap = self.swap_bytes;
         macro_rules! access {
             ($atomic:ty, $scalar:ty) => {{
+                let order = |v: $scalar| {
+                    if swap {
+                        v.swap_bytes()
+                    } else {
+                        v
+                    }
+                };
                 // SAFETY: the width and natural alignment were checked above. Like the
                 // interpreter's plain loads and stores, the access goes through the raw
                 // pointer, so a bad address faults as it would natively (asking about the
@@ -62,13 +83,29 @@ impl Interp {
                 // while it is shared.
                 let cell = unsafe { <$atomic>::from_ptr(self.host_addr(address) as *mut $scalar) };
                 match op {
-                    I::AtomicLoad(_) => Rets::one(cell.load(success) as u64),
+                    I::AtomicLoad(_) => Rets::one(order(cell.load(success)) as u64),
                     I::AtomicStore(_) => {
-                        cell.store(args[1] as $scalar, success);
+                        cell.store(order(args[1] as $scalar), success);
                         Rets::default()
                     }
-                    I::AtomicRmw(rmw, _) => {
+                    I::AtomicRmw(rmw @ (ir::AtomicOp::Add | ir::AtomicOp::Sub), _) if swap => {
                         let value = args[1] as $scalar;
+                        let step = |old: $scalar| {
+                            let old = old.swap_bytes();
+                            let new = if rmw == ir::AtomicOp::Add {
+                                old.wrapping_add(value)
+                            } else {
+                                old.wrapping_sub(value)
+                            };
+                            Some(new.swap_bytes())
+                        };
+                        let old = match cell.fetch_update(success, failure_of(success), step) {
+                            Ok(old) | Err(old) => old,
+                        };
+                        Rets::one(old.swap_bytes() as u64)
+                    }
+                    I::AtomicRmw(rmw, _) => {
+                        let value = order(args[1] as $scalar);
                         let old = match rmw {
                             ir::AtomicOp::Xchg => cell.swap(value, success),
                             ir::AtomicOp::Add => cell.fetch_add(value, success),
@@ -77,19 +114,19 @@ impl Interp {
                             ir::AtomicOp::Or => cell.fetch_or(value, success),
                             ir::AtomicOp::Xor => cell.fetch_xor(value, success),
                         };
-                        Rets::one(old as u64)
+                        Rets::one(order(old) as u64)
                     }
                     _ => {
                         let (ok, old) = match cell.compare_exchange(
-                            args[1] as $scalar,
-                            args[2] as $scalar,
+                            order(args[1] as $scalar),
+                            order(args[2] as $scalar),
                             success,
                             failed,
                         ) {
                             Ok(old) => (true, old),
                             Err(old) => (false, old),
                         };
-                        Rets::collect([ok as u64, old as u64].into_iter())
+                        Rets::collect([ok as u64, order(old) as u64].into_iter())
                     }
                 }
             }};

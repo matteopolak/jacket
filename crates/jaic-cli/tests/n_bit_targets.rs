@@ -308,3 +308,24 @@ fn a_pointer_stored_in_a_frame_slot_has_the_targets_width() {
         assert_eq!(run(target, &source), "aabbccdd true\n", "{target}");
     }
 }
+
+/// Atomic loads, stores, exchanges and read-modify-writes at compile time use the program's
+/// byte order: a big-endian program's counters count.
+#[test]
+fn atomics_use_the_targets_byte_order() {
+    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/compiler/targets/atomics-order.jai");
+    for target in [
+        "x86_64-unknown-linux-gnu",
+        "s390x-unknown-linux-gnu",
+        "powerpc64-unknown-linux-gnu",
+    ] {
+        assert_eq!(
+            run(target, &source),
+            "102 202 1f2 e02 e02 true 7 9\n\
+             1020304 1020404 10203f4 1020c04 1020c04 true 7 9\n\
+             102030405060708 102030405060808 1020304050607f8 102030405060808 102030405060808 true 7 9\n",
+            "{target}"
+        );
+    }
+}
