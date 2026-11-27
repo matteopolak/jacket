@@ -133,21 +133,14 @@ impl Session {
         }
     }
 
-    /// The lints of `uri` as diagnostics: the rule is the code, `jailint` the source.
-    pub(crate) fn lint_diagnostics(&self, uri: &DocumentUri) -> Vec<Diagnostic> {
-        self.lints(uri)
-            .iter()
-            .filter_map(|l| self.lint_diagnostic(uri, l))
-            .collect()
-    }
-
     /// Drop the lints found and published so far: their settings changed.
     pub(crate) fn forget_lints(&self) {
         self.semantic.borrow_mut().forget_lints();
         self.published_lints.borrow_mut().clear();
     }
 
-    /// `lint_diagnostics`, remembered with the text they are for, so the publication of the
+    /// The lints of `uri` as diagnostics (the rule is the code, `jailint` the source),
+    /// remembered with the text they are for, so the publication of the
     /// next edit's compile can show them until its own lints are found (`carried_lints`).
     /// Nothing is remembered of a pass that was stopped.
     pub(crate) fn published_lint_diagnostics(&self, uri: &DocumentUri) -> Vec<Diagnostic> {
