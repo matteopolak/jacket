@@ -75,14 +75,14 @@ error[use_after_free]: `outer` is used after the call above freed it
     = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 error[use_after_free]: `node` is used after the call above freed it
-   --> tests/lint/use_after_free/bad.jai:122:34
+   --> tests/lint/use_after_free/bad.jai:108:34
     |
-118 |     node := New(Node);
+104 |     node := New(Node);
     |             --------- storage derived here
     ...
-121 |     free(node);
+107 |     free(node);
     |     ---------- storage invalidated here
-122 |     print("freed node held %\n", node.value);
+108 |     print("freed node held %\n", node.value);
     |                                  ^^^^
     |
     = help: free it after its last use, or give it a new value before using it again
@@ -90,14 +90,14 @@ error[use_after_free]: `node` is used after the call above freed it
     = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 error[use_after_free]: `text` is used after the call above freed it
-   --> tests/lint/use_after_free/bad.jai:127:18
+   --> tests/lint/use_after_free/bad.jai:113:18
     |
-124 |     text := copy_string("hello");
+110 |     text := copy_string("hello");
     |             -------------------- storage derived here
     ...
-126 |     free(text);
+112 |     free(text);
     |     ---------- storage invalidated here
-127 |     print("%\n", text);
+113 |     print("%\n", text);
     |                  ^^^^
     |
     = help: free it after its last use, or give it a new value before using it again
@@ -105,14 +105,14 @@ error[use_after_free]: `text` is used after the call above freed it
     = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
 
 error[use_after_free]: `other` is used after the call above freed it
-   --> tests/lint/use_after_free/bad.jai:132:12
+   --> tests/lint/use_after_free/bad.jai:118:12
     |
-129 |     other := New(Node);
+115 |     other := New(Node);
     |              --------- storage derived here
     ...
-131 |     free(other);
+117 |     free(other);
     |     ----------- storage invalidated here
-132 |     report(other);
+118 |     report(other);
     |            ^^^^^
     |
     = help: free it after its last use, or give it a new value before using it again

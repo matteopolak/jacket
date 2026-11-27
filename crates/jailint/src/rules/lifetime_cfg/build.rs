@@ -275,21 +275,7 @@ impl Builder<'_> {
                 {
                     ops.push(Op::PointerLoad(cell, cell, region, span));
                 }
-                // A callee that frees a place and then stores a new value in it frees what the
-                // place held at entry: the release precedes the replacement.
-                let before = match &op {
-                    resources::Op::FreeRegion {
-                        region, ..
-                    } => ops.iter().position(|o| {
-                        matches!(o, Op::Replace(p) if self.places.contains(*p, *region)
-                            || self.places.contains(*region, *p))
-                    }),
-                    _ => None,
-                };
-                match before {
-                    Some(at) => ops.insert(at, Op::Resource(op)),
-                    None => ops.push(Op::Resource(op)),
-                }
+                ops.push(Op::Resource(op));
             }
         }
         // A result borrows the post-call storage; releases within the call precede it.

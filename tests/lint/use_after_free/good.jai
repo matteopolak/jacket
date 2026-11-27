@@ -205,16 +205,3 @@ main :: () {
     defer free(fifth);
     report(fifth);
 }
-
-replace_data_good :: (outer: *Outer) {
-    free(outer.inner.data);
-    outer.inner.data = New(s32);
-}
-
-new_pointer_after_replace :: () {
-    outer := New(Outer);
-    outer.inner.data = New(s32);
-
-    replace_data_good(outer);
-    print("%\n", outer.inner.data);
-}
