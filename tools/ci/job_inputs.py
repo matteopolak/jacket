@@ -66,7 +66,7 @@ CRATES = {
     "nix": ["jaic-cli", "jailint", "jai-language-server"],
     "sanitizers": ["jaic-cli", "jacket"],
     "windows-cross": ["jaic-cli"],
-    "windows-native": ["jaic-cli", "jailint"],
+    "windows-native": ["jaic", "jaic-cli", "jailint"],
     "windows-stdlib": ["jaic-cli", "jacket"],
     "windows-smoke": ["jaic-cli"],
 }
