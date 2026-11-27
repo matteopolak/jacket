@@ -12,6 +12,13 @@ BAD :: #run Pg.load_migrations("migrations_bad");
 
 port: u16;
 
+// The notices the server sent since the last check: dropping a table that is not there sends one, a migration run should send none.
+notices: [..] string;
+
+record_notice :: (c: *Pg.Connection, notice: *Pg.Pg_Error) {
+    array_add(*notices, copy_string(notice.message));
+}
+
 main :: () {
     test_split();
     test_loaded();
@@ -81,6 +88,7 @@ test_migrate :: (port: u16) {
     config.user = "postgres";
     config.database = "postgres";
     config.ssl_mode = .DISABLE;
+    config.on_notice = record_notice;
 
     db, error := Pg.connect(config);
 
@@ -94,6 +102,7 @@ test_migrate :: (port: u16) {
 
     reset(db);
     defer reset(db);
+    array_reset(*notices);
 
     applied:, error = Pg.migrate(db, MIGRATIONS);
 
@@ -158,4 +167,6 @@ test_migrate :: (port: u16) {
     quiet.sql = "select 1;\n\nalter table mig_no_such_table add column x int;\nselect 2;";
     applied, error = Pg.migrate_reporting(db, .[MIGRATIONS[0], MIGRATIONS[1], MIGRATIONS[2], quiet], *failure);
     assert(error.kind == .SERVER && failure.name == "0004_quiet" && failure.line == 3, "% %", failure.name, failure.line);
+
+    assert(notices.count == 0, "the migrations sent notices: %", notices);
 }
