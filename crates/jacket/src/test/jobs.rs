@@ -477,8 +477,16 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
     let started = Instant::now();
     // A program built to run once reports what it ran in a folder of its own.
     let run_dir = plan.coverage.as_ref().map(coverage::Coverage::run_dir);
+    // On a board the cases that run here only compile, as the host does: the board's plugin
+    // would turn each into a program for the board.
+    let flags = if plan.on_board {
+        build::split_plugins(&plan.toolchain.flags).0
+    } else {
+        plan.toolchain.flags.clone()
+    };
     let toolchain = Toolchain {
         coverage_dir: run_dir.clone(),
+        flags,
         ..plan.toolchain.clone()
     };
     let checked = if let Some(doc) = case.doc {
@@ -515,7 +523,10 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
             &case.file,
             &case.options,
             &plan.root_flags[case.root],
-            &plan.toolchain,
+            &Toolchain {
+                coverage_dir: None,
+                ..toolchain.clone()
+            },
             &golden::Folders {
                 stdlib: &plan.stdlib,
                 project: &plan.project,

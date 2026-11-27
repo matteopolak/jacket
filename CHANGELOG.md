@@ -79,6 +79,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - A relative local repository path given to `jacket dep add` is made absolute once.
 - A dependency whose `path` leaves the project, or that sets two of `version`, `tag`, `rev`, is refused.
 - `jacket test` and `jacket doc` read a relative `JAIC_STDLIB` from the working directory and hand every `jaic` the absolute path.
+- `jacket test --target BOARD` reports golden tests and running doc examples as skipped, and runs compile-fail tests.
 - `jacket test --coverage` writes its report below the checkout for a relative `JACKET_OUTPUT_DIR`, not the working directory.
 
 ## [0.40.0] - 2026-11-24

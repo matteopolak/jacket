@@ -89,6 +89,14 @@ pub struct Case {
 }
 
 impl Case {
+    /// Why a board skips it: it builds a host program to run (golden tests and doc examples that
+    /// run), which a board cannot start. Unit tests, benchmarks and the cases that only compile
+    /// need no host program.
+    fn board_skip(&self, roots: &[discover::Root], check_only: bool) -> Option<&'static str> {
+        (!matches!(self.kind, Kind::Test | Kind::Bench) && !self.compiles_only(roots, check_only))
+            .then_some("it runs a host program; a board target runs unit tests only")
+    }
+
     /// Whether it only compiles, so it runs on any target (compile-fail tests, `no_run` and
     /// `compile_fail` doc tests).
     fn compiles_only(&self, roots: &[discover::Root], check_only: bool) -> bool {
@@ -137,6 +145,8 @@ struct Plan {
     temp_counter: AtomicUsize,
     stop: AtomicBool,
     coverage: Option<coverage::Coverage>,
+    /// The target is a board (`--target` names one): cases that need a host program are skipped.
+    on_board: bool,
 }
 
 /// What workers tell the reporter.
@@ -283,15 +293,11 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: Option<&BenchArgs>) -> ExitCode {
     watch::run(args, cwd)
 }
 
-/// Whether the flags select a case of `kind`: benchmarks for `jacket bench`, doc examples
-/// for `--doc` (never for `--no-doc`), and on a board only the unit tests and benchmarks,
-/// since the other kinds build host programs.
-fn kind_selected(kind: Kind, args: &TestArgs, bench: bool, on_board: bool) -> bool {
+/// Whether the flags select a case of `kind`: benchmarks for `jacket bench`, and doc examples
+/// for `--doc` (never for `--no-doc`).
+fn kind_selected(kind: Kind, args: &TestArgs, bench: bool) -> bool {
     let is_bench = kind == Kind::Bench;
     if is_bench != bench && (bench || !args.list) {
-        return false;
-    }
-    if on_board && !matches!(kind, Kind::Test | Kind::Bench) {
         return false;
     }
     let is_doc = kind == Kind::Doc;
@@ -389,7 +395,8 @@ fn run_once(
         Some(Err(error)) => return fail(error),
         None => None,
     };
-    // On a board only the unit tests run (`kind_selected`).
+    // On a board only the unit tests run; the cases that need a host program are skipped
+    // (`Case::board_skip`).
     let on_board = target_flags.iter().any(|flag| flag.starts_with('+'));
     let mut flags = target_flags;
     if let Some(os) = &args.os {
@@ -589,7 +596,7 @@ fn run_once(
         };
     let mut selected = Vec::new();
     for case in cases {
-        if !kind_selected(case.kind, args, bench, on_board) {
+        if !kind_selected(case.kind, args, bench) {
             continue;
         }
         if !in_expr(&case)
@@ -705,6 +712,7 @@ fn run_once(
         temp_counter: AtomicUsize::new(0),
         stop: AtomicBool::new(false),
         coverage,
+        on_board,
     };
     execute(&plan, &target, cross_skip.as_deref(), &mut reporter)
 }
@@ -957,6 +965,14 @@ fn execute(
             .skip_reason(target, &plan.settings.needs)
             .or_else(|| {
                 prerequisites::optional_skip(&case.options, &jacket_config::env::for_program)
+            })
+            .or_else(|| {
+                plan.on_board
+                    .then(|| {
+                        case.board_skip(&plan.roots, plan.toolchain.check_only)
+                            .map(String::from)
+                    })
+                    .flatten()
             })
             .or_else(|| {
                 (!case.compiles_only(&plan.roots, plan.toolchain.check_only))

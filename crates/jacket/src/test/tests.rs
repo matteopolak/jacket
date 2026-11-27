@@ -175,3 +175,14 @@ fn a_times_file_goes_only_with_a_time_split() {
     assert!(error.contains("only with `time:K/N`"), "{error}");
     assert!(parse(Some("hash:1/2"), None).is_ok());
 }
+
+#[test]
+fn a_board_skips_the_cases_that_run_a_host_program() {
+    let skip = |kind| case("A::x", kind).board_skip(&[], false);
+    assert!(skip(Kind::Golden).is_some());
+    assert!(skip(Kind::Test).is_none());
+    assert!(skip(Kind::Bench).is_none());
+    // A compile-fail test needs no runner, so it is not skipped.
+    assert!(skip(Kind::CompileFail).is_none());
+    assert!(case("A::x", Kind::Golden).board_skip(&[], true).is_none());
+}

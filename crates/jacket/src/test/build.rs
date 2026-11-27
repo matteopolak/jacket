@@ -413,7 +413,7 @@ fn interpreted(
 
 /// `flags` without the plugins (`+Name` and the options after it, up to the next flag), and the
 /// plugins.
-fn split_plugins(flags: &[String]) -> (Vec<String>, Vec<String>) {
+pub(super) fn split_plugins(flags: &[String]) -> (Vec<String>, Vec<String>) {
     let (mut plain, mut plugins) = (Vec::new(), Vec::new());
     let mut in_plugin = false;
     for flag in flags {
