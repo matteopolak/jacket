@@ -1,6 +1,7 @@
 """Tests for the pre-push clippy hook's package selection."""
 
 import io
+import json
 import subprocess
 import tempfile
 import unittest
@@ -25,6 +26,16 @@ class PackagesTests(unittest.TestCase):
         with mock.patch("shutil.which", return_value="/bin/cargo"), mock.patch("subprocess.run", return_value=failed):
             with self.assertRaisesRegex(SystemExit, "(?s)cargo metadata failed.*no lockfile"):
                 pre_push_clippy.packages({"Cargo.toml"})
+
+
+    def test_workspace_wide_files_select_every_package(self):
+        metadata = subprocess.CompletedProcess([], 0, json.dumps({"packages": [
+            {"name": "jaic", "manifest_path": str(pre_push_clippy.ROOT / "crates/jaic/Cargo.toml")},
+            {"name": "jacket", "manifest_path": str(pre_push_clippy.ROOT / "crates/jacket/Cargo.toml")},
+        ]}), "")
+        for file in ("rust-toolchain.toml", "Cargo.toml", "Cargo.lock", ".cargo/config.toml", "clippy.toml"):
+            with mock.patch("shutil.which", return_value="/bin/cargo"), mock.patch("subprocess.run", return_value=metadata):
+                self.assertEqual(pre_push_clippy.packages({file}), ["jacket", "jaic"], file)
 
 
 class StdlibTests(unittest.TestCase):

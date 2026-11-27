@@ -126,9 +126,15 @@ def unlinted(lines: list[str], stamps: dict[str, set[str]]) -> list[tuple[str, l
     return missing
 
 
+# Files that change how every package builds or lints.
+WORKSPACE_FILES = {"Cargo.toml", "Cargo.lock", "rust-toolchain.toml", ".cargo/config.toml", "clippy.toml", "rustfmt.toml"}
+
+
 def packages(files: set[str]) -> list[str]:
-    """The workspace packages owning the changed Rust or `Cargo.toml` files; exits when cargo cannot say."""
-    if not any(file.endswith((".rs", "Cargo.toml")) for file in files):
+    """The workspace packages owning the changed Rust or `Cargo.toml` files, or all of them for a
+    workspace-wide file such as `rust-toolchain.toml`; exits when cargo cannot say."""
+    whole = bool(files & WORKSPACE_FILES)
+    if not whole and not any(file.endswith((".rs", "Cargo.toml")) for file in files):
         return []
     if shutil.which("cargo") is None:
         raise SystemExit(
@@ -149,6 +155,8 @@ def packages(files: set[str]) -> list[str]:
         for p in json.loads(metadata.stdout)["packages"]
         if Path(p["manifest_path"]).is_relative_to(ROOT)
     }
+    if whole:
+        return sorted(dirs.values())
     found = set()
     for file in files:
         if not (file.endswith(".rs") or file.endswith("Cargo.toml")):
@@ -188,7 +196,8 @@ def lint_x86_tests(selected: list[str]) -> int:
 
 def dirty_rust() -> bool:
     return any(
-        line[3:].endswith((".rs", "Cargo.toml", "Cargo.lock")) for line in git("status", "--porcelain").splitlines()
+        line[3:].endswith((".rs", "Cargo.toml")) or line[3:] in WORKSPACE_FILES
+        for line in git("status", "--porcelain").splitlines()
     )
 
 
