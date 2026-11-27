@@ -81,5 +81,4 @@ sleep_milliseconds :: (milliseconds: s32) {
 P :: #import "internal/bindings/posix-api";
 Native_Path :: #import "internal/native-path";
 
-libc :: #system_library "libc"; @native(external)
-c_exit :: (status: s32) #foreign libc "exit"; @Exits
+#import "internal/libc";

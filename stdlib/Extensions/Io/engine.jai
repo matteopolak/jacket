@@ -238,7 +238,7 @@ requested_backend :: () -> Backend {
 }
 
 #if OS != .WINDOWS {
-    c_getenv :: (name: *u8) -> *u8 #foreign libc "getenv";
+    #import "internal/libc";
 }
 
 // Operations

@@ -57,7 +57,12 @@ report_native_check :: (reason: s64, a: s64, b: s64, fatal: bool, line: s64, fil
     } else write_string("runtime check failed", true);
 
     write_string("\n", true);
-    if fatal check_exit(1);
+
+    #if OS == .NONE {
+        if fatal abort_program();
+    } else {
+        if fatal c_exit(1);
+    }
 }
 
 #scope_file
@@ -72,11 +77,4 @@ CHECK_NULL_DEREFERENCE :: 7;
 CHECK_ATOMIC_ALIGNMENT :: 8;
 CHECK_VARIADIC_CAPACITY :: 9;
 
-#if OS == .NONE {
-    check_exit :: (status: s32) #no_context {
-        abort_program();
-    }
-} else {
-    check_libc :: #system_library "libc"; @native(external)
-    check_exit :: (status: s32) #foreign check_libc "exit"; @Exits
-}
+#if OS != .NONE #import "internal/libc";

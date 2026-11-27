@@ -6,7 +6,7 @@ How the platform-specific parts of `Socket`, `rpmalloc` and the shared C-library
 
 - `Socket/module.jai` loads `internal/net/socket.jai`, which `#load`s a generated ABI file per OS (`socket-abi-{macos,linux,android,windows}.jai`), shared `socket-posix.jai` and `socket-cmsg.jai`, and per-OS `socket-fields-*.jai`.
 - `internal/bindings/rpmalloc-{heaps,sdk,callbacks}` have one `#if` block per (OS, CPU, profile). Library and symbol names must be string literals, so they cannot be computed. Unsupported combinations hit `#assert false`.
-- `internal/libc` declares `c_malloc`, `c_realloc`, `c_free`, `c_abort` once. `internal/files/windows-text.jai` holds UTF-8/UTF-16 conversions. `internal/numerics/ui_types.jai` serves `GetRect` and `GetRect_LeftHanded`.
+- `internal/libc` declares `c_malloc`, `c_realloc`, `c_free`, `c_abort`, `c_exit`, `c_strerror` and `c_getenv` once; declare a further C call there instead of in the file that needs it. `internal/files/windows-text.jai` holds UTF-8/UTF-16 conversions. `internal/numerics/ui_types.jai` serves `GetRect` and `GetRect_LeftHanded`.
 
 ## How to change it
 

@@ -6,8 +6,7 @@ U :: #import "File_Utilities";
 R :: #import "internal/watching/event-records";
 Strings :: #import "String";
 
-inotify_libc :: #library,system "c"; @native(external)
-system_free :: (memory: *void) #foreign inotify_libc "free"; @FreesArgument
+#import "internal/libc";
 
 Pending_Move :: struct {
     cookie: u32;
@@ -68,7 +67,7 @@ backend_add_directory :: (watcher: *$T/File_Watcher, state: *State, path: string
         return false;
     }
 
-    defer system_free(absolute);
+    defer c_free(absolute);
     count: int;
     while absolute[count] != 0 count += 1;
 

@@ -324,7 +324,7 @@ mark_debug_allocation :: (memory: *void, stop_ownership: bool) {
 
     if !record && !stop_ownership {
         log_error("memory debugger: unknown allocation marked as non-leak");
-        terminate_debug_misuse(1);
+        c_exit(1);
     }
 }
 
@@ -333,8 +333,7 @@ RP :: #import "Pool";
 RT :: #import "Hash_Table";
 LC :: #import "Compiler";
 
-leak_libc :: #system_library "libc"; @native(external)
-terminate_debug_misuse :: (status: s32) #foreign leak_libc "exit"; @Exits
+#import "internal/libc";
 
 Report_Allocation :: struct {
     allocation: *Allocation;

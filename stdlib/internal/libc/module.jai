@@ -41,6 +41,15 @@ c_memmove :: inline (destination: *void, source: *void, count: u64) -> *void #no
 
 c_abort :: () #foreign libc "abort"; @Exits
 
+// Ends the process with `status` after the C library's exit handlers run.
+c_exit :: (status: s32) #foreign libc "exit"; @Exits
+
+// The text for an `errno` value, in storage the C library owns.
+c_strerror :: (error: s32) -> *u8 #foreign libc "strerror";
+
+// The value of the environment variable `name` (a zero-terminated string), or null when it is not set.
+c_getenv :: (name: *u8) -> *u8 #foreign libc "getenv";
+
 #if OS != .WINDOWS {
     // Write up to `count` bytes of `data` to `fd`; the count written, or -1.
     c_write :: inline (fd: s32, data: *u8, count: u64) -> s64 #no_context {
