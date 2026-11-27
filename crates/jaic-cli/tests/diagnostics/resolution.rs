@@ -474,3 +474,46 @@ fn require_in_a_procedure_that_returns_a_value_points_at_the_call() {
         ],
     );
 }
+
+#[test]
+fn a_main_that_cannot_be_the_entry_point_is_an_error_in_every_mode() {
+    let cases = [
+        (
+            "params.jai",
+            "main :: (x: int) {}\n",
+            "params.jai:1:9: error[proc-must]: `main` must not take parameters",
+        ),
+        (
+            "nobody.jai",
+            "libc :: #system_library \"libc\";\nmain :: () #foreign libc;\n",
+            "nobody.jai:2:9: error[proc-must-body]: `main` must have a body",
+        ),
+    ];
+    for (file, source, want) in cases {
+        for mode in ["-check", "-interp"] {
+            let dir = TempDir::new("bad-main");
+            let output = jaic_on(&dir, file, source, mode, &[]);
+            let text = stderr(&output);
+            assert_ne!(output.status.code(), Some(0), "{mode} {file}: {text}");
+            assert!(text.contains(want), "{mode} {file}: {text}");
+            assert!(!text.contains("never lowered"), "{mode} {file}: {text}");
+        }
+    }
+    let dir = TempDir::new("no-main");
+    let output = jaic_on(&dir, "none.jai", "X :: #run 1;\n", "", &[]);
+    assert_eq!(output.status.code(), Some(3), "{}", stderr(&output));
+    assert!(
+        stderr(&output).contains("has no `main` procedure"),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
+fn a_main_inserted_by_compile_time_code_is_the_entry_point() {
+    let dir = TempDir::new("late-main");
+    let source = "#import \"Basic\";\n#insert #run make();\nmake :: () -> string { return \"main :: () { print(\\\"late\\\\n\\\"); }\"; }\n";
+    let output = jaic_on(&dir, "late.jai", source, "-interp", &[]);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "late\n");
+}

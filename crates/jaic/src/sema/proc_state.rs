@@ -20,6 +20,11 @@ pub struct ProcState {
     pub codes: Probed<Vec<Arc<ast::CodeBody>>, { W::PrCodes as usize }>,
     /// Runtime opt-in to compiler-host assertion faults, keyed by actual procedure identity.
     pub runtime_interpreter_assertion: Option<ProcId>,
+    /// The `#entry_point` declaration whose function was made before the program had a `main`
+    /// (it stops the program), and why there was none.
+    pub(in crate::sema) pending_entry: Option<(ProcId, crate::ir::FuncId, Box<Diagnostic>)>,
+    /// The program finished with no `main` (`Compiler::lacks_main`).
+    pub(in crate::sema) lacks_main: bool,
     /// Bodies the lenient drain failed to lower, with the `lower_epoch` of the failure.
     pub(crate) lenient_failures:
         Probed<HashMap<ProcId, (u64, Box<Diagnostic>)>, { W::PrLenientFailures as usize }>,

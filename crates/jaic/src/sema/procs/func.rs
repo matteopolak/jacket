@@ -192,13 +192,52 @@ impl Compiler {
         let sig = self.signature(id, span)?;
         let ir_sig = self.ir_sig(sig.ty, span)?;
         let func = self.out.program.reserve_func("__entry_point".into());
+        // Set before the body is made, for a `main` that reaches the entry point again.
         self.pr.set_proc_target(id, ProcTarget::Func(func));
+        let made = self.entry_point_body(id, func, sig, ir_sig, span);
+        if made.is_err() {
+            // `main` is unusable: a later use must meet the same error, not call this function
+            // with nothing in it.
+            self.pr.clear_proc_target(id, func);
+        }
+        made
+    }
+
+    /// The entry point made before the program had a `main`, made again now that no more code
+    /// is coming. `Err` when there is still no `main`.
+    pub(in crate::sema) fn finish_pending_entry(&mut self) -> Result<()> {
+        let Some((id, func, _)) = self.pr.pending_entry.take() else {
+            return Ok(());
+        };
+        let span = self.proc(id).span;
+        let sig = self.signature(id, span)?;
+        let ir_sig = self.ir_sig(sig.ty, span)?;
+        self.entry_point_body(id, func, sig, ir_sig, span)?;
+        match self.pr.pending_entry.take() {
+            Some((_, _, error)) => Err(error),
+            None => Ok(()),
+        }
+    }
+
+    /// `entry_point_wrapper`'s body for `func`: the call to `main`.
+    fn entry_point_body(
+        &mut self,
+        id: ProcId,
+        func: ir::FuncId,
+        sig: std::sync::Arc<super::Signature>,
+        ir_sig: ir::Sig,
+        span: Span,
+    ) -> Result<ir::FuncId> {
         let main = match self.program_main(span) {
             Ok(main) => main,
-            // The editor checks every body in the project's files, also a vendored
-            // `Runtime_Support` calling the entry point of a program that has no `main` (a
-            // build metaprogram). No build reaches that call: it stops the program.
-            Err(_) if self.ed.checks_every_body() => {
+            // No `main` yet: a build metaprogram has none, and inserted code may declare it
+            // later. The entry point stops the program for now; `finish_program` makes it again
+            // and fails then if `main` is still missing and an executable is written. The
+            // editor checks every body in the project's files, also a vendored one.
+            Err(error) => {
+                if !self.ed.checks_every_body() {
+                    self.pr.pending_entry = Some((id, func, error));
+                }
                 let mut f = FnCtx::new("__entry_point".into(), ir_sig.clone(), FileId(0));
                 f.b.intrinsic(ir::Intrinsic::Trap, Vec::new(), &[]);
                 let rets = ir_sig.returns.iter().map(|&t| f.b.iconst(t, 0)).collect();
@@ -206,7 +245,6 @@ impl Compiler {
                 self.out.program.funcs[func.0 as usize] = Some(f.b.finish());
                 return Ok(func);
             }
-            Err(e) => return Err(e),
         };
         let main_sig = self.signature(main, span)?;
         if !main_sig.params.is_empty() {
@@ -220,7 +258,7 @@ impl Compiler {
         let ProcTarget::Func(main_func) = self.proc_func(main, span)? else {
             return err(
                 Code::ProcMustBody,
-                span,
+                self.proc(main).span,
                 format!("`{}` must have a body", self.options.entry_point),
             );
         };

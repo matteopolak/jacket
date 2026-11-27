@@ -390,6 +390,14 @@ impl Compiler {
             }
             Err(error) => return Err(error),
         };
+        // A program with no `main` writes no executable: the CLI says so when one is wanted
+        // (`lacks_main`).
+        if let Err(error) = self.finish_pending_entry() {
+            if error.code != Code::ProgramNoProcedure {
+                return Err(error);
+            }
+            self.pr.lacks_main = true;
+        }
         self.check_declared_structs()?;
         self.check_declared_overloads()?;
         self.warn_declarations_hiding_imports();
@@ -688,6 +696,12 @@ impl Compiler {
     }
 
     /// The exported IR function named `name` (e.g. `"main"`).
+    /// Whether the finished program has no `main`, so its entry point (made before that was
+    /// known) only stops it and there is no executable to write.
+    pub fn lacks_main(&self) -> bool {
+        self.pr.lacks_main
+    }
+
     pub fn exported_func(&self, name: &str) -> Option<ir::FuncId> {
         self.pr
             .exports

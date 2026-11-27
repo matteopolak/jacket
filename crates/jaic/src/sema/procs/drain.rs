@@ -396,6 +396,14 @@ impl ProcState {
         self.body_queue.extend(parked);
     }
 
+    /// Undoes `set_proc_target(id, ProcTarget::Func(func))`.
+    pub(in crate::sema) fn clear_proc_target(&mut self, id: ProcId, func: ir::FuncId) {
+        self.procs[id.0 as usize].target = None;
+        if let Some(procs) = self.func_targets.get_mut(&func) {
+            procs.retain(|&p| p != id);
+        }
+    }
+
     pub(in crate::sema) fn set_proc_target(&mut self, id: ProcId, target: ProcTarget) {
         self.procs[id.0 as usize].target = Some(target);
         if let ProcTarget::Func(func) = target {

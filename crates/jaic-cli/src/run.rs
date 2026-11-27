@@ -606,7 +606,9 @@ fn write_program(
     if !settings.do_output || settings.output_type == OutputType::NoOutput {
         return ExitCode::SUCCESS;
     }
-    if settings.output_type == OutputType::Executable && compiler.exported_func("main").is_none() {
+    if settings.output_type == OutputType::Executable
+        && (compiler.exported_func("main").is_none() || compiler.lacks_main())
+    {
         let file = shown(path);
         let help = if created > 0 {
             format!(
