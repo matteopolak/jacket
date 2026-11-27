@@ -135,8 +135,11 @@ pub struct Session {
     workspace_diagnostics: RefCell<workspace_diagnostics::WorkspaceDiagnostics>,
     /// The lints each document's last full publication had, with the text they were for: the
     /// next compile's publication carries them (see `Session::carried_lints`).
-    pub(crate) published_lints: RefCell<BTreeMap<DocumentUri, (Rc<str>, Vec<jailint::Lint>)>>,
+    pub(crate) published_lints: RefCell<BTreeMap<DocumentUri, PublishedLints>>,
 }
+
+/// The lints of a document's last full publication and the text they were for.
+pub(crate) type PublishedLints = (Rc<str>, Vec<jailint::Lint>);
 
 /// The open files, the root file and the module folders of a compile.
 type CompileInputs = (semantic::Buffers, PathBuf, Vec<PathBuf>);

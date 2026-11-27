@@ -169,9 +169,12 @@ fn common_ends(old: &[u8], new: &[u8]) -> (usize, usize) {
     (prefix, suffix)
 }
 
+/// A line as its byte range, newline included, and a hash of its bytes.
+type Line = (usize, usize, u64);
+
 /// The lines of `text[range]`, each with its newline, as byte ranges with a hash of their
 /// bytes.
-fn lines(text: &[u8], (start, end): (usize, usize)) -> Vec<(usize, usize, u64)> {
+fn lines(text: &[u8], (start, end): (usize, usize)) -> Vec<Line> {
     use std::hash::Hasher;
     let mut out = Vec::new();
     let mut at = start;
@@ -192,8 +195,8 @@ fn lines(text: &[u8], (start, end): (usize, usize)) -> Vec<(usize, usize, u64)> 
 /// `new` that end at `old_end` and `new_end`), by a shortest edit script (Myers' algorithm). `None` when that takes more than
 /// `MAX_LINE_EDITS` line edits.
 fn line_hunks(
-    (old, old_lines, old_end): (&[u8], &[(usize, usize, u64)], usize),
-    (new, new_lines, new_end): (&[u8], &[(usize, usize, u64)], usize),
+    (old, old_lines, old_end): (&[u8], &[Line], usize),
+    (new, new_lines, new_end): (&[u8], &[Line], usize),
 ) -> Option<Vec<Hunk>> {
     let (n, m) = (old_lines.len() as isize, new_lines.len() as isize);
     let same = |x: isize, y: isize| {
@@ -283,7 +286,7 @@ fn line_hunks(
 }
 
 /// Where line `i` of `lines` starts, or `end` (where they end) when `i` is past them.
-fn line_start(lines: &[(usize, usize, u64)], i: isize, end: usize) -> usize {
+fn line_start(lines: &[Line], i: isize, end: usize) -> usize {
     lines.get(i as usize).map_or(end, |line| line.0)
 }
 
@@ -366,19 +369,19 @@ mod tests {
         for old in texts {
             for new in texts {
                 let shift = Shift::between(old, new);
-                for i in 0..old.len() {
+                for (i, &byte) in old.iter().enumerate() {
                     if let Some(j) = shift.to_new(i)
                         && j < new.len()
                         && shift.to_new_range(i, i + 1).is_some()
                     {
-                        assert_eq!(old[i], new[j], "{i} -> {j}");
+                        assert_eq!(byte, new[j], "{i} -> {j}");
                     }
                 }
-                for j in 0..new.len() {
+                for (j, &byte) in new.iter().enumerate() {
                     if let Some((i, _)) = shift.to_old_range(j, j + 1)
                         && i < old.len()
                     {
-                        assert_eq!(old[i], new[j], "{j} <- {i}");
+                        assert_eq!(old[i], byte, "{j} <- {i}");
                     }
                 }
             }
