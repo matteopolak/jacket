@@ -35,7 +35,7 @@ A program that compiles without these warnings also compiles with the official c
 | `struct-literal-as-dynamic-array` | `a = .{}` where `a` is a `[..]T` | `a = type_of(a).{..}` |
 | `target-features-directive` | `#target_features "avx2"` on a procedure | remove it |
 | `push-context-without-block` | `push_context ctx run();` | `push_context ctx { run(); }` |
-| `main-returns-value` | `main :: () -> s64 { return 1; }` | `main :: () { exit(1); }` |
+| `main-returns-value` | `main :: () -> s64 { return 1; }`; the integer is the exit status, and any other result is an error | `main :: () { exit(1); }` |
 | `caller-location-outside-default` | `loc := #caller_location;` in a body | `#location()`, or take it as a parameter default |
 | `multi-value-in-code-argument` | `f(#code { a, b := 1, 2; })` | separate declarations, or bind the code to a name first |
 | `spread-with-other-varargs` | `f(first, ..rest)` | collect into one array: `f(..all)` |

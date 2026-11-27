@@ -255,6 +255,20 @@ impl Compiler {
                 format!("`{name}` must not take parameters"),
             );
         }
+        // The value `main` returns is the exit status, so only an integer has a meaning.
+        let returns_status = match main_sig.returns.as_slice() {
+            [] => true,
+            [ty] => self.ty.types.is_integer(*ty),
+            _ => false,
+        };
+        if !returns_status {
+            let name = &self.options.entry_point;
+            return err(
+                Code::ProcMust,
+                self.proc(main).span,
+                format!("`{name}` must return nothing or one integer"),
+            );
+        }
         let ProcTarget::Func(main_func) = self.proc_func(main, span)? else {
             return err(
                 Code::ProcMustBody,
@@ -278,7 +292,7 @@ impl Compiler {
         if let Some(&rt) = sig.returns.first() {
             let want = self.ir_ty(rt).unwrap_or(Ty::I32);
             let v = match (results.first(), main_sig.returns.first()) {
-                (Some(&r), Some(&mt)) if self.ty.types.is_integer(mt) => {
+                (Some(&r), Some(&mt)) => {
                     let have = f.b.val_ty(r);
                     match have
                         .size(&self.options.layout)

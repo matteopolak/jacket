@@ -488,6 +488,16 @@ fn a_main_that_cannot_be_the_entry_point_is_an_error_in_every_mode() {
             "libc :: #system_library \"libc\";\nmain :: () #foreign libc;\n",
             "nobody.jai:2:9: error[proc-must-body]: `main` must have a body",
         ),
+        (
+            "text.jai",
+            "main :: () -> string { return \"one\"; }\n",
+            "text.jai:1:9: error[proc-must]: `main` must return nothing or one integer",
+        ),
+        (
+            "pair.jai",
+            "main :: () -> s32, s32 { return 1, 2; }\n",
+            "pair.jai:1:9: error[proc-must]: `main` must return nothing or one integer",
+        ),
     ];
     for (file, source, want) in cases {
         for mode in ["-check", "-interp"] {
@@ -507,6 +517,19 @@ fn a_main_that_cannot_be_the_entry_point_is_an_error_in_every_mode() {
         "{}",
         stderr(&output)
     );
+}
+
+#[test]
+fn an_integer_from_main_is_the_exit_status() {
+    let dir = TempDir::new("main-status");
+    let output = jaic_on(
+        &dir,
+        "status.jai",
+        "main :: () -> s32 { return 7; }\n",
+        "-interp",
+        &[],
+    );
+    assert_eq!(output.status.code(), Some(7), "{}", stderr(&output));
 }
 
 #[test]
