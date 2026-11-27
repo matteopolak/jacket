@@ -230,7 +230,7 @@ report_failure :: (loc: Source_Code_Location, message: string) {
     } else if events {
         add_event("fail", loc.fully_pathed_filename, tprint("%", loc.line_number), message);
     } else if quiet {
-        print("%:%: %\n", loc.fully_pathed_filename, loc.line_number, message, to_standard_error = true);
+        print("%:%: %\n", loc.fully_pathed_filename, loc.line_number, indented(message), to_standard_error = true);
     } else {
         print("    %:%: %\n", loc.fully_pathed_filename, loc.line_number, indented(message), to_standard_error = true);
     }
@@ -422,11 +422,22 @@ assertion_failed :: (loc: Source_Code_Location, message: string) -> bool {
         return false;
     }
 
-    // Alone, the usual handler's report is enough; jacket needs a record of it.
-    if reporting report_failure(loc, ifx message then tprint("assertion failed: %", message) else "assertion failed");
+    // Run by hand, the usual handler prints the stack trace and stops the program.
+    if !reporting && !quiet return previous_assertion_handler(loc, message);
 
-    // The usual handler prints the stack trace and stops the program.
-    return previous_assertion_handler(loc, message);
+    // Under jacket the failure's place is the report: the test ends here, and jacket runs the
+    // tests after it in a new program.
+    report_failure(loc, ifx message then tprint("assertion failed: %", message) else "assertion failed");
+    test := current;
+
+    while test {
+        finish(test);
+        test = test.parent;
+    }
+
+    leave(1);
+
+    return false;
 }
 
 run_case :: (test_case: *Test_Case, temp_dir: string) -> *Test {

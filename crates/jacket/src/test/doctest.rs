@@ -558,7 +558,7 @@ pub fn check(
     live: &mut dyn FnMut(Live),
 ) -> Checked {
     let lines = generate(block, module).1;
-    let mut checked = check_program(
+    let (mut checked, ending) = check_program(
         block, module, root_flags, toolchain, work, cwd, timeout, live,
     );
     for problem in &mut checked.problems {
@@ -568,31 +568,62 @@ pub fn check(
         let text = relabel(&String::from_utf8_lossy(stream), &lines, &block.file);
         *stream = text.into_bytes();
     }
-    if !checked.passed {
-        checked.failures.extend(assertion_failure(
-            &format!("doc: {}", block.name),
-            &String::from_utf8_lossy(&checked.stderr),
-        ));
+    let Some(ending) = ending else {
+        return checked;
+    };
+    // A failed check prints its place and stops the example with status 1: show it like a
+    // test's failure, and keep only the rest of standard error.
+    if ending == Ending::Exited(1) {
+        let stderr = String::from_utf8_lossy(&checked.stderr).into_owned();
+        let (failures, rest) = reported_failures(&format!("doc: {}", block.name), &stderr);
+        if !failures.is_empty() {
+            checked.failures = failures;
+            checked.stderr = rest.into_bytes();
+            checked.passed = false;
+            return checked;
+        }
     }
+    checked
+        .problems
+        .push(format!("the example {}", ending_text(&ending)));
+    checked.passed = false;
     checked
 }
 
-/// The failed `assert` an example's standard error names (`FILE:LINE: assertion failed: TEXT`,
-/// as the default handler prints it), as a failure that shows the line like a test's does.
-fn assertion_failure(test: &str, stderr: &str) -> Option<Failure> {
-    const MARK: &str = ": assertion failed";
-    let (place, rest) = stderr.lines().find_map(|l| l.split_once(MARK))?;
-    let (file, line) = place.rsplit_once(':')?;
-    let message = rest.trim_start_matches(':').trim();
+/// The failed checks an example's standard error names, and the rest of it. The Testing module
+/// prints each as `FILE:LINE: MESSAGE`, with the message's later lines indented four spaces.
+fn reported_failures(test: &str, stderr: &str) -> (Vec<Failure>, String) {
+    let mut failures: Vec<Failure> = Vec::new();
+    let mut rest = String::new();
+    let mut open = false;
+    for line in stderr.lines() {
+        if open && let Some(more) = line.strip_prefix("    ") {
+            let failure = failures.last_mut().expect("an open failure");
+            failure.message.push('\n');
+            failure.message.push_str(more);
+            continue;
+        }
+        open = false;
+        if let Some(failure) = failure_line(test, line) {
+            failures.push(failure);
+            open = true;
+        } else {
+            rest.push_str(line);
+            rest.push('\n');
+        }
+    }
+    (failures, rest)
+}
+
+/// `FILE.jai:LINE: MESSAGE` as a failure, or `None` for any other line.
+fn failure_line(test: &str, line: &str) -> Option<Failure> {
+    let (place, message) = line.split_once(".jai:")?;
+    let (number, message) = message.split_once(": ")?;
     Some(Failure {
         test: test.to_owned(),
-        file: file.to_owned(),
-        line: line.parse().ok()?,
-        message: if message.is_empty() {
-            "assertion failed".into()
-        } else {
-            format!("assertion failed: {message}")
-        },
+        file: format!("{place}.jai"),
+        line: number.parse().ok()?,
+        message: message.trim_end().to_owned(),
     })
 }
 
@@ -606,7 +637,7 @@ fn check_program(
     cwd: &Path,
     timeout: Option<Duration>,
     live: &mut dyn FnMut(Live),
-) -> Checked {
+) -> (Checked, Option<Ending>) {
     let mut checked = Checked::default();
     let source = work.join("doc.jai");
     let (text, _) = generate(block, module);
@@ -614,7 +645,7 @@ fn check_program(
         checked
             .problems
             .push(format!("cannot write {}: {error}", source.display()));
-        return checked;
+        return (checked, None);
     }
     if toolchain.check_only || matches!(block.mode, Mode::NoRun | Mode::CompileFail) {
         let output = toolchain
@@ -640,13 +671,13 @@ fn check_program(
             Ok(_) => {}
         }
         checked.passed = checked.problems.is_empty();
-        return checked;
+        return (checked, None);
     }
     let invocation = match golden::invocation(&source, root_flags, toolchain, work, cwd) {
         Ok(invocation) => invocation,
         Err(problem) => {
             checked.problems.push(problem);
-            return checked;
+            return (checked, None);
         }
     };
     let outcome = golden::run_plain(&invocation, timeout, live);
@@ -660,13 +691,12 @@ fn check_program(
         checked
             .problems
             .push("it passed; `should_fail` expects it to fail".into());
-    } else if block.mode == Mode::Run && !clean {
-        checked
-            .problems
-            .push(format!("the example {}", ending_text(&outcome.ending)));
     }
     checked.passed = checked.problems.is_empty();
-    checked
+    // An example that should run cleanly and did not: `check` says why.
+    let failed =
+        (block.mode == Mode::Run && !clean && !checked.timed_out).then_some(outcome.ending);
+    (checked, failed)
 }
 
 #[cfg(test)]
@@ -721,29 +751,31 @@ mod tests {
     }
 
     #[test]
-    fn a_failed_assert_in_an_example_is_a_failure_with_its_place() {
-        let stderr = "x\n/lib/module.jai:7: assertion failed: \nstack trace:\n  assertion_failed at r.jai:383\n";
-        let failure = assertion_failure("doc: M.f#1", stderr).unwrap();
+    fn a_failed_check_in_an_example_is_a_failure_with_its_place() {
+        let stderr = "x\n/lib/module.jai:7: assertion failed\nC:\\lib\\a.jai:9: got:  \"a\"\n    want: \"b\"\ny\n";
+        let (failures, rest) = reported_failures("doc: M.f#1", stderr);
+        let seen: Vec<_> = failures
+            .iter()
+            .map(|f| (f.test.as_str(), f.file.as_str(), f.line, f.message.as_str()))
+            .collect();
         assert_eq!(
-            (
-                failure.file.as_str(),
-                failure.line,
-                failure.message.as_str()
-            ),
-            ("/lib/module.jai", 7, "assertion failed")
+            seen,
+            [
+                ("doc: M.f#1", "/lib/module.jai", 7, "assertion failed"),
+                (
+                    "doc: M.f#1",
+                    "C:\\lib\\a.jai",
+                    9,
+                    "got:  \"a\"\nwant: \"b\""
+                )
+            ]
         );
-        assert_eq!(failure.test, "doc: M.f#1");
-        let with_text = "C:\\lib\\module.jai:9: assertion failed: n is 2\n";
-        let failure = assertion_failure("t", with_text).unwrap();
-        assert_eq!(
-            (
-                failure.file.as_str(),
-                failure.line,
-                failure.message.as_str()
-            ),
-            ("C:\\lib\\module.jai", 9, "assertion failed: n is 2")
+        assert_eq!(rest, "x\ny\n");
+        assert!(
+            reported_failures("t", "exited with status 1\n")
+                .0
+                .is_empty()
         );
-        assert!(assertion_failure("t", "exited with status 1\n").is_none());
     }
 
     #[test]

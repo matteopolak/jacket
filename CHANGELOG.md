@@ -8,6 +8,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 
 - `jacket bench` writes paths relative to the project in baselines and JSON, and prints the saved baseline's relative path.
 - `JAIC_PROGRESS=plain` status lines are coloured when `FORCE_COLOR` is set.
+- A failed `assert` in a test or doc example shows its line, not a crash and stack trace.
 
 ## [0.40.0] - 2026-11-24
 
