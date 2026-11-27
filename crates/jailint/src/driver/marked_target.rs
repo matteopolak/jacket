@@ -134,7 +134,9 @@ mod tests {
         );
         assert_eq!(marked("// test: interp_only native_only"), Marked::Nowhere);
         assert_eq!(
-            marked("// test: skip_on(.MACOS, mode = .NATIVE) skip_on(.MACOS, mode = .INTERP)"),
+            marked(
+                "// test: skip_on(.MACOS, mode = .NATIVE) skip_on(.MACOS, mode = .INTERP) skip_on(.MACOS, mode = .CHECK)"
+            ),
             Marked::Other(TargetOs::Linux, TargetCpu::Arm64)
         );
     }

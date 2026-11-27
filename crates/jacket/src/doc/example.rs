@@ -6,7 +6,7 @@ use super::model::Module;
 use super::site::Site;
 use super::view::Example;
 use crate::test::doctest::{self, Block, Mode};
-use crate::test::options::Target;
+use crate::test::options::{RunMode, Target};
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 
@@ -36,7 +36,7 @@ fn browser_skip(block: &Block) -> Option<String> {
     let target = Target {
         os: "wasm".into(),
         cpu: "wasm".into(),
-        interp: true,
+        mode: RunMode::Interp,
     };
     block.options.skip_reason(&target, &[])
 }

@@ -31,7 +31,7 @@ mod watch;
 use crate::cli::{BenchArgs, CoverageFormat, TestArgs};
 use crate::{project, tools};
 use build::{Built, Toolchain};
-use options::{Target, TestOptions};
+use options::{RunMode, Target, TestOptions};
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -475,7 +475,7 @@ fn run_once(
     let target = Target {
         os: os.clone(),
         cpu: cpu.clone(),
-        interp: args.interp,
+        mode: RunMode::of(args.check_only, args.interp),
     };
 
     if !args.interp && !bench && matches!(os.as_str(), "windows" | "linux" | "macos") {

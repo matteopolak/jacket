@@ -1,4 +1,4 @@
-// test: only(.LINUX,.MACOS,.WINDOWS)
+// test: only(.LINUX,.MACOS,.WINDOWS) skip_on(mode = .CHECK, reason = "its #run runs the program it builds")
 #import "Basic";
 A :: #import "Autorun";
 C :: #import "Compiler";

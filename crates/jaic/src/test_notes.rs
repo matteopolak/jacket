@@ -60,17 +60,52 @@ pub fn test_program_root(file: &Path, is_file: impl Fn(&Path) -> bool) -> Option
     golden.then(|| tests.parent().map(Path::to_path_buf))?
 }
 
+/// How a test run treats the program: builds and runs it, interprets it, or only type-checks it
+/// (`jacket test --check-only`). A checking run writes no output for the workspaces a
+/// metaprogram creates, so a test whose `#run` code needs them says `skip_on(.CHECK)`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum RunMode {
+    #[default]
+    Native,
+    Interp,
+    Check,
+}
+
+impl RunMode {
+    /// Every mode, for callers that have none (linting).
+    pub const ALL: [RunMode; 3] = [RunMode::Native, RunMode::Interp, RunMode::Check];
+
+    /// The mode of a run: checking wins over `--interp`, so `skip_on(.CHECK)` applies to every
+    /// `--check-only` run.
+    pub fn of(check_only: bool, interp: bool) -> RunMode {
+        match (check_only, interp) {
+            (true, _) => RunMode::Check,
+            (false, true) => RunMode::Interp,
+            (false, false) => RunMode::Native,
+        }
+    }
+
+    /// The name a note spells the mode with, in lower case (`.CHECK` is `"check"`).
+    pub fn name(self) -> &'static str {
+        match self {
+            RunMode::Native => "native",
+            RunMode::Interp => "interp",
+            RunMode::Check => "check",
+        }
+    }
+}
+
 /// Where tests run: the target and how.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Target {
     pub os: String,
     pub cpu: String,
-    pub interp: bool,
+    pub mode: RunMode,
 }
 
 pub const OS_NAMES: [&str; 5] = ["linux", "macos", "windows", "wasm", "android"];
 pub const CPU_NAMES: [&str; 2] = ["x64", "arm64"];
-pub const MODE_NAMES: [&str; 2] = ["interp", "native"];
+pub const MODE_NAMES: [&str; 3] = ["interp", "native", "check"];
 
 /// The arguments of one `only(...)` or `skip_on(...)` call: target names (an OS, a CPU or a
 /// mode, as in `.WASM`, `.ARM64`, `.INTERP`), and `mode = .NATIVE` or `cpu = .ARM64`, which
@@ -104,8 +139,8 @@ impl TargetFilter {
                 }
                 let value = value.trim().trim_start_matches('.').to_ascii_lowercase();
                 let (slot, allowed) = match key {
-                    "mode" => (&mut filter.mode, &MODE_NAMES),
-                    "cpu" => (&mut filter.cpu, &CPU_NAMES),
+                    "mode" => (&mut filter.mode, &MODE_NAMES[..]),
+                    "cpu" => (&mut filter.cpu, &CPU_NAMES[..]),
                     _ => {
                         return Err(format!(
                             "`@{call}` does not know the argument `{key}`; use `mode =`, `cpu =` or `reason =`"
@@ -182,6 +217,11 @@ impl TargetFilter {
 
 /// What a file's notes say about where it runs: `only(...)`, `skip_on(...)`, `interp_only` and
 /// `native_only`. `jacket test` decides per test with it, `jailint` per file.
+///
+/// A checking run (`--check-only`) counts as native for `interp_only` and `native_only`, as it
+/// always did: it checks the program the way a build would see it, so an `interp_only` test is
+/// skipped and a `native_only` one is type-checked. `skip_on(.CHECK)` skips a test in a checking
+/// run alone.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct TargetNotes {
     /// One filter per `only(...)` call; a target must pass every one.
@@ -231,17 +271,13 @@ impl TargetNotes {
 
     /// Why a file with these notes does not run on `target`, if it does not.
     pub fn skip_reason(&self, target: &Target) -> Option<String> {
-        if self.interp_only && !target.interp {
+        if self.interp_only && target.mode != RunMode::Interp {
             return Some("interp only".into());
         }
-        if self.native_only && target.interp {
+        if self.native_only && target.mode == RunMode::Interp {
             return Some("native only".into());
         }
-        let mode = if target.interp {
-            "interp"
-        } else {
-            "native"
-        };
+        let mode = target.mode.name();
         if let Some(filter) = self.only.iter().find(|f| !f.allows(target, mode)) {
             return Some(format!("only on {filter}{}", filter.reason_suffix()));
         }
@@ -264,11 +300,11 @@ impl TargetNotes {
     /// Whether a file with these notes runs on `os` and `cpu` in either run mode, for callers
     /// that have no run mode (linting).
     pub fn runs_on(&self, os: &str, cpu: &str) -> bool {
-        [true, false].into_iter().any(|interp| {
+        RunMode::ALL.into_iter().any(|mode| {
             let target = Target {
                 os: os.into(),
                 cpu: cpu.into(),
-                interp,
+                mode,
             };
             self.skip_reason(&target).is_none()
         })
@@ -387,4 +423,64 @@ fn split_notes(items: &str) -> Vec<String> {
         .into_iter()
         .map(|n| n.trim_start_matches('@').to_string())
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn on(mode: RunMode) -> Target {
+        Target {
+            os: "linux".into(),
+            cpu: "x64".into(),
+            mode,
+        }
+    }
+
+    fn notes(list: &[&str]) -> TargetNotes {
+        let mut notes = TargetNotes::default();
+        for note in list {
+            assert_eq!(notes.apply(note), Ok(true), "{note}");
+        }
+        notes
+    }
+
+    #[test]
+    fn skip_on_check_skips_only_a_checking_run() {
+        for note in [
+            "skip_on(.CHECK)",
+            "skip_on(mode = .CHECK, reason = \"its #run runs the program it builds\")",
+        ] {
+            let notes = notes(&[note]);
+            assert!(notes.skip_reason(&on(RunMode::Check)).is_some(), "{note}");
+            assert_eq!(notes.skip_reason(&on(RunMode::Native)), None, "{note}");
+            assert_eq!(notes.skip_reason(&on(RunMode::Interp)), None, "{note}");
+        }
+    }
+
+    #[test]
+    fn only_native_leaves_a_checking_run_out() {
+        let notes = notes(&["only(.NATIVE)"]);
+        assert_eq!(notes.skip_reason(&on(RunMode::Native)), None);
+        assert!(notes.skip_reason(&on(RunMode::Check)).is_some());
+    }
+
+    #[test]
+    fn a_checking_run_counts_as_native_for_interp_only_and_native_only() {
+        assert!(
+            notes(&["interp_only"])
+                .skip_reason(&on(RunMode::Check))
+                .is_some()
+        );
+        assert_eq!(
+            notes(&["native_only"]).skip_reason(&on(RunMode::Check)),
+            None
+        );
+    }
+
+    #[test]
+    fn linting_runs_a_file_unless_every_mode_is_skipped() {
+        assert!(notes(&["skip_on(.CHECK)"]).runs_on("linux", "x64"));
+        assert!(!notes(&["skip_on(.CHECK, .NATIVE, .INTERP)"]).runs_on("linux", "x64"));
+    }
 }

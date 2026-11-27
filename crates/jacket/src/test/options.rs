@@ -2,7 +2,7 @@
 //! same options in a `// test: timeout(5) only(.LINUX)` comment at the top of a file, which sets
 //! them for every test the file holds.
 
-pub use jaic::test_notes::{Target, TargetNotes, header_notes, text};
+pub use jaic::test_notes::{RunMode, Target, TargetNotes, header_notes, text};
 
 /// What a test asks for. `None` and empty lists leave the run-wide setting in charge.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -238,7 +238,11 @@ mod tests {
         Target {
             os: os.into(),
             cpu: "arm64".into(),
-            interp,
+            mode: if interp {
+                RunMode::Interp
+            } else {
+                RunMode::Native
+            },
         }
     }
 
@@ -346,7 +350,7 @@ mod tests {
         let on = |os: &str, cpu: &str| Target {
             os: os.into(),
             cpu: cpu.into(),
-            interp: false,
+            mode: RunMode::Native,
         };
         assert!(options.skip_reason(&on("windows", "arm64"), &[]).is_some());
         assert_eq!(options.skip_reason(&on("windows", "x64"), &[]), None);
@@ -397,7 +401,11 @@ mod tests {
         let on = |os: &str, cpu: &str, interp: bool| Target {
             os: os.into(),
             cpu: cpu.into(),
-            interp,
+            mode: if interp {
+                RunMode::Interp
+            } else {
+                RunMode::Native
+            },
         };
         // Any of the names, and the mode.
         let mut options = TestOptions::default();
@@ -448,7 +456,7 @@ mod tests {
         let on = |os: &str, cpu: &str| Target {
             os: os.into(),
             cpu: cpu.into(),
-            interp: false,
+            mode: RunMode::Native,
         };
         assert!(options.skip_reason(&on("wasm", "wasm"), &[]).is_some());
         assert!(options.skip_reason(&on("windows", "arm64"), &[]).is_some());

@@ -74,11 +74,11 @@ The [testing guide](../guides/testing.md) has examples of tests, checks, `@cases
 | `@property`, `@property(N)` | once per generated input (100 by default); `@generate(NAME)` supplies values |
 | `@compile_time` | run inside the compiler, once per build, and replayed by the program |
 | `@retries(N)` | retries for this test |
-| `@only(...)` | run only on these targets: `.LINUX`, `.MACOS`, `.WINDOWS`, `.WASM`, `.ANDROID`, `.X64`, `.ARM64`, `.INTERP`, `.NATIVE`; every kind named must match |
+| `@only(...)` | run only on these targets: `.LINUX`, `.MACOS`, `.WINDOWS`, `.WASM`, `.ANDROID`, `.X64`, `.ARM64`, `.INTERP`, `.NATIVE`, `.CHECK`; every kind named must match |
 | `@skip_on(...)` | skip on any of these; `reason = "text"` explains |
 | `@needs(.NETWORK)` | skip unless the run has the capability (`--needs network`, `[test] needs`) |
 | `optional(NAME)` | skip, instead of failing, when an `args(...)` entry uses `${NAME}` and the variable is unset (`optional(JAIC_TEST_FONT_PATH)`) |
-| `@interp_only`, `@native_only` | run only with / without `--interp` |
+| `@interp_only`, `@native_only` | run only with / without `--interp`; a `--check-only` run counts as without |
 | `@exit(N)` | the program must exit with status N, with no failed check |
 | `@should_fail`, `@should_fail(word)`, `@should_fail("a", "b")` | must fail; with text, the failure message or stderr must contain it (any one of several when the note starts with a quote) |
 | `@xfail`, `@xfail(reason)` | known failure, reported `XFAIL`; passing is an error |
@@ -88,7 +88,7 @@ The [testing guide](../guides/testing.md) has examples of tests, checks, `@cases
 | `@check_only` | golden: only type-check |
 | `@compile_fail` | file header only: the file is a compile-fail test |
 
-`mode = .NATIVE` (or `.INTERP`) and `cpu = .ARM64` (or `.X64`) narrow a call: `skip_on(.WINDOWS, cpu = .ARM64)`, `only(.WASM, mode = .INTERP)`. Without names they mean any OS. A header may hold several calls; every `only(...)` must pass. Under `-os wasm` the CPU is `wasm`, so `only(.X64)` never runs a test as wasm. An unknown note is a warning and is ignored. Spaces inside a note's parentheses work (`@skip_on(.MACOS, reason = "needs a display")`) but jaic warns that the official compiler rejects them (`note-with-spaces`); a `// test:` line takes them silently.
+`mode = .NATIVE` (`.INTERP`, or `.CHECK` for a `--check-only` run) and `cpu = .ARM64` (or `.X64`) narrow a call: `skip_on(.WINDOWS, cpu = .ARM64)`, `only(.WASM, mode = .INTERP)`. Without names they mean any OS. A header may hold several calls; every `only(...)` must pass. Under `-os wasm` the CPU is `wasm`, so `only(.X64)` never runs a test as wasm. An unknown note is a warning and is ignored. Spaces inside a note's parentheses work (`@skip_on(.MACOS, reason = "needs a display")`) but jaic warns that the official compiler rejects them (`note-with-spaces`); a `// test:` line takes them silently.
 
 ### Golden and compile-fail tests
 
@@ -120,7 +120,7 @@ Examples are built for the machine they run on, so a mistake that only exists on
 jacket test --check-only --os windows      # also linux, macos, wasm; --cpu picks the CPU
 ```
 
-The target decides which examples take part: `only(...)` and `skip_on(...)` notes on a fence, and the `// test:` header of `module.jai`, are matched against `--os`, not the host. Every example is checked as `no_run` is (`compile_fail` still must not compile; a `should_fail` example must compile), so one that needs a foreign library or a device still passes if it type-checks. Mark a limit of the target with a note, in the module header when a whole module lacks the target, and fix the example otherwise. `--check-only` builds no test programs: a unit test root is checked as a whole with every procedure kept (`-no_dce`), so a test that only breaks on that OS fails; `--doc` limits it to the examples. A golden test's `#run` code still runs, so a check that fails is held to its `should_fail` or `xfail`; one that passes is a pass, since the program itself does not run. CI runs it for the four OSes in the stdlib type-check job ([testing](testing.md)).
+The target decides which examples take part: `only(...)` and `skip_on(...)` notes on a fence, and the `// test:` header of `module.jai`, are matched against `--os`, not the host. Every example is checked as `no_run` is (`compile_fail` still must not compile; a `should_fail` example must compile), so one that needs a foreign library or a device still passes if it type-checks. Mark a limit of the target with a note, in the module header when a whole module lacks the target, and fix the example otherwise. `--check-only` builds no test programs: a unit test root is checked as a whole with every procedure kept (`-no_dce`), so a test that only breaks on that OS fails; `--doc` limits it to the examples. A golden test's `#run` code still runs, so a check that fails is held to its `should_fail` or `xfail`; one that passes is a pass, since the program itself does not run. A `-check` run writes no output for the workspaces a metaprogram creates, so a test whose `#run` code builds a program and runs it says `skip_on(mode = .CHECK, reason = "...")` and is skipped under `--check-only`. CI runs it for the four OSes in the stdlib type-check job ([testing](testing.md)).
 
 ## Running
 

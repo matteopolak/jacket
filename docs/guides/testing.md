@@ -303,7 +303,7 @@ known_bug :: () {
 | `@slow` | start it first |
 | `@serial` | run it alone |
 | `@retries(N)` | try again up to N times; a pass on a retry is reported `FLAKY` |
-| `@only(.LINUX, .MACOS)` | run only there; `.WINDOWS`, `.WASM`, `.ANDROID`, `.X64`, `.ARM64`, `.INTERP`, `.NATIVE` also work |
+| `@only(.LINUX, .MACOS)` | run only there; `.WINDOWS`, `.WASM`, `.ANDROID`, `.X64`, `.ARM64`, `.INTERP`, `.NATIVE`, `.CHECK` (a `--check-only` run) also work |
 | `@skip_on(.WINDOWS,reason="paths")` | skip there |
 | `@needs(.NETWORK)` | skip unless run with `--needs network` |
 | `@should_fail`, `@should_fail(word)`, `@should_fail("a", "b")` | must fail, with `word` (or any one of the quoted texts) in the message |

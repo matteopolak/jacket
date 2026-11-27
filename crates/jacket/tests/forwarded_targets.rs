@@ -214,6 +214,45 @@ fn compile_fail_cases_use_checking_targets_without_native_link_restrictions() {
 
 
 #[test]
+fn a_check_only_run_skips_a_golden_test_that_skips_the_check_mode() {
+    let (root, jacket) = fixture();
+    let tests = root.join("tests");
+    let source = tests.join("builds.jai");
+    std::fs::write(
+        &source,
+        "// test: skip_on(mode = .CHECK, reason = \"its #run runs the program it builds\")\nmain :: () {}\n",
+    )
+    .unwrap();
+    std::fs::write(tests.join("builds.stdout"), "").unwrap();
+    let log = root.join("args.jsonl");
+    let output = Command::new(&jacket)
+        .current_dir(&root)
+        .args(["test", "--check-only", "--format", "json"])
+        .env("JAIC_STDLIB", root.join("stdlib"))
+        .env("TARGET_LOG", &log)
+        .env("TARGET_TEST", &source)
+        .output()
+        .unwrap();
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        output.status.success(),
+        "{text}\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        text.lines()
+            .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+            .any(|o| o["name"] == "builds" && o["event"] == "skipped"),
+        "{text}"
+    );
+    let invocations = std::fs::read_to_string(&log).unwrap_or_default();
+    assert!(
+        !invocations.contains("builds.jai"),
+        "the skipped test was checked: {invocations}"
+    );
+}
+
+#[test]
 fn forwarded_mode_conflicts_and_dependencies_are_rejected_before_compiling() {
     let (root, jacket) = fixture();
     for flags in [
