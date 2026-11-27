@@ -34,9 +34,5 @@ random_bytes :: (out: [] u8) -> bool {
     libc :: #library,system "c"; @native(external)
     getentropy :: (buffer: *void, length: C_Size) -> s32 #foreign libc;
 
-    #if size_of(*void) == 4 {
-        C_Size :: u32;
-    } else {
-        C_Size :: u64;
-    }
+    #import "internal/libc";
 }

@@ -22,15 +22,12 @@
 
 #scope_module
 
-// C's `size_t` and `ssize_t`, as wide as a pointer: what C code linked with the runtime passes
-// to the entry points below and expects back.
-#if size_of(*void) == 4 {
-    C_Size :: u32;
-    C_Signed_Size :: s32;
-} else {
-    C_Size :: u64;
-    C_Signed_Size :: s64;
-}
+// C's `size_t` and `ssize_t`: what C code linked with the runtime passes to the entry points
+// below and expects back.
+C_Size :: Libc.C_Size;
+C_Signed_Size :: Libc.C_Signed_Size;
+
+Libc :: #import "internal/libc";
 
 #load "files.jai";
 #load "math.jai";

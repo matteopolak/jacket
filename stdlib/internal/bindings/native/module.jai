@@ -23,12 +23,6 @@ allocate :: (bytes: s64) -> *void #no_context {
 libc :: #library,system "c"; @native(external)
 malloc :: (bytes: C_Size) -> *void #foreign libc;
 
-#if size_of(*void) == 4 {
-    C_Size :: u32;
-} else {
-    C_Size :: u64;
-}
-
 free :: (memory: *void) #foreign libc; @FreesArgument
 
 #import "internal/libc";

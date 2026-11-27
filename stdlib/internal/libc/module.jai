@@ -3,26 +3,24 @@
 //
 // The wrappers take `u64` sizes and pass C's `size_t`, which is 4 bytes on a 32-bit target: a
 // 64-bit argument after a pointer would land in the wrong register on ARM.
-#scope_file
-libc :: #system_library "libc"; @native(external)
-
+// C's `size_t` and `ssize_t`, as wide as a pointer: what `#foreign` declarations of C calls
+// take and return for sizes.
 #if size_of(*void) == 4 {
     C_Size :: u32;
+    C_Signed_Size :: s32;
 } else {
     C_Size :: u64;
+    C_Signed_Size :: s64;
 }
+
+#scope_file
+libc :: #system_library "libc"; @native(external)
 
 malloc :: (size: C_Size) -> *void #foreign libc;
 realloc :: (memory: *void, size: C_Size) -> *void #foreign libc;
 memmove :: (destination: *void, source: *void, count: C_Size) -> *void #foreign libc;
 
 #if OS != .WINDOWS {
-    #if size_of(*void) == 4 {
-        C_Signed_Size :: s32;
-    } else {
-        C_Signed_Size :: s64;
-    }
-
     write :: (fd: s32, data: *void, count: C_Size) -> C_Signed_Size #foreign libc; @WritesOutput(0)
 }
 
