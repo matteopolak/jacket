@@ -61,7 +61,6 @@ jacket run hello.jai
 ## What's inside
 
 **`jaic`**
-- Aims to be compatible with Jai
 - Builds for 32-bit x86 and ARM, big-endian Linux, WebAssembly, and bare-metal boards down to the 8-bit AVR ([other targets](docs/guides/other-targets.md))
 - [Extensions](docs/extensions/README.md) add modules such as HTTP, gRPC, Postgres, Regex, Toml and WebGPU; Json, Csv, Byte_Search and Hash_Map use SIMD
 
