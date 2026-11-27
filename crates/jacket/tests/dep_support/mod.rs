@@ -205,6 +205,9 @@ pub fn run_in(dir: &Path, root: &Path, args: &[&str], env: &[(&str, &str)]) -> R
         .env("GIT_CONFIG_GLOBAL", "/dev/null")
         .env("GIT_CONFIG_SYSTEM", "/dev/null")
         .env("GIT_TERMINAL_PROMPT", "0")
+        // A harness that sets these would hide how jacket picks its own ssh options.
+        .env_remove("GIT_SSH_COMMAND")
+        .env_remove("GIT_SSH")
         .env("GIT_AUTHOR_NAME", "t")
         .env("GIT_AUTHOR_EMAIL", "t@example.com")
         .env("GIT_COMMITTER_NAME", "t")
@@ -222,4 +225,32 @@ pub fn run_in(dir: &Path, root: &Path, args: &[&str], env: &[(&str, &str)]) -> R
         out: String::from_utf8_lossy(&output.stdout).into_owned(),
         err: String::from_utf8_lossy(&output.stderr).into_owned(),
     }
+}
+
+/// A `git` that runs the real one after `before` (shell, with `$REAL` and the arguments), put
+/// first on `PATH`; returns that `PATH` for `jacket_env`.
+#[cfg(unix)]
+pub fn git_shim(root: &Path, before: &str) -> String {
+    use std::os::unix::fs::PermissionsExt;
+    let real = Command::new("sh")
+        .args(["-c", "command -v git"])
+        .output()
+        .expect("sh runs");
+    let real = String::from_utf8_lossy(&real.stdout).trim().to_string();
+    let bin = root.join("shim-bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    let script = bin.join("git");
+    std::fs::write(
+        &script,
+        format!(
+            "#!/bin/sh\nREAL={real}\nSHIM_DIR={}\n{before}\nexec \"$REAL\" \"$@\"\n",
+            bin.display()
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let real_dir = Path::new(&real)
+        .parent()
+        .map_or(String::new(), |p| p.display().to_string());
+    format!("{}:{real_dir}:/usr/bin:/bin", bin.display())
 }

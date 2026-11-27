@@ -5,12 +5,17 @@
 //! `shared = true`, pinned to the newest version every requirer admits, as a submodule under
 //! the project's `modules/`. The nested copies it replaces are never checked out, so a
 //! library's `#import` reaches the shared one. The compiler is unchanged.
-use super::commands::{Gate, Pin, accept_newest, path_of, resolved_tag, say, short};
+use super::commands::{
+    Gate, Pin, accept_newest, path_of, resolved_tag, say, short, source_of, url_of,
+};
 use super::git::RemoteTag;
 use super::package;
-use super::resolve::Reading;
+use super::resolve::{Asked, Reading};
+use super::snapshot::Snapshot;
+use super::spec::RepoUrl;
+use super::types::{CommitId, Rev, SubPath, Target};
 use super::version::Tagged;
-use super::{Ctx, DepError, Project, Result, manifest, spec};
+use super::{Ctx, DepError, Project, Result, manifest};
 use jacket_config::Dependency;
 use std::collections::BTreeMap;
 
@@ -19,46 +24,49 @@ use std::collections::BTreeMap;
 pub struct Need {
     pub by: String,
     pub entry: Dependency,
+    pub asked: Asked,
 }
 
 impl Need {
+    /// A request read once; fails when the entry is not one a package may write.
+    pub fn new(by: String, entry: Dependency) -> std::result::Result<Self, String> {
+        let asked = Asked::of(&entry)?;
+        Ok(Self {
+            by,
+            entry,
+            asked,
+        })
+    }
+
     /// What the request says, for messages.
     fn says(&self) -> String {
-        let asked = match (&self.entry.version, &self.entry.tag, &self.entry.rev) {
-            (Some(range), ..) => range.clone(),
-            (_, Some(tag), _) => format!("tag {tag}"),
-            (_, _, Some(rev)) => format!("rev {rev}"),
-            _ => "any version".into(),
+        let asked = match &self.asked {
+            Asked::Range(range) => range.to_string(),
+            Asked::Tag(tag) => format!("tag {tag}"),
+            Asked::Rev(rev) => format!("rev {rev}"),
+            Asked::Unpinned => "any version".into(),
         };
         format!("{} needs {asked}", self.by)
     }
 }
 
 /// Whether the version at `tag`/`commit` is one `need` admits.
-fn admits(reading: &Reading, need: &Need, tag: Option<&str>, commit: &str) -> bool {
-    let entry = &need.entry;
-    if let Some(range) = &entry.version {
-        let version = tag.and_then(|t| reading.parse(t));
-        return reading
-            .range(range)
-            .ok()
-            .zip(version)
-            .is_some_and(|(range, v)| range.matches(&v));
+fn admits(reading: &Reading, need: &Need, tag: Option<&str>, commit: Option<&CommitId>) -> bool {
+    match &need.asked {
+        Asked::Range(range) => tag
+            .and_then(|t| reading.parse(t))
+            .is_some_and(|v| range.range().matches(&v)),
+        Asked::Tag(wanted) => tag == Some(wanted.as_str()),
+        Asked::Rev(rev) => commit.is_some_and(|commit| commit.agrees_with(rev)),
+        Asked::Unpinned => true,
     }
-    if let Some(wanted) = &entry.tag {
-        return tag == Some(wanted.as_str());
-    }
-    if let Some(rev) = &entry.rev {
-        return commit.starts_with(rev.as_str()) || rev.starts_with(short(commit));
-    }
-    true
 }
 
 /// How every requirer reads tags: they must agree on the repository and the scheme.
 fn common(name: &str, needs: &[Need]) -> Result<Dependency> {
     let first = &needs[0];
     for other in &needs[1..] {
-        if !spec::same_repo(&first.entry.git, &other.entry.git) {
+        if !source_of(&first.entry)?.same_repo(&source_of(&other.entry)?) {
             return Err(DepError::new(format!(
                 "{name}: {} and {} name different repositories",
                 first.by, other.by
@@ -86,7 +94,7 @@ fn common(name: &str, needs: &[Need]) -> Result<Dependency> {
     })
 }
 
-fn conflict(name: &str, url: &str, needs: &[Need], tags: &[Tagged]) -> DepError {
+fn conflict(name: &str, url: &RepoUrl, needs: &[Need], tags: &[Tagged]) -> DepError {
     let mut lines: Vec<String> = needs.iter().map(Need::says).collect();
     let all: Vec<&str> = tags.iter().take(8).map(|t| t.tag.as_str()).collect();
     if !all.is_empty() {
@@ -100,47 +108,49 @@ fn conflict(name: &str, url: &str, needs: &[Need], tags: &[Tagged]) -> DepError 
 
 /// The versions of the remote `tags` every need admits, newest first.
 pub fn candidates(reading: &Reading, needs: &[Need], tags: &[RemoteTag]) -> Vec<Tagged> {
-    let ranged = needs.iter().any(|n| n.entry.version.is_some());
+    let ranged = needs.iter().any(|n| matches!(n.asked, Asked::Range(_)));
     reading
         .versions(tags)
         .into_iter()
         .filter(|t| {
             let named = needs
                 .iter()
-                .any(|n| n.entry.tag.as_deref() == Some(t.tag.as_str()));
+                .any(|n| matches!(&n.asked, Asked::Tag(tag) if tag.as_str() == t.tag));
             (!t.version.is_prerelease() || ranged || named)
                 && needs
                     .iter()
-                    .all(|n| admits(reading, n, Some(&t.tag), &t.commit))
+                    .all(|n| admits(reading, n, Some(&t.tag), Some(&t.commit)))
         })
         .collect()
 }
 
-/// What each checked-out entry of the project asks for, by name.
-fn gather(ctx: &Ctx, project: &Project) -> BTreeMap<String, Vec<Need>> {
+/// What each checked-out entry of the project asks for, by name, and whether some entry is not
+/// checked out, so what it asks for is unknown.
+fn gather(ctx: &Ctx, project: &Project) -> Result<(BTreeMap<String, Vec<Need>>, bool)> {
     let mut needs: BTreeMap<String, Vec<Need>> = BTreeMap::new();
+    let mut unread = false;
     for (by, entry) in &project.config.dependencies {
-        let path = path_of(by, entry);
-        if !ctx.git.initialised(&project.dir, &path) {
+        let path = path_of(by, entry)?;
+        if !ctx.git.initialised(&project.dir, &path)? {
+            unread = true;
             continue;
         }
-        let Some(manifest) = package::read(&project.dir.join(&path)) else {
+        let Some(manifest) = package::read(&path.under(&project.dir)) else {
             continue;
         };
         for (name, entry) in manifest.dependencies {
-            if &name != by {
-                needs.entry(name).or_default().push(Need {
-                    by: by.clone(),
-                    entry,
-                });
+            if &name != by
+                && let Ok(need) = Need::new(by.clone(), entry)
+            {
+                needs.entry(name).or_default().push(need);
             }
         }
     }
-    needs
+    Ok((needs, unread))
 }
 
 /// The project's commit for each submodule path.
-fn commits(ctx: &Ctx, project: &Project) -> Result<BTreeMap<String, String>> {
+fn commits(ctx: &Ctx, project: &Project) -> Result<BTreeMap<SubPath, CommitId>> {
     Ok(ctx
         .git
         .submodules(&project.dir)?
@@ -155,12 +165,17 @@ pub(super) fn run(ctx: &mut Ctx, project: &mut Project, fresh: bool) -> Result<(
     if project.config.resolver.dedupe != Some(true) {
         return Ok(());
     }
+    // Whatever the rounds changed is put back when one fails.
+    let before = Snapshot::take(ctx, project)?;
+    settle(ctx, project, fresh).map_err(|error| before.restore(ctx, project, error))
+}
+
+fn settle(ctx: &mut Ctx, project: &mut Project, fresh: bool) -> Result<()> {
     // A choice can bring in a package with requirements of its own, and a cycle of names settles
     // because a name already chosen is only revisited when its constraints grow.
     for _ in 0..64 {
         if !round(ctx, project, fresh)? {
-            report_vendored(ctx, project);
-            return Ok(());
+            return report_vendored(ctx, project);
         }
     }
     Err(DepError::new(
@@ -170,45 +185,51 @@ pub(super) fn run(ctx: &mut Ctx, project: &mut Project, fresh: bool) -> Result<(
 
 /// One pass; whether anything changed.
 fn round(ctx: &mut Ctx, project: &mut Project, fresh: bool) -> Result<bool> {
-    let needs = gather(ctx, project);
-    let mut changed = false;
+    let (needs, unread) = gather(ctx, project)?;
+    // Every remote is asked and every version chosen before the first copy changes.
+    let mut installs = Vec::new();
     for (name, asked) in &needs {
         let known = commits(ctx, project)?;
         let current = project.config.dependencies.get(name).cloned();
         let common = common(name, asked)?;
         let reading = Reading::of(&common).map_err(|e| DepError::new(format!("{name}: {e}")))?;
-        let url = spec::url(&common.git);
+        let url = url_of(project, &common)?;
         match current {
             Some(entry) if !entry.shared => {
                 // The project's own pin is not moved; every requirer must accept it.
                 check_pinned(ctx, project, name, &entry, &reading, asked, &known)?;
             }
             Some(entry)
-                if !fresh && still_fits(ctx, project, name, &entry, &reading, asked, &known) => {}
+                if !fresh && still_fits(ctx, project, name, &entry, &reading, asked, &known)? => {}
             existing => {
                 let tags = ctx.git.remote_tags(&url)?;
                 let pin = choose(ctx, project, name, &common, &reading, asked, &tags)?;
                 if let Some(entry) = &existing
-                    && known.get(&path_of(name, entry)) == Some(&pin.commit)
+                    && known.get(&path_of(name, entry)?).map(CommitId::as_str)
+                        == Some(pin.commit.as_str())
                 {
                     continue;
                 }
-                install(ctx, project, name, &common, asked, &pin, existing.as_ref())?;
-                changed = true;
+                installs.push((name, common, asked, pin, existing));
             }
         }
     }
-    // A shared copy no package asks for any more goes with the last one that did.
+    let mut changed = !installs.is_empty();
+    for (name, common, asked, pin, existing) in installs {
+        install(ctx, project, name, &common, asked, &pin, existing.as_ref())?;
+    }
+    // A shared copy no package asks for any more goes with the last one that did; with a package
+    // not checked out, who asks is not known, so none goes.
     let orphans: Vec<String> = project
         .config
         .dependencies
         .iter()
-        .filter(|(name, e)| e.shared && !needs.contains_key(*name))
+        .filter(|(name, e)| e.shared && !unread && !needs.contains_key(*name))
         .map(|(name, _)| name.clone())
         .collect();
     for name in orphans {
         let entry = project.config.dependencies[&name].clone();
-        let path = path_of(&name, &entry);
+        let path = path_of(&name, &entry)?;
         ctx.git.remove(&project.dir, &path)?;
         let (text, _) = manifest::remove_dependency(&project.text, &name);
         project.save(text)?;
@@ -223,8 +244,8 @@ fn tag_of(
     ctx: &Ctx,
     project: &Project,
     entry: &Dependency,
-    path: &str,
-    commit: &str,
+    path: &SubPath,
+    commit: &CommitId,
 ) -> Option<String> {
     if let Some(tag) = &entry.tag {
         return Some(tag.clone());
@@ -239,20 +260,20 @@ fn check_pinned(
     entry: &Dependency,
     reading: &Reading,
     needs: &[Need],
-    known: &BTreeMap<String, String>,
+    known: &BTreeMap<SubPath, CommitId>,
 ) -> Result<()> {
-    let path = path_of(name, entry);
-    let commit = known.get(&path).cloned().unwrap_or_default();
-    let tag = tag_of(ctx, project, entry, &path, &commit);
+    let path = path_of(name, entry)?;
+    let commit = known.get(&path);
+    let tag = commit.and_then(|c| tag_of(ctx, project, entry, &path, c));
     let refused: Vec<String> = needs
         .iter()
-        .filter(|n| !admits(reading, n, tag.as_deref(), &commit))
+        .filter(|n| !admits(reading, n, tag.as_deref(), commit))
         .map(Need::says)
         .collect();
     if refused.is_empty() {
         return Ok(());
     }
-    let pinned = tag.unwrap_or_else(|| format!("rev {}", short(&commit)));
+    let pinned = tag.unwrap_or_else(|| format!("rev {}", commit.map_or("", CommitId::short)));
     Err(DepError::new(format!(
         "{name} is pinned at {pinned} in jacket.toml, which not every package accepts"
     ))
@@ -269,20 +290,21 @@ fn still_fits(
     entry: &Dependency,
     reading: &Reading,
     needs: &[Need],
-    known: &BTreeMap<String, String>,
-) -> bool {
-    let path = path_of(name, entry);
+    known: &BTreeMap<SubPath, CommitId>,
+) -> Result<bool> {
+    let path = path_of(name, entry)?;
     let Some(commit) = known.get(&path) else {
-        return false;
+        return Ok(false);
     };
-    ctx.git.initialised(&project.dir, &path)
-        && spec::same_repo(&entry.git, &needs[0].entry.git)
-        && {
-            let tag = tag_of(ctx, project, entry, &path, commit);
-            needs
-                .iter()
-                .all(|n| admits(reading, n, tag.as_deref(), commit))
-        }
+    if !ctx.git.initialised(&project.dir, &path)?
+        || !source_of(entry)?.same_repo(&source_of(&needs[0].entry)?)
+    {
+        return Ok(false);
+    }
+    let tag = tag_of(ctx, project, entry, &path, commit);
+    Ok(needs
+        .iter()
+        .all(|n| admits(reading, n, tag.as_deref(), Some(commit))))
 }
 
 /// The commit to share: the newest version every requirer admits and the policy accepts.
@@ -295,14 +317,20 @@ fn choose(
     needs: &[Need],
     tags: &[RemoteTag],
 ) -> Result<Pin> {
-    let url = spec::url(&common.git);
+    let url = url_of(project, common)?;
     let gate = Gate::new(project, name, common, &url)?;
-    let revs: Vec<&String> = needs.iter().filter_map(|n| n.entry.rev.as_ref()).collect();
-    if let Some(rev) = revs.iter().max_by_key(|r| r.len()) {
+    let revs: Vec<&Rev> = needs
+        .iter()
+        .filter_map(|n| match &n.asked {
+            Asked::Rev(rev) => Some(rev),
+            _ => None,
+        })
+        .collect();
+    if let Some(rev) = revs.iter().max_by_key(|r| r.as_str().len()) {
         let others = needs
             .iter()
-            .any(|n| n.entry.version.is_some() || n.entry.tag.is_some());
-        let agree = revs.iter().all(|r| rev.starts_with(r.as_str()));
+            .any(|n| matches!(n.asked, Asked::Range(_) | Asked::Tag(_)));
+        let agree = revs.iter().all(|r| rev.as_str().starts_with(r.as_str()));
         if others || !agree {
             return Err(conflict(name, &url, needs, &reading.versions(tags)));
         }
@@ -313,9 +341,9 @@ fn choose(
             .note("a shared dependency pinned by commit needs `min_release_age = \"0\"` in its requirers' policy"));
         }
         return Ok(Pin {
-            commit: (*rev).clone(),
+            commit: Target::Rev((*rev).clone()),
             tag: None,
-            rev: Some((*rev).clone()),
+            rev: Some(rev.as_str().to_string()),
             version: None,
         });
     }
@@ -324,7 +352,7 @@ fn choose(
         return Err(conflict(name, &url, needs, &reading.versions(tags)));
     }
     accept_newest(ctx, &gate, &found, common, |t: &Tagged| Pin {
-        commit: t.commit.clone(),
+        commit: t.commit.clone().into(),
         tag: Some(t.tag.clone()),
         rev: None,
         version: None,
@@ -341,13 +369,23 @@ fn install(
     pin: &Pin,
     existing: Option<&Dependency>,
 ) -> Result<()> {
-    let path = format!("modules/{name}");
-    let url = spec::url(&common.git);
-    if let Some(old) = existing {
-        ctx.git.remove(&project.dir, &path_of(name, old))?;
-    } else if project
-        .dir
-        .join(&path)
+    let path = SubPath::parse(&format!("modules/{name}")).map_err(DepError::new)?;
+    let url = url_of(project, common)?;
+    // The same repository at the same place only moves; a clone is not thrown away and fetched
+    // again, and a failure cannot leave the copy missing.
+    let in_place = match existing {
+        Some(old) => {
+            path_of(name, old)? == path
+                && matches!((source_of(old), source_of(common)), (Ok(a), Ok(b)) if a.same_repo(&b))
+        }
+        None => false,
+    };
+    if in_place {
+        ctx.git.move_to(&project.dir, &path, &pin.commit)?;
+    } else if let Some(old) = existing {
+        ctx.git.remove(&project.dir, &path_of(name, old)?)?;
+    } else if path
+        .under(&project.dir)
         .read_dir()
         .is_ok_and(|mut d| d.next().is_some())
     {
@@ -366,7 +404,9 @@ fn install(
             "`jacket dep add <spec> --name {name}` replaces it with a pinned copy"
         )));
     }
-    ctx.git.add(&project.dir, &url, &path, &pin.commit)?;
+    if !in_place {
+        ctx.git.add(&project.dir, &url, &path, &pin.commit)?;
+    }
     let entry = Dependency {
         tag: pin.tag.clone(),
         rev: pin.rev.clone(),
@@ -392,12 +432,12 @@ fn install(
 }
 
 /// The paths, inside the package at `path`, of nested submodules the project covers itself.
-pub(super) fn covered(project: &Project, path: &str) -> Vec<String> {
+pub(super) fn covered(project: &Project, path: &SubPath) -> Result<Vec<SubPath>> {
     if project.config.resolver.dedupe != Some(true) {
-        return Vec::new();
+        return Ok(Vec::new());
     }
-    let Some(manifest) = package::read(&project.dir.join(path)) else {
-        return Vec::new();
+    let Some(manifest) = package::read(&path.under(&project.dir)) else {
+        return Ok(Vec::new());
     };
     manifest
         .dependencies
@@ -411,30 +451,26 @@ pub(super) fn covered(project: &Project, path: &str) -> Vec<String> {
 /// shares.
 pub(super) fn checkout_nested(ctx: &mut Ctx, project: &Project) -> Result<()> {
     for (name, entry) in &project.config.dependencies {
-        let path = path_of(name, entry);
-        let skip = covered(project, &path);
+        let path = path_of(name, entry)?;
+        let skip = covered(project, &path)?;
         ctx.git.nested(&project.dir, &path, &skip)?;
     }
     Ok(())
 }
 
 /// Nested copies that cannot be shared because they are files in the package, not submodules.
-fn report_vendored(ctx: &mut Ctx, project: &Project) {
+fn report_vendored(ctx: &mut Ctx, project: &Project) -> Result<()> {
     for (by, entry) in &project.config.dependencies {
-        let path = path_of(by, entry);
-        let Some(manifest) = package::read(&project.dir.join(&path)) else {
+        let path = path_of(by, entry)?;
+        let Some(manifest) = package::read(&path.under(&project.dir)) else {
             continue;
         };
-        let nested = ctx
-            .git
-            .submodules(&project.dir.join(&path))
-            .unwrap_or_default();
+        let nested = ctx.git.submodules(&path.under(&project.dir))?;
         for (name, wanted) in &manifest.dependencies {
-            let inner = path_of(name, wanted);
-            let vendored = project
-                .dir
-                .join(&path)
+            let inner = path_of(name, wanted)?;
+            let vendored = path
                 .join(&inner)
+                .under(&project.dir)
                 .join("module.jai")
                 .is_file()
                 && !nested.iter().any(|s| s.path == inner);
@@ -446,18 +482,17 @@ fn report_vendored(ctx: &mut Ctx, project: &Project) {
             }
         }
     }
+    Ok(())
 }
 
 /// What `dep check` adds under dedupe: every requirement is covered and satisfied.
-pub(super) fn problems(ctx: &Ctx, project: &Project) -> Vec<String> {
+pub(super) fn problems(ctx: &Ctx, project: &Project) -> Result<Vec<String>> {
     let mut out = Vec::new();
     if project.config.resolver.dedupe != Some(true) {
-        return out;
+        return Ok(out);
     }
-    let Ok(known) = commits(ctx, project) else {
-        return out;
-    };
-    for (name, asked) in gather(ctx, project) {
+    let known = commits(ctx, project)?;
+    for (name, asked) in gather(ctx, project)?.0 {
         let Some(entry) = project.config.dependencies.get(&name) else {
             let by: Vec<&str> = asked.iter().map(|n| n.by.as_str()).collect();
             out.push(format!(
@@ -466,24 +501,22 @@ pub(super) fn problems(ctx: &Ctx, project: &Project) -> Vec<String> {
             ));
             continue;
         };
-        let Ok(reading) = Reading::of(entry) else {
-            continue;
-        };
-        let path = path_of(&name, entry);
-        let commit = known.get(&path).cloned().unwrap_or_default();
-        let tag = tag_of(ctx, project, entry, &path, &commit);
+        let reading = Reading::of(entry).map_err(|e| DepError::new(format!("{name}: {e}")))?;
+        let path = path_of(&name, entry)?;
+        let commit = known.get(&path);
+        let tag = commit.and_then(|c| tag_of(ctx, project, entry, &path, c));
         for need in &asked {
-            if !admits(&reading, need, tag.as_deref(), &commit) {
+            if !admits(&reading, need, tag.as_deref(), commit) {
                 out.push(format!(
                     "{name} is pinned at {}, but {}",
                     tag.clone()
-                        .unwrap_or_else(|| format!("rev {}", short(&commit))),
+                        .unwrap_or_else(|| format!("rev {}", commit.map_or("", CommitId::short))),
                     need.says()
                 ));
             }
         }
     }
-    out
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -491,15 +524,16 @@ mod tests {
     use super::*;
 
     fn need(by: &str, version: Option<&str>, tag: Option<&str>) -> Need {
-        Need {
-            by: by.into(),
-            entry: Dependency {
+        Need::new(
+            by.into(),
+            Dependency {
                 git: "x/q".into(),
                 version: version.map(String::from),
                 tag: tag.map(String::from),
                 ..Dependency::default()
             },
-        }
+        )
+        .unwrap()
     }
 
     fn tags(names: &[&str]) -> Vec<RemoteTag> {
@@ -507,8 +541,8 @@ mod tests {
             .iter()
             .enumerate()
             .map(|(i, name)| RemoteTag {
-                name: (*name).into(),
-                commit: format!("{i:040}"),
+                name: crate::dep::types::RefName::parse(name).unwrap(),
+                commit: CommitId::numbered(i as u64),
             })
             .collect()
     }

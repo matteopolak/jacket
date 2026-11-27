@@ -11,6 +11,7 @@ mod compile;
 mod dep;
 mod doc;
 mod fmt;
+mod git;
 mod migrate;
 mod prerequisite;
 mod project;

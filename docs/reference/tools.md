@@ -682,6 +682,8 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `GITHUB_ACTIONS` | Set by GitHub Actions: tests that need a capable filesystem stop skipping. | unset | jacket, tests |
 | `GITHUB_TOKEN` | Sent with `jacket upgrade`'s release lookups, which raises GitHub's rate limit. | unset | jacket |
 | `GITLAB_TOKEN` | Sent with `jacket dep`'s release lookups on gitlab.com, which raises its rate limit. | unset | jacket |
+| `GIT_SSH` | Git's own choice of `ssh` program. `jacket dep` leaves SSH as it is when this or `GIT_SSH_COMMAND` is set. | unset | jacket |
+| `GIT_SSH_COMMAND` | Git's own `ssh` command. When it is unset `jacket dep` runs `ssh -o BatchMode=yes` (or `core.sshCommand` with it), so a missing key fails instead of prompting. | unset | jacket |
 | `HOME` | Locates the user cache when neither `JAIC_CACHE_DIR` nor `XDG_CACHE_HOME` is set. | unset | jaic, jacket |
 | `INSTA_UPDATE` | `always` rewrites the test snapshots instead of failing on a difference. | unset | tests |
 | `LANG` | See `LC_ALL`. | unset | jaic, jailint |

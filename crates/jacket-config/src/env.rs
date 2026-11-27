@@ -539,6 +539,16 @@ vars! {
         default: "unset",
         summary: "Sent with `jacket upgrade`'s release lookups, which raises GitHub's rate limit.",
     }
+    GIT_SSH {
+        name: "GIT_SSH", group: Standard, readers: [Jacket],
+        default: "unset",
+        summary: "Git's own choice of `ssh` program. `jacket dep` leaves SSH as it is when this or `GIT_SSH_COMMAND` is set.",
+    }
+    GIT_SSH_COMMAND {
+        name: "GIT_SSH_COMMAND", group: Standard, readers: [Jacket],
+        default: "unset",
+        summary: "Git's own `ssh` command. When it is unset `jacket dep` runs `ssh -o BatchMode=yes` (or `core.sshCommand` with it), so a missing key fails instead of prompting.",
+    }
     GITLAB_TOKEN {
         name: "GITLAB_TOKEN", group: Standard, readers: [Jacket],
         default: "unset",

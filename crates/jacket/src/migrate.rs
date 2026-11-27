@@ -7,7 +7,7 @@
 use crate::cli::MigrateArgs;
 use jailint::migrate::{self, MIGRATIONS, Plan, Selection};
 use std::path::{Path, PathBuf};
-use std::process::{Command, ExitCode};
+use std::process::ExitCode;
 
 pub fn run(args: &MigrateArgs, cwd: &Path) -> ExitCode {
     if args.list {
@@ -196,69 +196,35 @@ fn guard(targets: &[&Path], args: &MigrateArgs) -> Result<(), String> {
 
 /// The top of the git work tree holding `dir`, or `None` when it is in none.
 fn git_toplevel(dir: &Path) -> Result<Option<PathBuf>, String> {
-    let output = Command::new("git")
-        .args(["rev-parse", "--show-toplevel"])
-        .current_dir(dir)
-        .output();
-    match output {
-        Ok(out) if out.status.success() => {
-            let top = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            Ok(Some(
-                jaic::canonicalize(Path::new(&top)).unwrap_or_else(|_| PathBuf::from(top)),
+    use crate::git::{Failure, Repo};
+    match Repo::at(dir).top() {
+        Ok(top) => Ok(Some(jaic::canonicalize(&top).unwrap_or(top))),
+        Err(Failure::Failed {
+            said,
+        }) if said.contains("not a git repository") => Ok(None),
+        Err(Failure::Failed {
+            said,
+        }) => Err(format!(
+            "git could not tell where the repository is: {said}"
+        )),
+        Err(Failure::Missing) if dir.ancestors().any(|d| d.join(".git").exists()) => {
+            Err(crate::prerequisite::missing(
+                &jaic_toolchain::package::Need::Git,
+                "git",
+                "jacket migrate",
             ))
         }
-        Ok(_) => Ok(None),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            if dir.ancestors().any(|d| d.join(".git").exists()) {
-                Err(crate::prerequisite::missing(
-                    &jaic_toolchain::package::Need::Git,
-                    "git",
-                    "jacket migrate",
-                ))
-            } else {
-                Ok(None)
-            }
-        }
-        Err(e) => Err(format!(
-            "cannot run git: {}\nnote: check that `git` is an executable on PATH",
-            jaic::io_reason(&e)
-        )),
+        Err(Failure::Missing) => Ok(None),
+        Err(Failure::Unusable(why)) => Err(format!("cannot run git: {why}")),
     }
 }
 
 /// The targets with staged or unstaged changes, or untracked by git.
 fn dirty_files(top: &Path, targets: &[&Path]) -> Result<Vec<PathBuf>, String> {
-    let out = Command::new("git")
-        .args([
-            "status",
-            "--porcelain=v1",
-            "-z",
-            "--untracked-files=all",
-            "--",
-        ])
-        .args(targets)
-        .current_dir(top)
-        .output()
-        .map_err(|e| format!("cannot run git: {}", jaic::io_reason(&e)))?;
-    if !out.status.success() {
-        return Err(format!(
-            "git status failed: {}",
-            String::from_utf8_lossy(&out.stderr).trim()
-        ));
-    }
-    // Each entry is `XY path\0`; a rename adds the old path as a second NUL-terminated field.
-    let mut dirty = Vec::new();
-    let mut fields = out.stdout.split(|&b| b == 0).filter(|f| !f.is_empty());
-    while let Some(entry) = fields.next() {
-        let Some(path) = entry.get(3..) else {
-            continue;
-        };
-        if entry[0] == b'R' || entry[0] == b'C' {
-            fields.next();
-        }
-        dirty.push(top.join(String::from_utf8_lossy(path).as_ref()));
-    }
-    Ok(dirty)
+    let dirty = crate::git::Repo::at(top)
+        .dirty(targets)
+        .map_err(|e| e.message)?;
+    Ok(dirty.iter().map(|path| top.join(path)).collect())
 }
 
 /// Replace `path`'s text, which must still be `before`, with `after`, through a temporary file

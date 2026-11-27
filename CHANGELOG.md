@@ -48,6 +48,13 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - Compile-time code finds its files when the compiler runs from a Windows network share (`\\server\share`).
 - Integers cast to procedures or pointers at compile time, like `SIG_ERR`, keep their values on 32-bit targets.
 - `GetCommandLineW` in compile-time code for 32-bit Windows programs returns an address in the program's memory.
+- `jacket dep` checks for `git`, and `curl` when an age policy applies, before changing anything, and names the install command.
+- A project outside a git repository, an unreachable remote and a refused login each say what to do.
+- `jacket dep add`, `update` and `remove` undo their changes on failure, and `update` changes nothing unless all resolve.
+- `jacket dep add --name` removes a vendored copy only after the remote and age policy pass.
+- `jacket dep` works from a git hook, never waits for an SSH prompt and reads non-ASCII submodule paths.
+- A relative local repository path given to `jacket dep add` is made absolute once.
+- A dependency whose `path` leaves the project, or that sets two of `version`, `tag`, `rev`, is refused.
 
 ## [0.40.0] - 2026-11-24
 

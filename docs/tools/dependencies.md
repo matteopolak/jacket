@@ -8,7 +8,9 @@ Jai projects share code as module folders under `modules/`, today mostly copied 
 - **Nothing is committed for you.** `dep` edits `jacket.toml` and the submodules; the user commits them.
 - **No quiet acceptance.** A version that fails the policy, or whose age can't be checked, is an error with a note giving the override, even when the user named the version.
 - **A dependency's `jacket.toml` is data.** `dep` reads its `[package]` and `[dependencies]` tables and nothing else. A dependency can never change how the program that uses it builds.
-- **Git does the fetching and the authentication.** SSH keys and credential helpers work as they do for any submodule. `dep` needs the project to be a git repository; outside one, it errors with a `git init` note.
+- **Git does the authentication.** `dep` runs the `git` on `PATH`, so SSH keys and credential helpers work as they do for any submodule. Git never prompts on the terminal. Before any change, `dep` checks that `git` is installed (else it prints the install command for the system's package manager) and that the project is a git repository (else it says to run `git init`). When a release-age policy applies and the command is not offline, `dep` also checks for `curl` first, with the same install note. A remote that cannot be read is reported with its address and a next step, as unreachable or as refused. Git runs with the repository-locating variables (`GIT_DIR` and the like) cleared, so `dep` works from a git hook, and with `ssh -o BatchMode=yes` unless `GIT_SSH_COMMAND`, `GIT_SSH` or `core.sshCommand` names one.
+- **A failed step is undone.** Every command takes a snapshot of `jacket.toml` and the submodule commits first; when a step fails, including sharing and nested checkouts, added copies are removed, removed ones added back and moved ones moved back. `add` removes the submodule, its clone and its `.gitmodules` entry and restores `jacket.toml` when a step after the clone fails; `update` asks every remote and picks every version before changing anything, and if a later dependency fails it moves the ones already changed back to their old commits and `jacket.toml` to its old text; `remove` restores the entry and the checkout if the submodule cannot be removed; `added` is printed only after the dependencies are shared. When an undo itself fails, the error says what is left and the commands that clear it. A copy being replaced with `--name` is removed only after the remote and the release-age policy have been checked.
+- **A relative local path is read from one place.** `jacket dep add ../lib` records the absolute path, so every command reaches the same repository.
 
 ## `jacket.toml`
 
@@ -43,10 +45,10 @@ platforms = ["macos", "linux", "windows"]
 | --- | --- |
 | `jacket dep add <spec> [--name N] [--module P] [--scheme S] [--tag-prefix T]` | Adds a submodule and an entry. `<spec>` is `user/repo`, a host path or URL, with an optional `@<version-or-range>`, `@<tag>` or `@<rev>`. With no version, the newest stable one is pinned and recorded as `version = "^X.Y.Z"` (calendar and integer schemes record `tag`). A version written in full (`@1.2.3`) names that version's tag; a partial one (`@1.2`) or one with an operator is a range. |
 | `jacket dep remove <name>` | Deinits the submodule and removes its folder and entry. |
-| `jacket dep list [--all-tags] [--offline]` | Name, asked-for version, resolved tag and commit, path, and the newer version the range admits (asked of each remote with `git ls-remote`; `--offline` skips it). `--all-tags` names the remote tags that are not versions. |
+| `jacket dep list [--all-tags] [--offline]` | Name, asked-for version, resolved tag and commit, path, and the newer version the range admits (asked of each remote for its tags; `--offline` skips it). `--all-tags` names the remote tags that are not versions. |
 | `jacket dep update [name] [--to <tag>]` | Moves the submodule and the entry to the newest version the range and policy allow. |
-| `jacket dep sync` | Checks out every pinned commit (`git submodule update --init` for the managed ones), for a fresh clone. |
-| `jacket dep check [--offline]` | For CI: `jacket.toml` and the gitlinks agree, every tag still points at its pinned commit (here and on the remote), and every submodule is initialised. Uses `git ls-remote`, never a forge API; `--offline` skips the remote. |
+| `jacket dep sync` | Checks out every pinned commit (like `git submodule update --init`, for the managed ones), for a fresh clone. |
+| `jacket dep check [--offline]` | For CI: `jacket.toml` and the gitlinks agree, every tag still points at its pinned commit (here and on the remote), and every submodule is initialised. Asks the remote for its tags, never a forge API; `--offline` skips the remote. |
 | `jacket dep init [--reseed]` | Adopts existing submodules under the module folders into `[dependencies]`, and writes `[resolver] seed`. |
 
 A build that finds a managed submodule uninitialised fails with a note: `run jacket dep sync`. A module that sits below its repository's root (`module = "modules/Inner"`) is imported by its folder's name, so `jacket` adds that folder's parent to the program's `-import_dir`s.
@@ -60,7 +62,7 @@ A build that finds a managed submodule uninitialised fails with a note: `run jac
 
 ## Versions
 
-Tags come from `git ls-remote --tags`, which works on every host with no API.
+Tags come from the remote's ref listing (the `git ls-remote --tags` data), which works on every host with no API.
 
 | Scheme | Tags | Notes |
 | --- | --- | --- |
@@ -164,6 +166,10 @@ Off by default and experimental.
 - `JACKET_FORGE_API`: replaces the forge API base URL, for tests.
 - The release-time cache is `dep-release-times.json` under `jacket/` in the user cache folder (`XDG_CACHE_HOME`, `~/Library/Caches` or `LOCALAPPDATA`).
 
+## Types
+
+`types.rs` holds values parsed once where they enter `dep`: `CommitId` (a full hash from git), `Rev` (a user's abbreviated `rev`), `Target` (either, for a pin), `Revision` (a commit, abbreviation or tag to look up in a clone), `RefName` (a tag name), `SubPath` (a folder inside the project: relative, no `.` or `..` part) and `Age` (a release-age duration). `spec.rs` holds `Source` (a repository as written: path, URL or `owner/repo`), `RepoUrl` (an address git can fetch) and `At` (what follows `@` or `--to`). `version.rs` holds `Requirement` (a version range read under its scheme) and `Scheme`. `resolve.rs` holds `Asked`, what an entry of `jacket.toml` asks for: a range, a tag, a commit or nothing. The clap arguments parse into `Spec`, `At` and `Scheme` before a command runs. `Dependency` in `jacket-config` still holds strings read from `jacket.toml`; `Project::open` and `save` check each entry once (the repository, the folder and a single choice of `version`, `tag` or `rev`) and refuse one that fails, so a command that reads an entry into these types is not surprised. Functions take the types, so none checks its input again. The `[resolver]` policy is held as `Age` values in `Policy`.
+
 ## Dependencies
 
-`git` and `curl` on `PATH`; the `semver` crate; `jacket-config`. Related: [jacket](jacket.md), [module search order](../compiler/project.md#module-search-order), [toolchain discovery](../native/toolchain-discovery.md).
+`git` on `PATH`, run only from `crates/jacket/src/git.rs` (`Repo` has one method per operation and owns the environment and the error text; `jacket migrate` uses it too; `dep/git.rs` holds the `Git` trait and the parsers of its output); `curl` on `PATH` for the forge APIs, run only from `forge.rs`; the `semver` crate; `jacket-config`. Related: [jacket](jacket.md), [module search order](../compiler/project.md#module-search-order), [toolchain discovery](../native/toolchain-discovery.md).

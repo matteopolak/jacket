@@ -2,6 +2,7 @@
 //!
 //! The submodule's commit (its gitlink) is the lock. Every command takes its git access through
 //! [`git::Git`], so unit tests use a fake and never start a process.
+mod check;
 mod commands;
 mod dedupe;
 pub mod forge;
@@ -11,7 +12,9 @@ pub mod manifest;
 pub mod package;
 pub mod policy;
 pub mod resolve;
+mod snapshot;
 pub mod spec;
+pub mod types;
 pub mod version;
 
 use clap::Subcommand;
@@ -25,7 +28,8 @@ pub enum Action {
     /// Add a git dependency as a submodule and an entry in `[dependencies]`
     Add {
         /// `user/repo` (GitHub), `host/path` or a URL, with an optional `@range`, `@tag` or `@rev`
-        spec: String,
+        #[arg(value_parser = spec::parse)]
+        spec: spec::Spec,
         /// The module's name and folder under `modules/` (default: the repository's name)
         #[arg(long)]
         name: Option<String>,
@@ -33,8 +37,8 @@ pub enum Action {
         #[arg(long, value_name = "PATH")]
         module: Option<String>,
         /// How its tags read as versions: `semver` (default), `calendar` or `integer`
-        #[arg(long, value_name = "SCHEME")]
-        scheme: Option<String>,
+        #[arg(long, value_name = "SCHEME", value_parser = version::Scheme::parse)]
+        scheme: Option<version::Scheme>,
         /// Text stripped from tags before they are read (`alpha-`)
         #[arg(long, value_name = "TEXT")]
         tag_prefix: Option<String>,
@@ -55,8 +59,8 @@ pub enum Action {
         /// One dependency (default: all)
         name: Option<String>,
         /// Pin this tag
-        #[arg(long, value_name = "TAG")]
-        to: Option<String>,
+        #[arg(long, value_name = "TAG", value_parser = spec::At::parse)]
+        to: Option<spec::At>,
     },
     /// Check out every pinned commit, as after a fresh clone
     Sync,
@@ -98,6 +102,22 @@ impl DepError {
     }
 }
 
+impl std::fmt::Display for DepError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl From<crate::git::GitError> for DepError {
+    fn from(error: crate::git::GitError) -> Self {
+        Self {
+            message: error.message,
+            notes: error.notes,
+            too_new: false,
+        }
+    }
+}
+
 impl From<String> for DepError {
     fn from(message: String) -> Self {
         Self::new(message)
@@ -127,6 +147,7 @@ impl Project {
             .map_err(|e| DepError::new(format!("could not read {}: {e}", file.display())))?;
         let (config, _) = jacket_config::parse_noting(&text)
             .map_err(|e| DepError::new(format!("{}: {e}", file.display())))?;
+        check_entries(&config)?;
         Ok(Self {
             dir: location.dir,
             file,
@@ -138,10 +159,25 @@ impl Project {
     pub fn save(&mut self, text: String) -> Result<()> {
         std::fs::write(&self.file, &text)
             .map_err(|e| DepError::new(format!("could not write {}: {e}", self.file.display())))?;
-        self.config = jacket_config::parse_noting(&text).map_err(DepError::new)?.0;
+        let config = jacket_config::parse_noting(&text).map_err(DepError::new)?.0;
+        check_entries(&config)?;
+        self.config = config;
         self.text = text;
         Ok(())
     }
+}
+
+/// Refuses an entry that cannot be used: a repository that is not an address, a folder that is
+/// not inside the project, or more than one of `version`, `tag` and `rev`. Commands then read
+/// each entry into [`spec::Source`], [`types::SubPath`] and [`resolve::Asked`] without a failure
+/// they have not already reported.
+fn check_entries(config: &Config) -> Result<()> {
+    for (name, entry) in &config.dependencies {
+        spec::Source::parse(&entry.git).map_err(|e| DepError::new(format!("{name}: {e}")))?;
+        commands::path_of(name, entry)?;
+        resolve::Asked::of(entry).map_err(|e| DepError::new(format!("{name}: {e}")))?;
+    }
+    Ok(())
 }
 
 /// What a command reads and writes besides the project.
@@ -191,12 +227,13 @@ pub fn run(action: Action, cwd: &Path) -> ExitCode {
 /// A build with a dependency whose submodule is not checked out cannot find its module: says
 /// which, and how to fix it. Nothing is fetched here.
 pub fn require_checked_out(config: &Config, dir: &Path) -> std::result::Result<(), String> {
-    let missing: Vec<String> = config
-        .dependencies
-        .iter()
-        .map(|(name, entry)| commands::path_of(name, entry))
-        .filter(|path| !dir.join(path).join(".git").exists())
-        .collect();
+    let mut missing: Vec<String> = Vec::new();
+    for (name, entry) in &config.dependencies {
+        let path = commands::path_of(name, entry).map_err(|e| e.message)?;
+        if !path.under(dir).join(".git").exists() {
+            missing.push(path.to_string());
+        }
+    }
     if missing.is_empty() {
         return Ok(());
     }

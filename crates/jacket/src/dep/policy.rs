@@ -3,34 +3,8 @@
 //! `min_release_age` is the floor. `release_age_jitter` adds an offset in `[0, jitter]` that is
 //! hashed from the seed, the package and the version, so everyone on one project agrees while
 //! different projects wait different times and a compromised release reaches them in stages.
+use super::types::Age;
 use sha2::{Digest, Sha256};
-
-/// `3d`, `12h`, `90m`, `30s`, `2w` or `0`, in seconds.
-pub fn parse_age(text: &str) -> Result<i64, String> {
-    let text = text.trim();
-    let bad = || {
-        format!(
-            "`{text}` is not a duration: write a number and a unit (`3d`, `12h`, `90m`, `2w`), or `0`"
-        )
-    };
-    if text == "0" {
-        return Ok(0);
-    }
-    let unit = text.chars().last().ok_or_else(bad)?;
-    let scale: i64 = match unit {
-        's' => 1,
-        'm' => 60,
-        'h' => 3600,
-        'd' => 86_400,
-        'w' => 604_800,
-        _ => return Err(bad()),
-    };
-    let n: i64 = text[..text.len() - 1].trim().parse().map_err(|_| bad())?;
-    if n < 0 {
-        return Err(bad());
-    }
-    Ok(n * scale)
-}
 
 /// "20 hours ago", "3 days ago".
 pub fn ago(seconds: i64) -> String {
@@ -131,10 +105,10 @@ fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
 /// The policy that applies to one dependency.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Policy {
-    /// Seconds a version must have been published; `None` means no policy.
-    pub min_age: Option<i64>,
-    /// The largest jitter, in seconds.
-    pub jitter: Option<i64>,
+    /// How long a version must have been published; `None` means no policy.
+    pub min_age: Option<Age>,
+    /// The largest jitter.
+    pub jitter: Option<Age>,
     pub seed: Option<String>,
 }
 
@@ -144,7 +118,7 @@ impl Policy {
         resolver: &jacket_config::Resolver,
         entry: &jacket_config::Dependency,
     ) -> Result<Self, String> {
-        let age = |text: &Option<String>| text.as_deref().map(parse_age).transpose();
+        let age = |text: &Option<String>| text.as_deref().map(Age::parse).transpose();
         let mut policy = Self {
             min_age: age(&resolver.min_release_age)?,
             jitter: age(&resolver.release_age_jitter)?,
@@ -152,7 +126,7 @@ impl Policy {
         };
         if let Some(own) = age(&entry.min_release_age)? {
             policy.min_age = Some(own);
-            if own == 0 {
+            if own == Age::ZERO {
                 policy.jitter = None;
             }
         }
@@ -161,14 +135,17 @@ impl Policy {
 
     /// Whether a policy applies at all.
     pub fn active(&self) -> bool {
-        self.min_age.is_some_and(|age| age > 0) || self.jitter.is_some_and(|j| j > 0)
+        self.min_age.is_some_and(|age| age > Age::ZERO)
+            || self.jitter.is_some_and(|j| j > Age::ZERO)
     }
 
     /// The age `tag` of `package` must have reached.
     pub fn required(&self, package: &str, tag: &str) -> i64 {
-        let floor = self.min_age.unwrap_or(0);
+        let floor = self.min_age.map_or(0, Age::seconds);
         match (&self.seed, self.jitter) {
-            (Some(seed), Some(jitter)) if jitter > 0 => floor + offset(seed, package, tag, jitter),
+            (Some(seed), Some(jitter)) if jitter > Age::ZERO => {
+                floor + offset(seed, package, tag, jitter.seconds())
+            }
             _ => floor,
         }
     }
@@ -189,17 +166,6 @@ pub fn offset(seed: &str, package: &str, version: &str, max: i64) -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn durations_parse_with_units() {
-        assert_eq!(parse_age("3d"), Ok(259_200));
-        assert_eq!(parse_age("12h"), Ok(43_200));
-        assert_eq!(parse_age("2w"), Ok(1_209_600));
-        assert_eq!(parse_age("0"), Ok(0));
-        for bad in ["", "3", "d", "-1d", "3 days", "1.5h"] {
-            assert!(parse_age(bad).is_err(), "{bad}");
-        }
-    }
 
     #[test]
     fn ages_read_in_the_largest_fitting_unit() {

@@ -3,6 +3,7 @@
 //! Tags come from `git ls-remote --tags`. A scheme decides which tags are versions and how they
 //! order; a range picks among them. Semver uses Cargo's range spelling (`^1.2`, `~1.2.3`,
 //! `>=1.0, <2.0`, `=1.4.0`, `*`); calendar and integer versions take only comparisons.
+use super::types::CommitId;
 use std::cmp::Ordering;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -17,6 +18,15 @@ pub enum Scheme {
 }
 
 impl Scheme {
+    /// How `--scheme` and `jacket.toml` spell it.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Semver => "semver",
+            Self::Calendar => "calendar",
+            Self::Integer => "integer",
+        }
+    }
+
     pub fn parse(text: &str) -> Result<Self, String> {
         match text {
             "semver" => Ok(Self::Semver),
@@ -203,11 +213,51 @@ impl Range {
     }
 }
 
+/// A version range written by the user, read under the scheme it will match tags with.
+#[derive(Clone, Debug)]
+pub struct Requirement {
+    text: String,
+    range: Range,
+}
+
+impl Requirement {
+    pub fn parse(scheme: Scheme, text: &str) -> Result<Self, String> {
+        Ok(Self {
+            range: parse_range(scheme, text)?,
+            text: text.trim().to_string(),
+        })
+    }
+
+    /// As written, which is also how `jacket.toml` records it.
+    pub fn as_str(&self) -> &str {
+        &self.text
+    }
+
+    pub fn range(&self) -> &Range {
+        &self.range
+    }
+}
+
+impl PartialEq for Requirement {
+    fn eq(&self, other: &Self) -> bool {
+        self.text == other.text
+    }
+}
+
+impl Eq for Requirement {
+}
+
+impl std::fmt::Display for Requirement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.text)
+    }
+}
+
 /// A tag read as a version.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Tagged {
     pub tag: String,
-    pub commit: String,
+    pub commit: CommitId,
     pub version: Version,
 }
 
@@ -221,8 +271,8 @@ pub fn versions(
     let mut found: Vec<Tagged> = tags
         .iter()
         .filter_map(|t| {
-            parse_tag(scheme, prefix, &t.name).map(|version| Tagged {
-                tag: t.name.clone(),
+            parse_tag(scheme, prefix, t.name.as_str()).map(|version| Tagged {
+                tag: t.name.to_string(),
                 commit: t.commit.clone(),
                 version,
             })
@@ -330,8 +380,8 @@ mod tests {
         let tags: Vec<RemoteTag> = ["v1.2.0", "docs", "v1.10.0", "v1.9.1", "1.10.0-rc.1"]
             .iter()
             .map(|t| RemoteTag {
-                name: t.to_string(),
-                commit: format!("c-{t}"),
+                name: crate::dep::types::RefName::parse(t).unwrap(),
+                commit: CommitId::named(&format!("c-{t}")),
             })
             .collect();
         let names: Vec<String> = versions(Scheme::Semver, None, &tags)

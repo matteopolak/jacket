@@ -3,13 +3,14 @@ use super::commands::{asked, path_of};
 use super::git::Submodule;
 use super::package;
 use super::resolve::{self, Reading};
+use super::types::SubPath;
 use super::{Ctx, DepError, Project, Result};
 
 /// What `add` settles after the checkout: the dependency's name and folder, and the module
 /// folder to record when the repository does not say it itself.
 pub(super) struct Inspected {
     pub name: String,
-    pub path: String,
+    pub path: SubPath,
     pub module: Option<String>,
 }
 
@@ -19,11 +20,11 @@ pub(super) fn inspect(
     project: &Project,
     name: &str,
     explicit: bool,
-    path: &str,
+    path: &SubPath,
     asked_module: Option<&str>,
     tag: Option<&str>,
 ) -> Result<Inspected> {
-    let checkout = project.dir.join(path);
+    let checkout = path.under(&project.dir);
     let manifest = package::read(&checkout).unwrap_or_default();
     package::requires_jacket(&manifest.package, env!("CARGO_PKG_VERSION"))
         .map_err(|why| DepError::new(format!("{name}: {why}")))?;
@@ -65,15 +66,16 @@ pub(super) fn inspect(
     .then_some(module.clone());
     let mut found = Inspected {
         name: name.to_string(),
-        path: path.to_string(),
+        path: path.clone(),
         module: record,
     };
     // A root module is imported by its folder, which a package may name itself.
     if let (false, true, Some(declared)) = (explicit, module.is_empty(), &manifest.package.name)
         && declared != name
     {
-        let to = format!("modules/{declared}");
-        if project.dir.join(&to).exists() || project.config.dependencies.contains_key(declared) {
+        let to = SubPath::parse(&format!("modules/{declared}"))
+            .map_err(|e| DepError::new(format!("{name}: {e}")))?;
+        if to.under(&project.dir).exists() || project.config.dependencies.contains_key(declared) {
             return Err(DepError::new(format!(
                 "{name}: the package calls itself {declared}, but {to} is taken"
             ))
@@ -88,20 +90,24 @@ pub(super) fn inspect(
 
 /// What each checked-out dependency's own `[dependencies]` ask for, against the version its
 /// nested submodule is pinned at.
-pub(super) fn requirements(ctx: &Ctx, project: &Project, known: &[Submodule]) -> Vec<String> {
+pub(super) fn requirements(
+    ctx: &Ctx,
+    project: &Project,
+    known: &[Submodule],
+) -> Result<Vec<String>> {
     let mut lines = Vec::new();
     for (name, entry) in &project.config.dependencies {
-        let path = path_of(name, entry);
-        if !known.iter().any(|s| s.path == path) || !ctx.git.initialised(&project.dir, &path) {
+        let path = path_of(name, entry)?;
+        if !known.iter().any(|s| s.path == path) || !ctx.git.initialised(&project.dir, &path)? {
             continue;
         }
-        let dir = project.dir.join(&path);
+        let dir = path.under(&project.dir);
         let Some(manifest) = package::read(&dir) else {
             continue;
         };
-        let nested = ctx.git.submodules(&dir).unwrap_or_default();
+        let nested = ctx.git.submodules(&dir)?;
         for (inner, wanted) in &manifest.dependencies {
-            let inner_path = path_of(inner, wanted);
+            let inner_path = path_of(inner, wanted)?;
             let asked = asked(wanted);
             let have = nested
                 .iter()
@@ -109,7 +115,7 @@ pub(super) fn requirements(ctx: &Ctx, project: &Project, known: &[Submodule]) ->
                 .and_then(|sub| {
                     let tags = ctx.git.tags_at(&dir, &inner_path, &sub.commit).ok()?;
                     let reading = Reading::of(wanted).ok()?;
-                    resolve::resolved(&reading, &tags).cloned()
+                    resolve::resolved(&reading, &tags).map(ToString::to_string)
                 });
             let verdict = match (&have, &wanted.version) {
                 (Some(tag), Some(range)) => {
@@ -132,5 +138,5 @@ pub(super) fn requirements(ctx: &Ctx, project: &Project, known: &[Submodule]) ->
             lines.push(format!("{name} needs {inner} {asked}: {verdict}"));
         }
     }
-    lines
+    Ok(lines)
 }

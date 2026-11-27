@@ -281,3 +281,20 @@ fn check_reports_a_submodule_that_jacket_toml_does_not_list() {
     assert_eq!(run.code, 1);
     assert!(run.err.contains("jacket dep init"), "{}", run.err);
 }
+
+#[test]
+fn an_entry_whose_repository_is_not_an_address_is_refused_before_anything_runs() {
+    let project = Project::new(
+        "[project]\nentry = [\"main.jai\"]\n\n[dependencies]\nbad = { git = \"--upload-pack=x\", tag = \"v1\" }\n",
+    );
+    for args in [["dep", "list"], ["dep", "check"], ["dep", "sync"]] {
+        let run = project.jacket(&args);
+        assert_eq!(run.code, 2, "{args:?}: {}{}", run.out, run.err);
+        assert!(
+            run.err
+                .contains("bad: `--upload-pack=x` is not a repository address"),
+            "{}",
+            run.err
+        );
+    }
+}

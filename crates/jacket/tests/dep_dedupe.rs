@@ -715,3 +715,257 @@ fn a_version_the_project_pinned_itself_must_satisfy_every_requirer() {
     );
     assert!(!world.project.toml().contains("beta"));
 }
+
+/// What git has recorded for the project: the gitlinks and `.gitmodules`.
+fn recorded(world: &World) -> (String, String) {
+    (
+        git(&world.project.dir, &["ls-files", "-s"]),
+        std::fs::read_to_string(world.project.dir.join(".gitmodules")).unwrap_or_default(),
+    )
+}
+
+#[test]
+fn an_update_that_fails_while_sharing_puts_back_the_shared_copies_too() {
+    let mut world = World::new(true);
+    diamond(&mut world);
+    world.package("zlib", &[version("v2.0.0")]);
+    for name in ["alpha", "beta"] {
+        assert_eq!(world.add(name, "^1").code, 0);
+    }
+    // qlib moves to its newest version first, then alpha's new release asks for a zlib no
+    // version of which fits.
+    world.libs["qlib"].release("v1.5.0", &[]);
+    world.package(
+        "alpha",
+        &[version("v1.1.0").needs(&[
+            need("qlib", "^1.0", "v1.2.0"),
+            need("zlib", "^1.0", "v2.0.0"),
+        ])],
+    );
+    let (toml, state) = (world.project.toml(), recorded(&world));
+    let run = world.project.jacket(&["dep", "update"]);
+    assert_ne!(run.code, 0, "{}{}", run.out, run.err);
+    assert!(!run.out.contains("updated"), "{}", run.out);
+    assert_eq!(world.project.toml(), toml);
+    assert_eq!(recorded(&world), state, "{}", run.err);
+    let check = world.project.jacket(&["dep", "check", "--offline"]);
+    assert_eq!(check.code, 0, "{}{}", check.out, check.err);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_shared_copy_that_cannot_be_cloned_leaves_the_add_undone() {
+    let mut world = World::new(true);
+    diamond(&mut world);
+    let path = dep_support::git_shim(
+        world.project.root.path(),
+        "case \"$*\" in *submodule*add*qlib*) echo 'fatal: injected' >&2; exit 128;; esac",
+    );
+    let before = (world.project.toml(), recorded(&world));
+    let spec = format!("{}@^1", world.libs["alpha"].url());
+    let run = world
+        .project
+        .jacket_env(&["dep", "add", &spec], &[("PATH", &path)]);
+    assert_ne!(run.code, 0, "{}{}", run.out, run.err);
+    assert!(!run.out.contains("added"), "{}", run.out);
+    assert_eq!(
+        (world.project.toml(), recorded(&world)),
+        before,
+        "{}",
+        run.err
+    );
+    assert!(!world.project.dir.join("modules/alpha").exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn a_shared_copy_that_cannot_be_recorded_is_not_left_behind() {
+    let mut world = World::new(true);
+    diamond(&mut world);
+    // Once qlib is cloned, jacket.toml is read-only until a submodule is removed, so the save
+    // that records the copy fails and the undo can still restore the file.
+    let path = dep_support::git_shim(
+        world.project.root.path(),
+        "FILE=\"$SHIM_DIR/../project/jacket.toml\"\n\
+         case \"$*\" in *deinit*) chmod u+w \"$FILE\";; esac\n\
+         case \"$*\" in *submodule*add*qlib*) \"$REAL\" \"$@\"; rc=$?; chmod a-w \"$FILE\"; exit $rc;; esac",
+    );
+    let before = (world.project.toml(), recorded(&world));
+    let spec = format!("{}@^1", world.libs["alpha"].url());
+    let run = world
+        .project
+        .jacket_env(&["dep", "add", &spec], &[("PATH", &path)]);
+    assert_ne!(run.code, 0, "{}{}", run.out, run.err);
+    assert_eq!(
+        (world.project.toml(), recorded(&world)),
+        before,
+        "{}",
+        run.err
+    );
+    assert!(!world.project.dir.join("modules/qlib").exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn a_nested_checkout_that_fails_leaves_an_add_and_an_update_undone() {
+    let mut world = World::new(false);
+    diamond(&mut world);
+    let path = dep_support::git_shim(
+        world.project.root.path(),
+        "case \"$(pwd -P)\" in */project/modules/*) case \"$*\" in *submodule*update*) echo 'fatal: injected' >&2; exit 128;; esac;; esac",
+    );
+    let before = (world.project.toml(), recorded(&world));
+    let spec = format!("{}@^1", world.libs["alpha"].url());
+    let run = world
+        .project
+        .jacket_env(&["dep", "add", &spec], &[("PATH", &path)]);
+    assert_ne!(run.code, 0, "{}{}", run.out, run.err);
+    assert!(run.err.contains("injected"), "{}", run.err);
+    assert!(!run.out.contains("added"), "{}", run.out);
+    assert_eq!(
+        (world.project.toml(), recorded(&world)),
+        before,
+        "{}",
+        run.err
+    );
+    assert!(!world.project.dir.join("modules/alpha").exists());
+    // The same for an update that has to check out what its new release nests.
+    assert_eq!(world.add("alpha", "^1").code, 0);
+    world.package(
+        "alpha",
+        &[version("v1.1.0").needs(&[need("qlib", "^1.0", "v1.2.0")])],
+    );
+    let before = (world.project.toml(), recorded(&world));
+    let run = world
+        .project
+        .jacket_env(&["dep", "update"], &[("PATH", &path)]);
+    assert_ne!(run.code, 0, "{}{}", run.out, run.err);
+    assert!(run.err.contains("injected"), "{}", run.err);
+    assert!(!run.out.contains("updated"), "{}", run.out);
+    assert_eq!(
+        (world.project.toml(), recorded(&world)),
+        before,
+        "{}",
+        run.err
+    );
+}
+
+/// A world where `alpha` v1.0.0 shares `qlib` from one repository and v1.1.0 asks for the same
+/// name from another.
+fn moved_repository() -> World {
+    let mut world = World::new(true);
+    world.package("qlib", &qlib());
+    world.package("qlib2", &qlib());
+    world.package(
+        "alpha",
+        &[version("v1.0.0").needs(&[need("qlib", "^1.0", "v1.2.0")])],
+    );
+    assert_eq!(world.add("alpha", "^1").code, 0);
+    let manifest = format!(
+        "[package]\nname = \"alpha\"\n[dependencies]\nqlib = {{ git = \"{}\", version = \"^1.0\" }}\n",
+        world.libs["qlib2"].url()
+    );
+    world.libs["alpha"].release("v1.1.0", &[("jacket.toml", manifest.as_str())]);
+    world
+}
+
+#[cfg(unix)]
+#[test]
+fn a_shared_copy_replaced_by_another_repository_comes_back_when_the_new_one_fails() {
+    let world = moved_repository();
+    let path = dep_support::git_shim(
+        world.project.root.path(),
+        "case \"$*\" in *submodule*add*qlib2*) echo 'fatal: injected' >&2; exit 128;; esac",
+    );
+    let before = (world.project.toml(), recorded(&world));
+    let run = world
+        .project
+        .jacket_env(&["dep", "update"], &[("PATH", &path)]);
+    assert_ne!(run.code, 0, "{}{}", run.out, run.err);
+    assert!(run.err.contains("injected"), "{}", run.err);
+    assert_eq!(
+        (world.project.toml(), recorded(&world)),
+        before,
+        "{}",
+        run.err
+    );
+    let check = world.project.jacket(&["dep", "check", "--offline"]);
+    assert_eq!(check.code, 0, "{}{}", check.out, check.err);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_shared_copy_from_another_repository_is_replaced_by_the_old_one_on_a_later_failure() {
+    let world = moved_repository();
+    // The new copy is cloned, then jacket.toml turns read-only until a submodule is removed.
+    let path = dep_support::git_shim(
+        world.project.root.path(),
+        "FILE=\"$SHIM_DIR/../project/jacket.toml\"\n\
+         case \"$*\" in *deinit*) chmod u+w \"$FILE\";; esac\n\
+         case \"$*\" in *submodule*add*qlib2*) \"$REAL\" \"$@\"; rc=$?; chmod a-w \"$FILE\"; exit $rc;; esac",
+    );
+    let before = (world.project.toml(), recorded(&world));
+    let run = world
+        .project
+        .jacket_env(&["dep", "update"], &[("PATH", &path)]);
+    assert_ne!(run.code, 0, "{}{}", run.out, run.err);
+    assert_eq!(
+        (world.project.toml(), recorded(&world)),
+        before,
+        "{}",
+        run.err
+    );
+}
+
+#[test]
+fn a_shared_copy_needed_by_an_unchecked_out_package_is_not_removed() {
+    let mut world = World::new(true);
+    diamond(&mut world);
+    for name in ["alpha", "beta"] {
+        assert_eq!(world.add(name, "^1").code, 0);
+    }
+    git(&world.project.dir, &["add", "-A"]);
+    git(&world.project.dir, &["commit", "-q", "-m", "deps"]);
+    // A fresh clone has no submodule checked out, so nothing can be read about what they need.
+    let clone = world.project.root.join("clone");
+    git(
+        &world.project.root,
+        &[
+            "clone",
+            "-q",
+            world.project.dir.to_str().unwrap(),
+            clone.to_str().unwrap(),
+        ],
+    );
+    let before = std::fs::read_to_string(clone.join("jacket.toml")).unwrap();
+    let run = dep_support::run_in(&clone, world.project.root.path(), &["dep", "update"], &[]);
+    let after = std::fs::read_to_string(clone.join("jacket.toml")).unwrap();
+    assert_eq!(after, before, "{}{}", run.out, run.err);
+    assert!(!run.out.contains("removed shared"), "{}", run.out);
+}
+
+#[cfg(unix)]
+#[test]
+fn an_undo_that_cannot_read_the_submodules_says_so_and_changes_nothing_more() {
+    let mut world = World::new(false);
+    diamond(&mut world);
+    // The nested checkout fails, and afterwards git can no longer list the index.
+    let path = dep_support::git_shim(
+        world.project.root.path(),
+        "case \"$(pwd -P)\" in */project/modules/*) case \"$*\" in *submodule*update*) touch \"$SHIM_DIR/flag\"; echo 'fatal: injected nested' >&2; exit 128;; esac;; esac\n\
+         case \"$*\" in *ls-files*) if [ -f \"$SHIM_DIR/flag\" ]; then echo 'fatal: injected listing' >&2; exit 128; fi;; esac",
+    );
+    let spec = format!("{}@^1", world.libs["alpha"].url());
+    let run = world
+        .project
+        .jacket_env(&["dep", "add", &spec], &[("PATH", &path)]);
+    assert_ne!(run.code, 0, "{}{}", run.out, run.err);
+    assert!(run.err.contains("injected nested"), "{}", run.err);
+    assert!(
+        run.err.contains("could not read the submodules to undo"),
+        "{}",
+        run.err
+    );
+    // Nothing was removed on a guess.
+    assert!(world.project.dir.join("modules/alpha").exists());
+}

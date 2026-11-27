@@ -8,7 +8,9 @@
 //! Lookups are cached for good, keyed by host, repository, tag and commit, so a tag pushed again
 //! to another commit misses the cache. Release lists are fetched with `If-None-Match`, which
 //! GitHub does not count against its rate limit when nothing changed.
+use super::DepError;
 use super::policy::parse_time;
+use super::types::CommitId;
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -81,6 +83,12 @@ impl Repo {
 }
 
 pub trait Forge {
+    /// Stops with next steps when the forges cannot be asked (`curl` is not installed). Run
+    /// before anything changes.
+    fn preflight(&self) -> Result<(), DepError> {
+        Ok(())
+    }
+
     /// The repository's releases, or `NotModified` when `etag` still matches.
     fn releases(&self, kind: Kind, repo: &Repo, etag: Option<&str>) -> Result<Fetched, ForgeError>;
 
@@ -181,12 +189,12 @@ impl Cache {
         let _ = std::fs::write(file, body.to_string());
     }
 
-    fn time_key(repo: &Repo, tag: &str, commit: &str) -> String {
+    fn time_key(repo: &Repo, tag: &str, commit: &CommitId) -> String {
         format!("{}#{tag}@{commit}", repo.key())
     }
 
     /// A time already known for `tag` at `commit`, without asking anyone.
-    pub fn known(&self, repo: &Repo, tag: &str, commit: &str) -> Option<i64> {
+    pub fn known(&self, repo: &Repo, tag: &str, commit: &CommitId) -> Option<i64> {
         self.times.get(&Self::time_key(repo, tag, commit)).copied()
     }
 
@@ -223,7 +231,7 @@ pub fn published(
     cache: &mut Cache,
     repo: &Repo,
     tag: &str,
-    commit: &str,
+    commit: &CommitId,
 ) -> Result<i64, Unknown> {
     if let Some(time) = cache.known(repo, tag, commit) {
         return Ok(time);
@@ -329,6 +337,32 @@ impl Http {
         token: Option<(&str, &str)>,
         post: Option<&str>,
     ) -> Result<Response, ForgeError> {
+        Curl {
+            url,
+            etag,
+            token,
+            post,
+            https_only: self.base.is_none(),
+        }
+        .send()
+    }
+}
+
+/// One HTTP request, run by `curl` as `jacket upgrade` does. The only code that starts it.
+struct Curl<'a> {
+    url: &'a str,
+    etag: Option<&'a str>,
+    /// A header name and its value.
+    token: Option<(&'a str, &'a str)>,
+    /// A JSON body, which makes it a POST.
+    post: Option<&'a str>,
+    /// The real forges are HTTPS only; a test server set through the environment is not.
+    https_only: bool,
+}
+
+impl Curl<'_> {
+    fn send(&self) -> Result<Response, ForgeError> {
+        let (url, etag, token, post) = (self.url, self.etag, self.token, self.post);
         let mut command = Command::new("curl");
         command
             .args(["--silent", "--show-error", "--include", "--max-time", "30"])
@@ -337,7 +371,7 @@ impl Http {
                 concat!("jacket-dep/", env!("CARGO_PKG_VERSION")),
             ])
             .args(["--header", "Accept: application/json"]);
-        if self.base.is_none() {
+        if self.https_only {
             command.args(["--proto", "=https", "--tlsv1.2"]);
         }
         if let Some(etag) = etag {
@@ -368,7 +402,10 @@ impl Http {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|e| ForgeError::Failed(format!("could not run `curl`: {e}")))?;
+            .map_err(|e| match e.kind() {
+                std::io::ErrorKind::NotFound => ForgeError::Failed(missing().message),
+                _ => ForgeError::Failed(format!("could not run `curl`: {e}")),
+            })?;
         if let Some(mut stdin) = child.stdin.take() {
             let _ = stdin.write_all(config.as_bytes());
         }
@@ -384,6 +421,16 @@ impl Http {
         parse_response(&String::from_utf8_lossy(&output.stdout)).ok_or_else(|| {
             ForgeError::Failed(format!("{url} answered with something that is not HTTP"))
         })
+    }
+}
+
+/// The error for a machine with no `curl`, with the command that installs it.
+fn missing() -> DepError {
+    let text =
+        crate::prerequisite::missing(&jaic_toolchain::package::Need::Curl, "curl", "jacket dep");
+    match text.split_once("\nnote: ") {
+        Some((message, note)) => DepError::new(message).note(note),
+        None => DepError::new(text),
     }
 }
 
@@ -491,6 +538,14 @@ pub fn releases_from(kind: Kind, value: &Value) -> Vec<Release> {
 }
 
 impl Forge for Http {
+    fn preflight(&self) -> Result<(), DepError> {
+        let host = jaic_toolchain::System;
+        match jaic_toolchain::Lookup::new(&host).which("curl") {
+            Some(_) => Ok(()),
+            None => Err(missing()),
+        }
+    }
+
     fn releases(&self, kind: Kind, repo: &Repo, etag: Option<&str>) -> Result<Fetched, ForgeError> {
         let (url, token) = match kind {
             Kind::GitHub => (
@@ -641,13 +696,22 @@ mod tests {
             asked: RefCell::new(vec![]),
         };
         let mut cache = Cache::in_memory();
-        assert_eq!(published(&forge, &mut cache, &repo(), "v1", "c1"), Ok(100));
+        assert_eq!(
+            published(&forge, &mut cache, &repo(), "v1", &CommitId::numbered(1)),
+            Ok(100)
+        );
         // Known now: no request.
-        assert_eq!(published(&forge, &mut cache, &repo(), "v1", "c1"), Ok(100));
+        assert_eq!(
+            published(&forge, &mut cache, &repo(), "v1", &CommitId::numbered(1)),
+            Ok(100)
+        );
         assert_eq!(forge.asked.borrow().len(), 1);
         // The tag moved: a miss, answered from the list through a conditional request.
         cache.fresh.clear();
-        assert_eq!(published(&forge, &mut cache, &repo(), "v1", "c2"), Ok(100));
+        assert_eq!(
+            published(&forge, &mut cache, &repo(), "v1", &CommitId::numbered(2)),
+            Ok(100)
+        );
         assert_eq!(
             forge.asked.borrow().as_slice(),
             [None, Some("\"e1\"".to_string())]
@@ -669,17 +733,17 @@ mod tests {
             path: "a/b".into(),
         };
         assert!(matches!(
-            published(&forge, &mut cache, &other, "v1", "c"),
+            published(&forge, &mut cache, &other, "v1", &CommitId::numbered(3)),
             Err(Unknown::NoRecord(_))
         ));
         assert!(matches!(
-            published(&forge, &mut cache, &repo(), "v9", "c"),
+            published(&forge, &mut cache, &repo(), "v9", &CommitId::numbered(3)),
             Err(Unknown::NoRecord(_))
         ));
         // No etag held and the list is cached, so the failure comes on the next fresh ask.
         let mut empty = Cache::in_memory();
         assert_eq!(
-            published(&forge, &mut empty, &repo(), "v1", "c"),
+            published(&forge, &mut empty, &repo(), "v1", &CommitId::numbered(3)),
             Err(Unknown::Failed("slow down".into()))
         );
     }
