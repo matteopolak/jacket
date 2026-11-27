@@ -11,6 +11,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - A failed `assert` in a test or doc example shows its line, not a crash and stack trace.
 - `jailsp` analyses test files as programs of their own and no longer notes them `not-in-program`. (#87, @zhylmzr)
 - `jacket run --target TRIPLE` for another machine says to add a runner instead of starting the program on the host.
+- `jailint` lifetime rules scale linearly with procedure size, and `jailsp` keeps finished files when indexing is interrupted (#88, @ctzcs).
 
 ## [0.40.0] - 2026-11-24
 

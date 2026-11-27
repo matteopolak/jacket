@@ -119,7 +119,9 @@ impl Analysis {
     }
 
     /// Batch files sharing settings so interprocedural lint summaries are built once per
-    /// program, rather than once for each newly opened document.
+    /// program, rather than once for each newly opened document. Each file's lints are kept as
+    /// soon as the file is done, so a pass that is stopped and run again skips what it finished
+    /// and only repeats the shared summaries.
     pub(crate) fn warm_lints(
         &mut self,
         groups: &[(jailint::config::Config, Vec<PathBuf>)],
@@ -135,7 +137,12 @@ impl Analysis {
                     .iter()
                     .filter_map(|p| find_file(compiler, p))
                     .collect();
-                if files.is_empty() {
+                let todo: std::collections::BTreeSet<_> = files
+                    .iter()
+                    .copied()
+                    .filter(|f| !cache.contains_key(f))
+                    .collect();
+                if todo.is_empty() {
                     continue;
                 }
                 // The lints read the bodies of what the code calls.
@@ -143,21 +150,19 @@ impl Analysis {
                 if jaic::interrupt::fired() {
                     return false;
                 }
-                let found = jailint::lint_files(
+                let done = jailint::lint_each(
                     compiler,
                     &files,
                     &jailint::config::Configs::new(config),
                     complete,
+                    None,
+                    &|file| todo.contains(&file),
+                    &mut |file, found| {
+                        cache.insert(file, found);
+                    },
                 );
-                if jaic::interrupt::fired() {
+                if !done || jaic::interrupt::fired() {
                     return false;
-                }
-                for file in files {
-                    let path = compiler.src.sources.get(file).path.to_string();
-                    cache.insert(
-                        file,
-                        found.iter().filter(|l| l.path == path).cloned().collect(),
-                    );
                 }
             }
             true

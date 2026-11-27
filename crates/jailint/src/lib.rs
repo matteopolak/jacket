@@ -104,6 +104,37 @@ pub(crate) fn lint_files_with_entry(
     entry: Option<FileId>,
 ) -> Vec<Lint> {
     let mut out = Vec::new();
+    let done = lint_each(
+        compiler,
+        files,
+        configs,
+        complete,
+        entry,
+        &|_| true,
+        &mut |_, found| out.extend(found),
+    );
+    if !done {
+        return Vec::new();
+    }
+    out.sort_by(|a, b| (&a.path, a.start, a.rule).cmp(&(&b.path, b.start, b.rule)));
+    out.dedup_by(|a, b| a.path == b.path && a.start == b.start && a.rule == b.rule);
+    out
+}
+
+/// [`lint_files`], one file at a time: `sink` receives each file's lints (sorted) as soon as
+/// that file is finished, and only the files `pending` accepts are linted; the others still
+/// count as part of the program the rules see. Returns `false` when `jaic::interrupt` stopped
+/// the pass: every file handed to `sink` before then is complete, so a caller can keep those
+/// and lint the rest later.
+pub fn lint_each(
+    compiler: &mut Compiler,
+    files: &[FileId],
+    configs: &config::Configs,
+    complete: bool,
+    entry: Option<FileId>,
+    pending: &dyn Fn(FileId) -> bool,
+    sink: &mut dyn FnMut(FileId, Vec<Lint>),
+) -> bool {
     let mut module_facts = rules::unused_import::ModuleFacts::default();
     let mut run = rules::RunState::with_lifetime_entry(entry.and_then(|id| {
         compiler
@@ -116,21 +147,27 @@ pub(crate) fn lint_files_with_entry(
     run.lifetime_files.extend(files.iter().copied());
     let time_lifetimes = jacket_config::env::LIFETIME_STATS.is_set();
     if !compiler.ed.facts().is_some_and(|ide| ide.lint) {
-        return out;
-    }
-    for &file in files {
-        if jaic::interrupt::should_stop() {
-            return Vec::new();
+        for &file in files.iter().filter(|&&f| pending(f)) {
+            sink(file, Vec::new());
         }
+        return true;
+    }
+    for &file in files.iter().filter(|&&f| pending(f)) {
+        if jaic::interrupt::should_stop() {
+            return false;
+        }
+        let mut out = Vec::new();
         let path = compiler.src.sources.get(file).path.to_string();
         let text = compiler.src.sources.get(file).text.clone();
         // Lex once; the parser hands the tokens back for the rules and suppressions.
         let (tokens, comments, lex_errors) = jaic::lexer::lex_with_trivia(file, &text);
         if !lex_errors.is_empty() {
+            sink(file, Vec::new());
             continue;
         }
         let (ast, tokens) = jaic::parser::parse_tokens(file, &text, tokens);
         let Ok(ast) = ast else {
+            sink(file, Vec::new());
             continue;
         };
         // Override globs are matched against the canonical path, as `exclude` is.
@@ -143,6 +180,7 @@ pub(crate) fn lint_files_with_entry(
             .filter(|(_, level)| *level != Level::Allow)
             .collect();
         if wanted.is_empty() {
+            sink(file, Vec::new());
             continue;
         }
         let imports = if wanted.iter().any(|(r, _)| r.name == "unused_import") {
@@ -180,7 +218,7 @@ pub(crate) fn lint_files_with_entry(
         cx.doc_links = doc_links;
         for &(rule, level) in &wanted {
             if jaic::interrupt::should_stop() {
-                return Vec::new();
+                return false;
             }
             let mut found = Vec::new();
             let started = (time_lifetimes
@@ -265,10 +303,15 @@ pub(crate) fn lint_files_with_entry(
                 });
             }
         }
+        // A rule that was stopped reported only part of its findings.
+        if jaic::interrupt::fired() {
+            return false;
+        }
+        out.sort_by(|a, b| (&a.path, a.start, a.rule).cmp(&(&b.path, b.start, b.rule)));
+        out.dedup_by(|a, b| a.path == b.path && a.start == b.start && a.rule == b.rule);
+        sink(file, out);
     }
-    out.sort_by(|a, b| (&a.path, a.start, a.rule).cmp(&(&b.path, b.start, b.rule)));
-    out.dedup_by(|a, b| a.path == b.path && a.start == b.start && a.rule == b.rule);
-    out
+    true
 }
 
 /// What a rule reports, before the level and suppressions are applied.
