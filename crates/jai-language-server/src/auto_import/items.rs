@@ -216,6 +216,15 @@ impl Session {
             if sources.open.contains_key(&file) {
                 continue;
             }
+            // Changed on disk without a notification since it was scanned: the scan may lack
+            // the names it has now.
+            if index
+                .files
+                .get(&file)
+                .is_some_and(|(stamp, _)| *stamp != env.fs.stamp(&file))
+            {
+                index.changed(&file);
+            }
             let mut scan = sources.scan_keyed(&mut index, &file);
             let has_hit = |scan: &crate::exports::FileScan| {
                 scan.symbols
@@ -230,10 +239,11 @@ impl Session {
             };
             let text = String::from_utf8_lossy(&bytes);
             if scan.text_hash != crate::auto_import::hash(&text) {
-                // Edited on disk without a notification: the cached offsets are for older
-                // text. Scan it again.
+                // Edited on disk without a notification and without a new stamp: the cached
+                // offsets are for older text. The positions come from this text, so this text
+                // is scanned (reading the file again could give yet another).
                 index.changed(&file);
-                scan = sources.scan_keyed(&mut index, &file);
+                scan = std::rc::Rc::new(crate::exports::scan(&text));
             }
             let hits: Vec<_> = scan
                 .symbols

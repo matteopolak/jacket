@@ -29,6 +29,27 @@ fn workspace_symbols_of_a_closed_file_survive_a_silent_edit() {
     assert_eq!(after[0].location.range.start.character, 0);
 }
 
+/// A closed file rewritten so that it now declares the name asked for: the stale scan had no
+/// such name, and the new one is found anyway.
+#[test]
+fn workspace_symbols_find_a_name_a_silent_edit_added() {
+    let dir = project(
+        "silent-rename",
+        &[
+            ("main.jai", "main :: () {}\n"),
+            ("util.jai", "other_name :: () {}\n"),
+        ],
+    );
+    let mut s = workspace_session(&dir);
+    let main = uri_of(&dir.join("main.jai"));
+    s.open(main, 1, "main :: () {}\n".into()).unwrap();
+    assert!(s.workspace_symbols("wanted_name").is_empty());
+    std::fs::write(dir.join("util.jai"), "\n\nwanted_name :: () {}\n").unwrap();
+    let after = s.workspace_symbols("wanted_name");
+    assert_eq!(after.len(), 1, "{after:?}");
+    assert_eq!(after[0].location.range.start.line, 2);
+}
+
 /// An open document the parser gives up on (nested past its budget) lists the declarations of
 /// its last text that parsed, at the place they are in the text now.
 #[test]
