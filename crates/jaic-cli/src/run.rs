@@ -20,7 +20,7 @@ use std::rc::Rc;
 /// Compile-time runs listed by `-profile_runs`.
 const RUN_COST_ROWS: usize = 25;
 
-/// Basic blocks one top-level compile-time run may execute unless `-run_budget` says otherwise:
+/// Steps (loop back-edges, calls and `switch` jumps) one top-level compile-time run may take unless `-run_budget` says otherwise:
 /// ten times what the editor allows, since a build may legitimately spend longer than a keystroke.
 const DEFAULT_RUN_BUDGET: u64 = 10 * jaic::ide::lint_compile::CheckLimits::DEFAULT_EVAL_STEPS;
 

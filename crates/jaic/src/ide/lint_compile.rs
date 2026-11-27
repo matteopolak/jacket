@@ -15,7 +15,7 @@ use std::rc::Rc;
 /// linter's command line), never the project: a project must not be able to raise them.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CheckLimits {
-    /// Basic blocks one top-level compile-time evaluation may run: a `#run` may loop forever.
+    /// Steps (loop back-edges, calls and `switch` jumps) one top-level compile-time evaluation may take: a `#run` may loop forever.
     pub eval_steps: u64,
     /// Seconds the whole check may take before it stops with partial results; `None`: no limit.
     pub seconds: Option<f64>,
@@ -24,7 +24,7 @@ pub struct CheckLimits {
 }
 
 impl CheckLimits {
-    /// The blocks one evaluation may run unless told otherwise.
+    /// The steps one evaluation may take unless told otherwise.
     pub const DEFAULT_EVAL_STEPS: u64 = 100_000_000;
 
     /// The seconds a check may take unless told otherwise.
@@ -52,14 +52,14 @@ impl CheckLimits {
     /// The blocks from which an evaluation shows its cost unless told otherwise.
     pub const DEFAULT_HINT_BLOCKS: u64 = 1_000_000;
 
-    /// `blocks` per evaluation (`0`: no limit) and `seconds` per check (`0` or less, or not a
+    /// `steps` per evaluation (`0`: no limit) and `seconds` per check (`0` or less, or not a
     /// number: no limit); the cost threshold stays at its default.
-    pub fn new(blocks: u64, seconds: f64) -> Self {
+    pub fn new(steps: u64, seconds: f64) -> Self {
         Self {
-            eval_steps: if blocks == 0 {
+            eval_steps: if steps == 0 {
                 u64::MAX
             } else {
-                blocks
+                steps
             },
             seconds: (seconds > 0.0 && seconds.is_finite()).then_some(seconds),
             ..Self::default()

@@ -1,6 +1,6 @@
 # Compile-time limits and costs
 
-How the language server and `jailint` bound the compile-time code of the program they check, and how any tool finds the compile-time code that is slow. Each top-level evaluation has its own block budget, compile-time execution shares a wall-clock deadline, and each evaluation's blocks and time are recorded.
+How the language server and `jailint` bound the compile-time code of the program they check, and how any tool finds the compile-time code that is slow. Each top-level evaluation has its own step budget, compile-time execution shares a wall-clock deadline, and each evaluation's blocks and time are recorded.
 
 ```sh
 jaic main.jai -profile_runs     # which #run costs the most
@@ -9,7 +9,7 @@ jaic main.jai -run_budget 0     # no limit
 
 ## How it works
 
-- **Budget per evaluation.** `Interp::block_budget` counts steps: loop back-edges, calls and `switch` jumps. When it runs out the trap is `BudgetExhausted`, reported at the directive that started the evaluation with notes for the innermost frames. The next evaluation starts fresh.
+- **Budget per evaluation.** `Interp::block_budget` (named from an older block count) counts steps: loop back-edges, calls and `switch` jumps. When it runs out the trap is `BudgetExhausted`, reported at the directive that started the evaluation with notes for the innermost frames. The next evaluation starts fresh.
 - **Wall-clock limit.** `SandboxHost::stop_after` starts a clock per compile. The interpreter checks it every 1024 blocks; once it passes, every run traps with `Stopped` and shows as an unknown-result diagnostic. The type checker asks too (`Compiler::check_not_stopped`) before each body, statement, entity, file, scope, macro expansion, polymorphic instantiation and `#insert`ed string (whose lexing asks every `STOP_POLL_TOKENS` tokens, a counter decrement per token, with a long comment, string or here-string paying into the same counter per 64 bytes, checked once per 4 KiB, and whose parse asks every `STOP_POLL_STATEMENTS` statements), and every 64th expression (so a very wide literal or argument list is bounded), so time spent outside the interpreter is bounded the same way; tests make the answer deterministic with `SandboxHost::stop_after_polls`, which turns it to yes after a number of questions instead of a time; the work in progress fails with the same unknown-result "checking stopped". A check that finishes before its limit ends the clock (`SandboxHost::end_time_limit`), so a request answered from the retained compiler later (a hover evaluating a module alias the check left alone) is not stopped by the time that passed since; a check that did stop stays stopped.
 - `ide::lint_compile::LintCompile` sets both for the language server and `jailint` from one `CheckLimits`. `jaic` has a budget of its own (default ten times the editor's).
 - **Cost records.** Each `call_thunk` pushes a `perf::RunStat` (span, blocks, time) to `Compiler::meta::perf::runs`, also used by `PERFORMANCE_REPORT`.
