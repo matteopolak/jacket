@@ -763,13 +763,19 @@ impl Parser<'_> {
             )
     }
 
-    /// Consumes `operator` and its symbol(s) as one identifier named e.g. `operator[]=`.
+    /// Consumes `operator` and its symbol(s) as one identifier named e.g. `operator[]=` or
+    /// `operator*[]`, spelled as the declaration `operator *[] :: ...` names it.
     pub(super) fn parse_operator_name(&mut self) -> PResult<Ident> {
         let start = self.bump();
         let mut text = String::from("operator");
-        if let Tok::Punct(symbol) = *self.tok() {
+        if let Tok::Punct(mut symbol) = *self.tok() {
             text.push_str(symbol.text());
             self.bump();
+            if symbol == P::Star && self.at(P::LBracket) && self.at_n(1, P::RBracket) {
+                symbol = P::LBracket;
+                text.push('[');
+                self.bump();
+            }
             if symbol == P::LBracket {
                 self.expect(P::RBracket, "in operator name")?;
                 text.push(']');

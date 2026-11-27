@@ -587,3 +587,16 @@ fn a_written_expression_with_parentheses_reads_as_a_unit() {
         assert!(!value(&format!("x := {src};")).is_atomic_written(), "{src}");
     }
 }
+
+#[test]
+fn an_indexing_operator_is_a_name_like_any_other_operator() {
+    for (src, want) in [
+        ("X.operator +", "X.operator+"),
+        ("X.operator []", "X.operator[]"),
+        ("X.operator []=", "X.operator[]="),
+        ("X.operator *[]", "X.operator*[]"),
+        ("operator *[]", "operator*[]"),
+    ] {
+        assert_eq!(grouped(src), want, "{src}");
+    }
+}
