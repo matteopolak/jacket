@@ -62,8 +62,17 @@ fn anonymous_mappings_share_one_total_cap_per_host() {
         2 | 0x20
     };
     let map = |h: &mut SandboxHost, len: u64| call(h, "mmap", &[0, len, 3, flags, u64::MAX, 0]);
-    let half = virtual_memory::MAX_MAPPED_BYTES / 2;
     let page = virtual_memory::page_size();
+    // Without a lower limit the cap is `MAX_MAPPED_BYTES`; a refused request maps nothing.
+    assert_eq!(
+        map(&mut h, virtual_memory::MAX_MAPPED_BYTES + page),
+        u64::MAX
+    );
+    assert_eq!(errno(&h), ENOMEM);
+    // A cap of a few pages: Windows commits what is mapped, and a test should not commit the
+    // real 1 GiB cap.
+    let half = 2 * page;
+    h.map_limit = Some(2 * half);
 
     // One request over the cap is refused outright.
     assert_eq!(map(&mut h, 2 * half + page), u64::MAX);

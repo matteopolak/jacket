@@ -165,7 +165,8 @@ impl SandboxHost {
             {
                 return Some(self.set_errno(EPERM));
             }
-            if self.mapped_bytes.saturating_add(length) > MAX_MAPPED_BYTES {
+            if self.mapped_bytes.saturating_add(length) > self.map_limit.unwrap_or(MAX_MAPPED_BYTES)
+            {
                 return Some(self.set_errno(super::super::errno::ENOMEM));
             }
             let Some(mapping) = Mapping::reserve(length, arg(2), self.window.as_ref()) else {
