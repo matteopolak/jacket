@@ -1,3 +1,4 @@
+// test: only(.LINUX,.MACOS)
 // A tool path recorded by a checkout's build that no longer exists (its toolchain was upgraded)
 // is reported with the script that records it again, and is not swapped for another tool.
 #import "Basic";
