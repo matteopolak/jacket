@@ -542,66 +542,12 @@ put_copy_value :: (out: *[..] u8, value: *$T, json_text: bool) -> string {
         }
 
         return put_copy_value(out, *value.value, json_text);
-    } else #if type_info(T).type == .BOOL {
-        put_u32(out, 1);
-        put_u8(out, xx value.*);
-    } else #if type_info(T).type == .INTEGER {
-        SIGNED :: #run (cast(*Type_Info_Integer) type_info(T)).signed;
-        v := cast,no_check(s64) value.*;
-
-        #if size_of(T) <= 1 || (size_of(T) == 2 && SIGNED) {
-            put_u32(out, 2);
-            put_u16(out, cast,no_check(u16) v);
-        } else #if size_of(T) <= 2 || (size_of(T) == 4 && SIGNED) {
-            put_u32(out, 4);
-            put_u32(out, cast,no_check(u32) v);
-        } else {
-            #if size_of(T) == 8 && !SIGNED {
-                if value.* > xx S64_MAX return "a u64 parameter above S64_MAX does not fit in int8";
-            }
-
-            put_u32(out, 8);
-            put_u64(out, cast,no_check(u64) v);
-        }
-    } else #if type_info(T).type == .FLOAT {
-        #if size_of(T) == 4 {
-            put_u32(out, 4);
-            put_u32(out, (cast(*u32) value).*);
-        } else {
-            put_u32(out, 8);
-            put_u64(out, (cast(*u64) value).*);
-        }
-    } else #if type_info(T).type == .STRING {
-        if contains_zero(value.*) return "a string parameter holds a zero byte, which Postgres text cannot store";
-
-        put_u32(out, cast(u32) value.count);
-        put_bytes(out, value.*);
     } else #if type_info(T).type == .ENUM {
         label, found := enum_label_of(value.*);
         if !found return tprint("% holds a value that is none of its members", T);
 
         put_u32(out, cast(u32) label.count);
         put_bytes(out, label);
-    } else #if T == Uuid {
-        put_u32(out, 16);
-        put_bytes(out, cast([] u8) value.bytes);
-    } else #if T == Timestamp || T == Local_Timestamp || T == Time {
-        put_u32(out, 8);
-        put_u64(out, cast,no_check(u64) (cast(*s64) value).*);
-    } else #if T == Date {
-        put_u32(out, 4);
-        put_u32(out, cast,no_check(u32) (cast(*s32) value).*);
-    } else #if T == Interval {
-        put_u32(out, 16);
-        put_u64(out, cast,no_check(u64) value.microseconds);
-        put_u32(out, cast,no_check(u32) value.days);
-        put_u32(out, cast,no_check(u32) value.months);
-    } else #if T == Numeric {
-        bytes, why := numeric_binary(value.text);
-        if why return why;
-
-        put_u32(out, cast(u32) bytes.count);
-        put_bytes(out, bytes);
     } else #if #run is_json_value(T) {
         text, why := json_text_of(value);
         if why return why;
@@ -628,6 +574,21 @@ put_copy_value :: (out: *[..] u8, value: *$T, json_text: bool) -> string {
 
         put_u32(out, cast(u32) param.data.count);
         put_bytes(out, param.data);
+    } else #if #run scalar_oid(T) != 0 {
+        // The binary form is the one a query parameter has; only the length in front is new.
+        start := out.count;
+
+        put_u32(out, 0);
+
+        why := put_scalar(out, value);
+
+        if why {
+            out.count = start;
+
+            return why;
+        }
+
+        patch_u32(out, start, cast(u32) (out.count - start - 4));
     } else {
         return tprint("Postgres has no encoding for COPY members of type %", T);
     }
