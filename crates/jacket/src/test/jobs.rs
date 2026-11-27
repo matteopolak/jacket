@@ -411,12 +411,14 @@ fn resolve(case: &Case, index: usize, raw: &exec::Raw, ending: Option<&Ending>) 
             Status::Fail
         }
     };
-    expectations(case, &mut outcome);
+    expectations(case, &mut outcome, true);
     outcome
 }
 
-/// `@should_fail` and `@xfail` turn the outcome around.
-fn expectations(case: &Case, outcome: &mut Outcome) {
+/// `@should_fail` and `@xfail` turn the outcome around. `ran` is false for a golden test that was
+/// only type-checked: its `#run` code ran, so a failure is held to the expectation, but a pass
+/// says nothing about the program and stays a pass.
+fn expectations(case: &Case, outcome: &mut Outcome, ran: bool) {
     if let Some(texts) = &case.options.should_fail {
         outcome.status = match outcome.status {
             Status::Fail | Status::Timeout => {
@@ -441,7 +443,7 @@ fn expectations(case: &Case, outcome: &mut Outcome) {
                     Status::Fail
                 }
             }
-            Status::Pass => {
+            Status::Pass if ran => {
                 outcome
                     .problems
                     .push("it passed; @should_fail expects it to fail".into());
@@ -452,7 +454,7 @@ fn expectations(case: &Case, outcome: &mut Outcome) {
     } else if let Some(reason) = &case.options.xfail {
         outcome.status = match outcome.status {
             Status::Fail | Status::Timeout => Status::XFail,
-            Status::Pass => {
+            Status::Pass if ran => {
                 let why = if reason.is_empty() {
                     String::new()
                 } else {
@@ -549,11 +551,11 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
     outcome.stdout = checked.stdout;
     outcome.stderr = checked.stderr;
     outcome.crashed = checked.crashed;
-    // A type-check says nothing about how a golden test would have run, so `should_fail` and
-    // `xfail` have nothing to turn around.
-    if !(plan.toolchain.check_only && case.kind == Kind::Golden) {
-        expectations(case, &mut outcome);
-    }
+    expectations(
+        case,
+        &mut outcome,
+        !(plan.toolchain.check_only && case.kind == Kind::Golden),
+    );
     outcome
 }
 
@@ -628,5 +630,36 @@ mod tests {
             resolve(&known, 0, &raw(Some("pass")), None).status,
             Status::XPass
         );
+    }
+
+    #[test]
+    fn a_type_checked_golden_test_holds_only_failures_to_its_expectations() {
+        let outcome = |status: Status, problem: &str| {
+            let mut outcome = Outcome::new(0, status);
+            outcome.problems.push(problem.into());
+            outcome
+        };
+        let mut should = case("t", Kind::Golden);
+        should.options.should_fail = Some(vec!["invalid workspace".into()]);
+        // Its `#run` trapped while type-checking, with the expected message.
+        let mut trapped = outcome(Status::Fail, "error: invalid workspace 999");
+        expectations(&should, &mut trapped, false);
+        assert_eq!(trapped.status, Status::Pass);
+        let mut other = outcome(Status::Fail, "error: something else");
+        expectations(&should, &mut other, false);
+        assert_eq!(other.status, Status::Fail);
+        // It type-checked: the failure may come when it runs.
+        let mut checked = Outcome::new(0, Status::Pass);
+        expectations(&should, &mut checked, false);
+        assert_eq!(checked.status, Status::Pass);
+
+        let mut known = case("t", Kind::Golden);
+        known.options.xfail = Some(String::new());
+        let mut checked = Outcome::new(0, Status::Pass);
+        expectations(&known, &mut checked, false);
+        assert_eq!(checked.status, Status::Pass);
+        let mut failed = outcome(Status::Fail, "error");
+        expectations(&known, &mut failed, false);
+        assert_eq!(failed.status, Status::XFail);
     }
 }
