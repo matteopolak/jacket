@@ -40,6 +40,13 @@ impl Document {
     }
 }
 
+/// An analysis of a document's text that parsed, and that text: its offsets are in it, not in
+/// the document as it is now.
+pub(crate) struct Parsed {
+    pub(crate) analysis: Rc<Analysis>,
+    pub(crate) text: Rc<str>,
+}
+
 /// The tokens whose span holds `byte` (touching it at either end), in order, found by binary
 /// search: `tokens` are in source order.
 pub(crate) fn tokens_at(tokens: &[Token], byte: usize) -> impl Iterator<Item = (usize, &Token)> {
@@ -59,9 +66,9 @@ pub struct Session {
     pub(crate) limits: Limits,
     pub(crate) documents: BTreeMap<DocumentUri, Document>,
     pub(crate) analyses: BTreeMap<DocumentUri, Rc<Analysis>>,
-    /// Last analysis of each document that parsed: completion keeps offering its names while
-    /// the text being typed does not parse.
-    pub(crate) parsed: BTreeMap<DocumentUri, Rc<Analysis>>,
+    /// Last analysis of each document that parsed, with the text it was built from: completion
+    /// keeps offering its names while the text being typed does not parse.
+    pub(crate) parsed: BTreeMap<DocumentUri, Parsed>,
     /// Type-checked answers (absent: syntax only).
     pub(crate) environment: Option<Environment>,
     pub(crate) semantic: RefCell<semantic::Cache>,

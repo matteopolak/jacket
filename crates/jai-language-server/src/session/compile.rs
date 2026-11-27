@@ -36,8 +36,16 @@ impl Session {
             analyses.insert(uri.clone(), Rc::new(analysis));
         }
         for (uri, analysis) in &analyses {
-            if analysis.complete {
-                self.parsed.insert(uri.clone(), analysis.clone());
+            let known = self
+                .parsed
+                .get(uri)
+                .is_some_and(|p| Rc::ptr_eq(&p.analysis, analysis));
+            if analysis.complete && !known {
+                let parsed = super::Parsed {
+                    analysis: analysis.clone(),
+                    text: Rc::from(self.documents[uri].text.as_str()),
+                };
+                self.parsed.insert(uri.clone(), parsed);
             }
         }
         self.parsed

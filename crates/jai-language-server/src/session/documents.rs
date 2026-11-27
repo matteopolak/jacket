@@ -507,7 +507,15 @@ impl Session {
         self.analyses.get(&self.document_uri(uri)?)
     }
 
-    pub(crate) fn parsed_for(&self, uri: &DocumentUri) -> Option<&Rc<Analysis>> {
-        self.parsed.get(&self.document_uri(uri)?)
+    /// The analysis whose declarations stand for `uri`'s: that of its text when it parsed, else
+    /// the last one that did, with the text its offsets are in (compare it with the document's
+    /// to move them, see `semantic::Shift`).
+    pub(crate) fn declarations(&self, uri: &DocumentUri) -> Option<(&Analysis, &str)> {
+        let (key, doc) = self.document_entry(uri).ok()?;
+        let current = self.analyses.get(key)?;
+        match self.parsed.get(key) {
+            Some(parsed) if !current.complete => Some((&parsed.analysis, &parsed.text)),
+            _ => Some((current, &doc.text)),
+        }
     }
 }

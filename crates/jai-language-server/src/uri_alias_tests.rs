@@ -94,7 +94,7 @@ fn alias_lexical_declaration_and_local_bindings_use_stored_key() {
         assert_eq!(rows.len(), 1);
         assert_eq!(*rows[0].0, stored);
         assert_ne!(
-            Session::source_detail(s.document(rows[0].0).unwrap(), rows[0].1),
+            Session::source_detail(&s.document(rows[0].0).unwrap().text, rows[0].1),
             ""
         );
     }

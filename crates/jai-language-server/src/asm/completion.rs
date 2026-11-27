@@ -183,13 +183,11 @@ impl Session {
                     .collect();
             }
         }
-        let analysis = match self.analysis_for(uri) {
-            Some(a) if a.complete => a,
-            _ => match self.parsed_for(uri).or_else(|| self.analysis_for(uri)) {
-                Some(a) => a,
-                None => return Vec::new(),
-            },
+        let Some((analysis, rows_text)) = self.declarations(uri) else {
+            return Vec::new();
         };
+        let at = crate::semantic::Shift::between(rows_text.as_bytes(), doc.text.as_bytes())
+            .to_old_or_edit(at);
         analysis
             .rows
             .iter()
@@ -209,7 +207,7 @@ impl Session {
                 } else {
                     IdeKind::Variable
                 },
-                detail: Self::source_detail(doc, row).into(),
+                detail: Self::source_detail(rows_text, row).into(),
                 decl: jaic::source::Span::NONE,
                 call: None,
                 ty: None,

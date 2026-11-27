@@ -12,15 +12,8 @@ const MAX_DETAIL: usize = 256;
 impl Session {
     /// The start of the declaration a row stands for, as its outline detail and its hover when
     /// the type checker has nothing to say: `answer :: () -> int {return 42;}`.
-    pub(crate) fn source_detail<'a>(doc: &'a Document, row: &SymbolRow) -> &'a str {
-        let text = &doc.text;
-        let span = row.location;
-        // Rows of an older parse may point past the current text.
-        let start = text.floor_char_boundary(span.start.min(text.len()));
-        let end = text
-            .floor_char_boundary(span.end.min(text.len()))
-            .max(start);
-        let declaration = &text[start..end];
+    pub(crate) fn source_detail<'a>(text: &'a str, row: &SymbolRow) -> &'a str {
+        let declaration = &text[row.location.start..row.location.end];
         // A cut by length counts only what is written: blank lines and indentation would
         // otherwise move it, and the same declaration would be quoted to different lengths.
         let mut written = 0;
@@ -59,7 +52,7 @@ impl Session {
             let row = &rows[id];
             Ok(DocumentSymbol {
                 name: row.name.as_str().into(),
-                detail: Session::source_detail(doc, row).into(),
+                detail: Session::source_detail(&doc.text, row).into(),
                 kind: row.kind,
                 range: doc.index.range(&doc.text, row.location)?,
                 selection_range: doc.index.range(&doc.text, row.selection)?,

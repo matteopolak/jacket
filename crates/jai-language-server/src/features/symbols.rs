@@ -17,12 +17,12 @@ impl Session {
     pub fn workspace_symbols(&self, query: &str) -> Vec<SymbolInformation> {
         let query = query.to_lowercase();
         let mut out = Vec::new();
-        for (uri, analysis) in &self.analyses {
-            let analysis = match self.parsed_for(uri) {
-                Some(parsed) if !analysis.complete => parsed,
-                _ => analysis,
+        for uri in self.analyses.keys() {
+            let Some((analysis, text)) = self.declarations(uri) else {
+                continue;
             };
             let doc = &self.documents[uri];
+            let shift = crate::semantic::Shift::between(text.as_bytes(), doc.text.as_bytes());
             for row in &analysis.rows {
                 if row.local || !row.name.as_str().to_lowercase().contains(&query) {
                     continue;
@@ -30,7 +30,11 @@ impl Session {
                 if out.len() >= self.limits.symbols {
                     return out;
                 }
-                let Ok(range) = doc.index.range(&doc.text, row.selection) else {
+                let Some((start, end)) = shift.to_new_range(row.selection.start, row.selection.end)
+                else {
+                    continue;
+                };
+                let Ok(range) = doc.index.range(&doc.text, Span::new(start, end)) else {
                     continue;
                 };
                 out.push(SymbolInformation {

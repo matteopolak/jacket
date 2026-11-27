@@ -9,7 +9,10 @@ use crate::{DocumentUri, Error, Position, TypeHierarchyItem};
 impl Session {
     fn type_item(&self, uri: &DocumentUri, row: &SymbolRow) -> Result<TypeHierarchyItem, Error> {
         let doc = self.document(uri)?;
-        let detail = Self::source_detail(doc, row).lines().next().unwrap_or("");
+        let detail = Self::source_detail(&doc.text, row)
+            .lines()
+            .next()
+            .unwrap_or("");
         Ok(TypeHierarchyItem {
             name: row.name.as_str().into(),
             detail: detail.trim().into(),

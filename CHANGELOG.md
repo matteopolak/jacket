@@ -19,6 +19,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - A typed `[..] Toml_Value` field reads `[[x]]` headers.
 - Sound_Player on macOS counts only the unplayed part of a half-played buffer, so it refills on time.
 - The C-backed `Default_Allocator` refuses a free or resize whose `old_size` exceeds the block, as the x64 heap does.
+- `jailsp` places workspace symbols and fallback completions right while a file is too deeply nested to parse.
 - `jailsp` keeps hover and highlighting between two separate edits made since the last check.
 - A procedure only an unrun `#run` branch calls is type-checked, also in a program with no `main`.
 - `jailint` treats a failed fatal cast, variadic-size or atomic-alignment check as the end of its path.

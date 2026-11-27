@@ -267,7 +267,7 @@ impl Session {
         let rows = self.bindings(uri, position)?;
         let text = if rows.len() == 1 {
             let mut blocks = vec![Block::Code(
-                Self::source_detail(self.document(rows[0].0)?, rows[0].1).into(),
+                Self::source_detail(&self.document(rows[0].0)?.text, rows[0].1).into(),
             )];
             let at = rows[0].1.selection.start;
             if let Some(raw) = crate::docs::declaration(&self.documents[rows[0].0].text, at)

@@ -479,13 +479,13 @@ impl Session {
                 items,
             });
         }
-        let analysis = match self.analysis_for(uri) {
-            Some(a) if a.complete => a,
-            _ => self.parsed_for(uri).unwrap_or(
-                self.analysis_for(uri)
-                    .expect("opened document has analysis"),
-            ),
-        };
+        let (analysis, own_text) = self
+            .declarations(uri)
+            .expect("opened document has analysis");
+        // The rows may be of older text: the cursor is asked about where it was in that text.
+        let fresh = std::ptr::eq(own_text, doc.text.as_str());
+        let own_byte =
+            semantic::Shift::between(own_text.as_bytes(), doc.text.as_bytes()).to_old_or_edit(byte);
         let prefix = self
             .word(uri, position)?
             .filter(|(_, token)| token.kind == TokenKind::Ident)
@@ -507,16 +507,21 @@ impl Session {
             });
         }
         let mut items = BTreeMap::new();
-        let mut incomplete = !analysis.complete;
+        let mut incomplete = !analysis.complete || !fresh;
         for candidate in self.reachable(uri) {
-            let rows = if candidate == uri {
-                &analysis.rows
+            let (rows, text) = if candidate == uri {
+                (&analysis.rows, own_text)
             } else {
-                &self.analyses[candidate].rows
+                (
+                    &self.analyses[candidate].rows,
+                    self.documents[candidate].text.as_str(),
+                )
             };
             for row in rows {
                 let visible = if row.local {
-                    candidate == uri && contains(row.scope, byte) && row.selection.start <= byte
+                    candidate == uri
+                        && contains(row.scope, own_byte)
+                        && row.selection.start <= own_byte
                 } else {
                     row.parent.is_none() && (candidate == uri || !row.file_private)
                 };
@@ -533,7 +538,7 @@ impl Session {
                     items.entry(name.to_owned()).or_insert(CompletionItem {
                         label: name.into(),
                         kind,
-                        detail: Self::source_detail(&self.documents[candidate], row).into(),
+                        detail: Self::source_detail(text, row).into(),
                         ..CompletionItem::default()
                     });
                 } else if visible && items.len() >= self.limits.symbols {
