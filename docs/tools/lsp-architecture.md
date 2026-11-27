@@ -186,13 +186,13 @@ Gain: with requests no longer cancelling checks, publish latency under requests 
 1. `Stage::Compile`: the compiler's errors and warnings and the unreachable-code hints. `JsonSession::flush_publications_unless_interrupted` publishes it as soon as the compile finishes and sets `lints_pending`.
 2. `Stage::Full`: everything, lints and sibling-program findings included, a superset of stage 1 in the same order. The main loop runs `flush_lints_unless_interrupted` only when no input is waiting. Input interrupts it and leaves `lints_pending` set. A newer edit publishes its own stage 1 first, which supersedes it.
 
-Both are `publishDiagnostics` for the same version, so the second replaces the first. Lint diagnostics are absent from stage 1: carrying the previous ones forward (below) is not done yet. Pull clients and the non-deferred paths (`Session::publications`, `diagnostics`) still answer with the full check.
+Both are `publishDiagnostics` for the same version, so the second replaces the first. Stage 1 carries the lints of the last stage 2 (`Session::carried_lints`), moved through the edits since (`semantic::Shift`) and dropped where an edit touched them or their same-file labels, so an edit does not clear the lints and draw them again. A settings change forgets them. Pull clients and the non-deferred paths (`Session::publications`, `diagnostics`) still answer with the full check.
 
 `Session::diagnostics` today waits for lints before publishing anything. In the target, type diagnostics publish first and lints follow in a second publish of the same version. Gain: check-to-first-publish falls by the lint share, 29–49% measured.
 
 Lints still need the compile. They run on the worker that holds it, before the hand-off, so no extra copy is needed.
 
-Until the new lints arrive, the first publish of a version carries the previous version's lint diagnostics, shifted through the edits since and dropped where an edit touched them. Without that, every edit would clear the lints and redraw them a second later.
+Until the new lints arrive, the first publish of a version carries the previous version's lint diagnostics, shifted through the edits since and dropped where an edit touched them (done today, above).
 
 ### Completion and the auto-import index
 

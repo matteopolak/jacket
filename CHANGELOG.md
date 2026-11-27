@@ -19,6 +19,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - A typed `[..] Toml_Value` field reads `[[x]]` headers.
 - Sound_Player on macOS counts only the unplayed part of a half-played buffer, so it refills on time.
 - The C-backed `Default_Allocator` refuses a free or resize whose `old_size` exceeds the block, as the x64 heap does.
+- `jailsp` keeps showing lints, moved with the text, while it checks an edit, instead of clearing them.
 - `jailsp` lints the open files of a program in one pass, building its lifetime summaries once.
 - `jailsp` workspace symbols find names a file gained when it changed on disk without a notification.
 - `jailsp` places workspace symbols and fallback completions right while a file is too deeply nested to parse.

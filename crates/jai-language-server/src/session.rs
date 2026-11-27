@@ -133,6 +133,9 @@ pub struct Session {
     entries: RefCell<indexing::EntryMemo>,
     index_counts: std::cell::Cell<indexing::IndexCounts>,
     workspace_diagnostics: RefCell<workspace_diagnostics::WorkspaceDiagnostics>,
+    /// The lints each document's last full publication had, with the text they were for: the
+    /// next compile's publication carries them (see `Session::carried_lints`).
+    pub(crate) published_lints: RefCell<BTreeMap<DocumentUri, (Rc<str>, Vec<jailint::Lint>)>>,
 }
 
 /// The open files, the root file and the module folders of a compile.
@@ -183,6 +186,7 @@ impl Session {
             entries: RefCell::default(),
             index_counts: std::cell::Cell::default(),
             workspace_diagnostics: RefCell::default(),
+            published_lints: RefCell::default(),
         }
     }
 }

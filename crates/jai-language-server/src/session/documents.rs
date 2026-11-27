@@ -53,7 +53,7 @@ impl Session {
                 .unwrap_or_else(|| text.clone());
             self.saved_configs.insert(uri.clone(), saved);
             // Lints computed with the old settings are stale.
-            self.semantic.borrow_mut().forget_lints();
+            self.forget_lints();
             &mut self.lint_configs
         } else {
             &mut self.documents
@@ -146,7 +146,7 @@ impl Session {
         if let Some(config) = self.lint_configs.get(&key) {
             self.saved_configs.insert(key.clone(), config.text.clone());
             self.file_changed(Path::new(key.path()), false);
-            self.semantic.borrow_mut().forget_lints();
+            self.forget_lints();
             self.rebuild();
         }
         Ok(())
@@ -186,7 +186,7 @@ impl Session {
             } else {
                 self.saved_configs.remove(&uri);
             }
-            self.semantic.borrow_mut().forget_lints();
+            self.forget_lints();
         }
         self.file_changed(path, created_or_deleted);
     }
@@ -208,12 +208,13 @@ impl Session {
         }
         if self.lint_configs.remove(uri).is_some() {
             self.saved_configs.remove(uri);
-            self.semantic.borrow_mut().forget_lints();
+            self.forget_lints();
             self.rebuild();
             return Ok(());
         }
         self.documents.remove(uri).ok_or(Error::MissingDocument)?;
         self.call_graphs.borrow_mut().remove(uri);
+        self.published_lints.borrow_mut().remove(uri);
         self.rebuild();
         Ok(())
     }
@@ -408,9 +409,13 @@ impl Session {
             .collect();
         found.extend(self.unreachable_diagnostics(uri));
         if stage == Stage::Full {
-            found.extend(self.lint_diagnostics(uri));
+            found.extend(self.published_lint_diagnostics(uri));
             let others = self.sibling_program_diagnostics(uri)?;
             super::workspace_diagnostics::merge(&mut found, &others);
+        } else {
+            // Until the lints of this text are found, those of the last text stand in where
+            // no edit touched them, so they are not cleared and drawn again on every edit.
+            found.extend(self.carried_lints(uri));
         }
         // After the checks: they run the build metaprograms whose facts say what is reached.
         if self.is_unreached(uri) {

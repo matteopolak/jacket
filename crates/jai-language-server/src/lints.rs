@@ -141,6 +141,62 @@ impl Session {
             .collect()
     }
 
+    /// Drop the lints found and published so far: their settings changed.
+    pub(crate) fn forget_lints(&self) {
+        self.semantic.borrow_mut().forget_lints();
+        self.published_lints.borrow_mut().clear();
+    }
+
+    /// `lint_diagnostics`, remembered with the text they are for, so the publication of the
+    /// next edit's compile can show them until its own lints are found (`carried_lints`).
+    /// Nothing is remembered of a pass that was stopped.
+    pub(crate) fn published_lint_diagnostics(&self, uri: &DocumentUri) -> Vec<Diagnostic> {
+        let lints = self.lints(uri);
+        if let Ok((key, doc)) = self.document_entry(uri)
+            && !jaic::interrupt::fired()
+        {
+            let found = (std::rc::Rc::from(doc.text.as_str()), lints.clone());
+            self.published_lints.borrow_mut().insert(key.clone(), found);
+        }
+        lints
+            .iter()
+            .filter_map(|l| self.lint_diagnostic(uri, l))
+            .collect()
+    }
+
+    /// The lints last published for `uri`, moved to where they are in its text now. A lint an
+    /// edit touched since is left out: the lints of the text now will say whether it stays.
+    pub(crate) fn carried_lints(&self, uri: &DocumentUri) -> Vec<Diagnostic> {
+        let Ok((key, doc)) = self.document_entry(uri) else {
+            return Vec::new();
+        };
+        let published = self.published_lints.borrow();
+        let Some((text, lints)) = published.get(key) else {
+            return Vec::new();
+        };
+        let shift = crate::semantic::Shift::between(text.as_bytes(), doc.text.as_bytes());
+        let now: std::sync::Arc<str> = doc.text.as_str().into();
+        let moved = |label: &mut jailint::SecondaryLabel| {
+            if label.path != uri.path() {
+                return Some(());
+            }
+            (label.start, label.end) = shift.to_new_range(label.start, label.end)?;
+            label.text = now.clone();
+            Some(())
+        };
+        lints
+            .iter()
+            .filter_map(|l| {
+                let mut l = l.clone();
+                (l.start, l.end) = shift.to_new_range(l.start, l.end)?;
+                for label in &mut l.secondary {
+                    moved(label)?;
+                }
+                self.lint_diagnostic(uri, &l)
+            })
+            .collect()
+    }
+
     fn edits(&self, uri: &DocumentUri, fix: &jailint::Fix) -> Option<Vec<TextEdit>> {
         fix.edits
             .iter()
