@@ -20,7 +20,10 @@ reader_create_channel_os_specific :: (name: string, bytes: s64) -> (success: boo
     }
 
     wide, converted, _length := Utf8.utf8_to_wide(name);
-    if !converted return false, .{};
+    if !converted {
+        log_create_failure("utf8_to_wide", 0);
+        return false, .{};
+    }
 
     defer free(wide);
     extent_bits := cast(u64) bytes;
@@ -28,13 +31,27 @@ reader_create_channel_os_specific :: (name: string, bytes: s64) -> (success: boo
     clear_last_error(0);
     mapping = W.CreateFileMappingW(W.INVALID_HANDLE_VALUE, null, W.PAGE_READWRITE,
                                   cast,trunc(u32) (extent_bits >> 32), cast,trunc(u32) extent_bits, wide);
-    if !mapping || cast(u32) W.GetLastError() == W.ERROR_ALREADY_EXISTS return false, .{};
+    code := cast(u32) W.GetLastError();
+
+    // A taken name is the caller's to handle; anything else is the system refusing.
+    if !mapping {
+        log_create_failure("CreateFileMappingW", code);
+        return false, .{};
+    }
+
+    if code == W.ERROR_ALREADY_EXISTS return false, .{};
 
     view = W.MapViewOfFile(mapping, W.FILE_MAP_ALL_ACCESS, 0, 0, 0);
-    if !view return false, .{};
+    if !view {
+        log_create_failure("MapViewOfFile", cast(u32) W.GetLastError());
+        return false, .{};
+    }
 
     extent := mapped_extent(view);
-    if extent < bytes return false, .{};
+    if extent < bytes {
+        log_create_failure("VirtualQuery", cast(u32) W.GetLastError());
+        return false, .{};
+    }
 
     memset(view, 0, bytes);
     header := cast(*Header) view;
@@ -154,6 +171,10 @@ kernel32 :: #system_library "kernel32"; @native(external)
 clear_last_error :: (code: u32) #foreign kernel32 "SetLastError";
 
 pending_cleanup: *Registration;
+
+log_create_failure :: (call: string, code: u32) {
+    context.logger(tprint("shared-memory channel create failed: % (error %)\n", call, code), context.logger_data, Log_Info.{ common_flags = .ERROR });
+}
 
 cleanup_failed_construction :: (record: *Registration) {
     if record.header && W.UnmapViewOfFile(record.header) != 0 record.header = null;
