@@ -58,7 +58,7 @@ jacket run hello.jai
 
 `jacket new app` starts a project. Run `jacket --help` for the rest, or read [jacket](docs/tools/jacket.md).
 
-## What's inside
+## Features
 
 **`jaic`**
 - Builds for 32-bit x86 and ARM, big-endian Linux, WebAssembly, and bare-metal boards down to the 8-bit AVR ([other targets](docs/guides/other-targets.md))
@@ -84,7 +84,7 @@ jacket run hello.jai
 - [Tests](docs/guides/testing.md), [benchmarks](docs/guides/benchmarking.md) and [API docs](docs/tools/jacket-doc.md) with runnable examples
 - Migrates code from older Jai and manages [dependencies](docs/guides/dependencies.md)
 
-[Features](docs/features.md) lists what works and what's missing.
+The [full feature list](docs/features.md) shows what works and what's missing.
 
 ## Contributing
 
