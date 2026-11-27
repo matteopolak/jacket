@@ -716,18 +716,20 @@ def hook_jaifmt(hook: Hook) -> str | None:
 
 
 def hook_jailint(hook: Hook) -> str | None:
-    """The debug jailint cargo builds from this checkout, else an existing one newer than its sources, else any
-    existing one, else PATH. Cargo links this checkout's build into the target directory even when nothing
-    changed, so a shared directory never keeps another checkout's binary under the name."""
+    """The debug jailint cargo builds from this checkout, else (without a build) an existing one newer than its
+    sources, else None. Never another jailint: an older one rejects rules this checkout's `jacket.toml` names.
+    Cargo links this checkout's build into the target directory even when nothing changed, so a shared
+    directory never keeps another checkout's binary under the name."""
     if not hook.no_build and hook.need_cargo("build jailint"):
         hook.say("building jailint")
-        if run_captured(["cargo", "build", "--quiet", "-p", "jailint"])[0] == 0:
+        status, output = run_captured(["cargo", "build", "--quiet", "-p", "jailint"])
+        if status == 0:
             return str(cargo_binary("jailint", "debug"))
-        hook_warn("could not build jailint; using an existing one, which may not be this checkout's")
+        hook.fail("cargo build -p jailint", output)
+        return None
     binaries = [p for p in (cargo_binary("jailint", "release"), cargo_binary("jailint", "debug")) if p.is_file()]
     fresh = [p for p in binaries if not stale(p, *JAILINT_SOURCES)]
-    found = (fresh or binaries or [None])[0]
-    return str(found) if found else shutil.which("jailint")
+    return str(fresh[0]) if fresh else None
 
 
 def check_jai(hook: Hook, jai: list[str]) -> None:
@@ -745,8 +747,9 @@ def check_jai(hook: Hook, jai: list[str]) -> None:
     if not hook.skipped("jailint"):
         jailint = hook_jailint(hook)
         if jailint is None:
-            hook_warn("jailint not found (cargo build -p jailint, see "
-                      "docs/tools/development.md#pre-commit-hook); skipping the Jai lint check")
+            if not hook.failed:
+                hook_warn("no jailint built from this checkout's sources (cargo build -p jailint, see "
+                          "docs/tools/development.md#pre-commit-hook); skipping the Jai lint check")
             return
         # Linting needs the whole program around a file, so it reads the working tree.
         _, changed = run_captured(["git", "diff", "--name-only", "--", *jai])

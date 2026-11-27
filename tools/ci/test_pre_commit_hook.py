@@ -290,7 +290,7 @@ class PreCommitHookTests(unittest.TestCase):
         result = self.commit()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("no jaifmt built", result.stderr)
-        self.assertIn("jailint not found", result.stderr)
+        self.assertIn("no jailint built from this checkout", result.stderr)
 
     def without_cargo(self):
         """Only the commands the hook needs on PATH, so no cargo or rustfmt."""
