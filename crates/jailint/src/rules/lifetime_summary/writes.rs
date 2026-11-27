@@ -40,12 +40,44 @@ impl Resolver<'_> {
         let mut unknown_write = HashSet::default();
         let mut escapes = HashSet::default();
         let live = returning_blocks(body, all, self.targets);
-        for event in body
+        let mut block_writes: Vec<Vec<(Effect, Vec<jaic::source::Span>)>> =
+            vec![Vec::new(); body.blocks.len()];
+        for (at, event) in body
             .blocks
             .iter()
             .enumerate()
             .filter(|(i, _)| live.contains(*i))
-            .flat_map(|(_, b)| &b.events)
+            .flat_map(|(i, b)| b.events.iter().map(move |e| (i, e)))
+        {
+            let before = writes.len();
+            self.write_event(event, all, &mut writes, &mut unknown_write, &mut escapes);
+            block_writes[at].extend(writes[before..].iter().cloned());
+        }
+        let overwrites = writes
+            .iter()
+            .map(|(effect, _)| effect)
+            .filter(|effect| effect.kind == Kind::Write && effect.exported())
+            .filter(|effect| super::flow::guaranteed(body, &block_writes, effect).is_some())
+            .map(|effect| effect.target.clone())
+            .collect();
+        let retains = self.infer_retains(all, &writes, &unknown_write);
+        Writes {
+            effects: writes,
+            unknown: unknown_write,
+            escapes,
+            retains,
+            overwrites,
+        }
+    }
+
+    fn write_event(
+        &mut self,
+        event: &Event,
+        all: &HashMap<ProcId, Summary>,
+        writes: &mut Vec<(Effect, Vec<jaic::source::Span>)>,
+        unknown_write: &mut HashSet<usize>,
+        escapes: &mut HashSet<usize>,
+    ) {
         {
             match event {
                 Event::Initialize {
@@ -177,13 +209,6 @@ impl Resolver<'_> {
                 _ => {}
             }
         }
-        let retains = self.infer_retains(all, &writes, &unknown_write);
-        Writes {
-            effects: writes,
-            unknown: unknown_write,
-            escapes,
-            retains,
-        }
     }
 }
 
@@ -225,6 +250,7 @@ impl super::Summaries {
                         unknown: unknown_write,
                         escapes,
                         retains,
+                        overwrites,
                     } = resolver.infer_writes(&self.procs);
                     let summary = self.procs.get_mut(id).unwrap();
                     let previous = summary.unknown_write.len() + summary.escapes.len();
@@ -236,6 +262,8 @@ impl super::Summaries {
                     changed |= before != summary.may.len();
                     changed |= summary.retains != retains;
                     summary.retains = retains;
+                    changed |= summary.overwrites != overwrites;
+                    summary.overwrites = overwrites;
                     for (effect, witness) in writes {
                         if matches!(effect.target.root, Root::Parameter(p) if effect.kind == Kind::Write && summary.unknown_write.contains(&p))
                         {

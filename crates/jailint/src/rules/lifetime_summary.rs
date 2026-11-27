@@ -149,6 +149,8 @@ pub(super) struct Summary {
     pub elements: HashMap<usize, (Path, Selector)>,
     /// Fields of parameters that every normal return leaves holding another parameter.
     pub retains: HashMap<Path, usize>,
+    /// Places of parameters this body writes on every path that returns normally.
+    pub overwrites: HashSet<Path>,
 }
 
 impl Summary {
@@ -749,6 +751,8 @@ struct Writes {
     unknown: HashSet<usize>,
     escapes: HashSet<usize>,
     retains: HashMap<Path, usize>,
+    /// Places written on every path that returns normally.
+    overwrites: HashSet<Path>,
 }
 
 fn insert(map: &mut HashMap<Effect, Vec<Span>>, effect: Effect, chain: Vec<Span>) -> bool {

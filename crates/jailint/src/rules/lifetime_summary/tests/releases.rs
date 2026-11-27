@@ -62,6 +62,7 @@ fn bodies_release_what_their_argument_owns() {
         rel_via :: (h: *Holder) { rel_name(h); }
         rel_allocator :: (h: *Holder) { h.allocator.proc(.FREE, 0, 0, h.ptr, h.allocator.data); }
         rel_conditional :: (h: *Holder, c: bool) { if c free(h.name); }
+        rel_maybe_reset :: (h: *Holder, c: bool) { free(h.name); if c h.name = ""; }
         rel_temp :: (h: *Holder) { t := copy_string("x"); free(t); }
         rel_whole :: (h: *Holder) { free(h); }
         main :: () {}
@@ -99,6 +100,11 @@ fn bodies_release_what_their_argument_owns() {
     );
     let (fields, reset) = contents(&c, &all, "rel_both").unwrap();
     assert!(reset && fields.len() == 2, "{fields:?}");
+    // Written over on only some paths: the argument may still hold the released storage.
+    assert_eq!(
+        contents(&c, &all, "rel_maybe_reset"),
+        Some((strings(&["name.data"]), false))
+    );
     // Not on every path, or not the argument's: nothing to rely on.
     assert_eq!(contents(&c, &all, "rel_conditional"), None);
     assert_eq!(contents(&c, &all, "rel_temp"), None);

@@ -14,7 +14,8 @@ pub(in crate::rules) struct Contents {
     /// names down to the freed pointer (`[bar, data]` for `free(a.bar.data)`), or `None` when
     /// the freed storage is reached some other way (through a pointer argument, an element).
     pub fields: Option<Vec<Vec<Sym>>>,
-    /// The call also writes over every place it freed, so the argument is usable again.
+    /// The call also writes over every place it freed on every path, so the argument is usable
+    /// again.
     pub reset: bool,
 }
 
@@ -64,10 +65,8 @@ impl Summary {
             }
         }
         let written: Vec<&Path> = self
-            .may
-            .keys()
-            .filter(|e| e.kind == Kind::Write && e.guard.is_none())
-            .map(|e| &e.target)
+            .overwrites
+            .iter()
             .filter(|p| p.root == Root::Parameter(formal))
             .collect();
         let reset = freed
