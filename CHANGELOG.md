@@ -22,6 +22,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - `jacket doc -- -os X` no longer changes the check of which modules build for wasm.
 - `jacket test` deletes dependency-store entries unused for 30 days.
 - A compile-fail `.stderr` writes files under an `-import_dir` as `$IMPORT1/...`, not as absolute paths.
+- Compile-time code for 32-bit targets stores a pointer in a local without overwriting the next member.
 
 ## [0.40.0] - 2026-11-24
 

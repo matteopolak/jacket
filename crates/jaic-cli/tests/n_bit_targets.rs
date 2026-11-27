@@ -293,3 +293,18 @@ fn a_string_builder_is_sized_by_the_pointer_width() {
         );
     }
 }
+
+/// A pointer written to a stack slot is as wide as the target's, so it leaves the next member
+/// alone on a 4-byte-pointer target.
+#[test]
+fn a_pointer_stored_in_a_frame_slot_has_the_targets_width() {
+    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/compiler/targets/frame-pointer-width.jai");
+    for target in [
+        "i686-unknown-linux-gnu",
+        "armv7-unknown-linux-gnueabihf",
+        "wasm32-wasi",
+    ] {
+        assert_eq!(run(target, &source), "aabbccdd true\n", "{target}");
+    }
+}
