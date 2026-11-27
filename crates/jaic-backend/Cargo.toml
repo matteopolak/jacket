@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+repository.workspace = true
 description = "The LLVM code generation backend as a shared library that jaic opens when a build writes native code."
 
 [lib]

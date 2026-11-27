@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+repository.workspace = true
 documentation.workspace = true
 description = "The jacket command: one front door to the Jai compiler, linter, formatter and language server."
 

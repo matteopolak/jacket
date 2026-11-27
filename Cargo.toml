@@ -28,7 +28,6 @@ repository = "https://github.com/matteopolak/jacket"
 documentation = "https://jacket.matteopolak.com"
 
 [workspace.dependencies]
-jai-language-server = { path = "crates/jai-language-server" }
 # The one thread pool for CPU-bound fork-join work (`jaic::pool`).
 rayon = "1.10"
 find-msvc-tools = "0.1.12"
