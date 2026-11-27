@@ -217,20 +217,28 @@ fn drive_path(path: &str) -> bool {
     }
 }
 
-/// The sandbox's name for a Windows host path: `C:\x` is `/C:/x` and the share path
-/// `\\server\share\x` is `/UNC/server/share/x`; their `\\?\` forms name the same files.
-/// `None` when `path` is neither.
+/// The sandbox's name for a Windows host path, with `\` or `/` separators: `C:\x` is `/C:/x`,
+/// the share path `\\server\share\x` is `/UNC/server/share/x`, and their `\\?\` forms name the
+/// same files. A device path (`\\.\pipe\x`, `\\?\Volume{...}\x`) is `/DEVICE/...`, which
+/// names no file. `None` when `path` is none of these.
 fn from_windows(path: &str) -> Option<String> {
-    let verbatim = path.strip_prefix(r"\\?\");
-    let rest = verbatim.unwrap_or(path);
-    if drive_path(rest) {
-        return Some(format!("/{}", rest.replace('\\', "/")));
-    }
-    let share = match verbatim {
-        Some(rest) => rest.strip_prefix(r"UNC\")?,
-        None => path.strip_prefix(r"\\")?,
+    let path = path.replace('\\', "/");
+    let Some(rest) = path.strip_prefix("//") else {
+        return drive_path(&path).then(|| format!("/{path}"));
     };
-    Some(format!("/UNC/{}", share.replace('\\', "/")))
+    if let Some(rest) = rest.strip_prefix("?/") {
+        if drive_path(rest) {
+            return Some(format!("/{rest}"));
+        }
+        if let Some(share) = rest.strip_prefix("UNC/") {
+            return Some(format!("/UNC/{share}"));
+        }
+        return Some(format!("/DEVICE/{rest}"));
+    }
+    if let Some(device) = rest.strip_prefix("./") {
+        return Some(format!("/DEVICE/{device}"));
+    }
+    Some(format!("/UNC/{rest}"))
 }
 
 /// The Windows name of the sandbox path `path` when it names a drive's or a share's files: the
@@ -244,6 +252,22 @@ fn to_windows(path: &str) -> Option<String> {
     Some(format!(r"\\{}", share.replace('/', "\\")))
 }
 
+/// How many leading components of the sandbox path `parts` are the root of a Windows host's
+/// file system, which `..` cannot climb out of: a drive (`C:`), a share (`UNC/server/share`)
+/// or a device. None on other hosts.
+fn windows_root(parts: &[&str]) -> usize {
+    if !cfg!(windows) {
+        return 0;
+    }
+    let root = match parts.first() {
+        Some(&"UNC") => 3,
+        Some(&"DEVICE") => 2,
+        Some(first) if drive_path(first) => 1,
+        _ => 0,
+    };
+    root.min(parts.len())
+}
+
 /// The host's name for the sandbox path `path`. The sandbox's paths start at `/`, so on a
 /// Windows host it names a drive's files `/C:/...` and a share's `/UNC/server/share/...`;
 /// elsewhere the two names are the same.
@@ -255,24 +279,31 @@ pub(super) fn host_path(path: &str) -> Cow<'_, Path> {
 }
 
 /// Resolve `path` against `cwd` and drop `.`/`..` components. On a Windows host a path that
-/// starts with a drive or a share is absolute too (see `host_path`).
+/// starts with a drive, a share or a device is absolute too (see `from_windows`), and `..`
+/// stops at its root.
 pub(super) fn absolute(cwd: &str, path: &str) -> String {
-    let full = if path.starts_with('/') {
-        path.to_string()
-    } else if let Some(name) = from_windows(path).filter(|_| cfg!(windows)) {
+    let full = if let Some(name) = from_windows(path).filter(|_| cfg!(windows)) {
         name
+    } else if path.starts_with('/') {
+        path.to_string()
     } else {
         format!("{cwd}/{path}")
     };
+    let all: Vec<&str> = full
+        .split('/')
+        .filter(|part| !part.is_empty() && *part != ".")
+        .collect();
     let mut parts: Vec<&str> = Vec::new();
-    for part in full.split('/') {
-        match part {
-            "" | "." => {}
-            ".." => {
+    let mut floor = 0;
+    for part in all {
+        if part == ".." {
+            if parts.len() > floor {
                 parts.pop();
             }
-            p => parts.push(p),
+            continue;
         }
+        parts.push(part);
+        floor = floor.max(windows_root(&parts));
     }
     format!("/{}", parts.join("/"))
 }

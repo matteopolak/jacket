@@ -1149,6 +1149,18 @@ fn windows_drive_and_share_paths_have_sandbox_names() {
         assert_eq!(from_windows(windows).as_deref(), Some(sandbox), "{windows}");
         assert_eq!(to_windows(sandbox).as_deref(), Some(back), "{sandbox}");
     }
+    assert_eq!(
+        from_windows("//server/share/x").as_deref(),
+        Some("/UNC/server/share/x")
+    );
+    // Device paths get a name of their own that no file has.
+    for (device, name) in [
+        (r"\\.\pipe\x", "/DEVICE/pipe/x"),
+        (r"\\?\Volume{0a}\x", "/DEVICE/Volume{0a}/x"),
+    ] {
+        assert_eq!(from_windows(device).as_deref(), Some(name), "{device}");
+        assert_eq!(to_windows(name), None, "{name}");
+    }
     assert_eq!(from_windows("relative\\name"), None);
     assert_eq!(to_windows("/tmp/x"), None);
 }
@@ -1164,6 +1176,11 @@ fn a_share_working_directory_resolves_relative_paths() {
         absolute(&cwd, "src/main.jai"),
         "/UNC/server/share/project/src/main.jai"
     );
+    // `..` stops at the share, the drive and the device it starts from.
+    assert_eq!(absolute(&cwd, "../../../x"), "/UNC/server/share/x");
+    assert_eq!(absolute("/", r"\\srv\share\..\x"), "/UNC/srv/share/x");
+    assert_eq!(absolute("/", r"C:\..\x"), "/C:/x");
+    assert_eq!(absolute(&cwd, r"\\.\pipe\..\..\x"), "/DEVICE/pipe/x");
     assert_eq!(
         host_path("/UNC/server/share/project/src").as_ref(),
         Path::new(r"\\server\share\project\src")

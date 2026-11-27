@@ -164,13 +164,7 @@ fn put_wide_path(text: &str, out: u64, room: u64) -> u64 {
 impl WindowsCalls {
     /// A Windows path argument, resolved like the C library's.
     fn wide_path(&self, backend: &impl WindowsBackend, ptr: u64) -> String {
-        let raw = wide_string(ptr);
-        // A share's path keeps its leading `\\`, which `absolute` reads as a share.
-        let path = if raw.starts_with(r"\\") {
-            raw
-        } else {
-            crate::paths::to_slash(&raw)
-        };
+        let path = crate::paths::to_slash(&wide_string(ptr));
         absolute(&backend.cwd(), &path)
     }
 
