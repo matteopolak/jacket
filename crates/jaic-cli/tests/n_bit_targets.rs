@@ -351,3 +351,19 @@ fn the_emulated_c_library_writes_records_at_the_targets_layout() {
         );
     }
 }
+
+/// Integers cast to pointers at compile time stay integers in a 32-bit program: its
+/// compile-time memory ends before them, so they are not frozen as addresses.
+#[test]
+fn integer_handles_made_at_compile_time_keep_their_values() {
+    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/compiler/targets/integer-handles.jai");
+    for target in [
+        "x86_64-unknown-linux-gnu",
+        "i686-unknown-linux-gnu",
+        "armv7-unknown-linux-gnueabihf",
+        "wasm32-wasi",
+    ] {
+        assert_eq!(run(target, &source), "true true true true\n", "{target}");
+    }
+}

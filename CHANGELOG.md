@@ -30,6 +30,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - Threads in wasm32 programs no longer trap: the green-thread runtime finds its control record's pointers at 4 bytes.
 - Compile-time `mmap`, `mprotect` and `munmap` work when the compiler runs on Windows.
 - Compile-time code finds its files when the compiler runs from a Windows network share (`\\server\share`).
+- Integers cast to procedures or pointers at compile time, like `SIG_ERR`, keep their values on 32-bit targets.
 
 ## [0.40.0] - 2026-11-24
 

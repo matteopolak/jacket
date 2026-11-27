@@ -108,6 +108,13 @@ impl Window {
         cell.get_or_init(|| Window::new(pointer_size)).clone()
     }
 
+    /// Whether program address `p` can never be memory of this window: below the first offset
+    /// handed out or past the mapped span, where only integers cast to pointers and procedure
+    /// addresses are.
+    pub(crate) fn never_memory(&self, p: u64) -> bool {
+        p < self.first as u64 || p >= self.span as u64
+    }
+
     /// The program's pointer size in bytes.
     pub(crate) fn pointer_size(&self) -> u8 {
         self.pointer_size
