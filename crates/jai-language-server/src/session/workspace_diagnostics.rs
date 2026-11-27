@@ -46,7 +46,9 @@ pub(super) fn not_in_program(text: &str) -> Diagnostic {
         code: DiagnosticCode::NotInProgram,
         message: "No program entry loads or imports this file, so it is not checked as part \
                   of one: names it takes from other files are unknown to it, and its types \
-                  and lints are not checked against the project."
+                  and lints are not checked against the project. To check it, `#load` it from \
+                  an entry, list it in `[project] entry` in jacket.toml, or put it in `tests/` \
+                  as a test program."
             .into(),
         related: Vec::new(),
     }
