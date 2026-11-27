@@ -220,10 +220,7 @@ fn option(
             } else {
                 quote!(::argdef::FromArg::from_arg)
             };
-            let parse = arg
-                .parse
-                .as_ref()
-                .map_or_else(|| default, |path| quote!(#path));
+            let parse = arg.parse.as_ref().map_or(default, |path| quote!(#path));
             let call = quote!(#parse(name, v)?);
             let typed = quote!({ let parsed: #inner = #call; parsed });
             wrap(&typed, ident)
