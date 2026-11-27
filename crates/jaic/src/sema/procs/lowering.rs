@@ -459,7 +459,6 @@ impl Compiler {
         }
         // Missing return: trap at runtime (Jai reports this only for reachable ends).
         self.emit_trap(f, ir::CheckReason::MissingReturn, span)?;
-        f.b.terminate(ir::Term::Unreachable);
         Ok(())
     }
 

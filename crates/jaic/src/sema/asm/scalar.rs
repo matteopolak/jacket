@@ -335,7 +335,6 @@ impl Compiler {
         f.b.branch(cond, bad, ok);
         f.b.switch_to(bad);
         self.emit_trap(f, crate::ir::CheckReason::AsmDivide, span)?;
-        f.b.terminate(crate::ir::Term::Unreachable);
         f.b.switch_to(ok);
         Ok(())
     }

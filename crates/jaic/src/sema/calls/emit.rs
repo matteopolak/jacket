@@ -335,8 +335,7 @@ impl Compiler {
             let ready = f.b.new_block();
             f.b.branch(bad, fail, ready);
             f.b.switch_to(fail);
-            self.emit_check_failed(f, ir::CheckReason::VariadicSize, n, remaining, true, span)?;
-            f.b.jump(ready);
+            self.emit_stopping_check(f, ir::CheckReason::VariadicSize, n, remaining, span)?;
             f.b.switch_to(ready);
             count = f.b.bin(ir::BinOp::Add, Ty::I64, count, n);
             segments.push((args[a].spread, n, source));

@@ -232,15 +232,13 @@ impl Compiler {
                 let ready = f.b.new_block();
                 f.b.branch(bad, fail, ready);
                 f.b.switch_to(fail);
-                self.emit_check_failed(
+                self.emit_stopping_check(
                     f,
                     ir::CheckReason::AtomicAlignment,
                     address,
                     required,
-                    true,
                     span,
                 )?;
-                f.b.jump(ready);
                 f.b.switch_to(ready);
             }
             values.push(f.b.iconst(Ty::I64, width));

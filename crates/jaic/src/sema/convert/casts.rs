@@ -93,18 +93,18 @@ impl Compiler {
                 };
                 f.b.conv(widen, t, Ty::I64, x)
             };
-            let code =
+            let bits =
                 ir::cast_check_code(u64::from(tbits / 8), tsigned, ssigned, u64::from(sbits / 8));
-            let code = f.b.iconst(Ty::I64, code);
-            self.emit_check_failed(
-                f,
-                ir::CheckReason::CastOverflow,
-                value,
-                code,
-                mode == 2,
-                span,
-            )?;
-            f.b.jump(cont);
+            let code = f.b.iconst(Ty::I64, bits);
+            let fatal = mode == 2;
+            self.emit_check_failed(f, ir::CheckReason::CastOverflow, value, code, fatal, span)?;
+            // A warning goes on, and so does a cast between `s64` and `u64` run at compile time,
+            // which only reinterprets the bits; any other fatal failure stops here.
+            if fatal && !ir::cast_check_is_64_bit_sign_change(bits) {
+                f.b.terminate(ir::Term::Unreachable);
+            } else {
+                f.b.jump(cont);
+            }
             f.b.switch_to(cont);
         }
         Ok(Operand::Value {

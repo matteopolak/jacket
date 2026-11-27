@@ -402,8 +402,7 @@ impl Compiler {
             f.b.conv(op, t, Ty::I64, val)
         };
         let zero = f.b.iconst(Ty::I64, 0);
-        self.emit_check_failed(f, ir::CheckReason::SwitchUnmatched, wide, zero, true, span)?;
-        f.b.terminate(ir::Term::Unreachable);
+        self.emit_stopping_check(f, ir::CheckReason::SwitchUnmatched, wide, zero, span)?;
         f.b.switch_to(here);
         Ok(Some(fail))
     }

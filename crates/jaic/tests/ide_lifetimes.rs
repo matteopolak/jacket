@@ -640,3 +640,30 @@ fn aggregate_ifx_keeps_shared_stack_slot_identity_after_ir_release() {
             .any(|b| a != b && canonical(*a) == canonical(*b))
     }));
 }
+
+#[test]
+fn a_failed_check_that_stops_the_program_ends_its_path() {
+    let c = compile(
+        r"
+spread :: (values: ..int) {}
+narrow :: (x: int) -> u8 { return cast(u8) x; }
+pack :: (xs: [] int) { spread(1, ..xs); }
+main :: () { narrow(1); pack(.[2]); }
+",
+        true,
+        false,
+    );
+    // `pack` checks each of its two segments against the room left in the pack.
+    for (name, checks) in [("narrow", 1), ("pack", 2)] {
+        let body = bodies(&c)
+            .find(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == name)
+            .unwrap();
+        // The failure's own block: it neither returns nor goes on to the code after the check.
+        let stops = body
+            .blocks
+            .iter()
+            .filter(|b| b.successors.is_empty() && !b.normal_return)
+            .count();
+        assert_eq!(stops, checks, "{name}: {:?}", body.blocks);
+    }
+}
