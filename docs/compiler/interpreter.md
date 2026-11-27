@@ -15,7 +15,7 @@ Arguments between `-` and `--` go to a metaprogram. The program runs in the main
 - `Interp::set_host` attaches the window to any host, so `SandboxHost` and a native host see the same addresses. `host_addr`/`program_addr` convert; loads and stores add the base.
 - Procedure values are `0xE000_0000 | id` (interpreted) and `0xF000_0000 | id` (foreign), outside the heap.
 - Data the compiler hands to compile-time code (syntax strings, `Compiler` records) must live in the window: use `keep_narrow`, `zeroed_block` and `Interp::keep`, not host allocations.
-- Byte-swapping ops come with the big-endian milestone.
+- A big-endian program's loads, stores and atomics are swapped. Which helper moves which value is in [interpreter memory model](interpreter-memory-model.md).
 
 ## How it works
 
