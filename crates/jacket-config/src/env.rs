@@ -235,7 +235,7 @@ vars! {
     }
     CHECK_TIME_LIMIT {
         name: "JACKET_CHECK_TIME_LIMIT", group: Settings, readers: [Jailint, Jailsp],
-        default: "10 seconds",
+        default: "10 seconds for jailsp; none for jailint",
         summary: "Seconds one program check may take when the linter or language server runs compile-time code (`0`: no limit). CI sets it to `0`.",
     }
     TEST_DEPS_DIR {

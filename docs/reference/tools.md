@@ -442,7 +442,7 @@ jacket test [OPTIONS] [FILTER]... [-- <FLAGS>...]
 | `--profile <NAME>` | Use `[test.profile.NAME]` from jacket.toml |
 | `--path <DIR>` | Test the `tests/` of these folders instead of the project's |
 | `--doc` | Run only the doc tests: the `jai` code blocks in a library's doc comments |
-| `--check-only` | Only type-check the doc examples, without building or running them: with `--os`, the examples for that target from any machine |
+| `--check-only` | Only type-check the tests and doc examples, without building or running them: with `--os`, those for that target from any machine |
 | `--no-doc` | Leave the doc tests out |
 | `--keep-temp` | Keep every test's temporary folder (failed tests keep theirs anyway) |
 | `--accept` | Write what golden and compile-fail tests printed into their expected files, and keep the snapshots that differ or are new |
@@ -509,7 +509,7 @@ jacket bench [OPTIONS] [FILTER]... [-- <FLAGS>...]
 | `--profile <NAME>` | Use `[test.profile.NAME]` from jacket.toml |
 | `--path <DIR>` | Test the `tests/` of these folders instead of the project's |
 | `--doc` | Run only the doc tests: the `jai` code blocks in a library's doc comments |
-| `--check-only` | Only type-check the doc examples, without building or running them: with `--os`, the examples for that target from any machine |
+| `--check-only` | Only type-check the tests and doc examples, without building or running them: with `--os`, those for that target from any machine |
 | `--no-doc` | Leave the doc tests out |
 | `--keep-temp` | Keep every test's temporary folder (failed tests keep theirs anyway) |
 | `--accept` | Write what golden and compile-fail tests printed into their expected files, and keep the snapshots that differ or are new |
