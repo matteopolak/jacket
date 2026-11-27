@@ -86,21 +86,30 @@ impl Interp {
         Some(result.map(|value| vec![value]))
     }
 
+    /// The program's command line as UTF-16 text in program memory, made once: null when
+    /// memory is out.
     fn run_command_line(&mut self) -> u64 {
-        *self.run_command_line.get_or_insert_with(|| {
-            // An omitted argv vector means no caller-supplied arguments. Windows
-            // still has an executable name; an empty command line would make
-            // Shell32 return the compiler's real path instead of the program's.
-            // Supplied argv (including explicit empty strings) stays unchanged.
-            let arguments = if self.run_arguments.is_empty() {
-                self.run_executable.as_slice()
-            } else {
-                &self.run_arguments
-            };
-            let mut wide: Vec<u16> = windows_command_line(arguments).encode_utf16().collect();
-            wide.push(0);
-            Box::leak(wide.into_boxed_slice()).as_ptr() as u64
-        })
+        if let Some(address) = self.run_command_line {
+            return address;
+        }
+        // An omitted argv vector means no caller-supplied arguments. Windows
+        // still has an executable name; an empty command line would make
+        // Shell32 return the compiler's real path instead of the program's.
+        // Supplied argv (including explicit empty strings) stays unchanged.
+        let arguments = if self.run_arguments.is_empty() {
+            self.run_executable.as_slice()
+        } else {
+            &self.run_arguments
+        };
+        let mut wide: Vec<u16> = windows_command_line(arguments).encode_utf16().collect();
+        wide.push(0);
+        let mut bytes = vec![0u8; wide.len() * 2];
+        for (unit, slot) in wide.iter().zip(bytes.chunks_mut(2)) {
+            self.layout.write_uint(slot, u64::from(*unit));
+        }
+        let address = self.keep(&bytes, 2).unwrap_or(0);
+        self.run_command_line = Some(address);
+        address
     }
 
     fn write_bytes(&self, address: u64, bytes: &[u8]) -> Res<()> {
@@ -196,6 +205,22 @@ mod tests {
             wide_text(&interp, address),
             r#""C:\program files\雪\probe.exe""#
         );
+    }
+
+    /// A program with 4-byte pointers gets its command line in its own memory: an address in
+    /// its window, not the host's.
+    #[test]
+    fn the_command_line_of_a_32_bit_program_is_in_its_memory() {
+        use crate::target::{Target, TargetCpu, TargetOs};
+        let layout = Target::new(TargetOs::Windows, TargetCpu::X86).data_layout();
+        let mut interp = Interp::native(layout);
+        interp.run_executable = Some(r"C:\probe.exe".into());
+        let address = interp
+            .executable_path_foreign("GetCommandLineW", &[])
+            .unwrap()
+            .unwrap()[0];
+        assert!(address != 0 && address < 1 << 32, "{address:#x}");
+        assert_eq!(wide_text(&interp, address), r"C:\probe.exe");
     }
 
     #[test]

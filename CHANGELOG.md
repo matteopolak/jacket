@@ -31,6 +31,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - Compile-time `mmap`, `mprotect` and `munmap` work when the compiler runs on Windows.
 - Compile-time code finds its files when the compiler runs from a Windows network share (`\\server\share`).
 - Integers cast to procedures or pointers at compile time, like `SIG_ERR`, keep their values on 32-bit targets.
+- `GetCommandLineW` in compile-time code for 32-bit Windows programs returns an address in the program's memory.
 
 ## [0.40.0] - 2026-11-24
 
