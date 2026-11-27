@@ -70,6 +70,110 @@ const KEEPS_MEMORY_SYMBOLS: &[&str] = &[
     "exp",
 ];
 
+/// C library procedures whose arguments, results and effects mean the same in the Linux and
+/// macOS C libraries: memory, strings, numbers, process exit, descriptor reads and writes,
+/// `FILE*` streams (opaque handles, standard mode strings, `SEEK_*` 0 to 2, 64-bit `off_t`) and
+/// path calls that take only paths, `mkdir`'s permission bits or `access`'s `F_OK` family.
+/// Their failures show only through `errno`, which is each library's own and not here.
+/// Compile-time code built for one of the two may call these natively on a host with the other.
+const SAME_IN_EVERY_C_LIBRARY: &[&str] = &[
+    "fopen",
+    "fclose",
+    "fread",
+    "fwrite",
+    "fflush",
+    "fseeko",
+    "ftello",
+    "fseek",
+    "ftell",
+    "ferror",
+    "feof",
+    "realpath",
+    "getcwd",
+    "chdir",
+    "access",
+    "mkdir",
+    "rmdir",
+    "unlink",
+    "rename",
+    "link",
+    "malloc",
+    "calloc",
+    "realloc",
+    "free",
+    "posix_memalign",
+    "aligned_alloc",
+    "memcpy",
+    "memmove",
+    "memset",
+    "memcmp",
+    "memchr",
+    "strlen",
+    "strcmp",
+    "strncmp",
+    "strchr",
+    "strrchr",
+    "strstr",
+    "strcpy",
+    "strncpy",
+    "strtod",
+    "strtof",
+    "strtol",
+    "strtoll",
+    "strtoul",
+    "strtoull",
+    "atof",
+    "atoi",
+    "atol",
+    "atoll",
+    "getenv",
+    "read",
+    "write",
+    "close",
+    "isatty",
+    "exit",
+    "_exit",
+    "abort",
+    "abs",
+    "labs",
+    "sqrt",
+    "sqrtf",
+    "sin",
+    "sinf",
+    "cos",
+    "cosf",
+    "tan",
+    "tanf",
+    "atan2",
+    "atan2f",
+    "pow",
+    "powf",
+    "floor",
+    "ceil",
+    "fmod",
+    "log",
+    "exp",
+];
+
+/// The C library a foreign procedure of `program` comes from differs from the one the
+/// compiler runs on: the C library of a Linux program on a macOS host, or the reverse, or
+/// either on a Windows host. Their symbols, records (`struct stat`), flags (`O_CREAT`) and
+/// `errno` numbers differ, so only `SAME_IN_EVERY_C_LIBRARY` may be called natively. Other
+/// libraries keep their native lookup, which names a library the host lacks. Windows targets
+/// reach their system API through `windows_native` instead.
+fn foreign_c_library(program: &Program, foreign: &ir::Foreign) -> bool {
+    use crate::target::TargetOs;
+    let c_library = foreign.library.is_some_and(|library| {
+        let library = &program.libraries[library];
+        native::is_c_library(&library.name, library.system)
+    });
+    let posix = matches!(program.target_os, Some(TargetOs::Linux | TargetOs::MacOS));
+    c_library
+        && posix
+        && program.target_os != Some(crate::sema::compiler_host().0)
+        && !SAME_IN_EVERY_C_LIBRARY.contains(&foreign.symbol.as_str())
+}
+
 /// Is this a Linux `syscall(number, ...)` that never releases memory? `io_uring_enter` (426, the
 /// same on every CPU with `io_uring`) runs once per scheduler poll in `Extensions/Io`, and the
 /// completion-ring atomics after it would otherwise ask about their pages again, which means
@@ -208,6 +312,11 @@ impl Interp {
             return Ok(a);
         }
         let foreign = &program.foreigns[id.0 as usize];
+        // Checked where the address is resolved, so a call through a procedure pointer (a
+        // variadic `..Any` foreign procedure, say) is refused as a direct call is.
+        if self.compile_time && self.host.native_linking() && foreign_c_library(program, foreign) {
+            return self.foreign_c_library_trap(program, id);
+        }
         let counted = (self.host.native_linking() && !foreign.is_data)
             .then(|| crate::memory_limit::foreign_override(&foreign.symbol))
             .flatten();
@@ -405,7 +514,7 @@ impl Interp {
         // Sandbox hosts answer above; only trusted native compile-time evaluation uses
         // real host files. Runtime and native Windows calls retain their normal dispatch.
         if self.compile_time
-            && program.windows_target
+            && program.target_os == Some(crate::target::TargetOs::Windows)
             && !cfg!(windows)
             && self.host.native_linking()
             && let Some(result) = sandbox::guest::with_memory(self.base, self.layout, || {
@@ -498,6 +607,31 @@ impl Interp {
             native::main_thread::disable();
         }
         Ok(result)
+    }
+
+    /// Compile-time code called a procedure of the target's C library, which the host's does
+    /// not implement the same way (`foreign_c_library`).
+    #[cold]
+    fn foreign_c_library_trap(&mut self, program: &Program, id: ForeignId) -> Res<u64> {
+        let name = |os| match os {
+            crate::target::TargetOs::MacOS => "macOS",
+            crate::target::TargetOs::Windows => "Windows",
+            _ => "Linux",
+        };
+        let foreign = &program.foreigns[id.0 as usize];
+        let library = foreign
+            .library
+            .map_or("", |library| program.libraries[library].name.as_str());
+        let message = format!(
+            "compile-time code built for {} calls `{}` of `{library}`, which the C library of \
+             this {} host does not provide the same way",
+            program.target_os.map_or("Linux", name),
+            foreign.symbol,
+            name(crate::sema::compiler_host().0),
+        );
+        let mut trap = self.trap::<()>(message).unwrap_err();
+        trap.kind = Some(TrapKind::Unavailable);
+        Err(trap)
     }
 
     /// The call plan of foreign procedure `id` (resolved to `addr`), made on its first call.

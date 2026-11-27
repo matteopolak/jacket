@@ -151,8 +151,10 @@ impl Compiler {
     }
 
     /// Make the twin: bootstrap modules and the program's declarations in a compiler with the
-    /// host `OS` and `CPU`. Top-level code is not settled and no body is lowered.
-    fn build_twin(&mut self) -> Result<Box<Compiler>> {
+    /// host `OS` and `CPU`. Top-level code is not settled and no body is lowered, but an
+    /// `#insert #run` among the declarations runs. Fails with whether compile-time code trapped
+    /// on the way: then the error is the program's own.
+    fn build_twin(&mut self) -> std::result::Result<Box<Compiler>, (Box<Diagnostic>, bool)> {
         let host = self.options.host;
         let (os, cpu) = (host.os, host.cpu);
         let mut options: Options = self.options.clone();
@@ -171,11 +173,12 @@ impl Compiler {
         let provider = match &workspaces {
             Some(shared) => crate::build::host_provider(shared, os),
             None => self.ct.interp.host.isolated_host().ok_or_else(|| {
-                Box::new(Diagnostic::new(
+                let reason = Diagnostic::new(
                     Code::RunHostUnsupported,
                     Span::NONE,
                     "this compiler host provides no host interpreter",
-                ))
+                );
+                (Box::new(reason), false)
             })?,
         };
         twin.ct.interp = crate::interp::Interp::new(provider, layout).into();
@@ -184,10 +187,14 @@ impl Compiler {
             twin.attach_workspaces(shared);
         }
         let sources = self.src.program_sources.clone();
-        twin.prepare_sources(&sources)?;
-        twin.expand_all()?;
-        twin.apply_pokes()?;
-        Ok(twin)
+        let loaded = twin
+            .prepare_sources(&sources)
+            .and_then(|()| twin.expand_all())
+            .and_then(|()| twin.apply_pokes());
+        match loaded {
+            Ok(()) => Ok(twin),
+            Err(reason) => Err((reason, twin.ct.traps != 0)),
+        }
     }
 
     /// Run a plain `#run` in the twin. `None`: this run stays on the target compiler (not a
@@ -213,7 +220,13 @@ impl Compiler {
             Some(twin) => twin,
             None => match self.build_twin() {
                 Ok(twin) => twin,
-                Err(reason) => {
+                // Compile-time code of the program failed on the host, where a cross build runs
+                // it. Running it again on the target would repeat what it did before failing.
+                Err((reason, true)) => {
+                    self.ct.twin.unavailable = true;
+                    return Err(reason);
+                }
+                Err((reason, false)) => {
                     if jacket_config::env::HOST_TWIN_DEBUG.os().is_some() {
                         eprintln!("jaic: no host twin: {}", self.render(&reason));
                     }

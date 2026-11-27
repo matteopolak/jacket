@@ -254,12 +254,18 @@ pub fn memory_only_syscall(args: &[u64]) -> bool {
     }
 }
 
+/// Whether the library a program names `name` is the C library (with its math, thread and
+/// loader parts), which every Unix process already has loaded.
+pub(super) fn is_c_library(name: &str, system: bool) -> bool {
+    system && matches!(name, "c" | "libc" | "m" | "libm" | "pthread" | "dl")
+}
+
 impl Library {
     /// Open a library by Jai name (`"c"`, `"SDL2"`, `"libs/foo"`...).
     #[cfg(unix)]
     pub fn open(name: &str, system: bool, base_dir: &str) -> Option<Library> {
         use std::ffi::CString;
-        if system && matches!(name, "c" | "libc" | "m" | "libm" | "pthread" | "dl") {
+        if is_c_library(name, system) {
             return Some(Library {
                 handle: sys::RTLD_DEFAULT as usize,
             });

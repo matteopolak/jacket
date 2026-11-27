@@ -48,6 +48,13 @@ To add a call: add a member to the API's enum in `sandbox/symbols.rs` (one place
 
 `#run` runs on the compiling machine whatever `-os` says. In a cross build, plain `#run` is evaluated by a second compiler with the host `OS` and `CPU` (the host twin) and the results are converted for the target ([compile-time host execution](compile-time-host-execution.md)).
 
+Compile-time code that stays on the target compiler was built against the target's system API, and native calls have to match it:
+
+- **Windows target on another host**: Win32 file, time and memory calls are answered over real host files (`windows_native.rs`, sharing `windows.rs` with the sandbox).
+- **Linux target on a macOS host, macOS target on a Linux host, either on Windows**: the C libraries differ in symbols (`realpath$DARWIN_EXTSN`), records (`struct stat`), flags (`O_CREAT` is `0x40` on Linux and `0x200` on macOS), `errno` numbers and system call numbers. `foreign_addr` refuses to resolve a procedure of the C library (`c`, `libc`, `m`, `pthread`, `dl`) for such a target (`foreign_c_library` in `foreign.rs`), with an `unavailable` error naming the call. Only procedures in `SAME_IN_EVERY_C_LIBRARY` (allocation, memory and string functions, number parsing, math, `read`/`write`/`close`, `FILE*` streams, path calls such as `mkdir` and `rename`, `getenv`, exit) resolve natively; `stat`, `opendir`, `open`, `syscall` and the rest are refused. Other libraries (libclang, a framework, a program's own `#library`) keep their native lookup.
+
+To make more calls work there, answer them in the target's ABI over host files, as `windows_native.rs` does for Win32; never rename a symbol to the host's, since the records and constants behind it differ.
+
 ### Native foreign calls
 
 Every call in `native.rs` goes through one C prototype with 8 integer and 8 `double` register arguments plus 16 stack slots. Arguments are classified with `jaic::abi` (shared with `jaic-llvm`).

@@ -23,7 +23,7 @@ target Compiler                          host twin Compiler (host OS/CPU)
   import_host_result  <---Operand::Const---  results read back in host layout
 ```
 
-- **Created on demand** by the first plain `#run` of a cross build (`host_twin.rs`). It loads bootstrap modules and the program sources the target was given.
+- **Created on demand** by the first plain `#run` of a cross build (`host_twin.rs`). It loads bootstrap modules and the program sources the target was given. Loading runs the program's top-level `#insert #run`s. If one of them fails, that error is the program's: the target compiler does not run the code again. A load that fails before any compile-time code traps means the program does not load on the host, and runs stay on the target.
 - **Where it applies**: `check_run` and the `#run` arm of `eval_const_all`. A run stays on the target compiler when any loaded source mentions `#no_reset`, when its text names `compiler_set_type_info_flags`, `add_data_segment`, `add_global_data`, `get_runtime_info` or `get_type_table`, or when the twin reaches one of those operations while running. In that last case the twin is dropped and every later run stays on the target.
 - **Scope mapping**: a run is evaluated in the twin's scope for the same file, matched by canonical path and module instance.
 - **Shared state**: both compilers share the workspace registry, so `add_build_string`, `compiler_wait_for_message` and friends act on the real workspaces. They also share one append-only source table, so a `FileId` or `Span` means the same file in both.
@@ -38,6 +38,7 @@ target Compiler                          host twin Compiler (host OS/CPU)
 
 - Code that inspects the target program through the interpreter (`Type_Info` of target types, `Code` values, `#modify`, `#insert` of `Code`) is not moved; it runs on the target compiler.
 - `#assert`, `#if` and constant folding without `#run` run on the target, so `size_of` and `OS` there describe the target.
+- A run that stays on the target and calls the target's C library on a host with another one (Linux and macOS) fails with `unavailable`, except for calls every C library makes the same way ([interpreter](interpreter.md#compile-time-code-for-another-target)).
 - `Code`-valued results, procedures without a file-level declaration, and results with differing layouts are errors.
 
 ## How to change it

@@ -306,6 +306,27 @@ fn a_run_naming_a_member_only_the_target_exports_is_checked_on_the_target() {
 }
 
 #[test]
+fn an_error_reported_while_the_host_twin_loads_is_the_native_builds_error() {
+    let check = |target: &[&str]| {
+        let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
+            .arg(host_run_fixture("cross-target-load-time-report.jai"))
+            .arg("-check")
+            .args(target)
+            .output()
+            .unwrap();
+        assert!(!output.status.success(), "{target:?}");
+        let text = |bytes: &[u8]| String::from_utf8_lossy(bytes).into_owned();
+        (text(&output.stdout), text(&output.stderr))
+    };
+    let native = check(&[]);
+    assert!(native.0.starts_with("generated on "), "{native:?}");
+    for (os, cpu) in foreign_targets() {
+        // The code runs once, on the host, and its report reads as in a native build.
+        assert_eq!(check(&["-os", os, "-cpu", cpu]), native, "{os} {cpu}");
+    }
+}
+
+#[test]
 fn a_target_only_foreign_procedure_is_unavailable_at_compile_time() {
     for (os, cpu) in foreign_targets() {
         let output = Command::new(env!("CARGO_BIN_EXE_jaic"))

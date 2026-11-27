@@ -690,14 +690,13 @@ impl Compiler {
         speculative::init();
         let cross_target = options.is_cross_build();
         let layout = options.layout;
-        let windows_target = options.os == crate::target::TargetOs::Windows;
         let mut c = Compiler {
             pr: ProcState::default(),
             caches: NameCaches::default(),
             ns: Namespaces::default(),
             ty: TypeState::new(layout),
             src: SourceState::new(fs),
-            out: Output::new(cross_target, windows_target),
+            out: Output::new(cross_target, options.os),
             meta: MetaState::default(),
             epochs: Epochs::default(),
             diag: Diagnostics::default(),

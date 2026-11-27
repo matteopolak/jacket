@@ -125,14 +125,20 @@ impl Compiler {
                 .unwrap_or(span);
             let primary = named.unwrap_or(reporter);
             let mut d = Diagnostic::new(Code::MetaprogramReport, primary, message);
-            if named.is_some() && reporter != primary && Some(reporter) != site {
+            let same = |a: Span, b: Span| {
+                self.src.same_file(a.file, b.file) && (a.start, a.end) == (b.start, b.end)
+            };
+            if named.is_some()
+                && !same(reporter, primary)
+                && site.is_none_or(|site| !same(reporter, site))
+            {
                 d = d.with_note(reporter, "reported by the metaprogram here");
             } else if named.is_none() && !path.is_empty() {
                 d = d.with_note(Span::NONE, format!("reported for {path}:{line}:{col}"));
             }
             // (Not when the report is already inside the directive's own line.)
             if let Some(site) = site
-                && !(site.file == primary.file
+                && !(self.src.same_file(site.file, primary.file)
                     && site.start <= primary.start
                     && primary.end <= site.end)
             {
@@ -439,6 +445,18 @@ impl SourceState {
             .sources
             .add(std::path::PathBuf::from(path), text.into());
         self.reported_files.borrow_mut().insert(path.clone(), file);
+    }
+
+    /// Whether `a` and `b` are one file. The host twin shares the source table with the target
+    /// compiler and loads its own copy of each file, so two ids can name the same text: its
+    /// code's locations name its copy, a report's path and the directive the target's.
+    fn same_file(&self, a: FileId, b: FileId) -> bool {
+        a == b
+            || self
+                .sources
+                .try_get(a)
+                .zip(self.sources.try_get(b))
+                .is_some_and(|(a, b)| a.path == b.path)
     }
 
     /// The loaded file at `path`, compared as given and as an absolute path.

@@ -12,6 +12,8 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 ### Fixes
 
 - `reader_create_channel` on Windows logs the call that failed, as it does on Unix.
+- A cross build reports an `#insert #run` error once, from the host, instead of rerunning it for the target.
+- Compile-time code for Linux on macOS, or the reverse, fails clearly instead of calling the wrong C library.
 - `jailint` treats a freed field as usable again only when the call overwrites it on every path.
 - `skip_on(.CHECK)` skips a test under `jacket test --check-only`, for a `#run` that builds and runs a program.
 - `union_read` no longer counts `v.kind == .X` as a check for a member other than the one `X` names.
