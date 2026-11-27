@@ -17,6 +17,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - `jacket test --target TRIPLE` for another machine asks for a runner instead of running the tests on the host.
 - `jailint` lifetime rules scale linearly with procedure size, and `jailsp` keeps finished files when indexing is interrupted (#88, @ctzcs).
 - A `main` with parameters, no body or a non-integer result is reported as such, not as never lowered.
+- `jaic FILE -interp` on a file without `main` now fails with exit 3, like a build.
 - A compile-time `#if` case follows `#through;`, and takes `case;` only when nothing matches (#89, @ElectronPie).
 - `jacket doc -- -os X` no longer changes the check of which modules build for wasm.
 - `jacket test` deletes dependency-store entries unused for 30 days.

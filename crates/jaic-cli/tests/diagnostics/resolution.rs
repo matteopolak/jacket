@@ -509,14 +509,21 @@ fn a_main_that_cannot_be_the_entry_point_is_an_error_in_every_mode() {
             assert!(!text.contains("never lowered"), "{mode} {file}: {text}");
         }
     }
-    let dir = TempDir::new("no-main");
-    let output = jaic_on(&dir, "none.jai", "X :: #run 1;\n", "", &[]);
-    assert_eq!(output.status.code(), Some(3), "{}", stderr(&output));
-    assert!(
-        stderr(&output).contains("has no `main` procedure"),
-        "{}",
-        stderr(&output)
-    );
+    for (mode, want) in [("", "no program to write"), ("-interp", "nothing to run")] {
+        let dir = TempDir::new("no-main");
+        let output = jaic_on(&dir, "none.jai", "X :: #run 1;\n", mode, &[]);
+        let text = stderr(&output);
+        assert_eq!(output.status.code(), Some(3), "{mode}: {text}");
+        assert!(text.contains("has no `main` procedure"), "{mode}: {text}");
+        assert!(text.contains(want), "{mode}: {text}");
+    }
+    // A build file turns its own output off, so it has nothing to run either way.
+    let dir = TempDir::new("build-file");
+    let source = "#import \"Compiler\";\n#run set_build_options_dc(.{do_output = false});\n";
+    for mode in ["", "-interp"] {
+        let output = jaic_on(&dir, "build.jai", source, mode, &[]);
+        assert_eq!(output.status.code(), Some(0), "{mode}: {}", stderr(&output));
+    }
 }
 
 #[test]

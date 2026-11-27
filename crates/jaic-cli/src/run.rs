@@ -169,6 +169,16 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
             jaic::progress::finish("interp");
             jaic::progress::announce("Running", &shown(&path));
             if cli.plugins.is_empty() {
+                // A file whose metaprogram turned its output off is a build file, which may have
+                // no `main`; any other file needs one to run.
+                let created = workspaces.borrow().created_workspaces();
+                if settings.do_output
+                    && settings.output_type != OutputType::NoOutput
+                    && let Some(code) =
+                        missing_main(&compiler, &path, &settings, created, "nothing to run")
+                {
+                    return code;
+                }
                 interpret(&mut compiler, &cli, &path, &main_dir, sandbox.as_ref())
             } else if let Some(program) = Workspaces::take_program_to_run(&workspaces) {
                 let mut program = LeakOnExit::new(*program, |c| c.ct.interp.stop_for_exit());
@@ -592,9 +602,41 @@ fn interpret(
     }
 }
 
+/// The error for a program with no usable `main`, or `None` when it has one or its output is
+/// not an executable. `created` is how many workspaces the file's compile-time code made: a file
+/// with no `main` that made one is a build file that forgot to turn its own output off. `nothing`
+/// ends the first line: what the missing `main` leaves the command without.
+fn missing_main(
+    compiler: &Compiler,
+    path: &Path,
+    settings: &BuildSettings,
+    created: usize,
+    nothing: &str,
+) -> Option<ExitCode> {
+    if settings.output_type != OutputType::Executable
+        || (compiler.exported_func("main").is_some() && !compiler.lacks_main())
+    {
+        return None;
+    }
+    let file = shown(path);
+    let help = if created > 0 {
+        format!(
+            "`{file}` built another workspace, so it is a build file: add \
+             `set_build_options_dc(.{{do_output = false}});` to its `#run` so it writes no program of its own"
+        )
+    } else {
+        format!(
+            "add `main :: () {{ ... }}` as the program's starting point, or use `jaic {file} -check` to only check the code"
+        )
+    };
+    print_error(&format!(
+        "`{file}` has no `main` procedure, so there is {nothing}\nhelp: {help}"
+    ));
+    Some(ExitCode::from(NO_MAIN_STATUS))
+}
+
 /// A build: write the top-level program unless the metaprogram turned its output off.
-/// `created` is how many workspaces the file's compile-time code made: a file with no `main` that
-/// made one is a build file that forgot to turn its own output off.
+/// `created` is passed on to [`missing_main`].
 fn write_program(
     compiler: &mut Compiler,
     cli: &Cli,
@@ -606,24 +648,8 @@ fn write_program(
     if !settings.do_output || settings.output_type == OutputType::NoOutput {
         return ExitCode::SUCCESS;
     }
-    if settings.output_type == OutputType::Executable
-        && (compiler.exported_func("main").is_none() || compiler.lacks_main())
-    {
-        let file = shown(path);
-        let help = if created > 0 {
-            format!(
-                "`{file}` built another workspace, so it is a build file: add \
-                 `set_build_options_dc(.{{do_output = false}});` to its `#run` so it writes no program of its own"
-            )
-        } else {
-            format!(
-                "add `main :: () {{ ... }}` as the program's starting point, or use `jaic {file} -check` to only check the code"
-            )
-        };
-        print_error(&format!(
-            "`{file}` has no `main` procedure, so there is no program to write\nhelp: {help}"
-        ));
-        return ExitCode::from(NO_MAIN_STATUS);
+    if let Some(code) = missing_main(compiler, path, &settings, created, "no program to write") {
+        return code;
     }
     match build(compiler, cli, path, settings) {
         Ok(()) => ExitCode::SUCCESS,

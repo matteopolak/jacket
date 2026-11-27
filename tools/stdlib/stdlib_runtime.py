@@ -83,7 +83,9 @@ def contract_result(case, code, output, error="", native=False):
     else:
         error_ok = error == case.get("stderr", "")
     if "stdout" in case:
-        return code == case.get("exit_code", 0) and output == case["stdout"] and error_ok
+        return (
+            code == case.get("exit_code", 0) and output == case["stdout"] and error_ok
+        )
     return code == 0
 
 
@@ -210,6 +212,31 @@ def target_flags(platform_name):
     return ["-os", target_os, "-cpu", cpu]
 
 
+def lacks_main(code: int | None, out: str) -> bool:
+    """Whether jaic stopped because the file has no `main`: a test that did all its work at compile time."""
+    return (
+        code is not None
+        and code != 0
+        and ("no exported 'main'" in out or "has no `main` procedure" in out)
+    )
+
+
+def check_compile_time_only(args, path: Path, target: list[str], env, out: str):
+    """Check a file with no `main` with `-check`, which runs its compile-time code; it passes as compile-time only."""
+    checked, checked_out, checked_error = run_command(
+        [args.jaic, str(path), *target, "-check"], path.parent, args.timeout, env
+    )
+    if checked == 0:
+        return None, "no main: separately checked compile-time only"
+    return (
+        False,
+        "missing-main run also fails strict source checking:\n"
+        + out
+        + checked_out
+        + checked_error,
+    )
+
+
 def run_mode(args, test, path, mode, scratch, metadata=None):
     """(passed, detail) of one test in one mode; passed is None when the build wrote nothing to
     run (the program did its work at compile time)."""
@@ -229,7 +256,13 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
     env["JAIC_STDLIB_TEST_MODE"] = mode
     if mode == "check":
         code, stdout, stderr = run_command(
-            [args.jaic, str(path), "-check", *check_dce_flags(metadata), *target_flags(args.platform)],
+            [
+                args.jaic,
+                str(path),
+                "-check",
+                *check_dce_flags(metadata),
+                *target_flags(args.platform),
+            ],
             path.parent,
             args.timeout,
             env,
@@ -269,6 +302,8 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
             env,
         )
         out = stdout + stderr
+        if lacks_main(code, out):
+            return check_compile_time_only(args, path, target, env, out)
         return contract_result(
             metadata or {}, code, stdout, stderr
         ), out if code is not None else f"timed out after {args.timeout:.0f}s\n{out}"
@@ -281,27 +316,8 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
             env,
         )
         out = stdout + stderr
-        # A program without `main` did all its work at compile time.
-        if (
-            code is not None
-            and code != 0
-            and ("no exported 'main'" in out or "has no `main` procedure" in out)
-        ):
-            checked, checked_out, checked_error = run_command(
-                [args.jaic, str(path), *target, "-check"],
-                path.parent,
-                args.timeout,
-                env,
-            )
-            if checked == 0:
-                return None, "no main: separately checked compile-time only"
-            return (
-                False,
-                "missing-main build also fails strict source checking:\n"
-                + out
-                + checked_out
-                + checked_error,
-            )
+        if lacks_main(code, out):
+            return check_compile_time_only(args, path, target, env, out)
         if code != 0:
             return (
                 False,
