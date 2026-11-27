@@ -24,7 +24,8 @@
 //!
 //! Writes, `*v.member` and compound assignments are not reads. Only bodies the compiler fully
 //! checked, outside polymorphs and macros, are looked at. The rule only sees the shape of the
-//! code: a check of the wrong tag value still counts as a check. Where the caller checks the
+//! code. A check `v.kind == .X` counts only when `X` stands for the member read: the member of
+//! the same name, else the one in the same position of the tag enum. Where the caller checks the
 //! tag, an `assert` on it at the top of the helper states the requirement and satisfies the
 //! rule.
 use crate::Finding;
@@ -320,6 +321,15 @@ fn checked_before(cx: &Cx, read: &Read, list: &[Stmt], at: u32) -> bool {
 /// reached as `outer.field`) another member of `outer`, or hands the value to a call, a
 /// predicate that looks at the tag for it (`if is_table(v)`).
 fn mentions_tag(cx: &Cx, read: &Read, e: &Expr) -> bool {
+    match &e.kind {
+        E::Binary(BinOp::And | BinOp::Or, left, right) => {
+            return mentions_tag(cx, read, left) || mentions_tag(cx, read, right);
+        }
+        E::Binary(BinOp::Eq, left, right) if checks_another_member(cx, read, left, right) => {
+            return false;
+        }
+        _ => {}
+    }
     let types = &cx.compiler.ty.types;
     let mut found = false;
     jaic::ast::walk::walk_node(Node::Expr(e), &mut Vec::new(), &mut |n, _| {
@@ -362,6 +372,54 @@ fn mentions_tag(cx: &Cx, read: &Read, e: &Expr) -> bool {
         !found
     });
     found
+}
+
+/// `base.tag == .VALUE` where `VALUE` stands for a member of the union other than the one read.
+///
+/// A tag value stands for the union member of the same name (`TEXT` for `text`, ignoring case
+/// and `_`) or, when no name matches and the tag enum and the union have as many members, the
+/// member in the same position. Anything else is not known to name another member.
+fn checks_another_member(cx: &Cx, read: &Read, a: &Expr, b: &Expr) -> bool {
+    let types = &cx.compiler.ty.types;
+    let (tag, value) = match (&a.kind, &b.kind) {
+        (_, E::InferredMember(v)) => (a, v.name),
+        (E::InferredMember(v), _) => (b, v.name),
+        _ => return false,
+    };
+    let E::Member(q, f) = &tag.kind else {
+        return false;
+    };
+    if !cx.same_tokens(q, read.base) || read.in_union(types, f.name) {
+        return false;
+    }
+    let Some(ty) = cx.ty(tag) else {
+        return false;
+    };
+    let TypeKind::Enum(id) = types.kind(types.repr_struct(ty)) else {
+        return false;
+    };
+    let tags = &types.enum_info(*id).members;
+    let Some(position) = tags.iter().position(|(n, _)| *n == value) else {
+        return false;
+    };
+    let members: Vec<Sym> = types
+        .struct_info(read.union)
+        .fields
+        .iter()
+        .filter_map(|f| f.name)
+        .collect();
+    let plain = |s: Sym| {
+        s.as_str()
+            .chars()
+            .filter(|c| *c != '_')
+            .flat_map(char::to_lowercase)
+            .collect::<String>()
+    };
+    let expected = members
+        .iter()
+        .find(|m| plain(**m) == plain(value))
+        .or_else(|| (members.len() == tags.len()).then(|| &members[position]));
+    expected.is_some_and(|m| *m != read.name)
 }
 
 /// Before the read, the procedure assigns to the read's value or to a place inside one of its

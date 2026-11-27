@@ -23,6 +23,12 @@ text_of :: (v: *Value) -> string {
     return v.text;
 }
 
+// The check is for the other member.
+wrong_member :: (v: *Value) -> string {
+    if v.kind == .INTEGER return v.text;
+    return "";
+}
+
 // The check is on another value.
 second :: (a: Value, b: Value) -> int {
     if a.kind == .INTEGER return b.integer;

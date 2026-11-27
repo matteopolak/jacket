@@ -334,8 +334,8 @@ nesting :: () {
     group := tree.group;
 
     check(group.items.count == 2, "the group has two items");
-    check(group.items[0].leaf.name == "a", "the first item is a leaf");
-    check(group.items[1].s64_ == 5, "the second item is a count");
+    check(group.items[0].which == .LEAF && group.items[0].leaf.name == "a", "the first item is a leaf");
+    check(group.items[1].which == .S64 && group.items[1].s64_ == 5, "the second item is a count");
     check(encode(tree) == text, "the tree round trips");
 
     free_json(*tree);
@@ -518,7 +518,7 @@ freeing :: () {
 
     owner := decode(Owner, "{\"text\":\"owned\",\"list\":{\"list\":[\"a\",\"b\"]},\"shape\":{\"empty\":{}}}");
 
-    check(owner.text.string_ == "owned" && owner.list.list.count == 2, "decoded");
+    check(owner.text.which == .STRING && owner.text.string_ == "owned" && owner.list.which == .LIST && owner.list.list.count == 2, "decoded");
 
     free_json(*owner);
 

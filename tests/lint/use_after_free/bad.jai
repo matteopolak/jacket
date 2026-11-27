@@ -100,6 +100,20 @@ nested_member_after_drop :: () {
     print("%\n", outer.inner.data);
 }
 
+replace_data :: (outer: *Outer) {
+    free(outer.inner.data);
+    outer.inner.data = New(s32);
+}
+
+old_pointer_after_replace :: () {
+    outer := New(Outer);
+    outer.inner.data = New(s32);
+    old := outer.inner.data;
+
+    replace_data(outer);
+    print("%\n", old);
+}
+
 main :: () {
     node := New(Node);
     node.value = 3;

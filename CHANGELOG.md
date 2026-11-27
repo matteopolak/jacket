@@ -12,6 +12,8 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 ### Fixes
 
 - `skip_on(.CHECK)` skips a test under `jacket test --check-only`, for a `#run` that builds and runs a program.
+- `union_read` no longer counts `v.kind == .X` as a check for a member other than the one `X` names.
+- `jailint` reports a use of a pointer after a call that frees it and replaces its field.
 - `jailint` and `jailsp` resolve a library's own name from its `tests` folder, as `jacket test` does.
 - The `float32` literal warning also covers typed constants, and `jailint --fix` writes the `float32` spelling (replaces `lossy_float_literal`).
 - On a Mac, `jaic` takes libclang only from the selected developer folder, and says how to select another when missing.
