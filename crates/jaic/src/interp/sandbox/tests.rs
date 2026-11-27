@@ -1128,3 +1128,44 @@ fn a_host_folder_is_listed_by_its_full_name_and_from_inside_it() {
     assert_eq!(call(&mut h, "access", &[file.as_ptr() as u64, 0]), 0);
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// Drive and share paths map to sandbox paths and back, in their plain and `\\?\` forms.
+#[test]
+fn windows_drive_and_share_paths_have_sandbox_names() {
+    for (windows, sandbox, back) in [
+        (r"C:\a\b", "/C:/a/b", "C:/a/b"),
+        (r"\\?\D:\x", "/D:/x", "D:/x"),
+        (
+            r"\\server\share\dir",
+            "/UNC/server/share/dir",
+            r"\\server\share\dir",
+        ),
+        (
+            r"\\?\UNC\server\share",
+            "/UNC/server/share",
+            r"\\server\share",
+        ),
+    ] {
+        assert_eq!(from_windows(windows).as_deref(), Some(sandbox), "{windows}");
+        assert_eq!(to_windows(sandbox).as_deref(), Some(back), "{sandbox}");
+    }
+    assert_eq!(from_windows("relative\\name"), None);
+    assert_eq!(to_windows("/tmp/x"), None);
+}
+
+/// A Windows host's share directory is the sandbox's working directory, and relative paths
+/// resolve inside it.
+#[cfg(windows)]
+#[test]
+fn a_share_working_directory_resolves_relative_paths() {
+    let cwd = absolute("/", r"\\server\share\project");
+    assert_eq!(cwd, "/UNC/server/share/project");
+    assert_eq!(
+        absolute(&cwd, "src/main.jai"),
+        "/UNC/server/share/project/src/main.jai"
+    );
+    assert_eq!(
+        host_path("/UNC/server/share/project/src").as_ref(),
+        Path::new(r"\\server\share\project\src")
+    );
+}

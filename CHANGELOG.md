@@ -29,6 +29,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - On 32-bit targets the runtime and `Wasi_Runtime` pass `size_t` at C's width, so linked C code sees the right sizes.
 - Threads in wasm32 programs no longer trap: the green-thread runtime finds its control record's pointers at 4 bytes.
 - Compile-time `mmap`, `mprotect` and `munmap` work when the compiler runs on Windows.
+- Compile-time code finds its files when the compiler runs from a Windows network share (`\\server\share`).
 
 ## [0.40.0] - 2026-11-24
 
