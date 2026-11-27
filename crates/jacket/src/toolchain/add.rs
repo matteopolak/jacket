@@ -53,6 +53,21 @@ pub fn add(names: &[String], config: Option<&jacket_config::Config>) -> Result<(
     Ok(())
 }
 
+/// What a download needs, checked before the first byte: `curl` and `tar`, and a cache folder
+/// that can be written.
+fn downloads_possible(lookup: &Lookup) -> Result<(), String> {
+    use jaic_toolchain::package::Need;
+    let command = "jacket toolchain add";
+    crate::prerequisite::require(&Need::Curl, "curl", command)?;
+    crate::prerequisite::require(&Need::Tar, "tar", command)?;
+    let root = cache::root(lookup.host).ok_or_else(|| {
+        format!(
+            "there is no cache folder, and `{command}` needs one\nnote: set HOME, or XDG_CACHE_HOME to a folder you can write to"
+        )
+    })?;
+    crate::prerequisite::writable_dir(&root, "the cache folder", command)
+}
+
 fn add_one(target: Target, lookup: &Lookup) -> Result<(), String> {
     let color = live();
     if let Some(family) = pins::compiler_rt_family(target) {
@@ -63,6 +78,7 @@ fn add_one(target: Target, lookup: &Lookup) -> Result<(), String> {
             status::print("Builtins", &format!("{source} (cached)"), color);
             return Ok(());
         }
+        downloads_possible(lookup)?;
         let version = pin.version;
         let built = super::runtime::add(target, lookup, &|done, total| {
             live_line(&format!(
@@ -80,6 +96,7 @@ fn add_one(target: Target, lookup: &Lookup) -> Result<(), String> {
             status::print("Sysroot", &format!("{} (cached)", tilde(&dir)), color);
             return Ok(());
         }
+        downloads_possible(lookup)?;
         let sysroot = super::sysroot::add(target, lookup.host, &|what| {
             live_line(&format!("{:>12} {what}", "Fetching"));
         });

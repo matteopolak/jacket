@@ -12,6 +12,7 @@ mod dep;
 mod doc;
 mod fmt;
 mod migrate;
+mod prerequisite;
 mod project;
 mod shown;
 mod status;
@@ -100,7 +101,7 @@ fn tool_command(command: &str, args: &[OsString], cwd: &Path) -> ExitCode {
         _ => None,
     };
     if let Some(tool) = raw {
-        return match tools::require(tool) {
+        return match tools::require(tool, &format!("jacket {command}")) {
             Some(program) => tools::exec(program.as_os_str(), args),
             None => ExitCode::from(127),
         };
@@ -133,22 +134,29 @@ fn tool_command(command: &str, args: &[OsString], cwd: &Path) -> ExitCode {
         "build" => run_jaic(false, args, &ctx),
         "check" => run_jaic(true, args, &ctx),
         "run" => run_program(args, &ctx),
-        "lint" => run_tool(tools::JAILINT, args),
+        "lint" => run_tool(tools::JAILINT, "lint", args),
         "fmt" => fmt::run(&fmt::plan(args, &ctx)),
-        _ => run_tool(tools::JAILSP, args),
+        _ => run_tool(tools::JAILSP, "lsp", args),
     }
 }
 
 /// Starts `tool` with `args`, or says it cannot be found.
-fn run_tool(tool: &str, args: &[OsString]) -> ExitCode {
-    match tools::require(tool) {
+fn run_tool(tool: &str, command: &str, args: &[OsString]) -> ExitCode {
+    match tools::require(tool, &format!("jacket {command}")) {
         Some(program) => tools::exec(program.as_os_str(), args),
         None => ExitCode::from(127),
     }
 }
 
 fn run_jaic(check: bool, args: &[OsString], ctx: &compile::Context) -> ExitCode {
-    let Some(jaic) = tools::require(tools::JAIC) else {
+    let Some(jaic) = tools::require(
+        tools::JAIC,
+        if check {
+            "jacket check"
+        } else {
+            "jacket build"
+        },
+    ) else {
         return ExitCode::from(127);
     };
     let expansion = match target::expand(args, ctx.loaded.map(|loaded| &loaded.config)) {
@@ -197,7 +205,7 @@ fn run_program(args: &[OsString], ctx: &compile::Context) -> ExitCode {
         Err(error) => return commands::fail(error),
     };
     let argv = compile::jaic_argv(false, &expansion.args, ctx);
-    let Some(jaic) = tools::require(tools::JAIC) else {
+    let Some(jaic) = tools::require(tools::JAIC, "jacket run") else {
         return ExitCode::from(127);
     };
     let runs_itself = argv

@@ -271,7 +271,13 @@ impl Prepared {
         }
         let status = command
             .status()
-            .map_err(|e| format!("cannot run documentation theme: {e}"))?;
+            .map_err(|e| {
+                format!(
+                    "cannot run the documentation theme `{}`: {}\nnote: it is built into jacket's cache; remove the cache folder and run `jacket doc` again",
+                    self.binary.display(),
+                    jaic::io_reason(&e)
+                )
+            })?;
         if status.code().is_none() {
             eprintln!("jacket: error: documentation theme terminated: {status}");
         }

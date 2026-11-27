@@ -82,7 +82,7 @@ fn a_mistyped_code_suggests_the_nearest() {
     assert_eq!(output.status.code(), Some(2));
     assert_eq!(
         stderr(&output),
-        "jacket: no diagnostic code `type-mismtach`\nhelp: did you mean `type-mismatch`?\n"
+        "jacket: error: no diagnostic code `type-mismtach`\nhelp: did you mean `type-mismatch`?\n"
     );
     let far = explain(&["zzzzzzzzzz"]);
     assert_eq!(far.status.code(), Some(2));

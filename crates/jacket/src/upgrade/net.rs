@@ -23,6 +23,17 @@ pub trait Source {
     fn extract(&self, archive: &Path, dest: &Path) -> Result<(), String>;
 }
 
+/// `curl`, and `tar` unless only checking (Windows uses its own `tar.exe`), before any download
+/// or prompt: an upgrade that cannot unpack must not start.
+pub fn require_tools(check_only: bool) -> Result<(), String> {
+    use jaic_toolchain::package::Need;
+    crate::prerequisite::require(&Need::Curl, "curl", "jacket upgrade")?;
+    if !check_only && !cfg!(windows) {
+        crate::prerequisite::require(&Need::Tar, "tar", "jacket upgrade")?;
+    }
+    Ok(())
+}
+
 /// GitHub, through `curl` and `tar`.
 pub struct Github {
     /// `GITHUB_TOKEN`, sent to the API only, to lift its anonymous rate limit.
@@ -76,8 +87,11 @@ impl Github {
             .stderr(Stdio::piped())
             .spawn()
             .map_err(|e| {
-                format!(
-                    "could not run `curl`: {e}\nhelp: `jacket upgrade` needs curl and tar on PATH"
+                crate::prerequisite::spawn_error(
+                    &e,
+                    &jaic_toolchain::package::Need::Curl,
+                    "curl",
+                    "jacket upgrade",
                 )
             })?;
         if let (Some(token), Some(mut stdin)) = (token, child.stdin.take()) {
@@ -136,8 +150,11 @@ impl Source for Github {
             .arg(dest)
             .output()
             .map_err(|e| {
-                format!(
-                    "could not run `tar`: {e}\nhelp: `jacket upgrade` needs curl and tar on PATH"
+                crate::prerequisite::spawn_error(
+                    &e,
+                    &jaic_toolchain::package::Need::Tar,
+                    "tar",
+                    "jacket upgrade",
                 )
             })?;
         if output.status.success() {

@@ -425,6 +425,18 @@ impl LlvmBackend {
                 OutputType::Executable | OutputType::DynamicLibrary
             )
             && jacket_config::env::DSYM.os().is_none();
+        // Every other macOS build with debug information collects a dSYM after linking: find out
+        // now that `dsymutil` is there, not after the compile and link.
+        if debug_info
+            && macos
+            && !keep_objects
+            && matches!(
+                settings.output_type,
+                OutputType::Executable | OutputType::DynamicLibrary
+            )
+        {
+            jaic_native::require_dsymutil()?;
+        }
         let kept_dir = if settings.intermediate_path.is_empty() {
             intermediate.join(".build")
         } else {

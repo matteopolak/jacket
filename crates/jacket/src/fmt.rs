@@ -413,7 +413,7 @@ pub fn run(plan: &Plan) -> std::process::ExitCode {
     if let Some(code) = plan.answer {
         return ExitCode::from(code);
     }
-    let Some(jaifmt) = crate::tools::require(crate::tools::JAIFMT) else {
+    let Some(jaifmt) = crate::tools::require(crate::tools::JAIFMT, "jacket fmt") else {
         return ExitCode::from(127);
     };
     let mut worst = if plan.failed {
@@ -434,8 +434,9 @@ pub fn run(plan: &Plan) -> std::process::ExitCode {
             }
             Err(error) => {
                 eprintln!(
-                    "jacket: could not start `{}`: {error}\nhelp: jacket looks next to its own executable, then on PATH; install the toolchain archive or put the tool on PATH",
-                    jaifmt.display()
+                    "jacket: error: could not start `{}`: {}\nnote: reinstall jacket with install.sh or install.ps1 (docs/tools/releases.md)",
+                    jaifmt.display(),
+                    jaic::io_reason(&error)
                 );
                 return ExitCode::from(127);
             }

@@ -62,6 +62,9 @@ pub fn run(options: &Options) -> ExitCode {
             net::REPO
         ));
     };
+    if let Err(error) = net::require_tools(options.check) {
+        return fail(error);
+    }
     let source = net::Github::from_env();
     let interactive = std::io::stdin().is_terminal();
     let confirm = |question: &str| options.yes || !interactive || ask(question);

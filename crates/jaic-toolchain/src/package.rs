@@ -107,6 +107,16 @@ pub enum Need {
     },
     Node,
     Wasmtime,
+    /// `git`, which `jacket migrate` and `jacket dep` ask about the work tree.
+    Git,
+    /// `curl`, which `jacket upgrade` and `jacket toolchain add` download with.
+    Curl,
+    /// `tar`, which unpacks what they download.
+    Tar,
+    /// Python 3, which builds the native libraries a test needs.
+    Python,
+    /// `dsymutil`, which collects debug information on macOS.
+    Dsymutil,
     /// A runner jacket has no package for.
     Other {
         program: String,
@@ -268,6 +278,50 @@ impl Need {
                 elsewhere: "download it from https://wasmtime.dev",
                 ..NONE
             },
+            Need::Git => Row {
+                label: "git",
+                brew: Some("git"),
+                apt: Some("git"),
+                dnf: Some("git"),
+                pacman: Some("git"),
+                winget: Some("Git.Git"),
+                elsewhere: "download it from https://git-scm.com/downloads",
+            },
+            Need::Curl => Row {
+                label: "curl",
+                brew: Some("curl"),
+                apt: Some("curl"),
+                dnf: Some("curl"),
+                pacman: Some("curl"),
+                elsewhere: "download it from https://curl.se/download.html (Windows 10 and later ship `curl.exe` in System32: put that folder on PATH)",
+                ..NONE
+            },
+            Need::Tar => Row {
+                label: "tar",
+                apt: Some("tar"),
+                dnf: Some("tar"),
+                pacman: Some("tar"),
+                elsewhere: "install GNU tar or bsdtar (macOS and Windows 10 and later ship one: check it is on PATH)",
+                ..NONE
+            },
+            Need::Python => Row {
+                label: "Python 3",
+                brew: Some("python"),
+                apt: Some("python3"),
+                dnf: Some("python3"),
+                pacman: Some("python"),
+                winget: Some("Python.Python.3.13"),
+                elsewhere: "download it from https://www.python.org/downloads/",
+            },
+            Need::Dsymutil => Row {
+                label: "dsymutil",
+                brew: Some("llvm"),
+                apt: Some("llvm"),
+                dnf: Some("llvm"),
+                pacman: Some("llvm"),
+                winget: Some("LLVM.LLVM"),
+                elsewhere: "download LLVM from https://github.com/llvm/llvm-project/releases",
+            },
             Need::Other {
                 ..
             } => NONE,
@@ -284,6 +338,14 @@ impl Need {
                 program,
             } => return format!("install `{program}`"),
             Need::CDriver if os == Os::MacOs => {
+                return "install the Xcode command line tools with `xcode-select --install`".into();
+            }
+            // Homebrew's `llvm` is keg-only, so installing it would not put `dsymutil` on PATH;
+            // the Xcode tools do.
+            Need::Dsymutil if os == Os::MacOs => {
+                return "install the Xcode command line tools with `xcode-select --install`".into();
+            }
+            Need::Git if os == Os::MacOs && manager.is_none() => {
                 return "install the Xcode command line tools with `xcode-select --install`".into();
             }
             Need::Archiver if os == Os::MacOs => {
@@ -459,6 +521,148 @@ mod tests {
             ),
             "run `jacket toolchain add aarch64-none-elf` to build its builtins"
         );
+    }
+
+    /// One of every `Need`. The match has no wildcard, so a new variant stops this from compiling
+    /// until it is listed here and therefore covered by the table test below.
+    fn every_need() -> Vec<Need> {
+        let target = Target::parse("aarch64-unknown-linux-gnu").unwrap();
+        let all = [
+            Need::CDriver,
+            Need::Lld,
+            Need::Clang,
+            Need::Archiver,
+            Need::CrossLinux {
+                target,
+            },
+            Need::Mingw {
+                aarch64: false,
+            },
+            Need::Mingw {
+                aarch64: true,
+            },
+            Need::Msvc,
+            Need::AppleSdk,
+            Need::Builtins {
+                target,
+            },
+            Need::ArmEmbedded,
+            Need::Avr,
+            Need::Qemu {
+                program: "qemu-arm".into(),
+            },
+            Need::Node,
+            Need::Wasmtime,
+            Need::Git,
+            Need::Curl,
+            Need::Tar,
+            Need::Python,
+            Need::Dsymutil,
+            Need::Other {
+                program: "x".into(),
+            },
+        ];
+        for need in &all {
+            match need {
+                Need::CDriver
+                | Need::Lld
+                | Need::Clang
+                | Need::Archiver
+                | Need::CrossLinux {
+                    ..
+                }
+                | Need::Mingw {
+                    ..
+                }
+                | Need::Msvc
+                | Need::AppleSdk
+                | Need::Builtins {
+                    ..
+                }
+                | Need::ArmEmbedded
+                | Need::Avr
+                | Need::Qemu {
+                    ..
+                }
+                | Need::Node
+                | Need::Wasmtime
+                | Need::Git
+                | Need::Curl
+                | Need::Tar
+                | Need::Python
+                | Need::Dsymutil
+                | Need::Other {
+                    ..
+                } => {}
+            }
+        }
+        all.to_vec()
+    }
+
+    #[test]
+    fn every_need_says_what_to_do_on_every_system() {
+        let managers = [
+            None,
+            Some(PackageManager::Brew),
+            Some(PackageManager::Apt),
+            Some(PackageManager::Dnf),
+            Some(PackageManager::Pacman),
+            Some(PackageManager::Winget),
+        ];
+        for need in every_need() {
+            for os in [Os::MacOs, Os::Linux, Os::Windows] {
+                for manager in managers {
+                    let text = note(&need, os, manager);
+                    assert!(
+                        !text.trim().is_empty(),
+                        "{need:?} on {os:?} with {manager:?} has no note"
+                    );
+                }
+            }
+            // A manager with no package for it falls back to where to get the piece: the row's
+            // own text, which is what says why there is no command.
+            if !matches!(
+                need,
+                Need::Builtins { .. } | Need::Other { .. } | Need::CrossLinux { .. }
+            ) {
+                assert!(
+                    !need.row().elsewhere.is_empty(),
+                    "{need:?} has no text for a manager without its package"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_programs_jacket_starts_have_a_command_per_manager() {
+        let apt = Some(PackageManager::Apt);
+        assert_eq!(
+            note(&Need::Git, Os::Linux, apt),
+            "install git with `apt install git`"
+        );
+        assert_eq!(
+            note(&Need::Curl, Os::Linux, Some(PackageManager::Pacman)),
+            "install curl with `pacman -S curl`"
+        );
+        assert_eq!(
+            note(&Need::Tar, Os::Linux, Some(PackageManager::Dnf)),
+            "install tar with `dnf install tar`"
+        );
+        assert_eq!(
+            note(&Need::Python, Os::MacOs, Some(PackageManager::Brew)),
+            "install Python 3 with `brew install python`"
+        );
+        assert_eq!(
+            note(&Need::Git, Os::Windows, Some(PackageManager::Winget)),
+            "install git with `winget install Git.Git`"
+        );
+        // Without a manager the note says where to get it; a Mac has these in the Xcode tools.
+        assert!(note(&Need::Git, Os::Linux, None).contains("git-scm.com"));
+        assert!(note(&Need::Git, Os::MacOs, None).contains("xcode-select --install"));
+        // Homebrew's llvm is keg-only: the Xcode tools are the way to get `dsymutil` on a Mac.
+        for manager in [None, Some(PackageManager::Brew)] {
+            assert!(note(&Need::Dsymutil, Os::MacOs, manager).contains("xcode-select --install"));
+        }
     }
 
     #[test]

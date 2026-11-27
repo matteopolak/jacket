@@ -416,15 +416,14 @@ fn run_once(
         Some(Err(error)) => return fail(error),
         None => (Vec::new(), None),
     };
-    let (settings, mut runner) = match settings(args, config, cwd, config_dir) {
-        Ok(found) => found,
-        Err(error) => return fail(error),
-    };
-    if args.runner.is_none()
-        && let Some(words) = target_runner
-    {
-        runner = runner_words(&words, config_dir.unwrap_or(cwd));
-    }
+    let (settings, runner) =
+        match settings(args, config, cwd, config_dir).and_then(|(settings, runner)| {
+            let runner = choose_runner(args, runner, target_runner, config_dir.unwrap_or(cwd));
+            crate::prerequisite::runner(&runner, "jacket test").map(|()| (settings, runner))
+        }) {
+            Ok(found) => found,
+            Err(error) => return fail(error),
+        };
     let project_dir = loaded.as_ref().map_or(cwd, |l| l.dir()).to_path_buf();
     let ignore = loaded.as_ref().map_or_else(Vec::new, |l| {
         jacket_config::test_roots::ignore_patterns(&l.config)
@@ -503,7 +502,7 @@ fn run_once(
     if bench && !args.list && !args.jaic_args.iter().any(|flag| sets_optimization(flag)) {
         flags.extend(["-o".to_string(), "-no_debug_info".to_string()]);
     }
-    let Some(jaic) = tools::require(tools::JAIC) else {
+    let Some(jaic) = tools::require(tools::JAIC, "jacket test") else {
         return ExitCode::from(127);
     };
     let stdlib = match stdlib::stdlib_dir(&jaic, &project_dir) {
@@ -511,6 +510,10 @@ fn run_once(
         Err(error) => return fail(error),
     };
     let mut doc_files = std::collections::BTreeSet::new();
+    let deps = match deps_store::Store::open_shared(&jaic) {
+        Ok(deps) => deps,
+        Err(error) => return fail(error),
+    };
     let mut toolchain = Toolchain {
         jaic: jaic.clone(),
         stdlib: stdlib.clone(),
@@ -521,7 +524,7 @@ fn run_once(
         coverage: args.coverage,
         coverage_dir: None,
         check_only: args.check_only,
-        deps: deps_store::Store::open(&jaic).map(std::sync::Arc::new),
+        deps,
         environment_flags: 0,
     };
     let cross = !args.interp && (os != host_os() || cpu != host_cpu());
@@ -839,6 +842,19 @@ fn settings(
 }
 
 /// The words of a runner command, with each that names a file under `base` made absolute.
+/// The runner to use: `--runner`, else the target's, else the settings'.
+fn choose_runner(
+    args: &TestArgs,
+    runner: Vec<String>,
+    target_runner: Option<String>,
+    dir: &Path,
+) -> Vec<String> {
+    match target_runner {
+        Some(words) if args.runner.is_none() => runner_words(&words, dir),
+        _ => runner,
+    }
+}
+
 fn runner_words(runner: &str, base: &Path) -> Vec<String> {
     runner
         .split_whitespace()

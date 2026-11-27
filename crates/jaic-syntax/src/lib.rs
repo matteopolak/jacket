@@ -227,10 +227,10 @@ fn missing_stdlib_message(
         paths.insert(0, dir.join(explicit));
     }
     format!(
-        "cannot find the standard library (looked for prelude {}).\n\
-         Keep the `stdlib` folder from the release archive next to the executable (a symlink to \
-         the executable is fine), or set JAIC_STDLIB to its path. \
-         JAIC_PRELUDE selects a file instead of automatic detection.",
+        "cannot find the standard library (looked for prelude {})\n\
+         note: keep the `stdlib` folder from the release archive next to the executable (a \
+         symlink to the executable is fine), or set JAIC_STDLIB to its path; \
+         JAIC_PRELUDE selects a file instead of automatic detection",
         paths
             .iter()
             .map(|path| path.display().to_string())
@@ -369,6 +369,18 @@ mod tests {
             ),
             None
         );
+    }
+
+    #[test]
+    fn missing_message_is_an_error_line_and_a_note_with_the_next_step() {
+        let message = missing_stdlib_message(Path::new("/lib"), &["Base.jai"], None);
+        let (error, note) = message.split_once("\nnote: ").expect(&message);
+        assert!(
+            error.starts_with("cannot find the standard library"),
+            "{message}"
+        );
+        assert!(!error.contains('\n'), "{message}");
+        assert!(note.contains("JAIC_STDLIB"), "{message}");
     }
 
     #[test]

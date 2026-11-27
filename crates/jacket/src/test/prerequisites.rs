@@ -269,8 +269,14 @@ fn prepare_with(python: &str, files: &[PathBuf], stdlib: &Path) -> Result<(), St
             .current_dir(root)
             .output()
             .map_err(|error| {
+                let reason = crate::prerequisite::spawn_error(
+                    &error,
+                    &jaic_toolchain::package::Need::Python,
+                    python,
+                    "jacket test",
+                );
                 format!(
-                    "could not start `{python}` to build {}: {error}\nhelp: install Python 3 and put it on PATH, or build it yourself: {}",
+                    "{reason}\nnote: or build {} yourself: {}",
                     setup.what,
                     by_hand.trim_end()
                 )
@@ -871,11 +877,11 @@ mod local_prerequisite_tests {
 
         let error = prepare_with("/nowhere/python3", &files, &stdlib).unwrap_err();
         assert!(
-            error.contains("could not start `/nowhere/python3`"),
+            error.contains("`/nowhere/python3` is not installed, and `jacket test` needs it"),
             "{error}"
         );
         assert!(error.contains("build_developer_debug.py"), "{error}");
-        assert!(error.contains("install Python 3"), "{error}");
+        assert!(error.contains("\nnote: install Python 3 "), "{error}");
         #[cfg(unix)]
         {
             let error = prepare_with("false", &files, &stdlib).unwrap_err();

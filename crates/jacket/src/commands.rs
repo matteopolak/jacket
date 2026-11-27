@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
 
 pub(crate) fn fail(message: impl std::fmt::Display) -> ExitCode {
-    eprintln!("jacket: {message}");
+    eprintln!("jacket: error: {message}");
     ExitCode::from(2)
 }
 
@@ -256,7 +256,7 @@ pub fn clean(cwd: &Path) -> ExitCode {
 
 /// The first line a tool prints for its version flag.
 fn tool_version(tool: &str) -> String {
-    let Ok(program) = tools::locate(tool) else {
+    let Ok(program) = tools::locate(tool, "jacket version") else {
         return "not found".into();
     };
     let flag = if tool == tools::JAIC {

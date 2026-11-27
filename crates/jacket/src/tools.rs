@@ -11,18 +11,22 @@ pub const JAILSP: &str = "jailsp";
 pub const JAIFMT: &str = "jaifmt";
 pub const ALL: [&str; 4] = [JAIC, JAILINT, JAILSP, JAIFMT];
 
-/// The file to start for `tool`: next to this executable, else the first match on `PATH`.
-pub fn locate(tool: &str) -> Result<PathBuf, String> {
-    jacket_config::tools::locate(tool).ok_or_else(|| {
-        format!(
-            "cannot find `{tool}`\nhelp: jacket looks next to its own executable, then on PATH; install the toolchain archive or put `{tool}` on PATH"
-        )
-    })
+/// The file to start for `tool`: next to this executable, else the first match on `PATH`. When
+/// there is none, the error says that `command` needs it.
+pub fn locate(tool: &str, command: &str) -> Result<PathBuf, String> {
+    jacket_config::tools::locate(tool).ok_or_else(|| not_installed(tool, command))
+}
+
+/// The error for `tool` missing when `command` needs it.
+pub fn not_installed(tool: &str, command: &str) -> String {
+    format!(
+        "`{tool}` is not installed, and `{command}` needs it\nnote: jacket looks next to its own executable, then on PATH; install a release with install.sh or install.ps1 (docs/tools/releases.md), or put `{tool}` on PATH"
+    )
 }
 
 /// [`locate`], printing why it failed.
-pub fn require(tool: &str) -> Option<PathBuf> {
-    match locate(tool) {
+pub fn require(tool: &str, command: &str) -> Option<PathBuf> {
+    match locate(tool, command) {
         Ok(path) => Some(path),
         Err(message) => {
             eprintln!("jacket: error: {message}");
@@ -33,8 +37,9 @@ pub fn require(tool: &str) -> Option<PathBuf> {
 
 fn missing(program: &OsStr, error: &std::io::Error) -> ExitCode {
     eprintln!(
-        "jacket: could not start `{}`: {error}\nhelp: jacket looks next to its own executable, then on PATH; install the toolchain archive or put the tool on PATH",
-        program.to_string_lossy()
+        "jacket: error: could not start `{}`: {}\nnote: jacket looks next to its own executable, then on PATH; install a release with install.sh or install.ps1 (docs/tools/releases.md), or put the tool on PATH",
+        program.to_string_lossy(),
+        jaic::io_reason(error)
     );
     ExitCode::from(127)
 }

@@ -21,7 +21,7 @@ $ lldb --batch -o 'b helper.jai:23' -o run -o bt -o 'frame variable' ./prog
    - A variable at a `SlotAddr` gets a `#dbg_declare` on that alloca. Aggregate parameters arrive by pointer, so the pointer is stored in a `dbg.addr` slot with `DW_OP_deref`.
    - Scalars are typedefs over DWARF base types, because LLDB names base types after the C type of the same size (`s64` would print as `long`).
 
-3. **CLI, macOS.** The linker leaves DWARF in the object files. An optimised build (`-O1`+) runs `dsymutil` into `output.dSYM`. An `-O0` build skips that and keeps its objects in `.build/` beside the output, which lldb reads through the debug map; add `.build/` to `.gitignore`. A sanitized build writes the `.dSYM` at `-O0` too. `JAIC_DSYM=1` writes the `.dSYM` and deletes objects at any level. On Linux the linker copies `.debug_*` into the executable.
+3. **CLI, macOS.** The linker leaves DWARF in the object files. An optimised build (`-O1`+) runs `dsymutil` into `output.dSYM`. An `-O0` build skips that and keeps its objects in `.build/` beside the output, which lldb reads through the debug map; add `.build/` to `.gitignore`. A sanitized build writes the `.dSYM` at `-O0` too. A build that will run `dsymutil` looks for it before compiling and stops with an error if it is missing (see [prerequisites](../tools/prerequisites.md)). `JAIC_DSYM=1` writes the `.dSYM` and deletes objects at any level. On Linux the linker copies `.debug_*` into the executable.
 
 ## How to change it
 

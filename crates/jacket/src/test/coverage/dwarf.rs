@@ -37,10 +37,14 @@ pub(super) fn find_dwarfdump() -> Result<PathBuf, String> {
             }
         }
     }
-    Err(
-        "`--coverage` needs `llvm-dwarfdump` to read debug info; install LLVM or set LLVM_PREFIX"
-            .into(),
-    )
+    Err(format!(
+        "{}, or set LLVM_PREFIX",
+        crate::prerequisite::missing(
+            &jaic_toolchain::package::Need::Clang,
+            "llvm-dwarfdump",
+            "jacket test --coverage"
+        )
+    ))
 }
 
 /// A row of a DWARF line table.
@@ -57,7 +61,14 @@ pub(super) fn line_table(dwarfdump: &Path, debug_file: &Path) -> Result<Vec<Row>
         .arg("--debug-line")
         .arg(debug_file)
         .output()
-        .map_err(|e| format!("could not start `{}`: {e}", dwarfdump.display()))?;
+        .map_err(|e| {
+            crate::prerequisite::spawn_error(
+                &e,
+                &jaic_toolchain::package::Need::Clang,
+                &dwarfdump.display().to_string(),
+                "jacket test --coverage",
+            )
+        })?;
     if !output.status.success() {
         return Err(format!(
             "`llvm-dwarfdump` failed on {}: {}",

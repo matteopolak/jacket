@@ -5,7 +5,9 @@
 //! The real work is done by `curl` and `tar`, as in `jacket upgrade`: both ship with macOS,
 //! nearly every Linux and Windows 10 and later, and `curl` honours the proxy variables and the
 //! system certificate store.
+use crate::prerequisite::spawn_error;
 use crate::upgrade::checksum::sha256_file;
+use jaic_toolchain::package::Need;
 use std::path::Path;
 use std::process::Command;
 
@@ -35,11 +37,7 @@ pub fn pinned(url: &str, sha256: &str, dest: &Path) -> Result<(), String> {
         .arg(&partial)
         .arg(url)
         .output()
-        .map_err(|e| {
-            format!(
-                "could not run `curl`: {e}\nhelp: `jacket toolchain add` needs curl and tar on PATH"
-            )
-        })?;
+        .map_err(|e| spawn_error(&e, &Need::Curl, "curl", "jacket toolchain add"))?;
     if !output.status.success() {
         let _ = std::fs::remove_file(&partial);
         return Err(format!(
@@ -75,11 +73,7 @@ pub fn untar(archive: &Path, dest: &Path) -> Result<(), String> {
         .arg("-C")
         .arg(dest)
         .output()
-        .map_err(|e| {
-            format!(
-                "could not run `tar`: {e}\nhelp: `jacket toolchain add` needs curl and tar on PATH"
-            )
-        })?;
+        .map_err(|e| spawn_error(&e, &Need::Tar, "tar", "jacket toolchain add"))?;
     if output.status.success() {
         Ok(())
     } else {

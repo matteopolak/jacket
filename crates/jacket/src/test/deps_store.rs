@@ -37,18 +37,34 @@ pub struct Store {
 impl Store {
     /// The store `jacket test` uses: `JACKET_TEST_DEPS_DIR`, else `jacket/test-deps` in the user
     /// cache folder. `None` when neither is known: nothing is recorded then.
-    pub fn open(jaic: &Path) -> Option<Self> {
+    pub fn open(jaic: &Path) -> Result<Option<Self>, String> {
         let dir = match jacket_config::env::TEST_DEPS_DIR
             .os()
             .filter(|v| !v.is_empty())
         {
             Some(dir) => PathBuf::from(dir),
-            None => jacket_config::user_cache_dir()
-                .ok()?
-                .join("jacket")
-                .join("test-deps"),
+            None => match jacket_config::user_cache_dir() {
+                Ok(cache) => cache.join("jacket").join("test-deps"),
+                Err(_) => return Ok(None),
+            },
         };
-        Some(Self::opened(dir, jaic))
+        Self::open_in(dir, jaic).map(Some)
+    }
+
+    /// [`Store::open`], shared between the threads that run tests.
+    pub fn open_shared(jaic: &Path) -> Result<Option<std::sync::Arc<Self>>, String> {
+        Ok(Self::open(jaic)?.map(std::sync::Arc::new))
+    }
+
+    /// The store in `dir`, which must be a folder `jacket test` can write: the compiler writes
+    /// its lists there, and a failure would otherwise surface as a failed compile of a test.
+    pub fn open_in(dir: PathBuf, jaic: &Path) -> Result<Self, String> {
+        crate::prerequisite::writable_dir(
+            &dir,
+            "the folder of recorded test inputs",
+            "jacket test",
+        )?;
+        Ok(Self::opened(dir, jaic))
     }
 
     /// The store in `dir` with its old entries pruned.
@@ -178,6 +194,19 @@ impl Hash {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_store_folder_that_cannot_be_written_is_an_error_naming_it() {
+        let dir = test_support::TempDir::new("deps-store-blocked");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("file"), "").unwrap();
+        let error = Store::open_in(dir.join("file").join("store"), Path::new("jaic")).unwrap_err();
+        assert!(
+            error.contains("cannot write to the folder of recorded test inputs"),
+            "{error}"
+        );
+        assert!(error.contains("`jacket test` needs it\nnote: "), "{error}");
+    }
+
     use super::*;
 
     fn store(dir: &Path) -> Store {

@@ -26,7 +26,7 @@ pub use self::freestanding::{FreestandingLink, link_freestanding};
 pub use self::link::{LinkInputs, LinkRequest, link, link_inputs};
 pub use self::linker::{
     OutputKind, archive, check_sanitizer_target, link_failure, linker_not_run, output_extension,
-    write_dsym,
+    require_dsymutil, write_dsym,
 };
 pub use self::options::{Codegen, OptLevel, Options, SANCOV_PASS, Sanitize};
 pub use self::wasm::{WasmLink, link_wasm};

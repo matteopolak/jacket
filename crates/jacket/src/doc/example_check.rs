@@ -285,3 +285,29 @@ pub fn report(failures: &[Failure]) -> String {
     }
     out
 }
+
+/// The error for `--runtime` with no `node` to run the examples.
+pub fn node_missing() -> String {
+    format!(
+        "{}\nnote: or drop --runtime to test the examples in jaic's interpreter",
+        crate::prerequisite::missing(
+            &jaic_toolchain::package::Need::Node,
+            "node",
+            "jacket doc --runtime"
+        )
+    )
+}
+
+/// `--runtime` runs the examples under Node after the site is built: find out before any of that
+/// work that `node` is there.
+pub fn require_node(args: &super::DocArgs) -> Result<(), String> {
+    if args.runtime.is_some() && !args.check && !args.no_test_examples {
+        crate::prerequisite::require(
+            &jaic_toolchain::package::Need::Node,
+            "node",
+            "jacket doc --runtime",
+        )
+        .map_err(|_| node_missing())?;
+    }
+    Ok(())
+}

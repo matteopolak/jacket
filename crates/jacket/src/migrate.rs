@@ -210,12 +210,19 @@ fn git_toplevel(dir: &Path) -> Result<Option<PathBuf>, String> {
         Ok(_) => Ok(None),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             if dir.ancestors().any(|d| d.join(".git").exists()) {
-                Err("this code is in a git repository, but `git` is not installed\nhelp: install git (https://git-scm.com/downloads) so jacket can check nothing would be lost".into())
+                Err(crate::prerequisite::missing(
+                    &jaic_toolchain::package::Need::Git,
+                    "git",
+                    "jacket migrate",
+                ))
             } else {
                 Ok(None)
             }
         }
-        Err(e) => Err(format!("cannot run git: {}", jaic::io_reason(&e))),
+        Err(e) => Err(format!(
+            "cannot run git: {}\nnote: check that `git` is an executable on PATH",
+            jaic::io_reason(&e)
+        )),
     }
 }
 

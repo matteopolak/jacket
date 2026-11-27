@@ -585,9 +585,7 @@ fn engine<'a>(
         });
     };
     if !has_node {
-        return Err(
-            "--runtime tests the examples in the browser compiler under Node, and `node` is not on PATH: install Node, or drop --runtime to test them in jaic's interpreter".into(),
-        );
+        return Err(example_check::node_missing());
     }
     if root != stdlib {
         return Err(format!(
@@ -641,7 +639,8 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
     let mut accounted = std::time::Duration::ZERO;
     let result = (|| {
         let base = base_path(&args.base_url)?;
-        let jaic = tools::locate(tools::JAIC)?;
+        example_check::require_node(args)?;
+        let jaic = tools::locate(tools::JAIC, "jacket doc")?;
         let stdlib = stdlib_dir(&jaic, cwd)?;
         let (lib, doc, config_dir, project) =
             target(args.path.as_deref(), &stdlib, cwd, &args.jaic_args)?;
@@ -1187,7 +1186,7 @@ mod tests {
         assert_eq!(pick(Some(Path::new("rt")), stdlib, true), Ok(true));
         let no_node = pick(Some(Path::new("rt")), stdlib, false).unwrap_err();
         assert!(
-            no_node.contains("install Node") && no_node.contains("--runtime"),
+            no_node.contains("`node` is not installed") && no_node.contains("drop --runtime"),
             "{no_node}"
         );
         // The bundle holds the standard library only.

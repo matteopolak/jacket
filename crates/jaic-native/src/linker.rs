@@ -97,6 +97,24 @@ pub(super) fn pdb_args(output: &Path) -> [String; 4] {
     ]
 }
 
+/// The error for a build with debug information on a machine with no `dsymutil`.
+fn missing_dsymutil_message(lookup: &jaic_toolchain::Lookup) -> String {
+    use jaic_toolchain::package::{Need, PackageManager};
+    format!(
+        "`dsymutil` is not installed, and a build with debug information on macOS needs it\nnote: {}, or build with `-no_debug_info`",
+        Need::Dsymutil.note(lookup.host.os(), PackageManager::detect(lookup))
+    )
+}
+
+/// `dsymutil`, or the error for it missing. Checked before compiling, so a build that will write
+/// a dSYM does not fail after the compile and link.
+pub fn require_dsymutil() -> Result<PathBuf, String> {
+    let lookup = lookup();
+    lookup
+        .llvm_tool("dsymutil")
+        .ok_or_else(|| missing_dsymutil_message(&lookup))
+}
+
 /// Collect the DWARF of a linked macOS executable or library into `output.dSYM`.
 ///
 /// Apple's linker does not copy debug information into its output: the binary only
@@ -105,8 +123,14 @@ pub(super) fn pdb_args(output: &Path) -> [String; 4] {
 pub fn write_dsym(output: &Path) -> Result<(), String> {
     let mut bundle = output.to_path_buf().into_os_string();
     bundle.push(".dSYM");
-    let out = run_captured(Command::new("dsymutil").arg(output).arg("-o").arg(&bundle))
-        .map_err(|e| format!("could not run 'dsymutil' for debug information: {e}"))?;
+    let dsymutil = require_dsymutil()?;
+    let out =
+        run_captured(Command::new(dsymutil).arg(output).arg("-o").arg(&bundle)).map_err(|e| {
+            format!(
+                "could not run `dsymutil` for debug information: {}",
+                jaic::io_reason(&e)
+            )
+        })?;
     if out.status.success() {
         Ok(())
     } else {
@@ -379,4 +403,26 @@ pub(super) fn library_args(
     }
     args.push(LinkArg::Lib(name.to_string()));
     Ok(args)
+}
+
+#[cfg(test)]
+mod dsymutil_tests {
+    use super::*;
+    use jaic_toolchain::Lookup;
+    use jaic_toolchain::testing::FakeHost;
+
+    #[test]
+    fn a_mac_without_dsymutil_is_told_what_to_install_and_how_to_skip_debug_info() {
+        let host = FakeHost::mac();
+        let message = missing_dsymutil_message(&Lookup::new(&host));
+        assert!(
+            message.starts_with("`dsymutil` is not installed"),
+            "{message}"
+        );
+        assert!(
+            message.contains("\nnote: install the Xcode command line tools"),
+            "{message}"
+        );
+        assert!(message.contains("-no_debug_info"), "{message}");
+    }
 }
