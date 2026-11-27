@@ -16,7 +16,7 @@ random_bytes :: (out: [] u8) -> bool {
         while offset < out.count {
             step := out.count - offset;
             if step > 256 step = 256;
-            if getentropy(out.data + offset, cast(u64) step) != 0 return false;
+            if getentropy(out.data + offset, cast(C_Size) step) != 0 return false;
             offset += step;
         }
 
@@ -32,5 +32,11 @@ random_bytes :: (out: [] u8) -> bool {
     USE_SYSTEM_PREFERRED_RNG: u32 : 0x2;
 } else {
     libc :: #library,system "c"; @native(external)
-    getentropy :: (buffer: *void, length: u64) -> s32 #foreign libc;
+    getentropy :: (buffer: *void, length: C_Size) -> s32 #foreign libc;
+
+    #if size_of(*void) == 4 {
+        C_Size :: u32;
+    } else {
+        C_Size :: u64;
+    }
 }

@@ -4,7 +4,6 @@
     size_t :: u64;
 }
 
-clock_t :: s64;
 libexecinfo :: libc;
 SIGQUIT :: 3;
 SIGILL :: 4;

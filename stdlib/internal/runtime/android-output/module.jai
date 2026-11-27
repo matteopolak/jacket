@@ -52,8 +52,6 @@ Queue :: struct {
 
 standard_output: Queue;
 standard_error: Queue;
-libc :: #system_library "libc"; @native(external)
-write :: (fd: s32, data: *u8, count: u64) -> s64 #foreign libc "write"; @WritesOutput(0)
 
 #import "internal/libc";
 
@@ -72,7 +70,7 @@ flush_queue :: (queue: *Queue, fd: s32, force: bool) #no_context {
 emit :: (queue: *Queue, fd: s32, amount: s64) #no_context {
     cursor: s64;
     while cursor < amount {
-        written := write(fd, queue.bytes.data + cursor, cast(u64) (amount - cursor));
+        written := c_write(fd, queue.bytes.data + cursor, cast(u64) (amount - cursor));
         // Text the stream won't take is dropped, as on other targets.
         if written <= 0 break;
 

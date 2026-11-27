@@ -3,7 +3,12 @@
 FILE :: struct {};
 DIR :: struct {};
 mode_t :: u32;
-size_t :: u64;
+
+#if size_of(*void) == 4 {
+    size_t :: u32;
+} else {
+    size_t :: u64;
+}
 
 SEEK_SET :: 0;
 SEEK_CUR :: 1;
@@ -80,7 +85,7 @@ readdir :: (directory: *DIR) -> *dirent #foreign libc;
 
 ERANGE :: 34;
 
-getcwd :: (buffer: *u8, size: u64) -> *u8 #foreign libc;
+getcwd :: (buffer: *u8, size: size_t) -> *u8 #foreign libc;
 chdir :: (name: *u8) -> s32 #foreign libc;
 rename :: (old: *u8, new: *u8) -> s32 #foreign libc;
 unlink :: (name: *u8) -> s32 #foreign libc;

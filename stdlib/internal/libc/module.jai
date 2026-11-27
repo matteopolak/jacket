@@ -6,8 +6,7 @@
 #scope_file
 libc :: #system_library "libc"; @native(external)
 
-// `Wasi_Runtime` defines these three with 64-bit sizes, so a WebAssembly program passes 64-bit ones.
-#if size_of(*void) == 4 && OS != .WASM {
+#if size_of(*void) == 4 {
     C_Size :: u32;
 } else {
     C_Size :: u64;
@@ -16,6 +15,16 @@ libc :: #system_library "libc"; @native(external)
 malloc :: (size: C_Size) -> *void #foreign libc;
 realloc :: (memory: *void, size: C_Size) -> *void #foreign libc;
 memmove :: (destination: *void, source: *void, count: C_Size) -> *void #foreign libc;
+
+#if OS != .WINDOWS {
+    #if size_of(*void) == 4 {
+        C_Signed_Size :: s32;
+    } else {
+        C_Signed_Size :: s64;
+    }
+
+    write :: (fd: s32, data: *void, count: C_Size) -> C_Signed_Size #foreign libc; @WritesOutput(0)
+}
 
 #scope_export
 c_malloc :: inline (size: u64) -> *void #no_context {
@@ -33,3 +42,10 @@ c_memmove :: inline (destination: *void, source: *void, count: u64) -> *void #no
 }
 
 c_abort :: () #foreign libc "abort"; @Exits
+
+#if OS != .WINDOWS {
+    // Write up to `count` bytes of `data` to `fd`; the count written, or -1.
+    c_write :: inline (fd: s32, data: *u8, count: u64) -> s64 #no_context {
+        return write(fd, data, cast,trunc(C_Size) count);
+    }
+}
