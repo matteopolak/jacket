@@ -253,8 +253,12 @@ fn volatile_accesses_use_the_targets_byte_order() {
 /// compiler's own compile-time buffers fit the 16-bit address window.
 #[test]
 fn an_avr_program_checks_at_compile_time() {
+    // The board writes its linker script beside the executable, so name one outside the tree.
+    let dir = test_support::tmp::TempDir::new("avr-check");
     let output = Command::new(JAIC)
         .arg("-check")
+        .arg("-exe")
+        .arg(dir.join("avr-hello"))
         .arg(
             Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../../tests/compiler/targets/avr-hello.jai"),
