@@ -107,17 +107,6 @@ pub enum Phase {
 }
 
 impl Phase {
-    const ALL: [Phase; 8] = [
-        Phase::Starting,
-        Phase::Parsing,
-        Phase::Checking,
-        Phase::Running,
-        Phase::Generating,
-        Phase::Optimizing,
-        Phase::Linking,
-        Phase::Program,
-    ];
-
     fn verb(self) -> &'static str {
         match self {
             Phase::Starting => "Starting",
@@ -300,8 +289,6 @@ struct Term {
     started: Option<Instant>,
     /// The status line is on screen.
     drawn: bool,
-    /// What was drawn last, to skip redrawing the same text.
-    last: String,
     /// No redraw before this: something was just written.
     hold_until: Option<Instant>,
     /// `finish`/`abandon` ran: nothing more is drawn.
@@ -313,16 +300,11 @@ static TERM: Mutex<Term> = Mutex::new(Term {
     name: String::new(),
     started: None,
     drawn: false,
-    last: String::new(),
     hold_until: None,
     done: false,
 });
 
-/// How often the line is redrawn, and how long it waits at the start (a fast build never shows
-/// it) and after other output.
-const TICK: Duration = Duration::from_millis(80);
-
-const FIRST_DRAW: Duration = Duration::from_millis(150);
+/// How long the line stays down after other output.
 const HOLD_AFTER_OUTPUT: Duration = Duration::from_millis(400);
 
 fn lock() -> std::sync::MutexGuard<'static, Term> {
@@ -356,77 +338,151 @@ pub fn start(mode: Mode, verb: &str, name: &str, shown: &str) {
         message_line(verb, &format!("{name} ({shown})"), mode.colored())
     ));
     if mode == Mode::Live {
-        start_ticker();
+        ticker::start();
     }
 }
 
+/// Redraws the status line from a thread of its own. The browser build has no threads, so
+/// there the line is never drawn.
 #[cfg(not(target_arch = "wasm32"))]
-fn start_ticker() {
-    LIVE.store(true, Ordering::Relaxed);
-    // Another jaic started by compile-time code shares this terminal: it must not draw too.
-    // Set before the compiler starts any thread that could read the environment.
-    #[allow(unsafe_code)]
-    // SAFETY: called on the compile thread before the compiler, parse workers or compile-time
-    // code start; the only other thread (macOS's main thread) is blocked waiting for this one.
-    unsafe {
-        std::env::set_var("JAIC_PROGRESS", "off");
-    }
-    let spawned = std::thread::Builder::new()
-        .name("jaic-progress".into())
-        .spawn(|| {
-            std::thread::sleep(FIRST_DRAW);
-            loop {
-                if !tick() {
-                    return;
+mod ticker {
+    use super::{
+        FILES, LIVE, MODULES, Ordering, PHASE, PROCEDURES, Phase, Status, lock, status_line,
+        write_err,
+    };
+    use std::time::{Duration, Instant};
+
+    /// The phases by number, as `PHASE` stores them.
+    const PHASES: [Phase; 8] = [
+        Phase::Starting,
+        Phase::Parsing,
+        Phase::Checking,
+        Phase::Running,
+        Phase::Generating,
+        Phase::Optimizing,
+        Phase::Linking,
+        Phase::Program,
+    ];
+
+    /// How often the line is redrawn, and how long it waits at the start (a fast build never shows
+    /// it).
+    const TICK: Duration = Duration::from_millis(80);
+
+    const FIRST_DRAW: Duration = Duration::from_millis(150);
+
+    pub(super) fn start() {
+        LIVE.store(true, Ordering::Relaxed);
+        // Another jaic started by compile-time code shares this terminal: it must not draw too.
+        // Set before the compiler starts any thread that could read the environment.
+        #[allow(unsafe_code)]
+        // SAFETY: called on the compile thread before the compiler, parse workers or compile-time
+        // code start; the only other thread (macOS's main thread) is blocked waiting for this one.
+        unsafe {
+            std::env::set_var("JAIC_PROGRESS", "off");
+        }
+        let spawned = std::thread::Builder::new()
+            .name("jaic-progress".into())
+            .spawn(|| {
+                std::thread::sleep(FIRST_DRAW);
+                let mut last = String::new();
+                loop {
+                    if !tick(&mut last) {
+                        return;
+                    }
+                    std::thread::sleep(TICK);
                 }
-                std::thread::sleep(TICK);
-            }
-        });
-    if spawned.is_err() {
-        LIVE.store(false, Ordering::Relaxed);
+            });
+        if spawned.is_err() {
+            LIVE.store(false, Ordering::Relaxed);
+        }
+    }
+
+    /// One redraw; `last` is what the previous one drew. Returns whether to keep going.
+    fn tick(last: &mut String) -> bool {
+        let mut term = lock();
+        if term.done {
+            return false;
+        }
+        let now = Instant::now();
+        if term.hold_until.is_some_and(|until| now < until) {
+            return true;
+        }
+        let phase = PHASES
+            .get(PHASE.load(Ordering::Relaxed) as usize)
+            .copied()
+            .unwrap_or(Phase::Checking);
+        if phase == Phase::Program {
+            return true;
+        }
+        let status = Status {
+            phase,
+            name: &term.name,
+            files: FILES.load(Ordering::Relaxed),
+            modules: MODULES.load(Ordering::Relaxed),
+            procedures: PROCEDURES.load(Ordering::Relaxed),
+            elapsed: term.started.map_or(Duration::ZERO, |s| now - s),
+        };
+        let width = terminal_width().saturating_sub(1).max(20);
+        let line = status_line(&status, width);
+        if term.drawn && line == *last {
+            return true;
+        }
+        // The verb in bold cyan, as cargo shows work in progress.
+        let (verb, rest) = line.split_at(12.min(line.len()));
+        write_err(&format!("\r\x1b[1;36m{verb}\x1b[0m{rest}\x1b[K"));
+        term.drawn = true;
+        *last = line;
+        true
+    }
+
+    /// Columns of the terminal on stderr; 80 when unknown.
+    fn terminal_width() -> usize {
+        if let Some(columns) = jacket_config::env::COLUMNS
+            .get()
+            .and_then(|c| c.parse::<usize>().ok())
+            .filter(|&c| c > 0)
+        {
+            return columns;
+        }
+        ioctl_width().unwrap_or(80)
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    fn ioctl_width() -> Option<usize> {
+        #[repr(C)]
+        #[derive(Default)]
+        struct WinSize {
+            rows: u16,
+            cols: u16,
+            x_pixels: u16,
+            y_pixels: u16,
+        }
+        #[cfg(target_os = "macos")]
+        const TIOCGWINSZ: std::ffi::c_ulong = 0x4008_7468;
+        #[cfg(target_os = "linux")]
+        const TIOCGWINSZ: std::ffi::c_ulong = 0x5413;
+        #[allow(unsafe_code)]
+        unsafe extern "C" {
+            fn ioctl(fd: i32, request: std::ffi::c_ulong, ...) -> i32;
+        }
+        let mut size = WinSize::default();
+        #[allow(unsafe_code)]
+        // SAFETY: TIOCGWINSZ writes one `struct winsize` (four u16s) through the pointer, which
+        // points at a live, correctly laid out value.
+        let result = unsafe { ioctl(2, TIOCGWINSZ, &raw mut size) };
+        (result == 0 && size.cols > 0).then_some(size.cols as usize)
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    fn ioctl_width() -> Option<usize> {
+        None
     }
 }
 
 #[cfg(target_arch = "wasm32")]
-fn start_ticker() {
-}
-
-/// One redraw. Returns whether to keep going.
-fn tick() -> bool {
-    let mut term = lock();
-    if term.done {
-        return false;
+mod ticker {
+    pub(super) fn start() {
     }
-    let now = Instant::now();
-    if term.hold_until.is_some_and(|until| now < until) {
-        return true;
-    }
-    let phase = Phase::ALL
-        .get(PHASE.load(Ordering::Relaxed) as usize)
-        .copied()
-        .unwrap_or(Phase::Checking);
-    if phase == Phase::Program {
-        return true;
-    }
-    let status = Status {
-        phase,
-        name: &term.name,
-        files: FILES.load(Ordering::Relaxed),
-        modules: MODULES.load(Ordering::Relaxed),
-        procedures: PROCEDURES.load(Ordering::Relaxed),
-        elapsed: term.started.map_or(Duration::ZERO, |s| now - s),
-    };
-    let width = terminal_width().saturating_sub(1).max(20);
-    let line = status_line(&status, width);
-    if term.drawn && line == term.last {
-        return true;
-    }
-    // The verb in bold cyan, as cargo shows work in progress.
-    let (verb, rest) = line.split_at(12.min(line.len()));
-    write_err(&format!("\r\x1b[1;36m{verb}\x1b[0m{rest}\x1b[K"));
-    term.drawn = true;
-    term.last = line;
-    true
 }
 
 /// Erase the status line before something else is written to the terminal, and keep it down
@@ -514,49 +570,6 @@ fn stop() -> Option<String> {
     }
     let elapsed = term.started.map_or(Duration::ZERO, |s| s.elapsed());
     Some(format!("{:.2}s", elapsed.as_secs_f64()))
-}
-
-/// Columns of the terminal on stderr; 80 when unknown.
-fn terminal_width() -> usize {
-    if let Some(columns) = jacket_config::env::COLUMNS
-        .get()
-        .and_then(|c| c.parse::<usize>().ok())
-        .filter(|&c| c > 0)
-    {
-        return columns;
-    }
-    ioctl_width().unwrap_or(80)
-}
-
-#[cfg(any(target_os = "macos", target_os = "linux"))]
-fn ioctl_width() -> Option<usize> {
-    #[repr(C)]
-    #[derive(Default)]
-    struct WinSize {
-        rows: u16,
-        cols: u16,
-        x_pixels: u16,
-        y_pixels: u16,
-    }
-    #[cfg(target_os = "macos")]
-    const TIOCGWINSZ: std::ffi::c_ulong = 0x4008_7468;
-    #[cfg(target_os = "linux")]
-    const TIOCGWINSZ: std::ffi::c_ulong = 0x5413;
-    #[allow(unsafe_code)]
-    unsafe extern "C" {
-        fn ioctl(fd: i32, request: std::ffi::c_ulong, ...) -> i32;
-    }
-    let mut size = WinSize::default();
-    #[allow(unsafe_code)]
-    // SAFETY: TIOCGWINSZ writes one `struct winsize` (four u16s) through the pointer, which
-    // points at a live, correctly laid out value.
-    let result = unsafe { ioctl(2, TIOCGWINSZ, &raw mut size) };
-    (result == 0 && size.cols > 0).then_some(size.cols as usize)
-}
-
-#[cfg(not(any(target_os = "macos", target_os = "linux")))]
-fn ioctl_width() -> Option<usize> {
-    None
 }
 
 #[cfg(test)]

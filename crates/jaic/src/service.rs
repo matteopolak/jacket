@@ -28,18 +28,6 @@ pub enum ServiceStatus {
     Failed = 3,
 }
 
-impl ServiceStatus {
-    fn from_byte(byte: u8) -> Option<Self> {
-        Some(match byte {
-            0 => Self::Ok,
-            1 => Self::Pending,
-            2 => Self::Unavailable,
-            3 => Self::Failed,
-            _ => return None,
-        })
-    }
-}
-
 /// A status and its body.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ServiceReply {
@@ -498,6 +486,19 @@ mod native {
                 stdin,
                 answers: received,
                 stderr: tail,
+            })
+        }
+    }
+
+    impl ServiceStatus {
+        /// The status a service's answer starts with.
+        fn from_byte(byte: u8) -> Option<Self> {
+            Some(match byte {
+                0 => Self::Ok,
+                1 => Self::Pending,
+                2 => Self::Unavailable,
+                3 => Self::Failed,
+                _ => return None,
             })
         }
     }
