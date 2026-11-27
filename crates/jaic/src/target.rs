@@ -428,6 +428,13 @@ impl Target {
         if self.os == TargetOs::Windows {
             layout.c.long = 4;
         }
+        // The stdlib's wasm C library (`internal/files/wasi-libc`) declares 64-bit time fields
+        // on wasm32 too.
+        layout.c.time_long = if self.cpu == TargetCpu::Wasm {
+            8
+        } else {
+            layout.c.long
+        };
         layout
     }
 
@@ -906,6 +913,22 @@ mod tests {
             ("wasm32-unknown-unknown", Some(Arch::Wasm)),
         ] {
             assert_eq!(Target::parse(triple).unwrap().arch(), arch, "{triple}");
+        }
+    }
+
+    /// The `long` time fields follow C's `long`, except on wasm32, whose stdlib C library keeps
+    /// them 8 bytes: the sandbox and the thread calls read `timespec` by this one width.
+    #[test]
+    fn time_fields_have_the_stdlib_c_library_width() {
+        for (triple, long, time_long) in [
+            ("x86_64-unknown-linux-gnu", 8, 8),
+            ("i686-unknown-linux-gnu", 4, 4),
+            ("armv7-unknown-linux-gnueabihf", 4, 4),
+            ("wasm32-wasi", 4, 8),
+            ("x86_64-pc-windows-msvc", 4, 4),
+        ] {
+            let c = Target::parse(triple).unwrap().data_layout().c;
+            assert_eq!((c.long, c.time_long), (long, time_long), "{triple}");
         }
     }
 

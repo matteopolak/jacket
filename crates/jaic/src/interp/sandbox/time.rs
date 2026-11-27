@@ -14,7 +14,7 @@ impl SandboxHost {
                 let req = arg(0);
                 if req != 0 {
                     let secs = read_u64(req);
-                    let nanos = read_uint(req + 8, self.long_bytes());
+                    let nanos = read_uint(req + 8, layout().c.time_long);
                     self.clock_ns = self
                         .clock_ns
                         .saturating_add(secs.saturating_mul(1_000_000_000))
@@ -39,7 +39,7 @@ impl SandboxHost {
                     return Some(u64::MAX);
                 }
                 write_u64(out, ns / 1_000_000_000);
-                write_uint(out + 8, self.long_bytes(), ns % 1_000_000_000);
+                write_uint(out + 8, layout().c.time_long, ns % 1_000_000_000);
                 0
             }
             LibcFn::Gettimeofday | LibcFn::Gettimeofday64 => {
@@ -63,7 +63,7 @@ impl SandboxHost {
             }
             LibcFn::GmtimeR | LibcFn::LocaltimeR | LibcFn::GmtimeR64 | LibcFn::LocaltimeR64 => {
                 let seconds = read_i64(arg(0));
-                fill_tm(seconds, arg(1), self.long_bytes());
+                fill_tm(seconds, arg(1), layout().c.time_long);
                 arg(1)
             }
             _ => return None,

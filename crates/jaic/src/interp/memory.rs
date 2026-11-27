@@ -167,10 +167,10 @@ impl Interp {
 
     /// The `struct timespec` at `addr` an emulated library call was given, as seconds and
     /// nanoseconds: a 64-bit `time_t` (every target the interpreter runs has one, 32-bit Linux
-    /// through its `*64` time entry points) then a C `long`.
+    /// through its `*64` time entry points) then a `long` of `CModel::time_long` bytes.
     pub(super) fn fetch_timespec(&self, addr: u64) -> Res<(u64, u64)> {
         let secs = self.fetch_u64(addr)?;
-        let long = usize::from(self.layout.c.long);
+        let long = usize::from(self.layout.c.time_long);
         let nanos = self.layout.read_uint(&self.fetch(addr + 8, long)?);
         Ok((secs, nanos))
     }

@@ -29,6 +29,9 @@ pub struct CModel {
     pub long_long: u8,
     /// `size_t`, `ptrdiff_t` and `intptr_t`.
     pub size_t: u8,
+    /// The `long` members of `struct timespec` and `struct tm` (`tv_nsec`, `tm_gmtoff`) as the
+    /// stdlib declares them: a `long`, except on wasm, whose C library keeps them 8 bytes.
+    pub time_long: u8,
 }
 
 /// How a target lays out data in memory.
@@ -158,6 +161,7 @@ impl DataLayout {
                 long: 8,
                 long_long: 8,
                 size_t: 8,
+                time_long: 8,
             },
         }
     }
@@ -416,6 +420,7 @@ mod tests {
                 long: 4,
                 long_long: 8,
                 size_t: 4,
+                time_long: 4,
             },
         }
     }

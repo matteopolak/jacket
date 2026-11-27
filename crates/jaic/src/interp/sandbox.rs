@@ -400,16 +400,6 @@ impl SandboxHost {
         self.cpu = Some(cpu);
     }
 
-    /// The bytes of a C `long` in the records the program's C library fills: the target's, but
-    /// 8 for wasm, whose library (`internal/files/wasi-libc`) keeps 64-bit fields on wasm32.
-    fn long_bytes(&self) -> u8 {
-        if self.cpu == Some(crate::target::TargetCpu::Wasm) {
-            8
-        } else {
-            guest::layout().c.long
-        }
-    }
-
     /// Stop all code running on this host `limit` from now: the check it belongs to has a
     /// wall-clock limit. Does nothing on a host without a clock (the browser's).
     pub fn stop_after(&mut self, limit: std::time::Duration) {
