@@ -479,6 +479,12 @@ impl Compiler {
         if let Some(results) = self.run_on_host_twin(scope, body, flags, span)? {
             return Ok(results.into_iter().next().unwrap_or(Operand::Void));
         }
+        if self.meta.twin {
+            let results = self.run_once_in_twin(scope, body, span, |c| {
+                c.check_run_inner_all(scope, body, expected, span)
+            })?;
+            return Ok(results.into_iter().next().unwrap_or(Operand::Void));
+        }
         if !self.ed.is_live() {
             return self.check_run_inner(scope, body, expected, span);
         }

@@ -35,6 +35,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - Compile-time code for Linux on macOS, or the reverse, fails clearly on other calls the two C libraries make differently.
 - Compile-time code for Windows on Linux or macOS refuses C runtime calls that differ from the host's, such as `fopen`.
 - The sandbox gives macOS programs Darwin's `open` flags and error numbers.
+- A cross build runs a top-level `#insert #run` once, not again for the target.
 - `jailint` treats a freed field as usable again only when the call overwrites it on every path.
 - `skip_on(.CHECK)` skips a test under `jacket test --check-only`, for a `#run` that builds and runs a program.
 - `union_read` no longer counts `v.kind == .X` as a check for a member other than the one `X` names.

@@ -12,6 +12,16 @@ fn compile_configured(
     cross: bool,
     configure: impl FnOnce(&mut Compiler),
 ) -> Result<(), String> {
+    let mut compiler = compiler_for(source, cross);
+    configure(&mut compiler);
+    compiler
+        .compile_program(Path::new("/main.jai"))
+        .map_err(|error| error.render(&compiler.src.sources))
+}
+
+/// A compiler for `/main.jai` holding `source`, for another OS and CPU than the host's when
+/// `cross`.
+fn compiler_for(source: &str, cross: bool) -> Compiler {
     let mut fs = VirtualFs::default();
     fs.insert("/main.jai", source.as_bytes());
     fs.insert("/prelude/module.jai", "Operating_System_Tag :: enum u32 { WINDOWS; LINUX; MACOS; WASM; } CPU_Tag :: enum u32 { X64; ARM64; CUSTOM; }".as_bytes());
@@ -35,11 +45,7 @@ fn compile_configured(
             TargetCpu::X64
         };
     }
-    let mut compiler = Compiler::new(options, Rc::new(fs));
-    configure(&mut compiler);
-    compiler
-        .compile_program(Path::new("/main.jai"))
-        .map_err(|error| error.render(&compiler.src.sources))
+    Compiler::new(options, Rc::new(fs))
 }
 
 #[test]
@@ -185,4 +191,16 @@ fn custom_provider_without_isolation_cannot_fall_back_to_native_execution() {
 #[test]
 fn non_cross_host_runs_keep_ordinary_lexical_behavior() {
     compile("local :: 17; ANSWER :: #run,host -> int {return local;}; #assert ANSWER==17; main :: () {}", false).unwrap();
+}
+
+#[test]
+fn a_top_level_insert_run_runs_once_in_a_cross_build() {
+    // The host twin runs it while it loads the program; the target reuses that result.
+    let source = "make :: () -> string { return \"X :: 7;\"; } #insert #run make(); #assert X == 7; main :: () {}";
+    let mut compiler = compiler_for(source, true);
+    if let Err(error) = compiler.compile_program(Path::new("/main.jai")) {
+        panic!("{}", error.render(&compiler.src.sources));
+    }
+    let runs = compiler.meta.perf.runs.iter().filter(|run| run.outermost);
+    assert_eq!(runs.count(), 1);
 }

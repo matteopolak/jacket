@@ -1000,6 +1000,25 @@ impl Compiler {
         {
             return Ok(results);
         }
+        if self.meta.twin
+            && let ast::ExprKind::Run {
+                body, ..
+            } = &expr.kind
+        {
+            return self.run_once_in_twin(scope, body, expr.span, |c| {
+                c.eval_const_values(scope, expr, expected)
+            });
+        }
+        self.eval_const_values(scope, expr, expected)
+    }
+
+    /// The values of the constant expression `expr`, running it if it is a `#run`.
+    fn eval_const_values(
+        &mut self,
+        scope: ScopeId,
+        expr: &ast::Expr,
+        expected: Option<TypeId>,
+    ) -> Result<Vec<Operand>> {
         // `#run f()` keeps all of f's results, not only the first.
         let expr = match &expr.kind {
             ast::ExprKind::Run {

@@ -3,8 +3,8 @@
 use super::lower::Operand;
 use super::scope::ScopeKind;
 use super::{
-    Compiler, Diagnostic, FileInfo, HashSet, ModuleId, Options, ProgramSource, Result, ScopeId,
-    Span, TypeId, ast, ir,
+    Compiler, Diagnostic, FileInfo, HashMap, HashSet, ModuleId, Options, ProgramSource, Result,
+    ScopeId, Span, TypeId, ast, ir,
 };
 use crate::diagnostics::Code;
 use crate::ide::Recorder;
@@ -20,7 +20,14 @@ pub(crate) struct TwinSlot {
     /// How many files of the source table were searched for `#no_reset`, and whether one has it.
     scanned: u32,
     no_reset_declared: bool,
+    /// In the twin: what each constant `#run` it ran gave, by where it is written.
+    /// A run the twin made while loading the program (an `#insert #run`) or for the target is
+    /// not run again when the other asks for it.
+    results: HashMap<RunKey, Vec<Operand>>,
 }
+
+/// A top-level constant `#run`: the file scope it is written in and its byte range there.
+type RunKey = (ScopeId, u32, u32);
 
 /// `Compiler`-module procedures that read or change state the target program owns; a run that
 /// names one stays on the target compiler (`Operation::needs_target` catches the calls a
@@ -281,6 +288,21 @@ impl Compiler {
         let Some(twin_scope) = self.map_scope_to_twin(twin, scope, span) else {
             return Ok(None);
         };
+        // A top-level run maps to the twin's copy of its file, where the twin keeps its result.
+        let key = self
+            .twin_run_key(scope, body, span)
+            .map(|(_, start, end)| (twin_scope, start, end));
+        if let Some(found) = key.and_then(|key| twin.ct.twin.results.get(&key).cloned()) {
+            // The twin ran it while loading the program, or for an earlier request.
+            if !found
+                .iter()
+                .all(|operand| self.can_import_host_type(twin, operand.ty(), span))
+            {
+                return Ok(None);
+            }
+            self.load_twin_sources(twin)?;
+            return self.import_host_results(twin, found, span).map(Some);
+        }
         let nested = self.meta.perf.running();
         self.ct.interp.lend_budget(&mut twin.ct.interp, nested);
         let before = (
@@ -314,9 +336,60 @@ impl Compiler {
         self.epochs.placeholder_misses += twin.epochs.placeholder_misses - before.2;
         self.load_twin_sources(twin)?;
         match result {
-            Ok(operands) => self.import_host_results(twin, operands, span).map(Some),
+            Ok(operands) => {
+                if let Some(key) = key {
+                    twin.ct.twin.results.insert(key, operands.clone());
+                }
+                self.import_host_results(twin, operands, span).map(Some)
+            }
             Err(diagnostic) => Err(diagnostic),
         }
+    }
+
+    /// The file scope of a run checked in `scope`, when the run is the file's own: written at
+    /// its top level, so checked in the file scope or the thunk scope made for it. A run inside
+    /// a procedure has none, since it may run once for each instance of the procedure.
+    fn top_level_file_scope(&self, scope: ScopeId) -> Option<ScopeId> {
+        let found = self.scope(scope);
+        match found.kind {
+            ScopeKind::File => Some(scope),
+            ScopeKind::Proc => {
+                let parent = found.parent?;
+                let thunk = self.ns.thunk_scopes.get(&parent) == Some(&scope);
+                (thunk && self.scope(parent).kind == ScopeKind::File).then_some(parent)
+            }
+            _ => None,
+        }
+    }
+
+    /// The key under which the twin keeps the result of the constant `#run` at `span`, checked
+    /// in `scope`, when it is a top-level expression run: its file scope and its place in the
+    /// file. The two compilers number files apart, so the span's file is not part of it.
+    fn twin_run_key(&self, scope: ScopeId, body: &ast::RunBody, span: Span) -> Option<RunKey> {
+        self.top_level_file_scope(scope)
+            .filter(|_| matches!(body, ast::RunBody::Expr(_)))
+            .map(|file| (file, span.start, span.end))
+    }
+
+    /// In the twin: run the constant `#run` at `span`, checked in `scope`, with `run`, unless
+    /// the twin ran this top-level run before (while loading the program, or for the target),
+    /// and give what it gave.
+    pub(super) fn run_once_in_twin(
+        &mut self,
+        scope: ScopeId,
+        body: &ast::RunBody,
+        span: Span,
+        run: impl FnOnce(&mut Compiler) -> Result<Vec<Operand>>,
+    ) -> Result<Vec<Operand>> {
+        let key = self.twin_run_key(scope, body, span);
+        if let Some(found) = key.and_then(|key| self.ct.twin.results.get(&key)) {
+            return Ok(found.clone());
+        }
+        let results = run(self)?;
+        if let Some(key) = key {
+            self.ct.twin.results.insert(key, results.clone());
+        }
+        Ok(results)
     }
 
     /// Load the sources the twin's code added to the workspace into the target as well.
