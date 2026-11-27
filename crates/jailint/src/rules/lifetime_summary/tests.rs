@@ -418,6 +418,8 @@ fn output_and_exit_effects_follow_bodies_and_standard_handle_values() {
                 raw_write(fd, "x".data, 1);
             }
             file_output :: (fd: s32) { raw_write(fd, "x".data, 1); }
+            wrapped_output :: () { file_output(2); }
+            wrapped_file :: () { file_output(9); }
             not_output :: () { raw_write(9, "x".data, 1); }
             change :: (p: *s32) { p.* = 9; }
             changed_output :: () { fd: s32 = 1; change(*fd); raw_write(fd, "x".data, 1); }
@@ -448,14 +450,19 @@ fn output_and_exit_effects_follow_bodies_and_standard_handle_values() {
                     .unwrap();
             &after.procs[&ProcId(id as u32)]
         };
-        for name in ["select_output", "wrapped_print"] {
+        for name in ["select_output", "wrapped_print", "wrapped_output"] {
             assert!(
                 get(name).observable.output,
                 "windows={windows}, {name}: {:?}",
                 get(name)
             );
         }
-        for name in ["file_output", "not_output", "changed_output"] {
+        for name in [
+            "file_output",
+            "not_output",
+            "changed_output",
+            "wrapped_file",
+        ] {
             assert!(
                 !get(name).observable.output,
                 "windows={windows}, {name}: {:?}",

@@ -6,12 +6,23 @@ use jaic::sema::Compiler;
 pub(in crate::rules) struct Observable {
     pub output: bool,
     pub exit: bool,
+    /// The formals that reach a `@WritesOutput` argument, as bits (bit `k` is formal `k`): the
+    /// procedure writes to the standard output or error when a caller passes one there, as a
+    /// wrapper around `write` does.
+    pub output_through: u64,
 }
 
 impl Observable {
+    /// Adds a callee's output and exit; its `output_through` names the callee's formals, so a
+    /// caller reads it per call instead.
     pub fn include(&mut self, other: Self) {
         self.output |= other.output;
         self.exit |= other.exit;
+    }
+
+    /// The formals in `output_through`.
+    fn output_formals(self) -> impl Iterator<Item = usize> {
+        (0..64).filter(move |k| self.output_through & (1 << k) != 0)
     }
 }
 
@@ -26,24 +37,28 @@ fn output_formal(c: &Compiler, p: ProcId) -> Option<usize> {
 }
 
 pub(super) struct Calls<'a> {
+    compiler: &'a Compiler,
     body: &'a LifetimeBody,
-    direct: Observable,
+    /// The calls reached before a call that does not return, with their arguments.
+    sites: Vec<(ProcId, &'a [super::LifetimeArgument])>,
     callees: Vec<ProcId>,
+    values: std::cell::OnceCell<Values<'a>>,
 }
 
 impl<'a> Calls<'a> {
-    pub fn build(c: &Compiler, body: &'a LifetimeBody, all: &HashMap<ProcId, Summary>) -> Self {
+    pub fn build(c: &'a Compiler, body: &'a LifetimeBody, all: &HashMap<ProcId, Summary>) -> Self {
         let mut out = Self {
+            compiler: c,
             body,
-            direct: Observable::default(),
+            sites: Vec::new(),
             callees: Vec::new(),
+            values: std::cell::OnceCell::new(),
         };
         if body.blocks.is_empty() {
             return out;
         }
         let mut queue = vec![0];
         let mut visited = HashSet::default();
-        let mut values = None;
         while let Some(i) = queue.pop() {
             if !visited.insert(i) {
                 continue;
@@ -58,10 +73,7 @@ impl<'a> Calls<'a> {
                 } = event
                 {
                     out.callees.push(*callee);
-                    if let Some(formal) = output_formal(c, *callee) {
-                        let domain = values.get_or_insert_with(|| Values::new(body));
-                        out.direct.output |= domain.output(c, formal, args);
-                    }
+                    out.sites.push((*callee, args));
                     if all
                         .get(callee)
                         .is_some_and(|s| s.normal_return == Some(false))
@@ -129,7 +141,21 @@ impl<'a> Calls<'a> {
     }
 
     pub fn infer(&self, all: &HashMap<ProcId, Summary>) -> Observable {
-        let mut out = self.direct;
+        let mut out = Observable::default();
+        for &(callee, args) in &self.sites {
+            let through = all.get(&callee).map(|s| s.observable).unwrap_or_default();
+            for formal in output_formal(self.compiler, callee)
+                .into_iter()
+                .chain(through.output_formals())
+            {
+                let values = self.values.get_or_init(|| Values::new(self.body));
+                match values.output(self.compiler, formal, args) {
+                    Reaches::Output => out.output = true,
+                    Reaches::Formal(k) if k < 64 => out.output_through |= 1 << k,
+                    Reaches::Formal(_) | Reaches::Neither => {}
+                }
+            }
+        }
         for p in &self.callees {
             if let Some(s) = all.get(p) {
                 out.include(s.observable);
@@ -146,6 +172,17 @@ impl<'a> Calls<'a> {
 enum Value {
     Numbers(Vec<u64>),
     OutputHandle,
+    /// The value the caller passed as this formal.
+    Formal(usize),
+}
+
+/// Where an argument passed to a `@WritesOutput` formal comes from.
+enum Reaches {
+    /// The standard output or error.
+    Output,
+    /// This procedure's own formal, so it writes output when its caller passes one.
+    Formal(usize),
+    Neither,
 }
 
 enum Def<'a> {
@@ -153,7 +190,7 @@ enum Def<'a> {
     Copy(Val),
     Load(Val),
     Call(ProcId, &'a [super::LifetimeArgument]),
-    Unknown,
+    Formal(usize),
 }
 
 struct Values<'a> {
@@ -172,8 +209,14 @@ impl<'a> Values<'a> {
         for e in body.blocks.iter().flat_map(|b| &b.events) {
             match e {
                 Event::Parameter {
-                    incoming, ..
-                } => out.defs.entry(*incoming).or_default().push(Def::Unknown),
+                    incoming,
+                    formal,
+                    ..
+                } => out
+                    .defs
+                    .entry(*incoming)
+                    .or_default()
+                    .push(Def::Formal(*formal)),
                 Event::Store {
                     place,
                     value,
@@ -219,18 +262,21 @@ impl<'a> Values<'a> {
         out
     }
 
-    fn output(&self, c: &Compiler, formal: usize, args: &[super::LifetimeArgument]) -> bool {
+    fn output(&self, c: &Compiler, formal: usize, args: &[super::LifetimeArgument]) -> Reaches {
         let Some(arg) = args.iter().find(|a| a.formal == formal) else {
-            return false;
+            return Reaches::Neither;
         };
         let actual = arg
             .constant
             .map(|v| Value::Numbers(vec![v]))
             .or_else(|| super::value(arg).and_then(|v| self.get(c, v, &mut HashSet::default(), 0)));
         match actual {
-            Some(Value::Numbers(v)) => !v.is_empty() && v.iter().all(|v| matches!(v, 1 | 2)),
-            Some(Value::OutputHandle) => true,
-            None => false,
+            Some(Value::Numbers(v)) if !v.is_empty() && v.iter().all(|v| matches!(v, 1 | 2)) => {
+                Reaches::Output
+            }
+            Some(Value::OutputHandle) => Reaches::Output,
+            Some(Value::Formal(k)) => Reaches::Formal(k),
+            Some(Value::Numbers(_)) | None => Reaches::Neither,
         }
     }
 
@@ -243,6 +289,7 @@ impl<'a> Values<'a> {
             for d in self.defs.get(&v)? {
                 let selected = match d {
                     Def::Constant(n) => Value::Numbers(vec![*n]),
+                    Def::Formal(k) => Value::Formal(*k),
                     Def::Copy(v) => self.get(c, *v, seen, depth + 1)?,
                     Def::Load(p) => {
                         if self.exposed.contains(p) {
@@ -273,7 +320,7 @@ impl<'a> Values<'a> {
                         }
                         Value::OutputHandle
                     }
-                    _ => return None,
+                    Def::Call(..) => return None,
                 };
                 merge(&mut result, selected)?;
             }
@@ -296,6 +343,7 @@ fn merge(into: &mut Option<Value>, value: Value) -> Option<()> {
             }
         }
         (Some(Value::OutputHandle), Value::OutputHandle) => {}
+        (Some(Value::Formal(a)), Value::Formal(b)) if *a == b => {}
         _ => return None,
     }
     Some(())
