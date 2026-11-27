@@ -78,3 +78,98 @@ fn migration_names_are_unique_kebab_case() {
     names.dedup();
     assert_eq!(names.len(), MIGRATIONS.len());
 }
+
+/// Rewrites every integer literal `42` to a name that does not exist.
+static BREAKS_CODE: Migration = Migration {
+    name: "breaks-code",
+    summary: "test",
+    ambiguous: false,
+    detect: Detect::Tokens(break_forty_two),
+};
+
+/// Edits that replace each token reading `word` with `new`.
+fn replace_word(source: &Source, word: &str, new: &str) -> Vec<Answer> {
+    source
+        .tokens
+        .iter()
+        .filter(|t| source.slice(t.span.start as usize, t.span.end as usize) == word)
+        .map(|t| Answer::Edit {
+            start: t.span.start as usize,
+            end: t.span.end as usize,
+            text: new.into(),
+        })
+        .collect()
+}
+
+fn break_forty_two(source: &Source) -> Vec<Answer> {
+    replace_word(source, "42", "no_such_name")
+}
+
+/// Renames the procedure `before` to `after`.
+static RENAMES_BEFORE: Migration = Migration {
+    name: "renames-before",
+    summary: "test",
+    ambiguous: false,
+    detect: Detect::Tokens(rename_before),
+};
+
+fn rename_before(source: &Source) -> Vec<Answer> {
+    replace_word(source, "before", "after")
+}
+
+fn options_for(path: &Path) -> Options {
+    Options {
+        compiler_options: jaic::sema::Options::host(),
+        source: None,
+        paths: vec![path.to_path_buf()],
+        import_dirs: Vec::new(),
+        stdlib: Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"),
+        config: crate::Config::default(),
+        jobs: 1,
+        verbose: false,
+        add_sources: Vec::new(),
+        limits: jaic::ide::lint_compile::CheckLimits::default(),
+        overlay: BTreeMap::new(),
+    }
+}
+
+#[test]
+fn a_migration_that_adds_an_error_is_left_out_and_the_rest_still_apply() {
+    let dir = test_support::TempDir::new("migrate-partial");
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("main.jai");
+    std::fs::write(
+        &file,
+        "before :: () {}\nmain :: () {\n    x := 42;\n    before();\n}\n",
+    )
+    .unwrap();
+    let file = std::fs::canonicalize(&file).unwrap();
+    let plan = plan_with(options_for(&file), &[&BREAKS_CODE, &RENAMES_BEFORE]).unwrap();
+    assert_eq!(plan.rejected.len(), 1, "{plan:?}");
+    assert_eq!(plan.rejected[0].migration, "breaks-code");
+    assert_eq!(plan.rejected[0].errors[0].line, 3);
+    let [migrated] = plan.files.as_slice() else {
+        panic!("{plan:?}");
+    };
+    assert_eq!(
+        migrated.after,
+        "after :: () {}\nmain :: () {\n    x := 42;\n    after();\n}\n"
+    );
+}
+
+#[test]
+fn a_file_that_is_not_utf8_is_skipped_and_the_others_are_migrated() {
+    let dir = test_support::TempDir::new("migrate-not-utf8");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("main.jai"),
+        "#load \"other.jai\";\nbefore :: () {}\nmain :: () { before(); }\n",
+    )
+    .unwrap();
+    std::fs::write(dir.join("other.jai"), b"x :: \"\xff\";\n").unwrap();
+    let main = std::fs::canonicalize(dir.join("main.jai")).unwrap();
+    let plan = plan_with(options_for(&main), &[&RENAMES_BEFORE]).unwrap();
+    assert_eq!(plan.skipped.len(), 1, "{plan:?}");
+    assert!(plan.skipped[0].ends_with("other.jai"));
+    assert_eq!(plan.files.len(), 1, "{plan:?}");
+}

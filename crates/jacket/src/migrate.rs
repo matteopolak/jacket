@@ -80,22 +80,14 @@ fn migrate(args: &MigrateArgs, cwd: &Path) -> Result<ExitCode, String> {
     };
     let plan = migrate::plan(options, &selection)?;
     show(&plan, cwd);
-    if !plan.introduced.is_empty() {
-        eprintln!("error: the migrated code would have errors the original does not:");
-        for e in &plan.introduced {
-            eprintln!(
-                "  {}: error[{}]: {}",
-                location(&e.path, e.start, &plan, cwd),
-                e.code,
-                e.message
-            );
-        }
-        eprintln!("help: nothing was written; please report this with the code it came from");
-        return Ok(ExitCode::from(1));
-    }
+    let status = if plan.rejected.is_empty() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::from(1)
+    };
     if plan.files.is_empty() {
         println!("nothing to migrate");
-        return Ok(ExitCode::SUCCESS);
+        return Ok(status);
     }
     let rewrites: usize = plan.files.iter().map(|f| f.applied.len()).sum();
     if !args.apply {
@@ -103,7 +95,7 @@ fn migrate(args: &MigrateArgs, cwd: &Path) -> Result<ExitCode, String> {
             "{rewrites} rewrite(s) in {} file(s); nothing written (run with --apply to write them)",
             plan.files.len()
         );
-        return Ok(ExitCode::SUCCESS);
+        return Ok(status);
     }
     let targets: Vec<&Path> = plan.files.iter().map(|f| f.path.as_path()).collect();
     guard(&targets, args)?;
@@ -114,7 +106,7 @@ fn migrate(args: &MigrateArgs, cwd: &Path) -> Result<ExitCode, String> {
         "migrated {} file(s) ({rewrites} rewrite(s))",
         plan.files.len()
     );
-    Ok(ExitCode::SUCCESS)
+    Ok(status)
 }
 
 /// Print the diff of each file, which migrations made it, and what needs a person.
@@ -141,7 +133,34 @@ fn show(plan: &Plan, cwd: &Path) {
             m.message
         );
     }
-    if !plan.remaining.is_empty() && plan.introduced.is_empty() {
+    for path in &plan.skipped {
+        eprintln!(
+            "note: `{}` is not UTF-8 text; it was left as it is",
+            crate::shown::path(path, cwd)
+        );
+    }
+    for r in &plan.rejected {
+        eprintln!(
+            "error: `{}` was not applied: its rewrites would make code that compiled fail",
+            r.migration
+        );
+        for e in &r.errors {
+            eprintln!(
+                "  {}:{}:{}: error[{}]: {}",
+                crate::shown::path(&e.path, cwd),
+                e.line,
+                e.column,
+                e.code,
+                e.message
+            );
+        }
+    }
+    if !plan.rejected.is_empty() {
+        eprintln!(
+            "help: the other migrations are unaffected; please report the code the rejected one came from"
+        );
+    }
+    if !plan.remaining.is_empty() {
         eprintln!(
             "note: {} error(s) no migration covers remain; `jacket check` shows them",
             plan.remaining.len()

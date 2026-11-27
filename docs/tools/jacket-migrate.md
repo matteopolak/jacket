@@ -28,7 +28,9 @@ Neither kind can touch code that already means something today. A migration whos
 4. Repeat steps 2 and 3 until nothing changes (at most 8 passes).
 5. Compare the final errors with the original errors, matched by file, code and message.
 
-If the migrated code has an error the original didn't, a migration was wrong for this code. The command prints those errors, writes nothing, and exits 1. Errors no migration covers are left alone and counted in a note.
+If a pass adds an error the original didn't, the plan tries each migration of that pass alone. A migration that adds an error is wrong for this code: the command leaves its rewrites out, prints its errors, and exits 1. The other migrations are still planned, and `--apply` writes them. Errors no migration covers are left alone and counted in a note.
+
+Files that are not UTF-8 text are not read or edited; a `note:` names each.
 
 A migration that finds the old form but can't tell what it should become reports a `note:` with what to do by hand, instead of guessing.
 
@@ -48,7 +50,7 @@ If the code is in a git repository but `git` isn't installed, the command fails 
 | Status | Meaning |
 |---|---|
 | 0 | Nothing to migrate, a clean dry run, or the files were written |
-| 1 | The migrated code would have new errors; nothing was written |
+| 1 | A migration was left out because it would add errors; the others were planned, and written with `--apply` |
 | 2 | A usage problem, an unknown migration, or a refusal from the git guard |
 
 ## How to add a migration

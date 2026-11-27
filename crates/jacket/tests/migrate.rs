@@ -360,6 +360,22 @@ fn a_removed_module_gets_a_note_and_no_rewrite() {
 }
 
 #[test]
+fn a_file_that_is_not_utf8_is_left_alone_with_a_note() {
+    let dir = scratch("migrate-not-utf8");
+    std::fs::write(dir.join("main.jai"), format!("#load \"other.jai\";\n{OLD}")).unwrap();
+    std::fs::write(dir.join("other.jai"), b"x :: \"\xff\";\n").unwrap();
+    let out = migrate(&dir, &["--apply", "--allow-no-vcs", "main.jai"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(
+        text(&out).contains("note: `other.jai` is not UTF-8 text"),
+        "{}",
+        text(&out)
+    );
+    let main = std::fs::read_to_string(dir.join("main.jai")).unwrap();
+    assert!(main.contains("c: #Context;"), "{main}");
+}
+
+#[test]
 fn arguments_after_the_allocator_stay_ordinary_arguments() {
     assert_migrates(
         "migrate-allocator-order",

@@ -13,7 +13,8 @@
 //!
 //! `plan` works in memory: it edits, recompiles over an overlay of the edited text, and
 //! repeats until nothing changes. Its [`Plan`] says what would change and whether the result
-//! compiles at least as well as the original ([`Plan::introduced`] is empty). Writing the
+//! compiles at least as well as the original: a migration whose rewrites add an error is left
+//! out and named in [`Plan::rejected`]. Writing the
 //! files is the caller's job (`jacket migrate --apply`).
 mod rules;
 
@@ -154,128 +155,82 @@ pub struct Manual {
     pub message: String,
 }
 
+/// A migration whose rewrites were left out because they made the code fail where it
+/// compiled before.
+#[derive(Clone, Debug)]
+pub struct Rejected {
+    pub migration: &'static str,
+    /// The errors its rewrites introduced, as the compiler reports them on the rewritten code.
+    pub errors: Vec<RejectedError>,
+}
+
+/// An error in rewritten code that is not written anywhere, so it carries its own position.
+#[derive(Clone, Debug)]
+pub struct RejectedError {
+    pub path: PathBuf,
+    /// One-based line and column in the rewritten text.
+    pub line: usize,
+    pub column: usize,
+    pub code: &'static str,
+    pub message: String,
+}
+
 /// What migrating would do.
 #[derive(Debug, Default)]
 pub struct Plan {
     pub files: Vec<Migrated>,
     pub manual: Vec<Manual>,
-    /// Errors the migrated code has that the original did not. Non-empty means a migration
-    /// is wrong for this code: nothing should be written.
-    pub introduced: Vec<CompileError>,
+    /// Migrations that were wrong for this code. Their rewrites are not in `files`; the
+    /// rewrites of the others are.
+    pub rejected: Vec<Rejected>,
     /// Errors left in the migrated code that it shared with the original.
     pub remaining: Vec<CompileError>,
+    /// Files that are not UTF-8 text, which no migration reads or edits.
+    pub skipped: Vec<PathBuf>,
 }
 
-/// Work out the migrations of the files `options` names, without writing anything.
-pub fn plan(mut options: Options, selection: &Selection) -> Result<Plan, String> {
-    let migrations = selection.migrations()?;
-    options.overlay.clear();
-    let first = driver::run(&options);
-    let mut texts: BTreeMap<PathBuf, (Arc<str>, String)> = BTreeMap::new();
-    for path in &first.files {
-        let before: Arc<str> = match std::fs::read_to_string(path) {
-            Ok(text) => Arc::from(text),
-            Err(e) => {
-                return Err(format!(
-                    "cannot read `{}`: {}",
-                    path.display(),
-                    jaic::io_reason(&e)
-                ));
-            }
-        };
-        let after = before.to_string();
-        texts.insert(path.clone(), (before, after));
+/// The text of every file a plan edits, and what was done to it so far.
+#[derive(Clone)]
+struct Work {
+    /// The text read from disk, then the text after the edits so far.
+    texts: BTreeMap<PathBuf, (Arc<str>, String)>,
+    /// Applied rewrites, in the original text's offsets.
+    applied: BTreeMap<PathBuf, Vec<Applied>>,
+    shifts: BTreeMap<PathBuf, Vec<(usize, isize)>>,
+}
+
+type Edits = BTreeMap<PathBuf, Vec<(Edit, &'static str)>>;
+
+impl Trial {
+    /// The introduced errors with their positions in this trial's text.
+    fn rejected_errors(&self) -> Vec<RejectedError> {
+        self.introduced
+            .iter()
+            .map(|e| {
+                let text = self.work.texts.get(&e.path).map_or("", |(_, t)| t.as_str());
+                let before = text.get(..e.start).unwrap_or(text);
+                RejectedError {
+                    path: e.path.clone(),
+                    line: before.matches('\n').count() + 1,
+                    column: before.rsplit('\n').next().map_or(0, |l| l.chars().count()) + 1,
+                    code: e.code,
+                    message: e.message.clone(),
+                }
+            })
+            .collect()
     }
-    // Offsets of each file's applied rewrites are kept in the original text's terms.
-    let mut applied: BTreeMap<PathBuf, Vec<Applied>> = BTreeMap::new();
-    let mut shifts: BTreeMap<PathBuf, Vec<(usize, isize)>> = BTreeMap::new();
-    let mut manual = Vec::new();
-    let mut errors = first.errors.clone();
-    for pass in 0..MAX_PASSES {
-        let mut edits: BTreeMap<PathBuf, Vec<(Edit, &'static str)>> = BTreeMap::new();
-        manual.clear();
-        for (path, (_, text)) in &texts {
-            let (tokens, _) = jaic::lexer::lex_ide(jaic::source::FileId(0), text);
-            // The `modules` folder beside the main file: the file's own folder, or a folder the
-            // run was pointed at.
-            let main_dirs = options.paths.iter().map(|p| {
-                if p.is_dir() {
-                    p.clone()
-                } else {
-                    p.parent().map(Path::to_path_buf).unwrap_or_default()
-                }
-            });
-            let module_dirs: Vec<PathBuf> = path
-                .parent()
-                .map(Path::to_path_buf)
-                .into_iter()
-                .chain(main_dirs)
-                .map(|dir| dir.join("modules"))
-                .chain(options.import_dirs.iter().cloned())
-                .chain([options.stdlib.clone()])
-                .collect();
-            let source = Source {
-                path,
-                text,
-                tokens: &tokens,
-                module_dirs: &module_dirs,
-            };
-            for m in &migrations {
-                let answers = match m.detect {
-                    Detect::Tokens(detect) => detect(&source),
-                    Detect::Error {
-                        codes,
-                        answer,
-                    } => errors
-                        .iter()
-                        .filter(|e| e.path == *path && codes.contains(&e.code))
-                        .filter_map(|e| answer(e, &source))
-                        .collect(),
-                };
-                for a in answers {
-                    match a {
-                        Answer::Edit {
-                            start,
-                            end,
-                            text,
-                        } => edits.entry(path.clone()).or_default().push((
-                            Edit {
-                                start,
-                                end,
-                                text,
-                            },
-                            m.name,
-                        )),
-                        Answer::Manual {
-                            start,
-                            end,
-                            message,
-                        } => manual.push(Manual {
-                            migration: m.name,
-                            path: path.clone(),
-                            start,
-                            end,
-                            message,
-                        }),
-                    }
-                }
-            }
-        }
-        if edits.is_empty() {
-            break;
-        }
-        if pass + 1 == MAX_PASSES {
-            return Err(format!(
-                "the migrations did not settle after {MAX_PASSES} passes; this is a bug in a migration, please report it"
-            ));
-        }
+}
+
+impl Work {
+    /// Apply the edits that fit together; overlapping ones wait for the next pass.
+    fn apply(&mut self, edits: Edits) {
         for (path, file_edits) in edits {
-            let Some((_, text)) = texts.get_mut(&path) else {
+            let Some((_, text)) = self.texts.get_mut(&path) else {
                 continue;
             };
             let chosen = non_overlapping(file_edits);
-            let file_shifts = shifts.entry(path.clone()).or_default();
-            let file_applied = applied.entry(path.clone()).or_default();
+            let file_shifts = self.shifts.entry(path.clone()).or_default();
+            let file_applied = self.applied.entry(path.clone()).or_default();
             for (edit, name) in &chosen {
                 file_applied.push(Applied {
                     migration: name,
@@ -290,19 +245,144 @@ pub fn plan(mut options: Options, selection: &Selection) -> Result<Plan, String>
             }
             *text = crate::fix::apply_edits(text, chosen.into_iter().map(|(e, _)| e).collect());
         }
-        options.overlay = texts
+    }
+
+    /// The edited files as an overlay for the compiler.
+    fn overlay(&self) -> BTreeMap<PathBuf, Arc<[u8]>> {
+        self.texts
             .iter()
             .filter(|(_, (before, after))| **before != **after)
             .map(|(path, (_, after))| (path.clone(), Arc::from(after.as_bytes())))
-            .collect();
-        errors = driver::run(&options).errors;
+            .collect()
     }
-    let (introduced, remaining) = compare(&first.errors, &errors);
-    let files = texts
+}
+
+/// The result of compiling a [`Work`] after some edits.
+struct Trial {
+    work: Work,
+    errors: Vec<CompileError>,
+    /// The errors the original code did not have.
+    introduced: Vec<CompileError>,
+}
+
+/// Work out the migrations of the files `options` names, without writing anything.
+pub fn plan(options: Options, selection: &Selection) -> Result<Plan, String> {
+    let migrations = selection.migrations()?;
+    plan_with(options, &migrations)
+}
+
+fn plan_with(mut options: Options, migrations: &[&'static Migration]) -> Result<Plan, String> {
+    options.overlay.clear();
+    let first = driver::run(&options);
+    let mut work = Work {
+        texts: BTreeMap::new(),
+        applied: BTreeMap::new(),
+        shifts: BTreeMap::new(),
+    };
+    let mut skipped = Vec::new();
+    for path in &first.files {
+        let bytes = std::fs::read(path)
+            .map_err(|e| format!("cannot read `{}`: {}", path.display(), jaic::io_reason(&e)))?;
+        let Ok(text) = String::from_utf8(bytes) else {
+            skipped.push(path.clone());
+            continue;
+        };
+        let before: Arc<str> = Arc::from(text);
+        let after = before.to_string();
+        work.texts.insert(path.clone(), (before, after));
+    }
+    let mut manual = Vec::new();
+    let mut rejected: Vec<Rejected> = Vec::new();
+    let mut active: Vec<&'static Migration> = migrations.to_vec();
+    let mut errors = first.errors.clone();
+    let trial = |options: &mut Options, work: &Work, edits: Edits| {
+        let mut next = work.clone();
+        next.apply(edits);
+        options.overlay = next.overlay();
+        let errors = driver::run(options).errors;
+        let (introduced, _) = compare(&first.errors, &errors);
+        Trial {
+            work: next,
+            errors,
+            introduced,
+        }
+    };
+    for pass in 0..MAX_PASSES {
+        let (edits, found) = detect(&work, &errors, &options, &active);
+        manual = found;
+        if edits.is_empty() {
+            break;
+        }
+        if pass + 1 == MAX_PASSES {
+            return Err(format!(
+                "the migrations did not settle after {MAX_PASSES} passes; this is a bug in a migration, please report it"
+            ));
+        }
+        let all = trial(&mut options, &work, edits.clone());
+        if all.introduced.is_empty() {
+            work = all.work;
+            errors = all.errors;
+            continue;
+        }
+        // Something in this pass is wrong. Try each migration on its own to find which, and keep
+        // the ones that introduce nothing.
+        let mut names: Vec<&'static str> = Vec::new();
+        for (_, name) in edits.values().flatten() {
+            if !names.contains(name) {
+                names.push(name);
+            }
+        }
+        let only = |keep: &dyn Fn(&str) -> bool| -> Edits {
+            edits
+                .iter()
+                .map(|(path, list)| {
+                    let list: Vec<_> = list.iter().filter(|(_, n)| keep(n)).cloned().collect();
+                    (path.clone(), list)
+                })
+                .filter(|(_, list)| !list.is_empty())
+                .collect()
+        };
+        let mut good: Vec<Trial> = Vec::new();
+        let mut good_names: Vec<&'static str> = Vec::new();
+        if names.len() == 1 {
+            rejected.push(Rejected {
+                migration: names[0],
+                errors: all.rejected_errors(),
+            });
+        } else {
+            for name in &names {
+                let own = trial(&mut options, &work, only(&|n| n == *name));
+                if own.introduced.is_empty() {
+                    good_names.push(name);
+                    good.push(own);
+                } else {
+                    rejected.push(Rejected {
+                        migration: name,
+                        errors: own.rejected_errors(),
+                    });
+                }
+            }
+        }
+        active.retain(|m| !rejected.iter().any(|r| r.migration == m.name));
+        // The accepted migrations together, or the first alone when they disagree.
+        if good.len() > 1 {
+            let together = trial(&mut options, &work, only(&|n| good_names.contains(&n)));
+            if together.introduced.is_empty() {
+                good = vec![together];
+            }
+        }
+        if let Some(next) = good.into_iter().next() {
+            work = next.work;
+            errors = next.errors;
+        }
+    }
+    let (_, remaining) = compare(&first.errors, &errors);
+    let files = work
+        .texts
         .into_iter()
         .filter(|(_, (before, after))| **before != **after)
         .map(|(path, (before, after))| {
-            let mut file_applied = applied.remove(&path).unwrap_or_default();
+            let mut file_applied = work.applied.remove(&path).unwrap_or_default();
             file_applied.sort_by_key(|a| a.start);
             Migrated {
                 path,
@@ -315,9 +395,89 @@ pub fn plan(mut options: Options, selection: &Selection) -> Result<Plan, String>
     Ok(Plan {
         files,
         manual,
-        introduced,
+        rejected,
         remaining,
+        skipped,
     })
+}
+
+/// What `migrations` want to change in the files of `work`, and what they can only point out.
+fn detect(
+    work: &Work,
+    errors: &[CompileError],
+    options: &Options,
+    migrations: &[&'static Migration],
+) -> (Edits, Vec<Manual>) {
+    let mut edits = Edits::new();
+    let mut manual = Vec::new();
+    for (path, (_, text)) in &work.texts {
+        let (tokens, _) = jaic::lexer::lex_ide(jaic::source::FileId(0), text);
+        // The `modules` folder beside the main file: the file's own folder, or a folder the
+        // run was pointed at.
+        let main_dirs = options.paths.iter().map(|p| {
+            if p.is_dir() {
+                p.clone()
+            } else {
+                p.parent().map(Path::to_path_buf).unwrap_or_default()
+            }
+        });
+        let module_dirs: Vec<PathBuf> = path
+            .parent()
+            .map(Path::to_path_buf)
+            .into_iter()
+            .chain(main_dirs)
+            .map(|dir| dir.join("modules"))
+            .chain(options.import_dirs.iter().cloned())
+            .chain([options.stdlib.clone()])
+            .collect();
+        let source = Source {
+            path,
+            text,
+            tokens: &tokens,
+            module_dirs: &module_dirs,
+        };
+        for m in migrations {
+            let answers = match m.detect {
+                Detect::Tokens(detect) => detect(&source),
+                Detect::Error {
+                    codes,
+                    answer,
+                } => errors
+                    .iter()
+                    .filter(|e| e.path == *path && codes.contains(&e.code))
+                    .filter_map(|e| answer(e, &source))
+                    .collect(),
+            };
+            for a in answers {
+                match a {
+                    Answer::Edit {
+                        start,
+                        end,
+                        text,
+                    } => edits.entry(path.clone()).or_default().push((
+                        Edit {
+                            start,
+                            end,
+                            text,
+                        },
+                        m.name,
+                    )),
+                    Answer::Manual {
+                        start,
+                        end,
+                        message,
+                    } => manual.push(Manual {
+                        migration: m.name,
+                        path: path.clone(),
+                        start,
+                        end,
+                        message,
+                    }),
+                }
+            }
+        }
+    }
+    (edits, manual)
 }
 
 /// The edits of one file that can go together, in order; the rest wait for the next pass.
