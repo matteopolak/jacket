@@ -60,7 +60,7 @@ gp_symbols_file :: (full_path: string, diagnostic_path: string = "") -> bool, []
 // llvm-nm for static libraries: the path recorded when the helpers were built from a checkout,
 // else one on PATH (macOS: the one in the selected Xcode toolchain).
 gp_nm_path :: () -> string {
-    configured, configured_ok := gp_configured_path(tprint("%generator-platform-nm.txt", #filepath));
+    configured, configured_ok := gp_configured_path(tprint("%generator-platform-nm.txt", #filepath), "tools/developer_checks/build_generator_platform.py");
     if configured_ok return configured;
 
     found := gp_find_program(.["llvm-nm"]);
@@ -75,7 +75,7 @@ gp_nm_path :: () -> string {
 // takes --target): the path recorded when the helpers were built from a checkout, else clang or
 // cc on PATH.
 gp_compiler_path :: () -> string, bool {
-    configured, configured_ok := gp_configured_path(tprint("%clang-bindings/compiler-path.txt", #filepath));
+    configured, configured_ok := gp_configured_path(tprint("%clang-bindings/compiler-path.txt", #filepath), "tools/developer_checks/build_developer_bindings.py");
     if configured_ok return configured, true;
 
     found := gp_find_program(.["clang"]);
@@ -89,8 +89,10 @@ gp_compiler_path :: () -> string, bool {
     return gp_find_program(.["cc", "gcc"]), false;
 }
 
-// The path a checkout's build recorded in `file`, when there is one.
-gp_configured_path :: (file: string) -> string, bool {
+// The path a checkout's build recorded in `file`, when there is one. A recorded program that no
+// longer exists (its toolchain was upgraded or removed) is an error naming `rebuild`, the script
+// that records it again; it is still the result, so callers don't look elsewhere.
+gp_configured_path :: (file: string, rebuild: string) -> string, bool {
     if !GP_FS.file_exists(file) return "", false;
 
     contents, ok := read_entire_file(file);
@@ -98,6 +100,10 @@ gp_configured_path :: (file: string) -> string, bool {
     defer free(contents);
 
     if !ok || !gp_valid_text(contents) return "", false;
+
+    if !GP_FS.file_exists(contents) {
+        log_error("Bindings_Generator: % names %, which no longer exists.\nRecord the current toolchain again with: PYTHONPATH=tools python3 %\n", file, contents, rebuild);
+    }
 
     return copy_temporary_string(contents), true;
 }

@@ -99,7 +99,7 @@ binding_probe_include_paths :: (triple: string) -> [] string {
     defer free(errors);
 
     if status.type != .EXITED || status.exit_code != 0 || timed_out {
-        log_error("Bindings_Generator: C compiler include-path probe failed\n%", errors);
+        log_error("Bindings_Generator: asking % for its system include directories failed\n%", compiler_path, errors);
         return .{};
     }
 

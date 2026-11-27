@@ -22,8 +22,17 @@ def llvm_prefix(prefix=None):
         config = llvm.llvm_config()
         if not config:
             raise RuntimeError(f"set DEVELOPER_TOOLS_LLVM_PREFIX or {llvm.sys_prefix_var()} to the official LLVM SDK")
-        configured = subprocess.check_output([str(config), "--prefix"], text=True).strip()
-    sdk = Path(configured).resolve(strict=True)
+        # The folder holding the llvm-config found, when it is the SDK: a package manager's stable
+        # link (Homebrew's opt/llvm) survives upgrades; the versioned folder `--prefix` reports doesn't.
+        found = Path(config).absolute().parent.parent
+        if (found / "include/clang-c/Index.h").is_file():
+            configured = found
+        else:
+            configured = subprocess.check_output([str(config), "--prefix"], text=True).strip()
+    # Not resolved: the recorded tool paths must keep the link, not the folder it points at today.
+    sdk = Path(configured).absolute()
+    if not sdk.is_dir():
+        raise RuntimeError(f"LLVM SDK folder not found: {sdk}")
     if not (sdk / "include/clang-c/Index.h").is_file():
         raise RuntimeError("official LLVM SDK lacks clang-c/Index.h: " + str(sdk))
     return sdk
