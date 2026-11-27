@@ -40,4 +40,4 @@ if [[ "$level" == O2 ]]; then
   done < tests/compiler/optimized-modules.txt
 fi
 PYTHONPATH=tools python3 -B tools/portable/build_portable.py data
-"${display[@]}" "$jacket" test -q --needs display --partition "hash:$share" -j 4 "${paths[@]}" -- "-$level" -sanitize address,undefined
+"${display[@]}" "$jacket" test -q --needs display --partition "time:$share" --partition-times tools/ci/test-times.json -j 4 "${paths[@]}" -- "-$level" -sanitize address,undefined

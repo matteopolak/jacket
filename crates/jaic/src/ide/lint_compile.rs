@@ -34,10 +34,19 @@ impl CheckLimits {
     /// when it holds a number (`0`: no limit; CI sets it, as shared runners are too slow and
     /// uneven for a wall-clock limit to mean anything there), `DEFAULT_SECONDS` otherwise.
     pub fn default_seconds() -> f64 {
+        Self::env_seconds_set().unwrap_or(Self::DEFAULT_SECONDS)
+    }
+
+    /// The seconds `JACKET_CHECK_TIME_LIMIT` holds, or `0` (no limit) when it holds no number:
+    /// the default of a batch run, whose results must not depend on the machine's load.
+    pub fn env_seconds() -> f64 {
+        Self::env_seconds_set().unwrap_or(0.0)
+    }
+
+    fn env_seconds_set() -> Option<f64> {
         jacket_config::env::CHECK_TIME_LIMIT
             .get()
             .and_then(|value| value.trim().parse().ok())
-            .unwrap_or(Self::DEFAULT_SECONDS)
     }
 
     /// The blocks from which an evaluation shows its cost unless told otherwise.

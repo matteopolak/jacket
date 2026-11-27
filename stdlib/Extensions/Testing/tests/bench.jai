@@ -77,9 +77,17 @@ for_b_leaves_setup_out_of_the_time :: () {
 
     spin(20);
 
+    // The setup above lies before the loop's own clock, so the timed span fits inside the loop's wall
+    // time whatever the scheduler did (a bound on `elapsed` alone fails when the thread is preempted).
+    loop_start := current_time_monotonic();
+
     for b black_box(it_index);
 
-    expect(b.elapsed < 5_000_000);
+    wall, ok := to_nanoseconds(current_time_monotonic() - loop_start);
+
+    expect(ok);
+    expect(b.elapsed <= wall);
+    expect(b.paused_nanoseconds == 0);
     expect(!b.paused_clock);
 } @test
 

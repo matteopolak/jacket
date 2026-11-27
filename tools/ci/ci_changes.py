@@ -175,7 +175,7 @@ def stdlib_matrix(full):
                         shard=f"tooling {k} of {TOOLING_PARTS}",
                         suites=name,
                         tooling_part=f"{k}/{TOOLING_PARTS}",
-                        jacket_test=f"hash:{k}/{TOOLING_PARTS}",
+                        jacket_test=f"time:{k}/{TOOLING_PARTS}",
                         wasm=wasm,
                     )
                     for k in range(1, TOOLING_PARTS + 1)

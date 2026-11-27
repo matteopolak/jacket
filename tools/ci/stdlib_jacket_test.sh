@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Every stdlib module's tests (`[test] paths` in jacket.toml finds them), once per platform: native, interpreted, native -O2
 # unless JACKET_TEST_O2=false (CI's fast tier: -O2 builds every program again and takes as long as the other modes
-# together), and with WASM=true, wasm interpreted and built. JACKET_TEST_PARTITION, when it is `hash:K/N` (jacket test
+# together), and with WASM=true, wasm interpreted and built. JACKET_TEST_PARTITION, when it is `hash:K/N` or `time:K/N` (jacket test
 # --partition), runs only that share of the tests, so the platform's legs can split them; `all` or unset runs them all.
 # Tests that open a window or use the clipboard (`needs(.DISPLAY)`) run: the platform has a display, which on Linux
 # is a virtual one (xvfb-run). The data files some tests read (ZIP, archive, MPEG and Meow fixtures) are written first.

@@ -603,7 +603,7 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 
 | Variable | Meaning | When unset | Read by |
 | --- | --- | --- | --- |
-| `JACKET_CHECK_TIME_LIMIT` | Seconds one program check may take when the linter or language server runs compile-time code (`0`: no limit). CI sets it to `0`. | 10 seconds | jailint, jailsp |
+| `JACKET_CHECK_TIME_LIMIT` | Seconds one program check may take when the linter or language server runs compile-time code (`0`: no limit). CI sets it to `0`. | 10 seconds for jailsp; none for jailint | jailint, jailsp |
 | `JACKET_OUTPUT_DIR` | Relocates the build output directory (the `native-libs/` lookup and `jacket test --coverage` reports follow it). A relative path is below the checkout the tools and standard library are in, not the working directory. | `target/` in the project | jaic, jacket |
 | `JACKET_TEST_DEPS_DIR` | The folder where `jacket test` keeps the source files each test program read, which `--changed` consults instead of compiling programs again. Point it at a cached folder in CI. | `jacket/test-deps` in the user cache folder | jacket |
 | `JACKET_TEST_DLLS` | A path list of directories whose `.dll` files `jacket test` links next to each Windows test executable. | unset | jacket |

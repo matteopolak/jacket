@@ -202,6 +202,13 @@ fn run_unit(plan: &Plan, cases: &[usize], live: &mut dyn FnMut(Live)) -> Vec<Out
         .as_ref()
         .expect("a root with unit tests is built");
     let cwd = &plan.roots[root].dir;
+    // `--check-only`: the root type-checked when it was built, and nothing runs.
+    if plan.toolchain.check_only {
+        return cases
+            .iter()
+            .map(|&case| Outcome::new(case, Status::Pass))
+            .collect();
+    }
     let mut outcomes = Vec::new();
     let mut remaining: Vec<usize> = cases.to_vec();
     while !remaining.is_empty() {
@@ -542,7 +549,11 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
     outcome.stdout = checked.stdout;
     outcome.stderr = checked.stderr;
     outcome.crashed = checked.crashed;
-    expectations(case, &mut outcome);
+    // A type-check says nothing about how a golden test would have run, so `should_fail` and
+    // `xfail` have nothing to turn around.
+    if !(plan.toolchain.check_only && case.kind == Kind::Golden) {
+        expectations(case, &mut outcome);
+    }
     outcome
 }
 

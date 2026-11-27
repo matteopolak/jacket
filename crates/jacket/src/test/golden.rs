@@ -335,7 +335,7 @@ pub fn golden(
     accept: bool,
     live: &mut dyn FnMut(Live),
 ) -> Checked {
-    if options.check_only {
+    if options.check_only || toolchain.check_only {
         return check_only(source, root_flags, toolchain, cwd);
     }
     let mut checked = Checked::default();

@@ -46,7 +46,7 @@ The sandbox answers POSIX `sysconf` queries using the checked program's ABI: mac
 | VS Code | `jai.compileTime.checkTimeLimit` | 10 seconds; `0` for none |
 | VS Code | `jai.compileTime.costLensBlocks` | 1000000 |
 | Neovim | `compile_time.evaluation_budget`, `check_time_limit`, `cost_lens_blocks` | same |
-| `jailint` | `--compile-time-budget <steps>`, `--check-time-limit <seconds>` | same; the time limit applies per program |
+| `jailint` | `--compile-time-budget <steps>`, `--check-time-limit <seconds>` | 100000000 steps; no time limit, so a lint run does not depend on the load (a flag or `JACKET_CHECK_TIME_LIMIT` sets one, per program) |
 | environment | `JACKET_CHECK_TIME_LIMIT` | 10; `0` for none (CI sets `0`) |
 | `jaic` | `-run_budget <steps>` | 1000000000; `0` for none |
 | `jaic` | `-profile_runs` | off |

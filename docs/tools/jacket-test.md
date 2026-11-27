@@ -114,13 +114,13 @@ Each block is a program importing `Basic` and the library. A block with a file-l
 
 ### Checking examples for another OS
 
-Examples are built for the machine they run on, so a mistake that only exists on another OS (`sin_addr.s_addr` where Windows has `sin_addr.S_un.S_addr`) would first show up on that OS's CI runner. `--doc --check-only --os <os>` type-checks every example for the target from any machine, without building, linking or running:
+Examples are built for the machine they run on, so a mistake that only exists on another OS (`sin_addr.s_addr` where Windows has `sin_addr.S_un.S_addr`) would first show up on that OS's CI runner. `--check-only --os <os>` type-checks every unit test, golden test and example for the target from any machine, without building, linking or running:
 
 ```sh
-jacket test --doc --check-only --os windows      # also linux, macos, wasm; --cpu picks the CPU
+jacket test --check-only --os windows      # also linux, macos, wasm; --cpu picks the CPU
 ```
 
-The target decides which examples take part: `only(...)` and `skip_on(...)` notes on a fence, and the `// test:` header of `module.jai`, are matched against `--os`, not the host. Every example is checked as `no_run` is (`compile_fail` still must not compile; a `should_fail` example must compile), so one that needs a foreign library or a device still passes if it type-checks. Mark a limit of the target with a note, in the module header when a whole module lacks the target, and fix the example otherwise. `--check-only` needs `--doc` and builds no test programs. CI runs it for the four OSes in the stdlib type-check job ([testing](testing.md)).
+The target decides which examples take part: `only(...)` and `skip_on(...)` notes on a fence, and the `// test:` header of `module.jai`, are matched against `--os`, not the host. Every example is checked as `no_run` is (`compile_fail` still must not compile; a `should_fail` example must compile), so one that needs a foreign library or a device still passes if it type-checks. Mark a limit of the target with a note, in the module header when a whole module lacks the target, and fix the example otherwise. `--check-only` builds no test programs: a unit test root is checked as a whole with every procedure kept (`-no_dce`), so a test that only breaks on that OS fails; `--doc` limits it to the examples. `should_fail` and `xfail` on a golden test do not apply, since nothing runs. CI runs it for the four OSes in the stdlib type-check job ([testing](testing.md)).
 
 ## Running
 
@@ -289,7 +289,7 @@ its target cannot be inferred before that program runs.
 To extend target selection, update the shared policy in `jaic::target` and compiler option
 metadata in `jaic-cli-args`, then exercise `crates/jacket/tests/forwarded_targets.rs`. Keep
 selection and build/runner behavior in the same regression. Forwarded `-interp` selects interpreted execution too; use
-`--doc --check-only` for compile-only examples (`-check` alone cannot run unit tests).
+`--check-only` (with `--doc` for examples only) to type-check tests without running them (`-check` alone cannot run unit tests).
 The neutral argument layer shares its option table with the compiler binary. Backend,
 allocator and panic initialization remain binary concerns.
 

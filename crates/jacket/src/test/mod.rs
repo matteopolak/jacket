@@ -98,7 +98,7 @@ impl Case {
                         doctest::Mode::Run | doctest::Mode::ShouldFail
                     )
             }
-            None => self.kind == Kind::CompileFail,
+            None => check_only || self.kind == Kind::CompileFail,
         }
     }
 }
@@ -362,7 +362,8 @@ fn take_forwarded_modes(args: &mut TestArgs) -> Result<(), String> {
     }
     if forwarded.check && !args.check_only {
         return Err(
-            "`-check` does not run tests; use `--doc --check-only` to check doc examples".into(),
+            "`-check` does not run tests; use `--check-only` to type-check tests and doc examples"
+                .into(),
         );
     }
     args.interp |= forwarded.interp;
@@ -605,6 +606,9 @@ fn run_once(
         &toolchain
     };
     let mut broken = false;
+    if args.check_only && !list && !bench {
+        broken = !check_roots(&roots, &root_flags, &work, &toolchain);
+    }
     let built: Vec<Option<Built>> = built
         .into_iter()
         .zip(&roots)
@@ -1083,6 +1087,29 @@ fn execute(
     } else {
         ExitCode::SUCCESS
     }
+}
+
+/// Type-checks the unit tests of every root for the target of `toolchain`, printing each root
+/// that does not. Whether all of them passed.
+fn check_roots(
+    roots: &[discover::Root],
+    root_flags: &[Vec<String>],
+    work: &Path,
+    toolchain: &Toolchain,
+) -> bool {
+    let mut passed = true;
+    for (i, root) in roots.iter().enumerate().filter(|(_, r)| !r.unit.is_empty()) {
+        let work = work.join(format!("check-{i}"));
+        if let Err(output) = build::check_unit(&root.unit, &root_flags[i], &work, toolchain) {
+            eprintln!(
+                "jacket: error: the tests in {} do not compile for {}\n{output}",
+                root.dir.join("tests").display(),
+                toolchain.os
+            );
+            passed = false;
+        }
+    }
+    passed
 }
 
 /// A root's build: nothing to build, the built program, or the compile errors.

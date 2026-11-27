@@ -38,8 +38,11 @@ impl Args {
         CheckLimits::new(
             self.compile_time_budget
                 .unwrap_or(CheckLimits::DEFAULT_EVAL_STEPS),
+            // A lint run is a batch: a wall-clock limit would make what it reports depend on the
+            // load of the machine, so only a flag or the environment sets one (the evaluation
+            // budget bounds a runaway `#run` by steps).
             self.check_time_limit
-                .unwrap_or_else(CheckLimits::default_seconds),
+                .unwrap_or_else(CheckLimits::env_seconds),
         )
     }
 }
@@ -381,6 +384,18 @@ mod tests {
         let args = parse_all(&["--config", "-j", "a.jai"]).unwrap().unwrap();
         assert_eq!(args.config, Some(PathBuf::from("-j")));
         assert_eq!(args.common.jobs, None);
+    }
+
+    #[test]
+    fn a_lint_run_has_no_wall_clock_limit_unless_asked() {
+        let args = parse_all(&["a.jai"]).unwrap().unwrap();
+        if jacket_config::env::CHECK_TIME_LIMIT.get().is_none() {
+            assert_eq!(args.limits().seconds, None);
+        }
+        let args = parse_all(&["--check-time-limit", "3", "a.jai"])
+            .unwrap()
+            .unwrap();
+        assert_eq!(args.limits().seconds, Some(3.0));
     }
 
     #[test]

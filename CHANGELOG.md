@@ -29,6 +29,8 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - A `main` with parameters, no body or a non-integer result is reported as such, not as never lowered.
 - A missing `git`, `curl`, `tar`, `python3`, `node`, `jaifmt`, `jailint` or runner stops the command first and names the install command.
 - An unwritable cache folder, a missing `dsymutil` or a missing standard library each give an error with the next step.
+- `jailint` runs have no wall-clock check limit unless asked, so the diagnostics do not vary with machine load.
+- `jacket test --check-only` type-checks tests, not only doc examples, for another OS.
 - Renaming a global in `jailsp` also renames the `using` line that names it.
 - `jacket test --partition time:K/N` splits tests into parts of equal recorded time.
 - A compile-time `#if` case follows `#through;`, and takes `case;` only when nothing matches (#89, @ElectronPie).

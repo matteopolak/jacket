@@ -846,8 +846,8 @@ class Tiers(unittest.TestCase):
                     ]
                     if shares == ["all"]:
                         continue
-                    parts = [share.removeprefix("hash:").split("/") for share in shares]
-                    self.assertTrue(all(share.startswith("hash:") for share in shares))
+                    parts = [share.removeprefix("time:").split("/") for share in shares]
+                    self.assertTrue(all(share.startswith("time:") for share in shares))
                     denominators = {int(n) for _, n in parts}
                     self.assertEqual(len(denominators), 1)
                     count = denominators.pop()

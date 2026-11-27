@@ -31,7 +31,7 @@ Hand-written policy in `ci_changes.py`:
 
 **Producer suites.** Full-tier Intel macOS runs `tooling` and `bindings` on its catalogue job; the other producer suites stay with the native/interpreted/O2 Jacket run. Tooling rebuilds native tools that bindings reads, so keep them together (`check_stdlib_suites.py` runs them in one resource group). The `suites` matrix field selects the drivers. Keep each producer suite exactly once, keep the independent catalogue, Jacket and WebGPU coverage, and update `test_ci_changes.py` with the matrix.
 
-**Jacket partitions.** `jacket_test` gives each platform a complete, disjoint set of `hash:K/N` shares; `all` is one full share. The job-count limits of the fast and full tiers still apply.
+**Jacket partitions.** `jacket_test` gives each platform a complete, disjoint set of `time:K/N` shares, balanced by the seconds in `tools/ci/test-times.json` (refresh: [jacket test](jacket-test.md#partitions)); `all` is one full share. The job-count limits of the fast and full tiers still apply.
 
 **Compiler build.** `stdlib-build` builds `jaic`, `jacket`, `jailint` and `jaifmt` once per platform in `stdlib_platforms` (debug and release) and uploads them as `stdlib-compiler-<platform>`; each `stdlib-runtime` leg downloads them into `target/` (the artifact's paths start there) and marks them executable. Add a program a leg needs to the artifact's `path` list, not to a leg's own `cargo build`. `stdlib_platforms` is empty when `stdlib-runtime` is not selected, which skips the build.
 

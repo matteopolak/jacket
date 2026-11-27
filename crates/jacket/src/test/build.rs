@@ -302,6 +302,32 @@ pub fn unit(
     })
 }
 
+/// Type-checks every unit test file of a root for the target of `toolchain` (`--check-only`),
+/// including the procedures nothing calls, without building or running anything.
+pub fn check_unit(
+    files: &[PathBuf],
+    root_flags: &[String],
+    work: &Path,
+    toolchain: &Toolchain,
+) -> Result<(), String> {
+    std::fs::create_dir_all(work).map_err(|e| format!("cannot create {}: {e}", work.display()))?;
+    let mut loads = String::from("// Written by `jacket test`: every unit test file of a root.\n");
+    for file in files {
+        loads.push_str(&format!("#load {};\n", literal(file)));
+    }
+    let root = work.join("tests.jai");
+    write(&root, &loads)?;
+    let mut command = toolchain.jaic_command();
+    command
+        .current_dir(work)
+        .arg(&root)
+        .args(["-check", "-no_dce", "-quiet"])
+        .args(&toolchain.flags)
+        .args(root_flags)
+        .args(toolchain.deps_args(Program::Text(&loads), root_flags, false));
+    run_jaic(&mut command, toolchain).map(|_| ())
+}
+
 /// The unit tests of a root under `--interp`, or listed. Without a program to build, jacket
 /// needs the tests to plan the run: the process that will run the first tests is started now and
 /// prints them as soon as the plugin has found them.

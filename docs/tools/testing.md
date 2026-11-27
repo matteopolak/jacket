@@ -127,7 +127,7 @@ cargo test -p jaic-cli --test stdlib_targets
 
 Edit the list only after confirming the restriction is real (`skip Module`, `Module target: file: first error`). A platform-only module should stop on the wrong target with an `#assert`. A new target extends `TARGETS` in the test.
 
-The same CI step also runs `jacket test --doc --check-only --os <os>` for linux, macos, windows and wasm, which type-checks every doc example for each target ([Checking examples for another OS](jacket-test.md#checking-examples-for-another-os)).
+The same CI step also runs `jacket test --check-only --os <os>` for linux, macos, windows and wasm, which type-checks every test and doc example for each target ([Checking examples for another OS](jacket-test.md#checking-examples-for-another-os)).
 
 ## Objective-C selector check
 
