@@ -52,6 +52,33 @@ pub fn set_library_dirs(dirs: Vec<std::path::PathBuf>) {
     let _ = LIBRARY_DIRS.set(dirs);
 }
 
+/// Why the driver found no folder for a library it looks for on the interpreter's behalf, by the
+/// library's name without `lib` and extension (`clang` for `libclang.dylib`). Set once.
+static MISSING_LIBRARIES: std::sync::OnceLock<Vec<(String, String)>> = std::sync::OnceLock::new();
+
+/// Records why libraries the driver looked for were not found, so a failed open says so.
+///
+/// ```
+/// jaic::interp::set_missing_libraries(vec![("clang".into(), "no libclang here".into())]);
+/// assert_eq!(jaic::interp::missing_library("modules/clang"), Some("no libclang here"));
+/// assert_eq!(jaic::interp::missing_library("libclang"), Some("no libclang here"));
+/// assert_eq!(jaic::interp::missing_library("z"), None);
+/// ```
+pub fn set_missing_libraries(notes: Vec<(String, String)>) {
+    let _ = MISSING_LIBRARIES.set(notes);
+}
+
+/// The driver's note for the library `name` (as a `#library` names it), when it has one.
+pub fn missing_library(name: &str) -> Option<&'static str> {
+    let file = std::path::Path::new(name).file_name()?.to_str()?;
+    let bare = file.strip_prefix("lib").unwrap_or(file);
+    MISSING_LIBRARIES
+        .get()?
+        .iter()
+        .find(|(library, _)| library == bare)
+        .map(|(_, note)| note.as_str())
+}
+
 /// Directories a metaprogram added with `compiler_add_library_search_directory`; searched
 /// before the driver's.
 static EXTRA_LIBRARY_DIRS: std::sync::Mutex<Vec<std::path::PathBuf>> =
@@ -354,8 +381,10 @@ impl Library {
         }
         #[cfg(not(all(windows, any(target_arch = "x86_64", target_arch = "aarch64"))))]
         {
-            Self::open(name, system, base_dir)
-                .ok_or_else(|| "dynamic loader could not open the library".into())
+            Self::open(name, system, base_dir).ok_or_else(|| match missing_library(name) {
+                Some(note) => format!("dynamic loader could not open the library\n{note}"),
+                None => "dynamic loader could not open the library".into(),
+            })
         }
     }
 

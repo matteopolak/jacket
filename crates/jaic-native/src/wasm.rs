@@ -27,7 +27,7 @@ pub struct WasmLink<'a> {
     /// Drop DWARF from the module.
     pub strip_debug: bool,
     /// `additional_linker_arguments`, after jaic's own, so they can override them.
-    pub extra_args: &'a [String],
+    pub extra_args: &'a [std::ffi::OsString],
 }
 
 /// Link wasm objects into a module with `wasm-ld`.
@@ -65,12 +65,11 @@ pub fn link_wasm(link: &WasmLink) -> Result<(), String> {
         }
     }
     cmd.args(link.extra_args);
-    let program = wasm_ld.program.display().to_string();
     let out =
         crate::linker::run_captured(&mut cmd).map_err(|e| crate::linker_not_run(&wasm_ld, &e))?;
     if out.status.success() {
         Ok(())
     } else {
-        Err(crate::link_failure(&program, &out))
+        Err(crate::link_failure(&wasm_ld.program, &out))
     }
 }

@@ -4,12 +4,14 @@
 //! linker script places its sections. `ld.lld` is the only linker used; if it is missing the
 //! build fails with a note that says how to get it.
 use crate::toolchain::{command, lookup, report};
+use jacket_config::os_text;
 use jaic::ir::Library;
 use jaic::target::{Target, TargetCpu};
 use jaic::toolchain::freestanding;
 use jaic_toolchain::builtins::find_builtins;
 use jaic_toolchain::linker::find_linker;
 use jaic_toolchain::{Found, Overrides};
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -23,29 +25,20 @@ pub struct FreestandingLink<'a> {
     pub strip_debug: bool,
     /// `additional_linker_arguments`, after jaic's own. One of them must name the linker script
     /// (`-T script.ld`), as `Embedded.link_for` does.
-    pub extra_args: &'a [String],
-}
-
-/// Whether `args` pass a linker script.
-fn names_script(args: &[String]) -> bool {
-    args.iter()
-        .any(|a| a == "-T" || a.starts_with("-T") || a == "--script" || a.starts_with("--script="))
+    pub extra_args: &'a [OsString],
 }
 
 /// The linker script `args` name (`-T script.ld`, `-Tscript.ld`, `--script=script.ld`).
-fn script_file(args: &[String]) -> Option<&str> {
+fn script_file(args: &[OsString]) -> Option<OsString> {
     let mut args = args.iter();
     while let Some(arg) = args.next() {
-        match arg.as_str() {
-            "-T" | "--script" => return args.next().map(String::as_str),
-            _ => {
-                if let Some(file) = arg
-                    .strip_prefix("--script=")
-                    .or_else(|| arg.strip_prefix("-T"))
-                {
-                    return Some(file);
-                }
-            }
+        if matches!(arg.to_str(), Some("-T" | "--script")) {
+            return args.next().cloned();
+        }
+        if let Some(file) =
+            os_text::strip_prefix(arg, "--script=").or_else(|| os_text::strip_prefix(arg, "-T"))
+        {
+            return Some(file);
         }
     }
     None
@@ -68,7 +61,7 @@ fn lld_command(
     link: &FreestandingLink,
     builtins: Option<&Path>,
 ) -> Result<Command, String> {
-    if !names_script(link.extra_args) {
+    if script_file(link.extra_args).is_none() {
         return Err("a freestanding program needs a linker script\n\
              help: call `Embedded.link_for(*options, memory_map)` from the metaprogram, or add \
              `-T <script>` to `additional_linker_arguments`"
@@ -125,19 +118,18 @@ pub fn link_freestanding(link: &FreestandingLink) -> Result<(), String> {
         report("Builtins", found, &lookup, Some(link.target));
     }
     if let Some(script) = script_file(link.extra_args) {
-        jaic::progress::tool("Script", script, true);
+        jaic::progress::tool("Script", &jaic::display_path(Path::new(&script)), true);
     }
     let mut cmd = lld_command(
         &lld,
         link,
         builtins.as_ref().ok().map(|b| b.program.as_path()),
     )?;
-    let program = lld.program.display().to_string();
     let out = crate::linker::run_captured(&mut cmd).map_err(|e| crate::linker_not_run(&lld, &e))?;
     if out.status.success() {
         return Ok(());
     }
-    let mut message = crate::link_failure(&program, &out);
+    let mut message = crate::link_failure(&lld.program, &out);
     let log = format!(
         "{}{}",
         String::from_utf8_lossy(&out.stdout),
@@ -156,19 +148,22 @@ mod tests {
     use super::*;
     use jaic_toolchain::Origin;
 
-    fn words(args: &[&str]) -> Vec<String> {
-        args.iter().map(ToString::to_string).collect()
+    fn words(args: &[&str]) -> Vec<OsString> {
+        args.iter().map(OsString::from).collect()
     }
 
     #[test]
     fn the_script_is_found_in_each_spelling() {
-        assert_eq!(script_file(&words(&["-T", "board.ld"])), Some("board.ld"));
-        assert_eq!(script_file(&words(&["-Tboard.ld"])), Some("board.ld"));
-        assert_eq!(script_file(&words(&["-x", "--script=b.ld"])), Some("b.ld"));
-        assert_eq!(script_file(&words(&["-x"])), None);
+        let script = |args: &[&str]| script_file(&words(args));
+        assert_eq!(script(&["-T", "board.ld"]), Some("board.ld".into()));
+        assert_eq!(script(&["-Tboard.ld"]), Some("board.ld".into()));
+        assert_eq!(script(&["-x", "--script=b.ld"]), Some("b.ld".into()));
+        assert_eq!(script(&["-x"]), None);
+        // `-T` must have its operand; the one at the end of the list names no script.
+        assert_eq!(script(&["-x", "-T"]), None);
     }
 
-    fn link<'a>(objects: &'a [PathBuf], extra: &'a [String]) -> FreestandingLink<'a> {
+    fn link<'a>(objects: &'a [PathBuf], extra: &'a [OsString]) -> FreestandingLink<'a> {
         FreestandingLink {
             objects,
             libraries: &[],
@@ -199,7 +194,7 @@ mod tests {
     #[test]
     fn the_link_line_is_static_and_has_no_c_runtime() {
         let objects = [PathBuf::from("a.o")];
-        let extra = ["-T".to_string(), "board.ld".to_string()];
+        let extra = words(&["-T", "board.ld"]);
         let builtins = Path::new("rt.a");
         let cmd = lld_command(&lld(), &link(&objects, &extra), Some(builtins)).unwrap();
         assert_eq!(
@@ -223,7 +218,7 @@ mod tests {
     /// `ld.lld` has no `-m` name for AVR: it takes the machine from the objects.
     #[test]
     fn an_avr_link_names_no_emulation() {
-        let extra = ["-T".to_string(), "board.ld".to_string()];
+        let extra = words(&["-T", "board.ld"]);
         let request = FreestandingLink {
             target: Target::parse("avr-none-elf").unwrap(),
             ..link(&[], &extra)
@@ -234,7 +229,7 @@ mod tests {
 
     #[test]
     fn a_library_that_needs_an_os_is_an_error_naming_it() {
-        let extra = ["-Tboard.ld".to_string()];
+        let extra = words(&["-Tboard.ld"]);
         let libraries = [Library {
             name: "libc".into(),
             system: true,

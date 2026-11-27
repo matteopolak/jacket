@@ -81,7 +81,7 @@ pub struct LinkRequest<'a> {
     pub output: &'a Path,
     /// Produce a shared library rather than an executable.
     pub dynamic_library: bool,
-    pub extra_args: &'a [String],
+    pub extra_args: &'a [std::ffi::OsString],
     /// `None`: the host.
     pub target: Option<BuildTarget>,
     pub sanitize: Sanitize,
@@ -135,11 +135,10 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
     let lookup = lookup();
     let (linker_found, mut cmd) = if sanitize.any() {
         let found = find_sanitizer_driver(&lookup, &overrides).map_err(|m| m.to_string())?;
-        let program = found.program.display().to_string();
         let mut cmd = command(&found);
         cmd.args(sanitize.driver_flag());
         if sanitize.fuzzer {
-            cmd.arg(fuzzer_runtime(&program)?);
+            cmd.arg(fuzzer_runtime(&found.program)?);
             cmd.arg(if cfg!(target_os = "macos") {
                 "-lc++"
             } else {
@@ -153,9 +152,10 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
         (found, cmd)
     };
     report("Linker", &linker_found, &lookup, target);
-    let program = linker_found.program.display().to_string();
     let mut coverage_source = None;
-    let driver = link_options::driver_for_command(&program, extra_args);
+    // The driver is told by the program's name, which is ASCII when it is one jaic knows.
+    let driver =
+        link_options::driver_for_command(&linker_found.program.to_string_lossy(), extra_args);
     let apple = target.unwrap_or_else(BuildTarget::host).is_apple();
     let extra_args = link_options::render(
         &link_options::translate(extra_args, linker, driver, apple),
@@ -228,17 +228,18 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
         && !sanitize.any()
         && coverage_source.is_none()
     {
-        let args: Option<Vec<String>> = cmd
-            .get_args()
-            .map(|arg| arg.to_str().map(String::from))
-            .collect();
+        let args: Vec<std::ffi::OsString> = cmd.get_args().map(ToOwned::to_owned).collect();
         // The linker alone, without the driver; on any failure `cc` runs the same link, so
         // its message and its rules decide what is an error.
-        if let Some(mut direct) = args.and_then(|args| crate::apple_ld::direct_command(&args))
-            && let Ok(out) = crate::linker::run_captured(&mut direct)
-            && out.status.success()
-        {
-            return Ok(());
+        match crate::apple_ld::direct_command(&args) {
+            Ok(mut direct) => {
+                if let Ok(out) = crate::linker::run_captured(&mut direct)
+                    && out.status.success()
+                {
+                    return Ok(());
+                }
+            }
+            Err(reason) => jaic::progress::tool("Linking", &format!("through cc: {reason}"), false),
         }
     }
     let out = crate::linker::run_captured(&mut cmd);
@@ -249,7 +250,7 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
     if out.status.success() {
         Ok(())
     } else {
-        Err(link_failure(&program, &out))
+        Err(link_failure(&linker_found.program, &out))
     }
 }
 
@@ -317,7 +318,8 @@ pub fn link_inputs(
 
 /// The libFuzzer engine without its `main`, found through the sanitizer driver (`clang
 /// --print-file-name`), or a message saying what to install.
-fn fuzzer_runtime(driver: &str) -> Result<PathBuf, String> {
+fn fuzzer_runtime(driver: &Path) -> Result<PathBuf, String> {
+    let shown = jaic::display_path(driver);
     let arch = std::env::consts::ARCH;
     let name = if cfg!(target_os = "macos") {
         "libclang_rt.fuzzer_no_main_osx.a".to_string()
@@ -326,13 +328,13 @@ fn fuzzer_runtime(driver: &str) -> Result<PathBuf, String> {
     };
     let out =
         crate::linker::run_captured(Command::new(driver).arg(format!("--print-file-name={name}")))
-            .map_err(|e| format!("could not run `{driver}` to find {name}: {e}"))?;
+            .map_err(|e| format!("could not run `{shown}` to find {name}: {e}"))?;
     let path = PathBuf::from(String::from_utf8_lossy(&out.stdout).trim());
     if path.is_absolute() && path.is_file() {
         Ok(path)
     } else {
         Err(format!(
-            "`-sanitize fuzzer` needs {name} from the LLVM that built jaic (`{driver}` did not find it)\nhelp: install compiler-rt (Homebrew `llvm`, or `libclang-rt-23-dev` from apt.llvm.org) so that `clang` finds it"
+            "`-sanitize fuzzer` needs {name} from the LLVM that built jaic (`{shown}` did not find it)\nhelp: install compiler-rt (Homebrew `llvm`, or `libclang-rt-23-dev` from apt.llvm.org) so that `clang` finds it"
         ))
     }
 }

@@ -13,7 +13,7 @@ use crate::host::{Host, Os};
 use crate::lookup::Lookup;
 use crate::overrides::{Given, Overrides};
 use crate::package::{Need, PackageManager};
-use crate::{cache, names, pins};
+use crate::{cache, msvc, names, pins};
 use jaic::target::{Target, TargetAbi, TargetCpu, TargetOs};
 use jaic::toolchain::{Linker, discover};
 use std::ffi::OsString;
@@ -277,7 +277,7 @@ fn mingw(lookup: &Lookup, target: Target) -> Result<Found, Missing> {
 /// it, then from `PATH`, where a `link` that is not Microsoft's (the coreutils `link` of Git for
 /// Windows and MSYS2, which stops with `extra operand`) is skipped. Without Visual Studio: Clang's
 /// driver on `PATH`, `lld-link` on `PATH`, then a Clang installed elsewhere. See
-/// `jaic/src/toolchain/discover.rs` and `docs/native/windows.md`.
+/// `jaic/src/toolchain/discover.rs`, [`msvc`](mod@crate::msvc) and `docs/native/windows.md`.
 fn msvc(lookup: &Lookup, target: Target) -> Result<Found, Missing> {
     let arch = discover::arch_dir(target.cpu);
     let triple = target.to_string();
@@ -298,8 +298,8 @@ fn msvc(lookup: &Lookup, target: Target) -> Result<Found, Missing> {
         return Ok(found);
     }
     let mut skipped = Vec::new();
-    for program in discover::on_path("link") {
-        if discover::is_microsoft_linker(&program) {
+    for program in lookup.every_on_path("link") {
+        if msvc::is_microsoft_linker(lookup.host, &program) {
             return Ok(with_lib(&program));
         }
         skipped.push(program);
@@ -307,10 +307,10 @@ fn msvc(lookup: &Lookup, target: Target) -> Result<Found, Missing> {
     if let Some(program) = lookup.which("clang") {
         return Ok(clang(program));
     }
-    if let Some(program) = discover::on_path("lld-link").first() {
-        return Ok(with_lib(program));
+    if let Some(program) = lookup.which("lld-link") {
+        return Ok(with_lib(&program));
     }
-    if let Some(program) = discover::find_clang() {
+    if let Some(program) = msvc::find_clang(lookup) {
         return Ok(clang(program));
     }
     let mut error = missing(lookup, format!("no linker for {target}"), &[Need::Msvc]);

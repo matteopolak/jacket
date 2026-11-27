@@ -63,6 +63,15 @@ impl<'a> Lookup<'a> {
         self.in_dirs(&self.host.path_dirs(), name)
     }
 
+    /// Every `name` on `PATH`, in order, for picking among programs that share a name.
+    pub fn every_on_path(&self, name: &str) -> Vec<PathBuf> {
+        self.host
+            .path_dirs()
+            .iter()
+            .filter_map(|dir| self.in_dirs(std::slice::from_ref(dir), name))
+            .collect()
+    }
+
     /// Where tools are installed without being on `PATH`: Homebrew's prefixes, and QEMU's and
     /// LLVM's folders under `Program Files`.
     fn installed_dirs(&self) -> Vec<PathBuf> {
@@ -154,8 +163,18 @@ mod tests {
         host.file(r"C:\bin/node.exe");
         host.program_files = vec![r"C:\Program Files".into()];
         host.file(r"C:\Program Files/qemu/qemu-system-arm.exe");
+        host.path.push(r"C:\git".into());
+        host.file(r"C:\git/link.exe");
+        host.file(r"C:\bin/link.exe");
         let lookup = Lookup::new(&host);
         assert_eq!(lookup.which("node"), Some(r"C:\bin/node.exe".into()));
+        assert_eq!(
+            lookup.every_on_path("link"),
+            vec![
+                PathBuf::from(r"C:\bin/link.exe"),
+                PathBuf::from(r"C:\git/link.exe")
+            ]
+        );
         assert_eq!(
             lookup.tool("qemu-system-arm"),
             Some(r"C:\Program Files/qemu/qemu-system-arm.exe".into())

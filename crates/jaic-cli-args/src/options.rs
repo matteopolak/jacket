@@ -4,6 +4,7 @@ use super::tuning;
 use jaic::builtin_keys::BitcodeOptimization;
 use jaic::flags::{self, FlagError, SharedFlag};
 use jaic::target::{TargetCpu, TargetOs};
+use std::ffi::OsString;
 use std::path::PathBuf;
 
 /// A build's exit status when the program has no `main` (its work is all `#run`s), so
@@ -103,6 +104,12 @@ pub enum Action {
         what: &'static str,
         store: fn(&mut Cli, &str, String) -> Result<(), CliError>,
     },
+    /// Takes the next argument (or what follows `=`) as the OS gave it: a path, or an argument
+    /// handed on to another program, which need not be UTF-8.
+    Passthrough {
+        what: &'static str,
+        store: fn(&mut Cli, OsString),
+    },
 }
 
 /// One option of jaic's own. `OPTIONS` drives parsing, "did you mean" suggestions, the
@@ -169,9 +176,23 @@ impl CliOption {
 
     /// The option spelt `name` if it takes a value.
     pub fn find_value(name: &str) -> Option<&'static CliOption> {
-        Self::find(name)
-            .filter(|option| matches!(option.action, Action::Value { .. } | Action::Shared(_)))
+        Self::find(name).filter(|option| {
+            matches!(
+                option.action,
+                Action::Value { .. } | Action::Passthrough { .. } | Action::Shared(_)
+            )
+        })
     }
+}
+
+/// `Action::Passthrough` for an option that only stores its value.
+macro_rules! pass {
+    ($what:literal, |$cli:ident, $value:ident| $store:expr) => {
+        Action::Passthrough {
+            what: $what,
+            store: |$cli, $value| $store,
+        }
+    };
 }
 
 /// `Action::Value` for an option that only stores its value.
@@ -348,7 +369,7 @@ pub const OPTIONS: &[CliOption] = {
         ),
         CliOption::new(
             &["-linker"],
-            store!("a program", |cli, program| cli.linker = Some(program)),
+            pass!("a program", |cli, program| cli.linker = Some(program)),
         )
         .help(
             Output,
@@ -357,7 +378,7 @@ pub const OPTIONS: &[CliOption] = {
         ),
         CliOption::new(
             &["-sysroot"],
-            store!("a directory", |cli, dir| cli.sysroot = Some(PathBuf::from(dir))),
+            pass!("a directory", |cli, dir| cli.sysroot = Some(PathBuf::from(dir))),
         )
         .help(
             Output,
@@ -366,7 +387,7 @@ pub const OPTIONS: &[CliOption] = {
         ),
         CliOption::new(
             &["-compiler_rt"],
-            store!("a file", |cli, file| cli.compiler_rt = Some(PathBuf::from(file))),
+            pass!("a file", |cli, file| cli.compiler_rt = Some(PathBuf::from(file))),
         )
         .help(
             Output,
@@ -375,7 +396,7 @@ pub const OPTIONS: &[CliOption] = {
         ),
         CliOption::new(
             &["-link_arg"],
-            store!("a linker argument", |cli, arg| cli.link_args.push(arg)),
+            pass!("a linker argument", |cli, arg| cli.link_args.push(arg)),
         )
         .help(
             Output,

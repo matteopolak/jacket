@@ -15,6 +15,7 @@ use jaic::target::Target;
 #[cfg(feature = "llvm")]
 use jaic::target::{TargetCpu, TargetOs};
 use jaic_cli_args::cli::{Cli, Flavor};
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 #[cfg(all(
@@ -215,7 +216,7 @@ pub(super) struct LlvmBackend {
     /// An explicit host OS/CPU still overrides workspace output settings.
     explicit_target: bool,
     /// `-link_arg`: linker arguments after the metaprogram's.
-    link_args: Vec<String>,
+    link_args: Vec<OsString>,
     /// The `-sanitize` lists, comma-joined (empty: no sanitizers).
     sanitize: String,
     /// `-no_inline` and `-no_split`: they hold for every workspace this backend writes.
@@ -235,7 +236,7 @@ struct Prepared {
     target: Option<Target>,
     options: jaic_native::Options,
     /// Linker arguments beyond the metaprogram's (`-mmacosx-version-min`).
-    extra_link_args: Vec<String>,
+    extra_link_args: Vec<OsString>,
 }
 
 #[cfg(feature = "llvm")]
@@ -357,7 +358,7 @@ impl LlvmBackend {
             .then(|| settings.minimum_os_version.clone());
         let mut extra_link_args = Vec::new();
         if let Some(version) = &macos_version {
-            extra_link_args.push(format!("-mmacosx-version-min={version}"));
+            extra_link_args.push(format!("-mmacosx-version-min={version}").into());
         }
         let switch = |flag: WorkspaceFlag| settings.llvm_switch(flag);
         let wanted = |on: bool, suffix: &str| on.then(|| beside(suffix));
@@ -498,7 +499,13 @@ fn remove_stale_objects(dir: &Path, file_name: &std::ffi::OsStr) {
 fn cross_library_dirs(target: Option<Target>) -> Vec<PathBuf> {
     target
         .filter(|target| *target != Target::host())
-        .map(|target| super::native_paths::cross_lib_dirs(&jaic::default_stdlib_dir(), target))
+        .map(|target| {
+            jaic_toolchain::native_libs::cross_lib_dirs(
+                &jaic_toolchain::System,
+                &jaic::default_stdlib_dir(),
+                target,
+            )
+        })
         .unwrap_or_default()
 }
 
@@ -530,11 +537,11 @@ impl OutputBackend for LlvmBackend {
         let wasm = target.is_some_and(jaic::target::Target::is_wasm);
         let freestanding = target.filter(|t| t.is_freestanding());
         // The metaprogram's linker arguments, then `-link_arg`.
-        let metaprogram_args: Vec<String> = settings
+        let metaprogram_args: Vec<OsString> = settings
             .additional_linker_arguments
             .iter()
-            .chain(&self.link_args)
-            .cloned()
+            .map(OsString::from)
+            .chain(self.link_args.iter().cloned())
             .collect();
         let mut link_args = metaprogram_args.clone();
         link_args.extend(extra_link_args);

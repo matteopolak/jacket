@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 
 pub mod env;
 pub mod llvm;
+pub mod os_text;
 pub mod packages;
 pub mod pattern;
 pub mod schema;

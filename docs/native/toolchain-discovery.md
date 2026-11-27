@@ -93,12 +93,13 @@ gc_sections = true
 | `entry = S` | `--entry=S` | `/ENTRY:S` | `-Wl,-e,S` | `-Wl,--entry=S` |
 | `stack_size = N` | `-z stack-size=N` | `/STACK:N` | `-Wl,-stack_size,0xN` | `-Wl,-z,stack-size=N` (MinGW: `-Wl,--stack,N`) |
 
-- Raw linker arguments (`-link_arg`, `additional_linker_arguments`) use `ld.lld`'s spelling and go through the same translation.
+- On a Mac only the developer folder `xcode-select` selects (`DEVELOPER_DIR`, the saved selection, `/Applications/Xcode.app`, then the Command Line Tools) is used for `ld`, the SDK and libclang. A folder missing a piece is reported, never completed from another install.
+- Raw linker arguments (`-link_arg`, `additional_linker_arguments`) use `ld.lld`'s spelling and go through the same translation. They are OS strings: bytes that are not UTF-8 reach the linker unchanged.
 - Flashing takes the port from `--port` or `JACKET_PORT`, never from the file.
 
 ## How to change it
 
-- Lookup and notes: `crates/jaic-toolchain/src/` (`lookup.rs` finds programs, `linker.rs` linkers and sysroots, `builtins.rs` builtins, `package.rs` the notes, `pins.rs` the pins). It reads the machine through the `Host` trait, so tests build a `FakeHost` instead of needing real tools.
+- Lookup and notes: `crates/jaic-toolchain/src/` (`lookup.rs` finds programs, `linker.rs` linkers and sysroots, `builtins.rs` builtins, `apple.rs` the selected Xcode's `ld`, SDK, runtime and `libclang.dylib`, `msvc.rs` a Clang outside `PATH` and the `link.exe` check, `native_libs.rs` the built third-party library folders, `package.rs` the notes, `pins.rs` the pins). Visual Studio, Windows SDK and `LIB` discovery is in `jaic::toolchain::discover` on the `find-msvc-tools` crate, because the interpreter needs `LIB` too ([crate layout](../architecture/crate-layout.md)). It reads the machine through the `Host` trait, so tests build a `FakeHost` instead of needing real tools.
 - Pins: `crates/jaic-toolchain/data/sysroots.txt` and `compiler-rt.txt` are generated. Rewrite them with `PYTHONPATH=tools python3 tools/embedded/pin_sysroots.py` or `pin_compiler_rt.py`; `--check` fails when they are stale.
 - Status lines: `crates/jaic/src/progress.rs`; callers in `crates/jaic-native/src/`.
 - `add`, `list`, `remove`: `crates/jacket/src/toolchain/`.
@@ -119,6 +120,6 @@ Removed: `JAIC_LLD`, `JAIC_WASM_LD`, `JAIC_SANITIZER_CC`, `JAIC_CROSS_LIBS`, `JA
 
 ## Dependencies
 
-`jaic-toolchain` depends on `jaic` (for `Target`). `jaic-native` links with it, `jacket` lists and fills the cache with it, and `test-support` finds tools with it. Downloads use `curl`; `.deb` files are read by a small `ar` parser, then unpacked with `tar`.
+`jaic-toolchain` depends on `jaic` (for `Target`). `jaic-native` links with it, `jaic` (the binary) takes the interpreter's library folders from it, `jacket` lists and fills the cache with it, and `test-support` finds tools with it. Downloads use `curl`; `.deb` files are read by a small `ar` parser, then unpacked with `tar`.
 
 Related: [embedded and freestanding targets](embedded.md), [linking](native-linking.md), [targets](../compiler/targets.md).

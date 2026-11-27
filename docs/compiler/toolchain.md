@@ -20,7 +20,7 @@ Fields worth knowing:
 - `rename(symbol)`: the symbol the runtime really exports. On MSVC `long double` is `double`, so `sqrtl` maps to `sqrt`. Code generation and the interpreter both ask.
 - `runtime_names`: the library names that mean the C runtime, with the DLL the interpreter loads on Windows. `ucrt`, `ucrtbase` and `vcruntime` load `ucrtbase.dll`; every other name loads `msvcrt.dll`. They are never merged: different heaps, `FILE*` and `errno`.
 
-`toolchain/discover.rs` is a separate job: finding `link.exe`, `lib.exe`, `LIB` and Clang on a Windows host. It returns paths, never which libraries to link; choosing among programs stays in `jaic-llvm/src/linker.rs`.
+`toolchain/discover.rs` is a separate job: finding `link.exe`, `lib.exe` and `LIB` on a Windows host through `find-msvc-tools`. It returns paths, never which libraries to link; choosing among programs is `jaic-toolchain`'s (`linker.rs`, `msvc.rs`).
 
 ## How to change it
 

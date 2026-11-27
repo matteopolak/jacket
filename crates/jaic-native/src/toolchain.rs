@@ -6,6 +6,12 @@ use std::process::Command;
 
 static SYSTEM: System = System;
 
+/// This machine, for the lookups that take a [`jaic_toolchain::Host`].
+#[cfg(target_os = "macos")]
+pub(crate) fn system() -> &'static System {
+    &SYSTEM
+}
+
 /// The lookup over this machine. The LLVM installs are searched only when an LLVM program is.
 pub(crate) fn lookup() -> Lookup<'static> {
     Lookup::new(&SYSTEM).with_llvm_bins(|| jacket_config::llvm::bin_dirs(crate::BAKED_LLVM_PREFIX))

@@ -22,7 +22,7 @@ jacket build main.jai -os windows -cpu arm64   # Windows on Arm
 
 GCC's MinGW-w64 only targets x64. For arm64 use [llvm-mingw](https://github.com/mstorsjo/llvm-mingw) and append its `bin/` to `PATH`.
 
-- Clang's driver finds the MSVC and SDK libraries itself. `link.exe` and `lld-link` need `LIB`; `toolchain/discover.rs` gets it via the `find-msvc-tools` crate when there is no developer prompt. A `link` on `PATH` counts only if it prints Microsoft's banner (Git for Windows ships a coreutils `link`).
+- Clang's driver finds the MSVC and SDK libraries itself. `link.exe` and `lld-link` need `LIB`; `jaic/src/toolchain/discover.rs` gets it via the `find-msvc-tools` crate when there is no developer prompt. A `link` on `PATH` counts only if it prints Microsoft's banner (Git for Windows ships a coreutils `link`; `jaic-toolchain/src/msvc.rs`).
 - MSVC links use the DLL CRT, so `/MD` libraries link as they are. The Clang path also passes `/NODEFAULTLIB:libcmt`. Executables reserve an 8 MiB stack. Outputs get `.exe`, `.dll` or `.lib`.
 - `#system_library "kernel32"` becomes `-lkernel32`/`kernel32.lib`; CRT and POSIX names (`libc`, `msvcrt`, `m`, `pthread`, ...) are dropped. `#library "foo"` beside the source is `foo.lib`/`libfoo.lib`, and for MinGW also `foo.a`, `libfoo.a`, `foo.dll.a`, `foo.dll`. A DLL must be next to the executable or on `PATH`.
 - A member's `#align N` sets alignment even below natural, like `#pragma pack`.
@@ -37,7 +37,7 @@ GCC's MinGW-w64 only targets x64. For arm64 use [llvm-mingw](https://github.com/
 
 ## How to change it
 
-- ABI rules: `abi.rs` (tests compare with Clang's IR). Linker discovery and library naming: `linker_command`, `library_args`, `discover.rs`. Start-up: the Windows block at the end of `Runtime_Support/module.jai`.
+- ABI rules: `abi.rs` (tests compare with Clang's IR). Linker discovery and library naming: `jaic-toolchain/src/linker.rs`, `msvc.rs`, `jaic/src/toolchain/discover.rs`. Start-up: the Windows block at the end of `Runtime_Support/module.jai`.
 - Foreign data (`x: T #elsewhere lib`) of a `#system_library` is `dllimport`. C runtime data is `dllimport` on MSVC only when the library is named `ucrt` or `ucrtbase`; `msvcrt.lib` defines some data statically and `dllimport` of it fails to link. MinGW links its runtime statically, so no import.
 - `jaic` hands programs a plain working directory and `#file` (`C:\dir\main.jai`), not the `\\?\` form.
 - `File.file_open(for_writing = true)` also asks for read access, like POSIX `wb+`.

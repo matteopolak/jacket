@@ -1,6 +1,6 @@
 //! The overrides that come first in every lookup. They are for CI and scripts: a `jacket.toml`
 //! never names a machine's tools.
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
@@ -25,7 +25,7 @@ pub struct Overrides {
 static FLAGS: OnceLock<Overrides> = OnceLock::new();
 
 /// Records `-linker`, `-sysroot` and `-compiler_rt`. Called once, when the command line is read.
-pub fn set_flags(linker: Option<&str>, sysroot: Option<&Path>, compiler_rt: Option<&Path>) {
+pub fn set_flags(linker: Option<&OsStr>, sysroot: Option<&Path>, compiler_rt: Option<&Path>) {
     let _ = FLAGS.set(Overrides {
         linker: linker.map(|value| Given {
             value: value.into(),

@@ -18,6 +18,8 @@ Change option spellings/arity in `jaic-cli-args/src/options.rs` or its `tuning.r
 value parsing belongs to `jaic::flags`. Both the actual parser and metadata inspector use
 `split_option` for inline spelling. `ArgumentValue::replace` preserves spaced/inline syntax.
 Extend parser parity and boundary tests when adding syntax; do not add a second arity list.
+An option whose value is a path or goes on to another program is `Action::Passthrough`: `jaic`
+reads `args_os`, and that value is kept as an `OsString`. Every other argument must be UTF-8.
 
 `jaic-cli` remains a binary. It owns execution, native paths, code-generation conversion,
 allocation counting and panic initialization. Its existing `dynamic-llvm`, `static-llvm`,

@@ -140,7 +140,8 @@ fn main() -> ExitCode {
     #[cfg(all(feature = "llvm", feature = "mimalloc"))]
     jaic_native::fix_malloc_zone_for_fork();
     install_panic_hook();
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    // Read as the OS gave them: linker arguments and paths need not be UTF-8.
+    let args: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
     // Colour and layout first, so even command-line mistakes use them.
     let color = color_choice(&args);
     jaic::render::set_style(jaic::render::detect(color));
@@ -279,11 +280,12 @@ mod tests {
     use jaic::target::{TargetCpu, TargetOs};
     use jaic_cli_args::cli::{Added, Cli, Flavor, Mode, Plugin};
     use jaic_cli_args::options::CliError;
+    use std::ffi::OsString;
     use std::path::{Path, PathBuf};
 
     fn triple(args: &[&str], host_os: TargetOs, host_cpu: TargetCpu) -> Option<String> {
-        let mut argv = vec!["main.jai".to_string()];
-        argv.extend(args.iter().map(std::string::ToString::to_string));
+        let mut argv = vec![OsString::from("main.jai")];
+        argv.extend(args.iter().map(OsString::from));
         let Ok(Request::Compile(cli)) = parse(&argv) else {
             panic!("invalid command line {argv:?}");
         };
@@ -292,8 +294,8 @@ mod tests {
             .map(|target| target.to_string())
     }
 
-    fn args(words: &[&str]) -> Vec<String> {
-        words.iter().map(std::string::ToString::to_string).collect()
+    fn args(words: &[&str]) -> Vec<OsString> {
+        words.iter().map(OsString::from).collect()
     }
 
     fn cli(words: &[&str]) -> Cli {
@@ -309,6 +311,36 @@ mod tests {
             Err(e) => e,
             Ok(_) => panic!("{words:?} should be a command-line mistake"),
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn linker_arguments_and_paths_keep_bytes_that_are_not_utf8() {
+        use std::os::unix::ffi::{OsStrExt, OsStringExt};
+        let bytes = |b: &[u8]| OsString::from_vec(b.to_vec());
+        let argv = vec![
+            "a.jai".into(),
+            "-link_arg".into(),
+            bytes(b"-L/lib/\xff"),
+            bytes(b"-link_arg=/x/\xfe.a"),
+            "-sysroot".into(),
+            bytes(b"/root/\xfd"),
+        ];
+        let Ok(Request::Compile(c)) = parse(&argv) else {
+            panic!("rejected {argv:?}");
+        };
+        assert_eq!(c.link_args[0].as_bytes(), b"-L/lib/\xff");
+        assert_eq!(c.link_args[1].as_bytes(), b"/x/\xfe.a");
+        assert_eq!(c.sysroot.unwrap().as_os_str().as_bytes(), b"/root/\xfd");
+        // Anywhere else, an argument that is not UTF-8 is a mistake, not a crash.
+        let Err(error) = parse(&[bytes(b"\xff.jai")]) else {
+            panic!("a file name that is not UTF-8 was accepted");
+        };
+        assert!(
+            error.message.contains("not valid UTF-8"),
+            "{}",
+            error.message
+        );
     }
 
     #[test]
@@ -387,7 +419,8 @@ mod tests {
             "-target",
         ] {
             let words = ["main.jai", option];
-            let parsed = jaic_cli_args::arguments::target_flags(&args(&words)).unwrap_err();
+            let parsed =
+                jaic_cli_args::arguments::target_flags(&words.map(String::from)).unwrap_err();
             assert_eq!(parsed, error(&words).message, "{option}");
         }
     }

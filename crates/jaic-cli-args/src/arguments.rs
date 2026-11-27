@@ -2,6 +2,7 @@
 use crate::options::{Action, CliOption};
 use jaic::flags::{Common, Shared};
 use jaic::target::Selection;
+use std::ffi::OsStr;
 use std::path::PathBuf;
 
 /// Target selection and host arguments with compiler target/mode options removed.
@@ -91,7 +92,7 @@ pub fn target_flags(args: &[String]) -> Result<TargetFlags, String> {
         }
         let takes_value = matches!(
             option.map(|o| o.action),
-            Some(Action::Value { .. } | Action::Shared(_))
+            Some(Action::Value { .. } | Action::Passthrough { .. } | Action::Shared(_))
         );
         let value = if takes_value {
             Some(
@@ -100,9 +101,14 @@ pub fn target_flags(args: &[String]) -> Result<TargetFlags, String> {
                     .or_else(|| args.get(index + 1).cloned())
                     .ok_or_else(|| match option.map(|o| o.action) {
                         Some(Action::Shared(flag)) => flag.needs_value(name).into_text(),
-                        Some(Action::Value {
-                            what, ..
-                        }) => format!("`{name}` needs {what}"),
+                        Some(
+                            Action::Value {
+                                what, ..
+                            }
+                            | Action::Passthrough {
+                                what, ..
+                            },
+                        ) => format!("`{name}` needs {what}"),
                         _ => unreachable!("only value-taking options are inspected here"),
                     })?,
             )
@@ -158,17 +164,23 @@ fn is_boundary(arg: &str) -> bool {
 /// The folders `-import_dir` and its short form `-I` name among the compiler arguments, as
 /// written, in order. Values of other options (`-add "-I"`) and everything past a boundary
 /// are not options. Unlike [`target_flags`] it takes a malformed argument as the end of what it
-/// can read, because the compiler is the one to report it.
+/// can read, because the compiler is the one to report it. An argument that is not UTF-8 is a
+/// value or an operand, never an option.
 ///
 /// ```
 /// let args = ["-I", "a", "-import_dir=b", "--", "-I", "c"].map(String::from);
 /// let dirs = jaic_cli_args::arguments::import_dirs(&args);
 /// assert_eq!(dirs, [std::path::PathBuf::from("a"), "b".into()]);
 /// ```
-pub fn import_dirs(args: &[String]) -> Vec<PathBuf> {
+pub fn import_dirs(args: &[impl AsRef<OsStr>]) -> Vec<PathBuf> {
+    let text = |index: usize| args.get(index).and_then(|arg| arg.as_ref().to_str());
     let mut dirs = Vec::new();
     let mut index = 0;
-    while let Some(arg) = args.get(index) {
+    while index < args.len() {
+        let Some(arg) = text(index) else {
+            index += 1;
+            continue;
+        };
         if is_boundary(arg) {
             break;
         }
@@ -183,7 +195,7 @@ pub fn import_dirs(args: &[String]) -> Vec<PathBuf> {
         }
         if let Action::Shared(flag) = option.action
             && let Ok(Shared::ImportDir(dir)) =
-                flag.take(name, inline, || args.get(index + 1).cloned())
+                flag.take(name, inline, || text(index + 1).map(str::to_owned))
         {
             dirs.push(dir);
         }

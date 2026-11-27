@@ -253,6 +253,15 @@ impl Interp {
                             }
                         })
                         .clone();
+                    #[cfg(not(windows))]
+                    if library.is_none()
+                        && let Some(note) = native::missing_library(&lib_info.name)
+                    {
+                        return self.trap(format!(
+                            "native library `{}` could not be loaded: {note}",
+                            lib_info.name
+                        ));
+                    }
                     #[cfg(windows)]
                     if library.is_none() {
                         return self.trap(format!(

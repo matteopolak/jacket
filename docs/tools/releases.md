@@ -51,7 +51,7 @@ A packaged binary finds its stdlib through `jaic::stdlib_dir`: `JAIC_STDLIB`, el
 
 ### Bindings_Generator
 
-`generate_bindings` needs at run time: the `generator_platform` helper (in `native-libs/<platform>/` on every platform), libclang (shipped on Linux and Windows; on macOS `jaic` finds the Xcode toolchain's, since a Mac running it has Xcode and shipping libclang would double the archive), and a C compiler plus `llvm-nm` from `PATH`. Failures name the library and every directory searched. A checkout builds developer copies with `tools/native/ci_native_deps.sh developer`.
+`generate_bindings` needs at run time: the `generator_platform` helper (in `native-libs/<platform>/` on every platform), libclang (shipped on Linux and Windows; on macOS `jaic` uses the one in the developer folder `xcode-select` selects (`crates/jaic-toolchain/src/apple.rs`), since a Mac running it has Xcode and shipping libclang would double the archive; no other Xcode is searched, and when the selected folder has none the load fails with a note to run `xcode-select -s` or set `DEVELOPER_DIR`), and a C compiler plus `llvm-nm` from `PATH`. Failures name the library and every directory searched. A checkout builds developer copies with `tools/native/ci_native_deps.sh developer`.
 
 ### PGO and BOLT
 

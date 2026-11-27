@@ -50,7 +50,8 @@ pub fn linker_not_run(linker: &Found, e: &std::io::Error) -> String {
 }
 
 /// The error for a link that failed: the linker's own output, then what usually causes it.
-pub fn link_failure(program: &str, out: &std::process::Output) -> String {
+pub fn link_failure(program: &std::path::Path, out: &std::process::Output) -> String {
+    let program = jaic::display_path(program);
     let stdout = String::from_utf8_lossy(&out.stdout);
     let stderr = String::from_utf8_lossy(&out.stderr);
     let log = format!("{stdout}{stderr}");

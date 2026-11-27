@@ -3,13 +3,16 @@
 //!
 //! See `docs/native/toolchain-discovery.md`. Every lookup reads the machine through [`Host`], so
 //! tests describe a machine with [`testing::FakeHost`] instead of needing one.
+pub mod apple;
 pub mod builtins;
 pub mod cache;
 pub mod found;
 pub mod host;
 pub mod linker;
 pub mod lookup;
+pub mod msvc;
 pub mod names;
+pub mod native_libs;
 pub mod overrides;
 pub mod package;
 pub mod pins;

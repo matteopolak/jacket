@@ -1,8 +1,13 @@
 //! Build-option arguments cross two boundaries: compiler driver and target linker.
+//!
+//! Arguments are OS strings end to end: Clang and the linkers take any bytes. Only the ASCII
+//! spellings below are recognised and rewritten; every other argument passes through as given.
+use jacket_config::os_text;
 use jaic::toolchain::{Driver, Linker};
 pub(super) use jaic_toolchain::names::is_clang;
+use std::ffi::{OsStr, OsString};
 
-pub(super) fn driver_for_command(program: &str, args: &[String]) -> Driver {
+pub(super) fn driver_for_command(program: &str, args: &[OsString]) -> Driver {
     let mut driver = driver_for_program(program);
     if driver != Driver::MsvcLink && is_clang(program) {
         let mut args = args.iter();
@@ -11,10 +16,13 @@ pub(super) fn driver_for_command(program: &str, args: &[String]) -> Driver {
                 args.next();
                 continue;
             }
+            let Some(arg) = arg.to_str() else {
+                continue;
+            };
             if driver == Driver::ClangCl && arg.eq_ignore_ascii_case("/link") {
                 break;
             }
-            match arg.as_str() {
+            match arg {
                 "--driver-mode=cl" => driver = Driver::ClangCl,
                 "--driver-mode=gcc" | "--driver-mode=g++" => driver = Driver::C,
                 _ => {}
@@ -35,32 +43,34 @@ pub(super) fn driver_for_program(program: &str) -> Driver {
     }
 }
 
-fn takes_driver_operand(arg: &str) -> bool {
+fn takes_driver_operand(arg: &OsStr) -> bool {
     matches!(
-        arg,
-        "-Xlinker"
-            | "-Xclang"
-            | "-o"
-            | "-L"
-            | "-l"
-            | "-target"
-            | "--target"
-            | "-isysroot"
-            | "--sysroot"
-            | "-B"
-            | "/Fo"
-            | "/Fe"
-            | "/Fd"
-            | "/I"
-            | "/D"
-            | "/FI"
+        arg.to_str(),
+        Some(
+            "-Xlinker"
+                | "-Xclang"
+                | "-o"
+                | "-L"
+                | "-l"
+                | "-target"
+                | "--target"
+                | "-isysroot"
+                | "--sysroot"
+                | "-B"
+                | "/Fo"
+                | "/Fe"
+                | "/Fd"
+                | "/I"
+                | "/D"
+                | "/FI"
+        )
     )
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
 pub(super) struct ExtraArgs {
-    pub driver: Vec<String>,
-    pub linker: Vec<String>,
+    pub driver: Vec<OsString>,
+    pub linker: Vec<OsString>,
 }
 
 /// Rewrites the `ld.lld` spellings of the link settings jacket writes from a project's
@@ -76,28 +86,33 @@ pub(super) struct ExtraArgs {
 ///
 /// Other Unix linkers get the `ld.lld` spelling behind `-Wl,`.
 pub(super) fn translate(
-    args: &[String],
+    args: &[OsString],
     linker: Linker,
     driver: Driver,
     apple: bool,
-) -> Vec<String> {
+) -> Vec<OsString> {
     let msvc = matches!(driver, Driver::MsvcLink | Driver::ClangCl) || linker == Linker::Msvc;
     // The linker is started directly (`ld.lld`, `link.exe`, `wasm-ld`) or through a C driver.
     let through_driver = driver == Driver::C && !msvc;
-    let wl = |text: String| {
+    let wl = |text: &str| -> OsString {
         if through_driver {
-            format!("-Wl,{text}")
+            format!("-Wl,{text}").into()
         } else {
-            text
+            text.into()
         }
     };
     let mut out = Vec::new();
     let mut args = args.iter();
     while let Some(arg) = args.next() {
-        let stack = (arg == "-z")
+        let Some(text) = arg.to_str() else {
+            out.push(arg.clone());
+            continue;
+        };
+        let stack = (text == "-z")
             .then(|| {
                 args.clone()
                     .next()
+                    .and_then(|v| v.to_str())
                     .and_then(|v| v.strip_prefix("stack-size="))
             })
             .flatten();
@@ -105,26 +120,26 @@ pub(super) fn translate(
             args.next();
             let size_number = size.parse::<u64>().ok();
             out.push(if msvc {
-                format!("/STACK:{size}")
+                format!("/STACK:{size}").into()
             } else if apple {
-                format!("-Wl,-stack_size,{:#x}", size_number.unwrap_or_default())
+                format!("-Wl,-stack_size,{:#x}", size_number.unwrap_or_default()).into()
             } else if linker == Linker::MinGw {
-                wl(format!("--stack,{size}"))
+                wl(&format!("--stack,{size}"))
             } else {
-                wl(format!("-z,stack-size={size}"))
+                wl(&format!("-z,stack-size={size}"))
             });
             continue;
         }
-        match arg.as_str() {
+        match text {
             "--gc-sections" if msvc => out.push("/OPT:REF".into()),
             "--no-gc-sections" if msvc => out.push("/OPT:NOREF".into()),
             "--gc-sections" if apple => out.push("-Wl,-dead_strip".into()),
             "--no-gc-sections" if apple => {}
-            "--gc-sections" | "--no-gc-sections" => out.push(wl(arg.clone())),
-            _ => match arg.strip_prefix("--entry=") {
-                Some(symbol) if msvc => out.push(format!("/ENTRY:{symbol}")),
-                Some(symbol) if apple => out.push(format!("-Wl,-e,{symbol}")),
-                Some(_) => out.push(wl(arg.clone())),
+            "--gc-sections" | "--no-gc-sections" => out.push(wl(text)),
+            _ => match text.strip_prefix("--entry=") {
+                Some(symbol) if msvc => out.push(format!("/ENTRY:{symbol}").into()),
+                Some(symbol) if apple => out.push(format!("-Wl,-e,{symbol}").into()),
+                Some(_) => out.push(wl(text)),
                 None => out.push(arg.clone()),
             },
         }
@@ -132,7 +147,24 @@ pub(super) fn translate(
     out
 }
 
-pub(super) fn render(args: &[String], linker: Linker, driver: Driver) -> Result<ExtraArgs, String> {
+/// The operand of `option`, the next argument.
+fn operand<'a>(
+    option: &OsStr,
+    args: &mut impl Iterator<Item = &'a OsString>,
+) -> Result<OsString, String> {
+    args.next().cloned().ok_or_else(|| {
+        format!(
+            "driver option `{}` requires an argument",
+            option.to_string_lossy()
+        )
+    })
+}
+
+pub(super) fn render(
+    args: &[OsString],
+    linker: Linker,
+    driver: Driver,
+) -> Result<ExtraArgs, String> {
     if driver == Driver::MsvcLink {
         return Ok(ExtraArgs {
             driver: Vec::new(),
@@ -146,25 +178,22 @@ pub(super) fn render(args: &[String], linker: Linker, driver: Driver) -> Result<
     let mut explicit_link = false;
     let mut args = args.iter();
     while let Some(arg) = args.next() {
+        let text = arg.to_str();
         if driver == Driver::ClangCl {
-            if arg.eq_ignore_ascii_case("/link") {
+            if text.is_some_and(|t| t.eq_ignore_ascii_case("/link")) {
                 explicit_link = true;
-            } else if explicit_link || msvc_option(arg).is_some() {
+            } else if explicit_link || text.and_then(msvc_option).is_some() {
                 output.linker.push(arg.clone());
-            } else if arg == "-Xlinker" {
+            } else if text == Some("-Xlinker") {
                 output
                     .linker
                     .push(args.next().ok_or("-Xlinker requires an argument")?.clone());
-            } else if let Some(value) = arg.strip_prefix("-Wl,") {
-                output.linker.extend(value.split(',').map(str::to_owned));
+            } else if let Some(value) = os_text::strip_prefix(arg, "-Wl,") {
+                output.linker.extend(os_text::split(&value, b','));
             } else {
                 output.driver.push(arg.clone());
                 if takes_driver_operand(arg) {
-                    output.driver.push(
-                        args.next()
-                            .ok_or_else(|| format!("driver option `{arg}` requires an argument"))?
-                            .clone(),
-                    );
+                    output.driver.push(operand(arg, &mut args)?);
                 }
             }
             continue;
@@ -173,16 +202,13 @@ pub(super) fn render(args: &[String], linker: Linker, driver: Driver) -> Result<
         // operand of -Xlinker is not another implicit build-option argument.
         if takes_driver_operand(arg) {
             output.driver.push(arg.clone());
-            output.driver.push(
-                args.next()
-                    .ok_or_else(|| format!("driver option `{arg}` requires an argument"))?
-                    .clone(),
-            );
+            output.driver.push(operand(arg, &mut args)?);
         } else if linker.is_windows()
-            && let Some((name, value)) = msvc_option(arg)
+            && let Some(text) = text
+            && let Some((name, value)) = msvc_option(text)
         {
             let value = if linker == Linker::MinGw {
-                mingw_option(arg, &name, value)?
+                mingw_option(text, &name, value)?.into()
             } else {
                 arg.clone()
             };
@@ -297,8 +323,35 @@ fn mingw_option(original: &str, name: &str, value: Option<&str>) -> Result<Strin
 mod tests {
     use super::*;
 
-    fn args(values: &[&str]) -> Vec<String> {
-        values.iter().map(|v| (*v).into()).collect()
+    fn args(values: &[&str]) -> Vec<OsString> {
+        values.iter().map(OsString::from).collect()
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn arguments_that_are_not_utf8_pass_through_with_their_bytes() {
+        use std::os::unix::ffi::{OsStrExt, OsStringExt};
+        let bytes = |b: &[u8]| OsString::from_vec(b.to_vec());
+        let input = vec![
+            bytes(b"/lib/\xff.a"),
+            "--gc-sections".into(),
+            "-o".into(),
+            bytes(b"out\xfe"),
+        ];
+        let translated = translate(&input, Linker::Unix, Driver::C, false);
+        assert_eq!(translated[0].as_bytes(), b"/lib/\xff.a");
+        assert_eq!(translated[1], "-Wl,--gc-sections");
+        let rendered = render(&translated, Linker::Unix, Driver::C).unwrap();
+        assert_eq!(rendered.driver, translated);
+        // clang-cl hands `-Wl,` pieces to the linker, split at the commas, bytes kept.
+        let input = vec![bytes(b"-Wl,/LIBPATH:\xff,/DEBUG")];
+        let rendered = render(&input, Linker::Msvc, Driver::ClangCl).unwrap();
+        assert_eq!(rendered.linker[0].as_bytes(), b"/LIBPATH:\xff");
+        assert_eq!(rendered.linker[1], "/DEBUG");
+        assert_eq!(
+            driver_for_command("clang", &[bytes(b"\xff"), "--driver-mode=cl".into()]),
+            Driver::ClangCl
+        );
     }
 
     #[test]

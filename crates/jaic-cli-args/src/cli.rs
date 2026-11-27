@@ -4,6 +4,7 @@ use crate::tuning;
 use jaic::builtin_keys::BitcodeOptimization;
 use jaic::sema::Options;
 use jaic::target::{Target, TargetCpu, TargetOs};
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 /// What jaic does with the program: build it (the default), only compile it, or interpret it.
@@ -203,13 +204,13 @@ pub struct Cli {
     /// `-timings`: report the wall time of each phase on stderr.
     pub timings: bool,
     /// `-linker`: the program that links (`ld.lld`, a C driver), instead of the lookup's.
-    pub linker: Option<String>,
+    pub linker: Option<OsString>,
     /// `-sysroot`: the C library folder a cross link uses.
     pub sysroot: Option<PathBuf>,
     /// `-compiler_rt`: the compiler builtins archive a freestanding link uses.
     pub compiler_rt: Option<PathBuf>,
     /// `-link_arg` (repeatable): an argument for the linker, in `ld.lld`'s spelling.
-    pub link_args: Vec<String>,
+    pub link_args: Vec<OsString>,
     /// `-sanitize address,undefined` (repeatable): sanitizer instrumentation for builds.
     pub sanitize: Vec<String>,
     /// `-coverage`: line and function coverage instrumentation (docs/tools/coverage.md).

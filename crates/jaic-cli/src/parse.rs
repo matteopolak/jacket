@@ -2,10 +2,38 @@
 use super::usage::{no_file_error, program_args_error, unknown_option};
 use jaic_cli_args::cli::{Cli, Mode, Plugin};
 use jaic_cli_args::options::{Action, CliError, CliOption, Request};
+use std::ffi::{OsStr, OsString};
 use std::path::Path;
 use std::process::ExitCode;
 
-pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
+/// The text of a command-line argument, or the error for one that is not UTF-8. Only the values
+/// of `Action::Passthrough` options may be any OS string.
+fn text(arg: &OsStr) -> Result<&str, CliError> {
+    arg.to_str().ok_or_else(|| {
+        CliError::new(format!("argument `{}` is not valid UTF-8", arg.display())).help(
+            "only the values of -link_arg, -linker, -sysroot and -compiler_rt may be any bytes",
+        )
+    })
+}
+
+/// The next argument as text, for an option whose value was not written inline.
+fn next_text<'a>(
+    rest: &mut impl Iterator<Item = &'a OsString>,
+) -> Result<Option<String>, CliError> {
+    rest.next()
+        .map(|arg| text(arg).map(str::to_owned))
+        .transpose()
+}
+
+/// `-name=value` with a value that is not UTF-8: the option, when it is a passthrough one, and
+/// the value as given.
+fn passthrough_inline(arg: &OsStr) -> Option<(&'static CliOption, OsString)> {
+    let (name, value) = jacket_config::os_text::split_once(arg, b'=')?;
+    let option = CliOption::find(name.to_str()?)?;
+    matches!(option.action, Action::Passthrough { .. }).then_some((option, value))
+}
+
+pub(super) fn parse(args: &[OsString]) -> Result<Request, CliError> {
     if args.is_empty() {
         return Err(no_file_error());
     }
@@ -15,8 +43,18 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
     let (mut check, mut interp, mut doc_comments, mut doc_gaps, mut doc_model, mut procedures) =
         (false, false, false, false, false, false);
     let mut rest = args.iter();
-    while let Some(arg) = rest.next() {
-        match arg.as_str() {
+    while let Some(os_arg) = rest.next() {
+        if os_arg.to_str().is_none()
+            && let Some((option, value)) = passthrough_inline(os_arg)
+            && let Action::Passthrough {
+                store, ..
+            } = option.action
+        {
+            store(&mut cli, value);
+            continue;
+        }
+        let arg = text(os_arg)?;
+        match arg {
             "-" => {
                 // Metaprogram arguments run up to a `--` (if any).
                 for arg in rest.by_ref() {
@@ -27,9 +65,11 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
                         cli.program_args.push(file.clone().unwrap_or_default());
                         break;
                     }
-                    cli.command_line.push(arg.clone());
+                    cli.command_line.push(text(arg)?.to_owned());
                 }
-                cli.program_args.extend(rest.by_ref().cloned());
+                for arg in rest.by_ref() {
+                    cli.program_args.push(text(arg)?.to_owned());
+                }
                 continue;
             }
             "--" => {
@@ -38,7 +78,9 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
                 }
                 // argv[0] is the source file, like a built program's executable path.
                 cli.program_args.push(file.clone().unwrap_or_default());
-                cli.program_args.extend(rest.by_ref().cloned());
+                for arg in rest.by_ref() {
+                    cli.program_args.push(text(arg)?.to_owned());
+                }
                 continue;
             }
             _ => {}
@@ -49,7 +91,7 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
             continue;
         }
         if let Some(plugin) = cli.plugins.last_mut() {
-            plugin.options.push(arg.clone());
+            plugin.options.push(arg.to_owned());
             continue;
         }
         let (a, inline) = jaic_cli_args::arguments::split_option(arg);
@@ -78,17 +120,36 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
             Action::Switch(switch) => *switch(&mut cli) = true,
             Action::Ignore => {}
             Action::Shared(flag) => {
-                let shared = flag.take(a, inline, || rest.next().cloned())?;
+                let next = if inline.is_none() {
+                    next_text(&mut rest)?
+                } else {
+                    None
+                };
+                let shared = flag.take(a, inline, || next)?;
                 cli.take_shared(shared);
             }
             Action::Value {
                 what,
                 store,
             } => {
-                let Some(value) = inline.or_else(|| rest.next().cloned()) else {
+                let value = match inline {
+                    Some(value) => Some(value),
+                    None => next_text(&mut rest)?,
+                };
+                let Some(value) = value else {
                     return Err(CliError::new(format!("`{a}` needs {what}")));
                 };
                 store(&mut cli, a, value)?;
+            }
+            Action::Passthrough {
+                what,
+                store,
+            } => {
+                let Some(value) = inline.map(OsString::from).or_else(|| rest.next().cloned())
+                else {
+                    return Err(CliError::new(format!("`{a}` needs {what}")));
+                };
+                store(&mut cli, value);
             }
             Action::OptLevel(level) => cli.opt_level = Some(level),
             Action::Flavor(flavor) => {
@@ -236,11 +297,13 @@ pub(super) fn print_cli_error(error: CliError) {
 /// The colour choice among jaic's own arguments (`-no_color`, `--color <when>`), read before
 /// parsing so that even command-line mistakes are printed in it. Plugin, metaprogram and
 /// program arguments (from the first `+Name`, `-` or `--`) are not jaic's.
-pub(super) fn color_choice(args: &[String]) -> jaic::render::ColorChoice {
+pub(super) fn color_choice(args: &[OsString]) -> jaic::render::ColorChoice {
+    // An argument that is not UTF-8 is never a colour option; it stays in place, as `?`s, so a
+    // spaced option value after it is still read as one.
     let own: Vec<String> = args
         .iter()
-        .take_while(|a| *a != "-" && *a != "--" && !a.starts_with('+'))
-        .cloned()
+        .map(|a| a.to_string_lossy().into_owned())
+        .take_while(|a| a != "-" && a != "--" && !a.starts_with('+'))
         .collect();
     if own.iter().any(|a| a == "-no_color") {
         return jaic::render::ColorChoice::Never;
