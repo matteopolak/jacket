@@ -322,9 +322,10 @@ fn atomics_use_the_targets_byte_order() {
     ] {
         assert_eq!(
             run(target, &source),
-            "102 202 1f2 e02 e02 true 7 9\n\
-             1020304 1020404 10203f4 1020c04 1020c04 true 7 9\n\
-             102030405060708 102030405060808 1020304050607f8 102030405060808 102030405060808 true 7 9\n",
+            "1ff 200 1ff fff f f false 1ff true 7 9\n\
+             102ffff 1030000 102ffff 102ffff 102f00f 102f00f false 102ffff true 7 9\n\
+             1020304ffffffff 102030500000000 1020304ffffffff 1020304ffffffff 1020304fffff00f \
+             1020304fffff00f false 1020304ffffffff true 7 9\n",
             "{target}"
         );
     }
