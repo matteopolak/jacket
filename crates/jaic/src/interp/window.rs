@@ -177,13 +177,11 @@ impl Window {
     }
 
     /// `len` bytes of whole pages, page aligned, for a mapping the program asked for.
-    #[cfg(unix)]
     pub(crate) fn alloc_pages(&self, len: usize) -> Option<u64> {
         self.alloc(len, host_pages::page_size())
     }
 
     /// Give back pages `alloc_pages` made, whatever protection the program gave them.
-    #[cfg(unix)]
     pub(crate) fn free_pages(&self, at: u64, len: usize) {
         host_pages::protect(self.base + at as usize, len, Access::ReadWrite);
         self.free(at, len);

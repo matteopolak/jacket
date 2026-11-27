@@ -284,10 +284,8 @@ pub struct SandboxHost {
     /// The program's window, when its pointers are narrower than the host's: where everything
     /// the stand-ins hand the program comes from.
     window: Option<std::sync::Arc<super::Window>>,
-    #[cfg(unix)]
     mappings: BTreeMap<u64, virtual_memory::Mapping>,
     /// Bytes held by `mappings`, capped at `virtual_memory::MAX_MAPPED_BYTES`.
-    #[cfg(unix)]
     mapped_bytes: u64,
     /// Virtual clock ticks (nanoseconds) handed out by `clock_gettime`; the sandbox has no real
     /// time source on wasm32, so every query advances this by one microsecond.

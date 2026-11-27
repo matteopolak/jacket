@@ -2,6 +2,8 @@
 use super::guest::read_u32;
 use super::*;
 
+mod mappings;
+
 fn sig() -> ir::Sig {
     ir::Sig {
         params: vec![],
@@ -81,58 +83,6 @@ fn process_creation_and_shared_memory_are_refused() {
     // posix_spawn returns the error number itself.
     assert_eq!(call(&mut h, "posix_spawn", &[0, 0, 0, 0, 0, 0]), EPERM);
     assert_eq!(call(&mut h, "posix_spawnp", &[0, 0, 0, 0, 0, 0]), EPERM);
-}
-
-/// A 32-bit Linux program's `mmap` links to `mmap64` (64-bit file offsets); the sandbox answers both.
-#[cfg(unix)]
-#[test]
-fn mmap64_maps_like_mmap() {
-    let mut h = host();
-    h.darwin_files = cfg!(target_os = "macos");
-    let flags = if h.darwin_files {
-        2 | 0x1000
-    } else {
-        2 | 0x20
-    };
-    let page = virtual_memory::page_size();
-    let at = call(&mut h, "mmap64", &[0, page, 3, flags, u64::MAX, 0]);
-    assert_ne!(at, u64::MAX);
-    assert_eq!(call(&mut h, "munmap", &[at, page]), 0);
-}
-
-#[cfg(unix)]
-#[test]
-fn anonymous_mappings_share_one_total_cap_per_host() {
-    const ENOMEM: u32 = 12;
-    let mut h = host();
-    h.darwin_files = cfg!(target_os = "macos");
-    let flags = if h.darwin_files {
-        2 | 0x1000
-    } else {
-        2 | 0x20
-    };
-    let map = |h: &mut SandboxHost, len: u64| call(h, "mmap", &[0, len, 3, flags, u64::MAX, 0]);
-    let half = virtual_memory::MAX_MAPPED_BYTES / 2;
-    let page = virtual_memory::page_size();
-
-    // One request over the cap is refused outright.
-    assert_eq!(map(&mut h, 2 * half + page), u64::MAX);
-    assert_eq!(errno(&h), ENOMEM);
-
-    let first = map(&mut h, half);
-    let second = map(&mut h, half);
-    assert_ne!(first, u64::MAX);
-    assert_ne!(second, u64::MAX);
-    // The total, not each request, is capped.
-    assert_eq!(map(&mut h, page), u64::MAX);
-    assert_eq!(errno(&h), ENOMEM);
-
-    // Unmapping gives the bytes back, whole or in part.
-    assert_eq!(call(&mut h, "munmap", &[first, half]), 0);
-    let again = map(&mut h, page);
-    assert_ne!(again, u64::MAX);
-    assert_eq!(call(&mut h, "munmap", &[second, page]), 0);
-    assert_eq!(call(&mut h, "munmap", &[again, page]), 0);
 }
 
 #[test]
