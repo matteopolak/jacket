@@ -316,6 +316,20 @@ fn collect_jai_files(dir: &Path, prune: &mut dyn FnMut(&Path) -> bool, out: &mut
     }
 }
 
+/// The folder a library's tests import it from: the parent of a library (a folder with a
+/// `module.jai`) whose `tests` folder holds `file`, as `jacket test` passes it.
+pub fn library_import_dir(file: &Path) -> Option<PathBuf> {
+    let tests = file
+        .ancestors()
+        .skip(1)
+        .find(|d| d.file_name().is_some_and(|n| n == "tests"))?;
+    let library = tests.parent()?;
+    library
+        .join("module.jai")
+        .is_file()
+        .then(|| library.parent().map(Path::to_path_buf))?
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -98,7 +98,7 @@ fn program_inputs(options: &Options, configs: &Configs, path: &Path) -> ProgramI
             import_paths: paths.clone(),
         })
         .collect();
-    inputs.extra.clone_from(&options.import_dirs);
+    inputs.extra.extend(options.import_dirs.iter().cloned());
     inputs
 }
 

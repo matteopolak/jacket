@@ -128,7 +128,7 @@ impl ProgramInputs {
     pub fn for_file(fs: &dyn crate::sema::FileSystem, main: &Path, default_stdlib: &Path) -> Self {
         Self {
             configured: Vec::new(),
-            extra: Vec::new(),
+            extra: crate::paths::library_import_dir(main).into_iter().collect(),
             packages: Vec::new(),
             stdlib: crate::enclosing_stdlib(fs, main, default_stdlib)
                 .unwrap_or_else(|| default_stdlib.to_path_buf()),

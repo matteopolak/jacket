@@ -475,3 +475,23 @@ fn a_compile_time_run_over_the_step_budget_is_reported_as_incomplete() {
     assert!(!err.contains("lint-incomplete"), "{err}");
     assert_eq!(code, Some(0), "{err}");
 }
+
+#[test]
+fn a_librarys_tests_import_it_by_its_folder_name_as_jacket_test_does() {
+    let dir = scratch("library-tests");
+    std::fs::create_dir_all(dir.join("slugs/tests")).unwrap();
+    std::fs::write(
+        dir.join("slugs/module.jai"),
+        "twice :: (x: int) -> int { return x * 2; }\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("slugs/tests/cases.jai"),
+        "#import \"Basic\";\n#import \"slugs\";\nmain :: () {\n    assert(twice(2) == 4);\n}\n",
+    )
+    .unwrap();
+    let (text, code) = jailint(&dir, &["slugs/tests/cases.jai"]);
+    assert!(!text.contains("lint-incomplete"), "{text}");
+    assert!(!text.contains("not found"), "{text}");
+    assert_eq!(code, Some(0), "{text}");
+}

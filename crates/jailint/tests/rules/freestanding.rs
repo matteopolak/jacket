@@ -43,3 +43,32 @@ fn freestanding_cpu_checks_wait_for_a_cpu_that_lacks_something() {
     let (lints, text) = lint_target(&file, &levels, Config::default(), options);
     assert!(lints.is_empty(), "{}", rendered(&lints, &text, &file));
 }
+
+#[test]
+fn freestanding_reports_the_cortex_m_gaps_in_double_floats_and_wide_division() {
+    let file = repo().join("tests/lint/freestanding/cpu.jai");
+    let levels = [("freestanding", Level::Warn)];
+    let mut options = jaic::sema::Options::host();
+    jaic::target::Target::parse("thumbv7em-none-eabihf")
+        .unwrap()
+        .apply(&mut options);
+    let (lints, text) = lint_target(&file, &levels, Config::default(), options);
+    let messages: Vec<_> = lints.iter().map(|l| l.message.as_str()).collect();
+    let rendered = rendered(&lints, &text, &file);
+    assert_eq!(
+        messages
+            .iter()
+            .filter(|m| m.contains("`float64` arithmetic runs in software"))
+            .count(),
+        2,
+        "{rendered}"
+    );
+    assert_eq!(
+        messages
+            .iter()
+            .filter(|m| m.contains("64-bit division in a loop runs in software"))
+            .count(),
+        1,
+        "{rendered}"
+    );
+}
