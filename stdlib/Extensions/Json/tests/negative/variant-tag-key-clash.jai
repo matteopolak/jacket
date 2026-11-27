@@ -1,4 +1,4 @@
-// test: compile_fail
+// test: compile_fail("Json: Tagged.kind: the key `kind` is also the tag of the Variant it is a case of")
 #import "Basic";
 #import "Extensions/Json";
 #import "Extensions/Variant";

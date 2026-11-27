@@ -1,4 +1,4 @@
-// test: compile_fail
+// test: compile_fail("Json: Doc.shape: `tags=` must give one tag per case: it has 1 and the Variant has 2 cases")
 #import "Basic";
 #import "Extensions/Json";
 #import "Extensions/Variant";

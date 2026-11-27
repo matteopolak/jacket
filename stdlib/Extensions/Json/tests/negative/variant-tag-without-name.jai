@@ -1,4 +1,4 @@
-// test: compile_fail
+// test: compile_fail("Json: Doc.shape: `tag=` needs a key name, as in `@json(tag=kind)`")
 #import "Basic";
 #import "Extensions/Json";
 #import "Extensions/Variant";

@@ -1,4 +1,4 @@
-// test: compile_fail
+// test: compile_fail("Json: Doc.shape: `untagged` cannot be combined with `tag=` or `content=`")
 #import "Basic";
 #import "Extensions/Json";
 #import "Extensions/Variant";

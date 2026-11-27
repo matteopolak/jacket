@@ -1,4 +1,4 @@
-// test: compile_fail
+// test: compile_fail("Json: Doc.contact: `untagged` cannot tell apart two cases of the same type. Drop `untagged` so each case is written with its tag")
 #import "Basic";
 #import "Extensions/Json";
 #import "Extensions/Variant";

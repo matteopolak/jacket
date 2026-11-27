@@ -1,4 +1,4 @@
-// test: compile_fail
+// test: compile_fail("Json: Doc.shape: the cases `Circle` and `Rect` are both tagged `same`. Give them `tags=` of their own")
 #import "Basic";
 #import "Extensions/Json";
 #import "Extensions/Variant";

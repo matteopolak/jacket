@@ -1,4 +1,4 @@
-// test: compile_fail
+// test: compile_fail("Json: Doc.shape: `content=` needs `tag=`, as in `@json(tag=t,content=c)`")
 #import "Basic";
 #import "Extensions/Json";
 #import "Extensions/Variant";

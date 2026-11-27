@@ -1,4 +1,4 @@
-// test: compile_fail
+// test: compile_fail("Json: Doc.shape: `tags=` has an empty tag name")
 #import "Basic";
 #import "Extensions/Json";
 #import "Extensions/Variant";

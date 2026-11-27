@@ -1,4 +1,4 @@
-// test: compile_fail
+// test: compile_fail("Json: Doc.shape: `tag=kind` needs every case to be a struct, and `s64` is an integer. Use `tag=kind,content=c` to tag a case that is not a struct")
 #import "Basic";
 #import "Extensions/Json";
 #import "Extensions/Variant";

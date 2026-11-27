@@ -1,4 +1,4 @@
-// test: compile_fail
+// test: compile_fail("Json: Doc.shape: `tag=` and `content=` must be different keys")
 #import "Basic";
 #import "Extensions/Json";
 #import "Extensions/Variant";

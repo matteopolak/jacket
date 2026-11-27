@@ -1,4 +1,4 @@
-// test: compile_fail
+// test: compile_fail("Json: Wrapper: a `transparent` struct cannot be a case of a Variant tagged with `tag=kind`")
 #import "Basic";
 #import "Extensions/Json";
 #import "Extensions/Variant";
