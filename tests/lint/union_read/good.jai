@@ -127,4 +127,38 @@ main :: () {
     next_event(*e);
     print("% % % %\n", asserted(v), bits_of(1), window_of(e), text_if_any(v));
     print("% %\n", checked_key(*e), next_key());
+    literal: Tagged_Literal;
+
+    print("%\n", literal_is_true(*literal));
+}
+
+// A tag whose value names no member says nothing about which member is live.
+Tagged_Node :: struct {
+    kind: enum u8 {
+        IDENT;
+        LITERAL;
+    };
+}
+
+Tagged_Literal :: struct {
+    #as using base: Tagged_Node;
+    kind = .LITERAL;
+
+    value_type: enum s16 {
+        UNINITIALIZED :: 0;
+        NUMBER :: 1;
+        STRING :: 2;
+        BOOLEAN :: 3;
+    }
+
+    using values: union {
+        _string: string;
+        _float64: float64;
+        _s64: s64;
+        _u64: u64;
+    };
+}
+
+literal_is_true :: (l: *Tagged_Literal) -> bool {
+    return l.value_type == .BOOLEAN && l._s64 != 0;
 }
