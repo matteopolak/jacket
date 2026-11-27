@@ -168,6 +168,27 @@ fn project_name_env(ctx: &compile::Context) -> Vec<(&'static str, OsString)> {
         .collect()
 }
 
+/// Why `jacket run` cannot start `exe`: `target` has no runner. A triple named on the command line
+/// gets a `[target]` table to copy.
+fn no_runner(target: &target::Target, exe: &Path, cwd: &Path) -> String {
+    let at = shown::path(exe, cwd);
+    if target.project || target.board.is_some() {
+        let name = &target.name;
+        return format!(
+            "target `{name}` has no runner, so jacket cannot run what it built\nhelp: set `runner` under `[target.{name}]` in jacket.toml; the program is at {at}"
+        );
+    }
+    let triple = target.triple.as_deref().unwrap_or(&target.name);
+    let runner = if triple.starts_with("wasm") {
+        "wasmtime {exe}"
+    } else {
+        "PROGRAM {exe}"
+    };
+    format!(
+        "`{triple}` is not this machine's target, so jacket cannot run what it built\nhelp: name a runner for it in jacket.toml, then run with `--target NAME`:\n      [target.NAME]\n      triple = \"{triple}\"\n      runner = \"{runner}\"\nnote: the program is at {at}"
+    )
+}
+
 /// `jacket run`: build with jaic, then start the executable with the arguments after `--`.
 fn run_program(args: &[OsString], ctx: &compile::Context) -> ExitCode {
     let (jaic_args, program_args) = compile::split_run(args);
@@ -232,12 +253,7 @@ fn run_program(args: &[OsString], ctx: &compile::Context) -> ExitCode {
         if target.triple.is_none() && target.board.is_none() {
             return tools::exec(exe.as_os_str(), program_args);
         }
-        return commands::fail(format!(
-            "target `{}` has no runner, so jacket cannot run what it built\nhelp: set `runner` under `[target.{}]` in jacket.toml; the program is at {}",
-            target.name,
-            target.name,
-            exe.display()
-        ));
+        return commands::fail(no_runner(&target, &exe, ctx.cwd));
     };
     if !program_args.is_empty() {
         return commands::fail(format!(

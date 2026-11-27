@@ -33,7 +33,7 @@ main :: () {
 }
 ```
 
-Name the target and its runner in `jacket.toml`:
+Your machine can't start a WebAssembly file itself, so `jacket run` needs a runner for it. Name the target and its runner in `jacket.toml`:
 
 ```toml
 [target.wasi]
@@ -51,6 +51,8 @@ Pointers are 32 bits
 ```
 
 `print`, strings, arrays and allocators follow the target's pointer size.
+
+`jacket run --target wasm32-wasi`, with a triple and no table, builds the program and stops with a note showing the table to add.
 
 ## 32-bit Linux
 

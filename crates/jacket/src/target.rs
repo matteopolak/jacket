@@ -217,12 +217,20 @@ pub fn expand(args: &[OsString], config: Option<&Config>) -> Result<Expansion, S
     let targets = all(config);
     let Some(target) = targets.iter().find(|t| t.name == value).cloned() else {
         if value.contains('-') {
-            // A triple: jaic reads it.
+            // A triple: jaic reads it. One for another machine is a target with no runner, so
+            // `jacket run` does not start what it built here.
+            let foreign = jaic::target::Target::parse(&value)
+                .is_ok_and(|triple| triple != jaic::target::Target::host());
+            let target = foreign.then(|| Target {
+                name: value.clone(),
+                triple: Some(value.clone()),
+                ..Target::default()
+            });
             out.splice(at..at, ["-target".into(), value.into()]);
             out.extend(args[region_end..].iter().cloned());
             return Ok(Expansion {
                 args: out,
-                target: None,
+                target,
             });
         }
         return Err(unknown(&value, &targets));
@@ -351,6 +359,21 @@ mod tests {
         assert_eq!(expand(&args, None).unwrap().args, args);
         let args = os(&["m.jai", "-O2"]);
         assert!(expand(&args, None).unwrap().target.is_none());
+    }
+
+    #[test]
+    fn a_triple_for_another_machine_is_a_target_with_no_runner() {
+        let wasm = expand(&os(&["--target", "wasm32-wasi"]), None).unwrap();
+        let target = wasm.target.unwrap();
+        assert_eq!(target.triple.as_deref(), Some("wasm32-wasi"));
+        assert_eq!(target.runner, None);
+        let host = jaic::target::Target::host().to_string();
+        assert!(
+            expand(&os(&["--target", &host]), None)
+                .unwrap()
+                .target
+                .is_none()
+        );
     }
 
     #[test]
