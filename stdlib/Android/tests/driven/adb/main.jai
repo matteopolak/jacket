@@ -28,7 +28,6 @@ exercise :: () {
     assert(type_info(A.Adb_Device).name == "Adb_Device");
     assert(type_info(A.Adb_Version_Info).name == "Adb_Version_Info");
     #assert A.Adb_Device.Connection_State.READY == .DEVICE;
-    #assert !#exists(A.take_word) && !#exists(A.quote_remote);
     #assert !#exists(A.array_add) && !#exists(A.copy_string) && !#exists(A.C);
     info, parsed := A.adb_version();
 
@@ -201,3 +200,10 @@ main :: () {
     assert(live == 0);
     print("ok\n");
 }
+
+// The module's own helpers are `#scope_module`: a named import reaches them (`A.take_word`), an
+// anonymous one does not.
+#scope_file
+#import "Android/Toolchain";
+
+#assert !#exists(take_word) && !#exists(quote_remote);
