@@ -299,9 +299,13 @@ pub struct TestArgs {
     /// Also write the results as `JUnit` XML
     #[arg(long, value_name = "FILE")]
     pub junit: Option<std::path::PathBuf>,
-    /// Run one part of the tests: `hash:K/N` (by name) or `count:K/N` (by position)
+    /// Run one part of the tests: `hash:K/N` (by name), `count:K/N` (by position) or `time:K/N`
+    /// (parts of about equal time, from `--partition-times`)
     #[arg(long, value_name = "SPEC")]
     pub partition: Option<String>,
+    /// A JSON object of seconds per test name, which `--partition time:K/N` balances the parts by
+    #[arg(long, value_name = "FILE")]
+    pub partition_times: Option<std::path::PathBuf>,
     /// Run the tests in jaic's interpreter
     #[arg(long)]
     pub interp: bool,

@@ -87,6 +87,11 @@ pausing_the_clock_leaves_setup_and_teardown_out :: () {
     b: Bench;
     b.iterations = 3;
 
+    // Preemption can land between any two reads of the clock, so no bound on `elapsed` alone holds
+    // on a loaded machine. What always holds: every paused span is in `paused_nanoseconds`, and the
+    // run's time is the timed span plus the paused one.
+    wall_start := current_time_monotonic();
+
     for b {
         pause_timer(*b);
         spin(5);
@@ -99,7 +104,11 @@ pausing_the_clock_leaves_setup_and_teardown_out :: () {
         resume_timer(*b);
     }
 
-    expect(b.elapsed < 5_000_000);
+    wall, ok := to_nanoseconds(current_time_monotonic() - wall_start);
+
+    expect(ok);
+    expect(b.paused_nanoseconds >= 6 * 5_000_000);
+    expect(b.elapsed + b.paused_nanoseconds <= wall);
     expect(b.paused_clock);
 } @test
 

@@ -115,6 +115,7 @@ A fix is done when a test fails before it and passes after it, on a machine CI h
 | `ci.yml` | pushes to `main`, pull requests, nightly and manual runs |
 | `fuzz.yml` | nightly fuzzing ([testing](testing.md#fuzzing)) |
 | `http-conformance.yml` | when `stdlib/Extensions/Http/**` or its harness changes |
+| `websocket-conformance.yml` | nightly, and when `stdlib/Extensions/WebSocket/**` or `tools/websocket_conformance/**` changes |
 | `release.yml` | tags ([releases](releases.md)) |
 | `compile-bench.yml`, `browser-release.yml` | manual only |
 

@@ -77,4 +77,4 @@ jaic stdlib/Extensions/WebSocket/tests/support/conformance.jai -exe target/ws-co
 PYTHONPATH=tools target/ws-conformance python3.14 target/ws-peer target/ws-interop
 ```
 
-The driver asserts the expected ten-result pass list over ws/wss, with and without compression, including no-context-takeover. It uses the pinned Python `websockets` wheel and reports that Autobahn was not run. Full Autobahn acceptance requires a separate Docker run.
+The driver asserts the expected ten-result pass list over ws/wss, with and without compression, including no-context-takeover. It uses the pinned Python `websockets` wheel and reports that Autobahn was not run. The `websocket interop` workflow (`.github/workflows/websocket-conformance.yml`) runs this driver nightly on Linux. Full Autobahn acceptance requires a separate Docker run and is not in CI.

@@ -84,6 +84,7 @@ impl Compiler {
                 ty, ..
             } = self.resolve_entity(id)?
         {
+            self.ide_note_entity_use(value.span, id, ty);
             return Ok(UsingEntry::Place {
                 ty,
                 entity: id,
@@ -101,6 +102,7 @@ impl Compiler {
                             ty, ..
                         } = self.resolve_entity(id)?
                     {
+                        self.ide_note_entity_use(value.span, id, ty);
                         return Ok(UsingEntry::Place {
                             ty,
                             entity: id,
@@ -116,6 +118,7 @@ impl Compiler {
                         ty, ..
                     } = self.resolve_entity(id)?
                 {
+                    self.ide_note_entity_use(member.span, id, ty);
                     return Ok(UsingEntry::Place {
                         ty,
                         entity: id,

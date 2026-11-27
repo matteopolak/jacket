@@ -30,6 +30,8 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - `jaic FILE -interp` on a file without `main` now fails with exit 3, like a build.
 - A missing `git`, `curl`, `tar`, `python3`, `node`, `jaifmt`, `jailint` or runner stops the command first and names the install command.
 - An unwritable cache folder, a missing `dsymutil` or a missing standard library each give an error with the next step.
+- Renaming a global in `jailsp` also renames the `using` line that names it.
+- `jacket test --partition time:K/N` splits tests into parts of equal recorded time.
 - A compile-time `#if` case follows `#through;`, and takes `case;` only when nothing matches (#89, @ElectronPie).
 - `jacket doc -- -os X` no longer changes the check of which modules build for wasm.
 - `jacket test` deletes dependency-store entries unused for 30 days.

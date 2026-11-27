@@ -8,6 +8,8 @@
 # JACKET_TEST_CHANGED, a JSON list of changed files (ci_changes.py sets it only for a change that cannot
 # reach beyond the stdlib's own modules), narrows every run to the tests those files can affect, before the
 # partition: tools/ci/select_tests.py asks jacket which. If it cannot, every test runs.
+# JACKET_TEST_PARTITION may also be `time:K/N`: parts of about equal time by the seconds in tools/ci/test-times.json.
+# JACKET_TEST_TIMES_DIR, when set, receives each mode's JUnit file, which tools/ci/test_times.py turns into that table.
 # JACKET_TEST_PLATFORM_ONLY=true limits every run to the modules written for the host's OS (tools/ci/platform_modules.py).
 # Every run happens; the exit status is non-zero if any failed.
 set -eo pipefail
@@ -23,9 +25,11 @@ with_display() {
   "${display[@]}" "$@"
 }
 PYTHONPATH=tools python3 -B tools/portable/build_portable.py data
+[[ -n "${JACKET_TEST_TIMES_DIR:-}" ]] && mkdir -p "$JACKET_TEST_TIMES_DIR"
 partition=()
 case "${JACKET_TEST_PARTITION:-all}" in
   all) ;;
+  time:*) partition=(--partition "$JACKET_TEST_PARTITION" --partition-times tools/ci/test-times.json) ;;
   *) partition=(--partition "$JACKET_TEST_PARTITION") ;;
 esac
 roots=()
@@ -52,7 +56,9 @@ run() {
     fi
     rm -f "$names"
   fi
-  with_display "$jacket" test -q --needs display "${roots[@]}" "${partition[@]}" "${only[@]}" "$@" || status=1
+  local record=()
+  [[ -n "${JACKET_TEST_TIMES_DIR:-}" ]] && record=(--junit "$JACKET_TEST_TIMES_DIR/$mode.xml")
+  with_display "$jacket" test -q --needs display "${roots[@]}" "${partition[@]}" "${record[@]}" "${only[@]}" "$@" || status=1
 }
 run native
 run interp --interp

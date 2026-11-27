@@ -1,4 +1,6 @@
+use super::partition::{parse, partition, time_part, time_parts};
 use super::*;
+use jaic::fxhash::HashMap;
 
 #[test]
 fn a_run_without_a_seed_draws_a_short_one() {
@@ -93,6 +95,50 @@ fn paths_among_the_flags_are_resolved_from_the_current_directory() {
 }
 
 #[test]
+fn time_parts_split_the_recorded_time_evenly_and_cover_every_test_once() {
+    let times: HashMap<String, f64> = [
+        ("slow", 10.0),
+        ("mid_a", 4.0),
+        ("mid_b", 4.0),
+        ("quick_a", 1.0),
+        ("quick_b", 1.0),
+    ]
+    .into_iter()
+    .map(|(name, seconds)| (name.to_string(), seconds))
+    .collect();
+    let names = ["quick_a", "slow", "mid_a", "quick_b", "mid_b", "unrecorded"];
+    let parts = time_parts(&names, &times, 2);
+    // Each test lands in one part, whatever order the names are listed in.
+    assert_eq!(parts.len(), names.len());
+    assert!(parts.iter().all(|part| *part < 2));
+    let mut reversed = names;
+    reversed.reverse();
+    let again = time_parts(&reversed, &times, 2);
+    for (name, part) in names.iter().zip(&parts) {
+        let other = reversed.iter().position(|n| n == name).unwrap();
+        assert_eq!(*part, again[other], "{name}");
+    }
+    // The slow test fills one part alone; the rest share the other (10 against 10 plus the median).
+    let load = |part: usize| {
+        names
+            .iter()
+            .zip(&parts)
+            .filter(|(_, p)| **p == part)
+            .map(|(name, _)| times.get(*name).copied().unwrap_or(4.0))
+            .sum::<f64>()
+    };
+    assert!(
+        (load(0) - load(1)).abs() <= 4.0,
+        "{} against {}",
+        load(0),
+        load(1)
+    );
+    assert_eq!(time_part("time:1/2"), Ok((0, 2)));
+    assert!(time_part("time:3/2").is_err());
+    assert!(time_part("hash:1/2").is_err());
+}
+
+#[test]
 fn partitions_cover_every_test_once() {
     let names = ["a", "b", "c", "d", "e"];
     for how in ["hash", "count"] {
@@ -110,4 +156,22 @@ fn partitions_cover_every_test_once() {
     assert!(partition("hash:0/3").is_err());
     assert!(partition("count:4/3").is_err());
     assert!(partition("mod:1/2").is_err());
+}
+
+#[test]
+fn a_times_file_goes_only_with_a_time_split() {
+    let times = std::path::Path::new("times.json");
+    let error = parse(Some("time:1/2"), None)
+        .err()
+        .expect("time needs the file");
+    assert!(error.contains("--partition-times"), "{error}");
+    let error = parse(Some("hash:1/2"), Some(times))
+        .err()
+        .expect("hash takes no file");
+    assert!(error.contains("only with `time:K/N`"), "{error}");
+    let error = parse(None, Some(times))
+        .err()
+        .expect("no split takes no file");
+    assert!(error.contains("only with `time:K/N`"), "{error}");
+    assert!(parse(Some("hash:1/2"), None).is_ok());
 }

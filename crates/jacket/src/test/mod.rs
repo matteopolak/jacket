@@ -19,6 +19,7 @@ mod filter;
 mod golden;
 mod jobs;
 mod outcome;
+mod partition;
 pub use outcome::{Outcome, Status};
 pub(crate) mod options;
 mod prerequisites;
@@ -31,6 +32,7 @@ use crate::cli::{BenchArgs, CoverageFormat, TestArgs};
 use crate::{project, tools};
 use build::{Built, Toolchain};
 use options::{Target, TestOptions};
+
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -172,7 +174,8 @@ fn resolve_paths(args: &TestArgs, cwd: &Path) -> TestArgs {
         .chain(args.coverage_out.iter_mut())
         .chain(args.coverage_baseline.iter_mut())
         .chain(args.coverage_record.iter_mut())
-        .chain(args.coverage_summary.iter_mut());
+        .chain(args.coverage_summary.iter_mut())
+        .chain(args.partition_times.iter_mut());
     for path in args
         .path
         .iter_mut()
@@ -184,29 +187,6 @@ fn resolve_paths(args: &TestArgs, cwd: &Path) -> TestArgs {
     }
     crate::compile::absolute_flag_paths(&mut args.jaic_args, cwd);
     args
-}
-
-/// `hash:K/N` or `count:K/N`: whether the `index`-th test named `name` is in this part.
-fn partition(spec: &str) -> Result<impl Fn(usize, &str) -> bool + use<>, String> {
-    let bad = || format!("`--partition {spec}` is not `hash:K/N` or `count:K/N` with 1 <= K <= N");
-    let (how, part) = spec.split_once(':').ok_or_else(bad)?;
-    let (k, n) = part.split_once('/').ok_or_else(bad)?;
-    let (k, n): (u64, u64) = (k.parse().map_err(|_| bad())?, n.parse().map_err(|_| bad())?);
-    if k == 0 || k > n || !matches!(how, "hash" | "count") {
-        return Err(bad());
-    }
-    let by_hash = how == "hash";
-    Ok(move |index: usize, name: &str| {
-        let key = if by_hash {
-            // FNV-1a: stable across runs and machines.
-            name.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| {
-                (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3)
-            })
-        } else {
-            index as u64
-        };
-        key % n == k - 1
-    })
 }
 
 /// The filter a case matches, and what to run it as: `None` when no filter selects it.
@@ -371,6 +351,25 @@ fn kind_selected(kind: Kind, args: &TestArgs, bench: bool, on_board: bool) -> bo
     !((args.doc && !is_doc) || (args.no_doc && is_doc))
 }
 
+/// Moves the `-interp` flag among the arguments for jaic into `args`, and rejects the modes that
+/// do not run tests (`-check`, `-deps`) or that conflict.
+fn take_forwarded_modes(args: &mut TestArgs) -> Result<(), String> {
+    let forwarded = jaic_cli_args::arguments::target_flags(&args.jaic_args)?;
+    jaic_cli_args::cli::Mode::from_flags(forwarded.check, forwarded.interp, forwarded.deps)
+        .map_err(|error| error.message)?;
+    if forwarded.deps {
+        return Err("use `jacket test --list --deps` to list test dependencies".into());
+    }
+    if forwarded.check && !args.check_only {
+        return Err(
+            "`-check` does not run tests; use `--doc --check-only` to check doc examples".into(),
+        );
+    }
+    args.interp |= forwarded.interp;
+    args.jaic_args = forwarded.without_modes(std::mem::take(&mut args.jaic_args));
+    Ok(())
+}
+
 /// One run of the selected tests. `watched` is told which folders and test files the run
 /// used; `only` narrows the run to the cases of these test files.
 fn run_once(
@@ -383,23 +382,9 @@ fn run_once(
     watched.clear();
     let bench = bench_args.is_some();
     let mut resolved = resolve_paths(args, cwd);
-    let forwarded = match jaic_cli_args::arguments::target_flags(&resolved.jaic_args) {
-        Ok(parsed) => parsed,
-        Err(error) => return fail(error),
-    };
-    if let Err(error) =
-        jaic_cli_args::cli::Mode::from_flags(forwarded.check, forwarded.interp, forwarded.deps)
-    {
-        return fail(error.message);
+    if let Err(error) = take_forwarded_modes(&mut resolved) {
+        return fail(error);
     }
-    if forwarded.deps {
-        return fail("use `jacket test --list --deps` to list test dependencies");
-    }
-    if forwarded.check && !resolved.check_only {
-        return fail("`-check` does not run tests; use `--doc --check-only` to check doc examples");
-    }
-    resolved.interp |= forwarded.interp;
-    resolved.jaic_args = forwarded.without_modes(std::mem::take(&mut resolved.jaic_args));
     let args = &resolved;
     let loaded = match project::load(cwd) {
         Ok(loaded) => loaded,
@@ -649,10 +634,11 @@ fn run_once(
             .as_ref()
             .is_none_or(|expr| expr_selects(expr, case, &roots[case.root], cwd))
     };
-    let in_part = match args.partition.as_deref().map(partition).transpose() {
-        Ok(p) => p,
-        Err(error) => return fail(error),
-    };
+    let (in_part, time_share) =
+        match partition::parse(args.partition.as_deref(), args.partition_times.as_deref()) {
+            Ok(split) => split,
+            Err(error) => return fail(error),
+        };
     let mut selected = Vec::new();
     for case in cases {
         if !kind_selected(case.kind, args, bench, on_board) {
@@ -688,6 +674,9 @@ fn run_once(
             .filter(|(i, c)| in_part(*i, &c.name))
             .map(|(_, c)| c)
             .collect();
+    }
+    if let Some(share) = &time_share {
+        share.keep(&mut selected);
     }
     let mut reporter = report::Reporter::new(
         args.format,

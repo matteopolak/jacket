@@ -1,0 +1,46 @@
+name: websocket interop
+# The WebSocket client and server against the pinned Python `websockets` peer, over ws and wss, with
+# and without compression (tools/websocket_conformance, docs/extensions/websocket.md). Nightly, when
+# the WebSocket module or this harness changes, and by hand. Autobahn is not run.
+on:
+  schedule:
+    - cron: '41 3 * * *'
+  push:
+    branches: [main]
+    paths:
+      - stdlib/Extensions/WebSocket/**
+      - tools/websocket_conformance/**
+      - .github/workflows/websocket-conformance.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  # tools/ holds the folders the Python scripts import from (`from toolkit.repo import ROOT`).
+  PYTHONPATH: ${{ github.workspace }}/tools
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  interop:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - name: Install the pinned toolchain
+        run: python3 tools/ci/install_pinned.py rust
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: {python-version: '3.14'}
+      - uses: ./.github/actions/setup-llvm
+      - name: Build jaic
+        run: cargo build --locked -p jaic-cli
+      - name: Build the echo peer and the conformance driver
+        env:
+          JAIC_STDLIB: ${{ github.workspace }}/stdlib
+        run: |
+          target/debug/jaic stdlib/Extensions/WebSocket/tests/support/peer.jai -exe target/ws-peer
+          target/debug/jaic stdlib/Extensions/WebSocket/tests/support/conformance.jai -exe target/ws-conformance
+      - name: Interop with the Python peer
+        run: target/ws-conformance python3.14 target/ws-peer target/ws-interop

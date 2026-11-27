@@ -284,3 +284,13 @@ fn a_parameter_bound_to_a_built_in_type_does_not_make_it_renamable() {
             .is_none()
     );
 }
+
+#[test]
+fn renaming_a_global_reaches_the_using_line_that_borrows_its_members() {
+    // `using gpu;` names the global; the members it lends (`count`) stay as they are.
+    let source = "Data :: struct {\n    count: s64;\n}\n\ngpu: *Data;\nusing gpu;\n\nmain :: () {\n    d: Data;\n    gpu = *d;\n    count = 4;\n}\n";
+    let edits = rename(source, "gpu: *Data", 0, "device");
+    let mut lines: Vec<u32> = edits.iter().map(|e| e.range.start.line).collect();
+    lines.sort_unstable();
+    assert_eq!(lines, [4, 5, 9], "{edits:?}");
+}

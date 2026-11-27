@@ -431,7 +431,8 @@ jacket test [OPTIONS] [FILTER]... [-- <FLAGS>...]
 | `-q, --quiet` | Print only the tests that fail, time out or are flaky, then the summary |
 | `--format <FORMAT>` | `human` text, or `json`: one event per line on standard output Possible values: - human - json:  One JSON object per event on standard output [default: human] |
 | `--junit <FILE>` | Also write the results as `JUnit` XML |
-| `--partition <SPEC>` | Run one part of the tests: `hash:K/N` (by name) or `count:K/N` (by position) |
+| `--partition <SPEC>` | Run one part of the tests: `hash:K/N` (by name), `count:K/N` (by position) or `time:K/N` (parts of about equal time, from `--partition-times`) |
+| `--partition-times <FILE>` | A JSON object of seconds per test name, which `--partition time:K/N` balances the parts by |
 | `--interp` | Run the tests in jaic's interpreter |
 | `--os <OS>` | Target OS, as jaic's -os (also spelt `-os`) [possible values: linux, windows, macos, wasm] |
 | `--cpu <CPU>` | Target CPU, as jaic's -cpu (also spelt `-cpu`) |
@@ -497,7 +498,8 @@ jacket bench [OPTIONS] [FILTER]... [-- <FLAGS>...]
 | `-q, --quiet` | Print only the tests that fail, time out or are flaky, then the summary |
 | `--format <FORMAT>` | `human` text, or `json`: one event per line on standard output Possible values: - human - json:  One JSON object per event on standard output [default: human] |
 | `--junit <FILE>` | Also write the results as `JUnit` XML |
-| `--partition <SPEC>` | Run one part of the tests: `hash:K/N` (by name) or `count:K/N` (by position) |
+| `--partition <SPEC>` | Run one part of the tests: `hash:K/N` (by name), `count:K/N` (by position) or `time:K/N` (parts of about equal time, from `--partition-times`) |
+| `--partition-times <FILE>` | A JSON object of seconds per test name, which `--partition time:K/N` balances the parts by |
 | `--interp` | Run the tests in jaic's interpreter |
 | `--os <OS>` | Target OS, as jaic's -os (also spelt `-os`) [possible values: linux, windows, macos, wasm] |
 | `--cpu <CPU>` | Target CPU, as jaic's -cpu (also spelt `-cpu`) |
