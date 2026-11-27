@@ -47,7 +47,7 @@ asset, error := gltf_load(text, resolver);
 
 ## Node transforms
 
-`gltf_node_local(node)` gives a `Matrix4` (`Math`, row-major, column vectors) from `matrix` (converted from glTF's column-major order) or from translation, rotation and scale. `gltf_node_world(*asset, index)` multiplies the local matrices from the root down and returns false for a bad index. Validation records each node's parent in `asset.parents` once, so a world matrix only walks its own ancestors; `gltf_validate` clears the index when it fails, and a hand-built asset has none until it is validated.
+`gltf_node_local(node)` gives a `Matrix4` (`Math`, row-major, column vectors) from `matrix` (converted from glTF's column-major order) or from translation, rotation and scale. `gltf_node_world(*asset, index)` multiplies the local matrices from the root down and returns false for a bad index. `gltf_world_matrices(*asset)` gives every node's world matrix at one multiply per node (free the array with `array_free`). `gltf_decompose(matrix)` splits an affine matrix into translation, rotation quaternion and scale (a mirror is a negative `x` scale) and returns false for a projection, a zero scale or shear. Validation records each node's parent in `asset.parents` once, so a world matrix only walks its own ancestors; `gltf_validate` clears the index when it fails, and a hand-built asset has none until it is validated.
 
 ## Extensions
 
@@ -99,7 +99,7 @@ Run `jacket bench --path stdlib/Extensions/Gltf` to measure loading the pinned B
 | Animation, skins | yes, validated; KHR_animation_pointer accepted | yes | yes |
 | Morph targets | yes, validated | not parsed | yes |
 | Cameras, lights | cameras typed and validated; lights typed (KHR_lights_punctual) | both typed | both typed |
-| Node transforms | `gltf_node_local` and `gltf_node_world` | local and world matrices | local and world matrices |
+| Node transforms | `gltf_node_local`, `gltf_node_world`, `gltf_world_matrices` and `gltf_decompose` | local and world matrices | local and world matrices |
 | Writing | `gltf_write`, JSON or GLB | no | bound (`cgltf_write`, `cgltf_write_file`); its README says no write API |
 | Limits on untrusted input | bytes, buffer bytes, object count, depth | none | none (only a JSON token count option) |
 | Allocation | one owned `Gltf_Asset`, `context.allocator`; failed loads free themselves | arrays on the `GLTF_Data` allocator; accessor reads allocate temporary arrays | C `malloc` by default, replaceable through `cgltf_memory_options`; `cgltf_free` |
