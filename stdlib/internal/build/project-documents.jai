@@ -184,14 +184,8 @@ pg_emit_filters :: () {
 
         for byte, index: path if byte == #char "\\" && index > 0 {
             folder := PG_String.slice(path, 0, index);
-            present := false;
 
-            for known: folders if known == folder {
-                present = true;
-                break;
-            }
-
-            if !present array_add(*folders, copy_string(folder));
+            if !array_find(folders, folder) array_add(*folders, copy_string(folder));
         }
     }
 
