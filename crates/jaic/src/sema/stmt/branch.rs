@@ -457,9 +457,9 @@ impl Compiler {
         let done = f.b.new_block();
         f.b.branch(same, cmp_block, done);
         f.b.switch_to(cmp_block);
-        let xp = f.b.ptr_offset(x, 8);
+        let xp = self.view_data_at(f, x);
         let xd = f.b.load(Ty::Ptr, xp);
-        let yp = f.b.ptr_offset(y, 8);
+        let yp = self.view_data_at(f, y);
         let yd = f.b.load(Ty::Ptr, yp);
         let r =
             f.b.intrinsic(ir::Intrinsic::Memcmp, vec![xd, yd, lc], &[Ty::I16]);

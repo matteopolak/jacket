@@ -324,7 +324,7 @@ impl Compiler {
             let (_, value) = self.rvalue(f, op, args[a].span)?;
             let (n, source) = if args[a].spread {
                 let n = f.b.load(Ty::I64, value);
-                let field = f.b.ptr_offset(value, 8);
+                let field = self.view_data_at(f, value);
                 (n, f.b.load(Ty::Ptr, field))
             } else {
                 (one, value)
@@ -363,9 +363,9 @@ impl Compiler {
             }
             cursor = f.b.ptr_add(cursor, bytes);
         }
-        let view = f.b.alloca(16, 8);
+        let view = self.view_slot(f);
         f.b.store(Ty::I64, view, count);
-        let data = f.b.ptr_offset(view, 8);
+        let data = self.view_data_at(f, view);
         f.b.store(Ty::Ptr, data, base);
         Ok(view)
     }
@@ -452,9 +452,7 @@ impl Compiler {
             Slot::Default => {
                 if param.variadic && param.default.is_none() {
                     // Empty variadic: a zero view.
-                    let view = f.b.alloca(16, 8);
-                    f.b.zero(view, 16);
-                    return Ok(view);
+                    return Ok(self.empty_view(f));
                 }
                 let d = param.default.clone().unwrap();
                 let op = match &d.kind {
@@ -520,10 +518,10 @@ impl Compiler {
             }
             self.store_value(f, elem, at, v, span)?;
         }
-        let view = f.b.alloca(16, 8);
+        let view = self.view_slot(f);
         let count = f.b.iconst(Ty::I64, n);
         f.b.store(Ty::I64, view, count);
-        let dp = f.b.ptr_offset(view, 8);
+        let dp = self.view_data_at(f, view);
         f.b.store(Ty::Ptr, dp, base);
         Ok(view)
     }
@@ -680,9 +678,7 @@ impl Compiler {
                         }
                         None if pack => {
                             // Empty variadic: a zero view.
-                            let view = f.b.alloca(16, 8);
-                            f.b.zero(view, 16);
-                            (view, None)
+                            (self.empty_view(f), None)
                         }
                         None => {
                             let mut d = Diagnostic::new(

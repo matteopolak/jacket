@@ -187,7 +187,7 @@ impl Compiler {
             );
         };
         let count = f.b.load(Ty::I64, addr);
-        let dp = f.b.ptr_offset(addr, 8);
+        let dp = self.view_data_at(f, addr);
         let data = f.b.load(Ty::Ptr, dp);
         let size = self.size_of(elem, span)?;
         let s = f.b.iconst(Ty::I64, size);
@@ -750,7 +750,7 @@ impl Compiler {
         let data = if fixed.is_some() {
             caddr
         } else {
-            let p = f.b.ptr_offset(caddr, 8);
+            let p = self.view_data_at(f, caddr);
             f.b.load(Ty::Ptr, p)
         };
         let i = f.b.load(Ty::I64, idx);

@@ -82,10 +82,10 @@ impl Compiler {
                 } else {
                     addr
                 };
-                let view = f.b.alloca(16, 8);
+                let view = self.view_slot(f);
                 let count = f.b.iconst(Ty::I64, n);
                 f.b.store(Ty::I64, view, count);
-                let data = f.b.ptr_offset(view, 8);
+                let data = self.view_data_at(f, view);
                 f.b.store(Ty::Ptr, data, addr);
                 f.lifetime_view(view, addr, from, to, span);
                 Ok(Operand::Value {

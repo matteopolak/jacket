@@ -358,7 +358,7 @@ impl Compiler {
                     let count = f.b.load(Ty::I64, addr);
                     f.b.intrinsic(ir::Intrinsic::BoundsCheck, vec![idx, count], &[]);
                 }
-                let p = f.b.ptr_offset(addr, 8);
+                let p = self.view_data_at(f, addr);
                 (elem, f.b.load(Ty::Ptr, p))
             }
             TypeKind::String => {
@@ -367,7 +367,7 @@ impl Compiler {
                     let count = f.b.load(Ty::I64, addr);
                     f.b.intrinsic(ir::Intrinsic::BoundsCheck, vec![idx, count], &[]);
                 }
-                let p = f.b.ptr_offset(addr, 8);
+                let p = self.view_data_at(f, addr);
                 (TypeId::U8, f.b.load(Ty::Ptr, p))
             }
             TypeKind::Pointer(elem) => {

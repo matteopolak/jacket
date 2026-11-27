@@ -541,6 +541,24 @@ impl FnCtx {
 }
 
 impl Compiler {
+    /// A stack slot for one `string` or view, sized and aligned for the target.
+    pub fn view_slot(&self, f: &mut FnCtx) -> Val {
+        let view = self.ty.types.builtins().view;
+        f.b.alloca(view.size, view.align)
+    }
+
+    /// A stack slot holding the empty view: no count and a null data pointer.
+    pub fn empty_view(&self, f: &mut FnCtx) -> Val {
+        let at = self.view_slot(f);
+        f.b.zero(at, self.ty.types.builtins().view.size);
+        at
+    }
+
+    /// The address of the data pointer of the `string` or view at `view`.
+    pub fn view_data_at(&self, f: &mut FnCtx, view: Val) -> Val {
+        f.b.ptr_offset(view, self.ty.types.builtins().view.data)
+    }
+
     /// Scalar register class of a type, or `None` for memory-class types.
     pub fn ir_ty(&self, ty: TypeId) -> Option<Ty> {
         match self.ty.types.kind(ty) {
@@ -787,7 +805,7 @@ impl Compiler {
             Value::Bool(v) => Ok(f.b.iconst(Ty::I8, *v as u64)),
             Value::Null => Ok(f.b.iconst(Ty::Ptr, 0)),
             Value::String(bytes) => {
-                let addr = f.b.alloca(16, 8);
+                let addr = self.view_slot(f);
                 let count = f.b.iconst(Ty::I64, bytes.len() as u64);
                 f.b.store(Ty::I64, addr, count);
                 // `""` has a null data pointer (so e.g. `free("")` is a no-op).
@@ -797,7 +815,7 @@ impl Compiler {
                     let data = self.out.string_global(bytes);
                     f.b.global_addr(data)
                 };
-                let field = f.b.ptr_offset(addr, 8);
+                let field = self.view_data_at(f, addr);
                 f.b.store(Ty::Ptr, field, ptr);
                 if bytes.is_empty()
                     && !f.type_only

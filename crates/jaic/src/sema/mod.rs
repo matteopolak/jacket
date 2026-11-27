@@ -22,6 +22,8 @@ pub mod speculative;
 #[cfg(all(test, feature = "speculative-bodies"))]
 mod speculative_tests;
 mod sync_world;
+#[cfg(test)]
+mod view_slot_tests;
 
 /// The note `@Section("name")`: place a variable or procedure in the named linker section.
 pub(crate) const SECTION_NOTE: &str = "Section";
