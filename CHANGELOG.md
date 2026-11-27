@@ -13,6 +13,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - `jacket run --target TRIPLE` for another machine says to add a runner instead of starting the program on the host.
 - `jailint` lifetime rules scale linearly with procedure size, and `jailsp` keeps finished files when indexing is interrupted (#88, @ctzcs).
 - A `main` with parameters or no body is reported as such, not as an entry point that was never lowered.
+- A compile-time `#if` case follows `#through;`, and takes `case;` only when nothing matches (#89, @ElectronPie).
 
 ## [0.40.0] - 2026-11-24
 

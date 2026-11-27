@@ -296,9 +296,11 @@ impl Compiler {
                     ..
                 } = &**boxed;
                 Some(
-                    self.static_switch_case(eval_scope, value, cases)
+                    self.static_switch_cases(eval_scope, value, cases)
                         .ok()?
-                        .map_or_else(Vec::new, |case| case.body.clone()),
+                        .iter()
+                        .flat_map(|case| case.body.iter().cloned())
+                        .collect(),
                 )
             }
             _ => None,

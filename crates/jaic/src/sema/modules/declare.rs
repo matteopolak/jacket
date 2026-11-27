@@ -667,7 +667,7 @@ impl Compiler {
                     ..
                 } = &**boxed;
                 let eval_scope = file_scope_for_eval(self, scope, file_scope);
-                if let Some(case) = self.static_switch_case(eval_scope, value, cases)? {
+                for case in self.static_switch_cases(eval_scope, value, cases)? {
                     self.declare_stmts(scope, file_scope, &case.body, vis)?;
                 }
             }

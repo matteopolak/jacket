@@ -154,7 +154,7 @@ impl Exporter<'_> {
                 } = &**boxed;
                 let scope = self.scope;
                 let accepted = self.c.as_deref_mut().and_then(|c| {
-                    let case = c.static_switch_case(scope, value, cases).ok()??;
+                    let case = c.static_switch_cases(scope, value, cases).ok()?.first()?;
                     cases.iter().position(|it| std::ptr::eq(it, case))
                 });
                 self.switch_accepting(value, cases, 0x1 | 0x4, accepted, span)

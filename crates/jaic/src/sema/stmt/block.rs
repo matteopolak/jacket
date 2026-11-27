@@ -408,10 +408,10 @@ impl Compiler {
                     cases,
                     ..
                 } = &**boxed;
-                match self.static_switch_case(scope, value, cases)? {
-                    Some(case) => self.check_block_stmts(f, scope, &case.body),
-                    None => Ok(()),
+                for case in self.static_switch_cases(scope, value, cases)? {
+                    self.check_block_stmts(f, scope, &case.body)?;
                 }
+                Ok(())
             }
             S::Overlay(_) => err(
                 Code::OverlayOnlyAllowed,
@@ -698,26 +698,38 @@ impl Compiler {
         Ok(())
     }
 
-    /// The case of `#if value == { case ...; }` that is compiled, if any.
-    pub(in crate::sema) fn static_switch_case<'a>(
+    /// The cases of `#if value == { case ...; }` that are compiled, in order: the one whose
+    /// value matches (else the default `case;`), then each one a `#through;` runs into.
+    pub(in crate::sema) fn static_switch_cases<'a>(
         &mut self,
         scope: ScopeId,
         value: &ast::Expr,
         cases: &'a [ast::Case],
-    ) -> Result<Option<&'a ast::Case>> {
+    ) -> Result<&'a [ast::Case]> {
         let v = self.eval_const(scope, value, None)?;
-        for case in cases {
+        let mut default = None;
+        let mut matched = None;
+        'cases: for (i, case) in cases.iter().enumerate() {
             if case.values.is_empty() {
-                return Ok(Some(case));
+                default.get_or_insert(i);
+                continue;
             }
             for cv in &case.values {
                 let c = self.eval_const(scope, cv, Some(v.ty()))?;
                 if self.const_equal(&v, &c) {
-                    return Ok(Some(case));
+                    matched = Some(i);
+                    break 'cases;
                 }
             }
         }
-        Ok(None)
+        let Some(start) = matched.or(default) else {
+            return Ok(&[]);
+        };
+        let end = cases[start..]
+            .iter()
+            .position(|case| !case.through)
+            .map_or(cases.len(), |n| start + n + 1);
+        Ok(&cases[start..end])
     }
 
     /// Add the unnamed (or `using`) `#import`s among `stmts` (and, when `nested`, inside their plain
