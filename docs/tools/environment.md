@@ -40,6 +40,7 @@ CI runs the generator with `--check` (`tools/generators/check_generated.py`), so
 Gotchas:
 
 - Setting a variable (`std::env::set_var`) is not covered by the lint; it is `unsafe` in edition 2024 and each use already carries a safety comment.
+- Path-valued variables are resolved once, where they are read. `JACKET_OUTPUT_DIR` is the one relative path that is not taken from the working directory: a relative value is below the checkout the standard library is in, for the `native-libs/` lookup, the test prerequisites and the `--coverage` report alike (`--coverage-out` is taken from the working directory).
 - Stdlib programs and CI scripts read their own variables (`JAI_IO_*`, `JACKET_PG_*`, `JAI_INSTALL_DIR`, ...) from Jai and shell code; the registry covers only what the Rust binaries read.
 
 ## Configuration

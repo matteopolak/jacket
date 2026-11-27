@@ -139,7 +139,7 @@ fn output_dir(root: &Path) -> PathBuf {
 
 /// [`output_dir`] for a given `JACKET_OUTPUT_DIR`. Empty is unset, and a relative one is below
 /// the checkout, as `tools/repo_output.py` reads it.
-fn output_in(root: &Path, over: Option<std::ffi::OsString>) -> PathBuf {
+pub(super) fn output_in(root: &Path, over: Option<std::ffi::OsString>) -> PathBuf {
     over.filter(|dir| !dir.is_empty())
         .map_or_else(|| root.join("target"), |dir| root.join(dir))
 }

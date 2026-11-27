@@ -9,6 +9,7 @@ mod bench;
 mod bench_stats;
 mod build;
 mod coverage;
+mod coverage_plan;
 mod deps;
 mod deps_store;
 mod diff;
@@ -28,9 +29,10 @@ mod review;
 pub(crate) mod stdlib;
 mod watch;
 
-use crate::cli::{BenchArgs, CoverageFormat, TestArgs};
+use crate::cli::{BenchArgs, TestArgs};
 use crate::{project, tools};
 use build::{Built, Toolchain};
+use coverage_plan::coverage_for;
 use options::{RunMode, Target, TestOptions};
 
 use std::collections::BTreeMap;
@@ -212,61 +214,6 @@ fn select(case: &Case, filters: &[String], exact: bool) -> Option<String> {
         let (top, sub) = f.split_once('/')?;
         matches(top, &case.name).then(|| format!("{}/{sub}", case.local))
     })
-}
-
-/// What `--coverage` records and where it goes, or why this run cannot.
-fn coverage_for(
-    args: &TestArgs,
-    cross: bool,
-    roots: &[discover::Root],
-    toolchain: &Toolchain,
-    work: &Path,
-    project_dir: &Path,
-) -> Result<Option<coverage::Coverage>, String> {
-    if !args.coverage {
-        return Ok(None);
-    }
-    let (flags, jaic) = (&toolchain.flags, &toolchain.jaic);
-    if cross {
-        return Err("`--coverage` records programs that run on this machine; it does not work with another `-os` or `-cpu`".into());
-    }
-    let out = args.coverage_out.clone().unwrap_or_else(|| {
-        let name = match args.coverage_format {
-            CoverageFormat::Lcov => "lcov.info",
-            CoverageFormat::Html => "coverage.html",
-        };
-        jacket_config::env::OUTPUT_DIR
-            .os()
-            .map_or_else(|| project_dir.join("target"), PathBuf::from)
-            .join(name)
-    });
-    let canonical = |dir: &Path| watch::canonical(dir);
-    let include = roots
-        .iter()
-        .map(|r| canonical(&r.dir))
-        .chain(discover::import_folders(flags))
-        .chain(args.coverage_include.iter().map(|dir| canonical(dir)));
-    let exclude = roots.iter().map(|r| canonical(&r.dir.join("tests")));
-    coverage::Coverage::new(coverage::Config {
-        output: coverage::Output {
-            out,
-            format: args.coverage_format,
-            by: args.coverage_by,
-            baseline: args.coverage_baseline.clone(),
-            margin: args.coverage_margin,
-            record: args.coverage_record.clone(),
-            summary: args.coverage_summary.clone(),
-        },
-        dir: work.join("coverage"),
-        include: coverage::outermost(include),
-        exclude: exclude.collect(),
-        base: project_dir.to_path_buf(),
-        jaic: jaic.clone(),
-        stdlib: toolchain.stdlib.clone(),
-        jaic_flags: flags.clone(),
-        native: !args.interp,
-    })
-    .map(Some)
 }
 
 /// The entries of [`filter::KINDS`] a case has.

@@ -78,6 +78,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - `jacket dep` works from a git hook, never waits for an SSH prompt and reads non-ASCII submodule paths.
 - A relative local repository path given to `jacket dep add` is made absolute once.
 - A dependency whose `path` leaves the project, or that sets two of `version`, `tag`, `rev`, is refused.
+- `jacket test --coverage` writes its report below the checkout for a relative `JACKET_OUTPUT_DIR`, not the working directory.
 
 ## [0.40.0] - 2026-11-24
 
