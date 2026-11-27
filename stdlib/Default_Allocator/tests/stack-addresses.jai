@@ -1,4 +1,4 @@
-// A local's address is not a block of the allocator: freeing or resizing it is reported on every target instead of corrupting the heap.
+// A local's address is not a block of the allocator, and a size larger than the block's is not its size: freeing or resizing either is reported on every target instead of corrupting the heap.
 #import "Extensions/Testing";
 D :: #import "Default_Allocator";
 
@@ -75,3 +75,31 @@ freeing_a_block_twice_is_reported :: () {
         return 0;
     }
 }
+
+resizing_with_a_larger_claim_is_reported :: () {
+    block := D.allocator_proc(.ALLOCATE, 4, 0, null, null);
+
+    D.allocator_proc(.RESIZE, 8, 5, block, null);
+} @test @should_fail("invalid pointer or source extent", "AddressSanitizer")
+
+freeing_with_a_larger_claim_is_reported :: () {
+    block := D.allocator_proc(.ALLOCATE, 100, 0, null, null);
+
+    D.allocator_proc(.FREE, 0, 101, block, null);
+} @test @should_fail("invalid pointer or source extent", "AddressSanitizer")
+
+a_claim_after_a_resize_is_checked_against_the_new_size :: () {
+    block := D.allocator_proc(.ALLOCATE, 100, 0, null, null);
+
+    block = D.allocator_proc(.RESIZE, 10, 100, block, null);
+    D.allocator_proc(.FREE, 0, 11, block, null);
+} @test @should_fail("invalid pointer or source extent", "AddressSanitizer")
+
+exact_and_smaller_claims_are_accepted :: () {
+    block := D.allocator_proc(.ALLOCATE, 100, 0, null, null);
+
+    block = D.allocator_proc(.RESIZE, 200, 100, block, null);
+    block = D.allocator_proc(.RESIZE, 50, 150, block, null);
+    D.allocator_proc(.FREE, 0, 0, block, null);
+    expect(block != null);
+} @test

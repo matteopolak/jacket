@@ -7,18 +7,18 @@
 // ```
 allocator_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
     if mode == .ALLOCATE {
-        return tagged(obtain_contents(size, PREFIX));
+        return tagged(obtain_contents(size, PREFIX), size);
     }
 
     if mode == .RESIZE {
-        if !old_memory return tagged(obtain_contents(size, PREFIX));
-        if !is_tagged(old_memory) return refuse_foreign_pointer();
-        return tagged(regrow_contents(old_memory, size, PREFIX));
+        if !old_memory return tagged(obtain_contents(size, PREFIX), size);
+        if !is_tagged(old_memory) || old_size < 0 || old_size > size_slot(old_memory).* return refuse_foreign_pointer();
+        return tagged(regrow_contents(old_memory, size, PREFIX), size);
     }
 
     if mode == .FREE {
         if !old_memory return null;
-        if !is_tagged(old_memory) return refuse_foreign_pointer();
+        if !is_tagged(old_memory) || old_size < 0 || old_size > size_slot(old_memory).* return refuse_foreign_pointer();
 
         untag(old_memory);
         release_contents(old_memory);
@@ -47,22 +47,31 @@ unsafe_reset :: inline () {}
 #scope_file
 #import "Basic";
 
-// Room for the two words kept before the contents, so they stay malloc-aligned: the tag, then the word aligned-blocks.jai keeps.
-PREFIX :: 16;
+// Room for the three words kept before the contents, rounded up so the contents stay malloc-aligned: the size, the tag, then the word aligned-blocks.jai keeps.
+PREFIX :: 32;
 
 // Every block this allocator hands out carries a tag in the word 16 bytes before its contents:
 // this value mixed with the contents' address. A pointer that never came from here (a local, a
 // global, memory from another allocator) or was already freed does not carry it, so a free or
 // resize of one is refused before it reaches `free` and corrupts the heap. The word is inside the
-// block's own prefix, and the region word next to it is read for every block anyway.
+// block's own prefix, and the region word next to it is read for every block anyway. The word
+// before the tag holds the size the block was last allocated or resized to, so a free or resize
+// that claims more than that is refused too.
 TAG :: 0x4a41434b45544231;
 
 tag_slot :: (contents: *void) -> *u64 {
     return cast(*u64) (cast(*u8) contents - 16);
 }
 
-tagged :: (contents: *void) -> *void {
-    if contents tag_slot(contents).* = TAG ^ cast(u64) contents;
+size_slot :: (contents: *void) -> *s64 {
+    return cast(*s64) (cast(*u8) contents - 24);
+}
+
+tagged :: (contents: *void, size: s64) -> *void {
+    if contents {
+        tag_slot(contents).* = TAG ^ cast(u64) contents;
+        size_slot(contents).* = size;
+    }
 
     return contents;
 }
