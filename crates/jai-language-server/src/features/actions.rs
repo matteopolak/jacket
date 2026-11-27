@@ -145,7 +145,7 @@ impl Session {
                         a.compiler.ide_expansions(f),
                         a.compiler.ide_implicit_loop_names(f),
                     ),
-                    *shift,
+                    shift.clone(),
                 )
             })
         else {

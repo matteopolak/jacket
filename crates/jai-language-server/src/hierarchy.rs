@@ -43,7 +43,7 @@ impl CallGraph {
     fn moved_call(
         &self,
         text: &str,
-        shift: crate::semantic::Shift,
+        shift: &crate::semantic::Shift,
         call: &CallFact,
     ) -> Option<usize> {
         let start = shift.to_new(call.start)?;
@@ -335,7 +335,7 @@ impl Session {
         &self,
         uri: &DocumentUri,
         here: &[Site],
-        shift: crate::semantic::Shift,
+        shift: &crate::semantic::Shift,
         fact: &CallFact,
         sources: &mut TargetSources,
     ) -> Option<(CallHierarchyItem, usize)> {
@@ -394,11 +394,11 @@ impl Session {
             let here = sites(&doc.text);
             let shift = crate::semantic::Shift::between(graph.text.as_bytes(), doc.text.as_bytes());
             for fact in &graph.calls {
-                let Some(at) = graph.moved_call(&doc.text, shift, fact) else {
+                let Some(at) = graph.moved_call(&doc.text, &shift, fact) else {
                     continue;
                 };
                 let Some((callee, _)) =
-                    self.call_target(&caller_uri, &here, shift, fact, &mut sources)
+                    self.call_target(&caller_uri, &here, &shift, fact, &mut sources)
                 else {
                     continue;
                 };
@@ -442,13 +442,13 @@ impl Session {
         let mut grouped = Grouped::default();
         let mut sources = HashMap::default();
         for fact in &graph.calls {
-            let Some(at) = graph.moved_call(&doc.text, shift, fact) else {
+            let Some(at) = graph.moved_call(&doc.text, &shift, fact) else {
                 continue;
             };
             if calling(&here, at).is_none_or(|site| site.name_span != me.name_span) {
                 continue;
             }
-            let Some((callee, key)) = self.call_target(uri, &here, shift, fact, &mut sources)
+            let Some((callee, key)) = self.call_target(uri, &here, &shift, fact, &mut sources)
             else {
                 continue;
             };

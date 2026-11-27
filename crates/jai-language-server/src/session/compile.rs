@@ -326,7 +326,7 @@ impl Session {
         if !self.may_compile() {
             return self.on_older_compile(uri, text, |a, path, shift| {
                 let at = shift.to_old(byte)?;
-                Some((query(a, path, at)?, *shift))
+                Some((query(a, path, at)?, shift.clone()))
             });
         }
         let found = self.compiled_at(uri, text, byte, |a, path| query(a, path, byte))?;

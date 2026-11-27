@@ -70,6 +70,18 @@ fn hover_moves_to_where_the_word_is_now() {
     assert!(hover.contents.value.contains("helper"), "{hover:?}");
 }
 
+/// Two edits apart (a line added above, a letter at the end): what lies between them is still
+/// answered from the last compile.
+#[test]
+fn hover_between_two_separate_edits_answers_from_the_last_compile() {
+    let (session, uri, _) = edited_to("between", &format!("\n{SOURCE}x\n"));
+    let compiles = session.compile_counts().0;
+    let hover = session.hover(&uri, at(3, 15)).unwrap().expect("a hover");
+    assert_eq!(session.compile_counts().0, compiles, "no compile");
+    assert_eq!(hover.range.start, at(3, 13));
+    assert!(hover.contents.value.contains("helper"), "{hover:?}");
+}
+
 #[test]
 fn definition_moves_to_where_the_declaration_is_now() {
     let (session, uri, _) = edited("definition");
