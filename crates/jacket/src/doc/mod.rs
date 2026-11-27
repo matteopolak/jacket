@@ -641,7 +641,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         let base = base_path(&args.base_url)?;
         example_check::require_node(args)?;
         let jaic = tools::locate(tools::JAIC, "jacket doc")?;
-        let stdlib = stdlib_dir(&jaic, cwd)?;
+        let stdlib = stdlib_dir(&jaic, cwd, cwd)?;
         let (lib, doc, config_dir, project) =
             target(args.path.as_deref(), &stdlib, cwd, &args.jaic_args)?;
         let Library {

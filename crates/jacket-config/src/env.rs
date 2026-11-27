@@ -141,7 +141,7 @@ vars! {
     STDLIB {
         name: "JAIC_STDLIB", group: Settings, readers: [Jaic, Jacket, Jailint, Jailsp, Tests],
         default: "the `stdlib/` next to the executable, else the checkout's",
-        summary: "The standard library directory. `jacket test` also hands it to every `jaic` it starts.",
+        summary: "The standard library directory; a relative path is taken from the working directory. `jacket test` also hands it, made absolute, to every `jaic` it starts.",
     }
     PRELUDE {
         name: "JAIC_PRELUDE", group: Settings, readers: [Jaic, Jailint, Jailsp],

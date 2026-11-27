@@ -266,6 +266,7 @@ fn prepare_with(python: &str, files: &[PathBuf], stdlib: &Path) -> Result<(), St
             .arg(root.join(setup.script))
             .args(setup.args)
             .env("PYTHONPATH", root.join("tools"))
+            .env(jacket_config::env::STDLIB.name, stdlib)
             .current_dir(root)
             .output()
             .map_err(|error| {

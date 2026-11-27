@@ -438,7 +438,7 @@ fn run_once(
     let Some(jaic) = tools::require(tools::JAIC, "jacket test") else {
         return ExitCode::from(127);
     };
-    let stdlib = match stdlib::stdlib_dir(&jaic, &project_dir) {
+    let stdlib = match stdlib::stdlib_dir(&jaic, &project_dir, cwd) {
         Ok(dir) => dir,
         Err(error) => return fail(error),
     };

@@ -589,11 +589,8 @@ pub fn invocation(
         program,
         args,
         cwd: cwd.to_path_buf(),
-        env: if toolchain.interp {
-            toolchain.jaic_env()
-        } else {
-            Vec::new()
-        },
+        // A test program may start `jaic` itself, from its own folder.
+        env: toolchain.jaic_env(),
         ..Invocation::default()
     }
 }
@@ -776,6 +773,46 @@ mod tests {
         assert_eq!(
             run(true),
             ["--seed", "42", "--accept", "--run", "a", "--temp", "/t"]
+        );
+    }
+
+    #[test]
+    fn a_native_test_program_is_told_the_standard_library_by_absolute_path() {
+        let built = Built {
+            entries: Vec::new(),
+            program: PathBuf::from("/b/tests"),
+            cases: Vec::new(),
+            warm: Mutex::new(None),
+        };
+        let toolchain = Toolchain {
+            jaic: PathBuf::from("jaic"),
+            stdlib: PathBuf::from("/stdlib"),
+            flags: Vec::new(),
+            interp: false,
+            runner: Vec::new(),
+            os: "linux".into(),
+            coverage: false,
+            coverage_dir: None,
+            check_only: false,
+            deps: None,
+            environment_flags: 0,
+        };
+        let run = RunFlags {
+            seed: 1,
+            accept: false,
+        };
+        let invocation = invocation(
+            &built,
+            &[],
+            &toolchain,
+            &[],
+            Path::new("/t"),
+            Path::new("/r"),
+            &run,
+        );
+        assert_eq!(
+            invocation.env,
+            [("JAIC_STDLIB".to_string(), "/stdlib".to_string())]
         );
     }
 
