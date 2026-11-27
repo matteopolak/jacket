@@ -4,6 +4,13 @@
 
 The guides show real terminal output for cross builds, toolchains and benchmarks.
 
+<table>
+<tr><td width="50%"><img src="https://raw.githubusercontent.com/matteopolak/jacket/main/docs/images/console/test-pass.svg" width="100%" alt="jacket test runs four tests and prints a coloured summary"></td><td width="50%"><img src="https://raw.githubusercontent.com/matteopolak/jacket/main/docs/images/console/test-fail.svg" width="100%" alt="jacket test shows a failed expectation with the first differing byte"></td></tr>
+<tr><td width="50%"><img src="https://raw.githubusercontent.com/matteopolak/jacket/main/docs/images/console/test-property.svg" width="100%" alt="jacket test shrinks a failing property test to its smallest counterexample"></td><td width="50%"><img src="https://raw.githubusercontent.com/matteopolak/jacket/main/docs/images/console/test-golden.svg" width="100%" alt="jacket test shows a golden-output test's diff"></td></tr>
+<tr><td width="50%"><img src="https://raw.githubusercontent.com/matteopolak/jacket/main/docs/images/console/bench-baseline.svg" width="100%" alt="jacket bench compares a benchmark against a saved baseline"></td><td width="50%"><img src="https://raw.githubusercontent.com/matteopolak/jacket/main/docs/images/console/run-board.svg" width="100%" alt="jacket run builds and runs a program on an Arm board under QEMU"></td></tr>
+<tr><td width="50%"><img src="https://raw.githubusercontent.com/matteopolak/jacket/main/docs/images/console/jaic-error.svg" width="100%" alt="jaic reports a type mismatch and suggests a cast"></td><td width="50%"><img src="https://raw.githubusercontent.com/matteopolak/jacket/main/docs/images/console/jailint-error.svg" width="100%" alt="jailint reports a use after free, pointing at the allocation and the free"></td></tr>
+</table>
+
 ### Highlights
 
 - `Gltf` adds `gltf_world_matrices` (every node's world matrix) and `gltf_decompose` (a matrix into translation, rotation and scale).
