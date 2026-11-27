@@ -53,4 +53,4 @@ Anything unsupported fails with a compile error rather than being silently accep
 
 ## How to change it
 
-Update this page when a feature lands or a limitation goes away, and keep the root README to a line that links here. Rerun the [benchmarks](tools/benchmarks.md) before changing the numbers.
+Update this page when a feature lands or a limitation goes away. The root README lists only the standout features of each tool and links here for the rest. Rerun the [benchmarks](tools/benchmarks.md) before changing the numbers.

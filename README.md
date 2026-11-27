@@ -1,6 +1,6 @@
 <div align="center">
   <img src="docs/images/banner.svg" alt="Jacket" width="420">
-  <p>A compiler, standard library, language server, formatter and linter for the <a href="https://en.wikipedia.org/wiki/Jai_(programming_language)">Jai</a> programming language.<br>It builds for macOS, Linux, Windows, WebAssembly and bare-metal boards.</p>
+  <p>A compiler, standard library, language server, formatter and linter for the <a href="https://en.wikipedia.org/wiki/Jai_(programming_language)">Jai</a> programming language.</p>
   <p>
     <a href="https://github.com/matteopolak/jacket/actions/workflows/ci.yml"><img src="https://github.com/matteopolak/jacket/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
     <a href="https://github.com/matteopolak/jacket/releases/latest"><img src="https://img.shields.io/github/v/release/matteopolak/jacket" alt="Latest release"></a>
@@ -20,19 +20,27 @@
 
 ## Install
 
+macOS and Linux, with Homebrew:
+
 ```sh
-brew install matteopolak/tap/jacket                          # macOS, Linux
-curl -fsSL https://jacket.matteopolak.com/install.sh | sh    # macOS, Linux
-irm https://jacket.matteopolak.com/install.ps1 | iex         # Windows (PowerShell)
+brew install matteopolak/tap/jacket
 ```
 
-Update with `jacket upgrade`. Other channels (Nix, prebuilt archives, CI, building from source) are in [installation](docs/tools/releases.md#install-channels).
+macOS and Linux, with the install script:
 
-Editors:
+```sh
+curl -fsSL https://jacket.matteopolak.com/install.sh | sh
+```
 
-- **VS Code** and Open VSX editors (VSCodium, Cursor): the [Jacket extension](https://marketplace.visualstudio.com/items?itemName=matteopolak.jacket). It can download the toolchain. See [its docs](docs/tools/vscode-extension.md).
-- **Neovim** 0.11+: [jacket.nvim](editors/nvim/README.md).
-- **Anything else**: run `jailsp` as a language server over stdio.
+Windows, in PowerShell:
+
+```powershell
+irm https://jacket.matteopolak.com/install.ps1 | iex
+```
+
+Update with `jacket upgrade`. Nix, prebuilt archives, CI setup and building from source are in [installation](docs/tools/releases.md#install-channels).
+
+For editors, install the [VS Code extension](https://marketplace.visualstudio.com/items?itemName=matteopolak.jacket) (also on Open VSX for VSCodium and Cursor) or [jacket.nvim](editors/nvim/README.md) for Neovim 0.11+. Any other editor can run `jailsp` as a language server over stdio.
 
 ## Hello, world
 
@@ -48,24 +56,39 @@ main :: () {
 jacket run hello.jai
 ```
 
-## Everyday commands
+`jacket new app` starts a project. Run `jacket --help` for the rest, or read [jacket](docs/tools/jacket.md).
 
-```sh
-jacket new app           # start a project
-jacket build             # build the project (or: jacket build hello.jai)
-jacket run               # build and run
-jacket test              # run tests and doc examples
-jacket check             # type-check only
-jacket fmt               # format
-jacket lint --fix        # lint, applying safe fixes
-jacket doc               # build the API docs site
-```
+## What's inside
 
-`jacket build`, `check` and `run` take the same flags as the compiler, `jaic`, and also read your project's `jacket.toml`. `jaic hello.jai -o -os windows` is the direct form; run `jaic -help` for every option. See [jacket](docs/tools/jacket.md) and the [command-line reference](docs/reference/tools.md#compiling).
+**Compiler (`jaic`).** Debug builds are a little faster than the official compiler's, and optimized builds often take a fraction of the time ([numbers](docs/features.md#performance)).
 
-## Other targets
+- `#run` and `jaic -interp` call real C libraries, and C can call back into Jai, even from its own threads.
+- `#asm` covers SSE through AVX2, FMA, AES, SHA and common AVX-512, and runs on any CPU.
+- Runtime checks for overflow, bounds, narrowing casts and `#complete` switches, plus `-sanitize address,undefined`.
+- Targets beyond desktop: WebAssembly (WASI and the browser), 32-bit x86 and ARM, big-endian s390x and PowerPC64, and bare-metal Cortex-M, AArch64 and AVR boards ([other targets](docs/guides/other-targets.md); the last three groups are experimental).
 
-Besides macOS, Linux and Windows on x64 and arm64, Jacket builds for WebAssembly, 32-bit x86 and ARM Linux, big-endian s390x and PowerPC64 Linux, and bare-metal Cortex-M, AArch64 and AVR (Arduino Uno) boards. The [other targets guide](docs/guides/other-targets.md) shows how to build for each one and run it in QEMU. The 16- and 32-bit, big-endian and bare-metal targets are experimental.
+**Language server (`jailsp`).** Its answers come from the compiler itself, compile-time code included ([README](crates/jai-language-server/README.md)).
+
+- Hover shows what a macro or `#insert` expanded to, the value a `#run` produced, and a struct's size and field offsets.
+- Completion offers names from modules you haven't imported yet and adds the `#import`.
+- Code actions replace a `#run` with its value, fill in missing `case`s and struct fields, and extract procedures.
+- The same server runs in the [online playground](https://jacket.matteopolak.com/playground), compiled to WebAssembly.
+
+**Linter (`jailint`).** Rules run on the type-checked program, so they know every expression's type ([README](crates/jailint/README.md)).
+
+- Follows pointers through the program to find [use after free, double frees, temporary storage read after a reset, pointers into arrays that grew, and leaks](docs/guides/memory-safety.md).
+- `jacket lint --fix` applies the fixes that are safe.
+
+**Formatter (`jaifmt`).** It refuses any output whose tokens differ from the input, so formatting can't change what a program means ([docs](docs/tools/jaifmt.md)). It is written in Jai and is also a library, `Jai_Format`.
+
+**Project tool (`jacket`).** It shares one `jacket.toml` across all the tools.
+
+- `jacket test` runs unit, property, golden-output, compile-fail and snapshot tests, plus the examples in doc comments, and reviews changed snapshots interactively ([testing guide](docs/guides/testing.md)).
+- `jacket bench` reports time per iteration with a confidence interval and compares against a saved baseline with a p-value ([benchmarking guide](docs/guides/benchmarking.md)).
+- `jacket doc` writes an API site where every example has a Run button that compiles it in the browser ([jacket doc](docs/tools/jacket-doc.md)).
+- `jacket migrate` rewrites code written for an older Jai, and `jacket dep` pins other people's modules as git submodules ([dependencies](docs/guides/dependencies.md)).
+
+The [standard library](https://jacket.matteopolak.com) adds [extensions](docs/extensions/README.md) for HTTP/1–2, gRPC, JSON, Postgres, WebGPU, regex, images and more. [Features](docs/features.md) lists what works and what is missing.
 
 ## Contributing
 
