@@ -99,7 +99,7 @@ impl Interp {
                             };
                             Some(new.swap_bytes())
                         };
-                        let old = match cell.fetch_update(success, failure_of(success), step) {
+                        let old = match cell.try_update(success, failure_of(success), step) {
                             Ok(old) | Err(old) => old,
                         };
                         Rets::one(old.swap_bytes() as u64)

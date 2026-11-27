@@ -145,7 +145,7 @@ pub(super) fn write_i32(addr: u64, value: i32) {
 
 /// Stores the `u64` `value` at `addr`, in the program's byte order.
 pub(in crate::interp) fn write_u64(addr: u64, value: u64) {
-    write_uint(addr, 8, value as u64);
+    write_uint(addr, 8, value);
 }
 
 /// Stores `bytes` at `addr`.
