@@ -61,27 +61,31 @@ jacket run hello.jai
 ## What's inside
 
 **`jaic`**
-- Compile-time code can call C libraries
-- Builds for WebAssembly, 32-bit and big-endian Linux, and microcontroller boards ([other targets](docs/guides/other-targets.md))
+- Aims to be compatible with Jai
+- Builds for 32-bit x86 and ARM, big-endian Linux, WebAssembly, and bare-metal boards down to the 8-bit AVR ([other targets](docs/guides/other-targets.md))
+- [Extensions](docs/extensions/README.md) add modules such as HTTP, gRPC, Postgres, Regex, Toml and WebGPU; Json, Csv, Byte_Search and Hash_Map use SIMD
 
 **`jailsp`** ([README](crates/jai-language-server/README.md))
-- Hover shows macro expansions and `#run` results
-- Completion adds missing `#import`s
-- Runs in the [online playground](https://jacket.matteopolak.com/playground)
+- Errors and lint warnings as you type, with quick fixes
+- Hover with types, struct layout, macro and `#insert` expansions, and `#run` results
+- Completion with auto-import, enum members from context and `#import` paths
+- Go to definition, find references, call hierarchy, symbols and rename
+- Signature help, inlay hints and semantic highlighting
+- Code actions: add missing `case`s or fields, extract or inline, replace a `#run` with its value
 
 **`jailint`** ([README](crates/jailint/README.md))
-- Finds [use after free, double frees and leaks](docs/guides/memory-safety.md)
+- Reports common mistakes, [memory bugs](docs/guides/memory-safety.md) and performance pitfalls
 - `jacket lint --fix` applies safe fixes
 
 **`jaifmt`** ([docs](docs/tools/jaifmt.md))
-- Never changes what a program means
+- Formats code
 
 **`jacket`**
 - One `jacket.toml` for every tool
 - [Tests](docs/guides/testing.md), [benchmarks](docs/guides/benchmarking.md) and [API docs](docs/tools/jacket-doc.md) with runnable examples
 - Migrates code from older Jai and manages [dependencies](docs/guides/dependencies.md)
 
-The [standard library](https://jacket.matteopolak.com) has [extensions](docs/extensions/README.md) for HTTP, gRPC, JSON, Postgres, WebGPU, regex, images and more. [Features](docs/features.md) lists what works and what's missing.
+[Features](docs/features.md) lists what works and what's missing.
 
 ## Contributing
 
