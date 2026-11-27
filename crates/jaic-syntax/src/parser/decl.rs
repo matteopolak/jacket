@@ -220,7 +220,7 @@ impl Parser<'_> {
             existing,
             targets,
             backticks,
-        } = self.parse_decl_names()?;
+        } = self.parse_decl_names(backtick)?;
         let backtick_names = if backticks.iter().any(|&b| b) {
             let mut all = backticks;
             all[0] = backtick;
@@ -273,8 +273,9 @@ impl Parser<'_> {
         Ok(stmt(StmtKind::Decl(Arc::new(decl)), span))
     }
 
-    /// Declared names, with the assigned-to-existing mask for mixed lists.
-    fn parse_decl_names(&mut self) -> PResult<DeclNames> {
+    /// Declared names, with the assigned-to-existing mask for mixed lists. `first_backtick` is
+    /// whether a backtick came before the first name, which `parse_decl` has already eaten.
+    fn parse_decl_names(&mut self, first_backtick: bool) -> PResult<DeclNames> {
         if self.at_kw("operator") && self.operator_end(1).is_some() {
             let start = self.bump();
             let mut text = String::new();
@@ -364,7 +365,12 @@ impl Parser<'_> {
         for (i, name) in names.iter().enumerate() {
             let place = targets.get(i).is_some_and(Option::is_some);
             if !place && !existing.get(i).copied().unwrap_or(false) {
-                self.reject_literal_name(*name)?;
+                let backticked = if i == 0 {
+                    first_backtick
+                } else {
+                    backticks[i]
+                };
+                self.reject_keyword_name(*name, backticked)?;
             }
         }
         if !targets.is_empty() {

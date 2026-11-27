@@ -9,7 +9,7 @@ The recursive-descent parser in `crates/jaic-syntax/src/parser/` turns tokens fr
 - Expressions use precedence climbing (`expr.rs`) over `binary_op` ([operators](../language/operators.md)), then prefix operators and `cast`/`xx`, then a postfix loop (`.member`, `.*`, `[i]`, `(args)`, `.{..}`, `.[..]`).
 - Parentheses aren't nodes. `(a + b)` parses to the inner expression with `Expr::parens` set. `Expr::span` leaves the parentheses out; `Expr::extent()` takes them in. Anything about how code was written (jailint, refactors) reads these, never source text. So `*Block.[a, b]` is an array of `*Block` while `*(Block.[a, b])` is an address-of.
 - Files, struct bodies and blocks share one statement grammar (`stmt.rs`). Declarations (`decl.rs`) are found by lookahead: `name {, name} :`, `::` or `:=`.
-- `null`, `true` and `false` always parse as literals, so variables with those names are rejected. Struct members may use them.
+- `null`, `true` and `false` always parse as literals, so variables with those names are rejected. Struct members may use them. The words that only start statements (`if`, `case`, `for`, `while`, `break`, `continue`, `remove`, `return`, `defer`, `push_context`) can't name a variable, parameter or member either: ``error: `case` is a keyword and cannot be declared``. A backticked declaration may use them (`` `remove: int; `` in a struct, reached as `s.remove`). `ifx` and `using` may name a variable or parameter.
 - A statement needs `;` unless the previous token closed a brace body, a here-string or `{} #flags`.
 - Here-strings keep every line ending of the body: `#string END\nabc\nEND` is `"abc\n"`.
 

@@ -1,5 +1,7 @@
 //! `null`, `true` and `false` always read as literals, so declaring a variable, constant or
 //! parameter of that name is an error. A struct member may use them: it is reached as `x.null`.
+//! The words that start a statement (`case`, `if`, `for`, `return`, ...) can't be declared
+//! either: a statement can't start with them as a name. A backticked declaration may use them.
 use jaic::diagnostics::Diagnostic;
 use jaic::sema::{Compiler, Options, VirtualFs};
 use std::{path::Path, rc::Rc};
@@ -40,6 +42,31 @@ fn literal_keywords_cannot_be_declared() {
             "{source}"
         );
     }
+}
+
+#[test]
+fn statement_keywords_cannot_be_declared() {
+    for (source, word) in [
+        ("f :: (case: int) {}\nmain :: () { f(1); }\n", "case"),
+        ("main :: () { x, case := 1, 2; }\n", "case"),
+        (
+            "f :: (a: int, for: int) {}\nmain :: () { f(1, 2); }\n",
+            "for",
+        ),
+        ("main :: () { x, return := 1, 2; }\n", "return"),
+        ("f :: (defer: int) {}\nmain :: () { f(1); }\n", "defer"),
+    ] {
+        let error = compile(source).expect_err(source);
+        assert_eq!(
+            error.message,
+            format!("`{word}` is a keyword and cannot be declared"),
+            "{source}"
+        );
+    }
+    // `using` before a name is the modifier; a parameter of that name is told apart by `:`.
+    compile("f :: (using: int) {}\nmain :: () { f(1); }\n").unwrap();
+    // A backticked declaration is not read as a statement, so it may use the word.
+    compile("S :: struct { `remove: int; }\nmain :: () { s: S; s.remove = 1; }\n").unwrap();
 }
 
 #[test]

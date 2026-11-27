@@ -11,6 +11,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 
 ### Fixes
 
+- A parameter or multi-declaration named `case`, `if`, `for` or another statement keyword is an error.
 - A created workspace with no `main` fails with a clear error instead of a linker's `_main` undefined.
 - `reader_create_channel` on Windows logs the call that failed, as it does on Unix.
 - A cross build reports an `#insert #run` error once, from the host, instead of rerunning it for the target.

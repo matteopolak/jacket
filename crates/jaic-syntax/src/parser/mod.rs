@@ -418,8 +418,12 @@ impl<'a> Parser<'a> {
     }
 
     /// A name being declared. `null`, `true` and `false` always read as their literals, so a
-    /// variable, constant or parameter of that name could never be used.
-    fn reject_literal_name(&self, name: Ident) -> PResult<Ident> {
+    /// variable, constant or parameter of that name could never be used. A word that only starts
+    /// statements (`case`, `if`, `for`, `return`, ...; `stmt::Keyword`) can't be declared either:
+    /// a statement naming it reads as the keyword. A backticked declaration (`` `remove: T; ``)
+    /// is not read as a statement, so it may use such a word, which `x.remove` then reaches.
+    /// `using` stays a parameter name, which `parse_param_group` tells from the modifier.
+    fn reject_keyword_name(&self, name: Ident, backticked: bool) -> PResult<Ident> {
         let word = name.name.as_str();
         if is_builtin_type_name(word) {
             return Err(Diagnostic::new(
@@ -429,17 +433,24 @@ impl<'a> Parser<'a> {
             )
             .with_help("choose another name"));
         }
-        if self.in_aggregate_body || !matches!(word, "null" | "true" | "false") {
+        let statement = !backticked
+            && word != "using"
+            && stmt::Keyword::of(word).is_some_and(stmt::Keyword::only_starts_statements);
+        let literal = !self.in_aggregate_body && matches!(word, "null" | "true" | "false");
+        if !statement && !literal {
             return Ok(name);
         }
+        let help = if literal {
+            format!("`{word}` always means the literal; use another name")
+        } else {
+            format!("`{word}` always starts a statement; use another name")
+        };
         Err(Diagnostic::new(
             Code::ParseKeywordDeclared,
             name.span,
             format!("`{word}` is a keyword and cannot be declared"),
         )
-        .with_help(format!(
-            "`{word}` always means the literal; use another name"
-        )))
+        .with_help(help))
     }
 
     /// Consumes a string literal token.

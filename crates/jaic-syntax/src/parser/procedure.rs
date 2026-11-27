@@ -388,7 +388,7 @@ impl Parser<'_> {
                 self.bump();
             }
             let name = self.ident("as parameter name")?;
-            names.push((self.reject_literal_name(name)?, baked, auto));
+            names.push((self.reject_keyword_name(name, false)?, baked, auto));
             if !self.eat(P::Comma) {
                 break;
             }
@@ -525,7 +525,7 @@ impl Parser<'_> {
             && matches!(self.tok_at(1), Tok::Punct(P::Colon | P::ColonEq))
         {
             let name = self.ident("as return name")?;
-            Some(self.reject_literal_name(name)?)
+            Some(self.reject_keyword_name(name, false)?)
         } else {
             None
         };
