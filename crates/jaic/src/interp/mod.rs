@@ -346,6 +346,25 @@ impl Interp {
         &self.layout
     }
 
+    /// Compile time is over and the program is about to run unbounded (`jaic -interp`): the
+    /// budget of compile-time runs, and what the last of them left, no longer apply. A budget
+    /// that was set stays counted, so the steps still look for a stop request, but cannot run
+    /// out. A host that bounds the running program (the browser) keeps its budget instead.
+    ///
+    /// ```
+    /// let mut interp = jaic::interp::Interp::native(jaic::layout::DataLayout::host());
+    /// interp.eval_steps = Some(10);
+    /// interp.begin_evaluation();
+    /// interp.end_compile_time_budget();
+    /// assert_eq!((interp.eval_steps, interp.block_budget), (None, Some(u64::MAX)));
+    /// ```
+    pub fn end_compile_time_budget(&mut self) {
+        self.eval_steps = None;
+        if self.block_budget.is_some() {
+            self.block_budget = Some(u64::MAX);
+        }
+    }
+
     /// A top-level compile-time evaluation starts: it gets its own `eval_steps` when the
     /// interpreter has them. Returns the blocks left, to measure the cost against.
     pub fn begin_evaluation(&mut self) -> Option<u64> {

@@ -47,6 +47,24 @@ fn the_budget_is_per_run_and_zero_means_no_limit() {
     assert_eq!(code, Some(0), "{err}");
 }
 
+const RUN_THEN_COUNT: &str = "count :: (n: int) -> int {\n    total := 0;\n    for 0..n { total += it; }\n    return total;\n}\nx :: #run count(1000);\nmain :: () { count(100000); }\n";
+
+#[test]
+fn an_interpreted_program_is_not_held_to_the_compile_time_budget() {
+    // The budget bounds compile-time runs. The program runs as long as it takes, whatever the
+    // last `#run` left of its budget.
+    let dir = TempDir::new("run-budget");
+    let file = dir.join("run_then_count.jai");
+    std::fs::write(&file, RUN_THEN_COUNT).unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
+        .args(["-interp", "-run_budget", "10000"])
+        .arg(&file)
+        .output()
+        .unwrap();
+    let err = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(output.status.code(), Some(0), "{err}");
+}
+
 #[test]
 fn the_flag_wants_a_number() {
     let (code, err) = check("bad", SPIN, &["-run_budget", "lots"]);

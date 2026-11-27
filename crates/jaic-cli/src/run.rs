@@ -576,6 +576,9 @@ fn interpret(
         };
         compiler.ct.interp.run_executable = Some(main_dir.join(name).display().to_string());
     }
+    // `-run_budget` bounds compile-time runs. Left in place, the program would get what the last
+    // of them left over, so how long it may run would depend on the compile-time code before it.
+    compiler.ct.interp.end_compile_time_budget();
     let outcome = timings::time("run", || compiler.run_program_with_args(&cli.program_args));
     if let Some(host) = sandbox {
         use std::io::Write;

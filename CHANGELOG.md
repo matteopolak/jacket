@@ -19,6 +19,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 
 ### Fixes
 
+- `jaic -interp` no longer stops a long-running program with "execution budget exhausted": `-run_budget` bounds compile-time runs only.
 - `Module.operator *[]` parses as the name of that operator, like `Module.operator []`.
 - On 32- and 16-bit targets, interpreted pointer arithmetic and integer-to-pointer casts wrap at the pointer width; faults name program addresses.
 - `jacket migrate` drops a migration that would add errors and applies the rest; it skips non-UTF-8 files.
