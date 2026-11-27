@@ -478,23 +478,42 @@ failures:
 
 ## Doc tests
 
-Every ```` ```jai ```` block in a doc comment is a test. `slugify` above has one, and it ran as `doc: slugs.slugify#1`. A block that is only statements becomes the body of a procedure that has `Basic` and your library in scope; a block with its own `main` is used as written. A failed `assert` fails the test:
+Every ```` ```jai ```` block in a doc comment is a test. `slugify` above has one, and it ran as `doc: slugs.slugify#1`. A block that is only statements becomes the body of a procedure that has `Basic` and your library in scope; a block with its own `main` is used as written. A failed `assert` fails the test and shows the line:
 
-```text
+```console cwd=../examples/testing/doc-assert/slugs
+$ jacket test --exact 'doc: slugs.slugify#1'
+    Starting 1 test
+        FAIL [   0.359s] doc: slugs.slugify#1
+
+failures:
+
 --- doc: slugs.slugify#1 (FAIL) ---
-  the example was killed by signal 6 (SIGABRT)
-  stderr:
-    slugs/module.jai:7: assertion failed:
+  module.jai:6:
+    assertion failed
+    6 | assert(slugify("Hello, World!") == "hello_world");
+  rerun: jacket test --exact 'doc: slugs.slugify#1'
+
+     Summary [   0.359s] 1 test run: 0 passed, 1 failed
 ```
 
 Add `#import "Extensions/Testing";` to the block to use `expect_equal` and get a readable difference:
 
-```text
-  the example exited with status 1
-  stderr:
-    slugs/module.jai:8: got:  "hello-world"
+```console cwd=../examples/testing/doc-expect/slugs
+$ jacket test --exact 'doc: slugs.slugify#1'
+    Starting 1 test
+        FAIL [   0.374s] doc: slugs.slugify#1
+
+failures:
+
+--- doc: slugs.slugify#1 (FAIL) ---
+  module.jai:7:
+    got:  "hello-world"
     want: "hello_world"
                 ^ first difference at byte 5
+    7 | expect_equal(slugify("Hello, World!"), "hello_world");
+  rerun: jacket test --exact 'doc: slugs.slugify#1'
+
+     Summary [   0.374s] 1 test run: 0 passed, 1 failed
 ```
 
 The words after `jai` choose what is done with the block:

@@ -75,6 +75,18 @@
         "command": "jacket test --exact snapshot_of_slug",
         "output": "\u001b[1;32m    Starting\u001b[0m 1 test\n\u001b[1;31m        FAIL\u001b[0m [   0.062s] snapshot_of_slug\n\nfailures:\n\n\u001b[1m--- snapshot_of_slug (FAIL) ---\u001b[0m\n  tests/more.jai:14:\n    there is no snapshot tests/__snapshots__/more/snapshot_of_slug.snap yet\n    the new one is in tests/__snapshots__/more/snapshot_of_slug.snap.new; `jacket test --accept` keeps it, `jacket test --review` goes through them\n    \u001b[2m14 |\u001b[0m expect_snapshot(t, got);\n  rerun: jacket test --exact 'snapshot_of_slug'\n\n\u001b[1;32m     Summary\u001b[0m [   0.114s] 1 test run: 0 passed, 1 failed"
       }
+    ],
+    [
+      {
+        "command": "jacket test --exact 'doc: slugs.slugify#1'",
+        "output": "\u001b[1;32m    Starting\u001b[0m 1 test\n\u001b[1;31m        FAIL\u001b[0m [   0.359s] doc: slugs.slugify#1\n\nfailures:\n\n\u001b[1m--- doc: slugs.slugify#1 (FAIL) ---\u001b[0m\n  module.jai:6:\n    assertion failed\n    \u001b[2m6 |\u001b[0m assert(slugify(\"Hello, World!\") == \"hello_world\");\n  rerun: jacket test --exact 'doc: slugs.slugify#1'\n\n\u001b[1;32m     Summary\u001b[0m [   0.359s] 1 test run: 0 passed, 1 failed"
+      }
+    ],
+    [
+      {
+        "command": "jacket test --exact 'doc: slugs.slugify#1'",
+        "output": "\u001b[1;32m    Starting\u001b[0m 1 test\n\u001b[1;31m        FAIL\u001b[0m [   0.374s] doc: slugs.slugify#1\n\nfailures:\n\n\u001b[1m--- doc: slugs.slugify#1 (FAIL) ---\u001b[0m\n  module.jai:7:\n    got:  \"hello-world\"\n    want: \"hello_world\"\n                ^ first difference at byte 5\n    \u001b[2m7 |\u001b[0m expect_equal(slugify(\"Hello, World!\"), \"hello_world\");\n  rerun: jacket test --exact 'doc: slugs.slugify#1'\n\n\u001b[1;32m     Summary\u001b[0m [   0.374s] 1 test run: 0 passed, 1 failed"
+      }
     ]
   ]
 }
