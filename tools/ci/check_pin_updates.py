@@ -17,7 +17,9 @@ The issue is found by a hidden marker in its body. It is created when a pin is b
 when the list changes (not at all when it is the same), reopened if it was closed, and closed when every
 pin is current. Only releases at least 14 days old count, the rule `check_action_pins.py` uses.
 
-The Rust pin is a nightly, so it is compared by date: it is behind when it predates the stable release.
+The Rust pin is a nightly, so it is compared by date: it is behind when it predates the stable release. The
+`rust-overlay` input of flake.lock must also have been locked after that nightly, or nix cannot build the
+toolchain: it is listed when it was not (a local check, no network).
 
 Exit status: 0 done, 3 an upstream answer could not be read. Set `GITHUB_TOKEN` or `GH_TOKEN` to raise
 GitHub's rate limit.
@@ -117,12 +119,36 @@ def rust_row(channel: str, manifest: dict, now: datetime) -> Row | None:
     return None
 
 
-def outdated(pins: dict, toolchain_text: str, manifest: dict, releases: dict, now: datetime) -> list[Row]:
+def overlay_row(channel: str, lock_text: str) -> Row | None:
+    """A row when flake.lock's `rust-overlay` was locked on or before the day of the pinned nightly, and so
+    may not list it (`nix flake update rust-overlay`); None for a version channel or a later lock. A lock
+    without the input is a `LookupFailed`."""
+    nightly = NIGHTLY.fullmatch(channel)
+    if not nightly:
+        return None
+    try:
+        stamp = json.loads(lock_text)["nodes"]["rust-overlay"]["locked"]["lastModified"]
+        locked = datetime.fromtimestamp(stamp, timezone.utc).date()
+    except (KeyError, TypeError, ValueError) as error:
+        raise LookupFailed(f"flake.lock has no locked rust-overlay input: {error!r}") from error
+    day = date.fromisoformat(nightly.group(1))
+    if locked > day:
+        return None
+    return Row("rust-overlay", f"locked {locked.isoformat()}",
+               f"a lock after {day.isoformat()}, so that it lists {channel}", "flake.lock")
+
+
+def outdated(pins: dict, toolchain_text: str, manifest: dict, releases: dict, now: datetime,
+             lock_text: str) -> list[Row]:
     """The pins behind upstream. `releases` maps a pins.json key to that repository's release list."""
     rows = []
-    rust = rust_row(rust_pin(toolchain_text), manifest, now)
+    channel = rust_pin(toolchain_text)
+    rust = rust_row(channel, manifest, now)
     if rust:
         rows.append(rust)
+    overlay = overlay_row(channel, lock_text)
+    if overlay:
+        rows.append(overlay)
     for key, (_, prefix, name, count) in RELEASES.items():
         latest = latest_release(releases[key], prefix, now)
         if latest is None:
@@ -157,12 +183,13 @@ def plan(existing: dict | None, rows: list[Row]) -> tuple[str, str]:
 def gather(now: datetime) -> list[Row]:
     pins = json.loads((ROOT / ".github" / "pins.json").read_text())
     toolchain = (ROOT / "rust-toolchain.toml").read_text()
+    lock = (ROOT / "flake.lock").read_text()
     try:
         manifest = tomllib.loads(fetch(RUST_MANIFEST, max_bytes=64 << 20).decode())
     except (OSError, HTTPException, ValueError, urllib.error.URLError) as error:
         raise LookupFailed(f"could not read {RUST_MANIFEST}: {error}") from error
     releases = {key: github.get(f"/repos/{repo}/releases?per_page={count}") for key, (repo, _, _, count) in RELEASES.items()}
-    return outdated(pins, toolchain, manifest, releases, now)
+    return outdated(pins, toolchain, manifest, releases, now, lock)
 
 
 def gh(*args: str, stdin: str | None = None) -> str:

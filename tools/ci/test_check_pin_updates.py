@@ -1,5 +1,6 @@
 """Version comparison, release selection and the issue plan of check_pin_updates.py, on recorded data."""
 
+import json
 import unittest
 from datetime import datetime, timezone
 
@@ -7,6 +8,12 @@ import check_pin_updates as pins
 from toolkit.github import LookupFailed
 
 NOW = datetime(2026, 11, 9, tzinfo=timezone.utc)
+
+
+def flake_lock(day):
+    """A flake.lock whose rust-overlay input was locked at the start of `day` (UTC)."""
+    stamp = int(datetime.fromisoformat(day).replace(tzinfo=timezone.utc).timestamp())
+    return json.dumps({"nodes": {"rust-overlay": {"locked": {"lastModified": stamp}}}})
 
 
 def release(tag, published="2026-09-01T00:00:00Z", **extra):
@@ -21,6 +28,9 @@ CURRENT = {
     "just": [release("1.58.0")],
     "nextest": [release("cargo-nextest-0.9.148")],
 }
+
+
+KNOWN_LOCK = flake_lock("2026-09-01")
 
 
 class VersionTests(unittest.TestCase):
@@ -76,20 +86,45 @@ class RustTests(unittest.TestCase):
         self.assertIsNone(pins.rust_row("1.96.0", MANIFEST, NOW))
 
 
+class OverlayTests(unittest.TestCase):
+    def test_a_lock_from_after_the_nightly_knows_it(self):
+        self.assertIsNone(pins.overlay_row("nightly-2026-11-13", flake_lock("2026-11-14")))
+        self.assertIsNone(pins.overlay_row("nightly-2026-11-13", flake_lock("2026-12-01")))
+
+    def test_a_lock_from_before_or_on_the_nightly_may_not_know_it(self):
+        for day in ("2026-11-12", "2026-11-13"):
+            row = pins.overlay_row("nightly-2026-11-13", flake_lock(day))
+            self.assertEqual((row.name, row.where), ("rust-overlay", "flake.lock"), day)
+            self.assertIn(day, row.pinned)
+            self.assertIn("nightly-2026-11-13", row.latest)
+
+    def test_a_version_channel_needs_no_check(self):
+        self.assertIsNone(pins.overlay_row("1.96.0", flake_lock("2020-01-01")))
+
+    def test_a_lock_without_rust_overlay_is_an_error(self):
+        with self.assertRaises(LookupFailed):
+            pins.overlay_row("nightly-2026-11-13", json.dumps({"nodes": {}}))
+
+    def test_it_is_listed_with_the_other_pins(self):
+        current = {"date": "2026-08-29", "pkg": {"rust": {"version": "1.95.0 (x y)"}}}
+        rows = pins.outdated(PINS, TOOLCHAIN, current, CURRENT, NOW, flake_lock("2026-08-01"))
+        self.assertEqual([r.name for r in rows], ["rust-overlay"])
+
+
 class OutdatedTests(unittest.TestCase):
     def test_only_the_pins_behind_are_listed(self):
         releases = {**CURRENT, "just": [release("1.59.0")], "nextest": [release("cargo-nextest-0.9.149")]}
-        rows = pins.outdated(PINS, TOOLCHAIN, MANIFEST, releases, NOW)
+        rows = pins.outdated(PINS, TOOLCHAIN, MANIFEST, releases, NOW, KNOWN_LOCK)
         self.assertEqual([r.name for r in rows], ["rust", "just", "nextest"])
         self.assertEqual(rows[1].latest, "1.59.0")
 
     def test_everything_current(self):
         current = {"date": "2026-08-29", "pkg": {"rust": {"version": "1.95.0 (x y)"}}}
-        self.assertEqual(pins.outdated(PINS, TOOLCHAIN, current, CURRENT, NOW), [])
+        self.assertEqual(pins.outdated(PINS, TOOLCHAIN, current, CURRENT, NOW, KNOWN_LOCK), [])
 
     def test_a_repository_with_no_usable_release_is_an_error(self):
         with self.assertRaises(LookupFailed):
-            pins.outdated(PINS, TOOLCHAIN, MANIFEST, {**CURRENT, "llvm": []}, NOW)
+            pins.outdated(PINS, TOOLCHAIN, MANIFEST, {**CURRENT, "llvm": []}, NOW, KNOWN_LOCK)
 
 
 class PlanTests(unittest.TestCase):

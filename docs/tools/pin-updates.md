@@ -9,7 +9,7 @@ A weekly workflow (`.github/workflows/pin-updates.yml`, also runnable by hand) c
 | just | `just` in `.github/pins.json` | releases of `casey/just` |
 | nextest | `nextest` in `.github/pins.json` | releases of `nextest-rs/nextest` (`cargo-nextest-X.Y.Z`) |
 
-The Rust pin is a nightly, so it is compared by date: it is behind when it predates the current stable release. Versions are compared as numbers (`0.9.100` is after `0.9.99`). Prereleases and drafts are ignored, and a release counts only once it is 14 days old, as for [action pins](action-pins.md). A new LLVM major or minor needs more than the pin; see [LLVM setup](llvm-setup.md).
+The Rust pin is a nightly, so it is compared by date: it is behind when it predates the current stable release. A bump of it also needs `flake.lock`'s `rust-overlay` to list the nightly, so the check adds a `rust-overlay` row when that input was locked on or before the nightly's day; run `nix flake update rust-overlay`. It reads only the local lock. Versions are compared as numbers (`0.9.100` is after `0.9.99`). Prereleases and drafts are ignored, and a release counts only once it is 14 days old, as for [action pins](action-pins.md). A new LLVM major or minor needs more than the pin; see [LLVM setup](llvm-setup.md).
 
 ## The issue
 
