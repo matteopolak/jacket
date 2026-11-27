@@ -11,7 +11,8 @@ fn fixture(name: &str) -> TempDir {
         std::fs::create_dir_all(root.join(dir)).unwrap();
     }
     std::fs::write(root.join("stdlib/prelude/module.jai"), "Operating_System_Tag :: enum u32 { WINDOWS; LINUX; MACOS; WASM; } CPU_Tag :: enum u32 { X64; ARM64; CUSTOM; }").unwrap();
-    std::fs::write(root.join("stdlib/Runtime_Support/module.jai"), "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT:bool, DEFINE_INITIALIZATION:bool, ENABLE_BACKTRACE_ON_CRASH:bool);").unwrap();
+    // A runtime that, like the real one, exports the system entry point that calls `main`.
+    std::fs::write(root.join("stdlib/Runtime_Support/module.jai"), "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT:bool, DEFINE_INITIALIZATION:bool, ENABLE_BACKTRACE_ON_CRASH:bool); program_entry :: () -> s32 #entry_point; #if DEFINE_SYSTEM_ENTRY_POINT { #program_export \"main\" runtime_entry :: () -> s32 { return program_entry(); } }").unwrap();
     root
 }
 
