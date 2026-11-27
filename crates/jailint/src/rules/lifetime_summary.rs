@@ -801,6 +801,16 @@ impl Effect {
     }
 }
 
+thread_local! {
+    static BUILT: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+/// How many times this thread built the lifetime summaries of a program (see
+/// [`crate::summaries_built`]).
+pub(crate) fn built() -> u64 {
+    BUILT.get()
+}
+
 impl Summaries {
     #[cfg(test)]
     pub fn build(compiler: &Compiler) -> Self {
@@ -812,6 +822,7 @@ impl Summaries {
         files: &HashSet<jaic::source::FileId>,
         entry_module: Option<jaic::sema::ModuleId>,
     ) -> Self {
+        BUILT.set(BUILT.get() + 1);
         let started = jaic::platform::Stopwatch::start();
         let Some(facts) = compiler.ed.facts() else {
             return Self::default();

@@ -16,7 +16,7 @@ mod lifetime_cfg;
 mod lifetime_help;
 mod lifetime_movement;
 mod lifetime_places;
-mod lifetime_summary;
+pub(crate) mod lifetime_summary;
 mod lifetime_targets;
 mod local_scopes;
 

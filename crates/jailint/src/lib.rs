@@ -81,6 +81,18 @@ pub struct Lint {
     pub fix: Option<Fix>,
 }
 
+/// How many times this thread has built a program's lifetime summaries, the costly shared part
+/// of a lint pass. A caller that lints several files of one program in one pass builds them
+/// once; a test compares two counts to check that it did.
+///
+/// ```
+/// let before = jailint::summaries_built();
+/// assert!(jailint::summaries_built() >= before);
+/// ```
+pub fn summaries_built() -> u64 {
+    rules::lifetime_summary::built()
+}
+
 /// Lint `files` of the program `compiler` checked (with lint facts enabled). Lints at level
 /// `allow`, and those an in-source `jailint: allow` covers, are left out. `complete` says the
 /// compile finished without errors; when it did not, rules that need to have seen every use

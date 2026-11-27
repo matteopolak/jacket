@@ -80,8 +80,22 @@ impl Session {
         let Some(config) = self.lint_config(Path::new(uri.path())) else {
             return Vec::new();
         };
+        // The open documents under the same settings are linted in one pass with this one:
+        // the program's lifetime summaries are then built once, not once per document.
+        let together: Vec<std::path::PathBuf> = self
+            .documents
+            .iter()
+            .filter(|(_, d)| crate::semantic::parse_error(&d.text).is_none())
+            .map(|(u, _)| Path::new(u.path()))
+            .filter(|p| self.lint_config(p).is_some_and(|c| c.root == config.root))
+            .map(Path::to_path_buf)
+            .collect();
+        let group = [(config, together)];
         self.with_semantic(uri, &doc.text, |analysis, path| {
-            analysis.lints(path, &config)
+            if !analysis.warm_lints(&group) {
+                return None;
+            }
+            analysis.lints(path, &group[0].0)
         })
         .unwrap_or_default()
     }
