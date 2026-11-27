@@ -1,4 +1,4 @@
-// test: compile_fail skip_on(.WASM, reason = "Web requires native worker threads")
+// test: compile_fail("here-location.jai:17:1: error[metaprogram-report]: Web: unclosed {") skip_on(.WASM, reason = "Web requires native worker threads")
 #import "Basic";
 #import "Extensions/Web";
 

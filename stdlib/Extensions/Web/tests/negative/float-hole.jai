@@ -1,4 +1,4 @@
-// test: compile_fail skip_on(.WASM, reason = "Web requires native worker threads")
+// test: compile_fail("Web: hole `{1.25}` has unsupported type float32") skip_on(.WASM, reason = "Web requires native worker threads")
 #import "Basic";
 #import "Extensions/Web";
 

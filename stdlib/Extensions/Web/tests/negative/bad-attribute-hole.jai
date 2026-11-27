@@ -1,4 +1,4 @@
-// test: compile_fail skip_on(.WASM, reason = "Web requires native worker threads")
+// test: compile_fail("Web: value hole outside text or quoted attribute") skip_on(.WASM, reason = "Web requires native worker threads")
 #import "Basic";
 #import "Extensions/Web";
 
