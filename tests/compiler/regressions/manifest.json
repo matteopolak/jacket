@@ -646,7 +646,8 @@
   },
   {
     "name": "compiler-noted-module-procs",
-    "interpreter_only": true
+    "interpreter_only": true,
+    "uses_dead_code_elimination": true
   },
   {
     "name": "compiler-resolved-nodes",
@@ -694,7 +695,8 @@
   },
   {
     "name": "dead-code-elimination",
-    "interpreter_only": true
+    "interpreter_only": true,
+    "uses_dead_code_elimination": true
   },
   {
     "name": "enum-notes",
@@ -749,5 +751,13 @@
     "required_capabilities": [
       "native POSIX close or Windows SetStdHandle to remove standard output"
     ]
+  },
+  {
+    "name": "inserted-procedure-bodies-wait",
+    "uses_dead_code_elimination": true
+  },
+  {
+    "name": "unrun-plugin-initialization",
+    "uses_dead_code_elimination": true
   }
 ]

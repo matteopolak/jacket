@@ -60,6 +60,9 @@ ROW_KEYS = frozenset(
         # workspaces): the interpreter runs all of it, and the native, wasm and cross builds would
         # only repeat that, so only the `interp` mode and the sweep's interpreted run include it.
         "interpreter_only",
+        # What the case checks depends on dead-code elimination (code nothing calls may be
+        # broken on purpose), so the source check keeps it on instead of passing `-no_dce`.
+        "uses_dead_code_elimination",
     }
 )
 

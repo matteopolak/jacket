@@ -195,6 +195,13 @@ def deploy_windows_dlls(directories, destination):
             shutil.copy2(source, target)
 
 
+def check_dce_flags(metadata):
+    """`-no_dce` for the source check, unless the case depends on dead-code elimination."""
+    if metadata and metadata.get("uses_dead_code_elimination") is True:
+        return []
+    return ["-no_dce"]
+
+
 def target_flags(platform_name):
     """`jaic` flags that select the `os-cpu` target of a cross-target check."""
     target_os, _, cpu = platform_name.removesuffix("-mingw").partition("-")
@@ -222,7 +229,7 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
     env["JAIC_STDLIB_TEST_MODE"] = mode
     if mode == "check":
         code, stdout, stderr = run_command(
-            [args.jaic, str(path), "-check", "-no_dce", *target_flags(args.platform)],
+            [args.jaic, str(path), "-check", *check_dce_flags(metadata), *target_flags(args.platform)],
             path.parent,
             args.timeout,
             env,
