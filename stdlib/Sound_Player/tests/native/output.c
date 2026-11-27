@@ -42,10 +42,15 @@ int main(int argc, char **argv) {
         count -= count % 4;
         CHECK(audio_output_submit(output, silence, count) == 0);
         CHECK(audio_output_play(output) == 0);
-#if !defined(__APPLE__)
         /* A buffer that has started playing is no longer counted whole. */
         for (int i = 0; i < 4; ++i) wait_ms();
         CHECK(audio_output_buffered(output) < count);
+#if defined(__APPLE__)
+        /* After an underrun the device clock has moved on; a new buffer counts whole again. */
+        for (int i = 0; i < 12; ++i) wait_ms();
+        CHECK(audio_output_buffered(output) == 0);
+        CHECK(audio_output_submit(output, silence, count) == 0);
+        CHECK(audio_output_buffered(output) > count / 2);
 #endif
         int pause_status = audio_output_set_active(output, 0);
 #if defined(_WIN32) || defined(__APPLE__)

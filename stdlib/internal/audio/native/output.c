@@ -49,6 +49,10 @@ struct AudioOutput {
     AudioQueueBufferRef buffers[SLOT_COUNT];
     _Atomic int occupied[SLOT_COUNT];
     AudioDeviceID default_device;
+    /* Frames submitted since the device opened, and the queue time (in frames) at which all
+       frames before the latest empty-queue submit had been played: what is left to play is
+       the submitted total less the queue time since that point. Producer thread only. */
+    int64_t submitted_frames, played_origin;
 #else
     snd_pcm_t *pcm;
     uint8_t mapped[SLOT_BYTES];
@@ -401,7 +405,16 @@ JAI_AUDIO_API int64_t audio_output_buffered(AudioOutput *output) {
     }
     return bytes;
 #elif defined(__APPLE__)
-    return atomic_load(&output->queued);
+    /* The queue holds a buffer until its last byte plays, so `queued` counts a half-played
+       one whole. The queue's own clock says how much of the queue is left. A queue that is
+       not running has played nothing since it started, and the count stays whole. */
+    int64_t bytes = atomic_load(&output->queued);
+    AudioTimeStamp now;
+    if (bytes > 0 && !AudioQueueGetCurrentTime(output->queue, NULL, &now, NULL) && (now.mFlags & kAudioTimeStampSampleTimeValid)) {
+        int64_t unplayed = (output->submitted_frames - ((int64_t)now.mSampleTime - output->played_origin)) * output->channels * 2;
+        if (unplayed < bytes) bytes = unplayed > 0 ? unplayed : 0;
+    }
+    return bytes;
 #else
     snd_pcm_sframes_t frames = 0;
     int result = snd_pcm_delay(output->pcm, &frames);
@@ -453,12 +466,17 @@ JAI_AUDIO_API int audio_output_submit(AudioOutput *output, const void *bytes, in
         AudioQueueBufferRef buffer = output->buffers[i];
         memcpy(buffer->mAudioData, bytes, (size_t)count);
         buffer->mAudioDataByteSize = (UInt32)count;
+        /* With nothing queued, every earlier frame has played (or was missed in an underrun,
+           while the clock kept running): count from here. */
+        AudioTimeStamp now;
+        if (!atomic_load(&output->queued) && !AudioQueueGetCurrentTime(output->queue, NULL, &now, NULL) && (now.mFlags & kAudioTimeStampSampleTimeValid))
+            output->played_origin = (int64_t)now.mSampleTime - output->submitted_frames;
         atomic_fetch_add(&output->queued, count);
         int result = (int)AudioQueueEnqueueBuffer(output->queue, buffer, 0, NULL);
         if (result) {
             atomic_fetch_sub(&output->queued, count);
             atomic_store(&output->occupied[i], 0);
-        }
+        } else output->submitted_frames += count / (output->channels * 2);
         return result;
     }
     return -2;
