@@ -116,6 +116,27 @@ fn build_problems_say_what_to_change() {
             "help: `first.jai` built another workspace, so it is a build file: add `set_build_options_dc(.{do_output = false});` to its `#run` so it writes no program of its own",
         ],
     );
+    // A created workspace with no `main` is refused before anything links it.
+    std::fs::write(
+        dir.join("build.jai"),
+        "#run {\n    set_build_options_dc(.{do_output = false});\n    w := compiler_create_workspace(\"lib\");\n    add_build_string(\"f :: () {}\", w);\n}\n#import \"Compiler\";\n",
+    )
+    .unwrap();
+    for mode in [None, Some("-check")] {
+        let mut args = vec!["build.jai"];
+        args.extend(mode);
+        let output = jaic(&dir, &args, &[]);
+        let text = stderr(&output);
+        assert_eq!(output.status.code(), Some(1), "{mode:?}: {text}");
+        assert_in_order(
+            &text,
+            &[
+                "error: workspace `lib` has no `main` procedure, so there is no executable to write",
+                "help: add `main :: () { ... }` to its sources, or set its `output_type` to a library",
+            ],
+        );
+        assert!(!text.contains("link"), "{mode:?}: {text}");
+    }
     // A linker that is not installed: what named it, and that `-interp` needs none.
     let output = Command::new(JAIC)
         .args(["ok.jai", "-exe", "prog"])

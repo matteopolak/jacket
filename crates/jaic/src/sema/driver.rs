@@ -695,13 +695,21 @@ impl Compiler {
         )
     }
 
-    /// The exported IR function named `name` (e.g. `"main"`).
     /// Whether the finished program has no `main`, so its entry point (made before that was
     /// known) only stops it and there is no executable to write.
     pub fn lacks_main(&self) -> bool {
         self.pr.lacks_main
     }
 
+    /// Whether an executable of the finished program would have nothing to start: the runtime
+    /// defines the system entry point, which calls `main`, and there is no usable `main`. A
+    /// freestanding program, or one that defines its own entry point, needs none.
+    pub fn misses_main(&self) -> bool {
+        self.options.defines_system_entry_point()
+            && (self.exported_func("main").is_none() || self.lacks_main())
+    }
+
+    /// The exported IR function named `name` (e.g. `"main"`).
     pub fn exported_func(&self, name: &str) -> Option<ir::FuncId> {
         self.pr
             .exports

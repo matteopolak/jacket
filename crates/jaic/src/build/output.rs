@@ -58,6 +58,20 @@ pub(super) fn write_output(
         shared.borrow_mut().run_ready = true;
         return Ok(Written::Done(true));
     }
+    if settings.output_type == OutputType::Executable && compiler.misses_main() {
+        let mut reg = shared.borrow_mut();
+        let name = reg.ws(id)?.name.clone();
+        (reg.env.report)(
+            ReportSeverity::Error,
+            &format!(
+                "error: workspace `{name}` has no `main` procedure, so there is no executable to \
+                 write\n\
+                 help: add `main :: () {{ ... }}` to its sources, or set its `output_type` to a \
+                 library"
+            ),
+        );
+        return Ok(Written::Done(false));
+    }
     let output = output_path(&settings, compiler);
     let name = output.display().to_string().into_bytes();
     events.push(Event {

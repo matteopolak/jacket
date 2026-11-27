@@ -601,9 +601,7 @@ fn missing_main(
     settings: &BuildSettings,
     created: usize,
 ) -> Option<ExitCode> {
-    if settings.output_type != OutputType::Executable
-        || (compiler.exported_func("main").is_some() && !compiler.lacks_main())
-    {
+    if settings.output_type != OutputType::Executable || !compiler.misses_main() {
         return None;
     }
     let file = shown(path);
