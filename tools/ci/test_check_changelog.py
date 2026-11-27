@@ -45,6 +45,12 @@ class Notes(unittest.TestCase):
         text = GOOD.replace("- Sound_Player no longer crackles on Windows. (#84, @someone)\n", bullet)
         self.assertEqual(cc.problems(text), [])
 
+    def test_images_do_not_count(self):
+        table = '<table>\n<tr><td><img src="https://example.com/a.svg" alt="one two three four five six"></td></tr>\n</table>\n'
+        image = "![seven eight nine ten eleven twelve](https://example.com/b.svg)\n"
+        text = GOOD.replace("Audio no longer crackles.\n", "Audio no longer crackles.\n\n" + table + "\n" + image)
+        self.assertEqual(cc.problems(text), [])
+
     def test_summary_limits(self):
         text = GOOD.replace("Jacket builds for new targets. Audio no longer crackles.", "One. Two. Three.")
         self.assertEqual(cc.problems(text), ["the summary has 3 sentences, the limit is 2"])

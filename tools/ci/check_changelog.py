@@ -5,7 +5,8 @@ The notes under `## [Unreleased]` (or `## Unreleased`) become the GitHub release
 fixed limits: a summary of at most SUMMARY_SENTENCES sentences and SUMMARY_WORDS words before the
 first `###` heading, only the SECTIONS headings in that order, at most MAX_HIGHLIGHTS highlights, and
 at most BULLET_WORDS words per bullet (TABLE_CELL_WORDS per table cell). Link targets and a trailing
-attribution such as `(#84, @someone)` are not counted. Released sections are left alone.
+attribution such as `(#84, @someone)` are not counted, nor are images (`![...](...)` or HTML tags such as an
+`<img>` table). Released sections are left alone.
 `tools/bump_version.py` runs the same check before it names the section.
 
     PYTHONPATH=tools python3 tools/ci/check_changelog.py
@@ -23,6 +24,7 @@ TABLE_CELL_WORDS = 15
 MAX_HIGHLIGHTS = 6
 SECTIONS = ("Highlights", "Breaking changes", "Fixes")
 
+IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)|<[^>]*>")
 LINK_TARGET = re.compile(r"\]\([^)]*\)")
 ATTRIBUTION = re.compile(r"\s*\((?:#\d+|@[\w-]+)(?:,\s*(?:#\d+|@[\w-]+))*\)\s*$")
 SENTENCE_END = re.compile(r"[.!?](?:\s|$)")
@@ -39,7 +41,7 @@ def unreleased(text):
 
 
 def words(text):
-    return len(ATTRIBUTION.sub("", LINK_TARGET.sub("]", text)).split())
+    return len(ATTRIBUTION.sub("", LINK_TARGET.sub("]", IMAGE.sub(" ", text))).split())
 
 
 def preview(text):
