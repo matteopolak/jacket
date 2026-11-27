@@ -25,6 +25,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - Compile-time code for 32-bit targets stores a pointer in a local without overwriting the next member.
 - Atomic operations in compile-time code for s390x and powerpc64 use the program's byte order.
 - `stat`, `lstat` and `fstat` fill the right record on armv7 Linux and work at compile time on s390x and powerpc64.
+- Compile-time C library calls on 32-bit and big-endian targets fill `stat`, `tm`, `timespec` and end pointers at the program's layout.
 
 ## [0.40.0] - 2026-11-24
 

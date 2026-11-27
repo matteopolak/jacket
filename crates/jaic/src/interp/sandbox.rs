@@ -23,6 +23,7 @@ mod memory;
 mod numeric;
 mod objc;
 mod process;
+mod records;
 mod sockets;
 mod stdin;
 mod streams;
@@ -304,11 +305,14 @@ pub struct SandboxHost {
     dirs: HashMap<u64, DirStream>,
     /// Darwin POSIX layouts and configuration query numbers for host-target metaprograms.
     darwin_files: bool,
-    /// Linux i686 file records (`struct stat` with 4-byte alignment for 8-byte fields).
-    i686_files: bool,
+    /// The CPU whose C library records the program uses; `None` is Linux x86-64's, which the
+    /// stdlib's wasm records share.
+    cpu: Option<crate::target::TargetCpu>,
     errno_cell: u64,
     /// Windows' `GetLastError`.
     windows: super::windows::WindowsCalls,
+    /// The "C" `setlocale` returns, in program memory; 0 until first asked for.
+    locale_name: u64,
     /// `strerror` results by error number; they stay valid for the whole run, like libc's.
     error_texts: HashMap<u64, u64>,
     stdin: stdin::Stdin,
@@ -339,10 +343,19 @@ impl SandboxHost {
         self.darwin_files = os == crate::target::TargetOs::MacOS;
     }
 
-    /// Select the CPU whose C records the guest uses. Only 32-bit x86 differs from the
-    /// 64-bit Linux records the sandbox writes by default.
+    /// Select the CPU whose C library records (`struct stat`) the guest uses.
     pub fn set_cpu(&mut self, cpu: crate::target::TargetCpu) {
-        self.i686_files = cpu == crate::target::TargetCpu::X86;
+        self.cpu = Some(cpu);
+    }
+
+    /// The bytes of a C `long` in the records the program's C library fills: the target's, but
+    /// 8 for wasm, whose library (`internal/files/wasi-libc`) keeps 64-bit fields on wasm32.
+    fn long_bytes(&self) -> u8 {
+        if self.cpu == Some(crate::target::TargetCpu::Wasm) {
+            8
+        } else {
+            guest::layout().c.long
+        }
     }
 
     /// Stop all code running on this host `limit` from now: the check it belongs to has a
@@ -556,76 +569,34 @@ impl SandboxHost {
         Some(target)
     }
 
-    #[allow(
-        clippy::disallowed_methods,
-        reason = "the sandbox writes interpreter memory, which is host memory"
-    )]
     fn fill_stat(&self, path: &str, out: u64) -> Result<(), u64> {
+        let inode = self.fs.inode(path);
         let links = 1 + self
             .fs
             .inodes
             .iter()
-            .filter(|(p, i)| **i == self.fs.inode(path) && p.as_str() != path)
+            .filter(|(p, i)| **i == inode && p.as_str() != path)
             .count() as u64;
         let (mode, size) = if self.fs.is_dir(path) {
             (S_IFDIR | 0o755, 4096)
         } else if self.fs.exists_file(path) {
-            (S_IFREG | 0o644, self.fs.file_size(path) as i64)
+            (S_IFREG | 0o644, self.fs.file_size(path) as u64)
         } else {
             return Err(ENOENT);
         };
-        // The 64-bit records occupy 144 bytes, but their fields differ; i686's takes 108.
-        fill(
-            out,
-            0,
-            if self.i686_files {
-                108
-            } else {
-                144
-            },
-        );
-        let put = |off: u64, v: u64, width: usize| {
-            write_bytes(out + off, &v.to_le_bytes()[..width]);
+        let os = if self.darwin_files {
+            crate::target::TargetOs::MacOS
+        } else {
+            crate::target::TargetOs::Linux
         };
-        let mtime = self.fs.mtimes.get(path).copied().unwrap_or(BASE_MTIME);
-        if self.darwin_files {
-            put(0, 1, 4); // st_dev
-            put(4, u64::from(mode), 2);
-            put(6, links, 2);
-            put(8, self.fs.inode(path), 8);
-            for off in [32, 48, 64, 80] {
-                put(off, mtime, 8);
-            }
-            put(96, size as u64, 8);
-            put(104, (size as u64).div_ceil(512), 8);
-            put(112, 4096, 4);
-            return Ok(());
-        }
-        if self.i686_files {
-            // 8-byte fields sit on 4-byte boundaries and `timespec` is 16 bytes.
-            put(0, 1, 8); // st_dev
-            put(8, self.fs.inode(path), 8); // st_ino
-            put(16, mode as u64, 4);
-            put(20, links, 4); // st_nlink
-            put(40, size as u64, 8);
-            put(48, 4096, 4); // st_blksize
-            put(52, (size as u64).div_ceil(512), 8); // st_blocks
-            for off in [60, 76, 92] {
-                put(off, mtime, 8);
-            }
-            return Ok(());
-        }
-        // Linux x86-64 `struct stat` (also the stdlib's wasm record).
-        put(0, 1, 8); // st_dev
-        put(8, self.fs.inode(path), 8); // st_ino
-        put(16, links, 8); // st_nlink
-        put(24, mode as u64, 4);
-        put(48, size as u64, 8);
-        put(56, 4096, 8); // st_blksize
-        put(64, (size as u64).div_ceil(512), 8); // st_blocks
-        for off in [72, 88, 104] {
-            put(off, mtime, 8);
-        }
+        let file = records::FileStat {
+            inode,
+            mode,
+            links,
+            size,
+            mtime: self.fs.mtimes.get(path).copied().unwrap_or(BASE_MTIME),
+        };
+        records::fill_stat(os, self.cpu, out, &file);
         Ok(())
     }
 
@@ -637,9 +608,10 @@ impl SandboxHost {
     }
 }
 
-/// The stat call a Linux x86-64 `syscall(number, ...)` makes, if it is one.
-fn stat_syscall(symbol: &str, args: &[u64]) -> Option<LibcFn> {
-    if symbol != "syscall" || !cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+/// The stat call a Linux x86-64 program's `syscall(number, ...)` makes, if it is one; the
+/// numbers are the target's, so `x64_linux` says whether the program is one.
+fn stat_syscall(x64_linux: bool, symbol: &str, args: &[u64]) -> Option<LibcFn> {
+    if symbol != "syscall" || !x64_linux {
         return None;
     }
     match word_or_zero(args, 0) {
@@ -698,7 +670,9 @@ impl Host for SandboxHost {
         sig: &ir::Sig,
     ) -> Option<Result<Vec<u64>, String>> {
         // Linux x86-64 reaches the stat family through syscall(2) (stdlib/POSIX/wrappers.jai).
-        let (fun, args) = match stat_syscall(symbol, args) {
+        let x64_linux =
+            !self.darwin_files && matches!(self.cpu, None | Some(crate::target::TargetCpu::X64));
+        let (fun, args) = match stat_syscall(x64_linux, symbol, args) {
             Some(fun) => (fun, args.get(1..).unwrap_or_default()),
             None => match SandboxFn::lookup(symbol)? {
                 SandboxFn::Windows(fun) => {

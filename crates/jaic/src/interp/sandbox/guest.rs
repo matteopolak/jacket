@@ -1,5 +1,7 @@
 //! The sandboxed program's memory, reached through the addresses it passes to the libc
-//! stand-ins.
+//! stand-ins, read and written at the program's own layout: the window base, the byte order
+//! and the widths of a pointer and a `size_t` come from the interpreter's
+//! `DataLayout` for the length of each call (`with_memory`).
 //!
 //! The interpreter hands programs real host addresses and checks none of them: an interpreted
 //! load or store dereferences its address as is. A stand-in that reads or writes through an
@@ -7,26 +9,85 @@
 //! is the program's bug, as it would be in native code. These functions are the one place that
 //! says so; the stand-ins call them instead of dereferencing raw addresses themselves.
 
+use crate::layout::DataLayout;
 use std::cell::Cell;
 
-thread_local! {
-    /// The host address of program address 0 while a stand-in runs: the window's start for a
-    /// program with narrow pointers, 0 otherwise (`with_base`).
-    static BASE: Cell<u64> = const { Cell::new(0) };
+/// The program memory a stand-in sees.
+#[derive(Clone, Copy)]
+struct Memory {
+    /// The host address of program address 0: the window's start for a program with narrow
+    /// pointers, 0 otherwise.
+    base: u64,
+    layout: DataLayout,
 }
 
-/// Run `f`, a stand-in, with `base` as the host address of program address 0.
-pub(in crate::interp) fn with_base<R>(base: u64, f: impl FnOnce() -> R) -> R {
-    let outer = BASE.replace(base);
+thread_local! {
+    static MEMORY: Cell<Memory> = Cell::new(Memory {
+        base: 0,
+        layout: DataLayout::host(),
+    });
+}
+
+/// Run `f`, a stand-in, on program memory laid out as `layout` whose address 0 is host
+/// address `base`.
+pub(in crate::interp) fn with_memory<R>(base: u64, layout: DataLayout, f: impl FnOnce() -> R) -> R {
+    let outer = MEMORY.replace(Memory {
+        base,
+        layout,
+    });
     let result = f();
-    BASE.set(outer);
+    MEMORY.set(outer);
     result
+}
+
+/// The layout of the program memory stand-ins are reaching.
+pub(in crate::interp) fn layout() -> DataLayout {
+    MEMORY.get().layout
 }
 
 /// The host address of program address `addr`.
 #[inline]
 fn host(addr: u64) -> u64 {
-    addr.wrapping_add(BASE.get())
+    addr.wrapping_add(MEMORY.get().base)
+}
+
+/// The unsigned integer of `width` bytes at `addr`, in the program's byte order.
+pub(in crate::interp) fn read_uint(addr: u64, width: u8) -> u64 {
+    let mut bytes = [0u8; 8];
+    let width = usize::from(width);
+    // SAFETY: see the module documentation; `bytes` is host memory, so it cannot overlap.
+    unsafe {
+        std::ptr::copy_nonoverlapping(host(addr) as *const u8, bytes.as_mut_ptr(), width);
+    }
+    layout().read_uint(&bytes[..width])
+}
+
+/// Stores the low `width` bytes of `value` at `addr`, in the program's byte order.
+pub(in crate::interp) fn write_uint(addr: u64, width: u8, value: u64) {
+    let mut bytes = [0u8; 8];
+    let width = usize::from(width);
+    layout().write_uint(&mut bytes[..width], value);
+    write_bytes(addr, &bytes[..width]);
+}
+
+/// The pointer at `addr`, as wide as the program's.
+pub(in crate::interp) fn read_word(addr: u64) -> u64 {
+    read_uint(addr, layout().pointer_size)
+}
+
+/// Stores the pointer `value` at `addr`, as wide as the program's.
+pub(in crate::interp) fn write_word(addr: u64, value: u64) {
+    write_uint(addr, layout().pointer_size, value);
+}
+
+/// The `size_t` at `addr`.
+pub(in crate::interp) fn read_size(addr: u64) -> u64 {
+    read_uint(addr, layout().c.size_t)
+}
+
+/// Stores the `size_t` `value` at `addr`.
+pub(in crate::interp) fn write_size(addr: u64, value: u64) {
+    write_uint(addr, layout().c.size_t, value);
 }
 
 /// The byte at `addr`.
@@ -35,23 +96,20 @@ pub(in crate::interp) fn read_u8(addr: u64) -> u8 {
     unsafe { *(host(addr) as *const u8) }
 }
 
-/// The unaligned `u32` at `addr`.
+/// The `u32` at `addr`, in the program's byte order.
 #[cfg(test)]
 pub(super) fn read_u32(addr: u64) -> u32 {
-    // SAFETY: see the module documentation.
-    unsafe { std::ptr::read_unaligned(host(addr) as *const u32) }
+    read_uint(addr, 4) as u32
 }
 
-/// The unaligned `u64` at `addr`.
+/// The `u64` at `addr`, in the program's byte order.
 pub(in crate::interp) fn read_u64(addr: u64) -> u64 {
-    // SAFETY: see the module documentation.
-    unsafe { std::ptr::read_unaligned(host(addr) as *const u64) }
+    read_uint(addr, 8)
 }
 
-/// The unaligned `i64` at `addr`.
+/// The `i64` at `addr`, in the program's byte order.
 pub(super) fn read_i64(addr: u64) -> i64 {
-    // SAFETY: see the module documentation.
-    unsafe { std::ptr::read_unaligned(host(addr) as *const i64) }
+    read_uint(addr, 8) as i64
 }
 
 /// A copy of the `len` bytes at `addr`.
@@ -70,28 +128,24 @@ pub(super) fn write_u8(addr: u64, value: u8) {
     unsafe { *(host(addr) as *mut u8) = value }
 }
 
-/// Stores the unaligned `u16` `value` at `addr`.
+/// Stores the `u16` `value` at `addr`, in the program's byte order.
 pub(in crate::interp) fn write_u16(addr: u64, value: u16) {
-    // SAFETY: see the module documentation.
-    unsafe { std::ptr::write_unaligned(host(addr) as *mut u16, value) }
+    write_uint(addr, 2, value as u64);
 }
 
-/// Stores the unaligned `u32` `value` at `addr`.
+/// Stores the `u32` `value` at `addr`, in the program's byte order.
 pub(in crate::interp) fn write_u32(addr: u64, value: u32) {
-    // SAFETY: see the module documentation.
-    unsafe { std::ptr::write_unaligned(host(addr) as *mut u32, value) }
+    write_uint(addr, 4, value as u64);
 }
 
-/// Stores the unaligned `i32` `value` at `addr`.
+/// Stores the `i32` `value` at `addr`, in the program's byte order.
 pub(super) fn write_i32(addr: u64, value: i32) {
-    // SAFETY: see the module documentation.
-    unsafe { std::ptr::write_unaligned(host(addr) as *mut i32, value) }
+    write_uint(addr, 4, value as u32 as u64);
 }
 
-/// Stores the unaligned `u64` `value` at `addr`.
+/// Stores the `u64` `value` at `addr`, in the program's byte order.
 pub(in crate::interp) fn write_u64(addr: u64, value: u64) {
-    // SAFETY: see the module documentation.
-    unsafe { std::ptr::write_unaligned(host(addr) as *mut u64, value) }
+    write_uint(addr, 8, value as u64);
 }
 
 /// Stores `bytes` at `addr`.

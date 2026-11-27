@@ -284,7 +284,11 @@ impl Interp {
         let addr = match addr {
             Some(a) => a,
             None if foreign.is_data => {
-                if let Some(addr) = self.host.foreign_data(&foreign.symbol) {
+                let (base, layout) = (self.base, self.layout);
+                let data = sandbox::guest::with_memory(base, layout, || {
+                    self.host.foreign_data(&foreign.symbol)
+                });
+                if let Some(addr) = data {
                     self.foreign_addrs
                         .resize(self.foreign_addrs.len().max(id.0 as usize + 1), 0);
                     self.foreign_addrs[id.0 as usize] = addr;
@@ -386,9 +390,9 @@ impl Interp {
             }
         }
         if self.host.answers_foreign() {
-            let base = self.base;
+            let (base, layout) = (self.base, self.layout);
             if let Some(result) =
-                sandbox::guest::with_base(base, || self.host.foreign(symbol, args, sig))
+                sandbox::guest::with_memory(base, layout, || self.host.foreign(symbol, args, sig))
             {
                 let exits = matches!(symbol, "exit" | "_exit");
                 return result.map(Rets::from).map_err(|m| {

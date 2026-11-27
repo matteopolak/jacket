@@ -165,6 +165,16 @@ impl Interp {
         }
     }
 
+    /// The `struct timespec` at `addr` an emulated library call was given, as seconds and
+    /// nanoseconds: a 64-bit `time_t` (every target the interpreter runs has one, 32-bit Linux
+    /// through its `*64` time entry points) then a C `long`.
+    pub(super) fn fetch_timespec(&self, addr: u64) -> Res<(u64, u64)> {
+        let secs = self.fetch_u64(addr)?;
+        let long = usize::from(self.layout.c.long);
+        let nanos = self.layout.read_uint(&self.fetch(addr + 8, long)?);
+        Ok((secs, nanos))
+    }
+
     /// `read_u64` for a pointer an intrinsic or emulated library call was given.
     pub(super) fn fetch_u64(&self, addr: u64) -> Res<u64> {
         match self.read_u64(addr) {

@@ -59,7 +59,9 @@ raw_enum! {
         CondBroadcast = "pthread_cond_broadcast",
         CondWait = "pthread_cond_wait",
         CondTimedWait = "pthread_cond_timedwait",
+        CondTimedWait64 = "__pthread_cond_timedwait64",
         Nanosleep = "nanosleep",
+        Nanosleep64 = "__nanosleep64",
         Usleep = "usleep",
         Sleep = "sleep",
         SchedYield = "sched_yield",
@@ -446,20 +448,22 @@ impl Interp {
                 Ok(0)
             }
             ThreadFn::CondWait => self.inline_cond_wait(arg(0), arg(1), None),
-            ThreadFn::CondTimedWait => match (self.fetch_u64(arg(2)), self.fetch_u64(arg(2) + 8)) {
-                (Ok(secs), Ok(nanos)) => {
-                    let deadline = secs.saturating_mul(1_000_000_000).saturating_add(nanos);
-                    self.inline_cond_wait(arg(0), arg(1), Some(deadline))
+            ThreadFn::CondTimedWait | ThreadFn::CondTimedWait64 => {
+                match self.fetch_timespec(arg(2)) {
+                    Ok((secs, nanos)) => {
+                        let deadline = secs.saturating_mul(1_000_000_000).saturating_add(nanos);
+                        self.inline_cond_wait(arg(0), arg(1), Some(deadline))
+                    }
+                    Err(trap) => Err(trap),
                 }
-                (Err(trap), _) | (_, Err(trap)) => Err(trap),
-            },
+            }
             // Sleeping and yielding only matter once another thread exists.
-            ThreadFn::Nanosleep if started => {
-                match (self.fetch_u64(arg(0)), self.fetch_u64(arg(0) + 8)) {
-                    (Ok(secs), Ok(nanos)) => {
+            ThreadFn::Nanosleep | ThreadFn::Nanosleep64 if started => {
+                match self.fetch_timespec(arg(0)) {
+                    Ok((secs, nanos)) => {
                         self.inline_sleep(secs.saturating_mul(1_000_000_000) + nanos)
                     }
-                    (Err(trap), _) | (_, Err(trap)) => Err(trap),
+                    Err(trap) => Err(trap),
                 }
             }
             ThreadFn::Usleep if started => self.inline_sleep((arg(0) as u32 as u64) * 1_000),

@@ -1,17 +1,20 @@
 //! The virtual clock.
 
-use super::{LibcFn, SandboxHost, read_i64, read_u64, write_i32, write_u64};
+use super::guest::{layout, read_uint, write_uint, write_word};
+use super::{LibcFn, SandboxHost, fill, read_i64, read_u64, write_i32, write_u64};
+use crate::layout::Member;
 
 impl SandboxHost {
     /// The virtual clock: sleeping, reading the time, and splitting it into a `struct tm`.
     pub(super) fn time_call(&mut self, fun: LibcFn, arg: impl Fn(usize) -> u64) -> Option<u64> {
         Some(match fun {
-            LibcFn::Nanosleep => {
-                // struct timespec { tv_sec; tv_nsec }: sleeping only moves the virtual clock.
+            LibcFn::Nanosleep | LibcFn::Nanosleep64 => {
+                // struct timespec { time_t tv_sec; long tv_nsec }: sleeping only moves the
+                // virtual clock. `time_t` is 64 bits on every target the sandbox serves.
                 let req = arg(0);
                 if req != 0 {
                     let secs = read_u64(req);
-                    let nanos = read_u64(req + 8);
+                    let nanos = read_uint(req + 8, self.long_bytes());
                     self.clock_ns = self
                         .clock_ns
                         .saturating_add(secs.saturating_mul(1_000_000_000))
@@ -27,9 +30,8 @@ impl SandboxHost {
                 self.clock_ns += (arg(0) as u32 as u64) * 1_000_000_000;
                 0
             }
-            LibcFn::ClockGettime => {
-                // struct timespec { tv_sec: s64; tv_nsec: s64 }; a fixed epoch plus the virtual
-                // clock keeps runs deterministic.
+            LibcFn::ClockGettime | LibcFn::ClockGettime64 => {
+                // A fixed epoch plus the virtual clock keeps runs deterministic.
                 self.clock_ns += 1_000;
                 let ns = self.clock_ns + 1_700_000_000u64 * 1_000_000_000;
                 let out = arg(1);
@@ -37,10 +39,12 @@ impl SandboxHost {
                     return Some(u64::MAX);
                 }
                 write_u64(out, ns / 1_000_000_000);
-                write_u64(out + 8, ns % 1_000_000_000);
+                write_uint(out + 8, self.long_bytes(), ns % 1_000_000_000);
                 0
             }
-            LibcFn::Gettimeofday => {
+            LibcFn::Gettimeofday | LibcFn::Gettimeofday64 => {
+                // struct timeval { time_t tv_sec; suseconds_t tv_usec }: both 64 bits on every
+                // target the sandbox serves (32-bit Linux links the 64-bit time entry points).
                 self.clock_ns += 1_000;
                 let ns = self.clock_ns + 1_700_000_000u64 * 1_000_000_000;
                 if arg(0) != 0 {
@@ -49,7 +53,7 @@ impl SandboxHost {
                 }
                 0
             }
-            LibcFn::Time => {
+            LibcFn::Time | LibcFn::Time64 => {
                 self.clock_ns += 1_000;
                 let secs = 1_700_000_000u64 + self.clock_ns / 1_000_000_000;
                 if arg(0) != 0 {
@@ -57,9 +61,9 @@ impl SandboxHost {
                 }
                 secs
             }
-            LibcFn::GmtimeR | LibcFn::LocaltimeR => {
+            LibcFn::GmtimeR | LibcFn::LocaltimeR | LibcFn::GmtimeR64 | LibcFn::LocaltimeR64 => {
                 let seconds = read_i64(arg(0));
-                fill_tm(seconds, arg(1));
+                fill_tm(seconds, arg(1), self.long_bytes());
                 arg(1)
             }
             _ => return None,
@@ -84,8 +88,9 @@ fn civil(days: i64) -> (i64, i64, i64) {
     (yoe + era * 400 + i64::from(m <= 2), m, d)
 }
 
-/// `gmtime_r`/`localtime_r` (the sandbox's zone is UTC): fill a Linux `struct tm`.
-fn fill_tm(seconds: i64, out: u64) {
+/// `gmtime_r`/`localtime_r` (the sandbox's zone is UTC): fill a `struct tm`, nine `int`s then
+/// a `long tm_gmtoff` of `long` bytes and `const char *tm_zone`, at the program's layout.
+fn fill_tm(seconds: i64, out: u64, long: u8) {
     let days = seconds.div_euclid(86_400);
     let rem = seconds.rem_euclid(86_400);
     let (year, month, day) = civil(days);
@@ -103,10 +108,15 @@ fn fill_tm(seconds: i64, out: u64) {
         yday,
         0,
     ];
-    for (i, v) in fields.iter().enumerate() {
-        write_i32(out + 4 * i as u64, *v as i32);
+    let layout = layout();
+    let mut members = [Member::Int(4); 11];
+    members[9] = Member::Int(long);
+    members[10] = Member::Ptr;
+    let record = layout.pack(&members);
+    fill(out, 0, record.size as usize);
+    for (offset, v) in record.offsets.iter().zip(fields) {
+        write_i32(out + offset, v as i32);
     }
-    write_i32(out + 36, 0);
-    write_u64(out + 40, 0); // tm_gmtoff
-    write_u64(out + 48, 0); // tm_zone
+    write_uint(out + record.offsets[9], long, 0); // tm_gmtoff
+    write_word(out + record.offsets[10], 0); // tm_zone
 }

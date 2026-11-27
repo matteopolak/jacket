@@ -5,7 +5,8 @@
 //! The sandbox never waits itself. An embedder that can (the browser host, which suspends the
 //! module until the user types) asks `stdin_wants_data` before a call and feeds what it needs;
 //! a read that still finds nothing reports the end of input, as on a terminal after Ctrl+D.
-use super::{LibcFn, SandboxHost, read_u64, write_bytes, write_u64};
+use super::guest::{read_size, read_word, write_size, write_word};
+use super::{LibcFn, SandboxHost, write_bytes};
 use crate::interp::word_or_zero;
 use std::collections::VecDeque;
 
@@ -115,7 +116,7 @@ impl SandboxHost {
             self.stdin.stream = stream;
         }
         let cell = self.alloc(8);
-        write_u64(cell, self.stdin.stream);
+        write_word(cell, self.stdin.stream);
         Some(cell)
     }
 
@@ -171,7 +172,7 @@ impl SandboxHost {
                 let length = bytes.len() as u64;
                 bytes.push(0);
                 let (line, size) = (arg(0), arg(1));
-                let (old, capacity) = (read_u64(line), read_u64(size));
+                let (old, capacity) = (read_word(line), read_size(size));
                 let target = if old != 0 && capacity >= bytes.len() as u64 {
                     old
                 } else {
@@ -180,8 +181,8 @@ impl SandboxHost {
                         return Some(FAILED);
                     }
                     self.allocations.remove(&old);
-                    write_u64(line, new);
-                    write_u64(size, bytes.len().max(120) as u64);
+                    write_word(line, new);
+                    write_size(size, bytes.len().max(120) as u64);
                     new
                 };
                 copy(target, &bytes);

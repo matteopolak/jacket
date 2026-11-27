@@ -1005,14 +1005,19 @@ fn i686_linux_stat_record_has_the_32_bit_layout() {
     h.set_cpu(crate::target::TargetCpu::X86);
     let root = cstring("/tmp");
     let mut st = [0xa5_u8; 120];
-    assert_eq!(
+    let layout = crate::target::Target::new(
+        crate::target::TargetOs::Linux,
+        crate::target::TargetCpu::X86,
+    )
+    .data_layout();
+    let result = super::guest::with_memory(0, layout, || {
         call(
             &mut h,
             "stat",
-            &[root.as_ptr() as u64, st.as_mut_ptr() as u64]
-        ),
-        0
-    );
+            &[root.as_ptr() as u64, st.as_mut_ptr() as u64],
+        )
+    });
+    assert_eq!(result, 0);
     let word = |at: usize| u32::from_le_bytes(st[at..at + 4].try_into().unwrap());
     assert_eq!(word(16) & 0xf000, S_IFDIR);
     assert_eq!(word(20), 1);
@@ -1021,6 +1026,40 @@ fn i686_linux_stat_record_has_the_32_bit_layout() {
     assert_eq!(word(76), BASE_MTIME as u32);
     assert_eq!(word(92), BASE_MTIME as u32);
     assert!(st[108..].iter().all(|&byte| byte == 0xa5));
+}
+
+/// The s390x Linux `struct stat` is big-endian, with the times before the block counts.
+#[test]
+#[allow(
+    clippy::disallowed_methods,
+    reason = "the sandbox's records are read back from host memory"
+)]
+fn s390x_linux_stat_record_is_big_endian() {
+    let mut h = host();
+    h.set_file_target(crate::target::TargetOs::Linux);
+    h.set_cpu(crate::target::TargetCpu::S390x);
+    let root = cstring("/tmp");
+    let mut st = [0xa5_u8; 152];
+    let layout = crate::target::Target::new(
+        crate::target::TargetOs::Linux,
+        crate::target::TargetCpu::S390x,
+    )
+    .data_layout();
+    let result = super::guest::with_memory(0, layout, || {
+        call(
+            &mut h,
+            "stat",
+            &[root.as_ptr() as u64, st.as_mut_ptr() as u64],
+        )
+    });
+    assert_eq!(result, 0);
+    let word = |at: usize| u32::from_be_bytes(st[at..at + 4].try_into().unwrap());
+    let long = |at: usize| u64::from_be_bytes(st[at..at + 8].try_into().unwrap());
+    assert_eq!(long(16), 1); // st_nlink
+    assert_eq!(word(24) & 0xf000, S_IFDIR);
+    assert_eq!(long(56), BASE_MTIME); // st_atim
+    assert_eq!(long(104), 4096); // st_blksize
+    assert!(st[144..].iter().all(|&byte| byte == 0xa5));
 }
 
 #[test]

@@ -329,3 +329,25 @@ fn atomics_use_the_targets_byte_order() {
         );
     }
 }
+
+/// The emulated C library fills `struct stat`, `struct tm`, `struct timespec` and an `strto*`
+/// end pointer at the program's own widths, alignments and byte order, so a narrow or
+/// big-endian program reads back what a native one would.
+#[test]
+fn the_emulated_c_library_writes_records_at_the_targets_layout() {
+    let source =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/compiler/targets/libc-records.jai");
+    for target in [
+        "i686-unknown-linux-gnu",
+        "armv7-unknown-linux-gnueabihf",
+        "s390x-unknown-linux-gnu",
+        "powerpc64-unknown-linux-gnu",
+    ] {
+        assert_eq!(
+            run(target, &source),
+            "file 0 11 true\ndirectory 0 true\ndated true\nlisted true\nstrtod 12.5 4 aabbccdd\n\
+             strtol 77 aabbccdd\nclock true true\ntm 71 0 1\n",
+            "{target}"
+        );
+    }
+}

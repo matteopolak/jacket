@@ -107,7 +107,15 @@ impl SandboxHost {
                 if arg(0) > 6 {
                     0
                 } else if arg(1) == 0 || matches!(cstr(arg(1)).as_str(), "" | "C" | "POSIX") {
-                    c"C".as_ptr() as u64
+                    // The name lives in program memory: a host address is not one the program
+                    // can hold when its pointers are narrower.
+                    if self.locale_name == 0 {
+                        self.locale_name = self.alloc(2);
+                        if self.locale_name != 0 {
+                            write_bytes(self.locale_name, b"C\0");
+                        }
+                    }
+                    self.locale_name
                 } else {
                     0
                 }
