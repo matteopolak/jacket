@@ -1,4 +1,4 @@
-// test: compile_fail
+// test: compile_fail("variant: `s64` is not a Variant")
 #import "Basic";
 #import "Extensions/Variant";
 

@@ -1,4 +1,4 @@
-// test: compile_fail
+// test: compile_fail("Variant(void, s64, void): two cases would both be tagged .NONE. Name the cases yourself: `Variant(struct { a: void; b: void; })`")
 #import "Basic";
 #import "Extensions/Variant";
 
