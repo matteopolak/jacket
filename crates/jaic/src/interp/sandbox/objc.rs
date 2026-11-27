@@ -116,6 +116,7 @@ mod tests {
     use super::*;
 
     fn call(host: &mut SandboxHost, symbol: &str, args: &[u64]) -> u64 {
+        super::super::guest::use_host_memory();
         host.objc_foreign(
             ObjcFn::from_name(symbol).expect("an Objective-C symbol"),
             args,

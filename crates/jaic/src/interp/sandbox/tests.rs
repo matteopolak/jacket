@@ -15,7 +15,9 @@ fn sig() -> ir::Sig {
     }
 }
 
+/// A sandbox host whose stand-ins, called directly by the test, reach host memory.
 fn host() -> SandboxHost {
+    super::guest::use_host_memory();
     let mut host = SandboxHost {
         cwd: "/tmp".to_string(),
         ..Default::default()
@@ -1101,6 +1103,7 @@ fn a_host_folder_is_listed_by_its_full_name_and_from_inside_it() {
         .unwrap()
         .to_string_lossy()
         .into_owned();
+    super::guest::use_host_memory();
     let mut h = SandboxHost::with_files(Rc::new(crate::sema::NativeFs), &cwd);
     let names = |h: &mut SandboxHost, path: &str| {
         let path = cstring(path);

@@ -22,33 +22,50 @@ struct Memory {
 }
 
 thread_local! {
-    static MEMORY: Cell<Memory> = Cell::new(Memory {
-        base: 0,
-        layout: DataLayout::host(),
-    });
+    /// Set only while a stand-in runs (`with_memory`): there is no program memory otherwise,
+    /// and no layout to guess.
+    static MEMORY: Cell<Option<Memory>> = const { Cell::new(None) };
+}
+
+/// The program memory of the stand-in running on this thread.
+#[inline]
+fn memory() -> Memory {
+    MEMORY
+        .get()
+        .expect("a libc stand-in reached program memory outside `with_memory`")
 }
 
 /// Run `f`, a stand-in, on program memory laid out as `layout` whose address 0 is host
 /// address `base`.
 pub(in crate::interp) fn with_memory<R>(base: u64, layout: DataLayout, f: impl FnOnce() -> R) -> R {
-    let outer = MEMORY.replace(Memory {
+    let outer = MEMORY.replace(Some(Memory {
         base,
         layout,
-    });
+    }));
     let result = f();
     MEMORY.set(outer);
     result
 }
 
+/// Make host memory the program memory of this thread's stand-ins from now on, for tests that
+/// call them directly.
+#[cfg(test)]
+pub(in crate::interp) fn use_host_memory() {
+    MEMORY.set(Some(Memory {
+        base: 0,
+        layout: DataLayout::host(),
+    }));
+}
+
 /// The layout of the program memory stand-ins are reaching.
 pub(in crate::interp) fn layout() -> DataLayout {
-    MEMORY.get().layout
+    memory().layout
 }
 
 /// The host address of program address `addr`.
 #[inline]
 fn host(addr: u64) -> u64 {
-    addr.wrapping_add(MEMORY.get().base)
+    addr.wrapping_add(memory().base)
 }
 
 /// The unsigned integer of `width` bytes at `addr`, in the program's byte order.
@@ -186,6 +203,7 @@ mod tests {
 
     #[test]
     fn units_are_stored_at_an_odd_address() {
+        use_host_memory();
         let mut buffer = [0u8; 8];
         let at = buffer.as_mut_ptr() as u64 + 1;
         write_units(at, &[0x0201u16, 0x0403]);

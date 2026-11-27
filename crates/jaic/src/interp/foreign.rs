@@ -408,7 +408,9 @@ impl Interp {
             && program.windows_target
             && !cfg!(windows)
             && self.host.native_linking()
-            && let Some(result) = self.windows.foreign(symbol, args, sig)
+            && let Some(result) = sandbox::guest::with_memory(self.base, self.layout, || {
+                self.windows.foreign(symbol, args, sig)
+            })
         {
             return Ok(Rets::from(vec![result]));
         }
