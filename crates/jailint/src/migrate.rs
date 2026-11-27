@@ -257,6 +257,36 @@ impl Work {
     }
 }
 
+/// The tokens of each file's text, kept from the pass that lexed them: a file the last pass did
+/// not edit is not lexed again. An entry is keyed on the text it was lexed from, so a rewrite
+/// that changes the file makes the next lookup lex it afresh.
+#[derive(Default)]
+struct TokenCache {
+    files: BTreeMap<PathBuf, (u64, Vec<Token>)>,
+    /// How many times a file was lexed (for the tests).
+    #[cfg(test)]
+    lexed: usize,
+}
+
+impl TokenCache {
+    /// The tokens of `text`, the current text of `path`.
+    fn tokens(&mut self, path: &Path, text: &str) -> &[Token] {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        text.hash(&mut hasher);
+        let key = hasher.finish();
+        if self.files.get(path).is_none_or(|(kept, _)| *kept != key) {
+            let (tokens, _) = jaic::lexer::lex_ide(jaic::source::FileId(0), text);
+            #[cfg(test)]
+            {
+                self.lexed += 1;
+            }
+            self.files.insert(path.to_path_buf(), (key, tokens));
+        }
+        &self.files[path].1
+    }
+}
+
 /// The result of compiling a [`Work`] after some edits.
 struct Trial {
     work: Work,
@@ -295,6 +325,7 @@ fn plan_with(mut options: Options, migrations: &[&'static Migration]) -> Result<
     let mut rejected: Vec<Rejected> = Vec::new();
     let mut active: Vec<&'static Migration> = migrations.to_vec();
     let mut errors = first.errors.clone();
+    let mut tokens = TokenCache::default();
     let trial = |options: &mut Options, work: &Work, edits: Edits| {
         let mut next = work.clone();
         next.apply(edits);
@@ -308,7 +339,7 @@ fn plan_with(mut options: Options, migrations: &[&'static Migration]) -> Result<
         }
     };
     for pass in 0..MAX_PASSES {
-        let (edits, found) = detect(&work, &errors, &options, &active);
+        let (edits, found) = detect(&work, &errors, &options, &active, &mut tokens);
         manual = found;
         if edits.is_empty() {
             break;
@@ -407,11 +438,12 @@ fn detect(
     errors: &[CompileError],
     options: &Options,
     migrations: &[&'static Migration],
+    cache: &mut TokenCache,
 ) -> (Edits, Vec<Manual>) {
     let mut edits = Edits::new();
     let mut manual = Vec::new();
     for (path, (_, text)) in &work.texts {
-        let (tokens, _) = jaic::lexer::lex_ide(jaic::source::FileId(0), text);
+        let tokens = cache.tokens(path, text);
         // The `modules` folder beside the main file: the file's own folder, or a folder the
         // run was pointed at.
         let main_dirs = options.paths.iter().map(|p| {
@@ -433,7 +465,7 @@ fn detect(
         let source = Source {
             path,
             text,
-            tokens: &tokens,
+            tokens,
             module_dirs: &module_dirs,
         };
         for m in migrations {

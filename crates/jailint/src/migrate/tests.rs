@@ -173,3 +173,18 @@ fn a_file_that_is_not_utf8_is_skipped_and_the_others_are_migrated() {
     assert!(plan.skipped[0].ends_with("other.jai"));
     assert_eq!(plan.files.len(), 1, "{plan:?}");
 }
+
+#[test]
+fn a_file_is_lexed_again_only_when_its_text_changes() {
+    let mut cache = TokenCache::default();
+    let path = Path::new("a.jai");
+    let first = cache.tokens(path, "x := 1;").len();
+    assert_eq!(cache.tokens(path, "x := 1;").len(), first);
+    assert_eq!(cache.lexed, 1, "an unchanged file keeps its tokens");
+    // Another file has tokens of its own.
+    cache.tokens(Path::new("b.jai"), "x := 1;");
+    assert_eq!(cache.lexed, 2);
+    // A rewrite that changes the text makes the next lookup lex it afresh.
+    assert!(cache.tokens(path, "x := 1; y := 2;").len() > first);
+    assert_eq!(cache.lexed, 3);
+}
