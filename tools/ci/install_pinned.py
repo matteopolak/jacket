@@ -32,7 +32,7 @@ from pathlib import Path
 from ci import pins
 from toolkit.download import fetch, fetch_to
 from toolkit.hashing import sha256_bytes
-from toolkit.host import host_cpu, host_os
+from toolkit.host import exe_name, host_cpu, host_os
 from toolkit.repo import ROOT
 
 
@@ -42,7 +42,7 @@ class Prebuilt:
 
     version_pin: str
     url: str
-    # host ("linux-x64", "linux-arm64", "macos") -> (the {target} in the url, the pins.json key of its SHA-256)
+    # host ("linux-x64", "linux-arm64", "macos", "windows-x64") -> (the {target} in the url, the pins.json key of its SHA-256)
     hosts: dict[str, tuple[str, str]]
     binary: str
     version_command: list[str]
@@ -73,6 +73,8 @@ PREBUILT = {
             "linux-x64": ("linux", "nextest_sha256_linux_x64"),
             "linux-arm64": ("linux-arm", "nextest_sha256_linux_arm64"),
             "macos": ("mac", "nextest_sha256_macos"),
+            "windows-x64": ("x86_64-pc-windows-msvc.tar.gz", "nextest_sha256_windows_x64"),
+            "windows-arm64": ("aarch64-pc-windows-msvc.tar.gz", "nextest_sha256_windows_arm64"),
         },
         binary="cargo-nextest",
         version_command=["nextest", "--version"],
@@ -119,7 +121,7 @@ PREBUILT = {
 
 
 def host_key() -> str:
-    """"linux-x64", "linux-arm64", "macos-x64" or "macos-arm64"."""
+    """"linux-x64", "linux-arm64", "macos-x64", "macos-arm64", "windows-x64" or "windows-arm64"."""
     return f"{host_os()}-{host_cpu()}"
 
 
@@ -153,7 +155,7 @@ def install_prebuilt(name: str, manifest: dict, dest: Path) -> None:
             extract(tar, dest, strip=tool.strip, members=tool.members)
     finally:
         os.unlink(archive.name)
-    subprocess.run([str(dest / tool.binary), *tool.version_command], check=True)
+    subprocess.run([str(dest / exe_name(tool.binary, host.split("-")[0])), *tool.version_command], check=True)
 
 
 def extract(

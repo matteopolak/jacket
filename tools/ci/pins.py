@@ -69,6 +69,8 @@ READ_BY = {
     "nextest_sha256_linux_x64": "tools/ci/install_pinned.py",
     "nextest_sha256_linux_arm64": "tools/ci/install_pinned.py",
     "nextest_sha256_macos": "tools/ci/install_pinned.py",
+    "nextest_sha256_windows_x64": "tools/ci/install_pinned.py",
+    "nextest_sha256_windows_arm64": "tools/ci/install_pinned.py",
     "llvm_cov": "tools/ci/install_pinned.py",
     "llvm_cov_sha256_linux_x64": "tools/ci/install_pinned.py",
     "llvm_cov_sha256_linux_arm64": "tools/ci/install_pinned.py",

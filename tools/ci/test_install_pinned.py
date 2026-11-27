@@ -121,6 +121,28 @@ class Prebuilt(unittest.TestCase):
         self.assertEqual(self.install(), ["https://get.nexte.st/1.2.3/linux-arm"])
         self.assertTrue(os.access(self.dest / "cargo-nextest", os.X_OK))
 
+    def test_windows_takes_the_triple_archive_and_runs_the_exe(self):
+        archive = script_archive(
+            {"cargo-nextest.exe": '#!/bin/sh\necho "cargo-nextest $*"\n'}
+        )
+        manifest = dict(self.manifest, nextest_sha256_windows_x64=sha256_bytes(archive))
+        urls = []
+
+        def fake_fetch(url, **kwargs):
+            urls.append(url)
+            return archive
+
+        with (
+            mock.patch.object(install_pinned, "fetch", fake_fetch),
+            mock.patch.object(install_pinned, "host_key", return_value="windows-x64"),
+            redirect_stdout(io.StringIO()),
+        ):
+            install_pinned.install_prebuilt("nextest", manifest, self.dest)
+        self.assertEqual(
+            urls, ["https://get.nexte.st/1.2.3/x86_64-pc-windows-msvc.tar.gz"]
+        )
+        self.assertTrue(os.access(self.dest / "cargo-nextest.exe", os.X_OK))
+
     def test_a_checksum_mismatch_installs_nothing(self):
         bad = dict(self.manifest, nextest_sha256_linux_arm64="0" * 64)
         with self.assertRaises(SystemExit) as caught:
