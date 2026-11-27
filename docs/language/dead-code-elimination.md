@@ -22,6 +22,7 @@ The same declarations in an imported module go unchecked until something calls t
 - Under `.MODULES_ONLY`, in the program's files every global (type and initializer) and constant is checked {#dce.1}, and so is every procedure body unless it is polymorphic or a macro, including nested ones {#dce.2}.
 - A struct constant is checked after its struct is laid out, so it can name the struct's members (`PAD :: size_of(type_of(info))`) {#dce.13}.
 - What those bodies call is checked like any called code, so a module procedure called only by an unreferenced program procedure is checked too {#dce.3}.
+- A body that checked code names is checked in every mode, also when only compile-time code names it on a branch that never ran, or the program has no `main`. A body that waits for a `#placeholder` is the exception in a program with `do_output = false`: only the metaprogram branch that did not run would define it.
 - Polymorphic procedures are checked per instance and macros per expansion, so never-used ones are never checked {#dce.4}.
 - An inactive `#if` branch declares nothing, so nothing in it is checked {#dce.5}.
 - `#run`s inside bodies checked this way run, after the top-level `#run`s {#dce.11}. In modules, a body nothing reaches is never checked and its `#run`s never run {#dce.6}.

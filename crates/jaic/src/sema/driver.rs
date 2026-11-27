@@ -381,7 +381,13 @@ impl Compiler {
         self.epochs.placeholders_final = true;
         self.settle()?;
         self.flush_deferred_infos(crate::sema::Span::NONE, super::typeinfo::InfoFlush::End)?;
-        let lowered = match self.lower_reachable_inner(false) {
+        // Every body something lowered refers to is checked, also when no `main` reaches it:
+        // a procedure that only compile-time code calls, on a branch that never ran, is still
+        // part of the program.
+        let lowered = match self
+            .lower_reachable_inner(false)
+            .and_then(|lowered| self.drain_bodies().map(|()| lowered))
+        {
             Ok(lowered) => lowered,
             // A program its own metaprogram never writes can reach code that waits on a
             // `#placeholder` only the metaprogram's unrun branch would define.

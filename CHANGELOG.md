@@ -11,6 +11,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 
 ### Fixes
 
+- A procedure only an unrun `#run` branch calls is type-checked, also in a program with no `main`.
 - `jailint` treats a failed fatal cast, variadic-size or atomic-alignment check as the end of its path.
 - A parameter or multi-declaration named `case`, `if`, `for` or another statement keyword is an error.
 - A created workspace with no `main` fails with a clear error instead of a linker's `_main` undefined.

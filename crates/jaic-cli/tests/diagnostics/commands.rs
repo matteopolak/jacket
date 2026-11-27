@@ -172,6 +172,22 @@ fn build_problems_say_what_to_change() {
 }
 
 #[test]
+fn a_body_only_compile_time_code_names_is_checked_though_it_never_runs() {
+    let dir = TempDir::new("unrun");
+    let source = "#import \"Compiler\";\n#run build();\n\
+                  build :: () {\n    set_build_options_dc(.{do_output = false});\n    \
+                  if get_build_options().compile_time_command_line.count == 0 return;\n    \
+                  helper();\n}\n\
+                  helper :: () {\n    x: int = \"text\";\n}\n";
+    for mode in ["-check", ""] {
+        let output = jaic_on(&dir, "build.jai", source, mode, &[]);
+        let text = stderr(&output);
+        assert_eq!(output.status.code(), Some(1), "{mode}: {text}");
+        assert_in_order(&text, &["build.jai:9:14: error[type-mismatch]"]);
+    }
+}
+
+#[test]
 fn command_line_mistakes_explain_themselves() {
     let dir = TempDir::new("cli");
     std::fs::write(dir.join("ok.jai"), "main :: () {}\n").unwrap();
