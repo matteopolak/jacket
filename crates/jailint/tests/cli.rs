@@ -451,3 +451,27 @@ fn fix_writes_the_float32_spelling_of_a_literal_float32_cannot_hold() {
     );
     assert_eq!(code, Some(0), "{text}");
 }
+
+#[test]
+fn a_compile_time_run_over_the_step_budget_is_reported_as_incomplete() {
+    // With no wall-clock limit, the evaluation budget is the only bound on a `#run`.
+    let dir = scratch("step-budget");
+    std::fs::write(
+        dir.join("spin.jai"),
+        "spin :: () -> int {\n    total := 0;\n    for 0..100000 total += it;\n    return total;\n}\n\nvalue :: #run spin();\n\nmain :: () {}\n",
+    )
+    .unwrap();
+    let (err, code) = jailint(
+        &dir,
+        &["-D", "warnings", "--compile-time-budget", "1", "spin.jai"],
+    );
+    assert!(
+        err.contains("warning[lint-incomplete]: spin.jai did not compile completely"),
+        "{err}"
+    );
+    assert_eq!(code, Some(1), "{err}");
+    // Within the budget the same program compiles completely.
+    let (err, code) = jailint(&dir, &["-D", "warnings", "spin.jai"]);
+    assert!(!err.contains("lint-incomplete"), "{err}");
+    assert_eq!(code, Some(0), "{err}");
+}

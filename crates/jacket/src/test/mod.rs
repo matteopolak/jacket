@@ -606,9 +606,6 @@ fn run_once(
         &toolchain
     };
     let mut broken = false;
-    if args.check_only && !list && !bench {
-        broken = !check_roots(&roots, &root_flags, &work, &toolchain);
-    }
     let built: Vec<Option<Built>> = built
         .into_iter()
         .zip(&roots)
@@ -717,6 +714,12 @@ fn run_once(
         }
         let _ = std::fs::remove_dir_all(&work);
         return ExitCode::SUCCESS;
+    }
+    // The files of the selected tests only, so a filter or a partition shares the check too.
+    if args.check_only && !bench && !check_roots(&roots, &selected, &root_flags, &work, &toolchain)
+    {
+        let _ = std::fs::remove_dir_all(&work);
+        return ExitCode::from(2);
     }
     if selected.is_empty() {
         let _ = std::fs::remove_dir_all(&work);
@@ -1089,18 +1092,32 @@ fn execute(
     }
 }
 
-/// Type-checks the unit tests of every root for the target of `toolchain`, printing each root
-/// that does not. Whether all of them passed.
+/// Type-checks the unit test files of the `selected` cases, a root at a time, for the target of
+/// `toolchain`, printing each root that does not. Whether all of them passed.
 fn check_roots(
     roots: &[discover::Root],
+    selected: &[Case],
     root_flags: &[Vec<String>],
     work: &Path,
     toolchain: &Toolchain,
 ) -> bool {
     let mut passed = true;
-    for (i, root) in roots.iter().enumerate().filter(|(_, r)| !r.unit.is_empty()) {
+    for (i, root) in roots.iter().enumerate() {
+        let files: Vec<PathBuf> = root
+            .unit
+            .iter()
+            .filter(|file| {
+                selected
+                    .iter()
+                    .any(|c| c.root == i && c.kind == Kind::Test && &c.file == *file)
+            })
+            .cloned()
+            .collect();
+        if files.is_empty() {
+            continue;
+        }
         let work = work.join(format!("check-{i}"));
-        if let Err(output) = build::check_unit(&root.unit, &root_flags[i], &work, toolchain) {
+        if let Err(output) = build::check_unit(&files, &root_flags[i], &work, toolchain) {
             eprintln!(
                 "jacket: error: the tests in {} do not compile for {}\n{output}",
                 root.dir.join("tests").display(),
