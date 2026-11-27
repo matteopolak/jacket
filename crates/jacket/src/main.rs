@@ -73,6 +73,10 @@ fn main() -> ExitCode {
         } => dep::run(action, &cwd),
         Command::Clean => commands::clean(&cwd),
         Command::Version => commands::version(),
+        Command::Completions {
+            shell,
+            tool,
+        } => commands::completions(shell, tool),
         Command::Explain {
             code,
         } => commands::explain(code.as_deref()),

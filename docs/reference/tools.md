@@ -46,10 +46,10 @@ By default jaic builds a native executable. Options may come before or after the
 
 | Option | Meaning |
 | --- | --- |
+| `-import_dir <dir>` | also look for modules in &lt;dir&gt; (repeatable; short form -I) |
+| `-package_import_dir <package>=<dir>` | also look for modules in &lt;dir&gt;, for the files under &lt;package&gt; only (repeatable) |
 | `-add "code"` | add the code to the target program (repeatable) |
 | `-run "code"` | run the code at compile time, as a `#run` (repeatable) |
-| `-import_dir <dir>` | also look for modules in &lt;dir&gt; (repeatable; short form -I) |
-| `-package_import_dir <package>=<dir>also look for modules in <dir>, for the files under <package> only (repeatable)` |  |
 | `-os <os>` | target OS: linux, windows, macos or wasm |
 | `-cpu <cpu>` | target CPU: x64 or arm64 |
 | `-target <triple>` | build for an LLVM target triple (overrides -os and -cpu) |
@@ -61,29 +61,29 @@ By default jaic builds a native executable. Options may come before or after the
 
 | Option | Meaning |
 | --- | --- |
-| `-deps_file <file>` | after the compile, write the source files it read to the file, as -deps lists them |
-| `-j, --jobs <n>` | run n compiles (or tests) at once (default: one per CPU) |
 | `-exe <name>` | the executable's name; it may include a directory and extension (`-exe build/app.exe`). A bare name goes in the current directory |
 | `-output_path <dir>` | the directory the executable is written to |
 | `-o, -optimized` | optimized build (LLVM O2) without stack traces or runtime checks |
 | `-od, -optimized_debug` | lightly optimized build (LLVM O1) that keeps stack traces and checks |
 | `-very_debug` | unoptimized build with every runtime check on |
 | `-O0, -O1, -O2, -O3` | pick the LLVM optimization level directly |
-| `-no_inline` | do not inline procedures |
-| `-no_split` | generate code as one module instead of several |
-| `-backtrace_on_crash` | install the crash handler (a metaprogram's setting wins; -no_backtrace_on_crash overrides) |
-| `-no_backtrace_on_crash` | leave the crash handler out of the program |
 | `-emit_ir <file.ll>` | also write the LLVM IR |
 | `-no_debug_info` | leave out native debug information |
+| `-no_inline` | do not inline procedures |
+| `-no_split` | generate code as one module instead of several |
+| `-no_backtrace_on_crash` | leave the crash handler out of the program |
+| `-backtrace_on_crash` | install the crash handler (a metaprogram's setting wins; -no_backtrace_on_crash overrides) |
 | `-linker <program>` | link with this program instead of the one found for the target (also JAIC_LINKER) |
 | `-sysroot <dir>` | the C library folder a cross link uses (also JAIC_SYSROOT) |
 | `-compiler_rt <file>` | the compiler builtins archive a freestanding link uses (also JAIC_COMPILER_RT) |
 | `-link_arg <argument>` | an argument for the linker, in `ld.lld`'s spelling; repeat it for each argument. It is translated for the linker in use (`--gc-sections` is `/OPT:REF` for `link.exe`) |
 | `-sanitize <list>` | address, undefined and/or fuzzer, comma-separated |
 | `-coverage` | record line and function coverage (docs/tools/coverage.md) |
+| `-deps_file <file>` | after the compile, write the source files it read to the file, as -deps lists them |
 | `-no_workspace_output` | (-interp only) do not write what a metaprogram's workspaces ask for |
 | `-codegen_units <n>` | generate code as exactly &lt;n&gt; modules (1 is -no_split; only a build uses it) |
 | `-threads <n>` | threads in the pool that code generation and other parallel work share (default: one per core) |
+| `-j, --jobs <n>` | run n compiles (or tests) at once (default: one per CPU) |
 | `-parse_threads <n>` | threads that parse files ahead of the checker (0 parses serially) |
 | `-serial_parse` | parse every file on the checking thread |
 
@@ -99,22 +99,23 @@ By default jaic builds a native executable. Options may come before or after the
 
 | Option | Meaning |
 | --- | --- |
+| `-timings` | report the wall time of each phase on stderr |
+| `-no_color` | no colour in diagnostics |
 | `--color <when>` | colour in diagnostics: auto, always or never |
+| `-msvc_format` | one `path(line,col): error: message` line per diagnostic |
 | `-A <code>` | allow a warning: print nothing (`warnings` for all, `leniencies` for the forms the official compiler rejects; `jacket explain` lists the codes) |
 | `-W <code>` | warn about a code (the default) |
 | `-D <code>` | deny a warning: print it as an error and fail (`-D warnings` for all) |
-| `-no_color` | no colour in diagnostics |
-| `-msvc_format` | one `path(line,col): error: message` line per diagnostic |
 | `-quiet` | print nothing but errors (no build status either) |
 | `-verbose` | say what is being done |
-| `-timings` | print the wall time of each phase on stderr |
 | `-h, -help, --help` | print this help |
+| `-V, -version, --version` | print the version |
 | `-print_stdlib` | print the standard library folder jaic uses and exit |
+| `-completions <shell>` | print a completion script for bash, zsh or fish, and exit |
 | `-doc_comments <dir>` | print the doc comments of the library in &lt;dir&gt; as records, for `jacket test`; -import_dir folders are searched for the modules it imports |
 | `-doc_gaps <dir>` | print which public declarations of the library in &lt;dir&gt; have docs and an example; -import_dir folders are searched for the modules it imports |
 | `-doc_model <dir>` | print the documentation of the library in &lt;dir&gt; (items, signatures, docs) as JSON, with what its public top-level `#insert`s declare (compiled once with default module parameters), for `jacket doc` |
 | `-procedures <dirs>` | print every procedure with a body below the folders &lt;dirs&gt; (a path list) as records, for `jacket test --coverage`; `-os` and `-cpu` pick the `#if` branches |
-| `-V, -version, --version` | print the version |
 | `-profile` | count what the interpreter runs per procedure and print the busiest |
 | `-profile_runs` | print the compile-time runs (#run, constants, metaprograms) by the work they did |
 | `-run_budget <steps>` | steps (loop iterations and calls) one compile-time run may execute before it fails (default 1000000000; 0: no limit) |
@@ -127,7 +128,7 @@ By default jaic builds a native executable. Options may come before or after the
 | `JAIC_DIAGNOSTICS=plain\|ascii\|unicode` | diagnostic layout (default: by terminal) |
 | `NO_COLOR, FORCE_COLOR, CLICOLOR_FORCE` | turn colour off or on |
 
-exit status: 0 success, 1 the program failed to compile, an input file cannot be read or a runtime error stopped it (`-interp` otherwise exits with the program's own status), 2 a command-line mistake, 3 a build found no `main` to make an executable from, 120 the memory limit, 121 native code crashed under the interpreter, 101 an internal compiler error
+Exit status: 0 success, 1 the program failed to compile, an input file cannot be read or a runtime error stopped it (`-interp` otherwise exits with the program's own status), 2 a command-line mistake, 3 a build found no `main` to make an executable from, 120 the memory limit, 121 native code crashed under the interpreter, 101 an internal compiler error
 
 `--target NAME` builds for a `[target.NAME]` of `jacket.toml` or a built-in board; `jacket toolchain` lists them and what each needs ([toolchains](../guides/toolchains.md)).
 
@@ -701,6 +702,29 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `TERM` | `dumb` turns colour, layout characters and the live status line off. | unset | jaic, jacket, jailint |
 | `WT_SESSION` | Set by Windows Terminal; it gets the Unicode diagnostic layout. | unset | jaic, jailint |
 | `XDG_CACHE_HOME` | The user cache root; `jaic` uses its `jaic` folder. | unset | jaic, jacket |
+
+### Shell completions
+
+`jacket completions` prints a completion script for `jacket`; with `--tool jaic` it prints the one for the flags of `jaic`, which `jaic -completions <shell>` prints too.
+
+Print a shell completion script for jacket, or for the flags of `jaic`
+
+```text
+jacket completions [OPTIONS] <SHELL>
+```
+
+#### Arguments
+
+| Argument | Meaning |
+| --- | --- |
+| `<SHELL>` | The shell to complete in: bash, zsh or fish |
+
+#### Options
+
+| Option | Meaning |
+| --- | --- |
+| `--tool <TOOL>` | Whose commands and flags to complete: `jacket`'s own, or `jaic`'s (which `build`, `check` and `run` take) [default: jacket] [possible values: jacket, jaic] |
+| `-h, --help` | Print help |
 
 ### Installing
 

@@ -1,6 +1,10 @@
 //! Parsed compiler settings, with no execution or backend initialization.
-use crate::options::CliError;
+use crate::options::{
+    CliError, FLAVOR_CONFLICT, add_code, add_run, add_sanitizer, read_cpu, read_os,
+    read_package_import, set_color, store_level,
+};
 use crate::tuning;
+use argdef::{Args, Shell};
 use jaic::builtin_keys::BitcodeOptimization;
 use jaic::sema::Options;
 use jaic::target::{Target, TargetCpu, TargetOs};
@@ -88,6 +92,16 @@ pub struct Plugin {
     pub options: Vec<String>,
 }
 
+impl argdef::Group for Plugin {
+    fn start(name: &str) -> Self {
+        Plugin::parse(name)
+    }
+
+    fn push(&mut self, arg: &str) {
+        self.options.push(arg.to_string());
+    }
+}
+
 impl Plugin {
     /// Split a `Name` or `Name(A=1,B=2)` plugin argument.
     pub fn parse(spec: &str) -> Self {
@@ -157,88 +171,278 @@ impl Cli {
     }
 }
 
-/// Parsed command line.
-#[derive(Default)]
+/// compile, check and run Jai programs
+///
+/// By default jaic builds a native executable. Options may come before or after the file.
+// The doc comments are `-help` text: names and variables stay unquoted.
+#[allow(clippy::doc_markdown, clippy::duplicated_attributes)]
+#[derive(Default, Args)]
+#[args(
+    name = "jaic",
+    version = env!("CARGO_PKG_VERSION"),
+    usage = "jaic [options] file.jai [options] [+Plugin [plugin options...]]... [- metaprogram args...] [-- program args...]",
+    sections = ["Modes", "Program", "Output (building only)", "Plugins", "Diagnostics and output"],
+)]
 pub struct Cli {
+    // `-check`, `-interp` and `-deps` are read into `mode` by `Mode::from_flags`.
+    /// compile the program without running or writing anything
+    #[arg(name = "-check", section = "Modes", tag = "check")]
+    pub check: bool,
+    /// run `main` in the interpreter (arguments after `--` go to the program)
+    #[arg(name = "-interp", tag = "interp")]
+    pub interp: bool,
+    /// like -check, then print every source file the compile read, one per line
+    #[arg(name = "-deps", tag = "deps")]
+    pub deps: bool,
+    #[arg(skip)]
     pub mode: Mode,
+    #[arg(skip)]
     pub file: String,
+    /// also look for modules in <dir> (repeatable; short form -I)
+    #[arg(
+        name = "-import_dir",
+        name = "-I",
+        synopsis = "-import_dir <dir>",
+        value = "dir",
+        needs = "a directory",
+        hint = "dir",
+        tag = "import",
+        section = "Program"
+    )]
     pub imports: Vec<PathBuf>,
-    /// `-package_import_dir`: `(package folder, folder)`.
+    /// also look for modules in <dir>, for the files under <package> only (repeatable)
+    #[arg(name = "-package_import_dir", synopsis = "-package_import_dir <package>=<dir>", needs = "a package folder and a directory, as <package>=<dir>", parse = read_package_import)]
     pub package_imports: Vec<(PathBuf, PathBuf)>,
-    /// `-exe`: the target workspace's `output_executable_name`. It may carry a directory and an
-    /// extension.
+    // `-exe` is the target workspace's `output_executable_name`: it may carry a directory and
+    // an extension.
+    /// the executable's name; it may include a directory and extension
+    /// (`-exe build/app.exe`). A bare name goes in the current directory
+    #[arg(
+        name = "-exe",
+        value = "name",
+        needs = "an executable name",
+        hint = "file",
+        section = "Output (building only)"
+    )]
     pub exe: Option<String>,
-    /// `-output_path`: the target workspace's `output_path`.
+    // The target workspace's `output_path`.
+    /// the directory the executable is written to
+    #[arg(
+        name = "-output_path",
+        value = "dir",
+        needs = "a directory",
+        hint = "dir"
+    )]
     pub output_path: Option<PathBuf>,
-    /// `-o`, `-od` or `-very_debug`.
+    // `-o`, `-od` and `-very_debug` each pick a flavor, so they exclude one another.
+    /// optimized build (LLVM O2) without stack traces or runtime checks
+    #[arg(name = "-o", name = "-optimized", set = Flavor::Optimized, conflict = FLAVOR_CONFLICT)]
+    #[arg(name = "-od", name = "-optimized_debug", set = Flavor::OptimizedDebug, conflict = FLAVOR_CONFLICT, help = "lightly optimized build (LLVM O1) that keeps stack traces and checks")]
+    #[arg(name = "-very_debug", set = Flavor::VeryDebug, conflict = FLAVOR_CONFLICT, help = "unoptimized build with every runtime check on")]
     pub flavor: Option<Flavor>,
-    /// `-O0`..`-O3`; `None`: what the metaprogram chose (default: unoptimized).
+    // `-O0`..`-O3`; `None`: what the metaprogram chose (default: unoptimized).
+    /// pick the LLVM optimization level directly
+    #[arg(name = "-O0", set = BitcodeOptimization::O0, synopsis = "-O0, -O1, -O2, -O3")]
+    #[arg(name = "-O1", set = BitcodeOptimization::O1)]
+    #[arg(name = "-O2", set = BitcodeOptimization::O2)]
+    #[arg(name = "-O3", set = BitcodeOptimization::O3)]
     pub opt_level: Option<BitcodeOptimization>,
+    /// also write the LLVM IR
+    #[arg(
+        name = "-emit_ir",
+        value = "file.ll",
+        needs = "a file to write the LLVM IR to",
+        hint = "file"
+    )]
     pub emit_ir: Option<PathBuf>,
-    /// `-no_debug_info`: omit native debug information (on by default).
+    /// leave out native debug information
+    #[arg(name = "-no_debug_info")]
     pub no_debug_info: bool,
-    /// `-no_inline`: every function not marked `inline` gets `noinline`.
+    /// do not inline procedures
+    #[arg(name = "-no_inline")]
     pub no_inline: bool,
-    /// `-no_split`: generate code in one module instead of several.
+    /// generate code as one module instead of several
+    #[arg(name = "-no_split")]
     pub no_split: bool,
     /// `-codegen_units`, `-parse_threads`, `-profile` and the `-dev_*` flags (`tuning.rs`).
+    #[arg(flatten)]
     pub tuning: tuning::Tuning,
-    /// `-no_backtrace_on_crash`: no crash handler in the target program.
+    /// leave the crash handler out of the program
+    #[arg(name = "-no_backtrace_on_crash")]
     pub no_backtrace_on_crash: bool,
-    /// `-backtrace_on_crash`: install the crash handler without a metaprogram asking for it.
+    /// install the crash handler (a metaprogram's setting wins; -no_backtrace_on_crash overrides)
+    #[arg(name = "-backtrace_on_crash")]
     pub backtrace_on_crash: bool,
-    /// `-add` and `-run` strings.
+    /// add the code to the target program (repeatable)
+    #[arg(name = "-add", alias = "--add", synopsis = "-add \"code\"", needs = "the code to add to the program", with = add_code, section = "Program")]
+    #[arg(name = "-run", synopsis = "-run \"code\"", needs = "the code to run at compile time", with = add_run, help = "run the code at compile time, as a `#run` (repeatable)")]
     pub added: Vec<Added>,
+    #[arg(skip)]
     /// Arguments after `-`, for the metaprogram (`compiler_get_command_line`).
     pub command_line: Vec<String>,
+    #[arg(skip)]
     /// `-interp` only: arguments after `--`, for the program (`get_command_line_arguments`).
     pub program_args: Vec<String>,
-    /// `-os`: the target `OS` when it is not the host (checking code for another platform).
+    /// target OS: linux, windows, macos or wasm
+    #[arg(name = "-os", value = "os", needs = "an OS name: linux, windows, macos or wasm", parse = read_os, tag = "target")]
     pub os: Option<TargetOs>,
-    /// `-cpu`: the target `CPU` when it is not the host's (`-os windows -cpu arm64`).
+    /// target CPU: x64 or arm64
+    #[arg(name = "-cpu", value = "cpu", needs = "a CPU name: x64 or arm64", parse = read_cpu, tag = "target")]
     pub cpu: Option<TargetCpu>,
-    /// `+Name`: metaprogram plugin modules, each with the arguments up to the next `+Name`.
-    pub plugins: Vec<Plugin>,
-    /// `-target`: an explicit LLVM target triple (`x86_64-pc-windows-msvc`...).
+    /// build for an LLVM target triple (overrides -os and -cpu)
+    #[arg(
+        name = "-target",
+        value = "triple",
+        needs = "an LLVM target triple, such as x86_64-pc-windows-gnu",
+        tag = "target"
+    )]
     pub target: Option<String>,
-    /// `-timings`: report the wall time of each phase on stderr.
+    /// run the metaprogram plugin module Name. Every argument after it, up
+    /// to the next +Name, `-` or `--`, is that plugin's own option.
+    /// Module parameters go in the name: '+Check(CHECK_BINDINGS=false)'
+    /// (quote it in a shell). With -interp the program they compile is run.
+    #[arg(group = "+", synopsis = "+Name", section = "Plugins")]
+    pub plugins: Vec<Plugin>,
+    /// the rest is for the metaprogram (`compiler_get_command_line`)
+    #[arg(rest = "-", until = "--", synopsis = "-")]
+    pub after_dash: Option<Vec<String>>,
+    /// the rest is for the program (-interp only)
+    #[arg(rest = "--", synopsis = "--")]
+    pub after_dashes: Option<Vec<String>>,
+    /// report the wall time of each phase on stderr
+    #[arg(name = "-timings", section = "Diagnostics and output")]
     pub timings: bool,
-    /// `-linker`: the program that links (`ld.lld`, a C driver), instead of the lookup's.
+    /// link with this program instead of the one found for the target (also JAIC_LINKER)
+    #[arg(
+        name = "-linker",
+        value = "program",
+        needs = "a program",
+        hint = "file",
+        os,
+        section = "Output (building only)"
+    )]
     pub linker: Option<OsString>,
-    /// `-sysroot`: the C library folder a cross link uses.
+    /// the C library folder a cross link uses (also JAIC_SYSROOT)
+    #[arg(
+        name = "-sysroot",
+        value = "dir",
+        needs = "a directory",
+        hint = "dir",
+        os
+    )]
     pub sysroot: Option<PathBuf>,
-    /// `-compiler_rt`: the compiler builtins archive a freestanding link uses.
+    /// the compiler builtins archive a freestanding link uses (also JAIC_COMPILER_RT)
+    #[arg(
+        name = "-compiler_rt",
+        value = "file",
+        needs = "a file",
+        hint = "file",
+        os
+    )]
     pub compiler_rt: Option<PathBuf>,
-    /// `-link_arg` (repeatable): an argument for the linker, in `ld.lld`'s spelling.
+    /// an argument for the linker, in `ld.lld`'s spelling; repeat it for each argument.
+    /// It is translated for the linker in use (`--gc-sections` is `/OPT:REF` for `link.exe`)
+    #[arg(
+        name = "-link_arg",
+        value = "argument",
+        needs = "a linker argument",
+        os
+    )]
     pub link_args: Vec<OsString>,
-    /// `-sanitize address,undefined` (repeatable): sanitizer instrumentation for builds.
+    /// address, undefined and/or fuzzer, comma-separated
+    #[arg(name = "-sanitize", value = "list", needs = "address, undefined and/or fuzzer, comma-separated", with = add_sanitizer)]
     pub sanitize: Vec<String>,
-    /// `-coverage`: line and function coverage instrumentation (docs/tools/coverage.md).
+    /// record line and function coverage (docs/tools/coverage.md)
+    #[arg(name = "-coverage")]
     pub coverage: bool,
-    /// `-deps`: check the program, then print every source file the compile read.
-    pub deps: bool,
-    /// `-deps_file`: write that list to this file after any compile, whatever the mode.
+    /// after the compile, write the source files it read to the file, as -deps lists them
+    #[arg(
+        name = "-deps_file",
+        value = "file",
+        needs = "a file name",
+        hint = "file"
+    )]
     pub deps_file: Option<PathBuf>,
-    /// `-no_dce`: type-check every declaration, modules included
-    /// (`Build_Options.dead_code_elimination = .NONE`).
+    /// type-check unreferenced module code too
+    #[arg(name = "-no_dce", section = "Program")]
     pub no_dce: bool,
-    /// `-no_check_bindings`: `CHECK_BINDINGS=false` for a `+Check` plugin.
+    // Check is not run unless asked for, so there is nothing to turn off.
+    /// accepted and ignored: jaic does not run the Check plugin unless asked
+    #[arg(name = "-no_check")]
+    pub no_check: bool,
+    /// set CHECK_BINDINGS=false on a +Check plugin, if there is one
+    #[arg(name = "-no_check_bindings")]
     pub no_check_bindings: bool,
-    /// `-no_workspace_output` (`-interp`): do not write what workspaces a metaprogram creates
-    /// ask for (test sweeps over many programs).
+    /// (-interp only) do not write what a metaprogram's workspaces ask for
+    #[arg(name = "-no_workspace_output", section = "Output (building only)")]
     pub no_workspace_output: bool,
-    /// `-no_color`: no colour in diagnostics.
+    /// no colour in diagnostics
+    #[arg(name = "-no_color", section = "Diagnostics and output")]
+    #[arg(name = "--color", value = "when", needs = "auto, always or never", with = set_color, help = "colour in diagnostics: auto, always or never")]
     pub no_color: bool,
-    /// `-msvc_format`: diagnostics as `path(line,col): error: message` lines.
+    /// one `path(line,col): error: message` line per diagnostic
+    #[arg(name = "-msvc_format")]
     pub msvc_format: bool,
-    /// `-A`, `-W` and `-D` as written, in order.
+    // `-A`, `-W` and `-D` as written, in order; `levels` is what they make of each warning.
+    /// allow a warning: print nothing (`warnings` for all, `leniencies` for the forms the
+    /// official compiler rejects; `jacket explain` lists the codes)
+    #[arg(name = "-A", value = "code", needs = "a warning code, `leniencies` or `warnings`", with = store_level, attached)]
+    #[arg(name = "-W", value = "code", needs = "a warning code, `leniencies` or `warnings`", with = store_level, attached, help = "warn about a code (the default)")]
+    #[arg(name = "-D", value = "code", needs = "a warning code, `leniencies` or `warnings`", with = store_level, attached, help = "deny a warning: print it as an error and fail (`-D warnings` for all)")]
     pub level_flags: Vec<(String, jaic::diagnostics::Level)>,
-    /// What those flags make of each warning.
+    #[arg(skip)]
     pub levels: jaic::diagnostics::Levels,
-    /// `-quiet`: print nothing but errors.
+    /// print nothing but errors (no build status either)
+    #[arg(name = "-quiet", alias = "--quiet")]
     pub quiet: bool,
-    /// `-verbose`: say what is being done.
+    /// say what is being done
+    #[arg(name = "-verbose")]
     pub verbose: bool,
+    /// print this help
+    #[arg(
+        name = "-help",
+        alias = "-h",
+        alias = "--help",
+        synopsis = "-h, -help, --help",
+        exit
+    )]
+    pub help: bool,
+    /// print the version
+    #[arg(
+        name = "-version",
+        alias = "-V",
+        alias = "--version",
+        synopsis = "-V, -version, --version",
+        exit
+    )]
+    pub version: bool,
+    /// print the standard library folder jaic uses and exit
+    #[arg(name = "-print_stdlib", exit)]
+    pub print_stdlib: bool,
+    /// print a completion script for bash, zsh or fish, and exit
+    #[arg(
+        name = "-completions",
+        value = "shell",
+        needs = "bash, zsh or fish",
+        exit
+    )]
+    pub completions: Option<Shell>,
+    /// print the doc comments of the library in <dir> as records, for `jacket test`; -import_dir folders are searched for the modules it imports
+    #[arg(name = "-doc_comments", synopsis = "-doc_comments <dir>")]
+    pub doc_comments: bool,
+    /// print which public declarations of the library in <dir> have docs and an example; -import_dir folders are searched for the modules it imports
+    #[arg(name = "-doc_gaps", synopsis = "-doc_gaps <dir>")]
+    pub doc_gaps: bool,
+    /// print the documentation of the library in <dir> (items, signatures, docs) as JSON, with what its public top-level `#insert`s declare
+    /// (compiled once with default module parameters), for `jacket doc`
+    #[arg(name = "-doc_model", synopsis = "-doc_model <dir>")]
+    pub doc_model: bool,
+    /// print every procedure with a body below the folders <dirs> (a path list) as records,
+    /// for `jacket test --coverage`; `-os` and `-cpu` pick the `#if` branches
+    #[arg(name = "-procedures", synopsis = "-procedures <dirs>")]
+    pub procedures: bool,
+    #[arg(positional)]
+    pub positional: Vec<String>,
 }
 
 impl Cli {
@@ -288,22 +492,6 @@ impl Cli {
             ));
         }
         Ok(())
-    }
-
-    /// Fold a flag shared with the other tools into the command line.
-    pub fn take_shared(&mut self, flag: jaic::flags::Shared) {
-        use jaic::flags::Shared;
-        match flag {
-            Shared::Os(os) => self.os = Some(os),
-            Shared::Cpu(cpu) => self.cpu = Some(cpu),
-            Shared::Triple(triple) => self.target = Some(triple),
-            Shared::ImportDir(dir) => self.imports.push(dir),
-            Shared::PackageImportDir(package, dir) => self.package_imports.push((package, dir)),
-            Shared::Add(code) => self.added.push(Added::Code(code)),
-            // 0 leaves the pool at one thread per core, as for no flag.
-            Shared::Jobs(n) => self.tuning.threads = (n > 0).then_some(n),
-            Shared::Color(choice) => self.no_color = choice == jaic::render::ColorChoice::Never,
-        }
     }
 
     /// What to build for, `None` for the host. `-os windows` on another host cross-compiles

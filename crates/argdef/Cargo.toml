@@ -1,0 +1,14 @@
+[package]
+name = "argdef"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Command-line options declared as a struct: parsing, help and shell completions."
+
+[dependencies]
+argdef-derive = { path = "../argdef-derive" }
+jacket-config = { path = "../jacket-config" }
+
+[lints]
+workspace = true

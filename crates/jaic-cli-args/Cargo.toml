@@ -8,6 +8,7 @@ repository.workspace = true
 description = "Compiler command-line model and authoritative option metadata without an execution backend."
 
 [dependencies]
+argdef = { path = "../argdef" }
 jaic = { path = "../jaic" }
 
 [lints]

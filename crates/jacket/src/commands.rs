@@ -1,5 +1,5 @@
 //! `jacket`'s own commands: `new`, `init`, `config`, `clean`, `explain` and `version`.
-use crate::cli::{ConfigAction, ToolchainAction};
+use crate::cli::{CompletionTool, ConfigAction, ToolchainAction};
 use crate::{project, tools};
 use jacket_config::{Disk, FILE_NAME};
 use std::path::{Path, PathBuf};
@@ -406,6 +406,29 @@ fn wrap(text: &str) -> String {
         out.push(line);
     }
     out.join("\n")
+}
+
+/// `jacket completions`: the script for `tool` in `shell` on standard output.
+pub fn completions(shell: argdef::Shell, tool: CompletionTool) -> ExitCode {
+    use clap::CommandFactory;
+    match tool {
+        CompletionTool::Jacket => {
+            let shell = match shell {
+                argdef::Shell::Bash => clap_complete::Shell::Bash,
+                argdef::Shell::Zsh => clap_complete::Shell::Zsh,
+                argdef::Shell::Fish => clap_complete::Shell::Fish,
+            };
+            let mut command = crate::cli::Cli::command();
+            clap_complete::generate(shell, &mut command, "jacket", &mut std::io::stdout());
+        }
+        CompletionTool::Jaic => {
+            print!(
+                "{}",
+                <jaic_cli_args::cli::Cli as argdef::Args>::spec().completions(shell)
+            );
+        }
+    }
+    ExitCode::SUCCESS
 }
 
 pub fn version() -> ExitCode {

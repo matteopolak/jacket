@@ -149,7 +149,7 @@ def tools_page():
     jaifmt = subprocess.run([str(build_jaifmt()), "--help"], check=True, capture_output=True, text=True).stdout
     jaifmt = "\n".join(line.rstrip() for line in jaifmt.strip().splitlines())
     own = [n for n in jacket_commands(jacket) if n not in PASSTHROUGH and n != "help"]
-    expected = {"new", "init", "test", "bench", "doc", "config", "toolchain", "dep", "clean", "explain", "migrate", "version", "upgrade"}
+    expected = {"new", "init", "test", "bench", "doc", "config", "toolchain", "dep", "clean", "explain", "migrate", "completions", "version", "upgrade"}
     if set(own) != expected:
         raise SystemExit(f"jacket commands changed ({sorted(set(own) ^ expected)}): place them in tools_page()")
 
@@ -229,6 +229,10 @@ def tools_page():
         sub("config"),
         "### Environment variables\n",
         env,
+        "### Shell completions\n",
+        "`jacket completions` prints a completion script for `jacket`; with `--tool jaic` it prints the one for "
+        "the flags of `jaic`, which `jaic -completions <shell>` prints too.\n",
+        sub("completions"),
         "### Installing\n",
         "`jacket version` prints the version of `jacket` and every tool it fronts; `jacket upgrade` "
         "installs the latest release over this one.\n",

@@ -4,6 +4,11 @@
 
 The guides show real terminal output for cross builds, toolchains and benchmarks.
 
+### Highlights
+
+- `jaic -completions bash|zsh|fish` and `jacket completions bash|zsh|fish` print shell completion scripts; `jacket completions SHELL --tool jaic` prints jaic's.
+- `jaic -help` is in capitalised sections (`Usage:`, `Modes:`, `Exit status:`), bold when colour is on.
+
 ### Fixes
 
 - On a Mac, `jaic` takes libclang only from the selected developer folder, and says how to select another when missing.

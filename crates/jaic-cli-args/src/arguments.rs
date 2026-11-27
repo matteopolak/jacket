@@ -1,8 +1,8 @@
 //! Target metadata and host discovery arguments, using the compiler's option table.
-use crate::options::{Action, CliOption};
-use jaic::flags::{Common, Shared};
+use crate::cli::Cli;
+use argdef::Args;
+use jaic::flags::Common;
 use jaic::target::Selection;
-use std::ffi::OsStr;
 use std::path::PathBuf;
 
 /// Target selection and host arguments with compiler target/mode options removed.
@@ -62,87 +62,54 @@ impl ArgumentValue {
 /// assert!(flags.host.is_empty());
 /// ```
 pub fn target_flags(args: &[String]) -> Result<TargetFlags, String> {
+    let scan = Cli::spec().scan(args);
+    if let Some(error) = scan.error {
+        return Err(error.message);
+    }
     let mut common = Common::default();
     let mut host = Vec::new();
     let mut values = Vec::new();
     let (mut check, mut interp, mut deps) = (false, false, false);
     let mut mode_indices = Vec::new();
-    let mut index = 0;
-    while let Some(arg) = args.get(index) {
-        if is_boundary(arg) {
-            host.extend(args[index..].iter().cloned());
-            break;
+    for token in &scan.tokens {
+        let tag = token.opt.map_or("", |opt| opt.tag);
+        match tag {
+            "check" => check = true,
+            "interp" => interp = true,
+            "deps" => deps = true,
+            "target" => {
+                // Only these three shared flags select the target; their values are checked here.
+                let value = token.value.as_deref().unwrap_or_default();
+                let (flag, _) = jaic::flags::find(jaic::flags::COMPILE, token.name)
+                    .expect("a `target` option is a shared flag");
+                common.take(
+                    flag.parse(token.name, value)
+                        .map_err(jaic::flags::FlagError::into_text)?,
+                );
+            }
+            _ => {}
         }
-        let (name, inline) = split_option(arg);
-        let option = CliOption::find(name);
-        if let Some(option) = option {
-            match option.action {
-                Action::Check => check = true,
-                Action::Interp => interp = true,
-                Action::Deps => deps = true,
-                _ => {}
+        if matches!(tag, "check" | "interp" | "deps") {
+            mode_indices.push(token.index);
+        } else if tag != "target" {
+            host.push(args[token.index].clone());
+            if let Some(value) = &token.value
+                && !token.inline
+            {
+                host.push(value.clone());
             }
         }
-        let mode = matches!(
-            option.map(|o| o.action),
-            Some(Action::Check | Action::Interp | Action::Deps)
-        );
-        if mode {
-            mode_indices.push(index);
-        }
-        let takes_value = matches!(
-            option.map(|o| o.action),
-            Some(Action::Value { .. } | Action::Passthrough { .. } | Action::Shared(_))
-        );
-        let value = if takes_value {
-            Some(
-                inline
-                    .clone()
-                    .or_else(|| args.get(index + 1).cloned())
-                    .ok_or_else(|| match option.map(|o| o.action) {
-                        Some(Action::Shared(flag)) => flag.needs_value(name).into_text(),
-                        Some(
-                            Action::Value {
-                                what, ..
-                            }
-                            | Action::Passthrough {
-                                what, ..
-                            },
-                        ) => format!("`{name}` needs {what}"),
-                        _ => unreachable!("only value-taking options are inspected here"),
-                    })?,
-            )
-        } else {
-            None
-        };
-        let shared = match option.map(|o| o.action) {
-            Some(Action::Shared(flag)) => Some(
-                flag.take(name, value.clone(), || None)
-                    .map_err(jaic::flags::FlagError::into_text)?,
-            ),
-            _ => None,
-        };
-        if let Some(shared @ (Shared::Os(_) | Shared::Cpu(_) | Shared::Triple(_))) = shared {
-            common.take(shared);
-        } else if !mode {
-            host.push(arg.clone());
-            if takes_value && inline.is_none() {
-                host.extend(value.iter().cloned());
-            }
-        }
-        if let Some(value) = value {
+        if let Some(value) = &token.value {
             values.push(ArgumentValue {
-                name: name.into(),
-                value,
-                index,
-                inline: inline.is_some(),
+                name: token.name.into(),
+                value: value.clone(),
+                index: token.index,
+                inline: token.inline,
             });
         }
-        index += if takes_value && inline.is_none() {
-            2
-        } else {
-            1
-        };
+    }
+    if let Some(boundary) = scan.boundary {
+        host.extend(args[boundary..].iter().cloned());
     }
     Ok(TargetFlags {
         selection: common.target,
@@ -155,68 +122,24 @@ pub fn target_flags(args: &[String]) -> Result<TargetFlags, String> {
     })
 }
 
-/// `-`, `--` and `+Plugin` end the compiler's own options: what follows is for the plugin or the
-/// program.
-fn is_boundary(arg: &str) -> bool {
-    arg == "-" || arg == "--" || arg.starts_with('+') && arg.len() > 1
-}
-
 /// The folders `-import_dir` and its short form `-I` name among the compiler arguments, as
 /// written, in order. Values of other options (`-add "-I"`) and everything past a boundary
 /// are not options. Unlike [`target_flags`] it takes a malformed argument as the end of what it
-/// can read, because the compiler is the one to report it. An argument that is not UTF-8 is a
-/// value or an operand, never an option.
+/// can read, because the compiler is the one to report it.
 ///
 /// ```
 /// let args = ["-I", "a", "-import_dir=b", "--", "-I", "c"].map(String::from);
 /// let dirs = jaic_cli_args::arguments::import_dirs(&args);
 /// assert_eq!(dirs, [std::path::PathBuf::from("a"), "b".into()]);
 /// ```
-pub fn import_dirs(args: &[impl AsRef<OsStr>]) -> Vec<PathBuf> {
-    let text = |index: usize| args.get(index).and_then(|arg| arg.as_ref().to_str());
-    let mut dirs = Vec::new();
-    let mut index = 0;
-    while index < args.len() {
-        let Some(arg) = text(index) else {
-            index += 1;
-            continue;
-        };
-        if is_boundary(arg) {
-            break;
-        }
-        let (name, inline) = split_option(arg);
-        let Some(option) = CliOption::find_value(name) else {
-            index += 1;
-            continue;
-        };
-        let spaced = inline.is_none();
-        if spaced && args.get(index + 1).is_none() {
-            break;
-        }
-        if let Action::Shared(flag) = option.action
-            && let Ok(Shared::ImportDir(dir)) =
-                flag.take(name, inline, || text(index + 1).map(str::to_owned))
-        {
-            dirs.push(dir);
-        }
-        index += if spaced {
-            2
-        } else {
-            1
-        };
-    }
-    dirs
-}
-
-/// The compiler's inline value syntax, shared by parsing and metadata inspection.
-pub fn split_option(arg: &str) -> (&str, Option<String>) {
-    match arg.split_once('=') {
-        Some((name, value)) if CliOption::find_value(name).is_some() => (name, Some(value.into())),
-        None if arg.len() > 2 && matches!(arg.get(..2), Some("-A" | "-W" | "-D")) => {
-            (&arg[..2], Some(arg[2..].into()))
-        }
-        _ => (arg, None),
-    }
+pub fn import_dirs(args: &[impl AsRef<std::ffi::OsStr>]) -> Vec<PathBuf> {
+    Cli::spec()
+        .scan(args)
+        .tokens
+        .iter()
+        .filter(|token| token.opt.is_some_and(|opt| opt.tag == "import"))
+        .filter_map(|token| token.value.as_deref().map(PathBuf::from))
+        .collect()
 }
 
 #[cfg(test)]
@@ -299,6 +222,28 @@ mod tests {
         // A flag with no value is for the compiler to report.
         assert_eq!(dirs(&["-I", "a", "-I"]), [path("a")]);
         assert!(dirs(&[]).is_empty());
+    }
+
+    /// `jailint` and `jacket` read the flags in `jaic::flags`; `Cli` declares them again with
+    /// derive attributes. Every part of a declaration that a tool shows or accepts must agree.
+    #[test]
+    fn shared_flags_are_declared_alike_by_cli_and_jaic_flags() {
+        let spec = Cli::spec();
+        for flag in jaic::flags::ALL {
+            let opt = spec
+                .opts
+                .iter()
+                .find(|o| o.spelled(flag.names[0]))
+                .unwrap_or_else(|| panic!("`Cli` has no `{}`", flag.names[0]));
+            let mut declared: Vec<&str> = opt.names.iter().chain(opt.aliases).copied().collect();
+            let mut shared: Vec<&str> = flag.names.to_vec();
+            declared.sort_unstable();
+            shared.sort_unstable();
+            assert_eq!(declared, shared, "{}: spellings", flag.names[0]);
+            assert_eq!(opt.needs, flag.what, "{}: needs", flag.names[0]);
+            assert_eq!(opt.label(), flag.synopsis, "{}: synopsis", flag.names[0]);
+            assert_eq!(opt.help, flag.help, "{}: help", flag.names[0]);
+        }
     }
 
     #[test]

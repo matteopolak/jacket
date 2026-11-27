@@ -73,20 +73,24 @@ Environment variables (`JAIC_MEMORY_LIMIT`, `JAIC_DIAGNOSTICS`, `JAIC_PROGRESS`,
 
 ## How to change it
 
-Options live in one table, `OPTIONS` in `crates/jaic-cli/src/main.rs`, in `-help` order. It also drives "did you mean" suggestions, `-name=value` splitting and the help text. To add one:
+Options are the fields of `Cli` (`crates/jaic-cli-args/src/cli.rs`, and `Tuning` in `tuning.rs`), declared with [`argdef`](argdef.md). The doc comment on a field is its `-help` line, so the struct drives parsing, "did you mean" suggestions, `-name=value` splitting, help and shell completions. To add one:
 
-1. Add a field to `Cli` if it stores something.
-2. Add a row:
+1. Add a field with an attribute; the section it is listed under is the nearest `section = ...` above it.
 
    ```rust
-   CliOption::new(&["-no_split"], Action::Switch(|cli| &mut cli.no_split))
-       .help(Output, "-no_split", "generate code as one module instead of several"),
+   /// generate code as one module instead of several
+   #[arg(name = "-no_split")]
+   pub no_split: bool,
    ```
 
-   A value option uses `store!("a directory", |cli, dir| ...)`. A row without `.help(...)` is accepted but not listed. `.aliases(&[...])` adds spellings that are never suggested.
-3. Checks involving several options go in `Cli::finish`.
+   A value option has a type that is not `bool` (`Option<PathBuf>`, `Vec<String>`) and says what it needs: `#[arg(name = "-exe", value = "name", needs = "an executable name")]`. A field without a doc comment is accepted but not listed; `hidden` does the same on purpose. `alias = "..."` adds spellings that are never suggested.
+2. Checks involving several options go in `Cli::finish`.
 
-Renamed options go in `RENAMED` (the "use X instead" errors). Tests are in `crates/jaic-cli/tests/` (`cli.rs`, `diagnostics.rs`, `native.rs`).
+Tests are in `crates/jaic-cli/tests/` (`cli.rs`, `diagnostics.rs`, `native.rs`).
+
+## Shell completions
+
+`jaic -completions bash|zsh|fish` prints a completion script for the options in `-help`, with folder and file completion for the options that take one. `jacket completions bash|zsh|fish` prints one for `jacket`; `jacket completions bash --tool jaic` prints jaic's.
 
 ## Dependencies
 

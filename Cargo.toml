@@ -11,6 +11,8 @@ members = [
     "crates/jaic-backend",
     "crates/jaic-cli",
     "crates/jaic-cli-args",
+    "crates/argdef",
+    "crates/argdef-derive",
     "crates/jailint",
     "crates/jacket-config",
     "crates/jacket",

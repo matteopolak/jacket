@@ -3,6 +3,7 @@
 use self::parse::{color_choice, parse, report_cli_error};
 use self::run::run;
 use self::usage::usage_text;
+use jaic_cli_args::cli::Cli;
 use jaic_cli_args::options::Request;
 use std::process::ExitCode;
 
@@ -136,6 +137,17 @@ mod parse;
 mod run;
 mod usage;
 
+/// Whether text on standard output is coloured, by the rules diagnostics use on standard error.
+fn stdout_color(choice: jaic::render::ColorChoice) -> bool {
+    use std::io::IsTerminal;
+    jaic::render::detect_with(
+        choice,
+        std::io::stdout().is_terminal(),
+        jacket_config::env::lookup,
+    )
+    .color
+}
+
 fn main() -> ExitCode {
     #[cfg(all(feature = "llvm", feature = "mimalloc"))]
     jaic_native::fix_malloc_zone_for_fork();
@@ -155,7 +167,11 @@ fn main() -> ExitCode {
     let cli = match parse(&args) {
         Ok(Request::Compile(cli)) => *cli,
         Ok(Request::Help) => {
-            println!("{}", usage_text());
+            println!("{}", usage_text(stdout_color(color)));
+            return ExitCode::SUCCESS;
+        }
+        Ok(Request::Completions(shell)) => {
+            print!("{}", <Cli as argdef::Args>::spec().completions(shell));
             return ExitCode::SUCCESS;
         }
         Ok(Request::Version) => {

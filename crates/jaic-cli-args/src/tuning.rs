@@ -3,39 +3,80 @@
 //! counters, and the unlisted `-dev_*` flags. `jacket` can set the first group for a project from
 //! `[experimental]` (`docs/tools/jacket.md`). They end up in `jaic::knobs` or in the backend's
 //! `CodegenSwitches`.
-use super::{
-    Action, Cli, CliError, CliOption,
-    Section::{Diagnostics, Output},
-};
-use crate::options::store;
+use crate::cli::Cli;
+use crate::options::read_jobs;
+use argdef::{Args, Error};
 
 /// What the flags here set, in `Cli::tuning`.
-#[derive(Default)]
+// The doc comments are `-help` text: names and variables stay unquoted.
+#[allow(clippy::doc_markdown, clippy::duplicated_attributes)]
+#[derive(Default, Args)]
 pub struct Tuning {
-    /// `-codegen_units N`: exactly this many code modules.
+    /// generate code as exactly <n> modules (1 is -no_split; only a build uses it)
+    #[arg(
+        name = "-codegen_units",
+        value = "n",
+        needs = "a number of code modules",
+        section = "Output (building only)"
+    )]
     pub codegen_units: Option<usize>,
-    /// `-threads N`: the size of the shared thread pool.
+    // The size of the shared thread pool. `-j 0` leaves it at one thread per core.
+    /// threads in the pool that code generation and other parallel work share (default: one per core)
+    #[arg(name = "-threads", value = "n", needs = "a number of threads")]
+    #[arg(name = "-j", alias = "--jobs", synopsis = "-j, --jobs <n>", needs = "a number of jobs", with = set_jobs, help = "run n compiles (or tests) at once (default: one per CPU)")]
     pub threads: Option<usize>,
-    /// `-parse_threads N`, `-serial_parse`: how files are parsed ahead of the checker.
+    // `-parse_threads N`, `-serial_parse`: how files are parsed ahead of the checker.
+    /// threads that parse files ahead of the checker (0 parses serially)
+    #[arg(name = "-parse_threads", value = "n", needs = "a number of threads")]
     pub parse_threads: Option<usize>,
+    /// parse every file on the checking thread
+    #[arg(name = "-serial_parse")]
     pub serial_parse: bool,
-    /// `-profile`, `-profile_ops`: the interpreter's counters.
+    // `-profile`, `-profile_ops`: the interpreter's counters.
+    /// count what the interpreter runs per procedure and print the busiest
+    #[arg(name = "-profile", section = "Diagnostics and output")]
     pub profile_counts: bool,
+    #[arg(name = "-profile_ops", hidden)]
     pub profile_ops: bool,
-    /// `-profile_runs`: the cost of each compile-time run.
+    // `-profile_runs`: the cost of each compile-time run.
+    /// print the compile-time runs (#run, constants, metaprograms) by the work they did
+    #[arg(name = "-profile_runs")]
     pub profile_runs: bool,
-    /// `-run_budget N`: steps (loop iterations and calls) one top-level compile-time run may execute (`0`: no limit).
+    /// steps (loop iterations and calls) one compile-time run may execute before it fails (default 1000000000; 0: no limit)
+    #[arg(name = "-run_budget", value = "steps", needs = "a number of steps", parse = read_run_budget)]
     pub run_budget: Option<u64>,
-    /// The `-dev_*` flags, for studying the compiler (unlisted in `-help`).
+    // The `-dev_*` flags, for studying the compiler (unlisted in `-help`).
+    #[arg(name = "-dev_body_probe", hidden)]
     pub body_probe: bool,
+    #[arg(name = "-dev_body_fifo", hidden)]
     pub body_fifo: bool,
+    #[arg(name = "-dev_speculative_bodies", hidden)]
     pub speculative_bodies: bool,
+    #[arg(name = "-dev_no_sink", hidden)]
     pub no_sink: bool,
+    #[arg(name = "-dev_no_flow", hidden)]
     pub no_flow: bool,
+    #[arg(name = "-dev_dump_ops", needs = "a procedure name", hidden)]
     pub dump_ops: Option<String>,
+    #[arg(name = "-dev_verify_ir", hidden)]
     pub verify_ir: bool,
+    #[arg(name = "-dev_o0_passes", needs = "an LLVM pass pipeline", hidden)]
     pub o0_passes: Option<String>,
+    #[arg(name = "-dev_split_units", needs = "a number of objects", hidden)]
     pub split_units: Option<usize>,
+}
+
+fn set_jobs(tuning: &mut Tuning, name: &str, text: &str) -> Result<(), Error> {
+    tuning.threads = read_jobs(name, text)?;
+    Ok(())
+}
+
+fn read_run_budget(name: &str, text: &str) -> Result<u64, Error> {
+    text.parse().map_err(|_| {
+        Error::invalid(format!("`{name}` takes a whole number, not `{text}`")).help(format!(
+            "for example `{name} 5000000000`, or `{name} 0` for no limit"
+        ))
+    })
 }
 
 /// The process-wide switches these flags set.
@@ -62,137 +103,3 @@ pub fn knobs(cli: &Cli) -> jaic::knobs::Knobs {
         dump_ops: t.dump_ops.clone(),
     }
 }
-
-fn parse_count(text: &str, flag: &str) -> Result<usize, CliError> {
-    text.parse().map_err(|_| {
-        CliError::new(format!("`{flag}` takes a whole number, not `{text}`"))
-            .help(format!("for example `{flag} 4`"))
-    })
-}
-
-/// Every compiler option: the main option table, then the tuning options.
-pub fn all_options() -> impl Iterator<Item = &'static CliOption> {
-    crate::options::OPTIONS.iter().chain(OPTIONS)
-}
-
-const OPTIONS: &[CliOption] = &[
-    CliOption::new(
-        &["-codegen_units"],
-        store!("a number of code modules", |cli, n| cli
-            .tuning
-            .codegen_units =
-            Some(parse_count(&n, "-codegen_units")?)),
-    )
-    .help(
-        Output,
-        "-codegen_units <n>",
-        "generate code as exactly <n> modules (1 is -no_split; only a build uses it)",
-    ),
-    CliOption::new(
-        &["-threads"],
-        store!("a number of threads", |cli, n| cli.tuning.threads =
-            Some(parse_count(&n, "-threads")?)),
-    )
-    .help(
-        Output,
-        "-threads <n>",
-        "threads in the pool that code generation and other parallel work share (default: one per core)",
-    ),
-    CliOption::new(
-        &["-parse_threads"],
-        store!("a number of threads", |cli, n| cli.tuning.parse_threads =
-            Some(parse_count(&n, "-parse_threads")?)),
-    )
-    .help(
-        Output,
-        "-parse_threads <n>",
-        "threads that parse files ahead of the checker (0 parses serially)",
-    ),
-    CliOption::new(
-        &["-serial_parse"],
-        Action::Switch(|cli| &mut cli.tuning.serial_parse),
-    )
-    .help(
-        Output,
-        "-serial_parse",
-        "parse every file on the checking thread",
-    ),
-    CliOption::new(
-        &["-profile"],
-        Action::Switch(|cli| &mut cli.tuning.profile_counts),
-    )
-    .help(
-        Diagnostics,
-        "-profile",
-        "count what the interpreter runs per procedure and print the busiest",
-    ),
-    CliOption::new(
-        &["-profile_runs"],
-        Action::Switch(|cli| &mut cli.tuning.profile_runs),
-    )
-    .help(
-        Diagnostics,
-        "-profile_runs",
-        "print the compile-time runs (#run, constants, metaprograms) by the work they did",
-    ),
-    CliOption::new(
-        &["-run_budget"],
-        store!("a number of steps", |cli, n| cli
-            .tuning
-            .run_budget =
-            Some(n.parse().map_err(|_| {
-                CliError::new(format!("`-run_budget` takes a whole number, not `{n}`"))
-                    .help("for example `-run_budget 5000000000`, or `-run_budget 0` for no limit")
-            })?)),
-    )
-    .help(
-        Diagnostics,
-        "-run_budget <steps>",
-        "steps (loop iterations and calls) one compile-time run may execute before it fails (default 1000000000; 0: no limit)",
-    ),
-    CliOption::new(
-        &["-profile_ops"],
-        Action::Switch(|cli| &mut cli.tuning.profile_ops),
-    ),
-    CliOption::new(
-        &["-dev_body_probe"],
-        Action::Switch(|cli| &mut cli.tuning.body_probe),
-    ),
-    CliOption::new(
-        &["-dev_body_fifo"],
-        Action::Switch(|cli| &mut cli.tuning.body_fifo),
-    ),
-    CliOption::new(
-        &["-dev_speculative_bodies"],
-        Action::Switch(|cli| &mut cli.tuning.speculative_bodies),
-    ),
-    CliOption::new(
-        &["-dev_no_sink"],
-        Action::Switch(|cli| &mut cli.tuning.no_sink),
-    ),
-    CliOption::new(
-        &["-dev_no_flow"],
-        Action::Switch(|cli| &mut cli.tuning.no_flow),
-    ),
-    CliOption::new(
-        &["-dev_dump_ops"],
-        store!("a procedure name", |cli, name| cli.tuning.dump_ops =
-            Some(name)),
-    ),
-    CliOption::new(
-        &["-dev_verify_ir"],
-        Action::Switch(|cli| &mut cli.tuning.verify_ir),
-    ),
-    CliOption::new(
-        &["-dev_o0_passes"],
-        store!("an LLVM pass pipeline", |cli, passes| cli
-            .tuning
-            .o0_passes =
-            Some(passes)),
-    ),
-    CliOption::new(
-        &["-dev_split_units"],
-        store!("a number of objects", |cli, n| cli.tuning.split_units =
-            Some(parse_count(&n, "-dev_split_units")?)),
-    ),
-];

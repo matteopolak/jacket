@@ -102,6 +102,16 @@ pub enum Command {
     },
     /// Print the version of jacket and of every tool it fronts
     Version,
+    /// Print a shell completion script for jacket, or for the flags of `jaic`
+    Completions {
+        /// The shell to complete in: bash, zsh or fish
+        #[arg(value_parser = shell_arg)]
+        shell: argdef::Shell,
+        /// Whose commands and flags to complete: `jacket`'s own, or `jaic`'s (which `build`, `check`
+        /// and `run` take)
+        #[arg(long, value_enum, default_value_t = CompletionTool::Jacket)]
+        tool: CompletionTool,
+    },
     /// Install the latest release over this installation
     Upgrade {
         /// Install this release (`0.22.0` or `v0.22.0`) instead of the latest
@@ -150,6 +160,20 @@ pub struct MigrateArgs {
     /// Write files that are not in a git repository
     #[arg(long)]
     pub allow_no_vcs: bool,
+}
+
+/// A shell name as `jacket completions` reads it: bash, zsh or fish.
+fn shell_arg(text: &str) -> Result<argdef::Shell, String> {
+    use argdef::FromArg;
+    argdef::Shell::from_arg("shell", text)
+        .map_err(|e| format!("{}; use {}", e.message, argdef::Shell::NAMES))
+}
+
+/// Which tool's flags `jacket completions` completes.
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CompletionTool {
+    Jacket,
+    Jaic,
 }
 
 #[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]

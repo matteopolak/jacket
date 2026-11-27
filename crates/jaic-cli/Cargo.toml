@@ -12,6 +12,7 @@ name = "jaic"
 path = "src/main.rs"
 
 [dependencies]
+argdef = { path = "../argdef" }
 jaic = { path = "../jaic" }
 jaic-cli-args = { path = "../jaic-cli-args" }
 jacket-config = { path = "../jacket-config" }

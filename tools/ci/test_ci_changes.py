@@ -299,6 +299,14 @@ class RealWorkflow(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertTrue(selects("sanitizers-macos", path))
 
+    def test_option_parsing_library_triggers_macos_sanitizers(self):
+        for path in (
+            "crates/argdef/src/parse.rs",
+            "crates/argdef-derive/src/lib.rs",
+        ):
+            with self.subTest(path=path):
+                self.assertTrue(selects("sanitizers-macos", path))
+
     def test_macos_asan_runs_on_pushes_only_for_sanitizer_relevant_paths(self):
         self.assertTrue(selects("sanitizers-macos", "crates/jaic-llvm/src/lib.rs"))
         self.assertTrue(selects("sanitizers-macos", "crates/jaic-native/src/link.rs"))

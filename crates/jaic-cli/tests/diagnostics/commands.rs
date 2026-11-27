@@ -248,7 +248,7 @@ fn command_line_mistakes_explain_themselves() {
         assert_eq!(output.status.code(), Some(2), "{args:?}: {text}");
         assert_in_order(&text, expected);
         // The full help text is not dumped on a mistake.
-        assert!(!text.contains("exit status:"), "{args:?}: {text}");
+        assert!(!text.contains("Exit status:"), "{args:?}: {text}");
     }
 }
 
@@ -284,11 +284,11 @@ fn plugin_arguments_help_version_and_colour() {
         assert_in_order(
             &text,
             &[
-                "usage: jaic [options] file.jai",
+                "Usage: jaic [options] file.jai",
                 "-check",
                 "-interp",
                 "+Name",
-                "exit status:",
+                "Exit status:",
             ],
         );
     }
@@ -329,6 +329,84 @@ fn plugin_arguments_help_version_and_colour() {
     assert!(colored(&["-bogus", "-no_color"], true).starts_with("error[cli-usage]: "));
     // After a lone `-` or a `+Plugin`, `-no_color` is not jaic's.
     assert!(colored(&["-bogus", "-", "-no_color"], true).starts_with("\x1b[1;31merror"));
+}
+
+#[test]
+fn help_is_sectioned_and_completions_cover_the_options() {
+    let dir = TempDir::new("cli-completions");
+    let help = String::from_utf8_lossy(&jaic(&dir, &["-help"], &[]).stdout).into_owned();
+    assert_in_order(
+        &help,
+        &[
+            "Usage: jaic [options] file.jai",
+            "Modes:",
+            "-check",
+            "Program:",
+            "-import_dir <dir>",
+            "Output (building only):",
+            "-exe <name>",
+            "Plugins:",
+            "+Name",
+            "Diagnostics and output:",
+            "-timings",
+            "Environment:",
+            "JAIC_MEMORY_LIMIT",
+            "Exit status:",
+        ],
+    );
+    // The flags for studying the compiler are accepted, not listed.
+    assert!(!help.contains("-dev_"), "{help}");
+    assert!(!help.contains('\x1b'), "{help}");
+    for (shell, expected) in [
+        ("bash", "complete -o filenames -F _jaic jaic"),
+        ("zsh", "#compdef jaic"),
+        ("fish", "complete -c jaic -o check -d "),
+    ] {
+        let output = jaic(&dir, &["-completions", shell], &[]);
+        assert_eq!(output.status.code(), Some(0), "{shell}");
+        let script = String::from_utf8_lossy(&output.stdout);
+        assert!(script.contains(expected), "{shell}: {script}");
+        assert!(
+            script.contains("-interp") && !script.contains("-dev_"),
+            "{shell}"
+        );
+    }
+    let output = jaic(&dir, &["-completions", "csh"], &[]);
+    assert_eq!(output.status.code(), Some(2));
+    assert_in_order(
+        &stderr(&output),
+        &[
+            "error[cli-usage]: unknown shell `csh` for `-completions`",
+            "help: use bash, zsh or fish",
+        ],
+    );
+    // Colour follows `FORCE_COLOR` and `-no_color`, like the rest of the output.
+    let colored = |args: &[&str]| {
+        let output = Command::new(JAIC)
+            .args(args)
+            .env_remove("NO_COLOR")
+            .env_remove("CLICOLOR_FORCE")
+            .env("FORCE_COLOR", "1")
+            .output()
+            .unwrap();
+        String::from_utf8_lossy(&output.stdout).into_owned()
+    };
+    assert!(colored(&["-help"]).contains("\x1b[1;4mModes:\x1b[0m"));
+    assert!(!colored(&["-help", "-no_color"]).contains('\x1b'));
+    // `NO_COLOR` wins over `FORCE_COLOR`.
+    let no_color = Command::new(JAIC)
+        .arg("-help")
+        .env("NO_COLOR", "1")
+        .env("FORCE_COLOR", "1")
+        .output()
+        .unwrap();
+    assert!(!String::from_utf8_lossy(&no_color.stdout).contains('\x1b'));
+    // A glued value is not split at an `=`.
+    let output = jaic(&dir, &["-Dwarnings=x"], &[]);
+    assert_in_order(
+        &stderr(&output),
+        &["error[cli-usage]: unknown option `-Dwarnings=x`"],
+    );
 }
 
 #[test]

@@ -65,6 +65,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
+name = "argdef"
+version = "0.40.0"
+dependencies = [
+ "argdef-derive",
+ "jacket-config",
+]
+
+[[package]]
+name = "argdef-derive"
+version = "0.40.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "bitflags"
 version = "2.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -115,6 +132,15 @@ dependencies = [
  "anstyle",
  "clap_lex",
  "strsim",
+]
+
+[[package]]
+name = "clap_complete"
+version = "4.6.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "037e2a1a92236d0aff7e845093f64661d6df4c02c9fcc61a60e9e1d736fa392f"
+dependencies = [
+ "clap",
 ]
 
 [[package]]
@@ -352,7 +378,9 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 name = "jacket"
 version = "0.40.0"
 dependencies = [
+ "argdef",
  "clap",
+ "clap_complete",
  "jacket-config",
  "jaic",
  "jaic-cli-args",
@@ -427,6 +455,7 @@ dependencies = [
 name = "jaic-cli"
 version = "0.40.0"
 dependencies = [
+ "argdef",
  "jacket-config",
  "jaic",
  "jaic-cli-args",
@@ -442,6 +471,7 @@ dependencies = [
 name = "jaic-cli-args"
 version = "0.40.0"
 dependencies = [
+ "argdef",
  "jaic",
 ]
 
