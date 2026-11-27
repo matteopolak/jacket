@@ -198,8 +198,6 @@ polymorphic-type-pattern
 preload-missing-declaration
 proc-c-variadic-parameter
 proc-macro
-proc-must
-proc-must-body
 proc-not-library
 proc-not-procedure-type
 proc-parameter-needs-type

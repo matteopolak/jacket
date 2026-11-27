@@ -8,7 +8,7 @@ fill :: (xs: *[..] int) {
     array_add(xs, 1);
 }
 
-main :: (n: int) {
+collect :: (n: int) {
     // Added in a loop: the count is not known.
     looped: [..] int;
 
@@ -42,4 +42,8 @@ main :: (n: int) {
     empty: [..] int;
 
     print("% % % % %\n", looped.count, maybe.count, count, escaped.count, empty.count);
+}
+
+main :: () {
+    collect(5);
 }
