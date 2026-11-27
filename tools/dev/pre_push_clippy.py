@@ -50,13 +50,13 @@ def changed_files(lines: list[str]) -> set[str]:
         parts = line.split()
         if len(parts) != 4 or parts[1] == ZERO:
             continue  # a deleted ref pushes nothing
-        local, remote = parts[1], parts[3]
-        if remote == ZERO or not git("cat-file", "-t", remote).strip():
-            # A new ref, or one this clone has not fetched: compare against the default branch.
-            remote = git("merge-base", local, "origin/main").strip()
-            if not remote:
-                continue
-        files.update(git("diff", "--name-only", f"{remote}...{local}").split())
+        # What the pushed commit changes against the default branch, as `check` lints it: the
+        # remote tip of a rebased branch is an old base and would also count main's changes.
+        local = parts[1]
+        base = git("merge-base", local, "origin/main").strip()
+        if not base:
+            continue
+        files.update(git("diff", "--name-only", f"{base}...{local}").split())
     return files
 
 

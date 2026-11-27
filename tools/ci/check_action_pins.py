@@ -33,7 +33,7 @@ import urllib.parse
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-from repo_output import output_dir
+from repo_output import shared_output_dir
 from toolkit.age_policy import MIN_AGE, load_cache, parse_time, recent, save_cache
 from toolkit import github
 from toolkit.github import LookupFailed, NotFound
@@ -267,8 +267,8 @@ def main(argv=None):
     )
     parser.add_argument(
         "--cache",
-        default=output_dir("action-pins-cache.json"),
-        help="API answer cache (default: target/action-pins-cache.json)",
+        default=shared_output_dir("action-pins-cache.json"),
+        help="API answer cache, shared by every worktree (default: the main checkout's target/action-pins-cache.json)",
     )
     args = parser.parse_args(argv)
     if args.policy and args.update:

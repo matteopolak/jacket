@@ -4,6 +4,7 @@ Used by `tools/ci/check_dependency_age.py` (cargo) and `tools/ci/check_action_pi
 """
 
 import json
+import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -39,6 +40,9 @@ def load_cache(path):
 
 
 def save_cache(path, cache):
+    """Writes `cache` to `path` in one step, so a reader in another worktree never sees half of it."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(cache, sort_keys=True))
+    temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    temporary.write_text(json.dumps(cache, sort_keys=True))
+    os.replace(temporary, path)

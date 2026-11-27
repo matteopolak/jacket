@@ -44,7 +44,7 @@ This rewrites the SHA and comment of each outdated pin, in every file where the 
 ## Configuration
 
 - `GITHUB_TOKEN` or `GH_TOKEN` raises the API limit from 60 requests an hour; set one if the check reports a rate limit.
-- Answers are cached for six hours in `target/action-pins-cache.json`.
+- Answers are cached for six hours in the main checkout's `target/action-pins-cache.json`, shared by every worktree so new worktrees stay under the anonymous rate limit.
 - Only each repository's newest 100 releases are read.
 
 The 14-day constant is shared with `check_dependency_age.py` in `tools/toolkit/age_policy.py`, which also holds the answer cache. Tests: `tools/ci/test_check_action_pins.py` (recorded answers, no network).

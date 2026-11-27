@@ -38,6 +38,22 @@ class PackagesTests(unittest.TestCase):
                 self.assertEqual(pre_push_clippy.packages({file}), ["jacket", "jaic"], file)
 
 
+class ChangedFilesTests(unittest.TestCase):
+    def test_a_rebased_branch_is_compared_with_the_default_branch(self):
+        # After a rebase the remote tip is an old base; what `check` linted is the change against main.
+        calls = []
+
+        def git(*args):
+            calls.append(args)
+            return {"merge-base": "base\n", "diff": "crates/a/src/lib.rs\n"}.get(args[0], "commit\n")
+
+        with mock.patch.object(pre_push_clippy, "git", side_effect=git):
+            files = pre_push_clippy.changed_files(["refs/heads/x new refs/heads/x old"])
+        self.assertEqual(files, {"crates/a/src/lib.rs"})
+        self.assertIn(("merge-base", "new", "origin/main"), calls)
+        self.assertIn(("diff", "--name-only", "base...new"), calls)
+
+
 class StdlibTests(unittest.TestCase):
     def test_stdlib_sources_and_golden_outputs_need_their_tests(self):
         files = {"stdlib/Basic/module.jai", "stdlib/Csv/tests/a.stdout", "stdlib/Csv/data.bin", "docs/a.md"}

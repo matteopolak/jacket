@@ -66,7 +66,7 @@ A new per-system file under `stdlib/internal` (imports `windows-api`, `posix-api
 `.githooks/pre-push` runs two checks. Skip either with `--no-verify` or `JAI_HOOK_SKIP`.
 
 - `actions`: `tools/ci/check_action_pins.py` ([action pins](action-pins.md)). A broken or unreachable check blocks the push; available updates are only printed.
-- `clippy`: checks that CI's clippy has passed for the packages whose Rust or `Cargo.toml` files differ from the remote, and that the tests of the stdlib modules whose `.jai` files or golden outputs differ have passed, via `tools/dev/pre_push_clippy.py`. It never runs cargo itself: git holds the SSH connection to GitHub while the hook runs, and GitHub closes it after a few idle minutes, so a cold or lock-blocked clippy broke the push. Run the lint first:
+- `clippy`: checks that CI's clippy has passed for the packages whose Rust or `Cargo.toml` files the pushed commit changes against `origin/main` (every package for a workspace-wide file such as `rust-toolchain.toml` or `Cargo.lock`), and that the tests of the stdlib modules whose `.jai` files or golden outputs it changes have passed, via `tools/dev/pre_push_clippy.py`. It never runs cargo itself: git holds the SSH connection to GitHub while the hook runs, and GitHub closes it after a few idle minutes, so a cold or lock-blocked clippy broke the push. Run the lint first:
 
 ```bash
 python3 tools/dev/pre_push_clippy.py check

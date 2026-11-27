@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from toolkit.age_policy import load_cache
+from toolkit.age_policy import load_cache, save_cache
 
 spec = importlib.util.spec_from_file_location(
     "age", Path(__file__).with_name("check_dependency_age.py")
@@ -132,6 +132,14 @@ class AgePolicyTests(unittest.TestCase):
         }
         errors = age.check([p], lambda *_: None, datetime.now(timezone.utc))
         self.assertIn("not in the crates.io index", errors[0])
+
+    def test_saving_the_cache_leaves_no_temporary_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "c.json"
+            save_cache(path, {"a": 1})
+            save_cache(path, {"b": 2})
+            self.assertEqual(load_cache(path), {"b": 2})
+            self.assertEqual([p.name for p in Path(tmp).iterdir()], ["c.json"])
 
     def test_unreadable_cache_is_empty(self):
         with tempfile.TemporaryDirectory() as tmp:
