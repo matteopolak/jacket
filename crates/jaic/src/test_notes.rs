@@ -3,7 +3,7 @@
 //! run; `jailint` reads them to decide what to compile a file as.
 
 use std::fmt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// The folder below `tests/` whose `.jai` files must fail to compile, notes or not.
 pub const COMPILE_FAIL_DIR: &str = "compile_fail";
@@ -23,6 +23,42 @@ pub fn in_compile_fail_folder(path: &Path) -> bool {
         && folder.and_then(Path::parent).and_then(Path::file_name) == Some("tests".as_ref())
 }
 
+
+/// The expected-output files that make a test file a golden-output test.
+pub const EXPECTED_OUTPUT: [&str; 3] = ["stdout", "stderr", "exit"];
+
+/// The test root `file` is a test program of, when `jacket test` builds it as a program of its
+/// own: a `.jai` file directly in `<root>/tests/` (a unit-test file, or a golden-output one), in
+/// `<root>/tests/compile_fail/`, or anywhere below `tests/` with an expected-output file beside
+/// it. The other files below `tests/` are what those programs `#load`.
+///
+/// ```
+/// use jaic::test_notes::test_program_root;
+/// use std::path::Path;
+/// let root = |p: &str| test_program_root(Path::new(p), |_| false);
+/// assert_eq!(root("/p/tests/a.jai").as_deref(), Some(Path::new("/p")));
+/// assert_eq!(root("/p/tests/compile_fail/a.jai").as_deref(), Some(Path::new("/p")));
+/// assert_eq!(root("/p/tests/helpers/a.jai"), None);
+/// assert_eq!(root("/p/src/a.jai"), None);
+/// ```
+pub fn test_program_root(file: &Path, is_file: impl Fn(&Path) -> bool) -> Option<PathBuf> {
+    if file.extension()? != "jai" {
+        return None;
+    }
+    let folder = file.parent()?;
+    let named = |dir: &Path, name: &str| dir.file_name() == Some(name.as_ref());
+    if named(folder, "tests") {
+        return Some(folder.parent()?.to_path_buf());
+    }
+    if in_compile_fail_folder(file) {
+        return Some(folder.parent()?.parent()?.to_path_buf());
+    }
+    let tests = folder.ancestors().find(|dir| named(dir, "tests"))?;
+    let golden = EXPECTED_OUTPUT
+        .iter()
+        .any(|extension| is_file(&file.with_extension(extension)));
+    golden.then(|| tests.parent().map(Path::to_path_buf))?
+}
 
 /// Where tests run: the target and how.
 #[derive(Clone, Debug, PartialEq)]

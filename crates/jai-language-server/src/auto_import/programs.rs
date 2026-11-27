@@ -142,6 +142,23 @@ impl Sources<'_> {
         }
     }
 
+    /// The test programs of the project based in `base`: the files `jacket test` builds each on
+    /// its own (`jaic::test_notes::test_program_root`) in the test roots `[test] paths` names
+    /// (`jacket_config::test_roots::is_root`), else in `base`.
+    fn test_programs(&self, index: &mut Index, base: &Path) -> Vec<PathBuf> {
+        let config = crate::config::load(self, index, base)
+            .filter(|loaded| loaded.location.dir == base)
+            .map(|loaded| loaded.config)
+            .unwrap_or_default();
+        self.project_files(index, base)
+            .into_iter()
+            .filter(|file| {
+                jaic::test_notes::test_program_root(file, |path| self.is_file(path))
+                    .is_some_and(|root| jacket_config::test_roots::is_root(&config, base, &root))
+            })
+            .collect()
+    }
+
     pub(crate) fn workspace_entries(
         &self,
         index: &mut Index,
@@ -164,6 +181,10 @@ impl Sources<'_> {
                 }
                 entries.insert(path);
             }
+            for path in self.test_programs(index, &self.key(base)) {
+                declared.insert(path.clone());
+                entries.insert(path);
+            }
         }
         let mut fallback = BTreeSet::new();
         for path in open {
@@ -175,6 +196,10 @@ impl Sources<'_> {
                     if found.declared {
                         declared.insert(path.clone());
                     }
+                    entries.insert(path);
+                }
+                for path in self.test_programs(index, &self.key(&dir)) {
+                    declared.insert(path.clone());
                     entries.insert(path);
                 }
             }

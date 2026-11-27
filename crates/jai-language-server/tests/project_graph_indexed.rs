@@ -429,3 +429,62 @@ fn a_workspace_without_entries_notes_nothing() {
     let opened = open_codes(&mut json, &dir.join("b.jai"), B);
     assert!(!is_noted(&opened), "{opened:?}");
 }
+
+/// A library project and one test file of it that imports the library by its folder's name, as
+/// `jacket test` builds it.
+fn library_with_test(name: &str, jacket_toml: &str) -> (test_support::TempDir, String) {
+    let dir = project(
+        name,
+        &[
+            ("jacket.toml", jacket_toml),
+            (
+                "module.jai",
+                "slugify :: (s: string) -> string { return s; }\n",
+            ),
+            ("tests/support/helper.jai", "// loaded by nothing\n"),
+        ],
+    );
+    let module = dir.file_name().unwrap().to_string_lossy().into_owned();
+    let test = format!(
+        "#import \"Extensions/Testing\";\n#import \"{module}\";\n\n\
+         @test\nslugify_keeps_words :: () {{\n    expect_equal(slugify(\"a\"), \"a\");\n}}\n"
+    );
+    (dir, test)
+}
+
+/// A test file is a program of its own: `jacket test` builds it with the project's folder
+/// importable by name, so it is not left out of every program and its import resolves.
+#[test]
+fn a_test_file_is_an_entry_whether_open_or_closed() {
+    let (dir, test) = library_with_test("test-entry", "[project]\nentry = [\"module.jai\"]\n");
+    std::fs::write(dir.join("tests/slugify.jai"), &test).unwrap();
+    let mut json = start(&dir);
+    settle(&mut json);
+    let closed = closed_codes(&mut json, &dir.join("tests/slugify.jai")).unwrap_or_default();
+    assert!(!is_noted(&closed), "{closed:?}");
+    let open = open_codes(&mut json, &dir.join("tests/slugify.jai"), &test);
+    assert_eq!(open, Vec::<(u64, String)>::new());
+    // Only the files a test program names are part of one: a helper nothing loads is not.
+    let helper = closed_codes(&mut json, &dir.join("tests/support/helper.jai")).unwrap_or_default();
+    assert!(is_noted(&helper), "{helper:?}");
+}
+
+/// `[test] paths` names the folders whose `tests/` hold test files.
+#[test]
+fn test_files_follow_the_configured_test_paths() {
+    let (dir, test) = library_with_test(
+        "test-entry-paths",
+        "[project]\nentry = [\"module.jai\"]\n\n[test]\npaths = [\"sub\"]\n",
+    );
+    std::fs::create_dir_all(dir.join("sub/tests")).unwrap();
+    std::fs::write(dir.join("sub/module.jai"), "inner :: () {}\n").unwrap();
+    std::fs::write(dir.join("sub/tests/a.jai"), &test).unwrap();
+    std::fs::write(dir.join("tests/b.jai"), &test).unwrap();
+    let mut json = start(&dir);
+    settle(&mut json);
+    let listed = open_codes(&mut json, &dir.join("sub/tests/a.jai"), &test);
+    assert!(!is_noted(&listed), "{listed:?}");
+    // `tests/` of the project folder is not a configured root, so its files stay in no program.
+    let unlisted = open_codes(&mut json, &dir.join("tests/b.jai"), &test);
+    assert!(is_noted(&unlisted), "{unlisted:?}");
+}

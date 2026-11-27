@@ -10,6 +10,7 @@
 //! The roots are `[test] paths` in jacket.toml, expanded by [`expand`] (only those the current
 //! directory is in, when it is in some), else the project's folder. Run from a folder below the
 //! project that has its own `tests/` (or `module.jai`), `jacket test` tests that folder.
+use jacket_config::test_roots::{ignored, names_root};
 use jacket_config::{PathPattern, relative_text};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -33,8 +34,6 @@ pub struct Root {
     /// A library's doc tests.
     pub docs: Vec<super::doctest::Block>,
 }
-
-pub const EXPECTED: [&str; 3] = ["stdout", "stderr", "exit"];
 
 /// The folders among jaic `flags` that `-import_dir` and `-I` name, as they are on disk. What
 /// counts as an option is the compiler's: see `jaic_cli_args::arguments::import_dirs`.
@@ -109,7 +108,9 @@ fn holds_bench(source: &Path) -> bool {
 /// Whether `source` has an expected-output file beside it, or says in its header what the
 /// diagnostics contain (`compile_fail("text")`), which needs none.
 pub fn is_golden(source: &Path) -> bool {
-    EXPECTED.iter().any(|e| source.with_extension(e).is_file())
+    jaic::test_notes::EXPECTED_OUTPUT
+        .iter()
+        .any(|e| source.with_extension(e).is_file())
         || super::options::header_notes(&std::fs::read_to_string(source).unwrap_or_default())
             .iter()
             .any(|n| n.starts_with("compile_fail("))
@@ -198,13 +199,6 @@ fn is_test_root(dir: &Path) -> bool {
     dir.join("tests").is_dir() || dir.join("module.jai").is_file()
 }
 
-/// Whether the folder `relative` is ignored: the patterns match a file in it (`fuzz/**` does not
-/// match `fuzz` itself).
-fn ignored(ignore: &[PathPattern], relative: &str) -> bool {
-    let inside = format!("{relative}/x");
-    ignore.iter().any(|i| i.is_match(&inside))
-}
-
 /// The folders `[test] paths` names, as absolute paths under `project`, sorted.
 ///
 /// A plain path is that folder. A pattern is every test root it matches exactly, found below
@@ -225,8 +219,7 @@ pub fn expand(
         let base = project.join(pattern.literal_prefix());
         let mut pending = vec![base];
         while let Some(dir) = pending.pop() {
-            let relative = relative_text(&dir, project);
-            if is_test_root(&dir) && pattern.is_exact_match(&relative) {
+            if is_test_root(&dir) && names_root(&pattern, project, &dir) {
                 found.insert(dir.clone());
             }
             for entry in std::fs::read_dir(&dir).into_iter().flatten().flatten() {

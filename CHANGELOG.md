@@ -9,6 +9,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - `jacket bench` writes paths relative to the project in baselines and JSON, and prints the saved baseline's relative path.
 - `JAIC_PROGRESS=plain` status lines are coloured when `FORCE_COLOR` is set.
 - A failed `assert` in a test or doc example shows its line, not a crash and stack trace.
+- `jailsp` analyses test files as programs of their own and no longer notes them `not-in-program`. (#87, @zhylmzr)
 - `jacket run --target TRIPLE` for another machine says to add a runner instead of starting the program on the host.
 
 ## [0.40.0] - 2026-11-24

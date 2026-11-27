@@ -426,11 +426,8 @@ fn run_once(
         runner = runner_words(&words, config_dir.unwrap_or(cwd));
     }
     let project_dir = loaded.as_ref().map_or(cwd, |l| l.dir()).to_path_buf();
-    let ignore: Vec<jacket_config::PathPattern> = loaded.as_ref().map_or_else(Vec::new, |l| {
-        let format = l.config.format.ignore.iter().filter_map(|p| p.parse().ok());
-        format
-            .chain(l.config.lint.exclude.iter().cloned())
-            .collect()
+    let ignore = loaded.as_ref().map_or_else(Vec::new, |l| {
+        jacket_config::test_roots::ignore_patterns(&l.config)
     });
     let configured = match config.map_or(Ok(Vec::new()), |c| {
         discover::expand(&c.paths.0, &project_dir, &ignore)

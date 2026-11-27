@@ -7,7 +7,8 @@
 //!
 //! 1. `modules/` next to the root file, then next to each folder above it up to the project
 //!    base (the folder of the nearest `jacket.toml`, else the workspace folder holding the file).
-//! 2. `import_path` of the nearest `jacket.toml`, relative to it.
+//! 2. `import_path` of the nearest `jacket.toml`, relative to it, and for a test file of a
+//!    library (`tests/*.jai` beside a `module.jai`) the folder above the library.
 //! 3. The string literals a project entry file (`[project] entry`, an inferred entry, or the root
 //!    itself) writes in a statement that mentions `import_path`: `array_add(*import_path,
 //!    "modules");`, `options.import_path = .["a", "b"];`. Relative paths are taken from the
@@ -79,6 +80,13 @@ impl Sources<'_> {
                     .iter()
                     .map(|p| project::normalize(p)),
             );
+        }
+        // A test program of a library imports it by name, as `jacket test` lets it.
+        if let Some(library) = jaic::test_notes::test_program_root(root, |p| self.is_file(p))
+            .filter(|dir| self.is_file(&dir.join("module.jai")))
+        {
+            deps.push(library.join("module.jai"));
+            dirs.extend(library.parent().map(Path::to_path_buf));
         }
         // 3. What the build metaprogram adds.
         let mut entries: Vec<PathBuf> = Vec::new();
