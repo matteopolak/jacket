@@ -168,7 +168,8 @@ Table_Shape :: enum u8 {
 }
 
 // How a field takes part in table headers: structs, pointers to structs, and arrays of structs.
-table_shape :: (info: *Type_Info) -> Table_Shape {
+// Reading also lets `[[x]]` headers fill an array of `Toml_Value`; writing keeps those inline.
+table_shape :: (info: *Type_Info, reading := false) -> Table_Shape {
     if is_value(info) return .VALUE;
     if is_table_struct(info) return .STRUCT;
 
@@ -182,7 +183,7 @@ table_shape :: (info: *Type_Info) -> Table_Shape {
     if info.type == .ARRAY {
         array := cast(*Type_Info_Array) info;
 
-        if is_table_struct(array.element_type) && !is_value(array.element_type) {
+        if is_table_struct(array.element_type) && (reading || !is_value(array.element_type)) {
             if array.array_type == .RESIZABLE return .ARRAY;
             if array.array_type == .VIEW return .VIEW;
             if array.array_type == .FIXED return .FIXED;
@@ -682,7 +683,7 @@ key_test :: (leaf: *Leaf) -> string {
 // in a `return`.
 emit_step :: (g: *Gen, place: string, leaf: *Leaf) {
     out := *g.out;
-    shape := table_shape(leaf.info);
+    shape := table_shape(leaf.info, true);
 
     if shape == .NONE {
         print(out, "if step != .FINAL_ASSIGN return toml_fail(r, .TYPE, \"key is not a table\", r.statement_at);\n");
@@ -822,7 +823,7 @@ generate_descend :: (T: Type) -> string {
 // Checks what a declared table or array of tables at `place` still needs once it is closed,
 // with `decl` its declaration and `name` the key for error paths.
 emit_finish_child :: (g: *Gen, place: string, info: *Type_Info, name: string) {
-    shape := table_shape(info);
+    shape := table_shape(info, true);
     out := *g.out;
 
     if shape == .NONE || shape == .VALUE return;
@@ -852,7 +853,7 @@ generate_map_finish :: (T: Type) -> string {
 
     g.type_name = tprint("%", T);
 
-    shape := table_shape(element);
+    shape := table_shape(element, true);
 
     if shape == .NONE || shape == .VALUE return "return true;";
 

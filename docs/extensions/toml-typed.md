@@ -30,7 +30,7 @@ Integers (range-checked), floats (integers are accepted), `bool`, `string`, enum
 
 `Table(string, V)` (the `Hash_Table`) takes a table: its keys come from inline tables, dotted keys and `[a.key]` headers, and `V` is anything else on this list, including structs, arrays of tables (`[[a.key]]`) and other tables. Keys are copied and freed with the table. `@toml(...)` options on the field apply to the table, not to its values; the values' own struct notes still apply.
 
-`Toml_Value` takes any value as the document parser would build it, whatever shape the data has: `extra = { a = 1, b = [1, 'x'] }`, or a table made of `[extra.sub]` and `[[extra.list]]` headers. It is an untyped tree that the target owns (nothing points into the input), so `toml_get`, `toml_get_path` and `write_toml` work on it, and `free_toml_value` releases it. `from_toml(Toml_Value, text)` and `from_toml(Table(string, V), text)` also work as a whole document. `[..] Toml_Value` and `*Toml_Value` read inline arrays and values only, not `[[x]]` headers.
+`Toml_Value` takes any value as the document parser would build it, whatever shape the data has: `extra = { a = 1, b = [1, 'x'] }`, or a table made of `[extra.sub]` and `[[extra.list]]` headers. It is an untyped tree that the target owns (nothing points into the input), so `toml_get`, `toml_get_path` and `write_toml` work on it, and `free_toml_value` releases it. `from_toml(Toml_Value, text)` and `from_toml(Table(string, V), text)` also work as a whole document. `[..] Toml_Value` also takes `[[x]]` headers, each element a table; the encoder writes it as an inline array. `*Toml_Value` reads inline values only.
 
 ## Notes
 

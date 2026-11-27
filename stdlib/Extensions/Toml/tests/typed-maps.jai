@@ -3,7 +3,7 @@
 #import "Extensions/Toml";
 
 // Hash_Table fields take tables (inline, dotted and `[header]` forms), Toml_Value fields take any
-// value, and fixed-size arrays take `[[x]]` headers. Every path frees what it allocated.
+// value, and arrays of tables, fixed-size or of Toml_Value, take `[[x]]` headers. Every path frees what it allocated.
 Server :: struct {
     host: string;
     port: int; @toml(default)
@@ -17,6 +17,7 @@ Config :: struct {
     nested: Table(string, Table(string, string)); @toml(default)
     extra: Toml_Value; @toml(default)
     pair: [2] Server; @toml(default)
+    rows: [..] Toml_Value; @toml(default)
 }
 
 Stats :: struct {
@@ -189,8 +190,41 @@ arrays :: () {
     check("[pair]\nhost = 'a'\n", .TYPE);
 }
 
+value_arrays :: () {
+    source := "[[rows]]\nid = 1\n[rows.deep]\nz = 3\n\n[[rows]]\nid = 2\n";
+    value, error := from_toml(Config, source);
+
+    assert(error.kind == .NONE, tprint("%: %", error.line, error.message));
+    assert(value.rows.count == 2 && value.rows[0].kind == .TABLE && value.rows[1].kind == .TABLE);
+
+    id := toml_get(*value.rows[1], "id");
+
+    assert(id && id.integer == 2);
+
+    deep := toml_get(*value.rows[0], "deep");
+
+    assert(deep && toml_get(deep, "z").integer == 3);
+
+    text, write_error := to_toml(value);
+
+    assert(write_error.kind == .NONE, write_error.message);
+    defer free(text);
+
+    again, again_error := from_toml(Config, text);
+
+    assert(again_error.kind == .NONE, tprint("%: %", again_error.message, text));
+    assert(again.rows.count == 2 && toml_get(*again.rows[1], "id").integer == 2);
+    free_toml_value(*again);
+    free_toml_value(*value);
+
+    check("rows = [1, { a = 1 }]\n", .NONE);
+    check("rows = [{ a = 1 }]\n[[rows]]\na = 2\n", .DUPLICATE);
+    check("[[rows]]\na = 1\n[rows]\n", .DUPLICATE);
+}
+
 main :: () {
     maps();
+    value_arrays();
     values();
     arrays();
     print("ok\n");

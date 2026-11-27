@@ -12,6 +12,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 
 ### Fixes
 
+- A typed `[..] Toml_Value` field reads `[[x]]` headers.
 - Sound_Player on macOS counts only the unplayed part of a half-played buffer, so it refills on time.
 - The C-backed `Default_Allocator` refuses a free or resize whose `old_size` exceeds the block, as the x64 heap does.
 - A procedure only an unrun `#run` branch calls is type-checked, also in a program with no `main`.
