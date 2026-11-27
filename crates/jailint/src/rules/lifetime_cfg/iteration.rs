@@ -1,9 +1,6 @@
 //! Follow selected cursor edges. A break/return cannot reach the step, while an explicit
 //! user index write repairs (or makes unknown) the cursor before its next advance.
-use super::{
-    BodyState, Cells, Cx, Finding, HashMap, HashSet, Op, Places, Span, Summaries, VecDeque, build,
-    finding,
-};
+use super::{BodyState, Cx, Finding, HashSet, Op, Span, Summaries, VecDeque, finding, shared};
 use crate::rules::lifetime_movement::Action;
 use crate::rules::lifetime_summary::Prepared;
 
@@ -25,17 +22,11 @@ pub(in crate::rules) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if proc.body_state != BodyState::Done || !std::sync::Arc::ptr_eq(&proc.lit, &body.syntax) {
             continue;
         }
-        let mut places = Places::new(cx.compiler, body);
         let prepared = Prepared::for_body(cx.compiler, body, summaries);
-        let blocks = build(
-            cx,
-            body,
-            &prepared,
-            &mut places,
-            &mut Cells::default(),
-            summaries,
-            &mut HashMap::default(),
-        );
+        let blocks = &shared(cx, body, &prepared, summaries).blocks;
+        if jaic::interrupt::fired() {
+            return;
+        }
         for (start, b) in blocks.iter().enumerate() {
             let Op::Iteration {
                 region,

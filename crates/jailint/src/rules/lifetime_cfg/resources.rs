@@ -1,6 +1,7 @@
 //! Shared semantic-CFG analysis for released resources and escaping storage.
 //! Each candidate follows only its copy closure; joins preserve uncertainty.
-use super::{Block, Cell, Cells, DEAD, LIVE, Model, Op as CfgOp, UNKNOWN, build};
+use super::build;
+use super::{Block, Cell, Cells, DEAD, LIVE, Model, Op as CfgOp, UNKNOWN};
 use crate::rules::lifetime_places::Places;
 use crate::rules::lifetime_summary::{Kind as EffectKind, Prepared, Resolver, Root, Summaries};
 use crate::{Finding, syntax::Cx};
@@ -24,7 +25,9 @@ mod retained;
 mod retained_witness;
 mod stores;
 mod temporary;
+use super::region::{Graph, Scope, States};
 use diagnostics::{Proof, emit};
+use quiescent::FreeSpans;
 
 #[derive(Clone, Copy, Debug)]
 pub(super) enum Origin {
@@ -107,6 +110,8 @@ pub(crate) struct Reports {
     pub returned_local_address: Vec<Finding>,
     pub temp_storage_escape: Vec<Finding>,
     external_primary: usize,
+    /// Blocks visited by the per-candidate dataflow, over every candidate.
+    sweep_blocks: usize,
     fast_quiet: usize,
     covered_fresh_loads: usize,
 }
@@ -628,26 +633,15 @@ fn analyze(cx: &Cx) -> Reports {
             );
         }
         bytes += body.vector_bytes();
-        let mut places = Places::new(cx.compiler, body);
-        if trace {
-            eprintln!(
-                "lifetime-resource-body places proc={} wall_ms={:.3}",
-                body.procedure.0,
-                started.elapsed().as_secs_f64() * 1000.0
-            );
-        }
-        let mut cells = Cells::default();
-        let mut chains = HashMap::default();
         let prepared = Prepared::for_body(cx.compiler, body, summaries);
-        let blocks = build(
-            cx,
-            body,
-            &prepared,
-            &mut places,
-            &mut cells,
-            summaries,
-            &mut chains,
-        );
+        let built = build::shared(cx, body, &prepared, summaries);
+        if jaic::interrupt::fired() {
+            return reports;
+        }
+        let mut places = built.places.clone();
+        let cells = built.cells.clone();
+        let chains = built.chains.clone();
+        let blocks = built.blocks.clone();
         if trace {
             eprintln!(
                 "lifetime-resource-body cfg proc={} blocks={} cells={} wall_ms={:.3}",
@@ -657,18 +651,7 @@ fn analyze(cx: &Cx) -> Reports {
                 started.elapsed().as_secs_f64() * 1000.0
             );
         }
-        let mut forward = vec![Vec::new(); cells.ids.len()];
-        for block in &blocks {
-            match &block.op {
-                CfgOp::Copy(pairs) => {
-                    for &(target, source) in pairs {
-                        forward[source].push(target);
-                    }
-                }
-                CfgOp::PointerLoad(target, source, _, _) => forward[*source].push(*target),
-                _ => {}
-            }
-        }
+        let forward = super::copy_targets(cells.ids.len(), &blocks);
         let exposed = addresses::exposed(cx, body, &prepared, summaries, &mut places);
         if trace {
             eprintln!(
@@ -687,9 +670,13 @@ fn analyze(cx: &Cx) -> Reports {
         };
         let observable = quiescent::observable(&model);
         let operations = quiescent::Index::new(&model);
+        let graph = Graph::new(&model.blocks);
         let covered = quiescent::covered_loads(&model);
         let mut traced_candidates = 0;
         for (candidate, block) in model.blocks.iter().enumerate() {
+            if jaic::interrupt::should_stop() {
+                return reports;
+            }
             if covered[candidate] {
                 solved += 1;
                 reports.covered_fresh_loads += 1;
@@ -739,7 +726,7 @@ fn analyze(cx: &Cx) -> Reports {
                     &model,
                     candidate,
                     &observable,
-                    &operations,
+                    (&operations, &graph),
                     &mut reports,
                 ));
             }
@@ -769,7 +756,7 @@ fn analyze(cx: &Cx) -> Reports {
             entries
         };
         eprintln!(
-            "lifetime-resource-stats file={} bodies={checked_bodies} contracts={contracts} cfgs={cfgs} candidates={solved} sidecar_bytes={bytes} rejected={:?} rejected_candidates={:?} use_after_free={} double_free={} stack_escapes={} temp_escapes={} external_primary={} fast_quiet={} covered_fresh_loads={}",
+            "lifetime-resource-stats file={} bodies={checked_bodies} contracts={contracts} cfgs={cfgs} candidates={solved} sidecar_bytes={bytes} rejected={:?} rejected_candidates={:?} use_after_free={} double_free={} stack_escapes={} temp_escapes={} external_primary={} sweep_blocks={} fast_quiet={} covered_fresh_loads={}",
             cx.compiler.src.sources.get(cx.file).path,
             rank(rejected),
             rank(rejected_candidates),
@@ -778,6 +765,7 @@ fn analyze(cx: &Cx) -> Reports {
             reports.returned_local_address.len(),
             reports.temp_storage_escape.len(),
             reports.external_primary,
+            reports.sweep_blocks,
             reports.fast_quiet,
             reports.covered_fresh_loads
         );
@@ -829,7 +817,7 @@ fn solve(
     model: &Model,
     seed: usize,
     observable: &[bool],
-    operations: &quiescent::Index,
+    (operations, graph): (&quiescent::Index, &Graph),
     out: &mut Reports,
 ) -> bool {
     let Some((first, origin_kind, origin, region)) = candidate(&model.blocks[seed]) else {
@@ -875,34 +863,25 @@ fn solve(
         out.fast_quiet += 1;
         return true;
     }
-    let exposed: Vec<_> = if model.exposed.is_empty() {
-        Vec::new()
-    } else {
-        model
-            .cells
-            .ids
-            .iter()
-            .filter_map(|(key, &id)| {
-                let dense = index(id)?;
-                let Cell::Place(p) = key else {
-                    return None;
-                };
-                model
-                    .exposed
-                    .iter()
-                    .any(|&a| model.places.contains(a, *p))
-                    .then_some(dense)
-            })
-            .collect()
-    };
+    let exposed = exposed_cells(model, &relevant);
     let width = relevant.len();
     let born = width * 2;
-    let tokens = retained::tokens(model, born + 1);
-    let mut states = vec![None; model.blocks.len()];
-    states[0] = Some(vec![UNKNOWN; born + 1 + tokens.len()]);
-    let mut queue = VecDeque::from([0]);
+    let tokens = retained::tokens(operations.tokens(), born + 1);
+    // Before the seed every cell is unknown, which no operation changes; only a task token or
+    // a temporary's watermark makes the states ahead of the seed differ from the entry's.
+    let scope = if tokens.is_empty() && !matches!(origin_kind, Origin::Temporary) {
+        graph.scope(
+            &model.blocks,
+            seed,
+            operations.observations(relevant.keys()),
+        )
+    } else {
+        Scope::whole()
+    };
+    let (mut states, mut queue) = scope.begin(graph, vec![UNKNOWN; born + 1 + tokens.len()]);
     while let Some(i) = queue.pop_front() {
-        let mut state = states[i].clone().unwrap();
+        out.sweep_blocks += 1;
+        let mut state = states.visited(i).unwrap().clone();
         match &model.blocks[i].op {
             CfgOp::Borrow(target, _, _)
             | CfgOp::ElementBorrow(target, ..)
@@ -1016,24 +995,18 @@ fn solve(
             state[id] = UNKNOWN;
         }
         for &next in &model.blocks[i].next {
-            let mut outgoing = state.clone();
-            if let CfgOp::Decision(_, yes, _, Some(token), _) = model.blocks[i].op
+            if !scope.contains(next) {
+                continue;
+            }
+            let changed = if let CfgOp::Decision(_, yes, _, Some(token), _) = model.blocks[i].op
                 && next == yes
                 && let Some(&at) = tokens.get(&token)
             {
+                let mut outgoing = state.clone();
                 outgoing[at] = UNKNOWN;
-            }
-            let changed = if let Some(previous) = &mut states[next] {
-                let mut changed = false;
-                for (old, &new) in previous.iter_mut().zip(&outgoing) {
-                    let joined = *old | new;
-                    changed |= joined != *old;
-                    *old = joined;
-                }
-                changed
+                states.join(next, &outgoing)
             } else {
-                states[next] = Some(outgoing);
-                true
+                states.join(next, &state)
             };
             if changed {
                 queue.push_back(next);
@@ -1046,47 +1019,50 @@ fn solve(
         model,
         kind: origin_kind,
         seed,
-        origin: allocation_site(model, seed).unwrap_or(origin),
+        origin: allocation_site(model, operations, seed).unwrap_or(origin),
         region,
         relevant: &relevant,
         states: &states,
+        frees: operations.frees(),
     };
     emit(proof, out);
     retained::emit(proof, &tokens, out);
     true
 }
 
+/// The dense indexes of the relevant cells whose storage an address was taken of.
+fn exposed_cells(model: &Model, relevant: &HashMap<usize, usize>) -> Vec<usize> {
+    if model.exposed.is_empty() {
+        return Vec::new();
+    }
+    relevant
+        .iter()
+        .filter_map(|(&id, &dense)| {
+            let Cell::Place(p) = model.cells.values[id] else {
+                return None;
+            };
+            model
+                .exposed
+                .iter()
+                .any(|&a| model.places.contains(a, p))
+                .then_some(dense)
+        })
+        .collect()
+}
+
 /// Where the pointer a load reads came from: the one allocating call whose result is stored
 /// into the loaded place. Only labels use it; the proof is unchanged.
-fn allocation_site(model: &Model, seed: usize) -> Option<Span> {
+fn allocation_site(model: &Model, operations: &quiescent::Index, seed: usize) -> Option<Span> {
     let CfgOp::PointerLoad(_, source, ..) = model.blocks[seed].op else {
         return None;
     };
-    let mut stored = model
-        .blocks
-        .iter()
-        .filter_map(|b| match &b.op {
-            CfgOp::Copy(pairs) => Some(pairs),
-            _ => None,
-        })
-        .flatten()
-        .filter(|(target, _)| *target == source)
-        .map(|(_, from)| *from);
-    let from = stored.next()?;
-    if stored.next().is_some() {
+    let &[from] = operations.sources(source) else {
         return None;
-    }
-    let mut seeds = model.blocks.iter().filter_map(|b| match b.op {
-        CfgOp::Resource(Op::Seed {
-            cell,
-            origin: Origin::Heap,
-            span,
-            ..
-        }) if cell == from => Some(span),
-        _ => None,
-    });
-    let site = seeds.next()?;
-    seeds.next().is_none().then_some(site)
+    };
+    let &[site] = operations.heap_seeds(from) else {
+        return None;
+    };
+    Some(site)
 }
 
 fn kills(

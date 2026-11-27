@@ -14,12 +14,15 @@ use jaic::sema::procs::BodyState;
 use jaic::source::Span;
 use jaic::types::{ArrayKind, TypeId, TypeKind};
 use std::collections::{BTreeMap, VecDeque};
+use std::rc::Rc;
 
 mod build;
 mod capacity;
 mod controls;
 mod diagnostics;
 mod paths;
+mod region;
+use region::{Graph, States};
 pub(super) mod resources;
 
 fn dead(cx: &Cx, state: u8) -> bool {
@@ -30,7 +33,8 @@ fn dead(cx: &Cx, state: u8) -> bool {
     }
 }
 
-use build::build;
+pub(super) use build::Built;
+use build::shared;
 mod iteration;
 mod tasks;
 mod witness;
@@ -92,7 +96,7 @@ struct Model {
     places: Places,
     cells: Cells,
     exposed: HashSet<usize>,
-    blocks: Vec<Block>,
+    blocks: Rc<Vec<Block>>,
     forward: Vec<Vec<usize>>,
     chains: HashMap<(Span, usize), Vec<Span>>,
 }
@@ -108,7 +112,7 @@ enum Cell {
     Value(Val),
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct Cells {
     ids: HashMap<Cell, usize>,
     values: Vec<Cell>,
@@ -122,6 +126,23 @@ impl Cells {
             n
         })
     }
+}
+
+/// For each cell, the cells that receive a copy of it.
+fn copy_targets(cells: usize, blocks: &[Block]) -> Vec<Vec<usize>> {
+    let mut forward = vec![Vec::new(); cells];
+    for block in blocks {
+        match &block.op {
+            Op::Copy(pairs) => {
+                for &(target, source) in pairs {
+                    forward[source].push(target);
+                }
+            }
+            Op::PointerLoad(target, source, _, _) => forward[*source].push(*target),
+            _ => {}
+        }
+    }
+    forward
 }
 
 fn resizable(cx: &Cx, places: &Places, p: usize) -> bool {
@@ -178,6 +199,7 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
     };
     let mut cfgs = 0;
     let mut solved = 0;
+    let mut sweep_blocks = 0;
     let mut checked = HashSet::default();
     let contracts = cx
         .compiler
@@ -241,19 +263,15 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
             continue;
         }
         bytes += body.vector_bytes();
-        let mut places = Places::new(cx.compiler, body);
-        let mut cells = Cells::default();
-        let mut chains = HashMap::default();
         let defs = Prepared::for_body(cx.compiler, body, summaries);
-        let blocks = build(
-            cx,
-            body,
-            &defs,
-            &mut places,
-            &mut cells,
-            summaries,
-            &mut chains,
-        );
+        let built = shared(cx, body, &defs, summaries);
+        if jaic::interrupt::fired() {
+            return;
+        }
+        let mut places = built.places.clone();
+        let cells = built.cells.clone();
+        let chains = built.chains.clone();
+        let blocks = built.blocks.clone();
         let mut names = HashMap::default();
         let mut allowed_addresses = HashSet::default();
         let mut derived_addresses = HashSet::default();
@@ -344,18 +362,7 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
         let exposed =
             unallowed_addresses(body, &mut places, &allowed_addresses, &derived_addresses);
         cfgs += 1;
-        let mut forward = vec![Vec::new(); cells.ids.len()];
-        for block in &blocks {
-            match &block.op {
-                Op::Copy(pairs) => {
-                    for &(target, source) in pairs {
-                        forward[source].push(target);
-                    }
-                }
-                Op::PointerLoad(target, source, _, _) => forward[*source].push(*target),
-                _ => {}
-            }
-        }
+        let forward = copy_targets(cells.ids.len(), &blocks);
         let model = Model {
             places,
             cells,
@@ -364,7 +371,12 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
             forward,
             chains,
         };
+        let graph = Graph::new(&model.blocks);
+        let observed = Observed::new(&model.blocks);
         for (origin, block) in model.blocks.iter().enumerate() {
+            if jaic::interrupt::should_stop() {
+                return;
+            }
             if let Op::Borrow(_, region, _)
             | Op::ElementBorrow(_, region, ..)
             | Op::LogicalBorrow(_, region, ..)
@@ -373,12 +385,7 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
                 if resizable_only && !resizable(cx, &model.places, region) {
                     continue;
                 }
-                if matches!(block.op, Op::PointerLoad(..))
-                    && !model
-                        .blocks
-                        .iter()
-                        .any(|b| matches!(b.op, Op::Grow(r, _) if r == region))
-                {
+                if matches!(block.op, Op::PointerLoad(..)) && !observed.grown.contains(&region) {
                     continue;
                 }
                 if model.places.unresolved(region) && !model.places.stable_projection(region) {
@@ -406,7 +413,15 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
                         Projection::Deref => {}
                     }
                 }
-                solved += usize::from(solve(cx, &model, origin, &name, out, resizable_only));
+                solved += usize::from(solve(
+                    cx,
+                    &model,
+                    (&graph, &observed),
+                    origin,
+                    &name,
+                    out,
+                    (resizable_only, &mut sweep_blocks),
+                ));
             }
         }
     }
@@ -417,7 +432,7 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
             pairs
         };
         eprintln!(
-            "lifetime-stats file={} bodies={bodies} contracts={contracts} cfgs={cfgs} candidates={solved} sidecar_bytes={bytes} rejected={:?} rejected_candidates={:?}",
+            "lifetime-stats file={} bodies={bodies} contracts={contracts} cfgs={cfgs} candidates={solved} sweep_blocks={sweep_blocks} sidecar_bytes={bytes} rejected={:?} rejected_candidates={:?}",
             cx.compiler.src.sources.get(cx.file).path,
             rank(rejected),
             rank(rejected_candidates)
@@ -425,13 +440,46 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
     }
 }
 
+/// What the candidates of one CFG ask about its blocks, indexed once.
+struct Observed {
+    /// The blocks that read each cell.
+    reads: HashMap<usize, Vec<usize>>,
+    /// The regions some block grows.
+    grown: HashSet<usize>,
+}
+
+impl Observed {
+    fn new(blocks: &[Block]) -> Self {
+        let mut reads = HashMap::<usize, Vec<usize>>::default();
+        let mut grown = HashSet::default();
+        for (i, block) in blocks.iter().enumerate() {
+            match block.op {
+                Op::Use(cell, _)
+                | Op::ObserveValue(cell, _)
+                | Op::Resource(resources::Op::Read {
+                    cell, ..
+                }) => reads.entry(cell).or_default().push(i),
+                Op::Grow(region, _) => {
+                    grown.insert(region);
+                }
+                _ => {}
+            }
+        }
+        Self {
+            reads,
+            grown,
+        }
+    }
+}
+
 fn solve(
     cx: &Cx,
     model: &Model,
+    (graph, observed): (&Graph, &Observed),
     candidate: usize,
     region_name: &str,
     out: &mut Vec<Finding>,
-    resizable_only: bool,
+    (resizable_only, sweep_blocks): (bool, &mut usize),
 ) -> bool {
     let Model {
         blocks,
@@ -462,29 +510,33 @@ fn solve(
         relevant.insert(cell, relevant.len());
         queue.extend(&forward[cell]);
     }
-    if !blocks
-        .iter()
-        .any(|b| matches!(b.op, Op::Use(cell, _) | Op::ObserveValue(cell, _) | Op::Resource(resources::Op::Read { cell, .. }) if relevant.contains_key(&cell)))
-    {
+    let reads: Vec<_> = relevant
+        .keys()
+        .filter_map(|c| observed.reads.get(c))
+        .flatten()
+        .copied()
+        .collect();
+    if reads.is_empty() {
         return false;
     }
-    let exposed_cells: HashSet<_> = cells
-        .ids
+    let exposed_cells: HashSet<_> = relevant
         .iter()
-        .filter_map(|(key, &cell)| match key {
+        .filter_map(|(&cell, &dense)| match cells.values[cell] {
             Cell::Place(p)
-                if places.unresolved(*p) || exposed.iter().any(|&a| places.contains(a, *p)) =>
+                if places.unresolved(p) || exposed.iter().any(|&a| places.contains(a, p)) =>
             {
-                relevant.get(&cell).copied()
+                Some(dense)
             }
             _ => None,
         })
         .collect();
-    let mut states: Vec<Option<Vec<u8>>> = vec![None; blocks.len()];
-    states[0] = Some(vec![UNKNOWN; relevant.len()]);
-    let mut queue = VecDeque::from([0]);
+    // Before the candidate every cell is unknown, which no operation changes, so the sweep
+    // starts at the candidate and stops past the last read of its cells.
+    let scope = graph.scope(blocks, candidate, reads);
+    let (mut states, mut queue) = scope.begin(graph, vec![UNKNOWN; relevant.len()]);
     while let Some(i) = queue.pop_front() {
-        let mut state = states[i].clone().unwrap();
+        *sweep_blocks += 1;
+        let mut state = states.visited(i).unwrap().clone();
         match &blocks[i].op {
             Op::LogicalBorrow(target, ..)
                 if matches!(blocks[candidate].op, Op::LogicalBorrow(..)) =>
@@ -600,19 +652,7 @@ fn solve(
             state[cell] = UNKNOWN;
         }
         for &next in &blocks[i].next {
-            let changed = if let Some(previous) = &mut states[next] {
-                let mut changed = false;
-                for (before, &now) in previous.iter_mut().zip(&state) {
-                    let join = *before | now;
-                    changed |= join != *before;
-                    *before = join;
-                }
-                changed
-            } else {
-                states[next] = Some(state.clone());
-                true
-            };
-            if changed {
+            if scope.contains(next) && states.join(next, &state) {
                 queue.push_back(next);
             }
         }
@@ -634,7 +674,7 @@ fn solve(
 /// contribute invalidators. Witness storage is allocated on demand, outside the fixed point.
 fn invalidation_cut(
     model: &Model,
-    states: &[Option<Vec<u8>>],
+    states: &States<'_>,
     relevant: &HashMap<usize, usize>,
     use_at: usize,
     use_cell: usize,
@@ -646,7 +686,7 @@ fn invalidation_cut(
     for (from, block) in blocks
         .iter()
         .enumerate()
-        .filter(|(i, _)| states[*i].is_some())
+        .filter(|(i, _)| states.get(*i).is_some())
     {
         for &to in &block.next {
             incoming[to].push(from);
@@ -678,7 +718,7 @@ fn invalidation_cut(
                         _ => true,
                     } =>
             {
-                let before = states[i].as_ref().unwrap()[cell];
+                let before = states.get(i).unwrap()[cell];
                 let live = if matches!(blocks[i].op, Op::Mutate(..)) {
                     LIVE
                 } else {

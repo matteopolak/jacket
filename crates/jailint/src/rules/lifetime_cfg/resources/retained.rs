@@ -1,25 +1,16 @@
 //! Retained worker borrows are independent of the caller's remaining uses.
 use super::super::tasks::{Op as Task, Token};
 use super::diagnostics::Proof;
-use super::{CfgOp, Cx, HashMap, LIVE, Model, Op, Origin, Reports, UNKNOWN, kills};
+use super::{CfgOp, Cx, HashMap, LIVE, Op, Origin, Reports, UNKNOWN, kills};
 use crate::rules::finding;
 
-pub(super) fn tokens(model: &Model, start: usize) -> HashMap<Token, usize> {
-    let mut out = HashMap::default();
-    for block in &model.blocks {
-        if let CfgOp::Task(
-            Task::Start {
-                token, ..
-            }
-            | Task::End(token)
-            | Task::MayEnd(token),
-        ) = block.op
-        {
-            let next = start + out.len();
-            out.entry(token).or_insert(next);
-        }
-    }
-    out
+/// The state slot of each distinct token, from `start` on.
+pub(super) fn tokens(distinct: &[Token], start: usize) -> HashMap<Token, usize> {
+    distinct
+        .iter()
+        .enumerate()
+        .map(|(i, &token)| (token, start + i))
+        .collect()
 }
 
 pub(super) fn transfer(
@@ -61,10 +52,9 @@ pub(super) fn emit(proof: Proof<'_>, tokens: &HashMap<Token, usize>, out: &mut R
     let strict = proof.cx.lifetime_mode == jacket_config::LifetimeMode::Strict;
     let width = proof.relevant.len();
     let index = |c| proof.relevant.get(&c).copied();
-    for (i, block) in proof.model.blocks.iter().enumerate() {
-        let Some(state) = &proof.states[i] else {
-            continue;
-        };
+    for i in proof.states.swept() {
+        let block = &proof.model.blocks[i];
+        let state = proof.states.visited(i).unwrap();
         // The worker first reads already-released memory when it is started.
         if let CfgOp::Task(Task::Start {
             cells,
@@ -149,7 +139,7 @@ pub(super) fn emit(proof: Proof<'_>, tokens: &HashMap<Token, usize>, out: &mut R
                         ..
                     }) = b.op
                         && t == token
-                        && proof.states[j].is_some()
+                        && proof.states.get(j).is_some()
                     {
                         Some((j, span))
                     } else {

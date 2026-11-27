@@ -1,11 +1,12 @@
 //! On-demand cut witnesses and labelled source locations.
+use super::region::States;
 use super::{Cx, Finding, HashMap, Model, Op, Span, dead, finding, invalidation_cut};
 
 pub(super) fn emit(
     cx: &Cx,
     model: &Model,
     candidate: usize,
-    states: &[Option<Vec<u8>>],
+    states: &States<'_>,
     relevant: &HashMap<usize, usize>,
     region_name: &str,
     resizable_only: bool,
@@ -23,7 +24,8 @@ pub(super) fn emit(
         _ => return Vec::new(),
     };
     let mut reports: Vec<Finding> = Vec::new();
-    for (i, block) in blocks.iter().enumerate() {
+    for i in states.swept() {
+        let block = &blocks[i];
         let (id, at) = match block.op {
             Op::Use(id, at)
             | Op::Resource(super::resources::Op::Read {
@@ -45,7 +47,7 @@ pub(super) fn emit(
         let Some(&cell) = relevant.get(&id) else {
             continue;
         };
-        if states[i].as_ref().is_none_or(|s| !dead(cx, s[cell])) {
+        if states.get(i).is_none_or(|s| !dead(cx, s[cell])) {
             continue;
         }
         let growths = invalidation_cut(
@@ -76,7 +78,7 @@ pub(super) fn emit(
             continue;
         }
         let explanation = if cx.lifetime_mode == jacket_config::LifetimeMode::Strict
-            && states[i].as_ref().is_some_and(|s| s[cell] != super::DEAD)
+            && states.get(i).is_some_and(|s| s[cell] != super::DEAD)
         {
             format!(
                 "strict mode: `{}` may outlive the storage or element it refers to along a bad path",

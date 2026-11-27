@@ -4,8 +4,70 @@ use super::{
     LifetimeOperand, Mutation, Op, Places, Prepared, Resolver, Selector, Site, Span, Summaries,
     TypeId, resizable, resources, view,
 };
+use std::rc::Rc;
 
-pub(super) fn build(
+/// One procedure's lowered CFG with the places, cells and call chains its operations name.
+pub(in crate::rules) struct Built {
+    pub(super) blocks: Rc<Vec<Block>>,
+    pub(super) places: Places,
+    pub(super) cells: Cells,
+    pub(super) chains: HashMap<(Span, usize), Vec<Span>>,
+}
+
+/// The CFG of `body`, built by the first rule that asks and reused by the rest of that
+/// file's rules. Only the current file's CFGs are kept, so a run holds one file's at a time.
+/// After a stop request (`jaic::interrupt`) the CFG may be incomplete; the caller must check
+/// `jaic::interrupt::fired()` before using it.
+pub(super) fn shared(
+    cx: &Cx,
+    body: &LifetimeBody,
+    prepared: &Prepared<'_>,
+    summaries: &Summaries,
+) -> Rc<Built> {
+    let key = body.procedure;
+    {
+        let mut kept = cx.run.cfgs.borrow_mut();
+        if kept.0 != Some(cx.file) {
+            *kept = (Some(cx.file), HashMap::default());
+        } else if let Some(built) = kept.1.get(&key) {
+            return built.clone();
+        }
+    }
+    let mut places = Places::new(cx.compiler, body);
+    let mut cells = Cells::default();
+    let mut chains = HashMap::default();
+    let blocks = build(
+        cx,
+        body,
+        prepared,
+        &mut places,
+        &mut cells,
+        summaries,
+        &mut chains,
+    );
+    if jacket_config::env::LIFETIME_STATS.is_set() {
+        eprintln!(
+            "lifetime-cfg-build file={} proc={} events={} blocks={}",
+            cx.compiler.src.sources.get(cx.file).path,
+            body.procedure.0,
+            body.blocks.iter().map(|b| b.events.len()).sum::<usize>(),
+            blocks.len()
+        );
+    }
+    let built = Rc::new(Built {
+        blocks: Rc::new(blocks),
+        places,
+        cells,
+        chains,
+    });
+    // A CFG cut short by a stop request must not be reused: callers see the stop and leave.
+    if !jaic::interrupt::fired() {
+        cx.run.cfgs.borrow_mut().1.insert(key, built.clone());
+    }
+    built
+}
+
+fn build(
     cx: &Cx,
     body: &LifetimeBody,
     prepared: &Prepared<'_>,
@@ -44,6 +106,9 @@ pub(super) fn build(
         ranges[range.block].push(range);
     }
     for (i, block) in body.blocks.iter().enumerate() {
+        if jaic::interrupt::should_stop() {
+            return blocks;
+        }
         let mut previous = i;
         let mut range_index = 0;
         for (ordinal, event) in block.events.iter().enumerate() {

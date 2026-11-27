@@ -1,6 +1,7 @@
 //! On-demand reverse product graph: value-copy provenance x whether an invalidation was
 //! crossed. BFS picks a shortest witness; a trimmed DAG counts alternatives, or a cycle
 //! establishes infinitely many walks. None of this memory is retained in the fixed point.
+use super::region::States;
 use super::resources::Op as Resource;
 use super::{Cx, Finding, HashMap, HashSet, Model, Op, Span, VecDeque};
 
@@ -13,7 +14,7 @@ struct Node {
 
 pub(super) fn strict_path(
     model: &Model,
-    reachable: &[Option<Vec<u8>>],
+    reachable: &States<'_>,
     relevant: &HashMap<usize, usize>,
     candidate: usize,
     at: usize,
@@ -22,7 +23,7 @@ pub(super) fn strict_path(
 ) -> (Vec<(Span, bool)>, String) {
     let mut incoming = vec![Vec::new(); model.blocks.len()];
     for (from, block) in model.blocks.iter().enumerate() {
-        if reachable[from].is_some() {
+        if reachable.get(from).is_some() {
             for &to in &block.next {
                 incoming[to].push(from);
             }
@@ -264,7 +265,7 @@ pub(super) fn alternatives(edges: &[Vec<usize>], terminal: &[bool]) -> String {
 }
 
 pub(super) fn targets(cx: &Cx, model: &Model, invalidators: &[Span], report: &mut Finding) {
-    for block in &model.blocks {
+    for block in model.blocks.iter() {
         let Op::Indirect(set, span) = &block.op else {
             continue;
         };

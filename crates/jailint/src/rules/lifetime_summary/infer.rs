@@ -23,6 +23,9 @@ impl Resolver<'_> {
             .enumerate()
             .filter(|(i, _)| live.contains(*i))
         {
+            if jaic::interrupt::should_stop() {
+                return prior.clone();
+            }
             for (ordinal, event) in block.events.iter().enumerate() {
                 self.infer_allocations(event, (b, ordinal), all, &mut next);
                 for (effect, span, definite) in self.temporary_writes(event, all) {

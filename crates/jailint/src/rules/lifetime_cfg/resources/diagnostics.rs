@@ -1,7 +1,7 @@
 //! Lifetime diagnostics and on-demand witnesses, separate from fixed-point state.
 use super::{
-    CfgOp, Cx, DEAD, Event, Finding, HashMap, HashSet, LIVE, LifetimeBody, Model, Op, Origin,
-    Reports, Span, VecDeque, contains, inside, kills,
+    CfgOp, Cx, DEAD, Event, Finding, FreeSpans, HashMap, HashSet, LIVE, LifetimeBody, Model, Op,
+    Origin, Reports, Span, States, VecDeque, contains, inside, kills,
 };
 use crate::Edit;
 use crate::rules::{finding, suggesting};
@@ -16,7 +16,8 @@ pub(super) struct Proof<'a> {
     pub(super) origin: Span,
     pub(super) region: Option<usize>,
     pub(super) relevant: &'a HashMap<usize, usize>,
-    pub(super) states: &'a [Option<Vec<u8>>],
+    pub(super) states: &'a States<'a>,
+    pub(super) frees: &'a FreeSpans,
 }
 
 pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
@@ -29,23 +30,13 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
         region,
         relevant,
         states,
+        frees,
         ..
     } = proof;
     let index = |cell: usize| relevant.get(&cell).copied();
-    let frees: Vec<_> = model
-        .blocks
-        .iter()
-        .filter_map(|b| match b.op {
-            CfgOp::Resource(Op::Free {
-                span, ..
-            }) => Some(span),
-            _ => None,
-        })
-        .collect();
-    for (i, block) in model.blocks.iter().enumerate() {
-        let Some(state) = &states[i] else {
-            continue;
-        };
+    for i in states.swept() {
+        let block = &model.blocks[i];
+        let state = states.visited(i).unwrap();
         let primary = match block.op {
             CfgOp::Use(_, span)
             | CfgOp::Resource(
@@ -89,7 +80,7 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
                 span: at,
                 ..
             }) if index(*cell).is_some_and(|c| super::super::dead(cx, state[c]))
-                && !frees.iter().any(|&span| contains(span, *at)) =>
+                && !frees.contain(*at) =>
             {
                 let witnesses = witnesses(model, states, relevant, i, kind, region, cx);
                 if witnesses.is_empty() {
@@ -380,8 +371,9 @@ impl Proof<'_> {
             dense,
             &spans,
         );
-        let may = self.states[at]
-            .as_ref()
+        let may = self
+            .states
+            .get(at)
             .is_some_and(|s| !matches!(s[dense], LIVE | DEAD));
         for (findings, start) in [
             &mut out.use_after_free,
@@ -434,7 +426,7 @@ impl Proof<'_> {
             ..
         } = *self;
         let block = &model.blocks[i];
-        let state = states[i].as_ref().unwrap();
+        let state = states.get(i).unwrap();
         let index = |cell| relevant.get(&cell).copied();
         let returning = matches!(block.op, CfgOp::Resource(Op::Return { .. }));
         let Some(cell) = index(cell) else {
@@ -581,7 +573,7 @@ fn label(f: &mut Finding, origin: Span, witnesses: &[(usize, Span)]) {
 
 fn witnesses(
     model: &Model,
-    states: &[Option<Vec<u8>>],
+    states: &States<'_>,
     relevant: &HashMap<usize, usize>,
     use_at: usize,
     kind: Origin,
@@ -602,7 +594,7 @@ fn witnesses(
         if !seen.insert(i) {
             continue;
         }
-        let Some(state) = &states[i] else {
+        let Some(state) = states.get(i) else {
             continue;
         };
         if let CfgOp::Resource(op) = &model.blocks[i].op
@@ -846,7 +838,7 @@ impl Proof<'_> {
         let CfgOp::Resource(op) = &self.model.blocks[at].op else {
             return false;
         };
-        self.states[at].as_ref().is_some_and(|state| {
+        self.states.get(at).is_some_and(|state| {
             super::kills(
                 self.cx,
                 op,

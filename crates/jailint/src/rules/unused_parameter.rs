@@ -308,6 +308,9 @@ fn canonical(cx: &Cx, path: &Path) -> PathBuf {
         .unwrap_or_else(|_| path.to_path_buf())
 }
 
+/// A file's lowered lifetime CFGs by procedure.
+type Cfgs = HashMap<jaic::sema::ProcId, Rc<super::lifetime_cfg::Built>>;
+
 /// What the rules remember across the files of one lint run. A run makes its own, so nothing
 /// a rule learned about the file system outlives it (a file edited between runs is read anew).
 #[derive(Default)]
@@ -315,6 +318,8 @@ pub(crate) struct RunState {
     pub(super) resource_reports:
         RefCell<HashMap<FileId, Rc<super::lifetime_cfg::resources::Reports>>>,
     pub(super) lifetimes: std::cell::OnceCell<super::lifetime_summary::Summaries>,
+    /// The lowered CFGs of the file the lifetime rules are checking, by procedure.
+    pub(super) cfgs: RefCell<(Option<FileId>, Cfgs)>,
     pub(crate) lifetime_entry_module: Option<jaic::sema::ModuleId>,
     pub(crate) lifetime_files: jaic::fxhash::HashSet<FileId>,
     /// The definitions of the `.jai` files around a directory, by directory.

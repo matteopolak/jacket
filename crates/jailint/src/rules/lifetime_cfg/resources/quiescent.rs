@@ -1,12 +1,24 @@
 //! Prove quiet candidates without a value-state fixed point when no observable kill exists.
 use super::super::tasks::Op as Task;
-use super::{CfgOp, Cx, DEAD, HashMap, HashSet, LIVE, Model, Op, Origin, UNKNOWN, VecDeque, kills};
+use super::{
+    CfgOp, Cx, DEAD, HashMap, HashSet, LIVE, Model, Op, Origin, Span, UNKNOWN, VecDeque, kills,
+};
 
 /// Candidate-independent operation sets. Unknown future resource operations stay in
 /// the general bucket, where the authoritative kill predicate still decides them.
 #[derive(Default)]
 pub(super) struct Index {
     observed: HashSet<usize>,
+    /// The blocks that observe each cell.
+    observations: HashMap<usize, Vec<usize>>,
+    /// Every released call's span, for the spans a use may sit inside.
+    frees: FreeSpans,
+    /// The distinct task tokens, in the order their blocks appear.
+    tokens: Vec<super::super::tasks::Token>,
+    /// What is copied into each cell.
+    sources: HashMap<usize, Vec<usize>>,
+    /// The spans of the heap allocations seeding each cell.
+    heap_seeds: HashMap<usize, Vec<Span>>,
     escaped: Vec<usize>,
     retained: Vec<usize>,
     general: Vec<usize>,
@@ -19,6 +31,7 @@ pub(super) struct Index {
 impl Index {
     pub(super) fn new(model: &Model) -> Self {
         let mut out = Self::default();
+        let mut frees = Vec::new();
         for (i, block) in model.blocks.iter().enumerate() {
             match &block.op {
                 CfgOp::Use(cell, _)
@@ -34,6 +47,7 @@ impl Index {
                     },
                 ) => {
                     out.observed.insert(*cell);
+                    out.observations.entry(*cell).or_default().push(i);
                 }
                 CfgOp::Resource(
                     Op::Return {
@@ -44,15 +58,47 @@ impl Index {
                     },
                 ) => {
                     out.observed.insert(*cell);
+                    out.observations.entry(*cell).or_default().push(i);
                     out.escaped.push(*cell);
                 }
                 CfgOp::Task(Task::Start {
                     cells, ..
                 }) => {
                     out.observed.extend(cells);
+                    for &cell in cells {
+                        out.observations.entry(cell).or_default().push(i);
+                    }
                     out.retained.extend(cells);
                 }
+                CfgOp::Copy(pairs) => {
+                    for &(target, source) in pairs {
+                        out.sources.entry(target).or_default().push(source);
+                    }
+                }
+                CfgOp::Resource(Op::Seed {
+                    cell,
+                    origin: Origin::Heap,
+                    span,
+                    ..
+                }) => out.heap_seeds.entry(*cell).or_default().push(*span),
                 _ => {}
+            }
+            if let CfgOp::Task(
+                Task::Start {
+                    token, ..
+                }
+                | Task::End(token)
+                | Task::MayEnd(token),
+            ) = &block.op
+                && !out.tokens.contains(token)
+            {
+                out.tokens.push(*token);
+            }
+            if let CfgOp::Resource(Op::Free {
+                span, ..
+            }) = &block.op
+            {
+                frees.push(*span);
             }
             if let CfgOp::Resource(op) = &block.op {
                 match op {
@@ -80,7 +126,36 @@ impl Index {
                 }
             }
         }
+        out.frees = FreeSpans::new(frees);
         out
+    }
+
+    /// The blocks that observe any of `cells`.
+    pub(super) fn observations<'a>(
+        &'a self,
+        cells: impl IntoIterator<Item = &'a usize> + 'a,
+    ) -> impl Iterator<Item = usize> + 'a {
+        cells
+            .into_iter()
+            .filter_map(|c| self.observations.get(c))
+            .flatten()
+            .copied()
+    }
+
+    pub(super) fn frees(&self) -> &FreeSpans {
+        &self.frees
+    }
+
+    pub(super) fn tokens(&self) -> &[super::super::tasks::Token] {
+        &self.tokens
+    }
+
+    pub(super) fn sources(&self, cell: usize) -> &[usize] {
+        self.sources.get(&cell).map_or(&[], Vec::as_slice)
+    }
+
+    pub(super) fn heap_seeds(&self, cell: usize) -> &[Span] {
+        self.heap_seeds.get(&cell).map_or(&[], Vec::as_slice)
     }
 
     /// Without any applicable invalidation, a non-local region cannot produce a
@@ -183,7 +258,7 @@ pub(super) fn quiet(
 /// Giving that load a second, incoming region would merge successive loop generations.
 pub(super) fn covered_loads(model: &Model) -> Vec<bool> {
     let mut incoming = vec![0usize; model.blocks.len()];
-    for block in &model.blocks {
+    for block in model.blocks.iter() {
         for &to in &block.next {
             incoming[to] += 1;
         }
@@ -204,4 +279,43 @@ pub(super) fn covered_loads(model: &Model) -> Vec<bool> {
         }
     }
     covered
+}
+
+/// The spans of released calls, queried for a span one of them contains.
+#[derive(Default)]
+pub(super) struct FreeSpans {
+    /// Sorted by file and start, with the greatest end seen so far in the same file.
+    spans: Vec<(u32, u32, u32)>,
+}
+
+impl FreeSpans {
+    fn new(mut spans: Vec<Span>) -> Self {
+        spans.sort_unstable_by_key(|s| (s.file.0, s.start));
+        let mut widest = 0;
+        let mut file = None;
+        Self {
+            spans: spans
+                .into_iter()
+                .map(|s| {
+                    if file != Some(s.file.0) {
+                        file = Some(s.file.0);
+                        widest = 0;
+                    }
+                    widest = widest.max(s.end);
+                    (s.file.0, s.start, widest)
+                })
+                .collect(),
+        }
+    }
+
+    /// Whether some released call's span contains `inner`.
+    pub(super) fn contain(&self, inner: Span) -> bool {
+        let before = self
+            .spans
+            .partition_point(|&(file, start, _)| (file, start) <= (inner.file.0, inner.start));
+        before > 0 && {
+            let (file, _, widest) = self.spans[before - 1];
+            file == inner.file.0 && widest >= inner.end
+        }
+    }
 }

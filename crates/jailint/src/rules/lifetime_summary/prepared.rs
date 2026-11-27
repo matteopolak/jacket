@@ -159,7 +159,12 @@ impl<'a> Prepared<'a> {
                     ..
                 } => {
                     let p = places.place(*place, *ty);
-                    core.values.entry(*place).or_default().push(Def::Address(p));
+                    // Every address taken of one place is the same definition; keeping each
+                    // would make every query about the place's root scan all of them.
+                    let defs = core.values.entry(*place).or_default();
+                    if !defs.iter().any(|d| matches!(d, Def::Address(q) if *q == p)) {
+                        defs.push(Def::Address(p));
+                    }
                     core.exposed.insert(p);
                 }
                 Event::View {
@@ -257,6 +262,14 @@ impl<'a> Prepared<'a> {
 
 /// Prepared bodies shared by the passes of one summary build.
 pub(super) type Cache<'a> = HashMap<ProcId, Prepared<'a>>;
+
+#[cfg(test)]
+impl Prepared<'_> {
+    /// The most definitions any one value has.
+    pub(super) fn most_definitions(&self) -> usize {
+        self.core.values.values().map(Vec::len).max().unwrap_or(0)
+    }
+}
 
 impl<'a> Prepared<'a> {
     pub fn for_body(

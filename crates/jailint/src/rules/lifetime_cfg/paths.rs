@@ -49,6 +49,9 @@ fn specialize(mut blocks: Vec<Block>, body: &LifetimeBody, scalar: bool) -> Vec<
         .clamp(64, 65536);
     let mut cursor = 0;
     while cursor < pending.len() {
+        if jaic::interrupt::should_stop() {
+            return blocks;
+        }
         let (original, state, mut numbers) = pending[cursor].clone();
         if scalar && let Op::Control(i) = blocks[original].op {
             controls.apply(i, &mut numbers);
