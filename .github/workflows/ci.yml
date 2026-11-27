@@ -1751,6 +1751,11 @@ jobs:
         with:
           cpu: ${{ matrix.cpu }}
           triple: ${{ matrix.triple }}
+      # The interpreter's Windows-only unit tests (thread handles, mappings, share paths): no
+      # other job runs jaic's Rust tests on Windows.
+      - name: Interpreter unit tests
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && matrix.part == 'programs' }}
+        run: cargo test --locked -p jaic --lib
       - name: Native C++ vtable generation and dispatch
         if: ${{ matrix.part == 'programs' }}
         run: |
