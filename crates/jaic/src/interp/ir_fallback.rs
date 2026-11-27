@@ -10,6 +10,13 @@ use super::{Interp, Res, proc_addr};
 use crate::ir::{self, BinOp, Callee, Inst, Program, Ty, UnOp};
 
 impl Interp {
+    /// `v` of IR type `from` converted to `to`, a pointer being the integer of the program's
+    /// pointer width (`AddressMap::int_ty`).
+    fn convert(&self, op: ir::ConvOp, from: Ty, to: Ty, v: u64) -> u64 {
+        let map = self.addresses();
+        conv(op, map.int_ty(from), map.int_ty(to), v)
+    }
+
     pub(super) fn exec_ir(
         &mut self,
         program: &Program,
@@ -106,15 +113,7 @@ impl Interp {
                 from,
                 to,
                 src,
-            } => {
-                let map = self.addresses();
-                vals[dst.0 as usize] = conv(
-                    *op,
-                    map.int_ty(*from),
-                    map.int_ty(*to),
-                    vals[src.0 as usize],
-                );
-            }
+            } => vals[dst.0 as usize] = self.convert(*op, *from, *to, vals[src.0 as usize]),
             Inst::SlotAddr {
                 dst,
                 slot,

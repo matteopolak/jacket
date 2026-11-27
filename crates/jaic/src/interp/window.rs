@@ -242,11 +242,9 @@ mod tests {
         window.free(a, 100);
         let b = window.alloc(100, 64).unwrap();
         assert_eq!(a, b, "a freed block is reused");
+        let reused = window.addresses().host(b) as *const u8;
         // SAFETY: as above.
-        assert_eq!(
-            unsafe { (window.addresses().host(b) as *const u8).read() },
-            0
-        );
+        assert_eq!(unsafe { reused.read() }, 0);
         assert!(window.alloc(SPAN, 16).is_none());
     }
 
@@ -265,12 +263,9 @@ mod tests {
         }
         assert!(last as usize + 1024 <= SPAN16);
         assert!(window.alloc(SPAN16, 16).is_none());
+        let host = window.addresses().host(last) as *mut u8;
         // SAFETY: the block is committed and ours.
-        unsafe {
-            (window.addresses().host(last) as *mut u8)
-                .add(1023)
-                .write(1)
-        };
+        unsafe { host.add(1023).write(1) };
     }
 
     #[test]
