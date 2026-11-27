@@ -196,14 +196,27 @@ pub fn strip(text: &str) -> String {
 }
 
 /// What two outputs are compared as: line breaks as `\n`, no spaces at line ends, and times
-/// (`[   0.057s]`, `[  12ms]`) as `[time]`, since they differ from run to run.
+/// (`[   0.057s]`, `[  12ms]`) as `[time]`, since they differ from run to run. The `slowest:`
+/// list `jacket test` prints for tests over a second is left out for the same reason.
 pub fn normal(text: &str) -> String {
     static TIME: std::sync::LazyLock<regex_lite::Regex> = std::sync::LazyLock::new(|| {
         regex_lite::Regex::new(r"\[ *[0-9]+(\.[0-9]+)?m?s\]").expect("valid pattern")
     });
+    static SLOW: std::sync::LazyLock<regex_lite::Regex> = std::sync::LazyLock::new(|| {
+        regex_lite::Regex::new(r"^ +[0-9]+\.[0-9]+s ").expect("valid pattern")
+    });
+    let text = text.replace("\r\n", "\n");
+    let mut in_slowest = false;
     let lines: Vec<String> = text
-        .replace("\r\n", "\n")
         .lines()
+        .filter(|l| {
+            in_slowest = if *l == "slowest:" {
+                true
+            } else {
+                in_slowest && SLOW.is_match(l)
+            };
+            !in_slowest
+        })
         .map(|l| TIME.replace_all(l.trim_end(), "[time]").into_owned())
         .collect();
     trim_end_lines(&lines.join("\n"))

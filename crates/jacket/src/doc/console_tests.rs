@@ -88,6 +88,14 @@ fn escapes_are_stripped_and_times_masked() {
 }
 
 #[test]
+fn the_slowest_tests_list_is_left_out() {
+    assert_eq!(
+        normal("PASS [   1.2s] a\nslowest:\n     1.143s a\n    12.000s b\nSummary [ 1.2s] b"),
+        "PASS [time] a\nSummary [time] b"
+    );
+}
+
+#[test]
 fn colours_become_spans_and_nothing_is_guessed() {
     assert_eq!(
         ansi_html("\x1b[1;32m    PASS\x1b[0m a <b>"),
