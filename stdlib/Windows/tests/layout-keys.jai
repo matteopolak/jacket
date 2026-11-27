@@ -1,4 +1,6 @@
-// test: only(.WINDOWS)
+// test: only(.WINDOWS) serial
+// Serial: a window another test opens takes the focus, and the focus loss releases the held key
+// with a KEYBOARD event in the frame this test reads.
 #import "Basic";
 W :: #import "Windows";
 WC :: #import "Window_Creation";
