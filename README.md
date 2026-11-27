@@ -60,35 +60,28 @@ jacket run hello.jai
 
 ## What's inside
 
-**Compiler (`jaic`).** Debug builds are a little faster than the official compiler's, and optimized builds often take a fraction of the time ([numbers](docs/features.md#performance)).
+**`jaic`**
+- Compile-time code can call C libraries
+- Builds for WebAssembly, 32-bit and big-endian Linux, and microcontroller boards ([other targets](docs/guides/other-targets.md))
 
-- `#run` and `jaic -interp` call real C libraries, and C can call back into Jai, even from its own threads.
-- `#asm` covers SSE through AVX2, FMA, AES, SHA and common AVX-512, and runs on any CPU.
-- Runtime checks for overflow, bounds, narrowing casts and `#complete` switches, plus `-sanitize address,undefined`.
-- Targets beyond desktop: WebAssembly (WASI and the browser), 32-bit x86 and ARM, big-endian s390x and PowerPC64, and bare-metal Cortex-M, AArch64 and AVR boards ([other targets](docs/guides/other-targets.md); the last three groups are experimental).
+**`jailsp`** ([README](crates/jai-language-server/README.md))
+- Hover shows macro expansions and `#run` results
+- Completion adds missing `#import`s
+- Runs in the [online playground](https://jacket.matteopolak.com/playground)
 
-**Language server (`jailsp`).** Its answers come from the compiler itself, compile-time code included ([README](crates/jai-language-server/README.md)).
+**`jailint`** ([README](crates/jailint/README.md))
+- Finds [use after free, double frees and leaks](docs/guides/memory-safety.md)
+- `jacket lint --fix` applies safe fixes
 
-- Hover shows what a macro or `#insert` expanded to, the value a `#run` produced, and a struct's size and field offsets.
-- Completion offers names from modules you haven't imported yet and adds the `#import`.
-- Code actions replace a `#run` with its value, fill in missing `case`s and struct fields, and extract procedures.
-- The same server runs in the [online playground](https://jacket.matteopolak.com/playground), compiled to WebAssembly.
+**`jaifmt`** ([docs](docs/tools/jaifmt.md))
+- Never changes what a program means
 
-**Linter (`jailint`).** Rules run on the type-checked program, so they know every expression's type ([README](crates/jailint/README.md)).
+**`jacket`**
+- One `jacket.toml` for every tool
+- [Tests](docs/guides/testing.md), [benchmarks](docs/guides/benchmarking.md) and [API docs](docs/tools/jacket-doc.md) with runnable examples
+- Migrates code from older Jai and manages [dependencies](docs/guides/dependencies.md)
 
-- Follows pointers through the program to find [use after free, double frees, temporary storage read after a reset, pointers into arrays that grew, and leaks](docs/guides/memory-safety.md).
-- `jacket lint --fix` applies the fixes that are safe.
-
-**Formatter (`jaifmt`).** It refuses any output whose tokens differ from the input, so formatting can't change what a program means ([docs](docs/tools/jaifmt.md)). It is written in Jai and is also a library, `Jai_Format`.
-
-**Project tool (`jacket`).** It shares one `jacket.toml` across all the tools.
-
-- `jacket test` runs unit, property, golden-output, compile-fail and snapshot tests, plus the examples in doc comments, and reviews changed snapshots interactively ([testing guide](docs/guides/testing.md)).
-- `jacket bench` reports time per iteration with a confidence interval and compares against a saved baseline with a p-value ([benchmarking guide](docs/guides/benchmarking.md)).
-- `jacket doc` writes an API site where every example has a Run button that compiles it in the browser ([jacket doc](docs/tools/jacket-doc.md)).
-- `jacket migrate` rewrites code written for an older Jai, and `jacket dep` pins other people's modules as git submodules ([dependencies](docs/guides/dependencies.md)).
-
-The [standard library](https://jacket.matteopolak.com) adds [extensions](docs/extensions/README.md) for HTTP/1–2, gRPC, JSON, Postgres, WebGPU, regex, images and more. [Features](docs/features.md) lists what works and what is missing.
+The [standard library](https://jacket.matteopolak.com) has [extensions](docs/extensions/README.md) for HTTP, gRPC, JSON, Postgres, WebGPU, regex, images and more. [Features](docs/features.md) lists what works and what's missing.
 
 ## Contributing
 
