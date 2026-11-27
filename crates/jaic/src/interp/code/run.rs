@@ -184,23 +184,14 @@ impl Interp {
                 v
             }
         };
-        // A frame slot holds a pointer as wide as the target's, like any program memory.
-        let ptr_ty = self.ptr_ty;
-        let in_memory = move |ty: Ty| {
-            if ty == Ty::Ptr {
-                ptr_ty
-            } else {
-                ty
-            }
-        };
+        // `specialize` gave every frame access an integer type: a pointer is as wide as the
+        // target's.
         let load_frame = |ty: Ty, off: u32| {
-            let ty = in_memory(ty);
             // SAFETY: frame slots lie inside the live frame at `stack_base`, which `load_raw`
             // reads.
             in_order(ty, unsafe { load_raw(ty, stack_base + u64::from(off)) })
         };
         let store_frame = |ty: Ty, off: u32, v: u64| {
-            let ty = in_memory(ty);
             // SAFETY: as for `load_frame`.
             unsafe { store_raw(ty, stack_base + u64::from(off), in_order(ty, v)) };
         };

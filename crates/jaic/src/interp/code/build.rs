@@ -405,8 +405,80 @@ pub(in crate::interp) fn build(
 }
 
 /// The op for the loads and stores of the widths most code uses (bytes, 32 and 64 bits) that
-/// needs no dispatch on the type; any other op as is.
+/// needs no dispatch on the type; any other op as is. A pointer moves as the integer of the
+/// target's pointer width, so running an op never asks how wide a pointer is.
 fn specialize(op: Op, layout: &DataLayout) -> Op {
+    let word = Ty::int(u64::from(layout.pointer_size));
+    let in_memory = |ty: Ty| {
+        if ty == Ty::Ptr {
+            word
+        } else {
+            ty
+        }
+    };
+    let op = match op {
+        Op::Load {
+            ty,
+            dst,
+            base,
+            off,
+        } => Op::Load {
+            ty: in_memory(ty),
+            dst,
+            base,
+            off,
+        },
+        Op::LoadFrame {
+            ty,
+            dst,
+            off,
+        } => Op::LoadFrame {
+            ty: in_memory(ty),
+            dst,
+            off,
+        },
+        Op::Store {
+            ty,
+            base,
+            off,
+            value,
+        } => Op::Store {
+            ty: in_memory(ty),
+            base,
+            off,
+            value,
+        },
+        Op::StoreFrame {
+            ty,
+            off,
+            value,
+        } => Op::StoreFrame {
+            ty: in_memory(ty),
+            off,
+            value,
+        },
+        Op::StoreImm {
+            ty,
+            base,
+            off,
+            imm,
+        } => Op::StoreImm {
+            ty: in_memory(ty),
+            base,
+            off,
+            imm,
+        },
+        Op::StoreFrameImm {
+            ty,
+            off,
+            imm,
+        } => Op::StoreFrameImm {
+            ty: in_memory(ty),
+            off,
+            imm,
+        },
+        op => op,
+    };
     match op {
         Op::Load {
             ty,
@@ -656,5 +728,75 @@ fn op_srcs(op: &Op) -> [Option<u32>; 2] {
             ..
         } => [Some(a), Some(b)],
         _ => [None, None],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::target::{Target, TargetCpu, TargetOs};
+
+    /// Every load and store of a pointer runs as an access of the target's pointer width, so
+    /// the run loop needs no check of its own.
+    #[test]
+    fn pointer_accesses_become_integer_accesses_of_the_pointer_width() {
+        let layout = Target::new(TargetOs::Linux, TargetCpu::X86).data_layout();
+        let load = specialize(
+            Op::LoadFrame {
+                ty: Ty::Ptr,
+                dst: 1,
+                off: 8,
+            },
+            &layout,
+        );
+        assert!(
+            matches!(
+                load,
+                Op::LoadFrame32 {
+                    dst: 1,
+                    off: 8
+                }
+            ),
+            "{load:?}"
+        );
+        let store = specialize(
+            Op::StoreFrameImm {
+                ty: Ty::Ptr,
+                off: 8,
+                imm: -1,
+            },
+            &layout,
+        );
+        assert!(
+            matches!(
+                store,
+                Op::StoreFrameImm {
+                    ty: Ty::I32,
+                    off: 8,
+                    imm: -1
+                }
+            ),
+            "{store:?}"
+        );
+        let avr = Target::new(TargetOs::None, TargetCpu::Avr).data_layout();
+        let load = specialize(
+            Op::Load {
+                ty: Ty::Ptr,
+                dst: 1,
+                base: 2,
+                off: 0,
+            },
+            &avr,
+        );
+        assert!(
+            matches!(
+                load,
+                Op::Load {
+                    ty: Ty::I16,
+                    ..
+                }
+            ),
+            "{load:?}"
+        );
     }
 }
