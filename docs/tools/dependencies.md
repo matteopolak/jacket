@@ -16,7 +16,7 @@ Jai projects share code as module folders under `modules/`, today mostly copied 
 
 ```toml
 [dependencies]
-jaison  = { git = "github.com/someone/jaison", version = "^1.2" }   # path: modules/jaison
+library  = { git = "github.com/someone/library", version = "^1.2" }   # path: modules/library
 sdl_ext = { git = "https://codeberg.org/x/sdl_ext", rev = "3f9c2a1" }   # no tags: pinned by commit
 utf8    = { git = "github.com/x/utf8", tag = "v0.4.1", min_release_age = "0" }   # policy waived for this one
 
@@ -71,7 +71,7 @@ Tags come from the remote's ref listing (the `git ls-remote --tags` data), which
 | `integer` | `42`, `r42`, `v42` | One number. |
 
 - `tag_prefix = "alpha-"` strips a fixed prefix first, for forms like `alpha-0.0.1` and `version-1.0`.
-- Ranges use Cargo's spelling: `^1.2`, `~1.2.3`, `>=1.0, <2.0`, `=1.4.0`, `*`. Calendar and integer schemes take only the comparison forms.
+- Version ranges: `^1.2`, `~1.2.3`, `>=1.0, <2.0`, `=1.4.0`, `*`. Calendar and integer schemes take only the comparison forms.
 - With no usable tags (about 80% of the corpus today), `add` pins the default branch's commit by `rev`, and `update` moves to its newest commit.
 - Tags that don't parse under the scheme are skipped. `dep list --all-tags` shows them.
 
@@ -87,10 +87,10 @@ From a survey of the 190 corpus projects: 37 have tags; 27 use semver, 7 two-par
 - **The policy applies to every version, named or not:**
 
 ```
-$ jacket dep add someone/jaison@v1.3.0
-error: jaison v1.3.0 was published 20 hours ago; min_release_age is 3d
+$ jacket dep add someone/library@v1.3.0
+error: library v1.3.0 was published 20 hours ago; min_release_age is 3d
 note: to accept it, add `min_release_age = "0"` to its entry:
-      jaison = { git = "github.com/someone/jaison", tag = "v1.3.0", min_release_age = "0" }
+      library = { git = "github.com/someone/library", tag = "v1.3.0", min_release_age = "0" }
 ```
 
 On a host without recorded times the error says the age can't be checked, with the same note.

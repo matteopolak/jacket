@@ -137,7 +137,7 @@ Examples of every flag are in the [guide](../guides/testing.md#running-tests).
 
 ### Filter expressions
 
-`-E`/`--filter-expr EXPR` selects with predicates, as cargo-nextest does; it combines with positional filters.
+`-E`/`--filter-expr EXPR` selects with predicates and combines with positional filters.
 
 | Predicate | Selects |
 | --- | --- |

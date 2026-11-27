@@ -31,7 +31,7 @@ What `jacket` adds is the project:
 
 ## Commands
 
-`build`, `check`, `run`, `lint`, `fmt` and `lsp` front the tool of the same name. `test`, `bench`, `doc` and `migrate` are [jacket test](jacket-test.md), [jacket bench](jacket-bench.md), [jacket doc](jacket-doc.md) and [jacket migrate](jacket-migrate.md). `dep` manages [git dependencies](dependencies.md). `new`, `init`, `config`, `toolchain`, `clean`, `explain`, `version` and `upgrade` are `jacket`'s own and use `--long` flags. `jacket jaic|jailint|jailsp|jaifmt <args>` runs that tool verbatim, and any other command runs `jacket-<command>` from `PATH`, as cargo does. Every flag is in the [tools reference](../reference/tools.md).
+`build`, `check`, `run`, `lint`, `fmt` and `lsp` front the tool of the same name. `test`, `bench`, `doc` and `migrate` are [jacket test](jacket-test.md), [jacket bench](jacket-bench.md), [jacket doc](jacket-doc.md) and [jacket migrate](jacket-migrate.md). `dep` manages [git dependencies](dependencies.md). `new`, `init`, `config`, `toolchain`, `clean`, `explain`, `version` and `upgrade` are `jacket`'s own and use `--long` flags. `jacket jaic|jailint|jailsp|jaifmt <args>` runs that tool verbatim, and any other command runs `jacket-<command>` from `PATH`. Every flag is in the [tools reference](../reference/tools.md).
 
 ### Targets
 
@@ -113,7 +113,7 @@ path = "src/my_lib"
 repo = "https://github.com/me/my_lib"
 
 [dependencies]                  # jacket dep add/update/sync; see dependencies.md
-jaison = { git = "someone/jaison", version = "^1.2" }
+library = { git = "someone/library", version = "^1.2" }
 
 [resolver]                      # how jacket dep picks versions
 min_release_age = "3d"

@@ -10,30 +10,30 @@
 Your project has to be a git repository. Then:
 
 ```sh
-jacket dep add someone/jaison
+jacket dep add someone/library
 ```
 
-This clones `github.com/someone/jaison` into `modules/jaison`, checks out its newest stable release, and adds an entry to `jacket.toml`:
+This clones `github.com/someone/library` into `modules/library`, checks out its newest stable release, and adds an entry to `jacket.toml`:
 
 ```toml
 [dependencies]
-jaison = { git = "github.com/someone/jaison", version = "^1.2.0" }
+library = { git = "github.com/someone/library", version = "^1.2.0" }
 ```
 
 `modules/` next to your program is already searched by `#import`, so the module works with no other setting:
 
 ```jai
-#import "jaison";
+#import "library";
 ```
 
-Commit `jacket.toml`, `.gitmodules` and `modules/jaison` together. `jacket dep` never commits for you.
+Commit `jacket.toml`, `.gitmodules` and `modules/library` together. `jacket dep` never commits for you.
 
 ### Where a dependency comes from
 
 | You write | It means |
 | --- | --- |
-| `someone/jaison` | GitHub |
-| `codeberg.org/someone/jaison` | that host, over HTTPS |
+| `someone/library` | GitHub |
+| `codeberg.org/someone/library` | that host, over HTTPS |
 | `https://...` or `git@...` | that URL, as written |
 
 SSH keys and git credential helpers work as they do for any clone.
@@ -43,12 +43,12 @@ SSH keys and git credential helpers work as they do for any clone.
 Add `@` and a version, tag or commit:
 
 ```sh
-jacket dep add someone/jaison@^1.2      # a range: the newest 1.x from 1.2 up
-jacket dep add someone/jaison@1.3.0     # exactly the 1.3.0 release
-jacket dep add someone/jaison@3f9c2a1   # a commit, for projects with no releases
+jacket dep add someone/library@^1.2      # a range: the newest 1.x from 1.2 up
+jacket dep add someone/library@1.3.0     # exactly the 1.3.0 release
+jacket dep add someone/library@3f9c2a1   # a commit, for projects with no releases
 ```
 
-Ranges are written as in Cargo: `^1.2`, `~1.2.3`, `>=1.0, <2.0`, `=1.4.0`, `*`. Tags such as `v1.2.3`, `1.2.3` and two-part `0.8` are understood. For other tag forms, pass `--scheme calendar` (`2024.05.01`), `--scheme integer` (`r42`), or `--tag-prefix alpha-` (`alpha-0.0.1`).
+Version ranges: `^1.2`, `~1.2.3`, `>=1.0, <2.0`, `=1.4.0`, `*`. Tags such as `v1.2.3`, `1.2.3` and two-part `0.8` are understood. For other tag forms, pass `--scheme calendar` (`2024.05.01`), `--scheme integer` (`r42`), or `--tag-prefix alpha-` (`alpha-0.0.1`).
 
 A repository with no version tags is pinned by commit, and `jacket dep update` moves it to the newest commit of its default branch.
 
@@ -57,8 +57,8 @@ A repository with no version tags is pinned by commit, and `jacket dep update` m
 ```sh
 jacket dep list               # each dependency, its pin, and newer versions its range allows
 jacket dep update             # move every dependency to the newest version its range allows
-jacket dep update jaison      # just one
-jacket dep remove jaison
+jacket dep update library      # just one
+jacket dep remove library
 ```
 
 After cloning a project that has dependencies, check them out with:
@@ -99,10 +99,10 @@ seed = "k3v9q2xh"
 The check applies to versions you name yourself too:
 
 ```
-$ jacket dep add someone/jaison@v1.3.0
-error: jaison v1.3.0 was published 20 hours ago; min_release_age is 3d
+$ jacket dep add someone/library@v1.3.0
+error: library v1.3.0 was published 20 hours ago; min_release_age is 3d
 note: to accept it, add `min_release_age = "0"` to its entry:
-      jaison = { git = "github.com/someone/jaison", tag = "v1.3.0", min_release_age = "0" }
+      library = { git = "github.com/someone/library", tag = "v1.3.0", min_release_age = "0" }
 ```
 
 Publish times come from the releases on GitHub, GitLab and Codeberg, never from commit dates, which whoever made the commit can set. A dependency hosted elsewhere, or a commit pin, has no publish time, so it needs `min_release_age = "0"` on its entry while the policy is on. Set `GITHUB_TOKEN` or `GITLAB_TOKEN` if you hit a rate limit; each token is sent only to its own host.
