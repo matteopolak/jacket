@@ -15,18 +15,23 @@ Heap_Statistics :: struct {
     spancache: s64;
 }
 
+// The block size and count of one size class. Public for its layout only: this allocator doesn't
+// fill it in.
 Size_Class :: struct {
     block_size: u32;
     block_count: u16;
     class_idx: u16;
 }
 
+// A heap's free list and spans for one size class. Public for its layout only, like [Span].
 Heap_Size_Class :: struct {
     free_list: *void;
     partial_span: *Span;
     cache: *Span;
 }
 
+// A run of pages split into blocks of one size class. Public for its layout only: this allocator
+// keeps its own block records and leaves these fields unset.
 Span :: struct {
     free_list: *void;
     block_count: u32;
@@ -52,6 +57,8 @@ Span :: struct {
     prev: *Span;
 }
 
+// A heap made with `.CREATE_HEAP`; pass it as `allocator_data` or to `heap_free_all`. Only `id`,
+// `lock` and `next_heap` are set; the other fields keep their layout and stay zero.
 Heap :: struct {
     lock: *void;
     is_orphaned: bool;
@@ -72,6 +79,8 @@ Heap :: struct {
 }
 
 #if OS == .WINDOWS {
+    // The page size and allocation granularity fields of the Windows `SYSTEM_INFO` record, with
+    // the rest as padding.
     SYSTEM_INFO :: struct {
         _pad0: u32;
         dwPageSize: u32;

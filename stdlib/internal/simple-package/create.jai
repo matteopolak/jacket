@@ -1,9 +1,11 @@
+// Clears `package` and sets it up to take entries.
 init :: (using package: *Create_Package) {
     package.* = .{};
     Pools.set_allocators(*pool);
     B.init_string_builder(*data);
 }
 
+// Frees what `package` allocated, including its copies of entry names, and clears it.
 deinit :: (using package: *Create_Package) {
     B.free_buffers(*data);
     B.array_free(entries);
@@ -11,6 +13,7 @@ deinit :: (using package: *Create_Package) {
     package.* = .{};
 }
 
+// Adds an entry. The name is copied; `data` is not, so it must stay valid until [write].
 add :: (package: *Create_Package, entry_name: string, data: [] u8) {
     B.assert(entry_name.count >= 0 && entry_name.count <= 0xffffffff);
     B.assert(data.count >= 0 && (data.count == 0 || data.data != null));
@@ -25,6 +28,11 @@ add :: (package: *Create_Package, entry_name: string, data: [] u8) {
     B.array_add(*package.entries, .{ name = name, data = data, size_of_entry = data.count });
 }
 
+// Writes the package to `filename`. Returns false when sizes overflow or the file can't be
+// written.
+//
+// - sort_contents: store entries ordered by name, so the file doesn't depend on the order of
+//   [add] calls. Entries with equal names keep that order.
 write :: (package: *Create_Package, filename: string, sort_contents := true) -> bool {
     count := package.entries.count;
     if count < 0 || count > 0x7fffffffffffffff / size_of(*Entry_Info) return false;

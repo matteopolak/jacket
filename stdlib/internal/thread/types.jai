@@ -7,10 +7,14 @@ POSIX_THREADS :: OS == .LINUX || OS == .MACOS || OS == .IOS || OS == .ANDROID;
 SET_NAME_INSIDE_THREAD :: OS == .MACOS || OS == .IOS;
 
 #if OS == .WINDOWS {
+    // The system lock inside a [Mutex].
     Per_OS_Critical_Section_Type :: W.CRITICAL_SECTION;
+    // The system condition variable inside a [Condition_Variable].
     Per_OS_Condition_Variable_Type :: W.CONDITION_VARIABLE;
 } else {
+    // The system lock inside a [Mutex].
     Per_OS_Critical_Section_Type :: P.pthread_mutex_t;
+    // The system condition variable inside a [Condition_Variable].
     Per_OS_Condition_Variable_Type :: P.pthread_cond_t;
 }
 
@@ -48,6 +52,8 @@ Condition_Variable :: struct {
 }
 
 #if THREAD_DEBUG {
+    // The current mutex order of a thread in debug builds: the order, name and lock of the mutex
+    // that set it, and where.
     Mutex_Tracking :: struct {
         current_order: Mutex_Order = -1;
         current_order_set_by: Source_Code_Location;
@@ -63,22 +69,26 @@ Condition_Variable :: struct {
         event: W.HANDLE;
     }
 } else #if OS == .MACOS {
+    // A counter threads can wait on; see the Windows variant.
     Semaphore :: struct {
         owner: M.task_t;
         event: M.semaphore_t = 0;
     }
 } else {
+    // A counter threads can wait on; see the Windows variant.
     Semaphore :: struct {
         semaphore: P.sem_t;
     }
 }
 
 #if OS == .WINDOWS {
+    // The system handle and id behind a `Thread`.
     Thread_Os_Specific :: struct {
         windows_thread: W.HANDLE;
         windows_thread_id: s32;
     }
 } else {
+    // The pthread behind a `Thread` and the semaphores that track whether it is running.
     Thread_Os_Specific :: struct {
         thread_handle: P.pthread_t;
         is_alive_semaphore: Semaphore;
@@ -198,6 +208,8 @@ Thread_Continue_Status :: enum {
         should_exit := false;
     }
 
+    // A [Thread_Group]'s queue of work.
     Work_List :: Thread_Group.Work_List;
+    // One queued piece of work in a [Work_List].
     Work_Entry :: Thread_Group.Work_Entry;
 }

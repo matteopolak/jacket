@@ -11,6 +11,16 @@ from native_bindings.spec import parse_spec
 
 
 class GeneratorTests(unittest.TestCase):
+    def test_item_docs_lead_each_declaration_inside_its_guard(self):
+        from generate import documented, guard, item_docs
+        self.assertEqual(documented('f :: () {}', 'Does f.\n\n```jai\nf();\n```\n'),
+                         '// Does f.\n//\n// ```jai\n// f();\n// ```\nf :: () {}')
+        self.assertEqual(documented('f :: () {}', None), 'f :: () {}')
+        self.assertEqual(guard(documented('f :: ();', 'Does f.'), 'OS == .LINUX'),
+                         '#if OS == .LINUX {\n// Does f.\nf :: ();\n}\n')
+        self.assertIn('native_XXH32', item_docs('xxHash'))
+        self.assertEqual(item_docs('No_Such_Module'), {})
+
     def test_android_native_command_bodies_use_full_layout_branch(self):
         from generate import condition_for
         from native_bindings.spec import Declaration

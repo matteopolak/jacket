@@ -1,3 +1,5 @@
+// Returns a copy of the clipboard's text, allocated with `context.allocator`, or an empty string
+// when it holds none.
 os_clipboard_get_text :: () -> string {
     open_clipboard();
     defer close_clipboard();
@@ -30,6 +32,7 @@ os_clipboard_get_text :: () -> string {
     return result;
 }
 
+// Replaces the clipboard's contents with `text`.
 os_clipboard_set_text :: (text: string) {
     assert(text.count <= 0x7fffffff);
     for byte: text assert(byte != 0, "Windows CF_UNICODETEXT cannot represent embedded NUL characters");
@@ -65,12 +68,15 @@ os_clipboard_set_text :: (text: string) {
     transferred = true;
 }
 
+// Clears the clipboard.
 os_clipboard_empty :: () {
     open_clipboard();
     defer close_clipboard();
     assert(EmptyClipboard() != .FALSE, "native clipboard clear failed");
 }
 
+// Replaces the clipboard's contents with an image of `width` by `height` pixels, `channels` bytes
+// each (3 for RGB, 4 for RGBA), rows top first; `flip` takes the rows bottom first.
 os_clipboard_set_bitmap :: (width: s32, height: s32, pixels: *u8, channels: s32, flip := false) {
     assert(width > 0 && height > 0 && pixels != null);
     assert(channels == 3 || channels == 4, "clipboard bitmap accepts RGB or RGBA pixels");

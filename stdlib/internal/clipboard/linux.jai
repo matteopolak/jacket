@@ -1,3 +1,5 @@
+// Returns a copy of the clipboard's text, allocated with `context.allocator`, or an empty string
+// when it holds none. `win` is the X11 window that asks, or 0 for none.
 os_clipboard_get_text :: (win: Window) -> string {
     bytes: *u8;
     count: u64;
@@ -10,24 +12,32 @@ os_clipboard_get_text :: (win: Window) -> string {
     return copy_string(.{ cast(int) count, bytes });
 }
 
+// Returns a copy of the clipboard's text, allocated with `context.allocator`, or an empty string
+// when it holds none.
 os_clipboard_get_text :: () -> string {
     return os_clipboard_get_text(cast(Window) 0);
 }
 
+// Replaces the clipboard's contents with `text`.
 os_clipboard_set_text :: (win: Window, text: string) {
     result := native_text(win, text.data, cast(u64) text.count);
     clipboard_check(result == 0, "X11 clipboard text write failed");
 }
 
+// Replaces the clipboard's contents with `text`.
 os_clipboard_set_text :: (text: string) {
     os_clipboard_set_text(cast(Window) 0, text);
 }
 
+// Replaces the clipboard's contents with an image of `width` by `height` pixels, `channels` bytes
+// each (3 for RGB, 4 for RGBA), rows top first; `flip` takes the rows bottom first.
 os_clipboard_set_bitmap :: (win: Window, width: s32, height: s32, pixels: *u8, channels: s32, flip := false) {
     result := native_bitmap(win, width, height, pixels, channels, cast(s32) flip);
     clipboard_check(result == 0, "X11 clipboard bitmap write failed");
 }
 
+// Replaces the clipboard's contents with an image of `width` by `height` pixels, `channels` bytes
+// each (3 for RGB, 4 for RGBA), rows top first; `flip` takes the rows bottom first.
 os_clipboard_set_bitmap :: (width: s32, height: s32, pixels: *u8, channels: s32, flip := false) {
     os_clipboard_set_bitmap(cast(Window) 0, width, height, pixels, channels, flip);
 }

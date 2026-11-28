@@ -1,4 +1,7 @@
 #if OS == .WINDOWS {
+    // Converts UTF-8 to a null-terminated UTF-16 string allocated with `context.allocator`.
+    // `result_length_in_bytes` leaves out the terminator. An empty string gives null and success;
+    // invalid input or a failed allocation gives null and failure.
     utf8_to_wide :: (utf8: string) -> (result_data: *u16, success: bool, result_length_in_bytes: s32) {
         if utf8.count == 0 return null, true, 0;
         if utf8.count < 0 || utf8.count > 2147483647 || !utf8.data return null, false, 0;
@@ -24,6 +27,8 @@
         return output, true, cast(s32) bytes;
     }
 
+    // Converts UTF-8 to a null-terminated UTF-16 string allocated with `context.allocator`, or
+    // returns null on failure. An empty string gives a terminator alone, never null.
     utf8_to_wide_new :: (utf8: string) -> *u16 {
         wide, success, bytes := utf8_to_wide(utf8);
         if !success return null;
@@ -40,6 +45,10 @@
         return result;
     }
 
+    // Converts UTF-16 to a UTF-8 string allocated with `context.allocator`, with a null byte after
+    // its last character. Fails on null, empty or invalid input.
+    //
+    // - length: the number of `u16` units, or -1 to stop at the null terminator.
     wide_to_utf8 :: (data: *u16, length: s32 = -1) -> (result: string, success: bool) {
         if !data || length == 0 || length < -1 return .{}, false;
 

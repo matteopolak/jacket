@@ -1,3 +1,5 @@
+// Returns the `Key_Code` for a Windows virtual-key code, as `WM_KEYDOWN` passes it in `wParam`,
+// or `.UNKNOWN`. Left and right modifier keys map to the same code.
 get_key_code :: (wParam: WPARAM) -> Key_Code {
     if wParam >= VK_F1 && wParam <= VK_F24 return cast(Key_Code) (cast(u32) Key_Code.F1 + cast(u32) (wParam - VK_F1));
     if (wParam >= #char "A" && wParam <= #char "Z") || (wParam >= #char "0" && wParam <= #char "9") return cast(Key_Code) wParam;
@@ -18,6 +20,8 @@ get_key_code :: (wParam: WPARAM) -> Key_Code {
     return .UNKNOWN;
 }
 
+// Returns the Windows virtual-key code for `key`, or 0 when it has none. The inverse of
+// [get_key_code].
 get_vk :: (key: Key_Code) -> VK: u64 {
     value := cast(u32) key;
     if value >= cast(u32) Key_Code.F1 && value <= cast(u32) Key_Code.F24 return VK_F1 + value - cast(u32) Key_Code.F1;

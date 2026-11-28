@@ -1,4 +1,3 @@
-// Canonical bootstrap context declarations.
 Name_Mapper :: #type ([] string);
 
 __command_line_arguments: [] *u8;

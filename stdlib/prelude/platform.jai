@@ -1,4 +1,4 @@
-// Canonical bootstrap platform declarations.
+// The operating system a program is built for. `OS` is the compiler's constant of this type.
 Operating_System_Tag :: enum u32 {
     NONE :: 0;
     KRAMPOS :: 1;
@@ -15,6 +15,8 @@ Operating_System_Tag :: enum u32 {
     NN_SWITCH2 :: 12;
 }
 
+// The CPU family a program is built for. `CPU` is the compiler's constant of this type; see
+// [Architecture] for the families it lacks.
 CPU_Tag :: enum u32 {
     UNINITIALIZED :: 0;
     KRAMPU :: 1;
@@ -37,8 +39,10 @@ Architecture :: enum u32 {
     AVR :: 8;
 }
 
+// Identifies one compilation workspace in a metaprogram.
 Workspace :: s64;
 
+// Returns the workspace the calling code is being compiled in. Compile time only.
 get_current_workspace :: () -> Workspace #compiler;
 
 __reg :: #type,distinct u16;

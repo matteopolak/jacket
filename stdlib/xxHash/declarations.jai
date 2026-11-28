@@ -18,6 +18,7 @@ xxh_vendor :: #library,system "xxhash070";
 
 // Types and layouts
 
+// The state of a 32-bit hash fed in pieces. Start it with [XXH32_reset].
 XXH32_state_t :: struct {
     total_len_32: u32;
     large_len: u32;
@@ -30,6 +31,7 @@ XXH32_state_t :: struct {
     reserved: u32;
 }
 
+// The state of a 64-bit hash fed in pieces. Start it with [XXH64_reset].
 XXH64_state_t :: struct {
     total_len: u64;
     v1: u64;
@@ -53,40 +55,58 @@ XXH_VERSION_RELEASE :: 0;
 
 // Convenience operations
 
+// Returns the 32-bit hash of `len` bytes at `input`.
 native_XXH32 :: (input: *void, len: u32, seed: u32) -> u32 {
     return binding_XXH32(input, cast(u64) len, seed);
 }
 
+// Returns the 64-bit hash of `len` bytes at `input`. The seed is widened to 64 bits.
+//
+// ```jai
+// text := "hello";
+// state: XXH64_state_t;
+// XXH64_reset(*state, 7);
+// XXH64_update(*state, text.data, 2);
+// XXH64_update(*state, text.data + 2, 3);
+// assert(XXH64_digest(*state) == native_XXH64(text.data, 5, 7));
+// ```
 native_XXH64 :: (input: *void, len: u32, seed: u32) -> u64 {
     return binding_XXH64(input, cast(u64) len, cast(u64) seed);
 }
 
+// Returns the 32-bit hash of everything added so far. The state can take more updates afterwards.
 XXH32_digest :: (state: *XXH32_state_t) -> u32 {
     return binding_XXH32_digest(state);
 }
 
+// Starts a 32-bit hash with `seed`. Aborts the program if the library reports a failure.
 XXH32_reset :: (state: *XXH32_state_t, seed: u32) {
     if binding_XXH32_reset(state, seed) != 0 binding_abort();
 }
 
+// Adds `len` bytes at `input` to the hash. Aborts the program if the library reports a failure.
 XXH32_update :: (state: *XXH32_state_t, input: *void, len: u32) {
     if len == 0 return;
     if binding_XXH32_update(state, input, cast(u64) len) != 0 binding_abort();
 }
 
+// Returns the 64-bit hash of everything added so far. The state can take more updates afterwards.
 XXH64_digest :: (state: *XXH64_state_t) -> u64 {
     return binding_XXH64_digest(state);
 }
 
+// Starts a 64-bit hash with `seed`. Aborts the program if the library reports a failure.
 XXH64_reset :: (state: *XXH64_state_t, seed: u64) {
     if binding_XXH64_reset(state, seed) != 0 binding_abort();
 }
 
+// Adds `len` bytes at `input` to the hash. Aborts the program if the library reports a failure.
 XXH64_update :: (state: *XXH64_state_t, input: *void, len: u32) {
     if len == 0 return;
     if binding_XXH64_update(state, input, cast(u64) len) != 0 binding_abort();
 }
 
+// Returns the version of the loaded library, encoded like [XXH_VERSION_NUMBER].
 XXH_versionNumber :: () -> u32 {
     return binding_XXH_versionNumber();
 }

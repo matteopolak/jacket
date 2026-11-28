@@ -1,0 +1,54 @@
+# Doc comments for the generated declarations in stdlib/xxHash, by name.
+
+XXH32_state_t = """
+The state of a 32-bit hash fed in pieces. Start it with [XXH32_reset].
+"""
+
+XXH64_state_t = """
+The state of a 64-bit hash fed in pieces. Start it with [XXH64_reset].
+"""
+
+native_XXH32 = """
+Returns the 32-bit hash of `len` bytes at `input`.
+"""
+
+native_XXH64 = """
+Returns the 64-bit hash of `len` bytes at `input`. The seed is widened to 64 bits.
+
+```jai
+text := "hello";
+state: XXH64_state_t;
+XXH64_reset(*state, 7);
+XXH64_update(*state, text.data, 2);
+XXH64_update(*state, text.data + 2, 3);
+assert(XXH64_digest(*state) == native_XXH64(text.data, 5, 7));
+```
+"""
+
+XXH32_reset = """
+Starts a 32-bit hash with `seed`. Aborts the program if the library reports a failure.
+"""
+
+XXH32_update = """
+Adds `len` bytes at `input` to the hash. Aborts the program if the library reports a failure.
+"""
+
+XXH32_digest = """
+Returns the 32-bit hash of everything added so far. The state can take more updates afterwards.
+"""
+
+XXH64_reset = """
+Starts a 64-bit hash with `seed`. Aborts the program if the library reports a failure.
+"""
+
+XXH64_update = """
+Adds `len` bytes at `input` to the hash. Aborts the program if the library reports a failure.
+"""
+
+XXH64_digest = """
+Returns the 64-bit hash of everything added so far. The state can take more updates afterwards.
+"""
+
+XXH_versionNumber = """
+Returns the version of the loaded library, encoded like [XXH_VERSION_NUMBER].
+"""

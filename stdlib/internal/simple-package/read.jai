@@ -1,3 +1,6 @@
+// Reads a package from `data`, which must stay valid while `package` is used: entry names and
+// data point into it. Returns false and logs an error, naming `name_for_debugging`, when the
+// data isn't a valid package.
 init_from_memory :: (package: *Load_Package, data: [] u8, name_for_debugging := "") -> bool {
     release_metadata(package);
     package.* = .{};
@@ -19,6 +22,8 @@ init_from_memory :: (package: *Load_Package, data: [] u8, name_for_debugging := 
     return true;
 }
 
+// Reads the whole file into memory and reads a package from it, as [init_from_memory] does. The
+// bytes stay allocated in `package.data`.
 init_from_file :: (package: *Load_Package, filename: string) -> bool {
     bytes, ok := Files.read_entire_file(filename, log_errors = false);
     if !ok return fail(filename, 0, "unable to read package");
@@ -31,6 +36,10 @@ init_from_file :: (package: *Load_Package, filename: string) -> bool {
     return true;
 }
 
+// Reads only the header and table of contents of a file: entry names, sizes and offsets, without
+// their data.
+//
+// - okay_if_it_does_not_exist: don't log an error when the file can't be opened.
 load_table_of_contents_only :: (filename: string, okay_if_it_does_not_exist := false) -> (success: bool, package: Load_Package) {
     package: Load_Package;
     file, opened := Files.file_open(filename, log_errors = !okay_if_it_does_not_exist);
@@ -69,6 +78,9 @@ load_table_of_contents_only :: (filename: string, okay_if_it_does_not_exist := f
     return true, package;
 }
 
+// Reads the table of contents in `data` into `package.entries` and `package.lookup`. With
+// `base_file_data_if_file_is_loaded`, each entry's `data` is set to point into that copy of the
+// file. Used by the other readers; call it directly to read a table kept apart from the file.
 load_table_of_contents :: (package: *Load_Package, data: [] u8, base_file_data_if_file_is_loaded: *u8, name_for_debugging: string, offset_for_debugging: s64) -> bool {
     release_metadata(package);
     bytes := string.{ data.count, data.data };

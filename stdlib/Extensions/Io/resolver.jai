@@ -546,6 +546,8 @@ Io_Statistics :: struct {
     resolver_helpers: s64; // helper threads started for them
 }
 
+// Returns the counters of the current scheduler, or all zeros before its first name lookup. Must be
+// called inside `io_run`.
 io_statistics :: () -> Io_Statistics {
     statistics: Io_Statistics;
 

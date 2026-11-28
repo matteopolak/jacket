@@ -1,3 +1,5 @@
+// Returns a copy of the clipboard's text, allocated with `context.allocator`, or an empty string
+// when it holds none.
 os_clipboard_get_text :: () -> string {
     pool := new_object("NSAutoreleasePool");
     if !pool return alloc_string(0);
@@ -23,6 +25,7 @@ os_clipboard_get_text :: () -> string {
     return copy_string(.{ cast(int) length, bytes });
 }
 
+// Replaces the clipboard's contents with `text`.
 os_clipboard_set_text :: (text: string) {
     pool := new_object("NSAutoreleasePool");
     if !pool return;
@@ -43,6 +46,7 @@ os_clipboard_set_text :: (text: string) {
     if !check_native(ok != 0, "native clipboard text write failed") return;
 }
 
+// Clears the clipboard.
 os_clipboard_empty :: () {
     pool := new_object("NSAutoreleasePool");
     if !pool return;
@@ -53,6 +57,8 @@ os_clipboard_empty :: () {
     if !clear_contents(pb) return;
 }
 
+// Replaces the clipboard's contents with an image of `width` by `height` pixels, `channels` bytes
+// each (3 for RGB, 4 for RGBA), rows top first; `flip` takes the rows bottom first.
 os_clipboard_set_bitmap :: (width: s32, height: s32, pixels: *u8, channels: s32, flip := false) {
     if !check_native(width > 0 && height > 0 && pixels != null, "invalid clipboard bitmap dimensions or pixels") return;
     if !check_native(channels == 3 || channels == 4, "clipboard bitmap accepts RGB or RGBA pixels") return;

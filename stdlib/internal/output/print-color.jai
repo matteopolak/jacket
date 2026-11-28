@@ -192,10 +192,14 @@ pop_console_color :: (to_standard_error := false) {
         write_string("\e[0m", to_standard_error);
     }
 } else {
+    // Switches the console text color on standard output, or on standard error with
+    // `to_standard_error`, until `reset_console_color`. Does nothing when the stream isn't a
+    // console.
     set_console_color :: (color: Console_Color, style: Console_Style = .NORMAL, to_standard_error := false) {
         push_console_color(color, style, to_standard_error);
     }
 
+    // Puts the console back to the colors it had before the matching `set_console_color`.
     reset_console_color :: (to_standard_error := false) {
         pop_console_color(to_standard_error);
     }

@@ -50,6 +50,20 @@ find_from :: (haystack: string, needle: string, start := 0) -> int { ... }
 - Use ```` ```jai,no_run ```` for files outside a temp folder, the network, processes and windows. It is still type-checked. ```` ```jai,ignore ```` is for fragments that can't stand alone; prefer making them stand alone.
 - An alias (`print :: Impl.print;`) shows its target's docs. Document the target once, in `stdlib/internal`.
 
+## Generated files
+
+Edit the generator's inputs, not its output, or the next run drops the comments.
+
+- Native bindings (`tools/native_bindings/generate.py`): the module comment is `module_docs/<Module>.jai`, and item comments are `module_docs/<Module>.toml`, one multi-line string per declaration name. Every overload and platform branch of a name gets the same comment. Run `python3 generate.py --module <Module> --formatter <jaifmt>` from `tools/native_bindings` with `PYTHONPATH` set to `tools` and `tools/native_bindings`.
+
+  ```toml
+  XXH32_reset = """
+  Starts a 32-bit hash with `seed`.
+  """
+  ```
+
+- WebGPU and Io_Uring: their generators (`tools/bindings/webgpu_gen.py`, `tools/generators/gen_io_uring.py`) hold the comments.
+
 ## What to leave out
 
 - Restating the signature ("Takes a string and returns an int").

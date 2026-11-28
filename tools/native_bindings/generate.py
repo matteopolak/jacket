@@ -9,6 +9,7 @@ from toolkit import coverage_json
 from pathlib import Path
 import re
 import subprocess
+import tomllib
 
 from native_bindings.spec import parse_spec, split_notes
 from native_bindings.config import REEXPORTED, IMPORTS, LIBRARIES, PARAMETERS, PRIVATE, TARGETS, NATIVE_ABI_ADAPTERS, NATIVE_SHAPE_DELEGATES, RPMALLOC_PUBLIC_CONSTRAINTS
@@ -345,6 +346,21 @@ def declaration_group(declaration):
     return 2, 'Aliases and constants'
 
 
+def item_docs(module):
+    """The hand-written doc comments of `module`'s declarations, as {name: text}, from
+    `module_docs/<module>.toml`. Every overload of a name gets the same comment."""
+    path = Path(__file__).parent / 'module_docs' / (module + '.toml')
+    return tomllib.loads(path.read_text()) if path.exists() else {}
+
+
+def documented(code, doc):
+    """`code` with `doc` above it as `//` lines, or unchanged when `doc` is empty."""
+    if not doc:
+        return code
+    lines = doc.strip('\n').split('\n')
+    return ''.join(('// ' + line).rstrip() + '\n' for line in lines) + code
+
+
 def organize_declarations(output):
     sections = defaultdict(list)
     for index, (declaration, code) in enumerate(output):
@@ -448,6 +464,7 @@ def generate_facade(module, spec, overlays=None):
                     'cpu':cpu,'verification':'C header/layout assertions; not Android Jai/runtime execution',
                     'layout':{k:shape[k] for k in ('size','alignment','fields')}}
     ledger, output, emitted = [], [], set()
+    docs = item_docs(module)
     constants_path = ROOT/'stdlib/internal/bindings/vendor/constants.json'
     native_constants = json.loads(constants_path.read_text()) if constants_path.exists() else {}
     manual_paths = [ROOT/'stdlib'/module/name for name in MANUAL_FACADE_SOURCES.get(module, ('wrappers.jai',))]
@@ -639,7 +656,7 @@ def generate_facade(module, spec, overlays=None):
         if exclusions:
             record['redeclared_for'] = exclusions
             condition = ' && '.join((['('+condition+')'] if condition else []) + exclusions)
-        output.append((d, guard(code, condition)))
+        output.append((d, guard(documented(code, docs.get(d.name)), condition)))
         ledger.append(record)
     output += overlay_declarations(overlays)
     return organize_declarations(output), ledger
