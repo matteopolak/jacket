@@ -3,7 +3,10 @@
 O :: #import "Objective_C";
 
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 objc :: #library,system "objc";
 send_address :: () #foreign objc "objc_msgSend";
 

@@ -4,7 +4,10 @@ All :: #import "GL"(ENABLE_ALL_EXTENSIONS = true);
 W :: #import "Windows";
 
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 
 check :: (value: bool) {
     if !value abort();

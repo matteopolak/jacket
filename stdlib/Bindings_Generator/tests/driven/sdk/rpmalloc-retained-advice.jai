@@ -3,7 +3,10 @@ RPM :: #import "rpmalloc"(ENABLE_GLOBAL_CACHE = false);
 Free :: #import "rpmalloc"(ENABLE_GLOBAL_CACHE = false, LINUX_FREE_ADVICE = .FREE);
 
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 probe :: #library,system "rpmalloc_advice_probe";
 begin :: (fail: s32) #foreign probe "binding_advice_begin";
 end :: () #foreign probe "binding_advice_end";

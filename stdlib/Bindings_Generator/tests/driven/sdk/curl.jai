@@ -1,7 +1,10 @@
 C :: #import "Curl";
 
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 getcwd :: (buffer: *u8, size: u64) -> *u8 #foreign libc;
 strlen :: (text: *u8) -> u64 #foreign libc;
 

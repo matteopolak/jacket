@@ -1,7 +1,10 @@
 RPM :: #import "rpmalloc";
 
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 
 main :: () {
     if RPM.initialize() != 0 abort();

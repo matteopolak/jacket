@@ -10,7 +10,10 @@ O :: #import "Objective_C";
 #assert cast(u64) A.NSBackingStoreBuffered == 2;
 
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 libobjc :: #library,system "objc";
 native_alloc :: (class: O.Class, selector: O.Selector) -> *void #foreign libobjc "objc_msgSend";
 native_init_frame :: (self: *void, selector: O.Selector, frame: O.NSRect) -> *void #foreign libobjc "objc_msgSend";

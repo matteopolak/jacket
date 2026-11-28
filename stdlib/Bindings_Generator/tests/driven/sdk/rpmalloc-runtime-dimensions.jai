@@ -5,7 +5,10 @@ TooLarge :: #import "rpmalloc"(HEAP_ARRAY_SIZE = 0x7fff_ffff_ffff_ffff);
 TooManySpans :: #import "rpmalloc"(DEFAULT_SPAN_MAP_COUNT = 0x1_0000_0000);
 
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 
 check :: (condition: bool) {
     if !condition abort();

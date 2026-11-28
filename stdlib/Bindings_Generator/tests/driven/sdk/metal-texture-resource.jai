@@ -17,7 +17,10 @@ storage_mode :: (pointer: *M.MTLTexture) -> u64 #foreign probe "binding_resource
 purgeability :: (pointer: *M.MTLTexture) -> u64 #foreign probe "binding_resource_purgeability";
 aliasable :: (pointer: *M.MTLTexture) -> bool #foreign probe "binding_resource_is_aliasable";
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 
 check :: (value: bool) {
     if !value abort();

@@ -21,7 +21,10 @@ native_interval :: () -> O.NSTimeInterval #foreign probe "receiver_interval";
 native_buttons :: () -> O.NSUInteger #foreign probe "receiver_buttons";
 sdk_contract :: () -> bool #foreign probe "receiver_contract";
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 
 check :: (condition: bool) {
     if !condition abort();

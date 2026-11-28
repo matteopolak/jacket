@@ -11,7 +11,10 @@ native_label :: () -> *O.NSString #foreign probe "binding_encoder_label";
 label_matches :: (text: *O.NSString) -> bool #foreign probe "binding_encoder_label_matches";
 finish :: () -> bool #foreign probe "binding_encoder_finish";
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 
 check :: (value: bool) {
     if !value abort();

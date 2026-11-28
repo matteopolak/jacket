@@ -12,7 +12,10 @@ accept :: (text: string) -> s32 {
 }
 
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 
 main :: () {
     enabled := true;

@@ -7,7 +7,10 @@ native_assign :: (index: u32, value: *P.FILE) #foreign probe "binding_stream_ass
 renamed_cell: s32 #elsewhere probe "binding_stream_control_cell";
 native_cell_address :: () -> *s32 #foreign probe "binding_stream_cell_address";
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 
 main :: () {
     input := P.stdin;

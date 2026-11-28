@@ -103,7 +103,10 @@ Basic :: #import "Basic";
 
 libc :: #library,system "c"; @native(external)
 binding_exit :: (status: s32) #foreign libc "exit"; @Exits
-binding_abort :: () #foreign libc "abort"; @Exits
+
+#import "internal/libc";
+
+binding_abort :: c_abort;
 
 #if !USE_GLUE_NATIVE_PORT {
     binding_glue :: #library,system "android_native_app_glue"; @native(external)

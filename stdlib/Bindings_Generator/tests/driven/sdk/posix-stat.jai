@@ -1,7 +1,10 @@
 P :: #import "POSIX";
 
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 process_id :: () -> s32 #foreign libc "getpid";
 make_dir :: (path: *u8, mode: P.mode_t) -> s32 #foreign libc "mkdir";
 make_path :: (buffer: *u8, capacity: u64, format: *u8, args: ..Any) -> s32 #foreign libc "snprintf";

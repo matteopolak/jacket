@@ -9,7 +9,10 @@ RawSmall :: #import "rpmalloc"(USE_RAW = true, HEAP_ARRAY_SIZE = 17, DEFAULT_SPA
 RawLarge :: #import "rpmalloc"(USE_RAW = true, HEAP_ARRAY_SIZE = 53, DEFAULT_SPAN_MAP_COUNT = 96);
 
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 
 check :: (condition: bool) {
     if !condition abort();

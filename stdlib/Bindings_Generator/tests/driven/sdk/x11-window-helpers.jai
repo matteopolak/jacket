@@ -2,7 +2,10 @@
 X :: #import "X11";
 
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 native_x11 :: #library,system "X11";
 pixel :: (image: *X.XImage, x: s32, y: s32) -> u64 #foreign native_x11 "XGetPixel";
 

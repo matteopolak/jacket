@@ -4,7 +4,10 @@ X :: #import "X11";
 P :: #import "POSIX";
 
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 // Private test constant from pinned X.Org xorgproto-2024.1 include/X11/X.h;
 // x11_protocol_probe.c actively asserts this value against the complete header.
 native_viewable :: 2;

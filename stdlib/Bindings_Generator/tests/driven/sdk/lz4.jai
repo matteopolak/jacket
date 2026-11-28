@@ -11,7 +11,10 @@ probe :: #library "abi_probe";
 check_size :: (which: s32) -> u64 #foreign probe "binding_size";
 check_offset :: (which: s32) -> u64 #foreign probe "binding_offset";
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 
 check :: (value: bool) {
     if !value abort();

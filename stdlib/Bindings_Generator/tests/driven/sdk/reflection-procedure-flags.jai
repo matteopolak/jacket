@@ -9,7 +9,10 @@ Ordinary :: struct {
 }
 
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 native_printf :: (fmt: *u8, args: ..Any) -> s32 #foreign libc "printf";
 native_fflush :: (stream: *void) -> s32 #foreign libc "fflush";
 

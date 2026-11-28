@@ -99,7 +99,7 @@ LangCode :: s16;
 RegionCode :: s16;
 ScriptCode :: s16;
 Block :: *Objective_C_Block_Basic;''',
-    'Vulkan': 'Binding_Arrays :: #import "internal/bindings/arrays";\nbinding_abort :: () #foreign libc "abort"; @Exits\n#if OS == .WINDOWS { #import "Windows"; }',
+    'Vulkan': 'Binding_Arrays :: #import "internal/bindings/arrays";\n#import "internal/libc";\nbinding_abort :: c_abort;\n#if OS == .WINDOWS { #import "Windows"; }',
     'meshoptimizer': CXX_RUNTIME,
     'xxHash': '''binding_XXH_versionNumber :: () -> u32 #foreign xxh_vendor "XXH_versionNumber";
 binding_XXH32 :: (input: *void, len: u64, seed: u32) -> u32 #foreign xxh_vendor "XXH32";
@@ -110,7 +110,8 @@ binding_XXH32_update :: (state: *XXH32_state_t, input: *void, len: u64) -> s32 #
 binding_XXH64_update :: (state: *XXH64_state_t, input: *void, len: u64) -> s32 #foreign xxh_vendor "XXH64_update";
 binding_XXH32_digest :: (state: *XXH32_state_t) -> u32 #foreign xxh_vendor "XXH32_digest";
 binding_XXH64_digest :: (state: *XXH64_state_t) -> u64 #foreign xxh_vendor "XXH64_digest";
-binding_abort :: () #foreign libc "abort"; @Exits''',
+#import "internal/libc";
+binding_abort :: c_abort;''',
     'stb_image': 'FILE :: struct {};',
     'stb_vorbis': 'FILE :: struct {};',
     'Curl': '''FILE :: struct {};
@@ -134,7 +135,8 @@ Native :: #import "internal/bindings/native";
 binding_objc_class :: (name: *u8) -> *void #foreign libobjc "objc_getClass";
 binding_objc_selector :: (name: *u8) -> *void #foreign libobjc "sel_registerName";
 binding_objc_send :: () #foreign libobjc "objc_msgSend";
-binding_abort :: () #foreign libc "abort"; @Exits
+#import "internal/libc";
+binding_abort :: c_abort;
 binding_strlen :: (text: *u8) -> u64 #foreign libc "strlen";
 #if CPU == .X64 { binding_objc_send_stret :: () #foreign libobjc "objc_msgSend_stret"; }
 #library,system,link_always "Foundation"; '''+EXTERNAL+'''
@@ -155,7 +157,8 @@ CGColorSpaceRef :: *CGColorSpace;
 CFTimeInterval :: float64;
 __IOSurface :: struct {};
 IOSurfaceRef :: *__IOSurface;
-binding_abort :: () #foreign libc "abort"; @Exits''',
+#import "internal/libc";
+binding_abort :: c_abort;''',
     'GL': '''#if OS == .WINDOWS { #import "Windows"; }
 #if OS == .LINUX { #import "X11"; }
 #if OS == .MACOS { #import "Objective_C"; #import "macOS"; }

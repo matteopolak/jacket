@@ -6,7 +6,10 @@ O :: #import "Objective_C";
 S :: #import "SDL";
 
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 libobjc :: #library,system "objc";
 native_get :: (self: *void, op: O.Selector) -> *void #foreign libobjc "objc_msgSend";
 native_release :: (self: *void, op: O.Selector) #foreign libobjc "objc_msgSend";

@@ -9,7 +9,10 @@ sdk_size :: (index: u32) -> u64 #foreign probe "binding_rpmalloc_size";
 sdk_offset :: (index: u32) -> u64 #foreign probe "binding_rpmalloc_offset";
 sdk_field_size :: (index: u32) -> u64 #foreign probe "binding_rpmalloc_field_size";
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 tmpfile :: () -> *void #foreign libc;
 fflush :: (stream: *void) -> s32 #foreign libc;
 ferror :: (stream: *void) -> s32 #foreign libc;

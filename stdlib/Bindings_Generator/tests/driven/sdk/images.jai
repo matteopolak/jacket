@@ -4,7 +4,10 @@ R :: #import "stb_image_resize";
 V :: #import "stb_vorbis";
 
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 free :: (p: *void) #foreign libc;
 
 check :: (value: bool) {

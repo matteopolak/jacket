@@ -17,7 +17,10 @@ native_stencil :: () -> *M.MTLRenderPassStencilAttachmentDescriptor #foreign pro
 native_matches :: (texture: O.id) -> bool #foreign probe "binding_attachment_matches";
 finish :: () -> bool #foreign probe "binding_attachment_finish";
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 
 check :: (value: bool) {
     if !value abort();

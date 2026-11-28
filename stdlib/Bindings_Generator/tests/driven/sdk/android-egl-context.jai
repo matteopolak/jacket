@@ -4,7 +4,10 @@ A :: #import "Android";
 E :: #import "Android/EGL";
 
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 
 check :: (value: bool) {
     if !value abort();

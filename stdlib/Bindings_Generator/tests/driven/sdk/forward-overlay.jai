@@ -11,7 +11,10 @@ Packet :: struct {
 #assert size_of(Packet) == 16;
 
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 
 main :: () {
     payload: u64 = 19;

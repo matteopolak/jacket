@@ -3,7 +3,10 @@ using #import "GL";
 GL :: #import "GL";
 
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 observed: u32;
 
 first :: (texture: u32) #c_call {

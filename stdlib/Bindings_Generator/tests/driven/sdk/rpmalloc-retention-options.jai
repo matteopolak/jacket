@@ -4,7 +4,10 @@ Retained :: #import "rpmalloc"(GLOBAL_CACHE_MULTIPLIER = 1, ENABLE_UNLIMITED_CAC
 HugeOption :: #import "rpmalloc"(LINUX_HUGE_PAGES = true);
 
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 
 check :: (condition: bool) {
     if !condition abort();

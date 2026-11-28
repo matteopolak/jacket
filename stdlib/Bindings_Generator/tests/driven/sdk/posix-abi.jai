@@ -4,7 +4,10 @@ probe :: #library,system "posix_abi_probe";
 native_size :: (record: u32) -> u64 #foreign probe "binding_posix_size";
 native_offset :: (field: u32) -> u64 #foreign probe "binding_posix_offset";
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 
 check :: (value: bool) {
     if !value abort();

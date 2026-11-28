@@ -9,7 +9,10 @@ P :: #import "POSIX";
 
 libc :: #library,system "c";
 native_write :: (fd: s32, data: *u8, count: P.size_t) -> P.ssize_t #foreign libc "write"; @WritesOutput(0)
-abort :: () #foreign libc; @Exits
+
+#import "internal/libc";
+
+abort :: c_abort;
 
 emit :: (text: string) #no_context {
     offset: s64;

@@ -16,7 +16,10 @@ release_receiver :: (receiver: O.id) #foreign probe "binding_scale_release_recei
 native_scale :: (receiver: O.id) -> O.CGFloat #foreign probe "binding_scale_value";
 sdk_contract :: () -> bool #foreign probe "binding_scale_contract";
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 
 check :: (value: bool) {
     if !value abort();

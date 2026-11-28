@@ -5,7 +5,10 @@ M :: #import "meshoptimizer";
 #assert size_of(M.meshopt_Meshlet) == 16;
 #assert size_of(M.meshopt_Bounds) == 48;
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 
 check :: (value: bool) {
     if !value abort();

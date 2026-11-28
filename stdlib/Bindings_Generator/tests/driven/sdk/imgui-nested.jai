@@ -5,7 +5,10 @@ probe :: #library,system "imgui_abi_probe";
 native_size :: (record: u32) -> u64 #foreign probe "binding_imgui_size";
 native_offset :: (field: u32) -> u64 #foreign probe "binding_imgui_offset";
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 
 check :: (value: bool) {
     if !value abort();

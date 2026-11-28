@@ -6,7 +6,10 @@ NoValidation :: #import "rpmalloc"(ENABLE_VALIDATE_ARGS = false);
 Neither :: #import "rpmalloc"(ENABLE_ASSERTS = false, ENABLE_VALIDATE_ARGS = false);
 
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 
 #add_context diagnostic_callback_marker: s64;
 denied_maps: s64;

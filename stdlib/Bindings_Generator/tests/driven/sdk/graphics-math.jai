@@ -2,7 +2,10 @@
 
 probe :: #library "graphics_macro_probe";
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 
 check :: (value: bool) {
     if !value abort();

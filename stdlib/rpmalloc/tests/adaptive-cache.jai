@@ -10,7 +10,10 @@ probe :: #library,system "rpmalloc_adaptive_probe";
 native_current :: (heap: *void, index: u32) -> s32 #foreign probe;
 native_high :: (heap: *void, index: u32) -> s32 #foreign probe;
 libc :: #library,system "c";
-abort :: () #foreign libc; @Exits
+
+#import "internal/libc";
+
+abort :: c_abort;
 
 check :: (condition: bool) {
     if !condition abort();

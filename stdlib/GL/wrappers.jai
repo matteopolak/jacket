@@ -485,7 +485,10 @@ binding_sscanf :: (text: *u8, format: *u8, args: ..Any) -> s32 #foreign libc "ss
 binding_printf :: (format: *u8, args: ..Any) -> s32 #foreign libc "printf"; @WritesOutput
 binding_fflush :: (stream: *void) -> s32 #foreign libc "fflush";
 binding_strlen :: (text: *u8) -> u64 #foreign libc "strlen";
-binding_abort :: () #foreign libc "abort"; @Exits
+
+#import "internal/libc";
+
+binding_abort :: c_abort;
 
 // Every registration shares this module-owned state. A later call deliberately
 // changes the logger and break policy observed by previously installed callbacks.

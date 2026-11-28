@@ -8,7 +8,10 @@ A :: #import "Objective_C/AppKit";
 probe :: #library,system "appkit_metal_contract_probe";
 native_flag :: (index: u32) -> u64 #foreign probe "binding_collection_value";
 libc :: #library,system "c";
-abort :: () #foreign libc;
+
+#import "internal/libc";
+
+abort :: c_abort;
 
 main :: () {
     values: [] A.NSWindowCollectionBehavior = .[
