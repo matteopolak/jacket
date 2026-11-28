@@ -77,6 +77,11 @@ fn a_range_skips_versions_that_are_too_new_and_a_waiver_accepts_one() {
     let run = world.run(&["dep", "add", "someone/lib@^1.0"]);
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert!(run.out.contains("v1.2.0"), "{}", run.out);
+    assert!(
+        run.err.contains("note: lib v1.3.0 is newer but not used: it was published 20 hours ago; min_release_age is 3d"),
+        "{}",
+        run.err
+    );
     // Waiving the policy for this entry lets update take the newer one.
     let toml = world.project.toml().replace(
         "version = \"^1.0\"",

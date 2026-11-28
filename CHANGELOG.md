@@ -15,10 +15,12 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 
 - `Gltf` adds `gltf_world_matrices` (every node's world matrix) and `gltf_decompose` (a matrix into translation, rotation and scale).
 - `jaic -completions bash|zsh|fish` and `jacket completions bash|zsh|fish` print shell completion scripts; `jacket completions SHELL --tool jaic` prints jaic's.
+- `jacket dep add` and `update` note a newer version skipped by `min_release_age`, with its age.
 - `jaic -help` is in capitalised sections (`Usage:`, `Modes:`, `Exit status:`), bold when colour is on.
 
 ### Fixes
 
+- `jacket toolchain add` and jaic's progress lines follow the diagnostics' colour rule, so `FORCE_COLOR` colours them.
 - `jaic -interp` no longer stops a long-running program with "execution budget exhausted": `-run_budget` bounds compile-time runs only.
 - `Module.operator *[]` parses as the name of that operator, like `Module.operator []`.
 - On 32- and 16-bit targets, interpreted pointer arithmetic and integer-to-pointer casts wrap at the pointer width; faults name program addresses.

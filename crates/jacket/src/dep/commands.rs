@@ -212,6 +212,25 @@ impl Gate {
         }
     }
 
+    /// Why a version `age` seconds old that must wait `required` is not accepted yet:
+    /// `was published 20 hours ago; min_release_age is 3d`, with the jitter when there is one.
+    fn too_new(&self, age: i64, required: i64) -> String {
+        let mut said = format!(
+            "was published {}; min_release_age is {}",
+            policy::ago(age),
+            self.policy.min_age.unwrap_or(Age::ZERO)
+        );
+        if let Some(jitter) = self.policy.jitter
+            && self.policy.seed.is_some()
+        {
+            said.push_str(&format!(
+                ", plus up to {jitter} of jitter (this version waits {})",
+                policy::span(required)
+            ));
+        }
+        said
+    }
+
     /// The error for a version the policy does not accept. `entry` is what the override note
     /// shows: the entry as it would read with the waiver.
     fn refuse(&self, subject: &str, verdict: &Verdict, waived: &Dependency) -> DepError {
@@ -219,23 +238,7 @@ impl Gate {
             Verdict::TooNew {
                 age,
                 required,
-            } => {
-                let mut said = format!(
-                    "{} {subject} was published {}; min_release_age is {}",
-                    self.name,
-                    policy::ago(*age),
-                    self.policy.min_age.unwrap_or(Age::ZERO)
-                );
-                if let Some(jitter) = self.policy.jitter
-                    && self.policy.seed.is_some()
-                {
-                    said.push_str(&format!(
-                        ", plus up to {jitter} of jitter (this version waits {})",
-                        policy::span(*required)
-                    ));
-                }
-                said
-            }
+            } => format!("{} {subject} {}", self.name, self.too_new(*age, *required)),
             Verdict::Unknown(why) => {
                 format!("{} {subject}'s age can't be checked: {why}", self.name)
             }
@@ -374,7 +377,8 @@ fn pick(
 }
 
 /// The newest of `found` (newest first) that the policy accepts. A version that is too new is
-/// skipped for an older one; one whose age cannot be checked stops the search.
+/// skipped for an older one, with a note naming the newest skipped and why; one whose age
+/// cannot be checked stops the search.
 pub(super) fn accept_newest(
     ctx: &mut Ctx,
     gate: &Gate,
@@ -386,6 +390,21 @@ pub(super) fn accept_newest(
     for candidate in found {
         match gate.check(ctx, &candidate.tag, &candidate.commit) {
             Verdict::Allowed => {
+                if let Some((
+                    tag,
+                    Verdict::TooNew {
+                        age,
+                        required,
+                    },
+                )) = &newest_refusal
+                {
+                    let _ = writeln!(
+                        ctx.err,
+                        "note: {} {tag} is newer but not used: it {}",
+                        gate.name,
+                        gate.too_new(*age, *required)
+                    );
+                }
                 return Ok(shape(candidate));
             }
             Verdict::Unknown(why) => {

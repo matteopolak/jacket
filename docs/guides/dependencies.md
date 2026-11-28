@@ -92,7 +92,7 @@ release_age_jitter = "2d"
 seed = "k3v9q2xh"
 ```
 
-- `min_release_age`: `add` and `update` skip releases younger than this.
+- `min_release_age`: `add` and `update` skip releases younger than this. When they skip one for an older version, a note names it and says why.
 - `release_age_jitter`: adds up to this much extra wait, different for each version. Everyone on the project waits the same amount, because it comes from `seed`.
 - `seed`: random text that `jacket dep init` or the first `jacket dep add` writes. Commit it.
 

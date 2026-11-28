@@ -80,6 +80,11 @@ From a survey of the 190 corpus projects: 37 have tags; 27 use semver, 7 two-par
 ## Release-age policy
 
 - `min_release_age`: a version must have been published at least this long ago.
+- When a range's newest version is too new and an older one is taken, `add` and `update` print a note naming the newer one and its age:
+
+  ```text
+  note: library v1.3.0 is newer but not used: it was published 20 hours ago; min_release_age is 3d
+  ```
 - `release_age_jitter`: adds a per-version offset in `[0, jitter]`, hashed from `seed`, package and version. Everyone on the project gets the same offset, and different projects get different ones, so a compromised release reaches projects in stages.
 - With jitter set and no `seed`, `add` and `update` warn, apply no jitter, and suggest `jacket dep init`. The first `add` writes a seed if there is none.
 - A commit (`rev`) has no release, so under an active policy it needs `min_release_age = "0"` on its entry. `dep init` adopts what it finds and prints the same error as a warning for each version that fails the policy.
