@@ -1,6 +1,10 @@
 #import "Basic";
 
-native :: #library "../../../../target/developer_tools_bridge";
+Native_Search :: #import "Extensions/Environment";
+Native_Compiler :: #import "Compiler";
+
+#run Native_Compiler.compiler_add_library_search_directory(Native_Search.output_directory());
+native :: #library "developer_tools_bridge";
 
 Pair :: struct {
     left: s32;

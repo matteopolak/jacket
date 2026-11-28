@@ -2,7 +2,11 @@
 G :: #import "developer-tools-cpp-workflow-generated";
 
 // The generated bindings describe the C++ declarations; the bridge's out-pointer ABI is declared separately.
-adapters :: #library "../../../../target/developer_tools_cpp_workflow";
+Native_Search :: #import "Extensions/Environment";
+Native_Compiler :: #import "Compiler";
+
+#run Native_Compiler.compiler_add_library_search_directory(Native_Search.output_directory());
+adapters :: #library "developer_tools_cpp_workflow";
 
 adapter_pair :: (result: *G.Original_Cpp_Pair, number: s32, scale: float64) #foreign adapters "original_cpp_workflow_pair";
 adapter_empty :: (result: *G.Original_Cpp_Pair) #foreign adapters "original_cpp_workflow_empty";

@@ -3,7 +3,11 @@
 #import "Basic";
 G :: #import "developer-tools-bitfield-layout-generated";
 
-native :: #library "../../../../target/developer_tools_bitfield_layout";
+Native_Search :: #import "Extensions/Environment";
+Native_Compiler :: #import "Compiler";
+
+#run Native_Compiler.compiler_add_library_search_directory(Native_Search.output_directory());
+native :: #library "developer_tools_bitfield_layout";
 oracle_fact :: (key: *u8) -> s64 #foreign native;
 oracle_field_count :: () -> s64 #foreign native;
 oracle_get :: (key: *u8, record: *void) -> s64 #foreign native;

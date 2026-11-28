@@ -2,7 +2,11 @@
 #import "Basic";
 B :: #import "Bindings_Generator";
 
-native :: #library "../../../../target/developer_tools_integer_range";
+Native_Search :: #import "Extensions/Environment";
+Native_Compiler :: #import "Compiler";
+
+#run Native_Compiler.compiler_add_library_search_directory(Native_Search.output_directory());
+native :: #library "developer_tools_integer_range";
 signed_range_exceeded :: (value: u64, bytes: u32) -> s32 #foreign native;
 
 main :: () {

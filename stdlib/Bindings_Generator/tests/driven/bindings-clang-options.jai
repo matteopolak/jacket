@@ -1,7 +1,11 @@
 #import "Basic";
 B :: #import "Bindings_Generator";
 
-native :: #library "../../../../target/developer_tools_options";
+Native_Search :: #import "Extensions/Environment";
+Native_Compiler :: #import "Compiler";
+
+#run Native_Compiler.compiler_add_library_search_directory(Native_Search.output_directory());
+native :: #library "developer_tools_options";
 check_options :: (options: *B.CXIndexOptions) -> u32 #foreign native "developer_tools_check_options";
 
 #assert size_of(B.CXIndexOptions) == 24;
