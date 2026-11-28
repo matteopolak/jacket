@@ -285,29 +285,27 @@ check_config_parsing :: () {
         if accepted fail("bad jacket.toml accepted: %", it);
     }
 
-    unknown, unknown_ok := parse_config("[format]\nindent-widht = 2\ncolour = 1\n[format.extra]\nx = 1\n");
-    if !unknown_ok || unknown.unknown_keys.count != 3 || unknown.indent_width != 4 fail("unknown [format] keys should be dropped and listed");
+    for string.["[format]\nindent-widht = 2\n", "[format]\ncolour = 1\n", "[format.extra]\nx = 1\n", "[doc.format]\ncolour = 1\n"] {
+        _, accepted := parse_config(it);
+        if accepted fail("unknown key accepted: %", it);
+    }
 
-    note := format_unknown_setting_note(unknown.unknown_keys[0], "jacket.toml");
-    if note != "unknown setting `format.indent-widht` in jacket.toml (ignored); did you mean `format.indent-width`?" fail("unknown key note: %", note);
+    _, _, near := parse_config("[format]\nindent-widht = 2\n");
+    if near != "line 2: unknown setting `format.indent-widht`; did you mean `format.indent-width`?" fail("unknown key error: %", near);
 
-    note = format_unknown_setting_note(unknown.unknown_keys[1], "jacket.toml");
-    if note != "unknown setting `format.colour` in jacket.toml (ignored)" fail("unknown key note: %", note);
+    _, _, far := parse_config("[format]\ncolour = 1\n");
+    if far != "line 2: unknown setting `format.colour`" fail("unknown key error: %", far);
 
     if config.doc_format.count fail("a config without [doc.format] should have no doc overrides");
 
-    docs_format, docs_format_ok, docs_format_message := parse_config("[format]\nindent-width = 2\n[doc]\nurl = \"x\"\n[doc.format]\nindent-width = 3\nblank-line-after-declarations = false\nbrace-style = 'preserve'\ncolour = 1\nignore = [\"a\"]\nformat-doc-examples = false\n[doc.format.extra]\nx = 1\n");
+    docs_format, docs_format_ok, docs_format_message := parse_config("[format]\nindent-width = 2\n[doc]\nurl = \"x\"\n[doc.format]\nindent-width = 3\nblank-line-after-declarations = false\nbrace-style = 'preserve'\n");
     if !docs_format_ok fail("[doc.format] rejected: %", docs_format_message);
 
     if docs_format.indent_width != 2 || !docs_format.format_doc_examples || docs_format.ignore.count fail("[doc.format] must not change the file's own settings");
     if docs_format.doc_format.count != 3 fail("[doc.format] overrides: %", docs_format.doc_format);
-    if docs_format.unknown_keys.count != 4 fail("unknown [doc.format] keys should be dropped and listed: %", docs_format.unknown_keys);
 
-    note = format_unknown_setting_note("doc.format.colour", "jacket.toml");
-    if note != "unknown setting `doc.format.colour` in jacket.toml (ignored)" fail("doc unknown key note: %", note);
-
-    note = format_unknown_setting_note("doc.format.indent-widht", "jacket.toml");
-    if note != "unknown setting `doc.format.indent-widht` in jacket.toml (ignored); did you mean `doc.format.indent-width`?" fail("doc unknown key note: %", note);
+    _, _, doc_near := parse_config("[doc.format]\nindent-widht = 2\n");
+    if doc_near != "line 2: unknown setting `doc.format.indent-widht`; did you mean `doc.format.indent-width`?" fail("doc unknown key error: %", doc_near);
 
     docs_inline, docs_inline_ok := parse_config("doc.format.max-width = 60\ndoc.format.blank-lines-around-blocks = true\n");
     if !docs_inline_ok || docs_inline.doc_format.count != 2 fail("inline and dotted [doc.format] forms not parsed");
@@ -396,25 +394,28 @@ check_toml_forms :: () {
     if !quoted_ok || quoted.indent_width != 3 || quoted.max_width != 90 fail("quoted keys: % %", quoted_message, quoted);
 
     // Every way of writing `[format] indent_width = 2` in a jacket.toml.
-    for string.["[format]\nindent-width = 2\n", "[ \"format\" ]\n\"indent-width\" = 2\n", "format.indent-width = 2\n", "format . 'indent-width' = 2\n", "[format]\nindent-width = 2\n\n[lint]\nmax-nesting = 3\n", "format = { indent-width = 2 }\n", "format = {\n  max-width = 80, # wide\n  indent-width = 2,\n}\n", "[project]\nentry = \"a.jai\"\n\n[format.sub]\nx = 1\n\n[other]\nformat.indent-width = 9\n[format]\nindent-width = 2\n"] {
+    for string.["[format]\nindent-width = 2\n", "[ \"format\" ]\n\"indent-width\" = 2\n", "format.indent-width = 2\n", "format . 'indent-width' = 2\n", "[format]\nindent-width = 2\n\n[lint]\nmax-nesting = 3\n", "format = { indent-width = 2 }\n", "format = {\n  max-width = 80, # wide\n  indent-width = 2,\n}\n", "[project]\nentry = \"a.jai\"\n\n[sub]\nx = 1\n\n[other]\nformat.indent-width = 9\n[format]\nindent-width = 2\n"] {
         parsed, ok, message := parse_config(it);
         if !ok fail("jacket.toml rejected: % in %", message, it);
         if ok && parsed.indent_width != 2 fail("jacket.toml form not read: %", it);
     }
 
-    table_form, table_ok, table_message := parse_config("format = { ignore = ['a/**', \"b.jai\"], brace-style = 'preserve', colour = 1, extra.deep = { x = 1 } }\n");
+    table_form, table_ok, table_message := parse_config("format = { ignore = ['a/**', \"b.jai\"], brace-style = 'preserve' }\n");
     if !table_ok fail("inline table rejected: %", table_message);
 
-    if table_form.brace_style != .PRESERVE || table_form.ignore.count != 2 || table_form.unknown_keys.count != 2 || table_form.unknown_keys[0] != "colour" || table_form.unknown_keys[1] != "extra.deep" {
+    if table_form.brace_style != .PRESERVE || table_form.ignore.count != 2 {
         fail("inline table parsed wrong: %", table_form);
     }
 
-    dotted_unknown, dotted_ok := parse_config("format.extra.deep = 1\nother.format = 1\n");
-    if !dotted_ok || dotted_unknown.unknown_keys.count != 1 || dotted_unknown.unknown_keys[0] != "extra.deep" fail("dotted unknown key: %", dotted_unknown);
+    _, _, inline_unknown := parse_config("format = { brace-style = 'preserve', colour = 1, extra.deep = { x = 1 } }\n");
+    if inline_unknown != "line 1: unknown setting `format.colour`" fail("inline unknown key: %", inline_unknown);
+
+    _, _, dotted_unknown := parse_config("format.extra.deep = 1\nother.format = 1\n");
+    if dotted_unknown != "line 1: unknown setting `format.extra.deep`" fail("dotted unknown key: %", dotted_unknown);
 
     // Other tables are skipped, whatever they hold.
     others, others_ok := parse_config("[project]\nname = 'a = b'\n[lint]\nexclude = [\"x\"]\nrules = { format = 1 }\n");
-    if !others_ok || others.indent_width != 4 || others.unknown_keys.count fail("other tables should be skipped");
+    if !others_ok || others.indent_width != 4 fail("other tables should be skipped");
 
     for string.["format = 3\n", "format = { indent-width = x }\n", "format = { indent-width = 2\n", "format.indent-width = 'two'\n", "[format\nindent-width = 2\n", "[format]\nindent-width = 2 3\n", "[format]\nbrace-style = 'weird'\n", "[format]\nignore = [ 'a\n"] {
         _, accepted := parse_config(it);

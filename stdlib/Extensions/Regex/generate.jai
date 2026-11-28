@@ -2,6 +2,8 @@
 // builds, and their named groups become typed fields. Everything here runs inside #run and
 // #insert; what reaches the program is constant data and a few lines of field assignments.
 
+#scope_module
+
 // Bigger than this and the DFA is built lazily at run time instead of stored in the program.
 STATIC_STATE_LIMIT :: 256;
 

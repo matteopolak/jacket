@@ -32,6 +32,15 @@ other_allocators_are_not_tracked :: () {
     array_add(*array, 1);
 } @test
 
+heaps_are_not_offered :: () {
+    // The tracker owns the allocator data, so it cannot hand out a heap: asking for one would
+    // make a later call read a heap as a tracker.
+    caps, _ := get_capabilities(context.allocator);
+
+    expect((caps & .CREATE_HEAP) == 0);
+    expect((caps & .FREE) != 0);
+} @test
+
 temporary_storage_starts_empty :: () {
     expect_equal(context.temporary_storage.total_bytes_occupied, 0);
     used := tprint("%", 1);

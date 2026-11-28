@@ -246,6 +246,14 @@ fn run() -> Result<(), String> {
     } else if mode == "settings" {
         let (config, unknown) = jacket_config::parse_lenient(input)?;
 
+        // Other tables' keys belong to other tools; an unknown formatter key is an error.
+        if let Some(key) = unknown
+            .iter()
+            .find(|key| key.starts_with("format.") || key.starts_with("doc.format."))
+        {
+            return Err(format!("unknown setting `{key}`"));
+        }
+
         config.format.validate()?;
         config.doc.format.validate_doc()?;
         let resolved: serde_json::Map<String, Json> = config
@@ -264,7 +272,7 @@ fn run() -> Result<(), String> {
 
         println!(
             "{}",
-            json!({"resolved": resolved, "overrides": overrides, "ignore": config.format.ignore, "unknown": unknown})
+            json!({"resolved": resolved, "overrides": overrides, "ignore": config.format.ignore})
         );
     } else {
         let table: toml::Table = toml::from_str(input).map_err(|e: toml::de::Error| {

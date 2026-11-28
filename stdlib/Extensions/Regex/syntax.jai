@@ -2,6 +2,8 @@
 // applied, so later stages never see flags: a case-insensitive letter is a class, `.` is a class,
 // `^` and `$` are looks for the mode they were written in, and `(?x)` whitespace is gone.
 
+#scope_module
+
 Look :: enum u8 {
     START_TEXT; // \A, or ^ without (?m)
     END_TEXT; // \z, or $ without (?m)

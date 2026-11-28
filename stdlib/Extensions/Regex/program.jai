@@ -3,6 +3,8 @@
 // bytes. The same tree can also be compiled reversed, for the matcher that finds where a match
 // starts by walking back from its end.
 
+#scope_module
+
 Inst_Kind :: enum u8 {
     MATCH;
     RANGES; // consume one byte that falls in one of transitions[next .. next + alt]

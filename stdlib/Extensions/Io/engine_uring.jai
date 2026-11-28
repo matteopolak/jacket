@@ -12,6 +12,8 @@
 // so a completion finds its operation without a lookup. Values below 16 are used for entries the
 // engine does not track (the cancel requests).
 
+#scope_module
+
 // One listening socket's multishot accept. A fiber in `accept` waits on it; connections that
 // arrive while nobody waits are queued for the next call.
 Accept_Slot :: struct {

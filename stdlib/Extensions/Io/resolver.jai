@@ -15,6 +15,8 @@
 // On Windows there is no pipe: a helper posts a `KEY_WAKE` packet to the scheduler's completion
 // port, which `iocp_wait` turns into `wake_collect`, and `write_fd` holds that port.
 
+#scope_module
+
 Thread :: #import "Thread";
 
 // Helper threads at least one lookup needs, and the most a scheduler starts. A helper stays busy

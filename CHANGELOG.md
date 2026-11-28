@@ -145,6 +145,10 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - `JAI_IO_BACKEND` naming an unavailable or unknown backend stops the program with the reason, instead of falling back to epoll.
 - `load_system_fonts` returns an error naming `JAI_UI_FONT` when no font is found, instead of adding blank fonts.
 - `Extensions/Utf8` adds strict `decode`, `encode` and `is_valid`; Json, Regex, Postgres, Archive and UI use it; it replaces `Protobuf.valid_utf8`.
+- `Regex` no longer exposes its engine internals, and `replace` with `$` groups no longer leaks per match.
+- `Io` no longer exposes its backend internals.
+- `jaifmt` and `parse_config` reject an unknown `[format]` key like the Rust tools; `unknown_keys` and `format_unknown_setting_note` are removed.
+- `Testing`'s tracking allocator reports no heap support, so `get_capabilities` and `create_heap` no longer crash under `jacket test`.
 
 ## [0.40.0] - 2026-11-24
 

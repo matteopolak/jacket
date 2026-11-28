@@ -21,6 +21,7 @@ realloc :: (memory: *void, size: C_Size) -> *void #foreign libc;
 memmove :: (destination: *void, source: *void, count: C_Size) -> *void #foreign libc;
 
 #if OS != .WINDOWS {
+    read :: (fd: s32, data: *void, count: C_Size) -> C_Signed_Size #foreign libc;
     write :: (fd: s32, data: *void, count: C_Size) -> C_Signed_Size #foreign libc; @WritesOutput(0)
 }
 
@@ -50,9 +51,23 @@ c_strerror :: (error: s32) -> *u8 #foreign libc "strerror";
 // The value of the environment variable `name` (a zero-terminated string), or null when it is not set.
 c_getenv :: (name: *u8) -> *u8 #foreign libc "getenv";
 
+// The calling thread's `errno`; read or set it through the pointer.
+#if OS == .MACOS {
+    c_errno_address :: () -> *s32 #foreign libc "__error";
+} else #if OS == .WINDOWS {
+    c_errno_address :: () -> *s32 #foreign libc "_errno";
+} else {
+    c_errno_address :: () -> *s32 #foreign libc "__errno_location";
+}
+
 #if OS != .WINDOWS {
+    // Read up to `count` bytes into `data` from `fd`; the count read, 0 at the end, or -1.
+    c_read :: inline (fd: s32, data: *void, count: u64) -> s64 #no_context {
+        return read(fd, data, cast,trunc(C_Size) count);
+    }
+
     // Write up to `count` bytes of `data` to `fd`; the count written, or -1.
-    c_write :: inline (fd: s32, data: *u8, count: u64) -> s64 #no_context {
+    c_write :: inline (fd: s32, data: *void, count: u64) -> s64 #no_context {
         return write(fd, data, cast,trunc(C_Size) count);
     }
 }

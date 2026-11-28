@@ -21,6 +21,8 @@
 // goes to the file thread pool (files_pool.jai) and only its fiber waits. Closing a descriptor fails
 // every operation still waiting on it with the cancel error (`.CLOSED` for its fiber).
 
+#scope_module
+
 // Descriptor numbers above this are not tracked.
 MAX_POLLED_FDS :: 1 << 22;
 

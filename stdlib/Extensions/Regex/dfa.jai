@@ -9,6 +9,8 @@
 // transition, which knows the following byte, settles them. For the same reason a transition
 // says whether a match ended just before its byte.
 
+#scope_module
+
 Dfa :: struct {
     program: *Program; // null for a DFA that was built completely at compile time
     reverse: bool;

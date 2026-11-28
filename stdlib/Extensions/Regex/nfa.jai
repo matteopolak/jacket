@@ -3,6 +3,8 @@
 // (instruction, position) pairs it has tried, which is faster on short spans. Both take
 // O(instructions * text) time at most and agree with each other on every match.
 
+#scope_module
+
 // Whether `look` holds at `pos`. The whole text is context, so a search that starts mid-text
 // still sees the byte before it.
 look_holds :: (look: Look, text: string, pos: int) -> bool {

@@ -38,6 +38,4 @@ def settings_projection(value, rust):
     """
     for group in ('resolved', 'overrides'):
         value[group] = {key: tomllib.loads('value = ' + text)['value'] for key, text in value[group].items()}
-    if rust:
-        value['unknown'] = [key.removeprefix('format.') if key.startswith('format.') else key for key in value['unknown'] if key.startswith(('format.', 'doc.format.'))]
     return value

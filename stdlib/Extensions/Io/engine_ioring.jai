@@ -24,6 +24,8 @@
 // The structs the API takes by value are declared as they are in ioringapi.h; jaic's Win64 and
 // Windows arm64 call lowering passes them the way the compiler for C does.
 
+#scope_module
+
 #if OS == .WINDOWS {
     Io_Ring_Flags :: struct {
         required: u32;

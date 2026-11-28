@@ -354,7 +354,7 @@ def main():
             report['validation'].append(oracle)
             if not oracle['pass_check']:
                 raise RuntimeError('Rust consumer oracle rejected shared valid configuration')
-            checksum = expected_settings['resolved']['indent-width'] + expected_settings['resolved']['max-width'] + len(expected_settings['ignore']) + len(expected_settings['overrides']) + len(expected_settings['unknown'])
+            checksum = expected_settings['resolved']['indent-width'] + expected_settings['resolved']['max-width'] + len(expected_settings['ignore']) + len(expected_settings['overrides'])
             consumers = [(name, consumer, scratch / ('formatter-' + name)) for name, consumer in receipt['consumers'].items()]
             if previous:
                 consumers.append(('previous', previous['build']['consumers']['candidate'], Path(previous['formatter'])))

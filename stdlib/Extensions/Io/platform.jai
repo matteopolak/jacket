@@ -6,6 +6,8 @@
 //
 // Sockets are created non-blocking and close-on-exec, and never raise SIGPIPE.
 
+#scope_module
+
 // Internal result for "this system has no implementation". Not an errno.
 E_UNSUPPORTED :: 0x7fff_0001;
 
@@ -175,8 +177,6 @@ MAX_TRANSFER :: 0x4000_0000;
     c_shutdown :: (fd: s32, how: s32) -> s32 #foreign libc "shutdown";
     c_send :: (fd: s32, buffer: *void, length: u64, flags: s32) -> s64 #foreign libc "send";
     c_recv :: (fd: s32, buffer: *void, length: u64, flags: s32) -> s64 #foreign libc "recv";
-    c_read :: (fd: s32, buffer: *void, length: u64) -> s64 #foreign libc "read";
-    c_write :: (fd: s32, buffer: *void, length: u64) -> s64 #foreign libc "write"; @WritesOutput(0)
     c_pread :: (fd: s32, buffer: *void, length: u64, offset: s64) -> s64 #foreign libc "pread";
     c_pwrite :: (fd: s32, buffer: *void, length: u64, offset: s64) -> s64 #foreign libc "pwrite";
     // open and fcntl are variadic in C, which matters on Apple arm64 (variadic arguments go on the stack).
@@ -188,15 +188,12 @@ MAX_TRANSFER :: 0x4000_0000;
     c_sysconf :: (name: s32) -> s64 #foreign libc "sysconf";
     c_lseek :: (fd: s32, offset: s64, whence: s32) -> s64 #foreign libc "lseek";
 
-    #if OS == .MACOS {
-        c_errno :: () -> *s32 #foreign libc "__error";
-    } else {
-        c_errno :: () -> *s32 #foreign libc "__errno_location";
+    #if OS != .MACOS {
         c_accept4 :: (fd: s32, address: *void, length: *u32, flags: s32) -> s32 #foreign libc "accept4";
     }
 
     errno_now :: () -> s32 {
-        return c_errno().*;
+        return c_errno_address().*;
     }
 
     // -errno when a call returned -1, else `result`.

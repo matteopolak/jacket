@@ -291,8 +291,7 @@ run_subtest :: (t: *Test, name: string, body: (t: *Test), body_with_data: (t: *T
     GetStdHandle :: (identifier: s32) -> *void #foreign kernel32;
     ReadFile :: (handle: *void, buffer: *void, count: u32, read: *u32, overlapped: *void) -> s32 #foreign kernel32;
 } else #if OS != .WASM && OS != .NONE {
-    libc :: #system_library "libc"; @native(external)
-    read :: (fd: s32, buffer: *void, count: u64) -> s64 #foreign libc;
+    #import "internal/libc";
 }
 
 // What standard input holds up to its end. The call blocks in the system until jacket writes the
@@ -314,7 +313,7 @@ read_standard_input :: () -> string {
                 if ReadFile(handle, buffer.data, buffer.count, *got, null) == 0 break;
                 count = got;
             } else {
-                count = read(0, buffer.data, buffer.count);
+                count = c_read(0, buffer.data, cast(u64) buffer.count);
             }
 
             if count <= 0 break;

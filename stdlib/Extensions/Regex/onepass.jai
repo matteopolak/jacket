@@ -15,6 +15,8 @@
 // the edge is taken. A look makes the choice depend on the text, not just on the byte, so where
 // that would change which leaf wins (see `explore`), the pattern is refused.
 
+#scope_module
+
 OnePass :: struct {
     ok: bool; // false: not one-pass, or too big; nothing below is set
     stride: int; // byte classes

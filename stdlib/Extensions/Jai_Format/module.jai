@@ -44,7 +44,6 @@ Format_Config :: struct @toml(default, rename_all=kebab-case) {
     blank_line_before_return := false; @toml(message="blank-line-before-return must be true or false") // in code blocks: a blank line above a `return`
     format_doc_examples := true; @toml(message="format-doc-examples must be true or false") // format the ```jai blocks in `//` comments
     ignore: [..] string; @toml(message="ignore must be an array of quoted globs") // globs relative to `root`, for format_is_ignored
-    unknown_keys: [..] string; @toml(skip) // keys the parser did not know and dropped; see format_unknown_setting_note
     doc_format: [..] Doc_Setting; @toml(skip) // `[doc.format]`: overrides for the examples in doc comments, in file order
     root: string; @toml(skip) // directory of the config file; set by whoever read it
 }
@@ -96,7 +95,7 @@ format_range :: (text: string, from: s64, to: s64, config: Format_Config = .{}) 
 
 // Parses a complete TOML 1.1 jacket.toml and consumes its `[format]`/`[doc.format]` settings.
 // Other tables are validated and ignored; without a `[format]` section the result is the default config. Bad values are errors,
-// reported as `line N: ...`; unknown keys are dropped and listed in `unknown_keys`.
+// reported as `line N: ...`, and so is an unknown key, with the nearest known one named.
 //
 // ```jai
 // config, ok, error := parse_config("[format]\nindent-width = 2\nbrace-style = \"preserve\"\n");
@@ -149,19 +148,6 @@ format_apply_setting :: (config: *Format_Config, assignment: string) -> ok: bool
     if !ok return false, without_line_prefix(message);
 
     return true, "";
-}
-
-// The warning for an entry of `config.unknown_keys` found in the file `file`, with a suggestion
-// when a known key is close.
-//
-// ```jai
-// config := parse_config("[format]\nindent_wdth = 2\n");
-// assert(config.unknown_keys.count == 1);
-// note := format_unknown_setting_note(config.unknown_keys[0], "jacket.toml");
-// assert(note.count > 0);
-// ```
-format_unknown_setting_note :: (key: string, file: string) -> string {
-    return unknown_setting_note(key, file);
 }
 
 // Whether `before` and `after` are the same program as far as the compiler can tell: the same

@@ -15,6 +15,8 @@
 //     if the system cannot give it, the program stops with the reason (`refuse_backend`).
 //   - Results are a byte count or the negative platform errno; `error_from_code` makes them portable.
 
+#scope_module
+
 NANOSECONDS_PER_MILLISECOND :: 1_000_000;
 
 // What a [Handle] refers to, which decides how the engine waits on it.

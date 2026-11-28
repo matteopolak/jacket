@@ -25,6 +25,8 @@
 //     it to finish, then the fiber wakes with the result. Closing a file waits for the operations
 //     still out on any file of the scheduler.
 
+#scope_module
+
 // The workers started, at most.
 POOL_MAX_THREADS :: 16;
 

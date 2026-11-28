@@ -452,8 +452,6 @@ config_for_directory :: (directory: string) -> *Format_Config, ok: bool, error: 
 
             if !ok {
                 entry.error = sprint("in `%`, %", shown(file), error);
-            } else {
-                report_unknown_keys(config, file);
             }
         }
     }
@@ -485,12 +483,6 @@ read_config_file :: (path: string) -> string, bool {
     return read_entire_file(path, log_errors = false);
 }
 
-report_unknown_keys :: (config: Format_Config, file: string) {
-    for config.unknown_keys {
-        print_error("jaifmt: warning: %\n", format_unknown_setting_note(it, shown(file)));
-    }
-}
-
 load_config :: (path: string) -> *Format_Config, ok: bool, error: string {
     config := New(Format_Config);
     text, read_ok := read_entire_file(path, log_errors = false);
@@ -502,7 +494,6 @@ load_config :: (path: string) -> *Format_Config, ok: bool, error: string {
 
     config.* = parsed;
     config.root = copy_string(format_parent_directory(path));
-    report_unknown_keys(parsed, path);
 
     return config, true, "";
 }

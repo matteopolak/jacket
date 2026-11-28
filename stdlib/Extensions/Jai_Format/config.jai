@@ -45,7 +45,7 @@ parse_config_into :: (text: string, config: *Format_Config) -> bool, string {
 
     defer Toml.free_toml_value(*file);
 
-    // Unknown keys of both tables are listed in file order.
+    // Both tables are read in file order; the first unknown key is an error.
     format := file.format.unknown;
     docs := file.doc.format.unknown;
     next_format := 0;
@@ -57,9 +57,8 @@ parse_config_into :: (text: string, config: *Format_Config) -> bool, string {
         if take_format {
             entry := format[next_format];
             next_format += 1;
-            array_add(*config.unknown_keys, ifx entry.header then tprint("format.%", entry.path) else copy_string(entry.path));
 
-            continue;
+            return false, tprint("line %: %", config_line(text, entry.start), unknown_setting_message(ifx entry.header then tprint("format.%", entry.path) else entry.path));
         }
 
         entry := docs[next_docs];
@@ -67,8 +66,7 @@ parse_config_into :: (text: string, config: *Format_Config) -> bool, string {
         next_docs += 1;
 
         if entry.header || !is_doc_format_key(entry.path) {
-            array_add(*config.unknown_keys, tprint("doc.format.%", entry.path));
-            continue;
+            return false, tprint("line %: %", config_line(text, entry.start), unknown_setting_message(tprint("doc.format.%", entry.path)));
         }
 
         raw := slice(text, entry.value, entry.end - entry.value);
@@ -80,12 +78,10 @@ parse_config_into :: (text: string, config: *Format_Config) -> bool, string {
     }
 
     // The settings move into the result; the rest of the decoded file is released.
-    keep := config.unknown_keys;
     doc_keep := config.doc_format;
     root := config.root;
 
     config.* = file.format.settings;
-    config.unknown_keys = keep;
     config.doc_format = doc_keep;
     config.root = root;
     file.format.settings = .{};
@@ -185,10 +181,9 @@ FORMAT_KEYS :: string.["indent-width", "case-indent", "case-body-indent", "max-b
 // The settings `[doc.format]` can override: those of `[format]` that apply to code in a block.
 DOC_FORMAT_KEYS :: string.["indent-width", "case-indent", "case-body-indent", "max-blank-lines", "max-width", "brace-style", "blank-lines-between-items", "blank-line-after-declarations", "blank-lines-around-blocks", "blank-line-between-cases", "blank-line-before-comments", "blank-line-after-guards", "blank-line-before-return"];
 
-// The warning for an unknown `[format]` or `[doc.format]` setting `key` found in the config file
-// `file`: it is ignored, and the nearest known key is named when there is one within a third of
-// its length.
-unknown_setting_note :: (key: string, file: string) -> string {
+// The error for an unknown `[format]` or `[doc.format]` setting `key`: it names the nearest known
+// key when there is one within a third of its length.
+unknown_setting_message :: (key: string) -> string {
     prefix := "format.";
     keys: [] string = FORMAT_KEYS;
     name := key;
@@ -203,7 +198,7 @@ unknown_setting_note :: (key: string, file: string) -> string {
 
     path := tprint("%%", prefix, name);
 
-    note := tprint("unknown setting `%` in % (ignored)", path, file);
+    note := tprint("unknown setting `%`", path);
 
     limit := max(1, name.count / 3);
     best := -1;

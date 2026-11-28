@@ -50,7 +50,7 @@ main :: () {
 
         assert(ok, error);
         black_box(config);
-        checksum += cast(u64) (config.indent_width + config.max_width + config.ignore.count + config.doc_format.count + config.unknown_keys.count);
+        checksum += cast(u64) (config.indent_width + config.max_width + config.ignore.count + config.doc_format.count);
         reset(*pool);
         reset_temporary_storage();
     }

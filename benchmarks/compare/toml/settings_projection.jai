@@ -25,15 +25,11 @@ project_settings :: (config: $T) -> Json.Json_Value {
     ignore := Json.json_array();
     for config.ignore Json.json_push(*ignore, Json.json_string(it));
 
-    unknown := Json.json_array();
-    for config.unknown_keys Json.json_push(*unknown, Json.json_string(it));
-
     result := Json.json_object();
 
     Json.json_set(*result, "resolved", resolved);
     Json.json_set(*result, "overrides", overrides);
     Json.json_set(*result, "ignore", ignore);
-    Json.json_set(*result, "unknown", unknown);
 
     return result;
 }

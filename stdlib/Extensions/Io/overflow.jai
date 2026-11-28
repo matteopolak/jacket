@@ -9,6 +9,8 @@
 // signal stack. Its first word is the thread's Scheduler, which is how the handler, knowing
 // nothing else, finds the running fiber and its guard.
 
+#scope_module
+
 #if OS == .WINDOWS {
     guard_overflow :: (scheduler: *Scheduler) {}
 

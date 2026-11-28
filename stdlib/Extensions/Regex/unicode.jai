@@ -2,13 +2,13 @@
 // and simple case folding. The tables live in unicode_data.jai (generated, see
 // docs/tools/regex-unicode-tables.md) as compact text and are decoded one set at a time.
 
+#scope_module
+
 #import "Basic";
 #import "Atomics";
 #import "Sort";
 
 #load "unicode_data.jai";
-
-#scope_module
 
 // Tables built on first use are shared by every thread. `begin_once(*state)` is true for the one caller that has to build
 // the table, and only after that caller's `finish_once` do the others (waiting here) and later callers see a complete table.

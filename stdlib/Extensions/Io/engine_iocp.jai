@@ -23,6 +23,8 @@
 // RtlNtStatusToDosError. Helper threads (name lookups, the IoRing's event) wake a scheduler by
 // posting a packet with no OVERLAPPED and a key (`KEY_WAKE`, `KEY_RING`).
 
+#scope_module
+
 // What the Windows engine keeps. The fields exist everywhere so that `Engine` has one shape.
 Iocp_State :: struct {
     port: s64;

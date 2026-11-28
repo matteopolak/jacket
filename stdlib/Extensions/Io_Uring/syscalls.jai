@@ -48,10 +48,9 @@ libc :: #system_library "libc"; @native(external)
 
 // libc's variadic syscall() called with six fixed arguments, all `long`.
 raw_syscall :: (number: Long, a1: Long, a2: Long, a3: Long, a4: Long, a5: Long, a6: Long) -> Long #foreign libc "syscall";
-errno_location :: () -> *s32 #foreign libc "__errno_location";
 
 kernel_result :: (result: Long) -> s32 {
-    if result == -1 return -errno_location().*;
+    if result == -1 return -c_errno_address().*;
 
     return cast(s32) result;
 }

@@ -467,6 +467,7 @@ replace_n :: (re: *Regex, text: string, replacement: string, limit: int) -> stri
         } else {
             caps := captures_of(engine, text, s, e);
             expand_replacement(*builder, caps, replacement);
+            array_free(caps.slots);
         }
 
         last = e;

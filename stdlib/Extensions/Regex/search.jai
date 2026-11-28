@@ -2,6 +2,8 @@
 // one-pass table (patterns that have one), the backtracker (short matches) or the Pike VM fills
 // in captures. The Pike VM also takes over when a DFA grows too big.
 
+#scope_module
+
 Engine :: struct {
     pattern: string;
     program: Program;

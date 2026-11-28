@@ -40,6 +40,17 @@ main :: () {
             Regex.free_regex(*re);
         }
 
+        {
+            re, ok := Regex.compile("(?<a>[a-z])([0-9])");
+
+            assert(ok);
+            replaced := Regex.replace_all(*re, "a1 b2 c3", "$2$a");
+
+            assert(replaced == "1a 2b 3c");
+            free(replaced.data);
+            Regex.free_regex(*re);
+        }
+
         _, ok := Regex.compile("(unclosed");
 
         assert(!ok);

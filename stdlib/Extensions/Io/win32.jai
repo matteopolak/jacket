@@ -6,6 +6,8 @@
 // Everything here returns a result of 0 or more, or the negative Win32/Winsock error number, like
 // the POSIX versions return the negative errno.
 
+#scope_module
+
 #if OS == .WINDOWS {
     // `kernel32` is declared in stacks.jai.
     ws2_32 :: #system_library "ws2_32"; @native(external)

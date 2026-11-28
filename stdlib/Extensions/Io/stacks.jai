@@ -1,6 +1,8 @@
 // Fiber stacks: one anonymous mapping each, with the lowest pages made inaccessible so that a fiber
 // that overflows its stack faults instead of writing into its neighbour's memory.
 
+#scope_module
+
 Stack :: struct {
     // Lowest address of the mapping, which is the start of the guard region.
     base: *void;

@@ -123,7 +123,7 @@ open_session :: (shell: string, command: string = "", cols: int = 80, rows: int 
 read_session :: (session: *Session, buffer: [] u8) -> int {
     #if OS == .MACOS || OS == .LINUX {
         n := P.read(session.fd, buffer.data, cast(P.size_t) buffer.count);
-        if n < 0 && (errno_address().* == P.EAGAIN || errno_address().* == P.EINTR) return 0;
+        if n < 0 && (c_errno_address().* == P.EAGAIN || c_errno_address().* == P.EINTR) return 0;
         if n <= 0 return -1;
         return n;
     } else return -1;
@@ -177,6 +177,7 @@ close_session :: (session: *Session) {
 #if OS == .MACOS || OS == .LINUX {
     #import "String";
     P :: #import "POSIX";
+    #import "internal/libc";
 
     libc :: #library,system "c";
     posix_openpt :: (flags: s32) -> s32 #foreign libc;
@@ -196,10 +197,8 @@ close_session :: (session: *Session) {
         native_environment :: () -> ***u8 #foreign libc "_NSGetEnviron";
         SET_SIZE :: 0x80087467;
         SET_CTTY :: 0x20007461;
-        errno_address :: () -> *s32 #foreign libc "__error";
     } else {
         SET_SIZE :: 0x5414;
         SET_CTTY :: 0x540e;
-        errno_address :: () -> *s32 #foreign libc "__errno_location";
     }
 }
