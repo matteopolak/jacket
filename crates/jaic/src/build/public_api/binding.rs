@@ -1,4 +1,6 @@
 //! Bind an operation to the actual declaration and its aggregate layouts.
+use std::rc::Rc;
+
 use super::{Binding, Field, Kind, Layout, Operation, Schema, abi::Need, options};
 use crate::diagnostics::Code;
 use crate::{
@@ -8,7 +10,6 @@ use crate::{
     source::Span,
     types::{ArrayKind, TypeId, TypeKind},
 };
-use std::rc::Rc;
 
 /// A schema shared by every declaration that reads the same modules' records. `entities`
 /// counts the declarations the modules held when it was built, so a module that grew since

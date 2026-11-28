@@ -1,6 +1,7 @@
 //! Programs run on the sandbox host (`-interp -os wasm`), the engine the browser playground uses.
 use std::path::Path;
 use std::process::Command;
+
 use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");

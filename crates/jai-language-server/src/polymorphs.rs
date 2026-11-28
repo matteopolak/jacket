@@ -4,13 +4,15 @@
 //! edit makes a summary stale without dropping it: a lens request recompiles only the stale
 //! programs that read the requested file, and leaves the others to `polymorph_background`,
 //! labelling its answer incomplete until they are done.
-use crate::semantic::{Analysis, Buffers, Reads, text_hash};
-use crate::{DocumentUri, Session};
-use jaic::source::{FileId, Span};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
+
+use jaic::source::{FileId, Span};
+
+use crate::semantic::{Analysis, Buffers, Reads, text_hash};
+use crate::{DocumentUri, Session};
 
 type Declaration = (PathBuf, u32, String);
 

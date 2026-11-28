@@ -5,12 +5,13 @@ mod fetch;
 mod runtime;
 mod sysroot;
 
-use crate::target::Target;
 use jaic::target::{Target as Triple, TargetOs};
 use jaic_toolchain::builtins::find_builtins;
 use jaic_toolchain::linker::{SysrootUse, find_linker, find_sysroot, host_target};
 use jaic_toolchain::package::{Need, PackageManager};
 use jaic_toolchain::{Found, Lookup, Missing, Overrides, System, tilde};
+
+use crate::target::Target;
 
 static SYSTEM: System = System;
 
@@ -328,8 +329,9 @@ pub fn problems(rows: &[Row]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use jaic_toolchain::testing::FakeHost;
+
+    use super::*;
 
     fn row_for(host: &FakeHost, name: &str, board: Option<&str>, runner: Option<&str>) -> Row {
         let lookup = Lookup::new(host);

@@ -1,7 +1,8 @@
 //! Opening real source files for the typing-session checker (`typing_session.rs`): the file, the
 //! sibling files it loads or imports by relative path, and a `jacket.toml` that makes it the entry.
-use jai_language_server::{DocumentUri, Environment};
 use std::path::{Path, PathBuf};
+
+use jai_language_server::{DocumentUri, Environment};
 
 pub struct FileInput {
     pub setup: Vec<(DocumentUri, String)>,

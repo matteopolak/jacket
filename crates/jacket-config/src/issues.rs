@@ -1,9 +1,11 @@
 //! What is wrong with the text of a `jacket.toml`, each with its place, for editors. The messages
 //! are the ones [`crate::parse`] and the [`Check`]s give; nothing here judges the file itself.
-use crate::{Check, Config, parse_lenient, unknown_note};
 use std::ops::Range;
 use std::path::Path;
+
 use toml::de::{DeTable, DeValue};
+
+use crate::{Check, Config, parse_lenient, unknown_note};
 
 /// One problem in the file.
 #[derive(Clone, Debug, PartialEq, Eq)]

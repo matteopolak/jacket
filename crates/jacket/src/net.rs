@@ -5,11 +5,13 @@
 //! that also reads zip and xz), and `curl` honours `HTTPS_PROXY`, `NO_PROXY` and the system
 //! certificate store, so no HTTP or TLS stack is linked into `jacket`. The commands keep their
 //! own traits over these (`upgrade::net::Source`, `dep::forge::Forge`) so tests run offline.
-use crate::prerequisite::spawn_error;
-use jaic_toolchain::package::Need;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+
+use jaic_toolchain::package::Need;
+
+use crate::prerequisite::spawn_error;
 
 /// The `User-Agent` of every request.
 const USER_AGENT: &str = concat!("jacket/", env!("CARGO_PKG_VERSION"));

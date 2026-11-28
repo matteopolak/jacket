@@ -1,14 +1,15 @@
 //! Running the tests: jobs of one root's cases in one process (or one each), on a pool of
 //! workers, and how each run's records, exit and timeouts become an outcome.
-use super::build::Toolchain;
-use super::exec::{self, Ending, Live};
-use super::options::TestOptions;
-use super::{Case, Kind, Message, Outcome, Plan, Status, build, coverage, doctest, golden};
 use std::collections::{BTreeMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::sync::{Mutex, mpsc};
 use std::time::{Duration, Instant};
+
+use super::build::Toolchain;
+use super::exec::{self, Ending, Live};
+use super::options::TestOptions;
+use super::{Case, Kind, Message, Outcome, Plan, Status, build, coverage, doctest, golden};
 
 /// A piece of work for one worker: cases of one root run in one process (or one each).
 pub(super) struct Job {
@@ -637,9 +638,10 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
 
 #[cfg(test)]
 mod tests {
+    use exec::Failure;
+
     use super::*;
     use crate::test::tests::case;
-    use exec::Failure;
 
     fn raw(end: Option<&str>) -> exec::Raw {
         exec::Raw {

@@ -1,13 +1,15 @@
 //! Lowering a whole program: the plan, its shards and how signatures are passed.
-use super::Backend;
-use crate::debuginfo::{DebugFormat, DebugInfo};
+use std::cell::{OnceCell, RefCell};
+
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::types::FunctionType;
 use jaic::abi::{Arch, Passing, Piece};
 use jaic::fxhash::HashMap;
 use jaic::ir::{AggLayout, Linkage as IrLinkage, Program, Ty};
-use std::cell::{OnceCell, RefCell};
+
+use super::Backend;
+use crate::debuginfo::{DebugFormat, DebugInfo};
 
 /// How the program is divided among modules when codegen is split (`partition.rs`).
 pub struct Plan {

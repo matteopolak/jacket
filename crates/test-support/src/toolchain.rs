@@ -17,12 +17,13 @@
 //! linker, sysroot and builtins its lookup finds? The answer and the install notes come from
 //! `jaic-toolchain`, the code the compiler itself runs.
 
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
 use jaic_toolchain::builtins::find_builtins;
 use jaic_toolchain::linker::find_linker;
 use jaic_toolchain::package::{Need, PackageManager};
 use jaic_toolchain::{Lookup, Overrides, System};
-use std::path::{Path, PathBuf};
-use std::process::Command;
 
 static SYSTEM: System = System;
 

@@ -8,16 +8,18 @@
 //!    with `ld.lld` against a sysroot.
 //! 4. The sysroot `jacket toolchain add` fetched.
 //! 5. An error with a note.
+use std::ffi::OsString;
+use std::path::PathBuf;
+
+use jaic::target::{Target, TargetAbi, TargetCpu, TargetOs};
+use jaic::toolchain::{Linker, discover};
+
 use crate::found::{Found, Missing, Origin};
 use crate::host::{Host, Os};
 use crate::lookup::Lookup;
 use crate::overrides::{Given, Overrides};
 use crate::package::{Need, PackageManager};
 use crate::{cache, msvc, names, pins};
-use jaic::target::{Target, TargetAbi, TargetCpu, TargetOs};
-use jaic::toolchain::{Linker, discover};
-use std::ffi::OsString;
-use std::path::PathBuf;
 
 /// The target the programs of `host` run as (`aarch64-apple-darwin`): the MSVC environment on
 /// Windows, glibc on Linux.

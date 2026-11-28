@@ -1,6 +1,7 @@
 //! `-run_budget` bounds each top-level compile-time run, so a `#run` that never ends fails the
 //! build instead of hanging it.
 use std::process::Command;
+
 use test_support::TempDir;
 
 fn check(name: &str, source: &str, flags: &[&str]) -> (Option<i32>, String) {

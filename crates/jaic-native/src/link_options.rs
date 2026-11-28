@@ -2,10 +2,11 @@
 //!
 //! Arguments are OS strings end to end: Clang and the linkers take any bytes. Only the ASCII
 //! spellings below are recognised and rewritten; every other argument passes through as given.
+use std::ffi::{OsStr, OsString};
+
 use jacket_config::os_text;
 use jaic::toolchain::{Driver, Linker};
 pub(super) use jaic_toolchain::names::is_clang;
-use std::ffi::{OsStr, OsString};
 
 pub(super) fn driver_for_command(program: &str, args: &[OsString]) -> Driver {
     let mut driver = driver_for_program(program);

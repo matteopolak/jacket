@@ -72,8 +72,14 @@ static MISSING_LIBRARIES: std::sync::OnceLock<Vec<(String, String)>> = std::sync
 ///
 /// ```
 /// jaic::interp::set_missing_libraries(vec![("clang".into(), "no libclang here".into())]);
-/// assert_eq!(jaic::interp::missing_library("modules/clang"), Some("no libclang here"));
-/// assert_eq!(jaic::interp::missing_library("libclang"), Some("no libclang here"));
+/// assert_eq!(
+///     jaic::interp::missing_library("modules/clang"),
+///     Some("no libclang here")
+/// );
+/// assert_eq!(
+///     jaic::interp::missing_library("libclang"),
+///     Some("no libclang here")
+/// );
 /// assert_eq!(jaic::interp::missing_library("z"), None);
 /// ```
 ///

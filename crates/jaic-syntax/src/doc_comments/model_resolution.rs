@@ -1,10 +1,11 @@
 //! Resolve documentation type references in source scope and preserve ordered alias hops.
+use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
+
 use super::super::refs::{BUILTIN_TYPES, TypeRef, type_paths};
 use super::{Item, MAX_HOPS, Reader, RefChain, TopIndex, members, slice};
 use crate::ast::{Decl, DeclKind, Expr, ExprKind, StmtKind, UnOp};
 use crate::docs::{self, Resolver};
-use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
 
 impl Reader<'_> {
     /// The declarations the names written in `ty` (in `file`) stand for. A name that is not

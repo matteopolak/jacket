@@ -1,4 +1,6 @@
 //! Matching arguments against a candidate and baking automatic variants.
+use std::sync::Arc;
+
 use super::poly_hints::CANNOT_INFER;
 use super::slots::{SlotParam, assign_slots, header_poly_names, pattern_specificity};
 use super::{AutoBake, CallArg, Candidate, Slot, const_marker};
@@ -7,7 +9,6 @@ use crate::diagnostics::Code;
 use crate::sema::convert;
 use crate::sema::lower::Operand;
 use crate::sema::{Compiler, Diagnostic, ProcId, Result, Span, TypeId, Value, ast, err, ir};
-use std::sync::Arc;
 
 impl Compiler {
     /// Why the only candidate of a call does not accept its arguments: the problem at the

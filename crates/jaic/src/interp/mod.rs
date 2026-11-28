@@ -57,6 +57,20 @@ mod window;
 mod windows;
 mod windows_memory;
 mod windows_native;
+use std::collections::BTreeMap;
+use std::rc::Rc;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+#[cfg(target_os = "macos")]
+pub use native::main_thread;
+pub use native::{
+    add_library_dir, extra_library_dirs, homebrew_lib_dir, library_dirs, missing_library,
+    set_library_dirs, set_missing_libraries,
+};
+pub use sandbox::{SandboxHost, SharedHost};
+#[cfg(not(target_arch = "wasm32"))]
+pub use threads::DEADLOCK_GRACE;
+
 use self::addresses::AddressMap;
 pub(super) use self::arith::{bin_total, cmp_shifted, divides, shift_of};
 use self::arith::{conv, int_bin, mask};
@@ -72,18 +86,6 @@ use crate::fxhash::HashMap;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::ir::Ty;
 use crate::ir::{self, FuncId, GlobalId, Program};
-#[cfg(target_os = "macos")]
-pub use native::main_thread;
-pub use native::{
-    add_library_dir, extra_library_dirs, homebrew_lib_dir, library_dirs, missing_library,
-    set_library_dirs, set_missing_libraries,
-};
-pub use sandbox::{SandboxHost, SharedHost};
-use std::collections::BTreeMap;
-use std::rc::Rc;
-use std::sync::atomic::{AtomicU64, Ordering};
-#[cfg(not(target_arch = "wasm32"))]
-pub use threads::DEADLOCK_GRACE;
 
 /// Tag bits marking an interpreted procedure address.
 pub const FUNC_TAG: u64 = 0xFEED_0000_0000_0000;
@@ -358,7 +360,10 @@ impl Interp {
     /// interp.eval_steps = Some(10);
     /// interp.begin_evaluation();
     /// interp.end_compile_time_budget();
-    /// assert_eq!((interp.eval_steps, interp.block_budget), (None, Some(u64::MAX)));
+    /// assert_eq!(
+    ///     (interp.eval_steps, interp.block_budget),
+    ///     (None, Some(u64::MAX))
+    /// );
     /// ```
     pub fn end_compile_time_budget(&mut self) {
         self.eval_steps = None;
@@ -588,7 +593,6 @@ impl Interp {
             self.callback_stacks = Vec::new();
         }
     }
-
 
     /// Merge this interpreter's `-profile` counts into the process table (see `profile`).
     pub fn flush_profile(&mut self) {

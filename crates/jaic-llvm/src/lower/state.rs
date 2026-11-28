@@ -1,10 +1,11 @@
 //! Per-function lowering state and the null-check facts tracked through it.
-use crate::debuginfo::FnDebug;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::values::{BasicValueEnum, FunctionValue, IntValue, PointerValue};
 use jaic::abi::Piece;
 use jaic::ir::{Func, Inst, Val, inst_vals, term_uses};
+
+use crate::debuginfo::FnDebug;
 
 /// Per-function lowering state.
 pub(super) struct FnState<'ctx> {

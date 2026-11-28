@@ -17,13 +17,14 @@
 //! from that shard (under the lock), from its own cache (filled from the shard), or from another
 //! thread through something that synchronises (a lock, a join, a channel). Each of those orders
 //! the slot's writes before any `as_str`, so the slot fields can be relaxed atomics.
-use crate::fxhash::FxHasher;
 use std::cell::RefCell;
 use std::fmt;
 use std::hash::{BuildHasher, BuildHasherDefault};
 use std::ptr::null_mut;
 use std::sync::atomic::{AtomicPtr, AtomicU32, Ordering};
 use std::sync::{Mutex, PoisonError};
+
+use crate::fxhash::FxHasher;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Sym(u32);

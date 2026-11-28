@@ -1,8 +1,9 @@
 //! Worker thread entry points and deadlines.
+use std::time::{Duration, Instant, SystemTime};
+
 use super::sched::{CANCELLED_EXIT_CODE, Shared, Worker, WorkerCancelled};
 use super::win32;
 use crate::interp::{FuncId, Interp, Program, TrapKind};
-use std::time::{Duration, Instant, SystemTime};
 
 /// The instant a POSIX absolute `timespec` (seconds and nanoseconds since the epoch) names.
 pub(super) fn absolute_deadline(secs: u64, nanos: u64) -> Instant {

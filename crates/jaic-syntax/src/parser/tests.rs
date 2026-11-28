@@ -4,10 +4,11 @@ mod headers_and_types;
 mod recovery;
 mod statements;
 
+use std::sync::Arc;
+
 use super::parse_file;
 use crate::ast::*;
 use crate::source::FileId;
-use std::sync::Arc;
 
 fn parse(src: &str) -> Vec<Stmt> {
     match parse_file(FileId(0), src) {

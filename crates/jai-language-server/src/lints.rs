@@ -9,13 +9,15 @@
 //! Each machine-applicable fix is a preferred `quickfix` on its finding, carrying the finding
 //! as its diagnostic and the rule as `data.rule`. `source.fixAll.jailint` applies all of them
 //! that do not overlap, as `jailint --fix` would.
+use std::path::Path;
+
+use jailint::Lint;
+use jailint::config::{Config, Level};
+
 use crate::document::DocumentUri;
 use crate::model::{CodeAction, Diagnostic, DiagnosticCode, DiagnosticSeverity, TextEdit};
 use crate::position::Range;
 use crate::session::Session;
-use jailint::Lint;
-use jailint::config::{Config, Level};
-use std::path::Path;
 
 /// The kind of the action that applies every safe fix in a document.
 pub const FIX_ALL_KIND: &str = "source.fixAll.jailint";

@@ -2,8 +2,9 @@
 //! server and the playground report. One [`Diagnostic`] holds a [`Code`] (what kind of problem),
 //! a severity, a primary span with its message, and the notes, help and suggestions that go with
 //! it. Renderers turn it into terminal text (`render`), LSP diagnostics, or the playground's JSON.
-use crate::source::{Applicability, SourceMap, Span, Suggestion, Suggestions};
 use std::fmt;
+
+use crate::source::{Applicability, SourceMap, Span, Suggestion, Suggestions};
 
 mod catalog;
 mod levels;

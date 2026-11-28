@@ -1,7 +1,8 @@
 //! Disabling runtime support must retain explicit native null guards.
+use std::{process::Command, rc::Rc};
+
 use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use jaic_llvm::{OptLevel, emit_object};
-use std::{process::Command, rc::Rc};
 use test_support::{TempDir, ir, process, toolchain};
 
 #[test]

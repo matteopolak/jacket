@@ -2,9 +2,11 @@
 //! a program links and the interpreter opens: `native-libs/<os>-<cpu>` beside the stdlib, under
 //! the checkout's `target/`, or the main checkout's when this is a linked git worktree. See
 //! `docs/tools/native-libs.md`.
-use crate::host::Host;
-use jaic::target::Target;
 use std::path::{Path, PathBuf};
+
+use jaic::target::Target;
+
+use crate::host::Host;
 
 /// The folder name `tools/native/build_native_libs.py` gives the libraries built for `target`:
 /// `<os>-<cpu>`, with `-mingw` for a Windows target linked by MinGW.
@@ -111,10 +113,11 @@ fn main_checkout(host: &dyn Host, root: &Path) -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
+    use jacket_config::env;
+
     use super::*;
     use crate::host::Os;
     use crate::testing::FakeHost;
-    use jacket_config::env;
 
     const STDLIB: &str = "/jacket/stdlib";
 

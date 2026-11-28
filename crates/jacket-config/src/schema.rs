@@ -1,9 +1,11 @@
 //! The `jacket.toml` schema. Every section is optional and every key in it too. Keys the schema
 //! does not know are errors (see [`crate::parse`]), never kept.
-use crate::pattern::PathPattern;
-use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+
+use serde::{Deserialize, Serialize};
+
+use crate::pattern::PathPattern;
 
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct Config {
@@ -101,7 +103,6 @@ pub struct Resolver {
 impl Resolver {
     /// `min-release-age` when none is set.
     pub const DEFAULT_MIN_RELEASE_AGE: &'static str = "2w";
-
     /// `release-age-jitter` when none is set.
     pub const DEFAULT_RELEASE_AGE_JITTER: &'static str = "3d";
 

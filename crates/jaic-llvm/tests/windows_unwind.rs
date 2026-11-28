@@ -1,12 +1,13 @@
 //! Required Windows ABI unwind tables survive optimization and PE linking.
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
-use jaic::target::{TargetCpu, TargetOs};
-use jaic_llvm::{Codegen, OptLevel, emit_object};
 use std::{
     path::{Path, PathBuf},
     process::Command,
     rc::Rc,
 };
+
+use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+use jaic::target::{TargetCpu, TargetOs};
+use jaic_llvm::{Codegen, OptLevel, emit_object};
 use test_support::process::checked;
 use test_support::{TempDir, toolchain};
 

@@ -1,7 +1,6 @@
 //! The portable lowering: plain LLVM IR that works on every target and is the reference for
 //! what the target-specific backends must compute.
 
-use super::{Cx, R};
 use inkwell::attributes::{Attribute, AttributeLoc};
 use inkwell::module::Linkage;
 use inkwell::types::VectorType;
@@ -9,6 +8,8 @@ use inkwell::values::{
     BasicValueEnum, FunctionValue, IntValue, PointerValue, ValueKind, VectorValue,
 };
 use inkwell::{AddressSpace, IntPredicate};
+
+use super::{Cx, R};
 
 /// `ByteLookup` one lane at a time (`extractelement`/`select`/`insertelement`).
 pub fn byte_lookup<'ctx>(

@@ -1,17 +1,19 @@
 //! The cache of finished analyses.
-use super::compile::{Compiled, Mode, compile};
-use super::parses::parse_error;
-use super::{
-    ALTERNATES, Analysis, Buffers, BuildFacts, CACHED, Environment, SMALL_COST, SMALL_KEPT,
-};
-use jaic::ide::lint_compile::CheckLimits;
-use jaic::source::FileId;
-use jaic::target::TargetOs;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
+
+use jaic::ide::lint_compile::CheckLimits;
+use jaic::source::FileId;
+use jaic::target::TargetOs;
+
+use super::compile::{Compiled, Mode, compile};
+use super::parses::parse_error;
+use super::{
+    ALTERNATES, Analysis, Buffers, BuildFacts, CACHED, Environment, SMALL_COST, SMALL_KEPT,
+};
 
 pub struct Cache {
     entries: Vec<Analysis>,

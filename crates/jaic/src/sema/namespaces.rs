@@ -1,17 +1,16 @@
 //! Modules, scopes and entities: what names resolve against, and the work of filling them
 //! (pending imports, `#poke_name`, `#add_context`, program parameters).
 
-use super::body_probe::{Probed, W};
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use super::body_probe::{Probed, W};
+use super::{ConstArg, EntityId, Module, ModuleId, ScopeId, Value, decls, scope};
 use crate::ast;
 use crate::diagnostics::Diagnostic;
 use crate::fxhash::{HashMap, HashSet};
 use crate::intern::Sym;
-
-use super::{ConstArg, EntityId, Module, ModuleId, ScopeId, Value, decls, scope};
 
 pub struct Namespaces {
     pub modules: Probed<Vec<Module>, { W::NsModules as usize }>,

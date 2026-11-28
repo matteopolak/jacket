@@ -1,14 +1,16 @@
 //! Source facts come from the `jaic` lexer and parser; no evaluator runs here.
-use crate::{
-    Diagnostic, DiagnosticCode, DiagnosticSeverity, DocumentUri, Limits, SymbolKind,
-    position::LineIndex,
-};
+use std::rc::Rc;
+
 use jaic::diagnostics::{Diagnostic as CompilerDiagnostic, Severity};
 use jaic::intern::Sym;
 use jaic::lexer::{P, Tok};
 use jaic::parser::ide_facts::{self};
 use jaic::source::FileId;
-use std::rc::Rc;
+
+use crate::{
+    Diagnostic, DiagnosticCode, DiagnosticSeverity, DocumentUri, Limits, SymbolKind,
+    position::LineIndex,
+};
 
 mod outline;
 mod symbols;

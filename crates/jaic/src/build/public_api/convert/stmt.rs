@@ -1,4 +1,6 @@
 //! Statements and control flow.
+use std::sync::Arc;
+
 use super::{Convert, R, expr::mk};
 use crate::{
     ast::{
@@ -9,7 +11,6 @@ use crate::{
     interp::Trap,
     types::TypeId,
 };
-use std::sync::Arc;
 
 /// The assignment an `operator_type` stands for, if it is one.
 pub(super) fn assign_op(value: u64) -> Option<AssignOp> {

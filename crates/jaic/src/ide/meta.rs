@@ -9,6 +9,8 @@ mod notes;
 mod references;
 mod text;
 
+use std::sync::Arc;
+
 pub use self::text::dedent;
 use crate::intern::Sym;
 use crate::sema::lower::Operand;
@@ -18,7 +20,6 @@ use crate::sema::{Compiler, ModuleId, ProcTypeParams, Value};
 use crate::source::FileId;
 use crate::source::Span;
 use crate::types::TypeId;
-use std::sync::Arc;
 
 /// Expansions kept per analysis: an edit that makes a metaprogram generate a lot stays bounded.
 const MAX_EXPANSIONS: usize = 4096;

@@ -1,6 +1,7 @@
 //! Numeric literal contracts from the language and `Jai_Lexer` specifications.
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
+
+use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 
 fn check(source: &str) {
     let mut options = Options::host();

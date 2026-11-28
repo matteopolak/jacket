@@ -4,13 +4,15 @@
 //! mode (`Compiler::ide_interpolations`, from the callee's note alone: nothing is evaluated).
 //! The holes are found here with the compiler's own scanner, so the editor and the compiler agree
 //! on where code starts, and mapped back to document text through the literal's escapes.
-use crate::analysis::{Span, Token, TokenKind, editor_tokens};
-use crate::session::Session;
-use crate::{DocumentUri, Position};
+use std::sync::Arc;
+
 use jaic::interpolate::{self, Mode};
 use jaic::lexer::Tok;
 use jaic::source::FileId;
-use std::sync::Arc;
+
+use crate::analysis::{Span, Token, TokenKind, editor_tokens};
+use crate::session::Session;
+use crate::{DocumentUri, Position};
 
 /// One hole: `%name.field`, `%array[i]` or `%(expression)`.
 pub(crate) struct Hole {

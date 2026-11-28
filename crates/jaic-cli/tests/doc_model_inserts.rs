@@ -1,5 +1,6 @@
 //! `jaic -doc_model` documents what a module's top-level `#insert` declares.
 use std::{path::PathBuf, process::Command};
+
 use test_support::TempDir;
 
 fn stdlib() -> PathBuf {

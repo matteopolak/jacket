@@ -1,8 +1,9 @@
 //! The sidecar records checked instances and lowering choices, never sketches or failures.
+use std::rc::Rc;
+
 use jaic::ide::lifetimes::{LifetimeBody, LifetimeEvent as Event, LifetimeOperand};
 use jaic::ide::{IdeFacts, IdeRoot};
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
-use std::rc::Rc;
 
 fn compile(source: &str, lint: bool, broken: bool) -> Compiler {
     let stdlib = test_support::repo::root().join("stdlib");

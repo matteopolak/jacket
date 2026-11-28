@@ -119,8 +119,9 @@ pub(super) unsafe fn call(
 
 #[cfg(target_arch = "x86_64")]
 mod x87 {
-    use super::Regs;
     use std::mem::offset_of;
+
+    use super::Regs;
 
     #[repr(C)]
     struct Block {
@@ -205,8 +206,9 @@ mod x87 {
 
 #[cfg(target_arch = "aarch64")]
 mod vector {
-    use super::Regs;
     use std::mem::offset_of;
+
+    use super::Regs;
 
     #[repr(C)]
     struct Block {
@@ -394,10 +396,11 @@ mod tests {
     /// (Apple's arm64 has no binary128 `long double`, but passes vectors the same way).
     #[cfg(target_arch = "aarch64")]
     mod vectors {
-        use super::*;
         use std::arch::aarch64::{
             uint64x2_t, vaddq_u64, vdupq_n_u64, vgetq_lane_u64, vsetq_lane_u64,
         };
+
+        use super::*;
 
         /// Swaps the halves of `a`, adds `k` to both, and adds the ninth vector (on the stack).
         #[allow(improper_ctypes_definitions)]

@@ -1,6 +1,7 @@
 //! Program settings belong to workspace main inputs, not imported modules.
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::{path::Path, rc::Rc};
+
+use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 
 fn compiler(files: &[(&str, &str)]) -> Compiler {
     let mut fs = VirtualFs::default();

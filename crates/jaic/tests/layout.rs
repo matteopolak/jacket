@@ -1,6 +1,7 @@
 //! Inherited field layout contracts of the public record shapes.
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
+
+use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use test_support::compiler::compile_source as compile;
 
 #[test]

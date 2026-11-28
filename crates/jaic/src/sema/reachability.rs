@@ -362,7 +362,6 @@ impl Compiler {
         completes
     }
 
-
     /// Whether `cond` always has one truth value where the walk is.
     fn walk_truth(&self, walk: &Walk, cond: &ast::Expr) -> Option<bool> {
         self.ed.value(&walk.env, cond)?.truth()

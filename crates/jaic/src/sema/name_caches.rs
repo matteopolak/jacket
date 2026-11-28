@@ -1,15 +1,14 @@
 //! Memoised name lookups, each stamped with the `Epochs` counters it was computed under.
 
-use super::body_probe::{Probed, W};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::fxhash::HashMap;
-use crate::intern::Sym;
-
+use super::body_probe::{Probed, W};
 use super::stdlib_index::StdlibView;
 use super::{EntityId, ModuleId, ProcId, ScopeId, Span};
+use crate::fxhash::HashMap;
+use crate::intern::Sym;
 use crate::source::ImportSuggestion;
 
 /// What an import suggestion is looked up by.

@@ -1,6 +1,7 @@
+use jaic::fxhash::HashMap;
+
 use super::partition::{parse, partition, time_part, time_parts};
 use super::*;
-use jaic::fxhash::HashMap;
 
 #[test]
 fn a_run_without_a_seed_draws_a_short_one() {

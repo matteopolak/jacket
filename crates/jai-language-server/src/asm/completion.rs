@@ -1,8 +1,7 @@
 //! Completion inside `#asm` blocks: instructions, operands, register classes, feature
 //! modifiers and the names in scope.
-use super::{SUFFIXES, Slot, instruction_item, locate, registers, simple, slot};
-use crate::session::{Session, contains};
-use crate::{CompletionItem, CompletionKind, CompletionList, DocumentUri, SymbolKind};
+use std::collections::BTreeMap;
+
 use jaic::ide::{IdeKind, IdeName};
 use jaic::lexer::{P, Tok};
 use jaic::parser::asm_ide::{
@@ -10,7 +9,10 @@ use jaic::parser::asm_ide::{
 };
 use jaic::sema::asm_catalog as catalog;
 use jaic::source::FileId;
-use std::collections::BTreeMap;
+
+use super::{SUFFIXES, Slot, instruction_item, locate, registers, simple, slot};
+use crate::session::{Session, contains};
+use crate::{CompletionItem, CompletionKind, CompletionList, DocumentUri, SymbolKind};
 
 impl Session {
     /// Completion inside an `#asm` block or its feature list; `None` elsewhere.

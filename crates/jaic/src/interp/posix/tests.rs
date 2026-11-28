@@ -1,9 +1,10 @@
 //! The ABI tables against the stdlib's generated POSIX declarations, which the compiler
 //! evaluates for each target.
+use std::fmt::Write;
+
 use super::{ERRORS, Open, PosixAbi, StatSyscall};
 use crate::sema::{Compiler, NativeFs, Options, ProgramSource};
 use crate::target::{TargetCpu, TargetOs};
-use std::fmt::Write;
 
 /// Every POSIX target the stdlib declares, with the ABI the tables give it.
 fn targets() -> Vec<(TargetOs, TargetCpu)> {

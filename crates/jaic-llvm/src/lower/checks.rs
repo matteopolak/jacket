@@ -1,9 +1,4 @@
 //! Intrinsic and libc calls, and the null and trap checks emitted around loads and stores.
-use super::error::Error;
-use super::inst::basic;
-use super::plan::ParamPlan;
-use super::state::FnState;
-use super::{Backend, R};
 use inkwell::IntPredicate;
 use inkwell::attributes::{Attribute, AttributeLoc};
 use inkwell::basic_block::BasicBlock;
@@ -14,6 +9,12 @@ use inkwell::values::{
     BasicMetadataValueEnum, BasicValueEnum, CallSiteValue, FunctionValue, IntValue, PointerValue,
 };
 use jaic::ir::{Ty, Val};
+
+use super::error::Error;
+use super::inst::basic;
+use super::plan::ParamPlan;
+use super::state::FnState;
+use super::{Backend, R};
 
 impl<'ctx> Backend<'ctx, '_> {
     fn intrinsic_fn(&self, name: &str, tys: &[BasicTypeEnum<'ctx>]) -> R<FunctionValue<'ctx>> {

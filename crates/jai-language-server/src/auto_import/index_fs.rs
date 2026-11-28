@@ -1,8 +1,9 @@
 //! A project file system backed by the index.
-use super::{Index, Sources};
-use crate::project::{self};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+
+use super::{Index, Sources};
+use crate::project::{self};
 
 /// The sources and index of a request as the project walk's file system: scans are cached
 /// in the index, open documents win over the disk, and a build metaprogram's files count as

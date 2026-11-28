@@ -1,10 +1,11 @@
 //! Materialize, compile and run the embedded Jai documentation theme.
-use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
+
+use sha2::{Digest, Sha256};
 
 include!(concat!(env!("OUT_DIR"), "/doc_theme.rs"));
 
@@ -330,8 +331,9 @@ impl Prepared {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use test_support::TempDir;
+
+    use super::*;
 
     #[test]
     fn embedded_files_match_the_complete_theme_tree() {

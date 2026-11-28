@@ -1,7 +1,8 @@
 //! The project a command runs in: the nearest `jacket.toml` and the notes the user should see
 //! (a pinned toolchain that is not this one).
-use jacket_config::{ConfigError, Disk, Loaded};
 use std::path::Path;
+
+use jacket_config::{ConfigError, Disk, Loaded};
 
 /// The configuration above `cwd`, with notes printed. A broken file is an error.
 pub fn load(cwd: &Path) -> Result<Option<Loaded>, ConfigError> {

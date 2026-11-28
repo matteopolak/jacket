@@ -1,10 +1,11 @@
 //! Prints `docs/reference/lint-rules.md` from the rule table (`jailint::RULES`) and each rule's
 //! `### <rule>` section of `docs/tools/jailint.md`. `tools/generators/generate_reference_docs.py`
 //! runs it. `jacket doc` turns each `###` into a page of its own.
+use std::fmt::Write;
+
 use jaic::fxhash::HashMap;
 use jailint::RULES;
 use jailint::config::{Category, Level};
-use std::fmt::Write;
 
 /// The `### <name>` sections of the hand-written page, by name.
 fn sections(md: &str) -> HashMap<String, String> {

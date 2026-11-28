@@ -1,11 +1,12 @@
 //! `unused_note` across roots: a file several programs load is linted by one of them, but a
 //! note in it is read when any of them read it.
+use std::path::{Path, PathBuf};
+
 use jailint::{
     Level,
     config::Config,
     driver::{Options, run},
 };
-use std::path::{Path, PathBuf};
 use test_support::TempDir;
 
 fn options(dir: &Path, config: Config) -> Options {

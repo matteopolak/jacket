@@ -1,10 +1,11 @@
 //! Canonical body interception for called procedures in system and user modules.
+use std::{path::Path, rc::Rc};
+
 use jaic::fxhash::{HashMap, HashSet};
 use jaic::{
     records::{FieldRef, Item, Records},
     sema::{Compiler, Options, VirtualFs},
 };
-use std::{path::Path, rc::Rc};
 
 fn refs(records: &Records, id: i64, field: &str) -> Vec<i64> {
     match records.field(id, field) {

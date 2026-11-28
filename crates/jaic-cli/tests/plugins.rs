@@ -1,5 +1,6 @@
 //! `+Plugin` arguments drive the Compiler hooks of a child workspace.
 use std::process::Command;
+
 use test_support::TempDir;
 
 const PLUGIN: &str = include_str!("../../../tests/compiler/semantics/plugin-lifecycle.jai");

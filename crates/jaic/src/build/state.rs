@@ -1,12 +1,13 @@
 //! Workspace state, the events a metaprogram receives and the registry's shared data.
-use super::option_snapshot;
-use super::settings::{BuildEnv, BuildSettings, PendingLink};
-use crate::records::Records;
-use crate::sema::{Compiler, ProgramSource, ProvidedImport};
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
 use std::sync::Arc;
+
+use super::option_snapshot;
+use super::settings::{BuildEnv, BuildSettings, PendingLink};
+use crate::records::Records;
+use crate::sema::{Compiler, ProgramSource, ProvidedImport};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Stage {

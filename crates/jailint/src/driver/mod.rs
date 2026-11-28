@@ -34,18 +34,19 @@ mod marked_target;
 mod plan;
 mod rooted_fs;
 
-pub use asserts::{AssertFailure, ImportSite};
-pub use plan::root_import_paths;
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::PathBuf;
+use std::sync::Arc;
 
-use crate::Lint;
-use crate::config::{Config, Configs};
+pub use asserts::{AssertFailure, ImportSite};
 use claims::Claims;
 use jaic::paths::CanonCache;
 use jaic::sema::Options as CompilerOptions;
 use lint_root::{RootResult, Shared, lint_root};
-use std::collections::{BTreeMap, BTreeSet};
-use std::path::PathBuf;
-use std::sync::Arc;
+pub use plan::root_import_paths;
+
+use crate::Lint;
+use crate::config::{Config, Configs};
 
 pub const MAX_AUTO_JOBS: usize = 8;
 

@@ -1,7 +1,9 @@
 //! Fibers, atomics, output paths and optimization flavors.
-use super::{build_and_run, exe_path, jaic, read_ir_parts, repo_root};
 use std::process::Command;
+
 use test_support::{TempDir, toolchain};
+
+use super::{build_and_run, exe_path, jaic, read_ir_parts, repo_root};
 
 /// Every struct shape a C function can return (integer, float and mixed eightbytes, homogeneous
 /// float aggregates, arrays, nested structs, unions, memory-class results), returned by C to Jai

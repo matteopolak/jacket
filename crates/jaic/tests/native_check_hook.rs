@@ -1,6 +1,7 @@
 //! The native diagnostic extension is private and optional, with strict validation.
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
+
+use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 
 fn compiler(hook: &str) -> Compiler {
     let mut fs = VirtualFs::default();

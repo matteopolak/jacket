@@ -1,10 +1,8 @@
 //! Shared semantic-CFG analysis for released resources and escaping storage.
 //! Each candidate follows only its copy closure; joins preserve uncertainty.
-use super::build;
-use super::{Block, Cell, Cells, DEAD, LIVE, Model, Op as CfgOp, UNKNOWN};
-use crate::rules::lifetime_places::Places;
-use crate::rules::lifetime_summary::{Kind as EffectKind, Prepared, Resolver, Root, Summaries};
-use crate::{Finding, syntax::Cx};
+use std::collections::{BTreeMap, VecDeque};
+use std::rc::Rc;
+
 use jaic::fxhash::{HashMap, HashSet};
 use jaic::ide::lifetimes::{
     LifetimeArgument, LifetimeBody, LifetimeEvent as Event, LifetimeOperand,
@@ -13,8 +11,12 @@ use jaic::ir::Val;
 use jaic::sema::{ProcId, ScopeId, procs::BodyState};
 use jaic::source::Span;
 use jaic::types::{TypeId, TypeKind};
-use std::collections::{BTreeMap, VecDeque};
-use std::rc::Rc;
+
+use super::build;
+use super::{Block, Cell, Cells, DEAD, LIVE, Model, Op as CfgOp, UNKNOWN};
+use crate::rules::lifetime_places::Places;
+use crate::rules::lifetime_summary::{Kind as EffectKind, Prepared, Resolver, Root, Summaries};
+use crate::{Finding, syntax::Cx};
 
 mod addresses;
 mod boxed;
@@ -25,9 +27,10 @@ mod retained;
 mod retained_witness;
 mod stores;
 mod temporary;
-use super::region::{Graph, Scope, States};
 use diagnostics::{Proof, emit};
 use quiescent::FreeSpans;
+
+use super::region::{Graph, Scope, States};
 
 #[derive(Clone, Copy, Debug)]
 pub(super) enum Origin {
@@ -326,7 +329,6 @@ impl<'a> Builder<'a> {
         !self.returns.contains(&places.paths[p].0.0)
             && (places.unresolved(p) || !self.stack.contains(&places.paths[p].0.0))
     }
-
 
     pub fn operations(
         &self,
@@ -885,7 +887,7 @@ fn solve(
 
     let mut relevant = HashMap::default();
     let source = match model.blocks[seed].op {
-        CfgOp::PointerLoad(_, source, _, _) => Some(source),
+        CfgOp::PointerLoad(_, source, ..) => Some(source),
         _ => None,
     };
     let mut queue = VecDeque::from([first]);
@@ -949,7 +951,7 @@ fn solve(
         let mut state = states.visited(i).unwrap().clone();
 
         match &model.blocks[i].op {
-            CfgOp::Borrow(target, _, _)
+            CfgOp::Borrow(target, ..)
             | CfgOp::ElementBorrow(target, ..)
             | CfgOp::Resource(Op::Seed {
                 cell: target, ..
@@ -972,7 +974,7 @@ fn solve(
                     state[born] = LIVE;
                 }
             }
-            CfgOp::PointerLoad(target, source, _, _) => {
+            CfgOp::PointerLoad(target, source, ..) => {
                 if let Some(target) = index(*target) {
                     let value = addresses::loaded_state(
                         model,

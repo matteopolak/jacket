@@ -1,7 +1,8 @@
 //! Real host atomics over validated scalar storage. The cooperative scheduler
 //! does not replace atomicity: native foreign threads may touch the same memory.
-use super::{Interp, Res, Rets, Trap, ir};
 use std::sync::atomic::{AtomicU8, AtomicU16, AtomicU32, AtomicU64, Ordering};
+
+use super::{Interp, Res, Rets, Trap, ir};
 
 fn order(value: u8) -> Res<Ordering> {
     Ok(match value {

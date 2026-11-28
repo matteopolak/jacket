@@ -128,14 +128,15 @@ pub use native::{Services, Ticket, fingerprint};
 
 #[cfg(not(target_arch = "wasm32"))]
 mod native {
-    use super::{ServiceConfig, ServiceReply, ServiceStatus};
-    use crate::fxhash::HashMap;
     use std::io::{Read, Write};
     use std::path::{Path, PathBuf};
     use std::process::{Child, ChildStdin, Command, Stdio};
     use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
     use std::sync::{Arc, Mutex};
     use std::time::{Duration, Instant, SystemTime};
+
+    use super::{ServiceConfig, ServiceReply, ServiceStatus};
+    use crate::fxhash::HashMap;
 
     /// Requests larger than this are refused, and answers larger than this end the worker.
     const MAX_FRAME: u64 = 256 << 20;

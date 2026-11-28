@@ -1,12 +1,14 @@
-use crate::analysis::{Span, Token};
-use crate::semantic::{self, Environment};
-use crate::{DocumentUri, Limits, analysis::Analysis, position::LineIndex};
-use jaic::ide::{IdeLayout, IdeName};
 use std::borrow::Cow;
 use std::cell::{OnceCell, RefCell};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::rc::Rc;
+
+use jaic::ide::{IdeLayout, IdeName};
+
+use crate::analysis::{Span, Token};
+use crate::semantic::{self, Environment};
+use crate::{DocumentUri, Limits, analysis::Analysis, position::LineIndex};
 
 pub(crate) struct Document {
     pub(crate) version: i32,

@@ -1,7 +1,8 @@
 //! Computed `using` filters are arrays of strings, read back at the target's string stride.
+use std::rc::Rc;
+
 use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use jaic::target::Target;
-use std::rc::Rc;
 
 /// A string is 12 bytes on i686 (`s64` aligns to 4), not 16.
 #[test]

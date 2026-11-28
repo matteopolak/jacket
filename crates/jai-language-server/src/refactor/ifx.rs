@@ -1,11 +1,12 @@
 //! Converting between `ifx` and `if`.
+use jaic::ast::{AssignOp, DeclKind, ExprKind as E, StmtKind as S};
+use jaic::source::line_end;
+
 use super::exprs::only;
 use super::text::{indent_at, starts_line, stmt_extent};
 use super::tree::in_list;
 use super::{Cx, REWRITE};
 use crate::CodeAction;
-use jaic::ast::{AssignOp, DeclKind, ExprKind as E, StmtKind as S};
-use jaic::source::line_end;
 
 impl Cx<'_> {
     // ifx <-> if / else

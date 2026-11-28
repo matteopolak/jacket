@@ -1,5 +1,6 @@
 //! Only addressing backed by a live allocation may promise LLVM inbounds.
 use std::process::Command;
+
 use test_support::TempDir;
 
 const SOURCE: &str = r#"

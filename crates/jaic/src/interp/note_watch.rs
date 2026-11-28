@@ -8,8 +8,9 @@
 //!
 //! Off (`Interp::note_watch` is `None`) outside the language server and linter, so a batch
 //! compile pays nothing.
-use crate::fxhash::HashSet;
 use std::sync::Arc;
+
+use crate::fxhash::HashSet;
 
 /// Where a note is written: its file as the program spells it (`paths::program_path`) and the
 /// one-based line and byte column of its start and end. The same place in every workspace

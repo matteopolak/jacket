@@ -23,12 +23,13 @@
 //!
 //! Anything the schema does not know under `[lint]` is an error, so a typo does not silently
 //! keep a rule on.
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+
 use jacket_config::{Disk, Files, Lint, PathPattern};
 use jaic::diagnostics::{Code, Severity};
 use jaic::fxhash::HashMap;
 use jaic::target::TargetOs;
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
 
 pub const FILE_NAME: &str = jacket_config::FILE_NAME;
 

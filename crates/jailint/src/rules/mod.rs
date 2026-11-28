@@ -1,13 +1,14 @@
 //! The rules. Each lives in its own module, documented with why it exists; [`RULES`] lists
 //! them with their default levels.
-use crate::config::Category;
-use crate::syntax::Cx;
-use crate::{Edit, Finding, Fix, Level};
 use jaic::ast::walk::Node;
 use jaic::ast::{BinOp, Expr, ExprKind as E, Stmt, StmtKind as S, UnOp};
 use jaic::ide::Found;
 use jaic::sema::ProcId;
 use jaic::source::Span;
+
+use crate::config::Category;
+use crate::syntax::Cx;
+use crate::{Edit, Finding, Fix, Level};
 
 // Helpers shared by several rules; they are not rules themselves.
 mod effects;

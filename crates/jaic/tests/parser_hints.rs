@@ -1,10 +1,11 @@
 //! Syntax errors carry the edit that fixes them when it is clear: a missing `;`, a missing `}`,
 //! an escape that is not one, a comment or here-string left open. Each test applies the edit
 //! and compiles the result to show it was the fix.
+use std::{path::Path, rc::Rc};
+
 use jaic::diagnostics::Diagnostic;
 use jaic::sema::{Compiler, Options, VirtualFs};
 use jaic::source::Applicability;
-use std::{path::Path, rc::Rc};
 
 fn compile(source: &str) -> Result<(), Box<Diagnostic>> {
     let mut fs = VirtualFs::default();

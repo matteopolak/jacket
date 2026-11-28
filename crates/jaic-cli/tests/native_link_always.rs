@@ -1,6 +1,7 @@
 //! Native constructor effects must agree between interpreted and linked programs.
 #![cfg(unix)]
 use std::process::Command;
+
 use test_support::process::succeeded as checked;
 use test_support::{TempDir, toolchain};
 

@@ -1,6 +1,7 @@
 //! Code actions, fix-all, import fixes and lint configuration.
-use super::{TWO_LINTS, at_nth, everything, file_uri, notify, opened, request, session, uri};
 use jai_language_server::{DiagnosticCode, DiagnosticSeverity, JsonSession, Position, Range};
+
+use super::{TWO_LINTS, at_nth, everything, file_uri, notify, opened, request, session, uri};
 
 pub(super) fn code_actions(
     json: &mut JsonSession,

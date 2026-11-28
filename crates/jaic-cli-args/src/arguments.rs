@@ -1,9 +1,11 @@
 //! Target metadata and host discovery arguments, using the compiler's option table.
-use crate::cli::Cli;
+use std::path::PathBuf;
+
 use argdef::Args;
 use jaic::flags::Common;
 use jaic::target::Selection;
-use std::path::PathBuf;
+
+use crate::cli::Cli;
 
 /// Target selection and host arguments with compiler target/mode options removed.
 #[derive(Debug)]
@@ -157,8 +159,9 @@ pub fn import_dirs(args: &[impl AsRef<std::ffi::OsStr>]) -> Vec<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use jaic::target::{TargetCpu, TargetOs};
+
+    use super::*;
 
     fn inspect(args: &[&str]) -> TargetFlags {
         target_flags(&args.iter().map(ToString::to_string).collect::<Vec<_>>()).unwrap()

@@ -1,7 +1,8 @@
 //! A null argument has no live allocation. Excluding only its null edge permits
 //! nullable cleanup wrappers without turning unrelated conditions into releases.
-use super::{Effect, Event, HashMap, HashSet, Kind, ProcId, Resolver, Span, Summary};
 use jaic::ir::CmpOp;
+
+use super::{Effect, Event, HashMap, HashSet, Kind, ProcId, Resolver, Span, Summary};
 
 impl Resolver<'_> {
     pub(super) fn nullable_guarantee(

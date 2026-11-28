@@ -13,13 +13,13 @@
 //! null. Records live until the compilation ends, so a record id (and the
 //! struct the metaprogram built from it) keeps its identity across messages.
 use std::cell::{Cell, RefCell};
+use std::hash::BuildHasherDefault;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::{OnceLock, PoisonError, RwLock};
 
 use crate::builtin_keys::SyntaxKey;
 use crate::fxhash::HashMap;
-use std::hash::BuildHasherDefault;
-use std::sync::{OnceLock, PoisonError, RwLock};
 
 #[derive(Clone, Debug)]
 pub enum Item {

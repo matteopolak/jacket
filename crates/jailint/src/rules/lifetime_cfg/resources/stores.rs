@@ -1,8 +1,9 @@
 //! Check a store against the destination owner's lifetime.
-use super::{Builder, Cell, Cells, Event, Op, Places, Root, inside, value_cell};
-use crate::rules::lifetime_summary::Resolver;
 use jaic::ir::Val;
 use jaic::source::Span;
+
+use super::{Builder, Cell, Cells, Event, Op, Places, Root, inside, value_cell};
+use crate::rules::lifetime_summary::Resolver;
 
 impl Builder<'_> {
     pub(super) fn store_escapes(
@@ -80,7 +81,6 @@ impl Builder<'_> {
 
         ops
     }
-
 
     /// The escape of `source` into `region`, a field a callee keeps its argument in, when that
     /// field outlives the frame: a stack address kept there dangles after the return.

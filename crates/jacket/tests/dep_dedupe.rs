@@ -1,9 +1,11 @@
 //! `[resolver] dedupe`: one copy of each shared module, checked on local repositories and by
 //! compiling the result.
-use crate::dep_support;
-use dep_support::{Origin, Project, Run, git};
 use std::collections::BTreeMap;
 use std::path::Path;
+
+use dep_support::{Origin, Project, Run, git};
+
+use crate::dep_support;
 
 /// What a version requires: the package, the range it asks for, and the tag its author checked
 /// the nested copy out at.

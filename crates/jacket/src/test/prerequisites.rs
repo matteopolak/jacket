@@ -4,12 +4,14 @@
 //!
 //! The ones the checkout can build itself, the fixture and conformance data and the Debug helper,
 //! are also built before the run, when a selected test needs one that is missing ([`prepare`]).
-use super::options::TestOptions;
-use super::{Outcome, Status};
-use jaic_toolchain::package::Need;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+use jaic_toolchain::package::Need;
+
+use super::options::TestOptions;
+use super::{Outcome, Status};
 
 /// Where a setup's outputs are.
 #[derive(Clone, Copy)]

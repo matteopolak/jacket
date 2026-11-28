@@ -2,9 +2,10 @@
 //!
 //! Needs the `compiler` feature.
 
+use std::{path::Path, rc::Rc};
+
 use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use jaic::target::TargetCpu;
-use std::{path::Path, rc::Rc};
 
 /// A compiler with the runtime support module turned off, so tests see only their own source.
 #[must_use]

@@ -1,13 +1,15 @@
 //! Where one dependency stands, for editors: what its submodule is at, the newest release its
 //! range and the release-age policy accept, and a newer one still inside the policy's window.
 //! Nothing here changes the project; it asks what `jacket dep update` would.
+use std::path::Path;
+
+use jacket_config::{Dependency, Resolver};
+
 use super::commands::{Gate, Verdict, path_of, short, source_of};
 use super::policy;
 use super::resolve::{self, Asked, Reading};
 use super::version::Tagged;
 use super::{Ctx, DepError, Result, forge, git};
-use jacket_config::{Dependency, Resolver};
-use std::path::Path;
 
 /// What is known of a dependency.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

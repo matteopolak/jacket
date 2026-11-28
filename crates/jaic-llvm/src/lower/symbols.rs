@@ -1,6 +1,4 @@
 //! Declaring functions, foreign symbols and globals, and initializing globals.
-use super::error::Error;
-use super::{Backend, R};
 use inkwell::DLLStorageClass;
 use inkwell::GlobalVisibility;
 use inkwell::attributes::{Attribute, AttributeLoc};
@@ -8,6 +6,9 @@ use inkwell::module::Linkage;
 use inkwell::types::BasicTypeEnum;
 use inkwell::values::{BasicValueEnum, FunctionValue, GlobalValue, PointerValue};
 use jaic::ir::{Foreign, Func, Global, Linkage as IrLinkage, RelocTarget};
+
+use super::error::Error;
+use super::{Backend, R};
 
 impl<'ctx, 'p> Backend<'ctx, 'p> {
     pub(super) fn owns_func(&self, i: usize) -> bool {

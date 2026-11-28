@@ -1,9 +1,10 @@
 //! `#insert`: running the operand and turning its result into statements or an expression.
+use std::sync::Arc;
+
 use super::Value;
 use super::lower::Operand;
 use super::{Compiler, Result, ScopeId, Span, ast, err};
 use crate::diagnostics::Code;
-use std::sync::Arc;
 
 impl Compiler {
     /// Evaluate the operand of `#insert`. `#insert -> string { ... }` (or `-> Code`) is a

@@ -1,5 +1,6 @@
-use jaic::sema::VirtualFs;
 use std::path::Path;
+
+use jaic::sema::VirtualFs;
 
 #[test]
 fn explicit_prelude_selection() {

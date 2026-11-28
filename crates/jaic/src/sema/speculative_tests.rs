@@ -1,7 +1,8 @@
 //! Speculative bodies whose first step is the first use of something (`speculative.rs`).
+use std::rc::Rc;
+
 use super::speculative::{Counts, counts, force};
 use super::{Compiler, Options, VirtualFs};
-use std::rc::Rc;
 
 /// What a compile produced in the order it numbered things, and how the bodies went.
 fn compile(source: &str, speculate: bool) -> (String, Counts) {

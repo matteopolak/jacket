@@ -88,9 +88,10 @@ mod imp {
 
 #[cfg(all(test, unix))]
 mod tests {
-    use super::quiet;
     use std::os::unix::process::ExitStatusExt;
     use std::process::Command;
+
+    use super::quiet;
 
     #[test]
     fn a_crashing_child_still_dies_of_its_signal() {

@@ -428,7 +428,6 @@ impl Compiler {
         Ok(())
     }
 
-
     pub(super) fn simd_insert(
         &mut self,
         f: &mut FnCtx,

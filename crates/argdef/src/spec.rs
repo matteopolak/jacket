@@ -1,8 +1,9 @@
 //! The data a derive produces: the options of a struct and how to store into it.
-use crate::error::Error;
-use crate::parse;
 use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
+
+use crate::error::Error;
+use crate::parse;
 
 /// What an option is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -1,14 +1,15 @@
 //! Completion that inserts what a procedure or keyword needs around its name: the call
 //! parentheses of a procedure and the skeleton of `if`, `for`, `while` and `case`. Both are
 //! snippets, so they need a client that advertises `snippetSupport`.
+use jaic::ide::IdeCall;
+use jaic::lexer::{Lexed, P, Tok, Token};
+use jaic::parser::ide_facts::MemberAt;
+
 use crate::DocumentUri;
 use crate::analysis::Span;
 use crate::model::{CompletionItem, CompletionKind};
 use crate::semantic::Analysis;
 use crate::session::Session;
-use jaic::ide::IdeCall;
-use jaic::lexer::{Lexed, P, Tok, Token};
-use jaic::parser::ide_facts::MemberAt;
 
 /// What accepting a procedure completion inserts (`completion.callSnippets`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

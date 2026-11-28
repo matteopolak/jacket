@@ -1,7 +1,8 @@
 //! A `jacket.toml` that lists the project's `build.jai` in `[project] entry` must not change how
 //! `src/main.jai` (the program that metaprogram builds) is checked and answered.
-use jai_language_server::DiagnosticCode;
 use std::path::{Path, PathBuf};
+
+use jai_language_server::DiagnosticCode;
 use test_support::lsp::{at, open_file, project};
 
 const BUILD: &str = "#import \"Basic\";\n#import \"Compiler\";\n#run build();\nbuild :: () {\n    \

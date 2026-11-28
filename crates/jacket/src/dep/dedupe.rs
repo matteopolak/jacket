@@ -5,6 +5,11 @@
 //! `shared = true`, pinned to the newest version every requirer admits, as a submodule under
 //! the project's `modules/`. The nested copies it replaces are never checked out, so a
 //! library's `#import` reaches the shared one. The compiler is unchanged.
+use std::collections::BTreeMap;
+
+use jacket_config::Dependency;
+use jacket_config::packages::import_name;
+
 use super::commands::{
     Gate, Pin, accept_newest, path_of, resolved_tag, say, short, source_of, url_of,
 };
@@ -16,9 +21,6 @@ use super::spec::RepoUrl;
 use super::types::{CommitId, Rev, SubPath, Target};
 use super::version::Tagged;
 use super::{Ctx, DepError, Project, Result, manifest};
-use jacket_config::Dependency;
-use jacket_config::packages::import_name;
-use std::collections::BTreeMap;
 
 /// One package's request for a name.
 #[derive(Clone, Debug)]

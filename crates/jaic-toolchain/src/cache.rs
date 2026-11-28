@@ -1,7 +1,9 @@
 //! Where `jacket toolchain add` keeps what it fetches. Builds only read from here.
-use crate::host::Host;
-use jaic::target::Target;
 use std::path::{Path, PathBuf};
+
+use jaic::target::Target;
+
+use crate::host::Host;
 
 /// The folder holding one folder per target: `~/Library/Caches/jacket/toolchains`,
 /// `~/.cache/jacket/toolchains`, `%LOCALAPPDATA%\jacket\toolchains`.

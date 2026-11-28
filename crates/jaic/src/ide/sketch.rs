@@ -6,6 +6,8 @@
 //! member `x.name` of a `T` is a stand-in `T.name`, a comparison is a `bool`, it converts to
 //! and from every type and iterates like an array. A statement that fails anyway is skipped.
 //! The sketch is then forgotten: its errors are dropped and nothing can call it.
+use std::sync::Arc;
+
 use crate::ast;
 use crate::fxhash::HashMap;
 use crate::ide::Recorder;
@@ -17,7 +19,6 @@ use crate::sema::value::PolyStructId;
 use crate::sema::{Compiler, ProcId, ScopeId, Value};
 use crate::source::Span;
 use crate::types::{TypeId, TypeKind};
-use std::sync::Arc;
 
 /// The most facts one sketch may add.
 const MAX_SKETCH_REFS: usize = 20_000;

@@ -1,6 +1,7 @@
 //! Private interpreter transport is optional and cannot relax the public runtime surface.
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
+
+use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 
 fn compiler(hook: &str) -> Compiler {
     let mut fs = VirtualFs::default();

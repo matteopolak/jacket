@@ -15,11 +15,12 @@ pub use parens::Parens;
 mod spelling;
 mod sync_check;
 pub mod walk;
-pub use flags::{CallHintFlag, CheckBits, ProcBits, ProcFlags, StructBits, StructFlags};
-pub use spelling::Spelling;
 use std::cell::Cell;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
+
+pub use flags::{CallHintFlag, CheckBits, ProcBits, ProcFlags, StructBits, StructFlags};
+pub use spelling::Spelling;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct AstId(pub u32);
@@ -125,8 +126,8 @@ impl std::ops::Deref for Notes {
 }
 
 impl<'a> IntoIterator for &'a Notes {
-    type Item = &'a Note;
     type IntoIter = std::slice::Iter<'a, Note>;
+    type Item = &'a Note;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
@@ -1163,8 +1164,9 @@ pub struct ParsedLeniency {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::mem::size_of;
+
+    use super::*;
 
     /// The language server keeps the syntax tree of every file of a compile alive, so the size of
     /// these nodes is a memory budget (a 132k-line project has about a million of them). Rare or

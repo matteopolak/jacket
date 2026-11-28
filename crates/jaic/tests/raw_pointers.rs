@@ -1,7 +1,8 @@
 //! Raw pointer values are not requests to read/freeze their pointees.
+use std::rc::Rc;
+
 use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use jaic::target::TargetCpu;
-use std::rc::Rc;
 
 fn compile(source: &str, cpu: TargetCpu) -> (Compiler, jaic::sema::Result<()>) {
     let mut options = Options::host();

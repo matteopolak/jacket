@@ -1,7 +1,8 @@
 //! `jacket test --list` names the `@compile_time` tests without running them: an editor lists
 //! on every refresh, and the compiler would otherwise run each body while it builds.
-use crate::installed;
 use installed::{archive, jacket, scratch};
+
+use crate::installed;
 
 const TESTS: &str = r#"#import "Basic";
 #import "Extensions/Testing";

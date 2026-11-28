@@ -1,11 +1,13 @@
 //! The parts of a body's resolver that do not depend on the summaries solved so far.
 //! They are built once per body and shared by every pass that needs a resolver for it.
+use std::rc::Rc;
+
+use jaic::sema::Compiler;
+
 use super::{
     Def, Event, HashMap, HashSet, LifetimeBody, LifetimeOperand, Places, ProcId, Resolver, Summary,
     allocator_context, allocators, interfaces, observable, returning_blocks,
 };
-use jaic::sema::Compiler;
-use std::rc::Rc;
 
 pub(in crate::rules) struct Core<'a> {
     pub(super) load_sources: HashMap<jaic::ir::Val, jaic::ir::Val>,

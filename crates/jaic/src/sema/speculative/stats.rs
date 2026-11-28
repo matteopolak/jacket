@@ -1,8 +1,9 @@
 //! The counters `-dev_body_probe` prints, and the test hooks that read them.
+use std::time::Duration;
+
 #[cfg(all(test, feature = "speculative-bodies"))]
 use super::{ON, Stats};
 use super::{Reason, STATS, body_probe, enabled};
-use std::time::Duration;
 
 /// Print the counters.
 pub fn report() {

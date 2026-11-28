@@ -1,8 +1,10 @@
 //! Summaries are needed for reported bodies and their selected dependency closure.
 //! Procedure values are edges too: a factory can return a callback it never calls.
-use super::{Event, HashMap, HashSet, LifetimeBody, ProcId};
-use jaic::source::FileId;
 use std::collections::VecDeque;
+
+use jaic::source::FileId;
+
+use super::{Event, HashMap, HashSet, LifetimeBody, ProcId};
 
 pub(super) fn retain(
     compiler: &jaic::sema::Compiler,

@@ -1,6 +1,7 @@
 //! Real generic instances across workspace programs, without editor sketches.
-use jai_language_server::{Position, TextChange};
 use std::path::Path;
+
+use jai_language_server::{Position, TextChange};
 use test_support::lsp::{uri_of, virtual_session};
 
 const GENERIC: &str = "identity :: (x: $T) -> T { return x; }\nunused :: (x:$T) { identity(x); }\n";

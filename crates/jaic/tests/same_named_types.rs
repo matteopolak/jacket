@@ -1,7 +1,8 @@
 //! Two instances of one parameterized module declare distinct types with the same name; a
 //! mismatch between them names the instance each one comes from.
-use jaic::sema::{Compiler, Options, VirtualFs};
 use std::{path::Path, rc::Rc};
+
+use jaic::sema::{Compiler, Options, VirtualFs};
 
 fn message(main: &str) -> String {
     let mut fs = VirtualFs::default();

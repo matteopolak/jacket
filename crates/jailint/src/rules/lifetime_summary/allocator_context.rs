@@ -1,9 +1,10 @@
 //! Statement-ordered allocator selections, including saved values and scope restoration.
+use jaic::{ir::Val, sema::Compiler};
+
 use super::allocators::Allocators;
 use super::{
     Event, HashMap, LifetimeBody, LifetimeOperand, Places, ProcId, Projection, Root, Summary,
 };
-use jaic::{ir::Val, sema::Compiler};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(in crate::rules) enum Selection {
@@ -161,7 +162,7 @@ impl Context {
                         ..
                     } if *ty == allocator_ty => {
                         let id = places.place(*place, *ty);
-                        let ((_, _), path) = &places.paths[id];
+                        let ((..), path) = &places.paths[id];
                         let root = context_root(places, id);
                         let role = match path.as_slice() {
                             [Projection::Field(n)] if n.as_str() == "allocator" => {

@@ -71,3 +71,20 @@ Statements inside macro invocations are token trees and are left alone, as are s
 ## Dependencies
 
 `syn` (parsing, spans) and `proc-macro2` with `span-locations`, both pinned in `tools/rust-spacing/Cargo.toml`.
+
+## rustfmt options
+
+`rustfmt.toml` enables these on top of the defaults (the toolchain is nightly, so unstable options are allowed):
+
+| Option | Effect |
+| --- | --- |
+| `group_imports = "StdExternalCrate"` | `std`, then other crates, then `crate`/`self`/`super`, each group set apart |
+| `format_code_in_doc_comments` | Examples in `///` comments are formatted like code |
+| `normalize_doc_attributes` | `#[doc = "..."]` becomes `///` |
+| `use_field_init_shorthand`, `use_try_shorthand` | `S { a }` for `S { a: a }`, `?` for `try!` |
+| `condense_wildcard_suffixes` | `(a, ..)` for `(a, _, _)` |
+| `reorder_impl_items` | Associated types and consts before methods in an `impl` |
+| `format_macro_matchers` | `macro_rules!` matchers are laid out like code |
+| `struct_variant_width = 0` | Enum struct variants always span lines, like struct literals |
+
+Tried and left out: `wrap_comments` (refills hand-wrapped paragraphs and splits inline code), `imports_granularity` (splits `use a::{b, c}` or merges whole crates), `overflow_delimited_expr` and `combine_control_expr = false` (denser or noisier), `force_multiline_blocks`, `match_block_trailing_comma`.

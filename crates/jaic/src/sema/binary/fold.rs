@@ -157,7 +157,7 @@ impl Compiler {
                     None => cmp(a.cmp(&b)),
                 }
             }
-            (Value::Int(_) | Value::Float(_, _), Value::Int(_) | Value::Float(_, _)) => {
+            (Value::Int(_) | Value::Float(..), Value::Int(_) | Value::Float(..)) => {
                 let mut precision = crate::lexer::FloatLiteralPrecision::default();
 
                 for value in [lv, rv] {

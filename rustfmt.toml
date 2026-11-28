@@ -2,6 +2,7 @@ edition = "2024"
 style_edition = "2024"
 max_width = 100
 newline_style = "Unix"
+unstable_features = true
 
 blank_lines_upper_bound = 2
 empty_item_single_line = false
@@ -9,3 +10,18 @@ struct_lit_single_line = false
 fn_single_line = false
 single_line_if_else_max_width = 0
 single_line_let_else_max_width = 0
+struct_variant_width = 0
+
+# Imports: std, then other crates, then this crate, each group set apart.
+group_imports = "StdExternalCrate"
+
+# Doc-comment examples are formatted like code.
+format_code_in_doc_comments = true
+normalize_doc_attributes = true
+
+# Shorter spellings, and a stable order inside `impl` blocks.
+use_field_init_shorthand = true
+use_try_shorthand = true
+condense_wildcard_suffixes = true
+reorder_impl_items = true
+format_macro_matchers = true

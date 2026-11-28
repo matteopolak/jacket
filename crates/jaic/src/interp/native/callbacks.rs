@@ -7,13 +7,14 @@
 //! its `Gate` (the thread scheduler), from whichever thread C calls it on. Thunks come in one family per return
 //! shape, each with `SLOTS` entries assigned to procedures on first use.
 //! Windows x64 passes arguments by position instead, which needs its own thunks (`win64.rs`).
+use std::cell::Cell;
+use std::sync::{Arc, Mutex};
+
 use super::{FF, FFF, FFFF, FI, IF, II, X86_64, read_bytes, write_bytes};
 use crate::abi::{self, Arch, Passing, Piece, PieceTy};
 use crate::interp::Trap;
 use crate::interp::word_or_zero;
 use crate::ir::{FuncId, Sig};
-use std::cell::Cell;
-use std::sync::{Arc, Mutex};
 
 #[cfg(all(windows, target_arch = "x86_64"))]
 mod win64;

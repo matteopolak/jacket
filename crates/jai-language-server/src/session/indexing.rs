@@ -1,9 +1,10 @@
 //! Build project analyses from their entries before individual documents need them.
-use super::Session;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
+
+use super::Session;
 
 /// How far each indexing phase has got: `(finished, total)` entries, then diagnostic roots.
 #[derive(Clone, Copy, Default)]

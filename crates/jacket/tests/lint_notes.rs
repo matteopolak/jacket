@@ -4,6 +4,7 @@
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::process::{Command, Output};
+
 use test_support::TempDir;
 
 /// Run `jacket lint` in a project with `config` as its `jacket.toml`, beside a stand-in `jailint`

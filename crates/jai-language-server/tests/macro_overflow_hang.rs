@@ -3,6 +3,7 @@
 //! once instead of doubling the work at each level.
 use std::sync::mpsc;
 use std::time::Duration;
+
 use test_support::lsp::{session, uri};
 
 const PROGRAM: &str = r"Range :: struct { first: int; count: int; }

@@ -3,10 +3,11 @@ mod registers_source;
 
 mod cpuid {
     //! Real x64 instruction execution, compared to independent native C SDK queries.
+    use std::rc::Rc;
+
     use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
     use jaic::target::TargetCpu;
     use jaic_llvm::{OptLevel, emit_object};
-    use std::rc::Rc;
     use test_support::{TempDir, process::checked, toolchain};
 
     // macOS ARM64 supports executing independently built x64 programs under translation.
@@ -163,13 +164,14 @@ mod cpuid {
 mod cpuid_leaf_zero {
     //! O0/O2 CPUID codegen and native comparison against the public C intrinsic.
     #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
+    use std::{process::Command, rc::Rc};
+
+    #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
     use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
     #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
     use jaic::target::TargetCpu;
     #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
     use jaic_llvm::{OptLevel, emit_object};
-    #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
-    use std::{process::Command, rc::Rc};
     #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
     use test_support::process::run as checked;
     #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
@@ -259,10 +261,11 @@ mod cpuid_leaf_zero {
 
 mod xgetbv {
     //! Real XGETBV object code across x64 ABIs, plus CPUID-guarded native controls.
+    use std::rc::Rc;
+
     use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
     use jaic::target::TargetCpu;
     use jaic_llvm::{OptLevel, emit_object};
-    use std::rc::Rc;
     use test_support::{TempDir, process::checked, toolchain};
 
     fn out_dir() -> TempDir {
@@ -436,10 +439,11 @@ mod registers {
 
 mod x86_machine {
     //! Explicit architectural opcodes and actual CPUID-guarded native x64 execution.
+    use std::rc::Rc;
+
     use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
     use jaic::target::TargetCpu;
     use jaic_llvm::{OptLevel, emit_object};
-    use std::rc::Rc;
     use test_support::{TempDir, ir, process::checked, toolchain};
 
     #[test]
@@ -657,9 +661,10 @@ mod string_compare {
     //! The SSE4.2 string compares lower to one shared helper per control byte, not to a
     //! per-element expansion at each use: LLVM's machine passes grow quadratically with the
     //! length of a block, and 174 expanded uses took minutes to compile at -O2.
+    use std::rc::Rc;
+
     use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
     use jaic_llvm::{OptLevel, emit_object};
-    use std::rc::Rc;
     use test_support::TempDir;
 
     const USES: usize = 8;

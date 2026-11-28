@@ -1,7 +1,8 @@
 //! Execute the sidecar's private integer slice, retaining no executable compiler IR.
-use super::HashMap;
 use jaic::ide::lifetimes::LifetimeControls;
 use jaic::ir::{BinOp, CmpOp, Inst, Val};
+
+use super::HashMap;
 
 pub(super) struct Controls<'a> {
     code: &'a LifetimeControls,

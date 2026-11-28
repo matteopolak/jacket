@@ -1,11 +1,12 @@
 //! Lowering instructions: arithmetic, conversions, loads, stores and inline copies.
-use super::error::Error;
-use super::state::FnState;
-use super::{Backend, INLINE_COPY_MAX, R};
 use inkwell::FloatPredicate;
 use inkwell::IntPredicate;
 use inkwell::values::{BasicValue, BasicValueEnum, CallSiteValue, PointerValue, ValueKind};
 use jaic::ir::{BinOp, Callee, CmpOp, ConvOp, Func, Inst, Ty, UnOp, Val};
+
+use super::error::Error;
+use super::state::FnState;
+use super::{Backend, INLINE_COPY_MAX, R};
 
 impl<'ctx> Backend<'ctx, '_> {
     pub(super) fn inst(&self, st: &mut FnState<'ctx>, func: &Func, inst: &Inst) -> R<()> {

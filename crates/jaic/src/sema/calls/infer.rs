@@ -1,16 +1,15 @@
 //! Inferring `$T` bindings of a polymorphic procedure from its arguments, and matching type
 //! patterns.
 
-use crate::diagnostics::Code;
-use crate::sema::lower::Origin;
-use crate::types::Types;
-
 use super::poly_hints::{Binders, CONFLICT};
 use super::{
     ArrayKind, CallArg, Compiler, Diagnostic, E, Operand, ProcId, Result, ScopeId, Slot, Span, Sym,
     TypeId, TypeKind, Value, ast, err, header_poly_names, is_deferred, is_poly_var_arg, poly_names,
     procs,
 };
+use crate::diagnostics::Code;
+use crate::sema::lower::Origin;
+use crate::types::Types;
 
 /// What `infer_bindings` accumulates while it walks the parameters of a polymorphic header.
 struct Inference<'a> {
@@ -542,7 +541,7 @@ impl Compiler {
                 )));
             }
 
-            for (name, _, _) in &st.bindings[before..] {
+            for (name, ..) in &st.bindings[before..] {
                 st.binders.push((*name, arg.span, ty));
             }
 
@@ -554,7 +553,7 @@ impl Compiler {
             if implicit
                 && k == 0
                 && let Some(n) = param.name
-                && !st.bindings.iter().any(|(b, _, _)| *b == n.name)
+                && !st.bindings.iter().any(|(b, ..)| *b == n.name)
             {
                 st.bindings.push((n.name, Value::Type(ty), TypeId::TYPE));
             }
@@ -782,7 +781,7 @@ impl Compiler {
             if param.baked
                 || poly_names(pattern)
                     .iter()
-                    .all(|name| st.bindings.iter().any(|(n, _, _)| n == name))
+                    .all(|name| st.bindings.iter().any(|(n, ..)| n == name))
             {
                 continue;
             }
@@ -838,7 +837,7 @@ impl Compiler {
         };
         let given = elems.len() as i128;
 
-        match bindings.iter().find(|(bound, _, _)| bound == name) {
+        match bindings.iter().find(|(bound, ..)| bound == name) {
             Some((_, Value::Int(wanted), _)) if *wanted != given => err(
                 Code::CallUnequalArrayLengths,
                 literal.span,
@@ -875,7 +874,7 @@ impl Compiler {
             for param in &header.params {
                 if let Some(t) = &param.ty {
                     for name in poly_names(t) {
-                        if !st.bindings.iter().any(|(n, _, _)| *n == name) {
+                        if !st.bindings.iter().any(|(n, ..)| *n == name) {
                             let d = Diagnostic::new(
                                 Code::CallCouldNotInfer,
                                 span,
@@ -979,7 +978,7 @@ impl Compiler {
                     "unknown polymorphic struct parameter",
                 );
             };
-            let Some((_, value, value_type)) = actual.iter().find(|(n, _, _)| *n == name) else {
+            let Some((_, value, value_type)) = actual.iter().find(|(n, ..)| *n == name) else {
                 return err(
                     Code::CallMissingPolymorphicStruct,
                     a.value.span,
@@ -1269,7 +1268,7 @@ fn bind_pattern(
     value: Value,
     vty: TypeId,
 ) -> Result<()> {
-    if let Some((_, existing, _)) = bindings.iter().find(|(n, _, _)| *n == name) {
+    if let Some((_, existing, _)) = bindings.iter().find(|(n, ..)| *n == name) {
         if *existing != value {
             return err(
                 Code::CallConflictingBindings,

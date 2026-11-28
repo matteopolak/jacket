@@ -1,8 +1,9 @@
 //! The machine's tools, found by `jaic-toolchain`, as commands to run.
+use std::process::Command;
+
 use jaic::target::Target;
 use jaic_toolchain::linker::host_target;
 use jaic_toolchain::{Found, Lookup, System};
-use std::process::Command;
 
 static SYSTEM: System = System;
 

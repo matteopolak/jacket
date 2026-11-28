@@ -3,6 +3,7 @@
 //! `llvm-dwarfdump` or `lldb` is not installed.
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
 use test_support::{TempDir, toolchain};
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");

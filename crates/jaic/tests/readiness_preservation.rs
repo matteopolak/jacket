@@ -1,7 +1,8 @@
 //! Conditional exports, import cycles and configured runtime identity.
+use std::{path::Path, rc::Rc};
+
 use jaic::sema::{Compiler, Options, VirtualFs};
 use jaic::{intern::Sym, sema::scope::EntityState};
-use std::{path::Path, rc::Rc};
 
 fn compile(files: &[(&str, &str)], runtime: bool) -> Compiler {
     let mut fs = VirtualFs::default();

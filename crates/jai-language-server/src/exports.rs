@@ -2,14 +2,14 @@
 //! editor parse (`jaic::parser::ide_facts`), so a module or project file that does not parse
 //! yet still has the names its intact statements declare. This is the raw material of
 //! auto-import completion (`auto_import.rs`).
-use crate::model::CompletionKind;
 use jaic::ast::ImportSource;
+use jaic::ide::IdeCall;
 use jaic::lexer::{P, Tok, Token};
+pub use jaic::parser::ide_facts::Visibility;
 use jaic::parser::ide_facts::{self, DeclClass, TopLevel, TopLevelKind};
 use jaic::source::FileId;
 
-use jaic::ide::IdeCall;
-pub use jaic::parser::ide_facts::Visibility;
+use crate::model::CompletionKind;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Decl {

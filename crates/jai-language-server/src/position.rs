@@ -1,5 +1,6 @@
-use crate::Error;
 use serde::{Deserialize, Serialize};
+
+use crate::Error;
 
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Position {

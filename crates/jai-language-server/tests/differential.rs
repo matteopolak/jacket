@@ -11,10 +11,11 @@
 //! ```
 //!
 //! `JAI_DIFF_SEED=n` replays one seed. A failure prints the seed, the step and the events so far.
-use jai_language_server::{JsonSession, Limits};
-use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
+
+use jai_language_server::{JsonSession, Limits};
+use serde_json::{Value, json};
 use test_support::lsp::{environment, project, uri_of};
 
 // Randomness

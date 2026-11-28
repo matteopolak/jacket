@@ -5,12 +5,13 @@
 //! The files are the `.jai` files below each folder, without hidden folders and folders named
 //! `tests`. A top-level or nested `#if` on `OS` or `CPU` keeps only the branch that holds for the
 //! target; a condition of any other kind keeps both branches.
+use std::fmt::Write as _;
+use std::path::{Path, PathBuf};
+
 use crate::ast::{self, BinOp, ExprKind, StmtKind, UnOp};
 use crate::parser::parse_file_ide;
 use crate::source::FileId;
 use crate::target::{TargetCpu, TargetOs};
-use std::fmt::Write as _;
-use std::path::{Path, PathBuf};
 
 /// One procedure with a body.
 #[derive(Clone, Debug, PartialEq, Eq)]

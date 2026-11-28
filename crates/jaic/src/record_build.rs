@@ -7,14 +7,15 @@
 //! The structs and their arrays live in memory the registry owns, like the strings handed
 //! to Jai code, for the rest of the compilation. Each record is built once per program, so
 //! pointers to the same record stay the same pointer.
+use std::rc::Rc;
+use std::sync::Arc;
+
 use crate::fxhash::HashMap;
 use crate::interp::note_watch::NotePlace;
 use crate::interp::{Interp, Trap};
 use crate::lang_items;
 use crate::layout::DataLayout;
 use crate::records::{FieldRef, Item, List, Name, Record, RecordTag, Records};
-use std::rc::Rc;
-use std::sync::Arc;
 
 /// How a plan entry (or an array's element) is stored.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

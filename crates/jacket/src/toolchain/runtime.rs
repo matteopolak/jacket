@@ -1,12 +1,13 @@
 //! `jacket toolchain add <freestanding target>`: compiler-rt's builtins (64-bit division, soft
 //! float, outline atomics), compiled for the target with the installed clang straight from the
 //! pinned source list. No cmake, ninja, git or shell: it runs the same on every host.
-use jaic::target::{Target, TargetAbi, TargetCpu};
-use jaic_toolchain::{Lookup, Missing, cache, pins};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
+
+use jaic::target::{Target, TargetAbi, TargetCpu};
+use jaic_toolchain::{Lookup, Missing, cache, pins};
 
 /// How one freestanding CPU is compiled.
 struct Flags {

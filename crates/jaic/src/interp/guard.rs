@@ -37,9 +37,10 @@ pub struct Fault {
     )
 ))]
 mod imp {
-    use super::Fault;
     use std::cell::Cell;
     use std::ffi::c_void;
+
+    use super::Fault;
 
     /// Words `guard_run` saves.
     const SAVED: usize = 24;

@@ -238,7 +238,7 @@ impl Compiler {
             if !f.type_only
                 && let Some(record) = &mut f.lifetimes
                 && let [PathStep::Offset(offset)] = path.as_slice()
-                && let Some((Some(name), _, _)) = members
+                && let Some((Some(name), ..)) = members
                     .iter()
                     .find(|(_, member_ty, off)| member_ty == &mty && off == offset)
             {

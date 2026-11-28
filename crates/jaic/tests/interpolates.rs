@@ -1,7 +1,8 @@
 //! `@Interpolates("mode")`: holes in a literal become positional arguments, checked in the
 //! caller's scope with spans inside the string.
-use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 use std::{path::PathBuf, rc::Rc};
+
+use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 
 const PRELUDE: &str = r#"
 #import "Basic";

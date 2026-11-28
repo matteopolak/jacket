@@ -1,4 +1,12 @@
 //! Completion items and auto imports.
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
+
+use jaic::ide::{IdeCall, IdeKind, IdeName};
+use jaic::lexer::Lexed;
+use jaic::parser::ide_facts::{self, CursorContext};
+use jaic::source::FileId;
+
 use super::{Completions, Session, contains, enclosing_declaration_start};
 use crate::analysis::{Span, TokenKind};
 use crate::semantic::{self};
@@ -6,12 +14,6 @@ use crate::{
     CompletionData, CompletionItem, CompletionKind, CompletionList, DocumentUri, Error, Position,
     SymbolKind,
 };
-use jaic::ide::{IdeCall, IdeKind, IdeName};
-use jaic::lexer::Lexed;
-use jaic::parser::ide_facts::{self, CursorContext};
-use jaic::source::FileId;
-use std::collections::{BTreeMap, BTreeSet};
-use std::path::Path;
 
 /// How well a position's expected type is known to completion.
 enum Ranking {

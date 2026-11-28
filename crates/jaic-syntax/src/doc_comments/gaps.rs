@@ -6,13 +6,14 @@
 //! `#scope_file` or `#scope_module`. Docs are the ones the editor shows, so an alias of a
 //! documented declaration counts as documented (`docs::docs_site`). Fields, members, variables
 //! and plain constants are not listed.
+use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
+
 use super::forward::Files;
 use crate::ast::DeclKind;
 use crate::docs;
 use crate::parser::ide_facts::{self, DeclClass, TopLevelKind, Visibility};
 use crate::source::FileId;
-use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
 
 /// One public declaration, or a module.
 #[derive(Clone, Debug, PartialEq, Eq)]

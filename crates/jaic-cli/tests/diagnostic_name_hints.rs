@@ -4,6 +4,7 @@
 //! See docs/compiler/diagnostics.md.
 use std::path::Path;
 use std::process::Command;
+
 use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");

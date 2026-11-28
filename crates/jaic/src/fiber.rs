@@ -168,8 +168,9 @@ pub mod host {
 ))]
 #[allow(unsafe_code)]
 mod tests {
-    use super::{Context, host};
     use std::sync::atomic::{AtomicPtr, AtomicU64, Ordering};
+
+    use super::{Context, host};
 
     static MAIN: AtomicPtr<Context> = AtomicPtr::new(std::ptr::null_mut());
     static CHILD: AtomicPtr<Context> = AtomicPtr::new(std::ptr::null_mut());

@@ -4,8 +4,9 @@ use crate::typing_files;
 #[path = "../examples/support/typing_session.rs"]
 mod checker;
 
-use checker::{Config, Input, Seeded};
 use std::path::{Path, PathBuf};
+
+use checker::{Config, Input, Seeded};
 
 fn repository() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))

@@ -10,6 +10,8 @@ mod directive;
 mod expr;
 mod stmt;
 
+use std::sync::Arc;
+
 use super::{
     Kind,
     abi::{bytes, view},
@@ -25,7 +27,6 @@ use crate::{
     source::Span,
     types::TypeId,
 };
-use std::sync::Arc;
 
 type R<T> = Result<T, Trap>;
 

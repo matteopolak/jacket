@@ -1,7 +1,8 @@
 //! Original fixtures force syntax fallbacks directly, independently of compiler recovery.
+use std::path::{Path, PathBuf};
+
 use super::*;
 use crate::Position;
-use std::path::{Path, PathBuf};
 
 struct AliasFs;
 

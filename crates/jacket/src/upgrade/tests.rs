@@ -1,12 +1,14 @@
 //! `upgrade` end to end against a fake release in a temporary folder: no network, no `curl`,
 //! no `tar`.
+use std::cell::RefCell;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+use serde_json::json;
+
 use super::checksum::sha256_hex;
 use super::net::Source;
 use super::swap::{self, Mode};
 use super::*;
-use serde_json::json;
-use std::cell::RefCell;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 const ASSET: &str = "jacket-linux-x64.tar.gz";
 const EXE: &str = std::env::consts::EXE_SUFFIX;

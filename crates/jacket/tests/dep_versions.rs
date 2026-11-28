@@ -1,6 +1,7 @@
 //! Version schemes, prefixes and ranges against local bare repositories with many tags.
-use crate::dep_support;
 use dep_support::{Origin, Project, git};
+
+use crate::dep_support;
 
 fn tagged(names: &[&str]) -> (Project, Origin) {
     let project = Project::waived("");

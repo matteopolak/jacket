@@ -1,9 +1,10 @@
 //! Procedures and code bodies: their records, the queue of bodies waiting to be checked and
 //! lowered, failures remembered per body, and per-body side tables.
 
-use super::body_probe::{Probed, W};
 use std::sync::Arc;
 
+use super::body_probe::{Probed, W};
+use super::{EntityId, ProcId, ProcTypeParams, ScopeId, Value, asm, calls, lower, procs};
 use crate::ast;
 use crate::diagnostics::Diagnostic;
 use crate::fxhash::{HashMap, HashSet};
@@ -11,8 +12,6 @@ use crate::intern::Sym;
 use crate::ir;
 use crate::source::Span;
 use crate::types::{StructId, TypeId};
-
-use super::{EntityId, ProcId, ProcTypeParams, ScopeId, Value, asm, calls, lower, procs};
 
 #[derive(Default)]
 pub struct ProcState {

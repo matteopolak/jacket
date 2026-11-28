@@ -17,12 +17,14 @@
 //! A `cache` block is run only when its capture is missing or no longer matches its text, for
 //! commands whose output depends on the machine (timings, installed cross tools).
 
-use crate::markup::escape;
-use jaic::fxhash::HashMap;
-use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
+
+use jaic::fxhash::HashMap;
+use serde::{Deserialize, Serialize};
+
+use crate::markup::escape;
 
 #[cfg(test)]
 #[path = "console_tests.rs"]

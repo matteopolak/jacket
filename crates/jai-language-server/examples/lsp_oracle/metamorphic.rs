@@ -5,12 +5,13 @@
 //!   (both texts have the same tokens; only the whitespace and comments between them differ).
 //! * `c-edit`: the original session, edited into that text a few gaps at a time with requests in
 //!   between, answers exactly like a fresh session opened on it.
-use super::{Finding, byte_of, pos_of};
 use jai_language_server::{
     Diagnostic, DocumentUri, Hover, Location, Position, Range, Session, TextChange,
 };
 use jaic::lexer::{Tok, Token};
 use jaic::source::FileId;
+
+use super::{Finding, byte_of, pos_of};
 
 /// A position in a text, as the token it falls in (and the offset in it) or the gap after one.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]

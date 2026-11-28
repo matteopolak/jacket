@@ -47,7 +47,9 @@ pub enum Failure {
     /// It could not be started or printed something unreadable.
     Unusable(String),
     /// It ran and exited with an error; `said` is its stderr.
-    Failed { said: String },
+    Failed {
+        said: String,
+    },
 }
 
 /// Which refs of a remote to list.

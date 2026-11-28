@@ -4,6 +4,7 @@
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
+
 use test_support::TempDir;
 
 /// Run `jaic -check file` and give up on it after `limit`.

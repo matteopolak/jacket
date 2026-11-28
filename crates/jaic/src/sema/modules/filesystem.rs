@@ -1,8 +1,8 @@
 //! Finding a module on a file system.
-use crate::sema::{PathBuf, ast};
 use std::path::Path;
 
 pub use crate::filesystem::{FileSystem, NativeFs, VirtualFs, content_stamp};
+use crate::sema::{PathBuf, ast};
 
 /// The modules the compiler loads itself, which `#import` reaches by their protocol names
 /// rather than by searching the import path.

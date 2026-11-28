@@ -1,12 +1,14 @@
 //! `jacket dep check`: the project, its submodules and the remotes' tags agree.
+use std::collections::BTreeSet;
+
+use jacket_config::Dependency;
+
 use super::commands::{module_folders, moved, path_of, say, short, source_of, url_of};
 use super::dedupe;
 use super::git::Submodule;
 use super::resolve::{self, Asked, Reading};
 use super::types::{RefName, Revision, SubPath};
 use super::{Ctx, Project, Result};
-use jacket_config::Dependency;
-use std::collections::BTreeSet;
 
 pub(super) fn check(ctx: &mut Ctx, project: &Project, offline: bool) -> Result<bool> {
     let known = ctx.git.submodules(&project.dir)?;

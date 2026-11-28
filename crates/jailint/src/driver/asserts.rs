@@ -1,8 +1,9 @@
 //! Failed `#assert`s and the imports that led to them, as the linter records them.
+use std::path::{Path, PathBuf};
+
 use jaic::fxhash::HashSet;
 use jaic::sema::{Compiler, ImportEdge};
 use jaic::target::TargetOs;
-use std::path::{Path, PathBuf};
 
 /// An `#assert` that failed while compiling `root` for `os`.
 #[derive(Clone, Debug, PartialEq, Eq)]

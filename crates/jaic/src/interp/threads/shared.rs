@@ -1,13 +1,14 @@
 //! Taking the baton, waiting for a turn and shutting the scheduler down.
+use std::collections::BTreeSet;
+use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+use std::time::Instant;
+
 use super::pthread;
 use super::sched::{Block, DEADLOCK_GRACE, GThread, NATIVE_SLICE, Sched, Shared, WorkerCancelled};
 #[cfg(windows)]
 use super::win32;
 use crate::interp::thread_sync::{CondQueues, Mutexes, Slots};
 use crate::interp::{HashMap, Interp, Program, Trap, native};
-use std::collections::BTreeSet;
-use std::sync::{Arc, Condvar, Mutex, MutexGuard};
-use std::time::Instant;
 
 impl Shared {
     /// A scheduler whose only thread (0, the caller) holds the baton.

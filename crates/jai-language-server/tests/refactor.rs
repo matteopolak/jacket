@@ -1,6 +1,7 @@
 //! Refactoring code actions: extract, inline, fill in cases and fields, `ifx` rewrites.
-use jai_language_server::{CodeAction, DiagnosticSeverity, Position, Range};
 use std::path::PathBuf;
+
+use jai_language_server::{CodeAction, DiagnosticSeverity, Position, Range};
 use test_support::lsp::{open, position, uri};
 
 /// The range of the first occurrence of `marker`.

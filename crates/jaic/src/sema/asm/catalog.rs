@@ -12,9 +12,10 @@ mod describe;
 mod features;
 mod forms;
 
+use std::sync::OnceLock;
+
 use self::decode::{Kind, build, decode};
 use super::{AsmReg, FEATURES, REG_CLASSES};
-use std::sync::OnceLock;
 
 /// One `#asm` mnemonic.
 #[derive(Clone, Debug, PartialEq, Eq)]

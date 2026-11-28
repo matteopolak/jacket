@@ -1,6 +1,7 @@
+use std::cmp::Ordering;
+
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Number;
-use std::cmp::Ordering;
 
 /// A JSON-RPC request id: a string or a JSON number. A number is an integer, or a float
 /// with no fraction such as `1.0`, which some clients send; a response echoes the id in the
@@ -84,8 +85,9 @@ impl<'de> Deserialize<'de> for RequestId {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
+
+    use super::*;
 
     fn parse(text: &str) -> Option<RequestId> {
         serde_json::from_str(text).ok()

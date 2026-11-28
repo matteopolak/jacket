@@ -108,8 +108,9 @@ impl Hasher for FxHasher {
 
 #[cfg(test)]
 mod tests {
-    use super::FxHasher;
     use std::hash::{Hash, Hasher};
+
+    use super::FxHasher;
 
     fn of(text: &str) -> u64 {
         let mut h = FxHasher::default();

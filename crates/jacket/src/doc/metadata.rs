@@ -1,8 +1,9 @@
 //! Publication metadata is resolved before rendering, so themes need no URL or JSON logic.
+use serde_json::json;
+
 use super::markdown::plain;
 use super::view::{Content, ModuleView, PageView};
 use crate::markup::escape;
-use serde_json::json;
 mod config;
 pub use config::{Publication, prepare};
 

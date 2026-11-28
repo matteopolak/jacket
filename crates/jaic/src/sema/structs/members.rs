@@ -153,7 +153,7 @@ impl Compiler {
 
             return Ok(members
                 .into_iter()
-                .find(|(n, _, _)| *n == name)
+                .find(|(n, ..)| *n == name)
                 .map(|(_, t, o)| (vec![PathStep::Offset(o)], t, None)));
         };
 

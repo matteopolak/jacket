@@ -1,13 +1,14 @@
 //! Defining a function body: parameters, value slots and block order.
-use super::error::Error;
-use super::plan::{ParamPlan, RetPlan};
-use super::state::{FnState, NullFacts};
-use super::{Backend, R};
 use inkwell::basic_block::BasicBlock;
 use inkwell::types::{BasicTypeEnum, IntType};
 use inkwell::values::{BasicValueEnum, FunctionValue, IntValue, PointerValue};
 use jaic::abi::Passing;
 use jaic::ir::{Func, Linkage as IrLinkage, Term, Ty, Val};
+
+use super::error::Error;
+use super::plan::{ParamPlan, RetPlan};
+use super::state::{FnState, NullFacts};
+use super::{Backend, R};
 
 impl<'ctx> Backend<'ctx, '_> {
     pub(super) fn define_function(&self, func: &Func, function: FunctionValue<'ctx>) -> R<()> {

@@ -7,9 +7,10 @@
 //!   covers the declaration, all of the procedure when it is one.
 //!
 //! `all` stands for every rule.
+use std::cell::Cell;
+
 use jaic::ast::{File, Note, Stmt, StmtKind};
 use jaic::lexer::{Comment, CommentKind, Tok, Token};
-use std::cell::Cell;
 
 pub(crate) struct Suppressions {
     entries: Vec<Entry>,
@@ -298,8 +299,9 @@ fn rule_list(text: &str) -> Option<Vec<&str>> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use jaic::source::FileId;
+
+    use super::*;
 
     fn suppressions(text: &str) -> Suppressions {
         let (tokens, comments, _) = jaic::lexer::lex_with_trivia(FileId(0), text);

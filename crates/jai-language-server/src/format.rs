@@ -6,8 +6,9 @@
 //! Formatting follows the bundled `Basic` module: `%` (or `%0`) takes the next argument, `%N`
 //! takes argument N (1-based) and a following `%` continues after it, `%00` prints nothing,
 //! and `%%` is two arguments in a row. A literal percent sign is written `\%`.
-use crate::analysis::Span;
 use jaic::lexer::{P, Tok, Token};
+
+use crate::analysis::Span;
 
 /// One `%` directive of a format string.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -1,4 +1,13 @@
 //! Lint one compiled root: check every program it built and lint the files it owns.
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::{Path, PathBuf};
+
+use jaic::paths::CanonCache;
+use jaic::project::Program;
+use jaic::sema::Compiler;
+use jaic::source::Applicability;
+use jaic::source::Span;
+
 use super::asserts::{AssertFailure, failures_of};
 use super::claims::{Claims, Release};
 use super::compile::{Compiled, RunCaches, compile_root};
@@ -8,13 +17,6 @@ use super::{CheckedContext, CompileError, Options};
 use crate::config::Configs;
 use crate::rules::unreachable_declaration as unreachable;
 use crate::{Edit, Fix, Level, Lint, SecondaryLabel, lint_files_with_entry};
-use jaic::paths::CanonCache;
-use jaic::project::Program;
-use jaic::sema::Compiler;
-use jaic::source::Applicability;
-use jaic::source::Span;
-use std::collections::{BTreeMap, BTreeSet};
-use std::path::{Path, PathBuf};
 
 /// What linting one root found.
 pub(super) struct RootResult {

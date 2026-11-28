@@ -1,7 +1,8 @@
 //! Which folders `[test] paths` makes test roots. `jacket test` walks the tree for them
 //! (`expand`); an editor asks about one folder (`is_root`). Both answer from [`names_root`].
-use crate::{Config, PathPattern, relative_text};
 use std::path::Path;
+
+use crate::{Config, PathPattern, relative_text};
 
 /// Whether `pattern` names `dir`, a folder of the project at `project`: a plain path is that
 /// folder, a pattern matches it exactly (`fuzz/**` does not match `fuzz` itself).
@@ -64,8 +65,9 @@ pub fn is_root(config: &Config, project: &Path, dir: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::path::PathBuf;
+
+    use super::*;
 
     fn config(text: &str) -> Config {
         toml::from_str(text).unwrap()

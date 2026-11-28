@@ -1,9 +1,10 @@
 //! A diagnostics pull whose check did not finish is cancelled for the client to retry, never
 //! answered with an empty report that would wipe the squiggles it shows. The interrupt state
 //! is process-wide, so every test here takes `LOCK`.
+use std::sync::Mutex;
+
 use jai_language_server::{JsonSession, Limits};
 use serde_json::{Value, json};
-use std::sync::Mutex;
 use test_support::lsp::{environment, file_uri};
 
 static LOCK: Mutex<()> = Mutex::new(());

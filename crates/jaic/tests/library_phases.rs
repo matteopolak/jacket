@@ -1,11 +1,12 @@
 //! Required target libraries and embedding host services have separate phases.
+use std::{cell::Cell, rc::Rc};
+
 use jaic::{
     interp::{Host, Interp},
     ir,
     sema::{Compiler, Options, ProgramSource, VirtualFs},
     target::{TargetCpu, TargetOs},
 };
-use std::{cell::Cell, rc::Rc};
 
 struct Observer {
     calls: Rc<Cell<usize>>,

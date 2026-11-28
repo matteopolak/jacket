@@ -1,7 +1,8 @@
 //! Ordinary-module argument identity controls, without an SDK.
-use jaic::sema::{Compiler, Options, VirtualFs};
 use std::path::Path;
 use std::rc::Rc;
+
+use jaic::sema::{Compiler, Options, VirtualFs};
 
 const LEAF: &str =
     include_str!("../../../tests/fixtures/module-written-defaults/modules/Leaf/module.jai");

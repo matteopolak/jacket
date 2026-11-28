@@ -1,9 +1,10 @@
 //! Interpreted atomics against simultaneous host access.
-use super::*;
 use std::sync::{
     Arc, Barrier,
     atomic::{AtomicU64, Ordering},
 };
+
+use super::*;
 
 #[test]
 fn interpreted_cas_is_atomic_against_simultaneous_host_access() {

@@ -12,9 +12,12 @@ pub const COMPILE_FAIL_DIR: &str = "compile_fail";
 /// compile without a `compile_fail` note.
 ///
 /// ```
-/// use jaic::test_notes::in_compile_fail_folder;
 /// use std::path::Path;
-/// assert!(in_compile_fail_folder(Path::new("Csv/tests/compile_fail/bad.jai")));
+///
+/// use jaic::test_notes::in_compile_fail_folder;
+/// assert!(in_compile_fail_folder(Path::new(
+///     "Csv/tests/compile_fail/bad.jai"
+/// )));
 /// assert!(!in_compile_fail_folder(Path::new("Csv/tests/bad.jai")));
 /// ```
 pub fn in_compile_fail_folder(path: &Path) -> bool {
@@ -34,11 +37,15 @@ pub const EXPECTED_OUTPUT: [&str; 3] = ["stdout", "stderr", "exit"];
 /// it. The other files below `tests/` are what those programs `#load`.
 ///
 /// ```
-/// use jaic::test_notes::test_program_root;
 /// use std::path::Path;
+///
+/// use jaic::test_notes::test_program_root;
 /// let root = |p: &str| test_program_root(Path::new(p), |_| false);
 /// assert_eq!(root("/p/tests/a.jai").as_deref(), Some(Path::new("/p")));
-/// assert_eq!(root("/p/tests/compile_fail/a.jai").as_deref(), Some(Path::new("/p")));
+/// assert_eq!(
+///     root("/p/tests/compile_fail/a.jai").as_deref(),
+///     Some(Path::new("/p"))
+/// );
 /// assert_eq!(root("/p/tests/helpers/a.jai"), None);
 /// assert_eq!(root("/p/src/a.jai"), None);
 /// ```

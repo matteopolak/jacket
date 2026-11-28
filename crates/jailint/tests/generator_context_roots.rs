@@ -1,9 +1,10 @@
 //! Reduction: module-mode lint must discover Context additions before final layout.
+use std::path::PathBuf;
+
 use jailint::{
     config::Config,
     driver::{Options, run},
 };
-use std::path::PathBuf;
 use test_support::TempDir;
 
 #[test]

@@ -1,8 +1,9 @@
 //! `lint_each` hands over each file's lints as the file finishes, so a stopped pass keeps what
 //! it completed. The interrupt state is process-wide: one test, run in order.
+use std::rc::Rc;
+
 use jaic::ide::{IdeFacts, IdeRoot};
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
-use std::rc::Rc;
 
 const SOURCE: &str = "\
 helper :: (a: int) -> int { unused_a := 1; return a + 1; }

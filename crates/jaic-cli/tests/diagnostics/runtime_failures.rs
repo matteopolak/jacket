@@ -1,6 +1,7 @@
 //! Runtime failures name the check and the call stack.
-use super::{assert_in_order, jaic_on, stderr};
 use test_support::TempDir;
+
+use super::{assert_in_order, jaic_on, stderr};
 
 #[test]
 fn runtime_bounds_check_names_the_check_and_the_call_stack() {

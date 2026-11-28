@@ -1,9 +1,10 @@
 //! The file-level structure the declaration rows do not hold: scope sections, `#if`/`#else`
 //! blocks, `#run`, `#insert`, `#placeholder` and `#load`. `Session::document_symbols` nests the
 //! rows and these sections by the spans they cover.
+use jaic::ast::{File, ScopeKind, Stmt, StmtKind};
+
 use super::{Analysis, Span, span_of};
 use crate::SymbolKind;
-use jaic::ast::{File, ScopeKind, Stmt, StmtKind};
 
 /// A part of the outline that is not a declaration.
 #[derive(Clone, Debug)]

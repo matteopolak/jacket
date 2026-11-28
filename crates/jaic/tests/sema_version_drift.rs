@@ -1,8 +1,9 @@
 //! Checks that follow the current official compiler: array equality, constant division by
 //! zero, `ifx` branch agreement, one-character strings as bytes, and the type of a
 //! complemented constant next to an unsigned operand.
-use jaic::sema::{Compiler, Options, VirtualFs};
 use std::{path::Path, rc::Rc};
+
+use jaic::sema::{Compiler, Options, VirtualFs};
 
 fn compile(source: &str) -> Result<(), String> {
     let mut fs = VirtualFs::default();

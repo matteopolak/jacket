@@ -1,5 +1,6 @@
 //! `platform_leak`: portable code that imports something an operating system does not build.
 use std::{path::Path, process::Command};
+
 use test_support::TempDir;
 
 /// A project with a small library under `lib/` held to every system, and a standard library

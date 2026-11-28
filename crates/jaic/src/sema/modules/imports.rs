@@ -1,4 +1,6 @@
 //! Resolving `#import` statements: instances, program origins, groups and provided modules.
+use std::path::Path;
+
 use super::filesystem::import_entry;
 use super::parameters::INFERRED_PARAM;
 use crate::diagnostics::Code;
@@ -7,7 +9,6 @@ use crate::sema::{
     Arc, BootstrapModule, Compiler, ModuleId, ProvidedImport, ProvidedKind, Result, ScopeId, Sym,
     TypeId, Value, ast, err, scope,
 };
-use std::path::Path;
 
 impl Compiler {
     /// Resolve the module behind import entry `index` of `scope`, loading it on first use.

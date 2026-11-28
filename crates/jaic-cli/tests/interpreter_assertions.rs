@@ -1,5 +1,6 @@
 //! Assertion callbacks must not abort the compiler host; custom callbacks still execute.
 use std::process::Command;
+
 use test_support::TempDir;
 
 #[test]

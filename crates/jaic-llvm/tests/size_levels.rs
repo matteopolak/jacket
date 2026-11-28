@@ -1,8 +1,9 @@
 //! The size pipelines (`OptLevel::Os` and `Oz`) run: LLVM no longer has `default<Os>`, so they are
 //! `default<O2>` with the `optsize` (`minsize`) attributes on every function.
+use std::rc::Rc;
+
 use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use jaic_llvm::{OptLevel, emit_object};
-use std::rc::Rc;
 use test_support::TempDir;
 
 #[test]

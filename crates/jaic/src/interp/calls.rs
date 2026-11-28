@@ -1,4 +1,6 @@
 //! Entering, running and leaving procedures, trace hooks and runtime hooks.
+use std::sync::atomic::Ordering;
+
 #[cfg(not(target_arch = "wasm32"))]
 use super::frames::ExecState;
 use super::frames::Frame;
@@ -11,7 +13,6 @@ use super::{
     COMPILE_TIME_CALLS, COMPILE_TIME_NANOS, Interp, MAX_DEPTH, Res, STACK_SIZE, exit_forked_child,
 };
 use crate::ir::{self, FuncId, Program};
-use std::sync::atomic::Ordering;
 
 /// What `exec` saved on entering a frame, to restore when it returns.
 pub(super) struct FrameExit {

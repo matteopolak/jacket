@@ -1,6 +1,7 @@
 //! The links in a doc comment that read as intra-doc links and lead nowhere.
-use super::{links, meant_as_link};
 use std::path::Path;
+
+use super::{links, meant_as_link};
 
 /// The links in `doc` written like intra-doc links that `resolve` has no page for, as written
 /// (`[Name]`). `known` are the names the document's library declares: a plain lowercase word

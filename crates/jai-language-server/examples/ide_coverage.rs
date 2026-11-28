@@ -6,9 +6,10 @@
 //! would. Every identifier and directive outside comments and strings is asked for hover, and
 //! every identifier (including declarations) for go to definition. A hover that is only the syntax layer's
 //! fallback counts as missing. Typecheck failures never waive gaps.
+use std::path::PathBuf;
+
 use jai_language_server::{Environment, Position};
 use jaic::lexer::{P, Tok};
-use std::path::PathBuf;
 
 /// What an identifier is doing, from its neighbours.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]

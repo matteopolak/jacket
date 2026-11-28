@@ -1,13 +1,15 @@
 //! Queries over a finished analysis: diagnostics, hovers, names and completions.
-use super::compile::find_file;
-use super::{Analysis, Decl, HoverFacts, SemanticAnalysisContext, SemanticCoverage, SemanticPath};
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
 use jaic::fxhash::HashSet;
 use jaic::ide::IdeName;
 use jaic::intern::Sym;
 use jaic::source::{FileId, Suggestion};
-use std::collections::{BTreeMap, BTreeSet};
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+
+use super::compile::find_file;
+use super::{Analysis, Decl, HoverFacts, SemanticAnalysisContext, SemanticCoverage, SemanticPath};
 
 /// How many of a program's first errors get their render-time help (see
 /// `Analysis::check_findings`) for the editor.

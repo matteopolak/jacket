@@ -14,9 +14,8 @@
 //!    (`auto_import.rs` `loader_chain`); a file nothing loads is its own entry.
 use std::path::{Component, Path};
 
-pub use jaic::project::*;
-
 pub use jacket_config::{EntryFiles, Project as ProjectConfig};
+pub use jaic::project::*;
 
 /// `base`'s entry files: `[project] entry`, else the inferred ones; declared ones are
 /// normalised.
@@ -71,8 +70,9 @@ mod tests {
     /// meant to agree (their tie-breaks are separate options of `jaic::project::RootOptions`).
     #[test]
     fn server_and_linter_agree_on_a_fixture_tree() {
-        use crate::{Environment, Limits, Session};
         use jaic::project::{DiskFs, LoadCache, ProjectFs, RootOptions, resolve_root};
+
+        use crate::{Environment, Limits, Session};
         let dir = std::env::temp_dir().join(format!("jailsp-root-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
 

@@ -3,6 +3,7 @@
 //! callees copied for inlining, globals read and written from different modules, and read-only
 //! data and zero-filled defaults used from several places.
 use std::process::Command;
+
 use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");

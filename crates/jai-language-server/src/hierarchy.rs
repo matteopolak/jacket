@@ -5,17 +5,19 @@
 //! overload it chose. Procedures are found by parsing the file they are declared in, so a callee
 //! in a module or the standard library works too. The call sites of an item have to be in a
 //! document the program was compiled from, which means an open one.
-use crate::analysis::Span;
-use crate::position::LineIndex;
-use crate::session::Session;
-use crate::{CallHierarchyCall, CallHierarchyItem, DocumentUri, Error, Position, SymbolKind};
+use std::path::Path;
+use std::rc::Rc;
+use std::sync::Arc;
+
 use jaic::ast::walk::walk;
 use jaic::ast::{DeclKind, ExprKind as E, Stmt, StmtKind as S};
 use jaic::fxhash::{HashMap, HashSet};
 use jaic::source::FileId;
-use std::path::Path;
-use std::rc::Rc;
-use std::sync::Arc;
+
+use crate::analysis::Span;
+use crate::position::LineIndex;
+use crate::session::Session;
+use crate::{CallHierarchyCall, CallHierarchyItem, DocumentUri, Error, Position, SymbolKind};
 
 type SourceKey = (u64, usize);
 type TargetSources = HashMap<String, Option<(SourceKey, Arc<str>)>>;

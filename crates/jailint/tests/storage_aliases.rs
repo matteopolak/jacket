@@ -1,5 +1,6 @@
 //! Strict source checking of documented storage reexports without a foreign runtime.
 use std::process::Command;
+
 use test_support::TempDir;
 
 #[test]

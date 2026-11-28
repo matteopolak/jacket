@@ -1,11 +1,12 @@
 //! What this compile produces: the IR program, the constant data pooled into its globals, and
 //! the output compile-time code printed.
+use std::sync::Arc;
+
 use super::body_probe::{Probed, W};
 use crate::fxhash::HashMap;
 use crate::ir;
 use crate::sema::{PackKey, driver, runtime_config};
 use crate::types::TypeId;
-use std::sync::Arc;
 
 /// A constant's type, bytes and relocations: what a constant global is interned by.
 pub type ConstAddrKey = (TypeId, Vec<u8>, Vec<ir::Reloc>);

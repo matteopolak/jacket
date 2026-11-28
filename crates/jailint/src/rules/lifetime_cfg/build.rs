@@ -1,10 +1,11 @@
 //! Lower selected events into common storage, resource and logical-element operations.
+use std::rc::Rc;
+
 use super::{
     Action, Block, Cell, Cells, Cx, Event, Facts, HashMap, HashSet, Kind, LifetimeBody,
     LifetimeOperand, Mutation, Op, Places, Prepared, Resolver, Selector, Site, Span, Summaries,
     TypeId, resizable, resources, view,
 };
-use std::rc::Rc;
 
 /// One procedure's lowered CFG with the places, cells and call chains its operations name.
 pub(in crate::rules) struct Built {
@@ -869,7 +870,7 @@ impl Builder<'_> {
                     Selector::Local(v) => elements.selector(v, None, at),
                     Selector::Result(index) => results
                         .iter()
-                        .find(|(n, _, _)| *n == index)
+                        .find(|(n, ..)| *n == index)
                         .map_or(Selector::Unknown, |(_, v, _)| {
                             elements.selector(*v, None, at)
                         }),

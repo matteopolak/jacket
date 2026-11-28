@@ -10,9 +10,10 @@
 //!
 //! `not` binds tightest, then `and`, then `or`. A predicate is a name and its argument in
 //! parentheses; the argument runs to the closing `)`, except `/regex/`, which may hold any.
+use std::fmt;
+
 use jacket_config::PathPattern;
 use regex_lite::Regex;
-use std::fmt;
 
 /// The kinds `kind(...)` knows.
 pub const KINDS: [&str; 8] = [

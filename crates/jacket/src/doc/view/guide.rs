@@ -1,5 +1,10 @@
 //! Extra Markdown pages: `[[doc.page]]` files under one sidebar heading, and `[[doc.section]]`
 //! files split into an overview and one page per `###` heading, each its own sidebar heading.
+use std::path::Path;
+
+use jacket_config::schema::Doc;
+use jaic::fxhash::HashMap;
+
 use super::super::markdown::{self, Segment, Settings};
 use super::super::site::Site;
 use super::super::{console, highlight};
@@ -8,9 +13,6 @@ use super::{
     Sidebar,
 };
 use crate::markup::escape;
-use jacket_config::schema::Doc;
-use jaic::fxhash::HashMap;
-use std::path::Path;
 
 /// `from` (a path in `docs/`) joined with the relative `link`, normalised.
 fn repo_path(from: &str, link: &str) -> String {

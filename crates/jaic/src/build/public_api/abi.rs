@@ -1,4 +1,6 @@
 //! Resolved declaration layouts, not offsets assumed from a particular stdlib.
+use std::rc::Rc;
+
 use super::Operation;
 use crate::{
     fxhash::HashMap,
@@ -6,7 +8,6 @@ use crate::{
     ir,
     types::TypeId,
 };
-use std::rc::Rc;
 
 #[derive(Clone)]
 pub(crate) struct Field {

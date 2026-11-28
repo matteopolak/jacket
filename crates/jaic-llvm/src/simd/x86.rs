@@ -1,8 +1,9 @@
 //! x86-64: `pshufb` in its 128, 256 (AVX2) and 512-bit (AVX-512BW) forms.
 
+use inkwell::values::{PointerValue, VectorValue};
+
 use super::features::{Family, Feature};
 use super::{Cx, R};
-use inkwell::values::{PointerValue, VectorValue};
 
 /// The widest `pshufb` the target has for `width` bytes: the block size and the LLVM intrinsic.
 fn pshufb(cx: &Cx<'_, '_>, width: u8) -> Option<(u32, &'static str)> {

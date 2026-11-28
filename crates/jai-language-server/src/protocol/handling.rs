@@ -1,4 +1,8 @@
 //! Constructing a session and routing incoming messages.
+use std::collections::VecDeque;
+
+use serde_json::{Value, json};
+
 use super::helpers::{fail, failure, log_error, valid_id};
 use super::methods::{
     ErrorCode, Failure, Incoming, Notification, OUTPUT_LIMIT, Reply, debug_panic, incoming,
@@ -6,8 +10,6 @@ use super::methods::{
 use super::params::CancelParams;
 use super::{JsonSession, Lifecycle, ProtocolError, RequestId};
 use crate::{Error, Limits, MarkupKind, Session, Stage};
-use serde_json::{Value, json};
-use std::collections::VecDeque;
 
 impl JsonSession {
     pub fn new(limits: Limits) -> Self {

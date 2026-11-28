@@ -28,6 +28,8 @@
 //! The native interpreter uses real OS threads instead (`threads.rs`).
 #![allow(unsafe_code)]
 
+use std::collections::BTreeSet;
+
 use super::thread_sync::{CondQueues, Mutexes, Slots};
 use super::{
     ExecState, Frame, FrameExit, FuncId, Interp, Program, Res, Rets, Trap, TrapKind, ValueStack,
@@ -36,7 +38,6 @@ use super::{
 use crate::fxhash::HashSet;
 use crate::interp::word_or_zero;
 use crate::macros::raw_enum;
-use std::collections::BTreeSet;
 
 raw_enum! {
     /// A foreign procedure the thread schedulers (`threads` and the inline one here) implement.

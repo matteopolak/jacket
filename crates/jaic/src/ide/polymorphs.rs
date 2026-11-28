@@ -1,10 +1,11 @@
 //! Selected generic specializations and identities portable between compiler analyses.
+use std::collections::{BTreeMap, BTreeSet};
+
 use crate::ide::Recorder;
 use crate::sema::scope::{EntityKind, EntityState, Resolved};
 use crate::sema::{Compiler, ProcId, ScopeId, Value};
 use crate::source::Span;
 use crate::types::{TypeId, TypeKind};
-use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Clone, Debug)]
 pub struct IdeSpecialization {

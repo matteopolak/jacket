@@ -1,15 +1,17 @@
 //! Parsed compiler settings, with no execution or backend initialization.
+use std::ffi::OsString;
+use std::path::{Path, PathBuf};
+
+use argdef::{Args, Shell};
+use jaic::builtin_keys::BitcodeOptimization;
+use jaic::sema::Options;
+use jaic::target::{Target, TargetCpu, TargetOs};
+
 use crate::options::{
     CliError, FLAVOR_CONFLICT, add_code, add_run, add_sanitizer, read_cpu, read_os,
     read_package_import, set_color, store_level,
 };
 use crate::tuning;
-use argdef::{Args, Shell};
-use jaic::builtin_keys::BitcodeOptimization;
-use jaic::sema::Options;
-use jaic::target::{Target, TargetCpu, TargetOs};
-use std::ffi::OsString;
-use std::path::{Path, PathBuf};
 
 /// What jaic does with the program: build it (the default), only compile it, or interpret it.
 #[derive(Clone, Copy, PartialEq, Eq, Default)]

@@ -1,6 +1,7 @@
 //! Human-authored Code insertion reduction and independent lexical-scope controls.
-use jaic::sema::{Compiler, NativeFs, Options, ProgramSource, VirtualFs};
 use std::{path::PathBuf, rc::Rc};
+
+use jaic::sema::{Compiler, NativeFs, Options, ProgramSource, VirtualFs};
 
 fn compile(source: &str) -> Result<(), String> {
     let mut options = Options::host();

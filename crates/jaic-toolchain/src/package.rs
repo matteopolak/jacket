@@ -2,9 +2,10 @@
 //!
 //! This table is the only place install advice lives. Jacket never runs these commands and never
 //! offers to: an error note prints one.
+use jaic::target::Target;
+
 use crate::host::Os;
 use crate::lookup::Lookup;
-use jaic::target::Target;
 
 /// A system package manager jacket knows the names of packages for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

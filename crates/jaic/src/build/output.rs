@@ -1,4 +1,6 @@
 //! Writing a workspace's output, custom link steps and finishing all workspaces.
+use std::path::PathBuf;
+
 use super::drive::{performance_event, step};
 use super::meta_op::TOP_LEVEL_WORKSPACE;
 use super::registry::phase;
@@ -9,7 +11,6 @@ use super::state::{
 };
 use crate::builtin_keys::OutputType;
 use crate::sema::Compiler;
-use std::path::PathBuf;
 
 /// Append `output`, the path the backend finally wrote (with the platform's extension), to the
 /// file `JAIC_REPORT_EXE` names, one absolute path per line, if it is set. `jacket run` reads

@@ -1,6 +1,7 @@
 //! The lifetime rules' work grows with a procedure's size, not with its square. Work is counted
 //! (`JAILINT_LIFETIME_STATS`), not timed, so the checks hold on any machine.
 use std::process::Command;
+
 use test_support::TempDir;
 
 /// A procedure of `blocks` sequential scopes, each allocating, deferring a free and asserting

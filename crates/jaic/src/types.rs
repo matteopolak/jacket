@@ -1,11 +1,12 @@
 //! Type table. Structural types are interned; structs, enums and distinct
 //! types are nominal and carry their own info records, filled in lazily by sema.
+use std::sync::Arc;
+
 use crate::ast::AstId;
 use crate::fxhash::HashMap;
 use crate::intern::Sym;
 use crate::layout::{BuiltinLayouts, DataLayout};
 use crate::source::Span;
-use std::sync::Arc;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct TypeId(pub u32);

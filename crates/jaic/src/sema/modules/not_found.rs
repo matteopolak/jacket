@@ -1,9 +1,10 @@
 //! Diagnostics for modules and files that cannot be found or read.
+use std::path::Path;
+
 use super::filesystem::{module_file_in, modules_in};
 use crate::diagnostics::Code;
 use crate::sema::SourceState;
 use crate::sema::{Compiler, Diagnostic, PathBuf, Span};
-use std::path::Path;
 
 impl Compiler {
     /// For a missing module that is one of jaic's `stdlib/Extensions/` modules imported without

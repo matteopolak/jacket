@@ -7,6 +7,7 @@
     )
 ))]
 use std::process::Command;
+
 use test_support::TempDir;
 
 fn check(name: &str, source: &str) -> (std::process::ExitStatus, String) {

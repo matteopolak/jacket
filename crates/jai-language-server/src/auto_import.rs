@@ -14,18 +14,20 @@
 //! Every file is scanned from tokens (`exports.rs`) and cached by path: files on disk until a
 //! watched-file or save notification names them, open documents by a hash of their text.
 //! Folder listings are cached until a file is created or deleted under them.
-use crate::exports::{self, Decl, FileScan, Visibility};
-use crate::model::CompletionKind;
-use crate::project::{self};
-use crate::semantic::Environment;
-use crate::session::Session;
-use jaic::sema::ModuleRanking;
-use jaic::target::TargetOs;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
+
+use jaic::sema::ModuleRanking;
+use jaic::target::TargetOs;
+
+use crate::exports::{self, Decl, FileScan, Visibility};
+use crate::model::CompletionKind;
+use crate::project::{self};
+use crate::semantic::Environment;
+use crate::session::Session;
 
 mod aliases;
 mod index_fs;

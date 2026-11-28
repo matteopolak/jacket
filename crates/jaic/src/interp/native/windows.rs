@@ -9,6 +9,9 @@
 //! (integer or float). Aggregates follow `abi::classify_arg(Arch::Win64)`: 1, 2, 4 or 8 bytes
 //! in one slot, anything else as a pointer to a copy; non-register results come back through
 //! a hidden pointer in the first slot.
+use std::ffi::c_void;
+use std::sync::Mutex;
+
 #[cfg(target_arch = "x86_64")]
 use super::{read_bytes, write_bytes};
 #[cfg(target_arch = "x86_64")]
@@ -22,8 +25,6 @@ use crate::ir::{Sig, Ty};
 #[cfg(target_arch = "x86_64")]
 use crate::layout::DataLayout;
 use crate::toolchain::{RuntimeDlls, Toolchain};
-use std::ffi::c_void;
-use std::sync::Mutex;
 
 #[link(name = "kernel32")]
 unsafe extern "system" {

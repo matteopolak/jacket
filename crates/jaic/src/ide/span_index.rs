@@ -15,6 +15,11 @@
 //! All of them stop at the sketch mark (`IdeFacts::sketch_from`): the references, entities and
 //! procedures after it come from sketches with stand-in types, which say nothing about the
 //! program. This is the one place that rule is applied to these lookups.
+use std::cell::OnceCell;
+use std::hash::Hash;
+use std::ops::Deref;
+use std::rc::Rc;
+
 use super::IdeWhat;
 use super::SketchMark;
 use crate::fxhash::{HashMap, HashSet};
@@ -22,10 +27,6 @@ use crate::sema::procs::BodyState;
 use crate::sema::scope::{EntityId, EntityKind, EntityState, Resolved};
 use crate::sema::{Compiler, ProcId, Value};
 use crate::source::{FileId, Span};
-use std::cell::OnceCell;
-use std::hash::Hash;
-use std::ops::Deref;
-use std::rc::Rc;
 
 /// What the maps were built from: they are dropped when it changes.
 #[derive(Clone, Copy, PartialEq, Eq)]

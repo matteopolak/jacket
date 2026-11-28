@@ -10,10 +10,11 @@ mod net;
 mod swap;
 mod version;
 
-use net::Source;
 use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+
+use net::Source;
 use version::Version;
 
 /// The flags of `jacket upgrade`.
@@ -30,9 +31,13 @@ pub struct Options {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Outcome {
     UpToDate,
-    Available { to: String },
+    Available {
+        to: String,
+    },
     Declined,
-    Upgraded { to: String },
+    Upgraded {
+        to: String,
+    },
 }
 
 /// What a run works on, so tests can point it at a temporary folder and a fake release.

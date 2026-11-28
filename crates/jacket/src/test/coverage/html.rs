@@ -1,12 +1,12 @@
 //! `--coverage-format html`: one page with no outside files. The top is a table of modules
 //! linking to their files; each file opens to its source, a line at a time with how often it
 //! ran. See `mod.rs`.
-use crate::markup::escape;
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 use super::report::{Data, Group, Tally, module_of, rows, total};
+use crate::markup::escape;
 
 const STYLE: &str = "
 :root { --bg: #fff; --fg: #1f2328; --muted: #59636e; --line: #d1d9e0; --hit: #dafbe1; --miss: #ffebe9; --head: #f6f8fa; --bar: #1a7f37; --track: #ffebe9; }

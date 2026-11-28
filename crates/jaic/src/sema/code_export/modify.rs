@@ -21,7 +21,7 @@ impl Compiler {
                     .pending_bodies
                     .iter()
                     .find(|&&(_, record, _)| record == header)
-                    .map(|&(p, _, _)| p)
+                    .map(|&(p, ..)| p)
             });
 
         match found {

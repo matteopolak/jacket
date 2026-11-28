@@ -1,10 +1,11 @@
 //! Ordinary calls need only the finite set of arguments whose pointees are read.
 //! Detailed capture paths are solved separately for asynchronous callbacks.
-use super::{Event, HashMap, HashSet, Path, ProcId, Resolver, Root, Summary};
-use crate::rules::lifetime_summary::{Effect, Kind, Summaries, acyclic, guaranteed, sccs};
 use jaic::ide::lifetimes::LifetimeOperand;
 use jaic::intern::Sym;
 use jaic::sema::Compiler;
+
+use super::{Event, HashMap, HashSet, Path, ProcId, Resolver, Root, Summary};
+use crate::rules::lifetime_summary::{Effect, Kind, Summaries, acyclic, guaranteed, sccs};
 
 /// The member names at the start of `steps`, and whether `steps` ends there.
 fn leading_members(steps: &[super::super::Step]) -> (Vec<Sym>, bool) {

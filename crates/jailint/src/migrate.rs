@@ -18,14 +18,15 @@
 //! files is the caller's job (`jacket migrate --apply`).
 mod rules;
 
-use crate::Edit;
-use crate::driver::{self, CompileError, Options};
-use jaic::lexer::Token;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use jaic::lexer::Token;
 pub use rules::MIGRATIONS;
+
+use crate::Edit;
+use crate::driver::{self, CompileError, Options};
 
 /// Edit, recompile and edit again at most this many times.
 const MAX_PASSES: usize = 8;

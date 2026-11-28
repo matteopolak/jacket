@@ -1,8 +1,9 @@
 //! Minimum/maximum selection is a property of the body, including componentwise
 //! aggregate construction. Procedure spellings are irrelevant.
-use super::{Event, HashMap, ProcId, Resolver, Summary};
 use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, ForOver, ProcLit, Stmt, StmtKind as S};
 use jaic::intern::Sym;
+
+use super::{Event, HashMap, ProcId, Resolver, Summary};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(in crate::rules) enum Ordering {

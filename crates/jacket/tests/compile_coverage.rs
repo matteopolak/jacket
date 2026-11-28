@@ -1,6 +1,7 @@
 //! Native test builds include the lines their compile-time generators ran.
-use crate::installed;
 use installed::{archive, jacket, scratch};
+
+use crate::installed;
 
 #[test]
 fn unit_test_coverage_includes_compile_time_generators() {

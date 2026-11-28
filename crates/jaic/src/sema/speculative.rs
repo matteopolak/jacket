@@ -12,6 +12,9 @@
 //! and to count what stops bodies from taking it. Interception needs the `speculative-bodies`
 //! cargo feature, which turns every write to a `Probed` table into a check; without it the
 //! hooks compile to nothing and the flag only prints a notice.
+use std::cell::{Cell, RefCell};
+use std::time::{Duration, Instant};
+
 use super::body_probe::{self, W};
 use super::code_export::ExpressionOwner;
 use super::procs::BodyState;
@@ -21,8 +24,6 @@ use crate::fxhash::HashMap;
 use crate::ir;
 use crate::sema::Span;
 use crate::types::StructId;
-use std::cell::{Cell, RefCell};
-use std::time::{Duration, Instant};
 
 /// A demand-driven step that does ordered work the first time something asks for it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

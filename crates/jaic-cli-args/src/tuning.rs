@@ -3,9 +3,10 @@
 //! counters, and the unlisted `-dev_*` flags. `jacket` can set the first group for a project from
 //! `[experimental]` (`docs/tools/jacket.md`). They end up in `jaic::knobs` or in the backend's
 //! `CodegenSwitches`.
+use argdef::{Args, Error};
+
 use crate::cli::Cli;
 use crate::options::read_jobs;
-use argdef::{Args, Error};
 
 /// What the flags here set, in `Cli::tuning`.
 // The doc comments are `-help` text: names and variables stay unquoted.

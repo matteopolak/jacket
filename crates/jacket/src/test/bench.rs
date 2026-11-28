@@ -6,6 +6,12 @@
 //! warms up, takes the samples and writes one `bench` record (JSON) with the raw measurements to
 //! standard output. The statistics (`bench_stats.rs`), the report, the baselines and the exit
 //! status are made here, not in the program.
+use std::path::{Path, PathBuf};
+use std::process::ExitCode;
+use std::time::Duration;
+
+use serde_json::{Value, json};
+
 use super::bench_stats::{self as stats, Analysis, Comparison, Interval, Rng, Samples, Verdict};
 use super::build::{self, Toolchain};
 use super::discover::Root;
@@ -13,10 +19,6 @@ use super::exec::{self, Demux, Invocation, Piece};
 use super::options::Target;
 use super::{Case, Settings};
 use crate::cli::{BenchArgs, OutputFormat};
-use serde_json::{Value, json};
-use std::path::{Path, PathBuf};
-use std::process::ExitCode;
-use std::time::Duration;
 
 /// The version of the JSON document (`schema` in it).
 const SCHEMA: u32 = 2;

@@ -14,10 +14,11 @@
 //!
 //! `stdlib/Extensions/Jai_Format/config.jai` matches the first, second and last forms for
 //! `jaifmt`; `tests/glob/cases.txt` holds the cases both run.
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::path::{Component, Path};
 use std::str::FromStr;
+
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Most alternatives one pattern may expand to (`{a,b}{c,d}` is four).
 const MAX_ALTERNATIVES: usize = 256;

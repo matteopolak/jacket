@@ -1,9 +1,10 @@
 //! The file system a root is compiled over.
-use jaic::paths::CanonCache;
-use jaic::sema::{FileSystem, NativeFs};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+
+use jaic::paths::CanonCache;
+use jaic::sema::{FileSystem, NativeFs};
 
 /// The native file system with relative paths taken from `base` (the root's directory), as if
 /// the compiler ran there: metaprograms name files relative to where they are built from.

@@ -1,20 +1,22 @@
 //! Lifetime CFG built from the optional checker's per-instantiation semantic sidecar.
 //! Joins union states; only a sole DEAD state is a must proof. Copies transfer provenance
 //! at their actual control-flow position, never through a mutable checker-wide alias table.
-use super::{
-    finding,
-    lifetime_places::{Places, Projection},
-    lifetime_summary::{Kind, Prepared, Resolver, Root, Step, Summaries},
-};
-use crate::{Finding, syntax::Cx};
+use std::collections::{BTreeMap, VecDeque};
+use std::rc::Rc;
+
 use jaic::fxhash::{HashMap, HashSet};
 use jaic::ide::lifetimes::{LifetimeBody, LifetimeEvent as Event, LifetimeOperand};
 use jaic::ir::Val;
 use jaic::sema::procs::BodyState;
 use jaic::source::Span;
 use jaic::types::{ArrayKind, TypeId, TypeKind};
-use std::collections::{BTreeMap, VecDeque};
-use std::rc::Rc;
+
+use super::{
+    finding,
+    lifetime_places::{Places, Projection},
+    lifetime_summary::{Kind, Prepared, Resolver, Root, Step, Summaries},
+};
+use crate::{Finding, syntax::Cx};
 
 mod build;
 mod capacity;
@@ -38,11 +40,12 @@ use build::shared;
 mod iteration;
 mod tasks;
 mod witness;
+pub(super) use iteration::check as check_iteration;
+
 use super::lifetime_movement::{
     Action, Mutation, Selector,
     facts::{Facts, Site},
 };
-pub(super) use iteration::check as check_iteration;
 
 
 #[derive(Clone)]
@@ -140,7 +143,7 @@ fn copy_targets(cells: usize, blocks: &[Block]) -> Vec<Vec<usize>> {
                     forward[source].push(target);
                 }
             }
-            Op::PointerLoad(target, source, _, _) => forward[*source].push(*target),
+            Op::PointerLoad(target, source, ..) => forward[*source].push(*target),
             _ => {}
         }
     }
@@ -593,7 +596,7 @@ fn solve(
                     };
                 }
             }
-            Op::Borrow(target, _, _) | Op::ElementBorrow(target, ..) => {
+            Op::Borrow(target, ..) | Op::ElementBorrow(target, ..) => {
                 if let Some(&cell) = relevant.get(target) {
                     state[cell] = if i == candidate {
                         LIVE
@@ -602,7 +605,7 @@ fn solve(
                     };
                 }
             }
-            Op::PointerLoad(target, source, _, _) => {
+            Op::PointerLoad(target, source, ..) => {
                 if let Some(&cell) = relevant.get(target) {
                     let source = relevant
                         .get(source)
@@ -799,7 +802,7 @@ fn invalidation_cut(
                     cell = source;
                 }
             }
-            Op::PointerLoad(target, source, _, _) if relevant.get(target) == Some(&cell) => {
+            Op::PointerLoad(target, source, ..) if relevant.get(target) == Some(&cell) => {
                 let Some(&source) = relevant.get(source) else {
                     continue;
                 };
@@ -811,7 +814,7 @@ fn invalidation_cut(
             {
                 continue;
             }
-            Op::Borrow(target, _, _) | Op::ElementBorrow(target, ..)
+            Op::Borrow(target, ..) | Op::ElementBorrow(target, ..)
                 if relevant.get(target) == Some(&cell) =>
             {
                 continue;

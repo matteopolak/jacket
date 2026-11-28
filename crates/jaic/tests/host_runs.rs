@@ -1,7 +1,8 @@
 //! Isolated host evaluation transfers values, never target lexical bindings.
+use std::{path::Path, rc::Rc};
+
 use jaic::sema::{Compiler, Options, VirtualFs};
 use jaic::target::{TargetCpu, TargetOs};
-use std::{path::Path, rc::Rc};
 
 fn compile(source: &str, cross: bool) -> Result<(), String> {
     compile_configured(source, cross, |_| {})

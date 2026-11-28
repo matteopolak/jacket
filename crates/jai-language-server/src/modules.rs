@@ -15,10 +15,11 @@
 //!    entry's folder and from the project base. Computed paths (a `%` format, a variable) are
 //!    not followed by this scan, but once the metaprogram has run (`semantic::BuildFacts`) its
 //!    recorded `import_path` replaces the scan for that entry, computed paths included.
-use crate::auto_import::{ImportKey, Index, Sources};
-use crate::project::{self, ProjectConfig};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
+
+use crate::auto_import::{ImportKey, Index, Sources};
+use crate::project::{self, ProjectConfig};
 
 /// Entry files of a metaprogram scanned at most.
 const MAX_META_FILES: usize = 8;

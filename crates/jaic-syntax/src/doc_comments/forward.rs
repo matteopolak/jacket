@@ -1,14 +1,15 @@
 //! Finding what an alias names from the library's own files, for `jaic -doc_comments`: the
 //! rule for which declaration supplies an alias's docs is [`docs::docs_site`]; this is only the
 //! resolver that reads files instead of asking the type checker.
+use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
 use crate::ast::{ImportSource, UsingFilter};
 use crate::docs::Resolver;
 use crate::fxhash::HashMap;
 use crate::parser::ide_facts::{self, TopLevelKind};
 use crate::source::FileId;
-use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 /// Reads and parses files of a library and the standard library, each once.
 pub(super) struct Files<'a> {

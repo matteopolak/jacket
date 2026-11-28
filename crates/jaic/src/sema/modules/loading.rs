@@ -1,4 +1,6 @@
 //! Reading source files, loading modules and strings, and creating modules.
+use std::path::Path;
+
 use super::filesystem::find_module_in;
 use crate::diagnostics::Code;
 use crate::ide::Recorder;
@@ -9,7 +11,6 @@ use crate::sema::{
     Arc, BootstrapModule, Compiler, Diagnostic, FileId, FileInfo, HashSet, Module, ModuleId,
     PathBuf, Result, ScopeId, SourcePath, Span, Sym, TypeId, Value, ast, err,
 };
-use std::path::Path;
 
 /// A cached source request may be in a recursive load, complete, or failed.
 /// Failure must never be mistaken for an already-loaded successful file.

@@ -8,14 +8,15 @@
 //! library calls. Thread primitives are not here: they need the interpreter (`threads_inline.rs`).
 #![allow(unsafe_code)]
 
-use super::{HashMap, Host, Rc, ZeroedBlock, ir};
-use crate::fxhash::HashSet;
-use crate::interp::word_or_zero;
-use crate::sema::FileSystem;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
+
+use super::{HashMap, Host, Rc, ZeroedBlock, ir};
+use crate::fxhash::HashSet;
+use crate::interp::word_or_zero;
+use crate::sema::FileSystem;
 
 mod dirs;
 mod files;
@@ -41,7 +42,6 @@ use guest::{
 use symbols::{LibcFn, SandboxFn};
 
 use super::errno::{EBADF, EEXIST, EINVAL, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM};
-
 use super::posix::{Open, PosixAbi, StatSyscall, records};
 
 const S_IFDIR: u32 = 0o040_000;

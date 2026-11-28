@@ -9,11 +9,11 @@ mod request_id;
 mod requests;
 mod wire;
 
-pub use self::helpers::{message_too_large, oversized_replies};
-use crate::{MarkupKind, Session};
 use std::collections::VecDeque;
 
+pub use self::helpers::{message_too_large, oversized_replies};
 pub use self::request_id::RequestId;
+use crate::{MarkupKind, Session};
 
 #[derive(Clone, Debug)]
 pub enum ProtocolError {
@@ -90,9 +90,10 @@ pub struct JsonSession {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use super::methods::{Notification, Request};
     use crate::SemanticTokenKind;
-    use std::collections::BTreeSet;
 
     #[test]
     fn token_types_are_listed_in_wire_order() {

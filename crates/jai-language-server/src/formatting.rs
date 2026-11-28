@@ -1,12 +1,13 @@
 //! `textDocument/formatting` and `textDocument/rangeFormatting`, answered by running `jaifmt`
 //! (the formatter is written in Jai) on the document's text. Whatever goes wrong, the answer is
 //! no edits and a log line: an editor shows a formatting error as a popup on every save.
-use crate::session::Session;
-use crate::{DocumentUri, Error, Range, TextEdit};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
+
+use crate::session::Session;
+use crate::{DocumentUri, Error, Range, TextEdit};
 
 /// How long `jaifmt` may take before it is killed.
 const TIMEOUT: Duration = Duration::from_secs(5);

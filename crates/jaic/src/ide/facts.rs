@@ -1,4 +1,8 @@
 //! What an editor analysis records: references, hovers, layouts and the indexes over them.
+use std::path::PathBuf;
+use std::rc::Rc;
+use std::sync::Arc;
+
 use crate::ast;
 use crate::diagnostics::Diagnostic;
 use crate::fxhash::HashMap;
@@ -11,9 +15,6 @@ use crate::source::FileId;
 use crate::source::Span;
 use crate::types::StructId;
 use crate::types::TypeId;
-use std::path::PathBuf;
-use std::rc::Rc;
-use std::sync::Arc;
 
 /// Lengths of `IdeFacts::refs`, `Compiler::entities` and `Compiler::procs` at a point.
 #[derive(Clone, Copy, Debug)]

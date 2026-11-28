@@ -3,6 +3,7 @@
 //! missing, except on CI (`CI` is set), where a missing tool fails.
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
+
 use test_support::{TempDir, toolchain};
 
 use super::{JAIC, corpus_cases, matches, repo_root};

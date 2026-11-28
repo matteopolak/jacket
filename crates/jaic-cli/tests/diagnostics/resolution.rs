@@ -1,6 +1,7 @@
 //! Unknown names, mismatches and missing modules and files.
-use super::{assert_in_order, jaic_on, stderr};
 use test_support::TempDir;
+
+use super::{assert_in_order, jaic_on, stderr};
 
 #[test]
 fn unknown_identifier_suggests_a_visible_name() {

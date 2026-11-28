@@ -14,7 +14,10 @@ pub enum Applicability {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Edit {
     /// Replace the text of `span` with `text`. An empty span inserts, an empty `text` deletes.
-    Replace { span: Span, text: String },
+    Replace {
+        span: Span,
+        text: String,
+    },
     /// Add this `#import` to the file the diagnostic is in. Where it goes (after the last
     /// import, else above the first code) is the applier's choice, so the edit has no span.
     Import(ImportSuggestion),

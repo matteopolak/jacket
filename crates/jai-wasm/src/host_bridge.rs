@@ -12,10 +12,11 @@
 //! safe to call because the page only reads and writes the ranges passed, in this module's
 //! memory (engine.mjs checks each range against the memory's size), and Rust never holds a
 //! reference into a range while the page writes it.
+use std::cell::RefCell;
+
 use jaic::fxhash::HashMap;
 use jaic::interp::{Host, SharedHost};
 use jaic::ir;
-use std::cell::RefCell;
 
 #[cfg(target_arch = "wasm32")]
 #[allow(unsafe_code)]

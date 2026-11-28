@@ -15,6 +15,14 @@ mod output;
 mod overloads;
 #[path = "model_resolution.rs"]
 mod resolution;
+use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
+use std::sync::Arc;
+
+pub use output::to_json;
+pub(in crate::doc_comments) use output::{json, path};
+
 use super::refs::{TypeRef, refs_json, refs_named};
 use crate::ast::{
     BinOp, Decl, DeclKind, EnumItem, Expr, ExprKind, File, ProcHeader, Stmt, StmtKind, StructKind,
@@ -25,12 +33,6 @@ use crate::fxhash::HashMap;
 use crate::parser::ide_facts::{self, DeclClass, TopLevelKind, Visibility};
 use crate::parser::{IdeParse, parse_file_ide};
 use crate::source::FileId;
-pub use output::to_json;
-pub(in crate::doc_comments) use output::{json, path};
-use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
-use std::rc::Rc;
-use std::sync::Arc;
 
 /// How many aliases are followed to the declaration they name.
 const MAX_HOPS: usize = 8;

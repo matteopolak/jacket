@@ -9,9 +9,10 @@
 //! is the program's bug, as it would be in native code. These functions are the one place that
 //! says so; the stand-ins call them instead of dereferencing raw addresses themselves.
 
+use std::cell::Cell;
+
 use crate::interp::addresses::AddressMap;
 use crate::layout::DataLayout;
-use std::cell::Cell;
 
 /// The program memory a stand-in sees.
 #[derive(Clone, Copy)]

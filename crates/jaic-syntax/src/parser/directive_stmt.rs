@@ -1,4 +1,6 @@
 //! Directive statements: `#if`, `#import`, `#load`, `#run`, `#assert`, scope markers, ...
+use std::sync::Arc;
+
 use super::stmt::stmt;
 use super::{PResult, Parser};
 use crate::ast::{
@@ -9,7 +11,6 @@ use crate::diagnostics::Code;
 use crate::intern::Sym;
 use crate::lexer::{P, Tok};
 use crate::source::Span;
-use std::sync::Arc;
 
 /// Directive statements that take a plain list of expressions up to the `;`.
 pub const GENERIC_DIRECTIVES: &[&str] = &[

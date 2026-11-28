@@ -1,10 +1,11 @@
 //! Roots linted in one run share parsed files; the findings must be the ones each root gives alone.
+use std::path::PathBuf;
+
 use jailint::{
     Lint,
     config::Config,
     driver::{Options, run},
 };
-use std::path::PathBuf;
 use test_support::TempDir;
 
 fn options(root: &std::path::Path, path: PathBuf, jobs: usize) -> Options {

@@ -362,7 +362,7 @@ impl Compiler {
         let pending = std::mem::take(&mut self.meta.export.pending_bodies);
         let (ready, waiting): (Vec<_>, Vec<_>) = pending
             .into_iter()
-            .partition(|(p, _, _)| self.proc(*p).body_state == procs::BodyState::Done);
+            .partition(|(p, ..)| self.proc(*p).body_state == procs::BodyState::Done);
 
         self.meta.export.pending_bodies = waiting;
         let mut ready = ready;

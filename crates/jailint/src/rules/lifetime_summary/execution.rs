@@ -1,10 +1,11 @@
 //! Separate code reached only by compiler runs from code reachable by the runtime.
 //! Procedure values and global relocations participate, so freezing a callback does
 //! not make its later runtime calls inherit compile-time storage semantics.
-use super::{Compiler, HashSet, ProcId};
 use jaic::ide::CompileTimeReach;
 use jaic::ir::{self, Callee, FuncId, GlobalId, Inst};
 use jaic::sema::procs::ProcTarget;
+
+use super::{Compiler, HashSet, ProcId};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum Node {

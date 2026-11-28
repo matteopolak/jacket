@@ -1,6 +1,7 @@
 //! Private compiler/runtime configuration has target storage, not a public module parameter.
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
+
+use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 
 const SOURCE: &str = r#"
     __jaic_runtime_temporary_storage_size :: () -> s64 #intrinsic #no_context;

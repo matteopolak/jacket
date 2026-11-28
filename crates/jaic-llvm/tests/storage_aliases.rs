@@ -1,6 +1,7 @@
 //! Real C-owned variables shared through filtered reexports, native and WASM64 O0/O2.
-use jaic::sema::{Compiler, NativeFs};
 use std::rc::Rc;
+
+use jaic::sema::{Compiler, NativeFs};
 use test_support::TempDir;
 use test_support::backend::{self, VARIANTS};
 

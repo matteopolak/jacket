@@ -1,5 +1,6 @@
 //! Registration primitives; pending servicing stays separate.
 use std::process::{Command, Output};
+
 use test_support::plugin::registration_fixture as fixture;
 
 fn jaic(name: &str, args: &[&str]) -> Output {

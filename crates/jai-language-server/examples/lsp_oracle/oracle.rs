@@ -1,5 +1,8 @@
 //! The compiler's own answers for one program, recorded by a plain compile with editor facts:
 //! what each identifier of the file resolved to, and the struct each literal builds.
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
+
 use jaic::build::{BuildEnv, Workspaces};
 use jaic::ide::{IdeFacts, IdeRoot, IdeWhat};
 use jaic::interp::{SandboxHost, SharedHost};
@@ -7,8 +10,6 @@ use jaic::lexer::{P, Tok};
 use jaic::sema::{Compiler, Options};
 use jaic::source::FileId;
 use jaic::types::{TypeId, TypeKind};
-use std::path::{Path, PathBuf};
-use std::rc::Rc;
 
 /// What a use resolved to, as far as the checks need it.
 #[derive(Clone, Debug)]

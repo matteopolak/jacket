@@ -1,6 +1,7 @@
 //! `#asm` `syscall`: type-checking for Linux x86-64, the sandbox refusing it (memory mapping
 //! aside), and real calls on a Linux x86-64 host.
 use std::process::Command;
+
 use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");

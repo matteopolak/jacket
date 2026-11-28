@@ -3,6 +3,7 @@
 //! The interrupt state is process-wide, so every test here takes `LOCK`, and nothing else
 //! runs in this binary.
 use std::sync::Mutex;
+
 use test_support::lsp::{file_uri, lean_session};
 
 static LOCK: Mutex<()> = Mutex::new(());
@@ -237,10 +238,11 @@ fn interrupted_lints_are_not_cached_and_retry_matches_fresh() {
 
 #[test]
 fn interrupted_warm_up_keeps_completed_scans_but_retries_the_interrupted_file() {
-    use jaic::sema::{FileSystem, NativeFs};
     use std::cell::{Cell, RefCell};
     use std::path::{Path, PathBuf};
     use std::rc::Rc;
+
+    use jaic::sema::{FileSystem, NativeFs};
 
     struct StopOnB {
         stop: Cell<bool>,

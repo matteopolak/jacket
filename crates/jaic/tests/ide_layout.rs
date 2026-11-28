@@ -1,8 +1,9 @@
 //! Dependency-order regression, independent of standard-library modules.
+use std::rc::Rc;
+
 use jaic::ide::IdeFacts;
 use jaic::intern::Sym;
 use jaic::sema::{Compiler, EntityId, NativeFs, Options, ProgramSource};
-use std::rc::Rc;
 
 #[test]
 fn member_constants_see_field_types_before_unused_checking() {

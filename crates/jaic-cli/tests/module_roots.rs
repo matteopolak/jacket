@@ -3,6 +3,7 @@
 //! replace `Basic` (or any other module) for the rest of the program.
 use std::path::Path;
 use std::process::{Command, Output};
+
 use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");

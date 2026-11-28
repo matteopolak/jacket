@@ -1,7 +1,8 @@
 //! A request never builds the auto-import module index: a session that defers compiles (the
 //! transport's mode) offers no auto imports, and asks again, until the idle warm-up has read it.
-use jai_language_server::{CompletionList, Limits, Session};
 use std::path::Path;
+
+use jai_language_server::{CompletionList, Limits, Session};
 use test_support::lsp::{end_of, modules_environment, project, uri_of};
 
 fn session() -> Session {

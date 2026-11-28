@@ -3,13 +3,14 @@
 //! From the token under the cursor outwards: the expressions around it, the statements, the
 //! bodies between braces and with them, the declaration, and the whole file. A document that
 //! does not parse still has ranges for its recovered, unaffected syntax.
+use jaic::ast::walk::{Node, walk};
+use jaic::ast::{Block, ExprKind as E, Stmt, StmtKind as S};
+use jaic::source::FileId;
+
 use crate::analysis::{Span, TokenKind};
 use crate::refactor::{stmt_extent, trim};
 use crate::session::Session;
 use crate::{Error, Position, SelectionRange};
-use jaic::ast::walk::{Node, walk};
-use jaic::ast::{Block, ExprKind as E, Stmt, StmtKind as S};
-use jaic::source::FileId;
 
 /// The ranges around `byte`, in no order.
 fn around(text: &str, stmts: &[Stmt], byte: usize, out: &mut Vec<(usize, usize)>) {

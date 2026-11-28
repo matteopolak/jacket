@@ -21,14 +21,16 @@ mod type_links;
 mod view;
 mod wasm;
 
-use crate::cli::DocArgs;
-use crate::{test::stdlib::stdlib_dir, tools};
-use jacket_config::schema::Doc;
-use model::{Kind, Module};
-use site::Site;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
+
+use jacket_config::schema::Doc;
+use model::{Kind, Module};
+use site::Site;
+
+use crate::cli::DocArgs;
+use crate::{test::stdlib::stdlib_dir, tools};
 
 /// Present in a folder `jacket doc` wrote, so the next run may replace it.
 const MARKER: &str = ".jacket-doc";

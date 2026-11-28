@@ -1,5 +1,6 @@
 //! Narrow transport-metadata recognition for repository formatter acceptance.
 use std::path::Path;
+
 use test_support::TempDir;
 
 pub fn require_readonly_capability(retained: bool, ci: bool) {

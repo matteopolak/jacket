@@ -1,11 +1,13 @@
 //! `jaic` command line: `jaic [options] file.jai [options] [+Plugin ...] [- metaprogram args] [-- program args]`.
 #![forbid(unsafe_code)]
+use std::process::ExitCode;
+
+use jaic_cli_args::cli::Cli;
+use jaic_cli_args::options::Request;
+
 use self::parse::{color_choice, parse, report_cli_error};
 use self::run::run;
 use self::usage::usage_text;
-use jaic_cli_args::cli::Cli;
-use jaic_cli_args::options::Request;
-use std::process::ExitCode;
 
 /// Every Rust allocation goes through the counter that enforces `JAIC_MEMORY_LIMIT`; unarmed it
 /// costs one relaxed load per call. The `mimalloc` feature (on in every LLVM build) puts mimalloc under it.
@@ -321,10 +323,9 @@ fn install_panic_hook() {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    #[cfg(feature = "llvm")]
-    use crate::backend::native_backend;
-    use crate::run::disable_check_bindings;
+    use std::ffi::OsString;
+    use std::path::{Path, PathBuf};
+
     use argdef::Args;
     #[cfg(feature = "llvm")]
     use jaic::build::BuildSettings;
@@ -335,8 +336,11 @@ mod tests {
     use jaic::target::{TargetCpu, TargetOs};
     use jaic_cli_args::cli::{Added, Cli, Flavor, Mode, Plugin};
     use jaic_cli_args::options::CliError;
-    use std::ffi::OsString;
-    use std::path::{Path, PathBuf};
+
+    use super::*;
+    #[cfg(feature = "llvm")]
+    use crate::backend::native_backend;
+    use crate::run::disable_check_bindings;
 
     fn triple(args: &[&str], host_os: TargetOs, host_cpu: TargetCpu) -> Option<String> {
         let mut argv = vec![OsString::from("main.jai")];

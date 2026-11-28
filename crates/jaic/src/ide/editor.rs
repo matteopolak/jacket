@@ -1,5 +1,9 @@
 //! The compiler's handle on an editor analysis. A batch compile has an idle `Editor`: every
 //! event method returns at once, so recording costs the checker one branch per site.
+use std::cell::RefCell;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
 use super::interval::Interval;
 use super::values::Narrowing;
 use super::{IdeFacts, Recorder};
@@ -11,9 +15,6 @@ use crate::parser::{SharedParse, SharedParseReuse};
 use crate::sema::{EntityId, ProcId, Result};
 use crate::source::{FileId, Span};
 use crate::types::TypeId;
-use std::cell::RefCell;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 /// What checking does after a statement of a block failed (`Editor::stmt_failed`).
 pub(crate) enum StmtRecovery {

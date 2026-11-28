@@ -18,11 +18,12 @@ pub mod standing;
 pub mod types;
 pub mod version;
 
-use clap::Subcommand;
-use jacket_config::{Config, Disk, FILE_NAME};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+
+use clap::Subcommand;
+use jacket_config::{Config, Disk, FILE_NAME};
 
 #[derive(Subcommand, Debug)]
 pub enum Action {
@@ -45,7 +46,9 @@ pub enum Action {
         tag_prefix: Option<String>,
     },
     /// Remove a dependency: its submodule, folder and entry
-    Remove { name: String },
+    Remove {
+        name: String,
+    },
     /// Show each dependency's pin and whether it is checked out
     List {
         /// Also name the remote tags that are not versions under the entry's scheme

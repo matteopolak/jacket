@@ -1,7 +1,8 @@
 //! The stack slots lowering makes for strings and views take the target's view layout.
+use std::rc::Rc;
+
 use crate::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use crate::target::{Target, TargetCpu, TargetOs};
-use std::rc::Rc;
 
 /// On i686 a view is a 4-aligned `s64` count then a 4-byte pointer: 12 bytes, not the 16 of a
 /// 64-bit target. A string literal and an empty variadic argument both get such a slot.

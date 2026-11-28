@@ -1,13 +1,14 @@
 //! Deterministic correctness checks shared by the corpus runner and fixture tests.
+use std::{
+    collections::BTreeSet,
+    path::{Path, PathBuf},
+};
+
 use jai_language_server::{
     DiagnosticSeverity, DocumentUri, Environment, Limits, Position, Range, Session, TextChange,
 };
 use jaic::{ast::StmtKind, source::FileId};
 use serde::Serialize;
-use std::{
-    collections::BTreeSet,
-    path::{Path, PathBuf},
-};
 
 // Context is application-defined and may itself be edited. These independent
 // probes explicitly have no context dependency.

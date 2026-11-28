@@ -1,7 +1,8 @@
 //! A foreign procedure is classified once and called many times: every kind of argument and
 //! result must still come out right on the second call and the thousandth.
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
+
+use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 
 fn check(source: &str) {
     let mut options = Options::host();

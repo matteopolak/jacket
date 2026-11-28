@@ -1,7 +1,8 @@
 //! Naming reaches the real SDK only through validated scheduler identities.
 #![cfg(any(target_os = "linux", target_os = "macos"))]
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
+
+use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 
 #[test]
 fn current_and_managed_worker_names_round_trip_through_the_sdk() {

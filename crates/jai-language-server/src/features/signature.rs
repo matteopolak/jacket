@@ -1,11 +1,13 @@
 //! Signature help.
+use std::path::Path;
+
+use jaic::intern::Sym;
+
 use super::open_call;
 use crate::MarkupKind;
 use crate::semantic;
 use crate::session::Session;
 use crate::{DocumentUri, Error, Position, SignatureHelp, SignatureInformation};
-use jaic::intern::Sym;
-use std::path::Path;
 
 impl Session {
     /// The signature of the call being typed at `position`, the chosen overload active.

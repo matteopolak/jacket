@@ -3,8 +3,9 @@
 //! A candidate only changes state after it is seeded, and only matters up to the last block
 //! that observes one of its cells. Every other block carries the entry state unchanged, so a
 //! sweep over the whole CFG for each candidate costs quadratic time in the body's size.
-use super::{Block, HashMap, HashSet};
 use std::collections::VecDeque;
+
+use super::{Block, HashMap, HashSet};
 
 /// Predecessors, reachability from the entry and a topological order of the strongly
 /// connected components of one CFG, shared by every candidate checked against it.

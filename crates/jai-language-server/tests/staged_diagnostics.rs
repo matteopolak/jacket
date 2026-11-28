@@ -1,7 +1,8 @@
 //! An edit publishes the compiler's diagnostics first and the lints after them, without losing
 //! or reordering any. The interrupt state is process-wide, so every test takes `LOCK`.
-use jai_language_server::{Diagnostic, DiagnosticCode, DocumentUri, Session, Stage};
 use std::sync::Mutex;
+
+use jai_language_server::{Diagnostic, DiagnosticCode, DocumentUri, Session, Stage};
 use test_support::lsp::{session, uri};
 
 static LOCK: Mutex<()> = Mutex::new(());

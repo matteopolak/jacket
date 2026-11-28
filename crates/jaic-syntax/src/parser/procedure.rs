@@ -1,4 +1,6 @@
 //! Procedure headers, parameters, return lists, flags and lambdas.
+use std::sync::Arc;
+
 use super::expr::mk;
 use super::{PResult, Parser};
 use crate::ast::{
@@ -10,7 +12,6 @@ use crate::diagnostics::Diagnostic;
 use crate::lexer::{P, Tok};
 use crate::lexicon::{is_cast_flag, is_using_filter};
 use crate::macros::raw_enum;
-use std::sync::Arc;
 
 raw_enum! {
     /// A `#directive` that flags a procedure header.

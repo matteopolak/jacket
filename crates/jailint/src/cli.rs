@@ -1,12 +1,13 @@
 //! `jailint`'s command line: its own flags are a `clap` derive, and the flags it shares with the
 //! other tools (`-os`, `-I`, `-j`, ...; single-dash words clap cannot spell) are read from
 //! `jaic::flags` before clap sees the rest.
+use std::path::PathBuf;
+
 use clap::error::{ContextKind, ContextValue, ErrorKind};
 use clap::{ArgMatches, CommandFactory, FromArgMatches, Parser};
 use jaic::flags::{self, Common, FlagError, Shared};
 use jailint::RULES;
 use jailint::config::Level;
-use std::path::PathBuf;
 
 /// What the command line asked for.
 #[derive(Default)]

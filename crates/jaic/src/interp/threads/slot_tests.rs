@@ -2,8 +2,9 @@
 //!
 //! The POSIX tests are a macro so the inline scheduler (`threads_inline_tests.rs`) runs the
 //! same ones.
-use crate::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
+
+use crate::sema::{Compiler, Options, ProgramSource, VirtualFs};
 
 /// Run the `check :: () -> bool` in `source` at compile time and return the scheduler's slot
 /// count.

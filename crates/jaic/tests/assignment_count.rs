@@ -1,7 +1,8 @@
 //! A list of values on the right of `a, b = ...` pairs with the targets one to one, as it does
 //! for `a, b := ...`: a count that differs is an error, not a value that is dropped.
-use jaic::sema::{Compiler, Options, VirtualFs};
 use std::{path::Path, rc::Rc};
+
+use jaic::sema::{Compiler, Options, VirtualFs};
 
 fn compile(body: &str) -> Result<(), String> {
     let source = format!("main :: () {{\n    a, b := 1, 2;\n    {body}\n}}\n");

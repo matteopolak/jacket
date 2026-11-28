@@ -1,7 +1,9 @@
 //! Input file, build and command line mistakes and rich layouts.
-use super::{JAIC, assert_in_order, jaic, jaic_on, stderr};
 use std::process::Command;
+
 use test_support::TempDir;
+
+use super::{JAIC, assert_in_order, jaic, jaic_on, stderr};
 
 #[test]
 fn input_file_problems() {

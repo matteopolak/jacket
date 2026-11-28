@@ -1,8 +1,4 @@
 //! Lowering compiler intrinsics, wide floats, fibers and inline assembly.
-use super::error::Error;
-use super::inst::basic;
-use super::state::FnState;
-use super::{Backend, R};
 use inkwell::AtomicOrdering;
 use inkwell::AtomicRMWBinOp;
 use inkwell::FloatPredicate;
@@ -14,6 +10,11 @@ use inkwell::values::{
 };
 use jaic::abi::Arch;
 use jaic::ir::{self, AtomicOp, CmpOp, Intrinsic, Ty, WideArith, WideFloat, WideOp};
+
+use super::error::Error;
+use super::inst::basic;
+use super::state::FnState;
+use super::{Backend, R};
 
 impl<'ctx> Backend<'ctx, '_> {
     /// What the SIMD intrinsics (`ByteLookup`, `SignMask`) lower through: see `simd`.

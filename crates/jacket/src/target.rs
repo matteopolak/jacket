@@ -1,10 +1,11 @@
 //! Named build targets: `--target NAME` picks a `[target.NAME]` table of `jacket.toml` or one of
 //! the built-in boards, and `jacket toolchain` lists them. A name that is neither passes to jaic
 //! as the LLVM triple it is, unless it cannot be one.
-use jacket_config::Config;
-use jacket_config::schema::Target as Table;
 use std::ffi::OsString;
 use std::path::Path;
+
+use jacket_config::Config;
+use jacket_config::schema::Target as Table;
 
 /// Where the boards live in the standard library.
 pub const BOARDS: &str = "Extensions/Embedded/Boards";
@@ -93,7 +94,7 @@ impl Target {
             let board = self.board.as_deref()?;
 
             built_in()
-                .find(|(name, _, _)| *name == board)
+                .find(|(name, ..)| *name == board)
                 .map(|(_, triple, _)| triple)
         })
     }

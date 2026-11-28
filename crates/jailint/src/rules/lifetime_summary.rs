@@ -1,7 +1,5 @@
 //! Compilation-local, parameter-relative effects. Only checked instances enter the call
 //! graph; SCCs are solved from callees upwards and recursion starts without guarantees.
-use super::lifetime_movement::{self, Mutation, Selector};
-use super::lifetime_places::{Places, Projection};
 use jaic::fxhash::{HashMap, HashSet};
 use jaic::ide::lifetimes::{
     LifetimeArgument, LifetimeBody, LifetimeEvent as Event, LifetimeOperand,
@@ -10,6 +8,9 @@ use jaic::ir::Val;
 use jaic::sema::{Compiler, ProcId, procs::BodyState};
 use jaic::source::Span;
 use jaic::types::{ArrayKind, TypeId, TypeKind};
+
+use super::lifetime_movement::{self, Mutation, Selector};
+use super::lifetime_places::{Places, Projection};
 
 mod address_arithmetic;
 mod allocation_effects;

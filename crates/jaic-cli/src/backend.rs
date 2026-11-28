@@ -1,6 +1,7 @@
 //! Building workspaces and the LLVM output backend.
-use super::parse::shown;
-use super::timings;
+use std::ffi::OsString;
+use std::path::{Path, PathBuf};
+
 #[cfg(feature = "llvm")]
 use jaic::build::OutputType;
 use jaic::build::{BuildSettings, OutputBackend};
@@ -15,8 +16,9 @@ use jaic::target::Target;
 #[cfg(feature = "llvm")]
 use jaic::target::{TargetCpu, TargetOs};
 use jaic_cli_args::cli::{Cli, Flavor};
-use std::ffi::OsString;
-use std::path::{Path, PathBuf};
+
+use super::parse::shown;
+use super::timings;
 
 #[cfg(all(
     feature = "lazy-llvm",
@@ -31,9 +33,10 @@ compile_error!(
 /// either way.
 #[cfg(feature = "llvm")]
 mod generate {
+    use std::path::{Path, PathBuf};
+
     use jaic::ir::Program;
     use jaic_native::Options;
-    use std::path::{Path, PathBuf};
 
     /// Write `program` as the one object file `path`.
     #[cfg(not(feature = "lazy-llvm"))]

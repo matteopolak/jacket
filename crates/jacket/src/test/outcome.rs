@@ -1,7 +1,8 @@
 //! What happened to a case: its status and what it reported.
-use super::exec::{Failure, Subtest};
 use std::path::PathBuf;
 use std::time::Duration;
+
+use super::exec::{Failure, Subtest};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Status {

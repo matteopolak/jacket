@@ -8,6 +8,8 @@
 //! global_data_info: *Global_Data_Info; }`, `Global_Data_Info { version_stamp:
 //! u64; segment_info: [] Global_Data_Segment_Info; }`,
 //! `Global_Data_Segment_Info { segment_tag: u16; data: [] u8; }`.
+use scope::{EntityKind, Resolved, ScopeKind};
+
 use super::{
     Arc, Compiler, Diagnostic, EntityId, HashSet, Result, Span, TypeId, Value, ast, ir, scope,
 };
@@ -16,7 +18,6 @@ use crate::layout::{DataLayout, Member, Packed};
 use crate::sema::Output;
 use crate::sema::TypeState;
 use crate::types::{LayoutState, TypeKind};
-use scope::{EntityKind, Resolved, ScopeKind};
 
 const SEGMENT_DATA: u16 = 1;
 const SEGMENT_RDATA: u16 = 2;

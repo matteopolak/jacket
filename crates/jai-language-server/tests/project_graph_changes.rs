@@ -1,8 +1,9 @@
 //! The program a file belongs to follows changes to the project's graph: `#load` lines added or
 //! removed, files created, deleted or renamed on disk, a changed `jacket.toml`, and several
 //! workspace folders. Each case compares against what a fresh session says.
-use jai_language_server::{DiagnosticCode, DocumentUri, Session};
 use std::path::Path;
+
+use jai_language_server::{DiagnosticCode, DocumentUri, Session};
 use test_support::lsp::{open_file, project, uri_of, workspace_session};
 
 fn check_errors(s: &Session, uri: &DocumentUri) -> Vec<String> {

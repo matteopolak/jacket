@@ -1,9 +1,10 @@
 //! The file system the compiler reads sources through.
-use crate::fxhash::HashMap;
-use crate::paths::normalize;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+
+use crate::fxhash::HashMap;
+use crate::paths::normalize;
 
 /// Source access. Native builds read the filesystem; the browser supplies a
 /// virtual file system containing the workspace, prelude and stdlib.

@@ -17,13 +17,15 @@
 //!
 //! Needs the `backend` feature.
 
-use crate::{process, toolchain};
-use jaic::sema::{Compiler, Options, VirtualFs};
-use jaic::target::{TargetCpu, TargetOs};
-use jaic_llvm::OptLevel;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::rc::Rc;
+
+use jaic::sema::{Compiler, Options, VirtualFs};
+use jaic::target::{TargetCpu, TargetOs};
+use jaic_llvm::OptLevel;
+
+use crate::{process, toolchain};
 
 /// One way to build a program: for the host or for wasm64, at `-O0` or `-O2`.
 #[derive(Clone, Copy, Debug)]

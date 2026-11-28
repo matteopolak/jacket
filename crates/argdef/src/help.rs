@@ -105,11 +105,23 @@ impl Help {
     /// use argdef::{Help, Row};
     ///
     /// let help = Help {
-    ///     name: "demo".into(), version: String::new(), about: String::new(),
-    ///     usage: String::new(), description: String::new(), sections: vec![], footer: vec![],
+    ///     name: "demo".into(),
+    ///     version: String::new(),
+    ///     about: String::new(),
+    ///     usage: String::new(),
+    ///     description: String::new(),
+    ///     sections: vec![],
+    ///     footer: vec![],
     /// };
-    /// let row = Row { label: "DEMO_HOME".into(), text: "where it lives".into() };
-    /// assert!(help.section("Environment", vec![row]).render(false).contains("DEMO_HOME"));
+    /// let row = Row {
+    ///     label: "DEMO_HOME".into(),
+    ///     text: "where it lives".into(),
+    /// };
+    /// assert!(
+    ///     help.section("Environment", vec![row])
+    ///         .render(false)
+    ///         .contains("DEMO_HOME")
+    /// );
     /// ```
     #[must_use]
     pub fn section(mut self, title: &str, rows: Vec<Row>) -> Self {
@@ -123,11 +135,20 @@ impl Help {
     /// use argdef::{Help, Row};
     ///
     /// let help = Help {
-    ///     name: "demo".into(), version: String::new(), about: String::new(),
-    ///     usage: String::new(), description: String::new(), sections: vec![], footer: vec![],
+    ///     name: "demo".into(),
+    ///     version: String::new(),
+    ///     about: String::new(),
+    ///     usage: String::new(),
+    ///     description: String::new(),
+    ///     sections: vec![],
+    ///     footer: vec![],
     /// };
-    /// let row = Row { label: "A".into(), text: "b".into() };
-    /// let text = help.section("Last", vec![row.clone()])
+    /// let row = Row {
+    ///     label: "A".into(),
+    ///     text: "b".into(),
+    /// };
+    /// let text = help
+    ///     .section("Last", vec![row.clone()])
     ///     .section_before("Last", "First", vec![row])
     ///     .render(false);
     /// assert!(text.find("First:").unwrap() < text.find("Last:").unwrap());

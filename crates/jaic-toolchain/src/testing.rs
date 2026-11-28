@@ -1,9 +1,11 @@
 //! A machine described by a table, for tests of the lookups. Nothing here touches the real one.
-use crate::host::{Host, Os};
-use jacket_config::env::Var;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
+
+use jacket_config::env::Var;
+
+use crate::host::{Host, Os};
 
 /// A host built from the files it has, the folders of its `PATH` and what its tools print.
 pub struct FakeHost {

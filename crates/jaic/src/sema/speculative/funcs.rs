@@ -2,12 +2,13 @@
 //! and queues its body. The body is handed provisional function ids that start after the
 //! program's last one; its commit reserves the real ones, in the order the serial path would, and
 //! rewrites the finished IR.
+use std::cell::RefCell;
+
 use super::{Shift, UNDO, abandon, active, defer};
 use crate::ir;
 use crate::sema::body_probe::W;
 use crate::sema::procs::{BodyState, ProcTarget};
 use crate::sema::{Compiler, ProcId};
-use std::cell::RefCell;
 
 /// A function a speculative body reserved.
 pub(super) struct LocalFunc {

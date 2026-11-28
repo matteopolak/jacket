@@ -1,9 +1,10 @@
 //! `textDocument/formatting` and `textDocument/rangeFormatting`, answered by running `jaifmt`.
 //! The tests that format use the built `jaifmt` (`<target dir>/jaifmt`, as `dev.py` and CI
 //! build it); the rest drive the server with a stand-in script.
+use std::path::{Path, PathBuf};
+
 use jai_language_server::{JsonSession, Limits};
 use serde_json::{Value, json};
-use std::path::{Path, PathBuf};
 use test_support::TempDir;
 use test_support::toolchain;
 

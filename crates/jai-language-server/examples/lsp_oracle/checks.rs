@@ -1,11 +1,12 @@
 //! Checks (a), (b), (d) and (e): what the server reports on a file the compiler accepts, against what
 //! the compiler resolved.
-use super::oracle::{Oracle, Resolved};
-use super::{Finding, pos_of};
 use jai_language_server::{
     DiagnosticCode, DiagnosticSeverity, DocumentUri, Hover, Position, Session,
 };
 use serde::Serialize;
+
+use super::oracle::{Oracle, Resolved};
+use super::{Finding, pos_of};
 
 /// A region the server fades as unreachable, with where a statement could be put to see whether
 /// it runs after all (`None`: the region does not start at a statement).

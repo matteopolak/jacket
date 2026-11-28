@@ -60,13 +60,15 @@ pub fn used_libraries(program: &Program) -> Vec<Library> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::link::{LinkArg, order_link_groups, toolchain_for, uses_compiler_helpers};
-    use crate::linker::{library_args, render_link_arg};
+    use std::process::Command;
+
     use jaic::target::Target as BuildTarget;
     use jaic::target::TargetCpu;
     use jaic::toolchain::Linker;
-    use std::process::Command;
+
+    use super::*;
+    use crate::link::{LinkArg, order_link_groups, toolchain_for, uses_compiler_helpers};
+    use crate::linker::{library_args, render_link_arg};
 
     #[test]
     fn stamp_names_the_sources_and_layouts() {

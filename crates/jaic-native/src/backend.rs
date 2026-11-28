@@ -13,11 +13,13 @@
 //! driver's closure, which copies them, so each side frees only what its own allocator made.
 #![allow(unsafe_code)]
 
-use crate::options::Options;
-use jaic::ir::Program;
 use std::ffi::c_void;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
+
+use jaic::ir::Program;
+
+use crate::options::Options;
 
 /// What the library exports. The stamp is read first; only a matching library is asked to emit.
 pub const STAMP_SYMBOL: &str = "jaic_backend_stamp";

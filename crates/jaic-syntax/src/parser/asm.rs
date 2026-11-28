@@ -12,6 +12,8 @@
 //! ```
 //!
 //! The parser is mnemonic-agnostic; `sema::asm` owns the instruction table.
+use std::sync::Arc;
+
 use super::expr::mk;
 use super::{PResult, Parser};
 use crate::ast::{
@@ -21,7 +23,6 @@ use crate::ast::{
 use crate::diagnostics::Code;
 use crate::intern::Sym;
 use crate::lexer::{P, Tok};
-use std::sync::Arc;
 
 impl Parser<'_> {
     /// `#asm FEATURE, ... { ... }`

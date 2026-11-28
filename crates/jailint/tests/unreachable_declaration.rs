@@ -1,7 +1,8 @@
 //! `unreachable_declaration` across files and roots: what counts as a use.
+use std::path::{Path, PathBuf};
+
 use jailint::config::{Config, Level};
 use jailint::driver::{Options, run};
-use std::path::{Path, PathBuf};
 use test_support::TempDir;
 
 const RULE: &str = "unreachable_declaration";

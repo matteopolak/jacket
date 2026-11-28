@@ -13,9 +13,10 @@
 //!
 //! `check` is `jaic -check <args>`. `run` is `jaic <args>` followed by the program (arguments
 //! after `--` go to it); with `-interp` the whole command line, `--` included, is jaic's.
-use jacket_config::{Files, Loaded};
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
+
+use jacket_config::{Files, Loaded};
 
 /// What the project contributes to a command line.
 pub struct Context<'a> {

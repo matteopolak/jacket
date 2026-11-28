@@ -11,10 +11,11 @@
 //! A target with 2-byte pointers (AVR) gets a 64 KiB window: the top 16 KiB hold procedure
 //! addresses and the first 256 bytes are never mapped. It has no read-only region, so read-only
 //! data lives in ordinary memory, as it does in the RAM of the real part.
-use super::addresses::AddressMap;
-use super::host_pages::{self, Access};
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
+
+use super::addresses::AddressMap;
+use super::host_pages::{self, Access};
 
 /// Bytes of address space a window maps. The rest of the 32-bit range holds procedure addresses.
 pub(super) const SPAN: usize = 0xC000_0000;

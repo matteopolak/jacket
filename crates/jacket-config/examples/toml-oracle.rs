@@ -1,7 +1,8 @@
 //! Independent TOML test oracle. Runtime configuration continues using the same pinned Rust parser.
-use serde_json::{Value as Json, json};
 use std::io::{self, Read};
 use std::process::ExitCode;
+
+use serde_json::{Value as Json, json};
 
 fn tag(value: &toml::Value) -> Json {
     let (kind, text) = match value {

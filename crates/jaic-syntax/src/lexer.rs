@@ -10,6 +10,8 @@ mod quote;
 mod scan;
 mod value_map;
 
+use std::sync::Arc;
+
 pub use self::api::{
     CPU_TAGS, Comment, CommentKind, Lexed, OS_TAGS, PlatformTarget, lex, lex_for_target, lex_ide,
     lex_stoppable, lex_with_trivia, lexical_regions,
@@ -23,7 +25,6 @@ pub(crate) use self::scan::is_ident_char;
 pub use self::value_map::string_value_map;
 use crate::intern::Sym;
 use crate::source::Span;
-use std::sync::Arc;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Tok {

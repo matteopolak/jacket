@@ -1,8 +1,6 @@
 //! Emitting objects and IR for a program, split into codegen units.
-use super::lower::Shard;
-use super::machine::{set_coverage_options, target_machine, verify_ir};
-use super::partition::func_weight;
-use super::{debuginfo, green, lower, partition, simd, split};
+use std::path::{Path, PathBuf};
+
 use inkwell::attributes::{Attribute, AttributeLoc};
 use inkwell::context::Context;
 use inkwell::passes::PassBuilderOptions;
@@ -11,7 +9,11 @@ use jaic::ir::{self, Program};
 use jaic::target::Target as BuildTarget;
 use jaic_native::check_sanitizer_target;
 use jaic_native::{Codegen, OptLevel, Options};
-use std::path::{Path, PathBuf};
+
+use super::lower::Shard;
+use super::machine::{set_coverage_options, target_machine, verify_ir};
+use super::partition::func_weight;
+use super::{debuginfo, green, lower, partition, simd, split};
 
 /// Lower `program` (or one shard of it) to one LLVM module and write it as an object file.
 /// With `split_after_opt`, an optimized module large enough is written as several objects

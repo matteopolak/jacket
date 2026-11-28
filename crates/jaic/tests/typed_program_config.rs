@@ -1,6 +1,7 @@
 //! Module configuration controls.
-use jaic::sema::{Compiler, Options, VirtualFs};
 use std::{path::Path, rc::Rc};
+
+use jaic::sema::{Compiler, Options, VirtualFs};
 
 fn compile(module: &str, main: &str) -> (Compiler, jaic::sema::Result<()>) {
     compile_with_dependency(module, main, None)

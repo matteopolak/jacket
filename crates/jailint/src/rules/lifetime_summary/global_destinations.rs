@@ -1,6 +1,7 @@
 //! Replay writes through closed, activation-owned global pointer bindings at their callers.
-use super::{Event, HashSet, Path, ProcId, Resolver, Root, Step, TypeId};
 use jaic::ir::GlobalId;
+
+use super::{Event, HashSet, Path, ProcId, Resolver, Root, Step, TypeId};
 
 impl Resolver<'_> {
     pub(super) fn temporary_target(&self, mut path: Path) -> Option<Path> {

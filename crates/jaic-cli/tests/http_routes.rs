@@ -3,6 +3,7 @@
 //! The behavior is described in docs/extensions/http-server.md.
 use std::path::Path;
 use std::process::{Command, Output};
+
 use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");

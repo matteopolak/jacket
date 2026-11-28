@@ -3,8 +3,9 @@
 //! against a directory instead of the network.
 //!
 //! The real source starts `curl` and `tar` through [`crate::net`], as `install.sh` does.
-use crate::net::Curl;
 use std::path::Path;
+
+use crate::net::Curl;
 
 pub const REPO: &str = "matteopolak/jacket";
 

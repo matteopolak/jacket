@@ -105,7 +105,9 @@ pub enum DataImport {
     /// named in `only` promises its data comes from the DLL. The generic names also reach the
     /// static import library, which defines some data itself, and a `dllimport` reference to
     /// that cannot link.
-    DllImport { only: &'static [&'static str] },
+    DllImport {
+        only: &'static [&'static str],
+    },
 }
 
 /// The C runtime of a target.

@@ -4,9 +4,10 @@
 //! first call into an unfamiliar library. The worker waits for each forwarded call.
 //! Thread-safe system-library calls retain their existing direct fast path.
 
-use super::{Plan, Rets, Sig, call_with, callbacks};
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Mutex, OnceLock};
+
+use super::{Plan, Rets, Sig, call_with, callbacks};
 
 type Job = Box<dyn FnOnce() + Send>;
 

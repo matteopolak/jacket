@@ -2,9 +2,10 @@
 //! the 16-byte table form is what `byte_lookup` needs. A scalable-vector path would test
 //! `Feature::Sve` here before the NEON one.
 
+use inkwell::values::{PointerValue, VectorValue};
+
 use super::features::{Family, Feature};
 use super::{Cx, R};
-use inkwell::values::{PointerValue, VectorValue};
 
 pub fn byte_lookup<'ctx>(
     cx: &Cx<'_, 'ctx>,

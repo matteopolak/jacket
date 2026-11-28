@@ -1,7 +1,9 @@
-use crate::{Error, Range};
-use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::path::Path;
+
+use serde::Deserialize;
+
+use crate::{Error, Range};
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DocumentUri {
@@ -245,8 +247,9 @@ impl VirtualSources {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::path::PathBuf;
+
+    use super::*;
 
     #[test]
     fn windows_drive_uri_maps_to_native_absolute_path() {

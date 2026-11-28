@@ -1,7 +1,8 @@
 //! Storing a command line into a struct.
+use std::ffi::{OsStr, OsString};
+
 use crate::error::Error;
 use crate::spec::{Args, Input, Kind, Spec};
-use std::ffi::{OsStr, OsString};
 
 /// Where the arguments being read go.
 #[derive(Clone, Copy)]

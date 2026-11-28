@@ -1,9 +1,10 @@
 //! Preserve allocation provenance through a checked integer round-up of an address.
 //! Ordinary integer results do not become pointers merely because they are cast.
-use super::{Def, Event, HashMap, HashSet, ProcId, Resolver, Summary, Val, value};
 use jaic::ast::{BinOp, Expr, ExprKind as E, StmtKind as S};
 use jaic::intern::Sym;
 use jaic::types::TypeKind;
+
+use super::{Def, Event, HashMap, HashSet, ProcId, Resolver, Summary, Val, value};
 
 fn identifier(e: &Expr, name: Sym) -> bool {
     matches!(e.kind,E::Ident(n) if n==name)

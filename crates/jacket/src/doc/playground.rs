@@ -1,7 +1,8 @@
 //! The playground page of the generated site, and the browser-compiler bundle it runs on.
+use std::path::Path;
+
 use super::site::Site;
 use super::view::{Content, NavCategory, PageHead, PageView, Sidebar};
-use std::path::Path;
 
 /// The playground page's file.
 pub const PATH: &str = "playground.html";
@@ -132,9 +133,11 @@ pub fn page(site: &Site, nav: &[NavCategory]) -> PageView {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::fs;
+
     use test_support::TempDir;
+
+    use super::*;
 
     fn staged(extra: &[(&str, &str)]) -> TempDir {
         let dir = TempDir::new("doc-playground");

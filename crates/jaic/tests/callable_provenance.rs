@@ -1,6 +1,7 @@
 //! Declaration metadata must not be selected by structural procedure `TypeId`.
-use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 use std::{path::PathBuf, rc::Rc};
+
+use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 
 /// The parameter names of a procedure value's header, without where they are declared.
 fn names(header: &jaic::sema::ProcTypeParams) -> Vec<Option<jaic::intern::Sym>> {

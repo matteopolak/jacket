@@ -1,13 +1,15 @@
-use super::report::{self, Counts, Failure, File, Gap, Manifest, Missing, Report, Target};
-use super::{Role, environment, position, role, using_modifier};
+use std::io::Write;
+use std::path::{Path, PathBuf};
+
 use jai_language_server::{DiagnosticCode, DiagnosticSeverity, DocumentUri, Limits, Session};
 use jaic::fxhash::HashSet;
 use jaic::{
     lexer::{P, Tok},
     target::{TargetCpu, TargetOs},
 };
-use std::io::Write;
-use std::path::{Path, PathBuf};
+
+use super::report::{self, Counts, Failure, File, Gap, Manifest, Missing, Report, Target};
+use super::{Role, environment, position, role, using_modifier};
 
 fn checkpoint(path: Option<&Path>, value: serde_json::Value) -> Result<(), String> {
     if let Some(path) = path {
@@ -477,7 +479,7 @@ impl Audit {
         let plan = report::fingerprint(
             &opened
                 .iter()
-                .map(|(file, _, _)| {
+                .map(|(file, ..)| {
                     format!(
                         "{}:{}",
                         file.input_id,

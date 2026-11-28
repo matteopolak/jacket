@@ -6,11 +6,12 @@
 //! recorded file (so a read inside a library helper lands on the user's call). A note and the
 //! code that read it are usually in different workspace compilers, so `share_note_reads`
 //! gives every compiler of a check the readers all of them found.
+use std::sync::Arc;
+
 use crate::fxhash::HashSet;
 use crate::interp::note_watch::{NotePlace, NoteRead};
 use crate::sema::Compiler;
 use crate::source::{FileId, Span};
-use std::sync::Arc;
 
 /// Compile-time code that read a note.
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -1,8 +1,8 @@
 //! `jaic -interp +Plugin` runs the program the plugins compile: their code added before it
 //! runs, their message loop, the program's arguments and its exit status.
-use test_support::TempDir;
-
 use std::{path::PathBuf, process::Command};
+
+use test_support::TempDir;
 
 fn program(name: &str) -> (TempDir, PathBuf) {
     let dir = TempDir::new(name);

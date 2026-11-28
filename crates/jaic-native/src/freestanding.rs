@@ -3,16 +3,18 @@
 //! There is no C driver, libc or startup file: the program defines its own entry point, and a
 //! linker script places its sections. `ld.lld` is the only linker used; if it is missing the
 //! build fails with a note that says how to get it.
-use crate::toolchain::{command, lookup, report};
+use std::ffi::OsString;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
 use jacket_config::os_text;
 use jaic::ir::Library;
 use jaic::target::{Target, TargetCpu};
 use jaic_toolchain::builtins::find_builtins;
 use jaic_toolchain::linker::find_linker;
 use jaic_toolchain::{Found, Overrides};
-use std::ffi::OsString;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+
+use crate::toolchain::{command, lookup, report};
 
 /// How a freestanding program is linked.
 pub struct FreestandingLink<'a> {
@@ -136,8 +138,9 @@ pub fn link_freestanding(link: &FreestandingLink) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use jaic_toolchain::Origin;
+
+    use super::*;
 
     fn words(args: &[&str]) -> Vec<OsString> {
         args.iter().map(OsString::from).collect()

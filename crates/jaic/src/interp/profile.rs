@@ -3,8 +3,9 @@
 //! Every interpreter (the main compile and each metaprogram workspace) counts calls, basic blocks
 //! and instructions executed in each procedure's own frames (callees not included), and merges them
 //! into a process-wide table when it is dropped or flushed. `report` formats the table.
-use crate::fxhash::HashMap;
 use std::sync::{LazyLock, Mutex, MutexGuard, OnceLock};
+
+use crate::fxhash::HashMap;
 
 pub(crate) fn enabled() -> bool {
     static ENABLED: OnceLock<bool> = OnceLock::new();

@@ -1,6 +1,7 @@
 //! `black_box` returns what it is given, for scalars and aggregates, when the interpreter runs it.
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
+
+use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 
 const DECLS: &str = "black_box :: (value: $T) -> T #intrinsic;\n";
 

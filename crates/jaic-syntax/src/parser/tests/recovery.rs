@@ -1,8 +1,9 @@
 //! Diagnostics, inline assembly, nesting limits and dead platform branches.
+use std::sync::Arc;
+
 use super::{error, parse, proc_of, value};
 use crate::ast::*;
 use crate::source::FileId;
-use std::sync::Arc;
 
 // -- diagnostics ----------------------------------------------------------------
 

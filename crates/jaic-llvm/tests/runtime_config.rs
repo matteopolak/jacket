@@ -1,6 +1,7 @@
 //! Private finalized runtime options execute on both real backend targets.
-use jaic::sema::{Compiler, ProgramSource, VirtualFs};
 use std::{process::Command, rc::Rc};
+
+use jaic::sema::{Compiler, ProgramSource, VirtualFs};
 use test_support::backend::{self, VARIANTS};
 use test_support::{TempDir, process};
 

@@ -1,8 +1,9 @@
 //! `jacket toolchain add <linux target>`: a sysroot of pinned Debian packages, for linking a
 //! Linux program on a machine whose own C library is not the target's.
+use std::path::{Path, PathBuf};
+
 use jaic::target::Target;
 use jaic_toolchain::{Host, cache, pins};
-use std::path::{Path, PathBuf};
 
 /// Downloads the target's packages (each checked against its pinned sha256), unpacks them into
 /// `<cache>/<triple>/sysroot` and returns that folder. `say` is told about each package.

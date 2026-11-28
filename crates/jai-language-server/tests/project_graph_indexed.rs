@@ -1,8 +1,9 @@
 //! Closed-file diagnostics from background indexing follow changes to the project's graph: a
 //! `#load` added on disk, files created or deleted, and a changed `jacket.toml` entry.
+use std::path::Path;
+
 use jai_language_server::{JsonSession, Limits};
 use serde_json::{Value, json};
-use std::path::Path;
 use test_support::lsp::{environment, project, uri_of};
 
 const MAIN: &str = "#import \"Basic\";\n#load \"a.jai\";\nmain :: () { use_it(); }\n";

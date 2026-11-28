@@ -171,8 +171,14 @@ pub fn display_path(path: &std::path::Path) -> String {
 /// ```
 /// use std::path::Path;
 /// let base = Path::new("/work/app");
-/// assert_eq!(jaic_syntax::display_path_from(base, Path::new("/work/lib/a.jai")), "../lib/a.jai");
-/// assert_eq!(jaic_syntax::display_path_from(base, Path::new("/opt/a.jai")), "/opt/a.jai");
+/// assert_eq!(
+///     jaic_syntax::display_path_from(base, Path::new("/work/lib/a.jai")),
+///     "../lib/a.jai"
+/// );
+/// assert_eq!(
+///     jaic_syntax::display_path_from(base, Path::new("/opt/a.jai")),
+///     "/opt/a.jai"
+/// );
 /// ```
 pub fn display_path_from(base: &std::path::Path, path: &std::path::Path) -> String {
     if path == base {
@@ -252,13 +258,13 @@ fn missing_stdlib_message(
 
 #[cfg(test)]
 mod tests {
-    use super::{PRELUDE_ENTRIES, enclosing_stdlib};
+    use std::path::Path;
 
+    use super::{PRELUDE_ENTRIES, enclosing_stdlib};
     use super::{
         enclosing_stdlib_with, find_preload_with, missing_stdlib_message, stdlib_root_with,
     };
     use crate::filesystem::VirtualFs;
-    use std::path::Path;
 
     #[test]
     fn candidate_order_and_both_layouts_share_root_detection() {

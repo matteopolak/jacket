@@ -1,12 +1,13 @@
 //! A check-only child must retain checked IR for subsequent semantic analysis.
-use jaic::build::{BuildEnv, BuildSettings, OutputBackend, WorkspaceObserver, Workspaces};
-use jaic::sema::procs::ProcTarget;
-use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 use std::{
     cell::RefCell,
     path::{Path, PathBuf},
     rc::Rc,
 };
+
+use jaic::build::{BuildEnv, BuildSettings, OutputBackend, WorkspaceObserver, Workspaces};
+use jaic::sema::procs::ProcTarget;
+use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 
 struct Retain(Rc<RefCell<Vec<Compiler>>>);
 

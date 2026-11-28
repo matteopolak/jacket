@@ -2,8 +2,9 @@
 //! tool commands are listed here only so `--help` shows them: `main` hands their arguments to
 //! the tool before clap parses anything, so no flag of `jaic`, `jailint`, `jaifmt` or `jailsp`
 //! is ever interpreted, translated or reordered.
-use clap::{Parser, Subcommand};
 use std::ffi::OsString;
+
+use clap::{Parser, Subcommand};
 
 /// The commands whose arguments belong to a tool.
 pub const TOOL_COMMANDS: [&str; 10] = [

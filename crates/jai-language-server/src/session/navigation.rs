@@ -1,4 +1,6 @@
 //! Definitions, sources and hovers.
+use std::path::Path;
+
 use super::{Session, layout_line};
 use crate::analysis::{Span, TokenKind};
 use crate::hover::{Block, HoverText, Inline};
@@ -6,7 +8,6 @@ use crate::semantic::{self};
 use crate::{
     DocumentUri, Error, Hover, Location, MarkupContent, MarkupKind, Position, position::LineIndex,
 };
-use std::path::Path;
 
 impl Session {
     pub fn definition(

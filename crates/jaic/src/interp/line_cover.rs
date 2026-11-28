@@ -18,11 +18,12 @@
 //! (a `file` line, then a `line runs` line per line of that file), to `$JAIC_COVERAGE_FILE`, or
 //! to `$JAIC_COVERAGE_DIR/<program>.<pid>.cov` (default folder: the working directory), like a
 //! native program.
-use crate::fxhash::HashMap;
-use crate::ir::{self, Inst};
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::sync::{LazyLock, Mutex, MutexGuard, OnceLock};
+
+use crate::fxhash::HashMap;
+use crate::ir::{self, Inst};
 
 /// Whether the lines the program runs are being recorded (`-interp -coverage`).
 pub(crate) fn enabled() -> bool {

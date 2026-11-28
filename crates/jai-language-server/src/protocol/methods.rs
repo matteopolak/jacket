@@ -1,8 +1,9 @@
 //! Method tables for requests, notifications and server commands, and message envelopes.
+use serde_json::Value;
+
 use super::RequestId;
 use super::helpers::{failure, valid_id};
 use super::params::Envelope;
-use serde_json::Value;
 
 /// JSON-RPC and LSP error codes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -259,8 +259,9 @@ pub fn foreign_override(symbol: &str) -> Option<u64> {
 
 #[cfg(unix)]
 mod sys {
-    use super::{charge, refund};
     use std::ffi::c_void;
+
+    use super::{charge, refund};
 
     unsafe extern "C" {
         fn malloc(size: usize) -> *mut c_void;

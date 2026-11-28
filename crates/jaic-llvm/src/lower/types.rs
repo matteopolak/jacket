@@ -1,6 +1,4 @@
 //! LLVM types for IR types, signatures and their attributes.
-use super::Backend;
-use super::plan::{Lowered, ParamAttr, ParamPlan, RET_INDEX, RetPlan};
 use inkwell::AddressSpace;
 use inkwell::attributes::{Attribute, AttributeLoc};
 use inkwell::types::{
@@ -8,6 +6,9 @@ use inkwell::types::{
 };
 use jaic::abi::{self, Passing, PieceTy};
 use jaic::ir::{Conv, Sig, Ty, WideFloat};
+
+use super::Backend;
+use super::plan::{Lowered, ParamAttr, ParamPlan, RET_INDEX, RetPlan};
 
 impl<'ctx> Backend<'ctx, '_> {
     /// The integer as wide as a pointer.

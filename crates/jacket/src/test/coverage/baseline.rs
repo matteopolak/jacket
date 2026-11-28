@@ -3,9 +3,10 @@
 //! A baseline holds the lines of each module and of all of them: `{"lines": {"hit": 3, "total": 5},
 //! "modules": {"Sort": {"hit": 2, "total": 4}}}`. A module or the total has dropped when its
 //! share of covered lines is more than the margin (in percentage points) below the baseline's.
-use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
+
+use serde_json::{Value, json};
 
 use super::report::{Row, Tally, total};
 

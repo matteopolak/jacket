@@ -1,16 +1,15 @@
 //! Types and what sema keeps per type: struct declarations and layout inputs, `Type_Info`
 //! globals, default values and initializers.
 
-use super::body_probe::{Probed, W};
 use std::sync::Arc;
 
+use super::body_probe::{Probed, W};
+use super::{EntityId, ScopeId, structs, value};
 use crate::ast;
 use crate::fxhash::{HashMap, HashSet};
 use crate::intern::Sym;
 use crate::ir;
 use crate::types::{StructId, TypeId, Types};
-
-use super::{EntityId, ScopeId, structs, value};
 
 pub struct TypeState {
     pub types: Probed<Types, { W::TyTypes as usize }>,

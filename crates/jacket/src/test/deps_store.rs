@@ -6,10 +6,12 @@
 //! one per line, named by a hash of what decides the list ([`Store::entry`]). A compile that fails
 //! leaves no entry: [`Store::prepare`] removes the old one first, and a program with no entry is
 //! always kept by `--changed`.
-use crate::upgrade::checksum;
-use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
+
+use sha2::{Digest, Sha256};
+
+use crate::upgrade::checksum;
 
 /// An entry nobody has read or written for this long is deleted when the store is opened.
 const MAX_AGE: Duration = Duration::from_hours(30 * 24);

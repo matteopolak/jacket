@@ -2,10 +2,12 @@
 //! are newer. Looking that up asks git and the forges, so the server never does it while a
 //! request waits: a [`Source`] answers from what it has and fetches the rest in the background,
 //! then says it has news ([`Source::take_arrivals`]) so the hints are asked for again.
+use std::path::PathBuf;
+
+use jacket_config::{Dependency, Resolver};
+
 use crate::Position;
 use crate::model::InlayHint;
-use jacket_config::{Dependency, Resolver};
-use std::path::PathBuf;
 
 /// The dependency to look up.
 #[derive(Clone, Debug, PartialEq)]

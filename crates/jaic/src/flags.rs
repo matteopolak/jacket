@@ -3,10 +3,11 @@
 //! error text for each. Each tool keeps its own storage and its own other flags; it looks a flag
 //! up here ([`find`]), reads its value ([`SharedFlag::take`]) and folds the result ([`Shared`])
 //! into what it keeps. Adding a flag the tools share means adding it to [`ALL`].
+use std::path::PathBuf;
+
 use crate::render::ColorChoice;
 use crate::target::Selection;
 use crate::target::{TargetCpu, TargetOs};
-use std::path::PathBuf;
 
 /// A mistake in a flag or its value: the message, then help lines.
 #[derive(Clone, Debug, PartialEq, Eq)]

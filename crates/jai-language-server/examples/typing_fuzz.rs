@@ -13,6 +13,7 @@ mod typing_files;
 mod typing_session;
 
 use std::path::PathBuf;
+
 use typing_session::{Config, Input, Seeded};
 
 fn main() {

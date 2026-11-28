@@ -4,10 +4,11 @@
 //! ranks below the hand-written API), 4 for an item an `#insert` generated; above those, one more than the index in `cats` of the
 //! badge its module's category carries, 0 for none. An item whose page folder is not its slug (it differs from
 //! another only in case) carries the folder as one more column.
+use serde_json::{Value, json};
+
 use super::markdown::{self, Segment, Settings, plain};
 use super::model::{Item, Kind};
 use super::site::{Site, item_line, signature_marked};
-use serde_json::{Value, json};
 
 /// A type with its spaces taken out and its case folded, the form both sides compare.
 fn normal(ty: &str) -> String {

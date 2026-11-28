@@ -1,4 +1,8 @@
 //! Calls out to foreign symbols and native code, and the thunks that let C call back in.
+#[cfg(unix)]
+use reach::other_posix_library;
+use reach::{Reach, reach};
+
 #[cfg(not(target_arch = "wasm32"))]
 use super::crash;
 #[cfg(unix)]
@@ -7,9 +11,6 @@ use super::rets::Rets;
 use super::trap::{Trap, TrapKind};
 use super::{Interp, Res, native, probe, proc_addr, sandbox};
 use crate::ir::{self, ForeignId, FuncId, Program};
-#[cfg(unix)]
-use reach::other_posix_library;
-use reach::{Reach, reach};
 
 mod reach;
 

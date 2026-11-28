@@ -3,6 +3,7 @@ use std::{
     path::Path,
     process::{Command, Output},
 };
+
 use test_support::TempDir;
 
 fn fixture(name: &str) -> TempDir {

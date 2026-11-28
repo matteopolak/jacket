@@ -1,8 +1,9 @@
 //! Large inputs and compile-time code that cannot finish: the server answers instead of stalling,
 //! dropping the document or dying.
-use jai_language_server::{DocumentUri, JsonSession, Limits, Position};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
+
+use jai_language_server::{DocumentUri, JsonSession, Limits, Position};
 use test_support::lsp::{environment, file_uri, session};
 
 /// Focus's unresolved parameterized import is exercised only through the bench sandbox.

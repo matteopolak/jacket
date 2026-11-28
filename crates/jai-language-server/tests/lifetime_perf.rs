@@ -1,6 +1,7 @@
 //! Run explicitly with --release, --ignored and --nocapture as the sole heavy job.
-use jai_language_server::{DocumentUri, Position};
 use std::time::Instant;
+
+use jai_language_server::{DocumentUri, Position};
 use test_support::lsp::{session, uri};
 
 #[test]

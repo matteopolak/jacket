@@ -1,4 +1,7 @@
 //! Thread, mutex and condition operations of the interpreter.
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
 use super::pthread;
 #[cfg(not(windows))]
 use super::sched::NATIVE_STACK;
@@ -13,8 +16,6 @@ use super::worker::{absolute_deadline, join_ended_worker};
 use crate::interp::threads_inline::ThreadFn;
 use crate::interp::word_or_zero;
 use crate::interp::{ExecState, Interp, Program, Res, Trap, Ty, ValueStack, ir};
-use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 impl Interp {
     pub(in crate::interp) fn compiler_native_threads_idle(&self) -> bool {

@@ -1,7 +1,8 @@
 //! Integer division and remainder as the interpreter runs them: signed and unsigned at every
 //! width, `MIN / -1`, truncation toward zero, and division by zero.
-use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 use std::{path::PathBuf, rc::Rc};
+
+use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 
 fn compile(source: &str) -> Result<(), String> {
     let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");

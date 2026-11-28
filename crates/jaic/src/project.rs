@@ -13,13 +13,14 @@
 //! - [`load_closure`]: every file a root reaches through `#load`.
 //! - [`resolve_root`]: the file a source file belongs to, with [`RootOptions`] choosing the
 //!   rules (the linter's and the language server's differ on purpose).
-use crate::ast::ImportSource;
-use crate::lexer::{P, Tok, Token};
-use crate::paths::normalize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+
+use crate::ast::ImportSource;
+use crate::lexer::{P, Tok, Token};
+use crate::paths::normalize;
 
 /// The nearest folder at or above `start` (a folder) holding a file called `name`, by
 /// `is_file`. An editor passes a test that counts unsaved buffers.
@@ -569,10 +570,14 @@ impl Root {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LoaderSearch {
     /// The `.jai` files in the file's folder and this many folders above it (itself included).
-    Nearby { levels: usize },
+    Nearby {
+        levels: usize,
+    },
     /// Every `.jai` file under `folder` (or under the file's folder when `None`), through
     /// [`ProjectFs::project_files`].
-    Tree { folder: Option<PathBuf> },
+    Tree {
+        folder: Option<PathBuf>,
+    },
 }
 
 /// How [`resolve_root`] picks among several files that load a file.

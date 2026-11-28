@@ -3,10 +3,12 @@
 //!
 //! No crate finds these without starting `xcrun`, and starting it costs what the direct `ld` link
 //! saves (`docs/native/native-linking.md`), so the folders are read here, through [`Host`].
+use std::path::{Path, PathBuf};
+
+use jacket_config::env;
+
 use crate::found::Missing;
 use crate::host::Host;
-use jacket_config::env;
-use std::path::{Path, PathBuf};
 
 /// Where `xcode-select` saves its selection.
 const SELECTION_LINK: &str = "/var/db/xcode_select_link";

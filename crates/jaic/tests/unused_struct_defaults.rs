@@ -1,6 +1,7 @@
 //! Member defaults of a struct nothing instantiates are still checked.
-use jaic::sema::{Compiler, Options, VirtualFs};
 use std::{path::Path, rc::Rc};
+
+use jaic::sema::{Compiler, Options, VirtualFs};
 
 fn check(source: &str) -> Result<(), String> {
     let mut fs = VirtualFs::default();

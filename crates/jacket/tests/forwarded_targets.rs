@@ -3,6 +3,7 @@
 #![cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::process::Command;
+
 use test_support::TempDir;
 
 const COMPILER: &str = r"#!/usr/bin/env python3

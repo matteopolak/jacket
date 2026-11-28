@@ -1,7 +1,8 @@
 //! Compile-time execution is forbidden during contextual type probes.
+use std::rc::Rc;
+
 use super::Compiler;
 use crate::sema::{Options, ProgramSource, VirtualFs};
-use std::rc::Rc;
 
 #[test]
 fn contextual_type_probes_refuse_compile_time_execution() {

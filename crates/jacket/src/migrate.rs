@@ -4,10 +4,12 @@
 //! The rewriting is `jailint::migrate`; this is the command around it: a dry run that prints
 //! the diff by default, `--apply` to write, and the guard that keeps `--apply` from changing a
 //! file version control could not give back.
-use crate::cli::MigrateArgs;
-use jailint::migrate::{self, MIGRATIONS, Plan, Selection};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+
+use jailint::migrate::{self, MIGRATIONS, Plan, Selection};
+
+use crate::cli::MigrateArgs;
 
 pub fn run(args: &MigrateArgs, cwd: &Path) -> ExitCode {
     if args.list {

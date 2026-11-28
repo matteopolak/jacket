@@ -1,11 +1,12 @@
 //! Each top-level compile-time evaluation has a block budget of its own, and a host can stop
 //! compile-time code altogether (an editor's wall-clock limit).
-use jaic::interp::{SandboxHost, SharedHost};
-use jaic::sema::{Compiler, Options, VirtualFs};
 use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
 use std::time::Duration;
+
+use jaic::interp::{SandboxHost, SharedHost};
+use jaic::sema::{Compiler, Options, VirtualFs};
 
 const PRELUDE: &str = "Operating_System_Tag :: enum u32 { WINDOWS; LINUX; MACOS; WASM; } CPU_Tag :: enum u32 { X64; ARM64; CUSTOM; }";
 

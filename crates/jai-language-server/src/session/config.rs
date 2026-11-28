@@ -1,10 +1,12 @@
 //! Session settings, workspace folders and source snapshots.
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
+
+use jaic::ide::lint_compile::CheckLimits;
+
 use super::Session;
 use crate::semantic::{self, Environment};
 use crate::{DocumentUri, Error, Limits, VirtualSources};
-use jaic::ide::lint_compile::CheckLimits;
-use std::path::{Path, PathBuf};
-use std::rc::Rc;
 
 impl Session {
     /// Basic blocks one compile-time evaluation may run before it fails (`0`: no limit).

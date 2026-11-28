@@ -358,7 +358,6 @@ impl Compiler {
         Ok(Operand::bool(v))
     }
 
-
     /// Whether copying a value of `ty` byte for byte copies all of it: no pointers, strings,
     /// array views, resizable arrays, procedures, `Any`, `Type` or `Code` inside.
     pub(super) fn is_value_type(&mut self, ty: TypeId, span: Span) -> Result<bool> {

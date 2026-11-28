@@ -23,14 +23,16 @@ pub use self::emit::{emit_object, emit_objects};
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::emit::{apply_abi_unwind_attributes, apply_codegen_attributes, unit_path};
-    use crate::machine::{baseline_cpu, cpu_and_features, target_machine};
+    use std::path::Path;
+
     use inkwell::attributes::{Attribute, AttributeLoc};
     use inkwell::context::Context;
     use inkwell::targets::TargetMachine;
     use jaic::target::Target as BuildTarget;
-    use std::path::Path;
+
+    use super::*;
+    use crate::emit::{apply_abi_unwind_attributes, apply_codegen_attributes, unit_path};
+    use crate::machine::{baseline_cpu, cpu_and_features, target_machine};
 
     #[test]
     fn windows_frame_functions_keep_async_unwind_tables_even_when_nounwind() {

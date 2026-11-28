@@ -1,7 +1,8 @@
 //! Names written in types, and the declarations they resolve to: what lets the site link a type
 //! in a signature to the right page. The reading is `Reader::type_refs` in `model.rs`.
-use super::model::{json, path};
 use std::path::PathBuf;
+
+use super::model::{json, path};
 
 /// One hop of a written name's alias chain. Repeated paths are ordered nearest first;
 /// the site chooses the first hop whose declaration has a page.

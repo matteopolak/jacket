@@ -1,9 +1,11 @@
 //! `jacket toolchain add|list|remove`: what no package manager provides, in jacket's cache.
 //! A build only reads the cache; nothing else in jacket downloads.
-use crate::status;
+use std::io::Write;
+
 use jaic::target::Target;
 use jaic_toolchain::{Host, Lookup, System, cache, pins, tilde};
-use std::io::Write;
+
+use crate::status;
 
 /// The target a name stands for: a triple, or a board or `[target.NAME]` table.
 fn resolve(name: &str, config: Option<&jacket_config::Config>) -> Result<Target, String> {

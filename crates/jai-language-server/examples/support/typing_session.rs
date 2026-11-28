@@ -23,11 +23,6 @@
 //!
 //! Included with `#[path]` by the integration test, the `typing_fuzz` example and the libFuzzer
 //! harness, so it uses only the public API.
-use jai_language_server::{
-    Diagnostic, DiagnosticCode, DocumentUri, Environment, Error, Hover, Limits, Location, Position,
-    Range, SemanticToken, Session, TextChange,
-};
-use jaic::source::FileId;
 use std::{
     sync::{
         Arc, Mutex,
@@ -35,6 +30,12 @@ use std::{
     },
     time::{Duration, Instant},
 };
+
+use jai_language_server::{
+    Diagnostic, DiagnosticCode, DocumentUri, Environment, Error, Hover, Limits, Location, Position,
+    Range, SemanticToken, Session, TextChange,
+};
+use jaic::source::FileId;
 
 #[path = "typing_session/clock.rs"]
 mod clock;

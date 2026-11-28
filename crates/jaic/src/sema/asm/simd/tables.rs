@@ -49,7 +49,7 @@ pub(in crate::sema::asm) fn elem_size(op: VOp) -> u64 {
         Psadbw | MulEven(_) | Shufpd | Pclmul(_) | MovHalf(_) | Madd52(_) => 8,
         Pack(from, _) => from.numeric_size() / 2,
         Cvt(c) => match c {
-            Conv::IntToFloat(_, to, _) | Conv::FloatToInt(_, to, _, _) => to.numeric_size(),
+            Conv::IntToFloat(_, to, _) | Conv::FloatToInt(_, to, ..) => to.numeric_size(),
             Conv::FloatToFloat(_, to) | Conv::ScalarFloat(_, to) => to.numeric_size(),
             _ => 4,
         },

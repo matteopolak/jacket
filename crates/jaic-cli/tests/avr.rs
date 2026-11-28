@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
+
 use test_support::{TempDir, toolchain};
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");

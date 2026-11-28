@@ -1,8 +1,9 @@
 //! Rule queries use checked body summaries, including selected polymorphic instances.
-use super::{callee_procs, lifetime_summary};
-use crate::syntax::Cx;
 use jaic::ast::{Expr, ExprKind};
 use jaic::sema::ProcId;
+
+use super::{callee_procs, lifetime_summary};
+use crate::syntax::Cx;
 
 #[derive(Clone, Copy)]
 pub(super) enum Effect {

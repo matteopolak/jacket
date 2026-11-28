@@ -1,9 +1,10 @@
 //! A canonical type alias does not import its defining scope's operators.
-use jaic::sema::{Compiler, Options, VirtualFs};
 use std::{
     path::{Path, PathBuf},
     rc::Rc,
 };
+
+use jaic::sema::{Compiler, Options, VirtualFs};
 
 fn compile(facade: &str, body: &str) -> Result<(), String> {
     let mut fs = VirtualFs::default();

@@ -4,12 +4,13 @@
 //! takes too long. Building it here,
 //! once, is what makes a file lint the same in the editor and on the command line; the tools add
 //! only what is theirs (their observer of the workspaces, their facts) before compiling.
-use crate::build::{BuildEnv, ReportSink, SharedWorkspaces, WorkspaceObserver, Workspaces};
-use crate::interp::{SandboxHost, SharedHost};
-use crate::sema::{Compiler, FileSystem, Options, ProgramSource};
 use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
+
+use crate::build::{BuildEnv, ReportSink, SharedWorkspaces, WorkspaceObserver, Workspaces};
+use crate::interp::{SandboxHost, SharedHost};
+use crate::sema::{Compiler, FileSystem, Options, ProgramSource};
 
 /// What bounds a check. The person who opens a project sets these (the editor's settings, the
 /// linter's command line), never the project: a project must not be able to raise them.
@@ -26,7 +27,8 @@ pub struct CheckLimits {
 impl CheckLimits {
     /// The steps one evaluation may take unless told otherwise.
     pub const DEFAULT_EVAL_STEPS: u64 = 100_000_000;
-
+    /// The blocks from which an evaluation shows its cost unless told otherwise.
+    pub const DEFAULT_HINT_BLOCKS: u64 = 1_000_000;
     /// The seconds a check may take unless told otherwise.
     pub const DEFAULT_SECONDS: f64 = 10.0;
 
@@ -48,9 +50,6 @@ impl CheckLimits {
             .get()
             .and_then(|value| value.trim().parse().ok())
     }
-
-    /// The blocks from which an evaluation shows its cost unless told otherwise.
-    pub const DEFAULT_HINT_BLOCKS: u64 = 1_000_000;
 
     /// `steps` per evaluation (`0`: no limit) and `seconds` per check (`0` or less, or not a
     /// number: no limit); the cost threshold stays at its default.
@@ -98,7 +97,10 @@ pub enum LintRoot<'a> {
     Program(&'a Path),
     /// A module: its entry file and the stub that imports it
     /// ([`crate::project::module_root_stub`]), which the file system must serve.
-    Module { entry: &'a Path, stub: &'a Path },
+    Module {
+        entry: &'a Path,
+        stub: &'a Path,
+    },
 }
 
 /// A compiler ready to compile one root, with the host and workspaces it shares with the

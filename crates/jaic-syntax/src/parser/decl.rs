@@ -1,4 +1,6 @@
 //! Declarations: names, types, values, modifiers (`using`, `#as`) and trailing flags.
+use std::sync::Arc;
+
 use super::stmt::stmt;
 use super::{PResult, Parser};
 use crate::ast::{
@@ -10,7 +12,6 @@ use crate::diagnostics::Diagnostic;
 use crate::intern::Sym;
 use crate::lexer::{P, Tok};
 use crate::lexicon::is_using_filter;
-use std::sync::Arc;
 
 /// Directives that may trail a declaration (`x: int #align 16;`).
 struct DeclNames {

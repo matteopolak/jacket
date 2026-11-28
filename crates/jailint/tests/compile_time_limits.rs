@@ -3,6 +3,7 @@
 //! a project's `jacket.toml` has no say).
 use std::path::Path;
 use std::process::Command;
+
 use test_support::TempDir;
 
 const SOURCE: &str = r"spin :: () { while true {} }

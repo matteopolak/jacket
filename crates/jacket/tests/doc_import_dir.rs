@@ -1,6 +1,7 @@
 //! These tests share the integration suite's gate: jaic must be built beside jacket.
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
 use test_support::{TempDir, toolchain};
 
 fn tools() -> Option<PathBuf> {

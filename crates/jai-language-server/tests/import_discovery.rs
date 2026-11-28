@@ -1,11 +1,12 @@
 //! Original failed-discovery reducers; no corpus or stdlib implementation inputs.
-use jaic::ide::IdeFacts;
-use jaic::sema::{Compiler, FileSystem, Options, VirtualFs};
 use std::{
     cell::{Cell, RefCell},
     path::{Path, PathBuf},
     rc::Rc,
 };
+
+use jaic::ide::IdeFacts;
+use jaic::sema::{Compiler, FileSystem, Options, VirtualFs};
 use test_support::lsp::{file_uri, session_over};
 
 #[derive(Default)]

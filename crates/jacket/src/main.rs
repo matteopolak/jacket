@@ -22,13 +22,14 @@ mod toolchain;
 mod tools;
 mod upgrade;
 
+use std::ffi::OsString;
+use std::path::Path;
+use std::process::ExitCode;
+
 use clap::Parser;
 use cli::{Cli, Command, TOOL_COMMANDS};
 use jacket_config::Disk;
 use jacket_dep::{dep, git, net, prerequisite};
-use std::ffi::OsString;
-use std::path::Path;
-use std::process::ExitCode;
 
 fn main() -> ExitCode {
     let args: Vec<OsString> = std::env::args_os().skip(1).collect();

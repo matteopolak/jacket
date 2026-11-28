@@ -1,6 +1,7 @@
 //! Finding programs: `PATH` first, then the places tools are installed without being put on it.
-use crate::host::{Host, Os};
 use std::path::PathBuf;
+
+use crate::host::{Host, Os};
 
 /// The one place programs are searched for.
 pub struct Lookup<'a> {

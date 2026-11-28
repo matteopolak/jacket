@@ -9,6 +9,10 @@ mod lines;
 #[cfg(feature = "dependency-hints")]
 pub mod live;
 
+use std::path::Path;
+
+use lines::{PathKind, Place};
+
 use crate::analysis::Span;
 use crate::model::{
     CompletionItem, CompletionKind, CompletionList, Diagnostic, DiagnosticCode, DiagnosticSeverity,
@@ -16,8 +20,6 @@ use crate::model::{
 };
 use crate::session::{Document, Session};
 use crate::{DocumentUri, Error, Position, Range};
-use lines::{PathKind, Place};
-use std::path::Path;
 
 impl Session {
     /// The open `jacket.toml` named by `uri`.

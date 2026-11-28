@@ -1,10 +1,11 @@
 //! Exporting procedure bodies and headers, and code passed to `#code`.
+use std::sync::Arc;
+
 use super::constants::node;
 use super::{Exporter, Typechecked};
 use crate::builtin_keys::SyntaxKey;
 use crate::records::{FieldRef, Item, RecordTag, Records};
 use crate::sema::{Compiler, ProcId, ScopeId, Span, Sym, ast, procs};
-use std::sync::Arc;
 
 /// The directives reported to metaprograms as text in `Code_Procedure_Header.flags`.
 const REPORTED_DIRECTIVES: [ast::ProcBits; 5] = [

@@ -1,6 +1,7 @@
 //! Incremental recovery uses verified lexical boundaries, never old ASTs or types.
-use crate::analysis::Span;
 use jaic::source::FileId;
+
+use crate::analysis::Span;
 
 pub(crate) fn mask(text: &str, damage: &[Span]) -> Option<String> {
     if damage.is_empty() {

@@ -593,9 +593,10 @@ pub fn for_program(name: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::collections::BTreeSet;
     use std::path::Path;
+
+    use super::*;
 
     #[test]
     fn names_are_unique() {

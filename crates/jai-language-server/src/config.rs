@@ -4,10 +4,12 @@
 //! `[lint]` is checked here too, so a rule typo is one problem reported once, whichever feature
 //! reads the file first. A file with a problem gives no settings (`Broken`): what depends on them
 //! is left out until it is fixed, never run with defaults in their place.
+use std::path::Path;
+
+use jacket_config::{Files, Loaded};
+
 use crate::auto_import::Index;
 use crate::session::Session;
-use jacket_config::{Files, Loaded};
-use std::path::Path;
 
 /// A `jacket.toml` that does not read, or whose checks found a problem. The problems are the
 /// file's diagnostics (`Session::manifest_diagnostics`).

@@ -75,7 +75,10 @@ impl ImportEntry {
 #[derive(Clone)]
 pub enum UsingEntry {
     /// Members of a struct value at a place (address held in the current function).
-    Place { ty: TypeId, entity: EntityId },
+    Place {
+        ty: TypeId,
+        entity: EntityId,
+    },
     /// Constants of a type (struct constants, enum members).
     Type(TypeId),
     /// A module's names, minus those an `only`/`except` filter hides.

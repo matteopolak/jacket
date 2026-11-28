@@ -5,11 +5,13 @@
 //! Visual Studio, Windows SDK and `LIB` discovery stays in `jaic::toolchain::discover`, on the
 //! `find-msvc-tools` crate, because the interpreter opens import libraries from `LIB` too and
 //! this crate depends on `jaic` (see `docs/compiler/architecture.md`).
+use std::path::{Path, PathBuf};
+
+use jaic::toolchain::discover;
+
 use crate::host::Host;
 use crate::linker::host_target;
 use crate::lookup::Lookup;
-use jaic::toolchain::discover;
-use std::path::{Path, PathBuf};
 
 /// A Clang that is not on `PATH`: the LLVM installer's folder under `Program Files`, then the one
 /// Visual Studio's "C++ Clang tools" component adds. Both are programs for the host's CPU, which

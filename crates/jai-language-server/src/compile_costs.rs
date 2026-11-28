@@ -4,11 +4,13 @@
 //!
 //! The costs are the interpreter's own counts, recorded by the compile that checked the program
 //! (`jaic::sema::perf::RunStat`), so asking for them costs nothing beyond that compile.
+use std::time::Duration;
+
+use serde_json::{Value, json};
+
 use crate::semantic::{EvalCost, LimitKind};
 use crate::session::Session;
 use crate::{CodeLens, Command, DocumentUri, Error, Location};
-use serde_json::{Value, json};
-use std::time::Duration;
 
 pub(crate) const COMMAND: &str = "jai.showCompileTimeCosts";
 

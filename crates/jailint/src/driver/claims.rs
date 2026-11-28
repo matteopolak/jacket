@@ -1,8 +1,9 @@
 //! Which root reports each file when several roots compile it.
-use jaic::fxhash::{HashMap, HashSet};
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::sync::{Condvar, Mutex};
+
+use jaic::fxhash::{HashMap, HashSet};
 
 /// Which root reports each file. A file several roots compile is reported from the first of
 /// them (by position in the sorted root list), so a root need not lint a file an earlier one

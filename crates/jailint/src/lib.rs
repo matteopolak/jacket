@@ -25,12 +25,12 @@ pub fn rule_url(rule: &str) -> String {
     format!("https://jacket.matteopolak.com/lint-rules/{rule}")
 }
 
-pub use rules::unused_note::{LINT_NOTES, TOOL_NOTES};
-pub use rules::{RULES, RuleInfo};
+use std::sync::Arc;
 
 use jaic::sema::Compiler;
 use jaic::source::{FileId, Span};
-use std::sync::Arc;
+pub use rules::unused_note::{LINT_NOTES, TOOL_NOTES};
+pub use rules::{RULES, RuleInfo};
 
 /// One replacement in the linted file: bytes `start..end` become `text`.
 #[derive(Clone, Debug, PartialEq, Eq)]

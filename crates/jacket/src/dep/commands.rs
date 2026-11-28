@@ -1,5 +1,9 @@
 //! The `jacket dep` commands. Each reads the project, asks git through [`Git`] and writes
 //! `jacket.toml` through [`manifest`].
+use std::path::Path;
+
+use jacket_config::Dependency;
+
 use super::check;
 use super::dedupe;
 use super::forge::{self, Repo};
@@ -14,8 +18,6 @@ use super::spec::{self, At, RepoUrl, Source};
 use super::types::{Age, CommitId, SubPath, Target};
 use super::version::{Scheme, Tagged};
 use super::{Action, Ctx, DepError, Project, Result, manifest};
-use jacket_config::Dependency;
-use std::path::Path;
 
 /// The submodule folder of an entry, relative to the project.
 pub fn path_of(name: &str, entry: &Dependency) -> Result<SubPath> {
@@ -158,7 +160,10 @@ fn newest_list(tags: &[Tagged]) -> String {
 /// How a version stands against the release-age policy.
 pub(super) enum Verdict {
     Allowed,
-    TooNew { age: i64, required: i64 },
+    TooNew {
+        age: i64,
+        required: i64,
+    },
     Unknown(String),
 }
 

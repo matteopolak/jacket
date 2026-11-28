@@ -1,8 +1,9 @@
 //! Auto-import completion: stdlib modules, the project's modules and files, where the edit goes,
 //! what is left out, ranking and the setting.
+use std::path::{Path, PathBuf};
+
 use jai_language_server::{CompletionItem, CompletionList, JsonSession, Limits, Position, Session};
 use serde_json::{Value, json};
-use std::path::{Path, PathBuf};
 use test_support::lsp::{end_of, environment_at, modules_environment, project, uri_of};
 
 fn session() -> Session {
@@ -1055,10 +1056,11 @@ fn prefixed_alias_completion_keeps_forwarded_docs_and_case_insensitive_matching(
 /// Every stdlib file is read once for the first completion, also the ones the program loads.
 #[test]
 fn first_completion_scans_each_stdlib_file_once() {
-    use jaic::sema::{FileSystem, NativeFs};
     use std::cell::RefCell;
     use std::collections::BTreeMap;
     use std::rc::Rc;
+
+    use jaic::sema::{FileSystem, NativeFs};
 
     #[derive(Default)]
     struct Counting(RefCell<BTreeMap<PathBuf, usize>>);

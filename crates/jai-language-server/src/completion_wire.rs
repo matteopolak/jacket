@@ -1,6 +1,7 @@
 //! The wire form of completion lists.
-use crate::{CompletionKind, CompletionList};
 use serde_json::{Value, json};
+
+use crate::{CompletionKind, CompletionList};
 
 /// The LSP `CompletionItemKind` of a completion.
 pub(crate) fn completion_kind_wire(kind: CompletionKind) -> u32 {

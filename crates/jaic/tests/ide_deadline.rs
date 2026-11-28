@@ -1,13 +1,14 @@
 //! The wall-clock limit of an editor's check also reaches the compiler's own work, not only
 //! interpreted code: a check that spends its time elsewhere stops with a "checking stopped"
 //! notice instead of running its course.
-use jaic::ide::lint_compile::{CheckLimits, LintCompile, LintRoot, LintSetup};
-use jaic::interp::SandboxHost;
-use jaic::sema::{Options, VirtualFs};
 use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
+
+use jaic::ide::lint_compile::{CheckLimits, LintCompile, LintRoot, LintSetup};
+use jaic::interp::SandboxHost;
+use jaic::sema::{Options, VirtualFs};
 
 const PRELUDE: &str = "Operating_System_Tag :: enum u32 { WINDOWS; LINUX; MACOS; WASM; } CPU_Tag :: enum u32 { X64; ARM64; CUSTOM; }";
 

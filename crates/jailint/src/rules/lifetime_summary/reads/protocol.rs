@@ -1,10 +1,11 @@
 //! The allocator ownership query observes an address; it does not access that block.
-use super::super::{Compiler, LifetimeArgument, ProcId};
 use jaic::intern::Sym;
 use jaic::sema::{
     Value,
     scope::{EntityState, Resolved},
 };
+
+use super::super::{Compiler, LifetimeArgument, ProcId};
 
 pub(in crate::rules) fn address_query(
     compiler: &Compiler,

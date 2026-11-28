@@ -1,7 +1,8 @@
 //! Closed pointer slots publishing activation-owned resizable-array descriptors.
-use super::{Compiler, Event, HashMap, HashSet, LifetimeBody, LifetimeOperand, ProcId};
 use jaic::ir::{GlobalId, Storage};
 use jaic::sema::scope::{EntityState, Resolved};
+
+use super::{Compiler, Event, HashMap, HashSet, LifetimeBody, LifetimeOperand, ProcId};
 
 pub(super) fn build(
     compiler: &Compiler,

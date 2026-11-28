@@ -1,6 +1,7 @@
 //! Directive flag sets of procedure and struct headers, and the check bits of blocks.
-use super::{Expr, Ident, LambdaKind};
 use std::sync::Arc;
+
+use super::{Expr, Ident, LambdaKind};
 
 /// The on/off directives of a procedure header, as one set of bits.
 ///
@@ -56,10 +57,8 @@ pub struct CheckBits(u8);
 
 impl CheckBits {
     pub const NONE: Self = Self(0);
-
     /// `#no_abc`: no array bounds checks.
     pub const NO_ABC: Self = Self(1);
-
     /// `#no_aoc`: no arithmetic overflow checks.
     pub const NO_AOC: Self = Self(2);
 

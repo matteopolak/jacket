@@ -1,7 +1,8 @@
 //! Skipping teardown work at exit.
-use jaic::interp::SandboxHost;
 use std::cell::RefCell;
 use std::rc::Rc;
+
+use jaic::interp::SandboxHost;
 
 /// A value the process never tears down: it exits right after, and freeing a large compiler
 /// piece by piece takes longer than the exit itself.

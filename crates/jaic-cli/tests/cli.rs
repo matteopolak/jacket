@@ -1,6 +1,7 @@
 //! Command-line behavior of the `jaic` binary that is not about native code generation.
 use std::path::Path;
 use std::process::Command;
+
 use test_support::TempDir;
 #[cfg(target_os = "macos")]
 use test_support::toolchain;

@@ -8,14 +8,16 @@
 //! `{"type":"test","event":"passed"|"failed"|"skipped"|"timed_out"|"xfail"|"xpass"|"flaky",...}`,
 //! `{"type":"run","event":"finished",...}`, and with `--list` one `{"type":"list",...}` per test.
 //! `type` names the kind of item (`test`; `bench` is reserved for benchmark results).
-use super::{Case, Kind, Outcome, Status};
-use crate::cli::OutputFormat;
-use crate::markup::escape;
-use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+
+use serde_json::{Value, json};
+
+use super::{Case, Kind, Outcome, Status};
+use crate::cli::OutputFormat;
+use crate::markup::escape;
 
 pub struct Reporter {
     format: OutputFormat,

@@ -1,7 +1,8 @@
 //! The machine the lookups read, behind a trait so tests describe one instead of having it.
-use jacket_config::env::Var;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
+
+use jacket_config::env::Var;
 
 /// The operating systems jacket runs on.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

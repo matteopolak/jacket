@@ -5,6 +5,12 @@
 //! which), so descriptors and `FILE*` streams are the host's own. What differs is answered
 //! here: `errno` (the program's own cell, in its numbers), the open flags, `struct stat`,
 //! directory streams and `struct dirent`, `strerror`, and the stat-family system calls.
+use std::ffi::{CStr, CString, OsStr};
+use std::os::unix::ffi::OsStrExt;
+use std::os::unix::fs::{FileTypeExt, MetadataExt};
+use std::sync::Arc;
+use std::{fs, io};
+
 use super::records::{self, DirEntry, FileStat};
 use super::{Libraries, StatSyscall};
 use crate::fxhash::HashMap;
@@ -12,11 +18,6 @@ use crate::interp::Window;
 use crate::interp::errno::{EBADF, EINVAL};
 use crate::interp::globals::ZeroedBlock;
 use crate::interp::sandbox::guest::{read_u8, read_uint, write_bytes, write_uint};
-use std::ffi::{CStr, CString, OsStr};
-use std::os::unix::ffi::OsStrExt;
-use std::os::unix::fs::{FileTypeExt, MetadataExt};
-use std::sync::Arc;
-use std::{fs, io};
 
 /// A procedure answered here, by the name the program's C library gives it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

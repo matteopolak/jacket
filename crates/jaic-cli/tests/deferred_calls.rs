@@ -3,6 +3,7 @@ use std::{
     path::PathBuf,
     process::{Command, Output},
 };
+
 use test_support::plugin::registration_fixture as fixture;
 #[cfg(not(target_os = "windows"))]
 use test_support::toolchain;

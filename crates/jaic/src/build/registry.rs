@@ -1,4 +1,8 @@
 //! The registry of workspaces: option setters, compiler creation and event construction.
+use std::cell::RefCell;
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
+
 use super::meta_op::TOP_LEVEL_WORKSPACE;
 use super::settings::{BuildEnv, BuildSettings};
 use super::state::{EVENT_PHASE, Event, SharedWorkspaces, Stage, Workspace, Workspaces};
@@ -12,11 +16,11 @@ use crate::interp::Host;
 use crate::records::Records;
 use crate::sema::{Compiler, DeadCode, FileSystem, Options, ProgramSource, ProvidedImport};
 use crate::target::{TargetCpu, TargetOs};
-use std::cell::RefCell;
-use std::path::{Path, PathBuf};
-use std::rc::Rc;
 
 impl Workspaces {
+    /// The first workspace a metaprogram creates.
+    pub const FIRST_CREATED_WORKSPACE: i64 = TOP_LEVEL_WORKSPACE + 1;
+
     /// A registry whose workspace 1 is the top-level program.
     /// Compile-time code that can call `get_type_table` exists (see `type_table_used`).
     pub fn note_type_table_used(shared: &SharedWorkspaces) {
@@ -75,9 +79,6 @@ impl Workspaces {
     pub fn run_instead_of_writing(shared: &SharedWorkspaces, id: i64) {
         shared.borrow_mut().run_target = Some(id);
     }
-
-    /// The first workspace a metaprogram creates.
-    pub const FIRST_CREATED_WORKSPACE: i64 = TOP_LEVEL_WORKSPACE + 1;
 
     /// The compiler of the workspace chosen with [`Workspaces::run_instead_of_writing`], once
     /// it compiled and wants output; `None` for a failure or a workspace without output.

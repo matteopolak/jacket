@@ -1,6 +1,8 @@
 //! Turning an interpreter `Trap` into a diagnostic: which check failed, the line of the
 //! program's own code that led there, and the call stack, with standard-library frames kept
 //! out of the way. See `docs/compiler/diagnostics.md`.
+use std::rc::Rc;
+
 use super::Compiler;
 use crate::diagnostics::Code;
 use crate::diagnostics::Diagnostic;
@@ -9,7 +11,6 @@ use crate::interp::{Trap, TrapFrame, TrapKind};
 use crate::ir;
 use crate::sema::SourceState;
 use crate::source::{FileId, Span};
-use std::rc::Rc;
 
 /// Call stack lines shown before the rest are summarized.
 const MAX_STACK_LINES: usize = 12;

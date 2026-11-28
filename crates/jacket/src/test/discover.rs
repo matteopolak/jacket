@@ -10,10 +10,11 @@
 //! The roots are `[test] paths` in jacket.toml, expanded by [`expand`] (only those the current
 //! directory is in, when it is in some), else the project's folder. Run from a folder below the
 //! project that has its own `tests/` (or `module.jai`), `jacket test` tests that folder.
-use jacket_config::test_roots::{ignored, names_root};
-use jacket_config::{PathPattern, relative_text};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
+
+use jacket_config::test_roots::{ignored, names_root};
+use jacket_config::{PathPattern, relative_text};
 
 #[derive(Debug)]
 pub struct Root {

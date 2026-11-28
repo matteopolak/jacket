@@ -2,11 +2,12 @@
 //!
 //! Needs the `lsp` feature.
 
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
+
 use jai_language_server::{DocumentUri, Environment, Limits, Position, Range, Session};
 use jaic::sema::{FileSystem, Options, VirtualFs};
 use jaic::target::TargetOs;
-use std::path::{Path, PathBuf};
-use std::rc::Rc;
 
 use crate::tmp::TempDir;
 

@@ -1,10 +1,11 @@
 //! Path helpers shared by the compiler, the language server and the linter: lexical
 //! normalisation, canonicalisation without Windows' verbatim prefix, a cache for it, and the
 //! standard library directory a native tool starts with.
-use crate::fxhash::HashMap;
 use std::io;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Mutex;
+
+use crate::fxhash::HashMap;
 
 /// The file a folder module is entered through: `Name/module.jai`.
 pub const MODULE_ENTRY: &str = "module.jai";

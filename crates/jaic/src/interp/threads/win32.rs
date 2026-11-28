@@ -18,6 +18,10 @@
     reason = "Win32 records and wide strings are little-endian on every Windows target"
 )]
 #[cfg(windows)]
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
+#[cfg(windows)]
 use super::sched::NATIVE_STACK;
 use super::worker::join_ended_worker;
 #[cfg(windows)]
@@ -29,9 +33,6 @@ use super::{Shared, Worker};
 use crate::interp::ir::FuncId;
 use crate::interp::word_or_zero;
 use crate::macros::raw_enum;
-#[cfg(windows)]
-use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 const INFINITE: u32 = u32::MAX;
 const WAIT_OBJECT_0: u64 = 0;

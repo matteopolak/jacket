@@ -6,13 +6,14 @@
 //! `$ROOT`, so expected files do not depend on where the repository is. `--accept` writes what the program printed into the
 //! expected files instead of comparing (for a golden test, into those that exist, `.stdout` at
 //! least).
+use std::path::{Path, PathBuf};
+use std::time::Duration;
+
 use super::build::{Toolchain, compile_output, path_text, program_and_args, stage_dlls};
 use super::deps_store::Program;
 use super::exec::{self, Ending, Invocation, Limits, Live};
 use super::jobs::ending_text;
 use super::options::TestOptions;
-use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 /// How a golden or compile-fail test went.
 #[derive(Debug, Default)]

@@ -1,8 +1,9 @@
 //! SHA-256 of a downloaded archive and the release's `SHA256SUMS` lines. The line formats
 //! match `install.sh` and `tests/installers/vectors.json`: `<hash>  <name>`, `<hash> *<name>`,
 //! any case.
-use sha2::{Digest, Sha256};
 use std::path::Path;
+
+use sha2::{Digest, Sha256};
 
 /// The lower-case hex SHA-256 of `bytes`.
 #[cfg(test)]

@@ -1,7 +1,8 @@
 //! What the site documents: modules, their items and overloads, read from the JSON
 //! `jaic -doc_model` prints for each library of the standard library.
-use serde_json::Value;
 use std::path::{Path, PathBuf};
+
+use serde_json::Value;
 
 #[derive(Clone, Debug, Default)]
 pub struct Param {

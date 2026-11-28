@@ -1,18 +1,20 @@
 //! The `platform_leak` pass: compile portable roots once per target system.
-use super::Options;
-use super::asserts::{AssertFailure, failures_of};
-use super::compile::{Compiled, RunCaches, compile_root};
-use crate::config::Configs;
-use crate::{Level, Lint};
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::sync::Mutex;
+
 use jaic::fxhash::HashSet;
 use jaic::paths::CanonCache;
 use jaic::project::Program;
 use jaic::sema::ImportEdge;
 use jaic::target::TargetOs;
-use std::collections::{BTreeMap, BTreeSet};
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::Mutex;
+
+use super::Options;
+use super::asserts::{AssertFailure, failures_of};
+use super::compile::{Compiled, RunCaches, compile_root};
+use crate::config::Configs;
+use crate::{Level, Lint};
 
 /// What one portable root's compile for one system found.
 type LeakRun = (usize, TargetOs, Vec<ImportEdge>, Vec<AssertFailure>);

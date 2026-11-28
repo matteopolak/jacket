@@ -2,14 +2,15 @@
 #![forbid(unsafe_code)]
 mod cli;
 
+use std::io::{IsTerminal, Write};
+use std::path::PathBuf;
+use std::process::ExitCode;
+
 use jaic::diagnostics::Code;
 use jaic::render::Report;
 use jailint::config::{Category, Config, Level};
 use jailint::render::render;
 use jailint::{Lint, RULES, RuleInfo};
-use std::io::{IsTerminal, Write};
-use std::path::PathBuf;
-use std::process::ExitCode;
 
 /// Every Rust allocation goes through the counter that enforces `JAIC_MEMORY_LIMIT`, over
 /// mimalloc: roots are compiled on several threads, and the system allocator makes them wait on

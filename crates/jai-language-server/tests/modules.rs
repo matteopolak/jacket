@@ -1,7 +1,8 @@
 //! Module folders found without a `jacket.toml`: `modules/` in the folders above the root file up to
 //! the workspace folder, `jacket.toml`'s `import-path`, and the paths a build metaprogram adds.
-use jai_language_server::{DiagnosticCode, Limits, SemanticTokenKind, Session};
 use std::path::Path;
+
+use jai_language_server::{DiagnosticCode, Limits, SemanticTokenKind, Session};
 use test_support::lsp::{modules_environment, position, project, uri_of};
 
 #[test]

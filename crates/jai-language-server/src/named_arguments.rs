@@ -1,9 +1,11 @@
 //! Named arguments are another completion source, never a replacement for expression items.
-use crate::{CompletionItem, CompletionKind, DocumentUri, Session, analysis::Span};
+use std::collections::BTreeMap;
+
 use jaic::ide::IdeWhat;
 use jaic::parser::ide_facts::{self, CallArgument, CallSite};
 use jaic::source::FileId;
-use std::collections::BTreeMap;
+
+use crate::{CompletionItem, CompletionKind, DocumentUri, Session, analysis::Span};
 
 struct Parameter {
     name: Option<String>,
@@ -389,10 +391,12 @@ impl Session {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::{path::Path, rc::Rc};
+
     use jaic::ide::IdeFacts;
     use jaic::sema::{Compiler, Options, VirtualFs};
-    use std::{path::Path, rc::Rc};
+
+    use super::*;
 
     #[test]
     fn incomplete_call_query_cannot_make_a_failed_body_executable() {

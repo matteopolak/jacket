@@ -4,11 +4,12 @@
 //! start over, how long lowering procedure bodies took, and how often a call asked for an
 //! instance of a polymorphic procedure. `Compiler::export_performance_report` (in
 //! `code_export.rs`) turns the counts into the message's records when the workspace finishes.
+use std::time::Duration;
+
 use super::procs::{BodyState, ProcTarget};
 use super::{Compiler, HashMap, HashSet, ProcId, Span, ir};
 use crate::platform::Stopwatch;
 use crate::sema::Output;
-use std::time::Duration;
 
 /// One execution of compile-time code (a `#run`, or a constant that needed the interpreter).
 #[derive(Clone)]

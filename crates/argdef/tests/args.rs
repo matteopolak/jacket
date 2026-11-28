@@ -512,9 +512,10 @@ struct Bytes {
 
 #[cfg(unix)]
 mod os_values {
-    use super::*;
     use std::ffi::OsString;
     use std::os::unix::ffi::{OsStrExt, OsStringExt};
+
+    use super::*;
 
     fn bytes(b: &[u8]) -> OsString {
         OsString::from_vec(b.to_vec())

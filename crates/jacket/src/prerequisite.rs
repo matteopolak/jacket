@@ -1,9 +1,10 @@
 //! The error for something jacket needs from the machine and cannot find: what is missing, which
 //! command needs it, and the one note that says how to get it. Every check runs before the
 //! command changes anything.
+use std::path::{Path, PathBuf};
+
 use jaic_toolchain::package::{Need, PackageManager};
 use jaic_toolchain::{Lookup, System};
-use std::path::{Path, PathBuf};
 
 /// The text of the error for `program` missing when `command` needs it. The caller prints it
 /// after `error:`.

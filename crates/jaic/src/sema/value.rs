@@ -1,8 +1,9 @@
 //! Compile-time values.
+use std::sync::Arc;
+
 use crate::diagnostics::Code;
 use crate::ir::Reloc;
 use crate::types::{TypeId, Types};
-use std::sync::Arc;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct ProcId(pub u32);

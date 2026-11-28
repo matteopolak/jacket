@@ -1,6 +1,7 @@
 //! `jaic -interp` answers the program's executable-path query with the executable `jaic`
 //! would write next to the main file, not `jaic`'s own path.
 use std::process::Command;
+
 use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");

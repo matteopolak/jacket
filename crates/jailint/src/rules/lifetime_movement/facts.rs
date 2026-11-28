@@ -1,13 +1,15 @@
 //! Bounded identities for element selectors. A mutable or conditionally defined source
 //! never becomes a constant merely because lowering recorded one assignment to it.
-use super::Selector;
-use crate::rules::lifetime_places::{Places, Projection};
+use std::cell::RefCell;
+
 use jaic::fxhash::{HashMap, HashSet};
 use jaic::ide::lifetimes::{LifetimeBody, LifetimeEvent as Event, LifetimeOperand};
 use jaic::ir::Val;
 use jaic::sema::Compiler;
 use jaic::types::{ArrayKind, TypeId, TypeKind};
-use std::cell::RefCell;
+
+use super::Selector;
+use crate::rules::lifetime_places::{Places, Projection};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub(in crate::rules) struct Site {

@@ -1,14 +1,15 @@
 //! Completed workspace diagnostic snapshots, independent of which files the editor opens.
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
+use std::sync::Arc;
+
 use super::Session;
 use crate::analysis::{Analysis, Span};
 use crate::semantic::{Reads, text_hash};
 use crate::{
     Diagnostic, DiagnosticCode, DiagnosticSeverity, DocumentUri, Error, position::LineIndex,
 };
-use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
-use std::rc::Rc;
-use std::sync::Arc;
 
 pub(crate) type WorkspaceReport = (String, Option<i32>, Vec<Diagnostic>);
 

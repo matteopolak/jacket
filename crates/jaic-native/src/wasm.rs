@@ -4,11 +4,13 @@
 //! foreign procedure the program does not define becomes an import (`lower.rs` names its
 //! module), so the link needs no `--allow-undefined`; anything else left undefined, such as a
 //! compiler-rt helper, is a link error.
-use crate::toolchain::{command, lookup};
+use std::path::{Path, PathBuf};
+
 use jaic::ir::Library;
 use jaic_toolchain::Overrides;
 use jaic_toolchain::linker::find_linker;
-use std::path::{Path, PathBuf};
+
+use crate::toolchain::{command, lookup};
 
 /// Stack reserved below the data (`--stack-first`): the 8 MiB native programs get. An overflow
 /// then runs off the bottom of memory and traps instead of overwriting globals.

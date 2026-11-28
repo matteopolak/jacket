@@ -1,4 +1,8 @@
 //! Request handlers.
+use std::path::PathBuf;
+
+use serde_json::{Value, json};
+
 use super::helpers::{array, at, decode, document, domain, fail, folder_path, internal, uri};
 use super::methods::{ErrorCode, Failure, Reply, Request, ServerCommand};
 use super::params::{
@@ -15,8 +19,6 @@ use super::wire::{
 use super::{JsonSession, Lifecycle};
 use crate::DocumentUri;
 use crate::completion_wire::completion_wire;
-use serde_json::{Value, json};
-use std::path::PathBuf;
 
 impl JsonSession {
     pub(super) fn request(&mut self, method: &str, params: Value) -> Result<Reply, Failure> {

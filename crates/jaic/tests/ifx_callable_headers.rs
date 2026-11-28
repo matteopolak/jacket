@@ -1,6 +1,7 @@
 //! Runtime conditional callables retain lexical else headers, not TypeId-global metadata.
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
+
+use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 
 fn compile(source: &str) -> Result<(), String> {
     let mut options = Options::host();

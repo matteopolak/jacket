@@ -687,9 +687,10 @@ impl SharedParseReuse {
 
 #[cfg(test)]
 mod reuse_tests {
-    use super::*;
     use std::path::Path;
     use std::sync::Arc;
+
+    use super::*;
 
     #[test]
     fn kept_parses_are_shared_across_compiles_only() {

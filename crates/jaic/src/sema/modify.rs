@@ -153,13 +153,13 @@ impl Compiler {
 
         for name in type_vars {
             // An inferred value variable (`$N` in `Vec($T, $N)`) is already a constant.
-            if variables.iter().any(|(n, _, _)| *n == name)
-                || constants.iter().any(|(n, _, _)| *n == name)
+            if variables.iter().any(|(n, ..)| *n == name)
+                || constants.iter().any(|(n, ..)| *n == name)
             {
                 continue;
             }
 
-            let initial = match bindings.iter().find(|(n, _, _)| *n == name) {
+            let initial = match bindings.iter().find(|(n, ..)| *n == name) {
                 Some((_, Value::Type(t), _)) => *t,
                 _ => TypeId::VOID,
             };
@@ -188,7 +188,7 @@ impl Compiler {
                 continue;
             }
 
-            bindings.retain(|(n, _, _)| *n != name);
+            bindings.retain(|(n, ..)| *n != name);
             bindings.push((name, value, ty));
         }
 

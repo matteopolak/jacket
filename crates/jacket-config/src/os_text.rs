@@ -2,8 +2,9 @@
 //! argument that is not UTF-8 keeps its bytes instead of being decoded or rejected.
 //!
 //! ```
-//! use jacket_config::os_text;
 //! use std::ffi::{OsStr, OsString};
+//!
+//! use jacket_config::os_text;
 //! assert_eq!(
 //!     os_text::strip_prefix(OsStr::new("-Wl,-rpath,/x"), "-Wl,"),
 //!     Some(OsString::from("-rpath,/x"))

@@ -13,13 +13,15 @@
 //! parameter itself), and `[name]` / `[text](name)` intra-doc links, found with a Markdown
 //! parser, with the Markdown rewriting that turns resolved links into real ones.
 
-use crate::lexer::{Comment, CommentKind, Lexed, P, Tok, Token};
-use crate::source::{FileId, line_start};
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use pulldown_cmark::{
     BrokenLink, CodeBlockKind, CowStr, Event, LinkType, Options, Parser, Tag, TagEnd,
 };
-use std::cell::RefCell;
-use std::rc::Rc;
+
+use crate::lexer::{Comment, CommentKind, Lexed, P, Tok, Token};
+use crate::source::{FileId, line_start};
 
 /// The most lines a doc comment shows.
 pub const MAX_LINES: usize = 200;

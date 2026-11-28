@@ -1,12 +1,14 @@
 //! Finite selected procedure values, with explicit open-world sources. Return sets preserve
 //! formal procedure parameters so an identity wrapper does not erase a closed caller set.
-use super::lifetime_places::Places;
+use std::collections::VecDeque;
+
 use jaic::fxhash::{HashMap, HashSet};
 use jaic::ide::lifetimes::{LifetimeBody, LifetimeEvent as Event, LifetimeOperand};
 use jaic::ir::Val;
 use jaic::sema::{Compiler, ProcId};
 use jaic::types::{TypeId, TypeKind};
-use std::collections::VecDeque;
+
+use super::lifetime_places::Places;
 
 pub(in crate::rules) mod globals;
 mod scoped;

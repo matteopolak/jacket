@@ -5,10 +5,11 @@
 //! The sandbox never waits itself. An embedder that can (the browser host, which suspends the
 //! module until the user types) asks `stdin_wants_data` before a call and feeds what it needs;
 //! a read that still finds nothing reports the end of input, as on a terminal after Ctrl+D.
+use std::collections::VecDeque;
+
 use super::guest::{read_size, read_word, write_size, write_word};
 use super::{LibcFn, SandboxHost, write_bytes};
 use crate::interp::word_or_zero;
-use std::collections::VecDeque;
 
 #[derive(Default)]
 pub(super) struct Stdin {

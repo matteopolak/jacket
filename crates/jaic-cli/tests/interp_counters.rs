@@ -1,6 +1,7 @@
 //! The interpreter's opt-in counters: `-profile`, `-profile_ops`, `-profile_runs` and `-interp -coverage`.
 use std::path::Path;
 use std::process::Command;
+
 use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");

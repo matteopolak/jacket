@@ -13,6 +13,9 @@
 //! See `docs/native/debug-info.md`.
 #![allow(unsafe_code)]
 
+use std::cell::RefCell;
+use std::path::{Path, PathBuf};
+
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::{AsContextRef, Context};
@@ -22,8 +25,6 @@ use inkwell::module::{FlagBehavior, Module};
 use inkwell::values::{AsValueRef, BasicValueEnum, FunctionValue, GlobalValue, PointerValue};
 use jaic::fxhash::HashMap;
 use jaic::ir::{DebugGlobal, DebugTypeKind, Func, Inst, Program, Term, Val};
-use std::cell::RefCell;
-use std::path::{Path, PathBuf};
 
 type Md = LLVMMetadataRef;
 
@@ -61,11 +62,12 @@ const DW_OP_DEREF: u64 = 0x06;
 
 /// Thin wrappers over the LLVM-C `DIBuilder` functions this module uses.
 mod raw {
+    use std::ffi::c_char;
+
     use super::{
         AsContextRef, AsValueRef, BasicBlock, Builder, Context, FunctionValue, GlobalValue,
         LLVMDIBuilderRef, Md, Module, PointerValue, di,
     };
-    use std::ffi::c_char;
 
     fn s(text: &str) -> (*const c_char, usize) {
         (text.as_ptr().cast::<c_char>(), text.len())

@@ -1,8 +1,9 @@
 //! The release-age policy against a fake forge on localhost. Git remotes are local bare
 //! repositories that `url.<path>.insteadOf` presents as GitHub, GitLab and Codeberg.
-use crate::dep_support;
 use dep_support::forge::Forge;
 use dep_support::{Origin, Project, Run};
+
+use crate::dep_support;
 
 const HOUR: i64 = 3600;
 const DAY: i64 = 24 * HOUR;

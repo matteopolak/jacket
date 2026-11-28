@@ -69,9 +69,16 @@ fn solve_offsets(nodes: &[OffsetNode]) -> Result<Vec<u64>> {
 #[derive(Clone)]
 enum AnchorNote {
     /// A field of the struct being laid out.
-    Field { name: Sym, decl: Span, ty: TypeId },
+    Field {
+        name: Sym,
+        decl: Span,
+        ty: TypeId,
+    },
     /// A member of `owner` (a `using` field's type, or the type reached by the path so far).
-    Member { owner: TypeId, name: Sym },
+    Member {
+        owner: TypeId,
+        name: Sym,
+    },
 }
 
 impl Compiler {

@@ -1,9 +1,11 @@
 //! Completion inside the string of `#load` and `#import`.
-use crate::session::Session;
-use crate::{CompletionItem, CompletionKind, CompletionList, DocumentUri};
-use jaic::parser::ide_facts::{CursorContext, PathDirective};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
+
+use jaic::parser::ide_facts::{CursorContext, PathDirective};
+
+use crate::session::Session;
+use crate::{CompletionItem, CompletionKind, CompletionList, DocumentUri};
 
 impl Session {
     /// Inside the string of `#load "..."` (files and folders relative to the document) or

@@ -1,8 +1,9 @@
 //! The code generation library (`jaic-backend`) writes the same object a direct `jaic-llvm` call
 //! does, and the loader refuses what is not that library.
-use jaic_native::backend;
 use std::path::PathBuf;
 use std::process::Command;
+
+use jaic_native::backend;
 use test_support::{TempDir, backend as support};
 
 /// `libjaic_backend` of this build, built here when the test run did not (`cargo test` builds a

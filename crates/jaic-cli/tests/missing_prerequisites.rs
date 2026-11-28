@@ -1,6 +1,7 @@
 //! A prerequisite `jaic` cannot find ends the build before any work, with an `error:` that names
 //! it and a `note:` with the next step.
 use std::process::Command;
+
 use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");

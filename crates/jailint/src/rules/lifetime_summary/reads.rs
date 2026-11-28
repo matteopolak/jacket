@@ -1,8 +1,9 @@
 //! Parameter-relative memory accesses used to bound an asynchronous callback's borrow.
 mod protocol;
-use super::{Event, HashMap, HashSet, Path, ProcId, Resolver, Root, Summary};
 pub(in crate::rules) use protocol::address_query;
 pub(super) use protocol::solve as solve_queries;
+
+use super::{Event, HashMap, HashSet, Path, ProcId, Resolver, Root, Summary};
 pub(super) mod foreground;
 
 impl Resolver<'_> {

@@ -856,7 +856,7 @@ impl Proof<'_> {
                 {
                     return true;
                 }
-                CfgOp::Resource(Op::Restore(_, _) | Op::MayRestore(_, _))
+                CfgOp::Resource(Op::Restore(..) | Op::MayRestore(..))
                     if process_exit
                         && matches!(kind, Origin::Temporary)
                         && kept

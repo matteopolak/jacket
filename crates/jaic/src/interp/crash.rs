@@ -21,10 +21,11 @@
 //! happened inside `malloc`.
 #![allow(unsafe_code)]
 
+use std::cell::Cell;
+
 use super::ExecState;
 use super::addresses::AddressMap;
 use crate::ir::Program;
-use std::cell::Cell;
 
 /// Exit status after a crash in native code (see docs/compiler/diagnostics.md).
 pub const CRASH_STATUS: i32 = 121;

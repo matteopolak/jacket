@@ -174,7 +174,7 @@ impl ExportState {
 
     /// Procedures whose header was reported and whose body is still waiting.
     pub fn pending_procs(&self) -> impl Iterator<Item = ProcId> + '_ {
-        self.pending_bodies.iter().map(|&(p, _, _)| p)
+        self.pending_bodies.iter().map(|&(p, ..)| p)
     }
 }
 

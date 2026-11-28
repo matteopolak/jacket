@@ -2,6 +2,7 @@
 //! `help:` line, with the changed code under it in the rich layouts. Diagnostics without a
 //! suggestion keep their plain `help:` lines. See docs/compiler/diagnostics.md.
 use std::process::Command;
+
 use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");

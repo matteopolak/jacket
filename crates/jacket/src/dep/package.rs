@@ -3,9 +3,10 @@
 //! Only `[package]`, `[dependencies]` and the import folders of `[project]` are read, because
 //! everything else (`[target]`, `[lint]`, `[fmt]`, `[experimental]`, runners) belongs to whoever
 //! builds the program. A dependency can never change how the program that uses it builds.
-use jacket_config::{Dependency, FILE_NAME, Package};
 use std::collections::BTreeMap;
 use std::path::Path;
+
+use jacket_config::{Dependency, FILE_NAME, Package};
 
 /// What a dependency says about itself.
 #[derive(Clone, Debug, Default, PartialEq)]

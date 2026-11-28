@@ -1,9 +1,10 @@
 //! Checked expressions must retain the actual procedure-instance result type.
+use std::rc::Rc;
+
 use jaic::{
     records::{FieldRef, Item, RecordTag, Records},
     sema::{Compiler, Options, ProgramSource, VirtualFs},
 };
-use std::rc::Rc;
 
 fn binary_result_types(source: &str) -> (Vec<String>, usize) {
     let mut options = Options::host();

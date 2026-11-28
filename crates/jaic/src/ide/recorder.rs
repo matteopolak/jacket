@@ -4,6 +4,9 @@
 //! costs one branch. Checking code outside `ide` goes through this trait only, so a worker that
 //! checks a body can be given another implementation (one that buffers events for the driver to
 //! replay in order) without the checker changing.
+use std::path::Path;
+use std::sync::Arc;
+
 use super::editor::StmtRecovery;
 use super::interval::Interval;
 use super::values::Narrowing;
@@ -14,8 +17,6 @@ use crate::parser::SharedParse;
 use crate::sema::{EntityId, ProcId, Result};
 use crate::source::{FileId, Span};
 use crate::types::TypeId;
-use std::path::Path;
-use std::sync::Arc;
 
 pub(crate) trait Recorder {
     /// An expression was checked: a failed one is not checked again by the recovery of an

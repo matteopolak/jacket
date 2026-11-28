@@ -29,18 +29,19 @@ mod stmt;
 #[cfg(test)]
 mod tests;
 
-use crate::ast::{File, Ident, Note, Stmt};
-use crate::diagnostics::Code;
-use crate::diagnostics::Diagnostic;
-pub use crate::lexer::PlatformTarget;
-use crate::lexer::{P, Tok, Token, lex};
-use crate::source::{Applicability, FileId, Span, Suggestion};
 pub use directive_stmt::GENERIC_DIRECTIVES;
 pub use ide::{
     IdeParse, ParseReuse, SharedParse, SharedParseReuse, parse_file_ide, parse_tokens_ide,
 };
 pub use ide::{parse_callee_ide, parse_callees_ide};
 pub use stmt::check_bits;
+
+use crate::ast::{File, Ident, Note, Stmt};
+use crate::diagnostics::Code;
+use crate::diagnostics::Diagnostic;
+pub use crate::lexer::PlatformTarget;
+use crate::lexer::{P, Tok, Token, lex};
+use crate::source::{Applicability, FileId, Span, Suggestion};
 
 pub(crate) type PResult<T> = Result<T, Diagnostic>;
 

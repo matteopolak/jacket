@@ -1,8 +1,9 @@
 //! Version schemes, tag parsing and ranges live in [`jacket_config::version`]; this adds the
 //! tags a remote offers.
+pub use jacket_config::version::*;
+
 use super::git::RemoteTag;
 use super::types::CommitId;
-pub use jacket_config::version::*;
 
 /// A tag read as a version.
 #[derive(Clone, Debug, PartialEq, Eq)]

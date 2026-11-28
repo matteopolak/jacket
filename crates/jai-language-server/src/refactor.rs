@@ -16,19 +16,21 @@ mod text;
 mod tree;
 mod variables;
 
-use self::text::indent_unit;
-pub(crate) use self::text::{stmt_extent, trim};
-use self::tree::proc_bodies;
-use crate::analysis::Span;
-use crate::session::Session;
-use crate::{CodeAction, DocumentUri, TextEdit};
+use std::cell::OnceCell;
+
 use jaic::ast::walk::{Node, walk};
 use jaic::ast::{Expr, File, Stmt};
 use jaic::diagnostics::Code;
 use jaic::fxhash::HashMap;
 use jaic::intern::Sym;
 use jaic::source::FileId;
-use std::cell::OnceCell;
+
+use self::text::indent_unit;
+pub(crate) use self::text::{stmt_extent, trim};
+use self::tree::proc_bodies;
+use crate::analysis::Span;
+use crate::session::Session;
+use crate::{CodeAction, DocumentUri, TextEdit};
 
 
 // The refactoring kinds.

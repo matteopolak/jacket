@@ -1,10 +1,9 @@
 //! The call plan of a foreign signature: its C ABI classification, made once.
 #![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+use super::SRET_WORDS;
 use crate::abi::{self, Arch, Passing, Piece, PieceTy};
 use crate::ir::Sig;
 use crate::layout::DataLayout;
-
-use super::SRET_WORDS;
 
 /// How a foreign procedure's signature maps onto the host C ABI, worked out once (`Plan::new`)
 /// and reused by every call: what is left per call is marshalling the arguments and the call.

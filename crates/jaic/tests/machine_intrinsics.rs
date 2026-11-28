@@ -3,9 +3,10 @@ mod registers_source;
 
 mod cpuid {
     //! Architectural CPU data must never be substituted with fabricated zero features.
+    use std::rc::Rc;
+
     use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
     use jaic::target::TargetCpu;
-    use std::rc::Rc;
 
     const SOURCE: &str = include_str!("../../../tests/compiler/semantics/cpuid.jai");
 
@@ -110,9 +111,10 @@ mod cpuid {
 
 mod cpuid_leaf_zero {
     //! Stable CPUID fields compared with an independent host intrinsic.
+    use std::rc::Rc;
+
     use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
     use jaic::target::TargetCpu;
-    use std::rc::Rc;
 
     #[test]
     fn cpuid_leaf_zero_compiles_for_x64_and_rejects_other_targets() {
@@ -415,9 +417,10 @@ mod xgetbv {
 
 mod pointer_operands {
     //! A pointer variable is a 64-bit general register operand.
+    use std::rc::Rc;
+
     use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
     use jaic::target::TargetCpu;
-    use std::rc::Rc;
 
     #[test]
     fn unsized_instructions_take_their_size_from_a_pointer_operand() {
@@ -437,9 +440,9 @@ mod pointer_operands {
 
 mod registers {
     //! Original register operand forwarding and scalar-result regressions.
-    use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
     use std::rc::Rc;
 
+    use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 
     use super::registers_source::SOURCE;
 

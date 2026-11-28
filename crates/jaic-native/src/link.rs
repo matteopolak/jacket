@@ -1,17 +1,19 @@
 //! The link driver and its inputs.
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+use jaic::ir::Library;
+use jaic::target::Target as BuildTarget;
+use jaic::toolchain::{Driver, Linker, Toolchain};
+use jaic_toolchain::Overrides;
+use jaic_toolchain::linker::{find_linker, find_sanitizer_driver};
+
 use super::link_options;
 use super::linker::{
     check_sanitizer_target, library_args, link_failure, linker_not_run, pdb_args, render_link_arg,
 };
 use super::options::Sanitize;
 use super::toolchain::{command, lookup, report};
-use jaic::ir::Library;
-use jaic::target::Target as BuildTarget;
-use jaic::toolchain::{Driver, Linker, Toolchain};
-use jaic_toolchain::Overrides;
-use jaic_toolchain::linker::{find_linker, find_sanitizer_driver};
-use std::path::{Path, PathBuf};
-use std::process::Command;
 
 /// The toolchain of `target` (`None`: the host).
 pub(super) fn toolchain_for(target: Option<BuildTarget>) -> &'static Toolchain {

@@ -1,4 +1,6 @@
 //! Encoding results into the protocol's JSON shapes.
+use serde_json::{Value, json};
+
 use super::helpers::array;
 use super::methods::ServerCommand;
 use crate::{
@@ -7,7 +9,6 @@ use crate::{
     InlayHintKind, Location, MarkupKind, Position, SelectionRange, SemanticToken,
     SemanticTokenKind, SignatureHelp, SymbolInformation, SymbolKind, TOKEN_MODIFIERS,
 };
-use serde_json::{Value, json};
 
 // Domain enums have no protocol discriminants. Only this JSON boundary maps LSP values.
 /// A document's diagnostics for a pull: the report is `unchanged` when the client's last

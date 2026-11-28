@@ -1,4 +1,6 @@
 //! Public compiler operations share the workspace engine and declaration-driven ABI.
+use std::rc::Rc;
+
 use super::abi::{put_string, put_view, string};
 use super::{Binding, Operation, Schema};
 use crate::{
@@ -8,7 +10,6 @@ use crate::{
     ir,
     types::TypeId,
 };
-use std::rc::Rc;
 
 #[derive(Default)]
 pub(crate) struct State {

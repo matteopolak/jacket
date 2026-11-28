@@ -1,6 +1,7 @@
 //! Observable process effects: `@Exits` and `@WritesOutput` on bodiless declarations, and the calls that reach them.
-use super::{Event, HashMap, HashSet, LifetimeBody, ProcId, Summary, Val};
 use jaic::sema::Compiler;
+
+use super::{Event, HashMap, HashSet, LifetimeBody, ProcId, Summary, Val};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(in crate::rules) struct Observable {

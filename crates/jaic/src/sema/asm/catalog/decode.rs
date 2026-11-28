@@ -1,4 +1,6 @@
 //! Decoding mnemonics through the lowering's own lookups and building the table.
+use std::collections::BTreeMap;
+
 use super::AsmInstruction;
 use super::describe::describe;
 use super::features::{core_feature, vector_features};
@@ -8,7 +10,6 @@ use crate::sema::asm::mask::{KOp, lookup_kop};
 use crate::sema::asm::scalar::{XOp, lookup_xop};
 use crate::sema::asm::vec::{VOp, lookup_vec};
 use crate::sema::asm::{Op, lookup_op};
-use std::collections::BTreeMap;
 
 
 // Decoding: the lowering's own lookups, in the order `asm_inst` tries them.

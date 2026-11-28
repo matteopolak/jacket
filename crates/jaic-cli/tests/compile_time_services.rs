@@ -3,6 +3,7 @@
 //! described in docs/extensions/service.md.
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+
 use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");

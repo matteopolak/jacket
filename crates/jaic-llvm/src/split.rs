@@ -11,6 +11,9 @@
 //! executable exports the same symbols as before; only the objects differ.
 #![allow(unsafe_code)]
 
+use std::ffi::CStr;
+use std::path::{Path, PathBuf};
+
 use inkwell::context::Context;
 use inkwell::llvm_sys::LLVMLinkage;
 use inkwell::llvm_sys::LLVMVisibility;
@@ -20,8 +23,6 @@ use inkwell::memory_buffer::MemoryBuffer;
 use inkwell::module::Module;
 use inkwell::targets::{FileType, TargetMachine};
 use jaic::fxhash::HashMap;
-use std::ffi::CStr;
-use std::path::{Path, PathBuf};
 
 /// LLVM instructions per codegen unit below which another thread does not pay for itself
 /// (each unit re-reads the whole module's bitcode). Splitting changes the code not at all, so

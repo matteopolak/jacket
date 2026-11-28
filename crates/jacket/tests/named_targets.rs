@@ -2,6 +2,7 @@
 #![cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::process::{Command, Output};
+
 use test_support::TempDir;
 
 const COMPILER: &str =

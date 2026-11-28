@@ -1,8 +1,9 @@
 //! Original passive-observation fixtures; no Jai program execution or library API oracle.
+use std::{cell::Cell, path::PathBuf, rc::Rc};
+
 use jai_language_server::{DocumentUri, Environment, Limits, Session};
 use jaic::sema::{Options, VirtualFs};
 use serde_json::Value;
-use std::{cell::Cell, path::PathBuf, rc::Rc};
 use test_support::lsp::file_uri;
 
 fn fixture(configured: bool) -> (Session, DocumentUri, Rc<Cell<usize>>) {
@@ -49,7 +50,7 @@ fn fixture(configured: bool) -> (Session, DocumentUri, Rc<Cell<usize>>) {
 #[test]
 fn actual_root_observation_distinguishes_configured_entry_from_standalone_leaf() {
     let (configured, leaf, _) = fixture(true);
-    let (standalone, _, _) = fixture(false);
+    let (standalone, ..) = fixture(false);
     let under_entry = configured.semantic_coverage(&leaf).unwrap().unwrap();
     let alone = standalone.semantic_coverage(&leaf).unwrap().unwrap();
 

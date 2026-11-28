@@ -6,9 +6,10 @@
 //! 3 = program arguments (each argument ends with a NUL byte; none pushed passes no `argv`),
 //! 4 = standard input (the whole of it, when fixed; otherwise the page supplies it as the program
 //! reads, see `host_bridge`); 5 = optional supplied library root relative to the workspace.
-use crate::play;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+
+use crate::play;
 
 const INPUT_LIMIT: usize = 16 * 1024 * 1024;
 

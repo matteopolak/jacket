@@ -20,9 +20,10 @@
 //! inlined, nor optimized through their arguments, and constants stored in another module's
 //! globals are not folded.
 
-use crate::lower::Plan;
 use jaic::fxhash::HashMap;
 use jaic::ir::{Callee, Func, Inst, Linkage, Program, RelocTarget};
+
+use crate::lower::Plan;
 
 /// IR instructions in a function up to which another module may hold a copy of it for inlining.
 const IMPORT_MAX: usize = 200;

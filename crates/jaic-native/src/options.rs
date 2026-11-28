@@ -1,6 +1,7 @@
 //! Optimisation levels, code generation options and sanitizer selection.
-use jaic::target::Target as BuildTarget;
 use std::path::PathBuf;
+
+use jaic::target::Target as BuildTarget;
 
 /// Optimization pipeline selection.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]

@@ -1,7 +1,8 @@
 //! The generated metaprogram behind `jaic +Plugin file.jai`.
 
-use crate::lexer::QuoteMode;
 use std::path::{Path, PathBuf};
+
+use crate::lexer::QuoteMode;
 
 /// One `+Plugin` the metaprogram imports.
 pub struct PluginImport {

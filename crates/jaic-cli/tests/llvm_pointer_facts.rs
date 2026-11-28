@@ -1,5 +1,6 @@
 //! `nonnull` facts must follow ABI parameter expansion and leave user pointers unrestricted.
 use std::process::Command;
+
 use test_support::TempDir;
 
 const SOURCE: &str = r#"

@@ -1,9 +1,10 @@
 //! Exported operands retain contextual types from actual checking, including folded globals.
+use std::{path::Path, rc::Rc};
+
 use jaic::{
     records::{FieldRef, Item, RecordTag, Records},
     sema::{Compiler, NativeFs, Options, ProgramSource, VirtualFs},
 };
-use std::{path::Path, rc::Rc};
 
 fn reference(r: &Records, id: i64, field: &str) -> i64 {
     match r.field(id, field) {

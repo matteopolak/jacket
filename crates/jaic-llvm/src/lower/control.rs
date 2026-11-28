@@ -1,14 +1,15 @@
 //! Lowering terminators and calls.
-use super::error::Error;
-use super::inst::basic;
-use super::plan::{ParamPlan, RetPlan};
-use super::state::FnState;
-use super::{Backend, R};
 use inkwell::IntPredicate;
 use inkwell::types::BasicType;
 use inkwell::values::{BasicMetadataValueEnum, BasicValueEnum, PointerValue};
 use jaic::abi::Passing;
 use jaic::ir::{BlockId, Func, Sig, Term, Ty};
+
+use super::error::Error;
+use super::inst::basic;
+use super::plan::{ParamPlan, RetPlan};
+use super::state::FnState;
+use super::{Backend, R};
 
 impl<'ctx> Backend<'ctx, '_> {
     pub(super) fn term(&self, st: &FnState<'ctx>, func: &Func, term: &Term) -> R<()> {

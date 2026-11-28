@@ -1,9 +1,10 @@
 //! `jacket test --review`: the snapshots a run left as `NAME.snap.new`, shown as diffs against
 //! `NAME.snap` and accepted or rejected one by one.
-use super::diff;
 use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+
+use super::diff;
 
 const PENDING: &str = ".snap.new";
 

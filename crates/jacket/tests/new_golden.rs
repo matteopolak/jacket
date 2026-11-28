@@ -2,6 +2,7 @@
 //! the missing file is a failure.
 use std::path::Path;
 use std::process::{Command, Output};
+
 use test_support::{TempDir, toolchain};
 
 fn project() -> TempDir {

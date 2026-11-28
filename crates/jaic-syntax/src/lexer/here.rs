@@ -1,7 +1,8 @@
 //! The header of a here-string (`#string,cr TAG`), read by the lexer and by tools that ask
 //! which terminator a token has.
-use super::scan::is_ident_char;
 use std::ops::Range;
+
+use super::scan::is_ident_char;
 
 /// Terminators that name a language, matched case-insensitively. Editors highlight a
 /// here-string ending in one of these as that language. The editor grammars are generated

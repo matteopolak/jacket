@@ -6,9 +6,10 @@
 //! and what its handle is (`Slots`), who owns a mutex, how many levels it is held, and which
 //! threads queue on a condition live here so the two cannot disagree about them. Thread
 //! identities are scheduler slot indices.
+use std::collections::VecDeque;
+
 use super::errno::EPERM;
 use crate::fxhash::{HashMap, HashSet};
-use std::collections::VecDeque;
 
 /// The thread slots, and the handles Jai code holds to them (`pthread_t`).
 ///

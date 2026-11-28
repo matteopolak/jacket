@@ -1031,11 +1031,6 @@ catalog! {
 }
 
 impl Code {
-    /// The code called `name`.
-    pub fn parse(name: &str) -> Option<Code> {
-        Code::ALL.iter().copied().find(|code| code.name() == name)
-    }
-
     /// The leniency codes, in the order `docs/language/leniencies.md` lists them.
     pub const LENIENCIES: [Code; 25] = [
         Code::OperatorOutOfScope,
@@ -1064,6 +1059,11 @@ impl Code {
         Code::PositionalLiteralDefaults,
         Code::NoteWithSpaces,
     ];
+
+    /// The code called `name`.
+    pub fn parse(name: &str) -> Option<Code> {
+        Code::ALL.iter().copied().find(|code| code.name() == name)
+    }
 
     /// Whether this is one of the [`Code::LENIENCIES`].
     pub fn is_leniency(self) -> bool {

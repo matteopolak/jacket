@@ -1,4 +1,7 @@
 //! Build settings, the output backend interface, reports and the observer of workspaces.
+use std::path::PathBuf;
+use std::rc::Rc;
+
 use crate::builtin_keys::OutputType;
 use crate::builtin_keys::{
     BitcodeOptimization, MachineCodeOptimization, RuntimeSupport, WorkspaceFlag,
@@ -7,8 +10,6 @@ use crate::interp::Host;
 use crate::ir;
 use crate::sema::{Compiler, DeadCode, FileSystem, Options, ProgramSource};
 use crate::target::{TargetCpu, TargetOs};
-use std::path::PathBuf;
-use std::rc::Rc;
 
 /// Build settings of one workspace, as far as jaic uses them.
 #[derive(Clone, Debug)]

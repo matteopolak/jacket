@@ -2,11 +2,12 @@
 //! request, and one that takes longer than a moment reads as `.PENDING` until it arrives, so a
 //! keystroke never waits on a service. The transport polls for arrivals and checks the open
 //! files again when one comes in (see `main.rs`). Builds ask the same services and wait.
-use jaic::fxhash::HashMap;
-use jaic::service::{ServiceProvider, ServiceReply, ServiceStatus, Services, Ticket};
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
+
+use jaic::fxhash::HashMap;
+use jaic::service::{ServiceProvider, ServiceReply, ServiceStatus, Services, Ticket};
 
 /// How long a compile waits for an answer before it reads as pending.
 const FIRST_WAIT: Duration = Duration::from_millis(50);

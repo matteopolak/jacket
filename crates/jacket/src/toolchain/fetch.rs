@@ -3,9 +3,10 @@
 //! reaches the network for a build.
 //!
 //! The real work is done by `curl` and `tar`, through [`crate::net`] as in `jacket upgrade`.
+use std::path::Path;
+
 use crate::net::Curl;
 use crate::upgrade::checksum::sha256_file;
-use std::path::Path;
 
 /// Saves `url` as `dest`, unless `dest` already holds a file with the sha256 `sha256`. A
 /// download whose hash differs is deleted and is an error.

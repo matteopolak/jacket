@@ -1,10 +1,11 @@
 //! The site as a whole: every module, where each page lives, and the links between them.
+use std::cell::RefCell;
+use std::collections::BTreeMap;
+
 use super::categories::Category;
 use super::highlight;
 use super::model::{Item, Kind, Module, Overload, Param, TypeRef};
 use crate::markup::escape;
-use std::cell::RefCell;
-use std::collections::BTreeMap;
 
 pub struct Site {
     pub modules: Vec<Module>,

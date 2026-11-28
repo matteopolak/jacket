@@ -1,4 +1,10 @@
 //! Project symbols and the completion items an auto import offers.
+use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
+
+use jaic::fxhash::HashMap;
+use jaic::sema::{ModuleRanking, Rank};
+
 use super::names::{builds_for, module_of};
 use super::{MAX_ITEMS, MAX_OVERLOADS, MIN_PREFIX, Modules, Source, hash};
 use crate::analysis::Span;
@@ -7,10 +13,6 @@ use crate::exports::{self, Decl};
 use crate::model::{CompletionItem, CompletionKind, TextEdit};
 use crate::project::{self};
 use crate::session::Session;
-use jaic::fxhash::HashMap;
-use jaic::sema::{ModuleRanking, Rank};
-use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
 
 impl Session {
     /// Reads the module indexes auto-import completion offers from (the stdlib's and the

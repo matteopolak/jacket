@@ -1,6 +1,7 @@
 //! `jacket dep` with tags and commits, against local bare repositories.
-use crate::dep_support;
 use dep_support::{Origin, Project, git, run_in};
+
+use crate::dep_support;
 
 const MODULE: &[(&str, &str)] = &[("module.jai", "answer :: 42;\n")];
 

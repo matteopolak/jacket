@@ -321,9 +321,10 @@ fn llvm_level(level: OptLevel) -> inkwell::OptimizationLevel {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use jaic::abi::Arch;
     use jaic_native::Codegen;
+
+    use super::*;
 
     #[test]
     fn an_unoptimized_wasm_module_gets_register_coloring_unless_the_program_chose_a_level() {

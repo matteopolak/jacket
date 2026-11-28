@@ -1,6 +1,7 @@
 //! The Node runner, against a stand-in browser bundle.
-use super::*;
 use test_support::TempDir;
+
+use super::*;
 
 /// A browser bundle whose compiler spins for a few seconds on `spin` and fails on `fail`.
 fn runtime() -> TempDir {

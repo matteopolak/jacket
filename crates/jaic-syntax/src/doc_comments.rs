@@ -12,15 +12,17 @@ mod forward;
 mod gaps;
 mod model;
 mod refs;
-use crate::parser::ide_facts::{self, TopLevelKind};
-use crate::source::FileId;
+use std::collections::{BTreeSet, VecDeque};
+use std::path::{Path, PathBuf};
+
 pub use gaps::{Entry as GapEntry, gaps, records as gap_records};
 pub use model::{
     Expander, generated_origin, generated_path, module_platforms,
     print_expanding as model_json_expanding,
 };
-use std::collections::{BTreeSet, VecDeque};
-use std::path::{Path, PathBuf};
+
+use crate::parser::ide_facts::{self, TopLevelKind};
+use crate::source::FileId;
 
 /// One doc comment.
 #[derive(Clone, Debug, PartialEq, Eq)]

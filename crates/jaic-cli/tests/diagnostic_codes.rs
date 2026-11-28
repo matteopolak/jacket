@@ -2,6 +2,7 @@
 //! `-D` flags that decide how loud a warning is. The codes are described by `jacket explain`.
 use std::path::Path;
 use std::process::{Command, Output};
+
 use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");

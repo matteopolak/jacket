@@ -1,8 +1,10 @@
 //! Runtime checks in native builds.
-use super::{build_and_run, exe_path, jaic, repo_root};
-use jaic_toolchain::quiet_crash;
 use std::process::Command;
+
+use jaic_toolchain::quiet_crash;
 use test_support::TempDir;
+
+use super::{build_and_run, exe_path, jaic, repo_root};
 
 /// Arithmetic overflow checks in a native build: `Build_Options.arithmetic_overflow_check` on a
 /// workspace that writes an executable, and `#no_aoc` switching them off again.

@@ -4,8 +4,9 @@
 //! allocator releases what `h` owns. `h` stays valid and can be filled again, so this is
 //! kept apart from a whole-argument release (`free(p)`), which ends `p` itself. The body says
 //! it: no declaration note is needed.
-use super::{Kind, Path, Root, Step, Summary, descriptor_storage};
 use jaic::intern::Sym;
+
+use super::{Kind, Path, Root, Step, Summary, descriptor_storage};
 
 /// Storage owned through one parameter that every normal return has freed.
 #[derive(Clone, Debug, PartialEq, Eq)]

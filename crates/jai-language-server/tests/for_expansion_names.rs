@@ -1,7 +1,8 @@
 //! The name after `for :` in `for :utf8_iter LYRICS { ... }` is a `for_expansion` macro: it
 //! navigates, hovers, is found by references and renamed, and is highlighted like a macro.
-use jai_language_server::SemanticTokenKind;
 use std::path::Path;
+
+use jai_language_server::SemanticTokenKind;
 use test_support::lsp::{at_offset, open_file, project};
 
 const ITER: &str = "utf8_iter :: (s: string, body: Code, flags: For_Flags) #expand {\n    \

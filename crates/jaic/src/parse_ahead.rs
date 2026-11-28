@@ -18,11 +18,12 @@ pub use imp::{ParseAhead, Prepared, PreparedTree};
 
 #[cfg(target_arch = "wasm32")]
 mod imp {
+    use std::path::{Path, PathBuf};
+    use std::sync::Arc;
+
     use crate::ast;
     use crate::sema::Options;
     use crate::source::{FileId, LineIndex};
-    use std::path::{Path, PathBuf};
-    use std::sync::Arc;
 
     pub struct ParseAhead;
     pub struct Prepared;
@@ -56,14 +57,15 @@ mod imp {
 
 #[cfg(not(target_arch = "wasm32"))]
 mod imp {
+    use std::collections::VecDeque;
+    use std::path::{Path, PathBuf};
+    use std::sync::{Arc, Condvar, Mutex};
+
     use crate::ast::{self, StmtKind, relocate};
     use crate::fxhash::HashMap;
     use crate::sema::{BootstrapModule, FileSystem, NativeFs, Options, find_module_in};
     use crate::source::{FileId, LineIndex};
     use crate::target::{TargetCpu, TargetOs};
-    use std::collections::VecDeque;
-    use std::path::{Path, PathBuf};
-    use std::sync::{Arc, Condvar, Mutex};
 
     /// A file's finished parse, its spans still naming the placeholder file.
     pub struct Prepared {
@@ -483,9 +485,10 @@ mod imp {
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
+    use std::path::Path;
+
     use super::imp::*;
     use crate::source::FileId;
-    use std::path::Path;
 
     /// A tree parsed by a worker and relocated is the tree a serial parse builds: same spans,
     /// file ids and symbols, for the library, the examples and the test sources. `AstId`s differ

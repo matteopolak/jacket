@@ -130,7 +130,7 @@ fn specialize(mut blocks: Vec<Block>, body: &LifetimeBody, scalar: bool) -> Vec<
             remap.insert(next, id);
         }
 
-        if let Op::Decision(_, yes, no, _, _) = &mut block.op {
+        if let Op::Decision(_, yes, no, ..) = &mut block.op {
             *yes = remap.get(yes).copied().unwrap_or(cursor);
             *no = remap.get(no).copied().unwrap_or(cursor);
         }

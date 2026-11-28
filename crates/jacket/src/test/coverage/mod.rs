@@ -21,9 +21,10 @@ mod html;
 mod procedures;
 mod report;
 
-use crate::cli::{CoverageBy, CoverageFormat};
 use baseline::Baseline;
 use report::{Data, Group, lcov, rows, table};
+
+use crate::cli::{CoverageBy, CoverageFormat};
 
 /// A basic block of a program: how often it ran, and whether it is the entry of a function.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

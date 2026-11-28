@@ -1,5 +1,8 @@
 //! The written declaration of a struct, union or enum, and the private types a public item
 //! leads a reader to.
+use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
+
 use super::super::refs::TypeRef;
 use super::{Item, Module, Reader, TopIndex, class_kind, os_names, struct_params};
 use crate::ast::walk::{Node, walk_node};
@@ -8,8 +11,6 @@ use crate::docs;
 use crate::lexer::lex_with_trivia;
 use crate::parser::ide_facts::Visibility;
 use crate::source::FileId;
-use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
 
 /// `text` without the comments `drop` accepts (it is given each comment's start offset). Comment-only
 /// lines go, a line that ends in a comment loses the trailing space, and blank lines are not

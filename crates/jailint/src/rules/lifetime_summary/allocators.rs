@@ -1,5 +1,4 @@
 //! Allocator identities come from the checked protocol and capability-query body.
-use super::{Compiler, Event, HashMap, HashSet, LifetimeBody, ProcId};
 use jaic::intern::Sym;
 use jaic::ir::{CmpOp, FuncId, Val};
 use jaic::sema::{
@@ -8,6 +7,8 @@ use jaic::sema::{
     scope::{EntityState, Resolved},
 };
 use jaic::types::TypeId;
+
+use super::{Compiler, Event, HashMap, HashSet, LifetimeBody, ProcId};
 
 #[derive(Default)]
 pub(in crate::rules) struct Allocators {

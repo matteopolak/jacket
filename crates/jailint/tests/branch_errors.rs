@@ -1,10 +1,11 @@
 //! A compile error is reported wherever it sits in an `ifx`, whichever branch the condition
 //! picks: `jacket migrate` plans from these errors.
+use std::path::Path;
+
 use jailint::{
     config::Config,
     driver::{Options, run},
 };
-use std::path::Path;
 use test_support::TempDir;
 
 /// The unknown names the driver reports as errors for `source`.

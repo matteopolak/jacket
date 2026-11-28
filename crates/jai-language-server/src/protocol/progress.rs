@@ -1,6 +1,7 @@
 //! Standard work-done progress for native indexing, created before any work begins.
-use super::{JsonSession, ProtocolError};
 use serde_json::{Value, json};
+
+use super::{JsonSession, ProtocolError};
 
 #[derive(Default)]
 pub(super) struct IndexProgress {

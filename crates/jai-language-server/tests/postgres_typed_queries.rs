@@ -4,12 +4,13 @@
 //! `stdlib/Extensions/Postgres/tests/typed/schema.sql`, for example
 //! `postgres://postgres@127.0.0.1:5432/jai_typed_test`. The describe worker reads the variable
 //! itself, so it has to be set for the whole test run.
-use jai_language_server::services::EditorServices;
-use jai_language_server::{DocumentUri, Limits, Session};
-use jaic::service::{ServiceConfig, Services};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
+
+use jai_language_server::services::EditorServices;
+use jai_language_server::{DocumentUri, Limits, Session};
+use jaic::service::{ServiceConfig, Services};
 
 fn built_jaic() -> Option<PathBuf> {
     let name = format!("jaic{}", std::env::consts::EXE_SUFFIX);

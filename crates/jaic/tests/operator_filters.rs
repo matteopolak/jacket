@@ -1,6 +1,7 @@
 //! Public filter symbols select original operator declarations, never their internal names.
-use jaic::sema::{Compiler, Options, VirtualFs};
 use std::{path::Path, rc::Rc};
+
+use jaic::sema::{Compiler, Options, VirtualFs};
 
 const OPERATORS: &str = r"
 Value :: struct { n: int; }

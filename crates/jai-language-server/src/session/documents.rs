@@ -1,13 +1,14 @@
 //! Opening, changing and closing documents, and their diagnostics.
+use std::cell::OnceCell;
+use std::path::Path;
+use std::rc::Rc;
+
 use super::{Document, Session};
 use crate::analysis::Span;
 use crate::{
     Diagnostic, DiagnosticCode, DiagnosticSeverity, DocumentUri, Error, RelatedInformation,
     TextChange, analysis::Analysis, position::LineIndex,
 };
-use std::cell::OnceCell;
-use std::path::Path;
-use std::rc::Rc;
 
 /// A compile diagnostic with where it is (bytes) and what can fix it.
 pub(crate) struct Finding {

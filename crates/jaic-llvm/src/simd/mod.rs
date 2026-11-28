@@ -13,8 +13,6 @@ mod wasm;
 mod x86;
 
 pub use features::{Target, function_features};
-
-use crate::lower::Error;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::intrinsics::Intrinsic as LlvmIntrinsic;
@@ -24,6 +22,8 @@ use inkwell::values::{
     BasicMetadataValueEnum, BasicValue, BasicValueEnum, IntValue, PointerValue, ValueKind,
     VectorValue,
 };
+
+use crate::lower::Error;
 
 type R<T> = Result<T, Error>;
 

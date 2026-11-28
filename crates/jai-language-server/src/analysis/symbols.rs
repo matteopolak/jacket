@@ -1,9 +1,10 @@
 //! The document symbol tree: declarations, their children and the scopes of local bindings,
 //! built from the parsed file.
-use super::{Analysis, Context, Placement, Span, SymbolRow, span_of};
-use crate::{DiagnosticCode, DiagnosticSeverity, DocumentUri, SymbolKind, position::LineIndex};
 use jaic::ast::{Block, Decl, EnumItem, ExprKind, Stmt, StmtKind, StructLit};
 use jaic::parser::ide_facts::{self, DeclClass, TopLevelKind, Visibility};
+
+use super::{Analysis, Context, Placement, Span, SymbolRow, span_of};
+use crate::{DiagnosticCode, DiagnosticSeverity, DocumentUri, SymbolKind, position::LineIndex};
 
 impl Analysis {
     pub(super) fn top_level(

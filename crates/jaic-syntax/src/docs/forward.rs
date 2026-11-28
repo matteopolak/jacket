@@ -2,9 +2,10 @@
 //! docs of what it names. The rule lives here and nothing else decides it: the language server
 //! and `jaic -doc_comments` both ask [`docs_site`] where a declaration's docs are, and only
 //! differ in how they find what a path names (the type checker, or the library's own files).
+use std::sync::Arc;
+
 use super::{P, Tok, trivia, valid};
 use crate::lexer::Token;
-use std::sync::Arc;
 
 /// How many aliases are followed before giving up, so a cycle ends.
 const MAX_HOPS: usize = 8;

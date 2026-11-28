@@ -6,7 +6,7 @@ mod imports;
 mod loading;
 mod not_found;
 mod parameters;
-pub(super) use self::parameters::INFERRED_PARAM;
+use std::path::Path;
 
 pub(super) use self::declare::file_scope_for_eval;
 pub(super) use self::filesystem::module_listed;
@@ -15,12 +15,12 @@ pub use self::filesystem::{
     find_module_in, import_entry,
 };
 pub(super) use self::loading::FileLoadState;
+pub(super) use self::parameters::INFERRED_PARAM;
 pub use self::parameters::ParameterContract;
 use super::scope::{EntityKind, EntityState, ScopeKind};
 use super::{Compiler, EntityId, ModuleId, PathBuf, Result, ScopeId, Span, ast};
 use crate::paths::normalize;
 use crate::sema::SourceState;
-use std::path::Path;
 
 impl Compiler {
     /// Load every module reachable through imports and expand all pending

@@ -2,6 +2,7 @@
 //! an earlier one's `#run` argument. A failure while loading it is reported as itself, not as a
 //! null context trapping at the earlier `#run`'s first allocation.
 use std::process::Command;
+
 use test_support::TempDir;
 
 fn check(module: &str, main: &str) -> (bool, String) {

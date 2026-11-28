@@ -2,6 +2,7 @@
 //! the failure's place and line, with no stack trace or crash note, and the tests after it run.
 use std::path::Path;
 use std::process::Command;
+
 use test_support::{TempDir, toolchain};
 
 const MODULE: &str = r#"#import "Basic";

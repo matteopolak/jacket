@@ -1,8 +1,9 @@
 //! A constant, procedure or type of a body is visible only below the line that declares it, as in
 //! the official compiler (`docs/language/scoping.md`, rule scope.19).
+use std::{path::Path, rc::Rc};
+
 use jaic::diagnostics::{Code, Diagnostic};
 use jaic::sema::{Compiler, Options, VirtualFs};
-use std::{path::Path, rc::Rc};
 
 fn compile(main: &str, modules: &[(&str, &str)]) -> Result<(), Box<Diagnostic>> {
     let mut fs = VirtualFs::default();

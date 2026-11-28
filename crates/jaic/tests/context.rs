@@ -1,6 +1,7 @@
 //! Lexical context/cleanup regressions independent of stdlib bodies.
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
+
+use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 
 const SETUP: &str = r"
 #add_context marker: s64 = 7;

@@ -1,9 +1,10 @@
 //! Each file uses the nearest `jacket.toml` above it, whichever roots are listed.
+use std::path::{Path, PathBuf};
+
 use jailint::{
     config::Config,
     driver::{Options, run},
 };
-use std::path::{Path, PathBuf};
 use test_support::TempDir;
 
 const PROGRAM: &str = "main :: () { total := 12345 + 6789; }\n";

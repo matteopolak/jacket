@@ -1,10 +1,11 @@
 //! Scheduler state: thread slots, blocking reasons and the shared baton.
-use super::{pthread, win32};
-use crate::interp::thread_sync::{CondQueues, Mutexes, Slots};
-use crate::interp::{ExecState, HashMap};
 use std::collections::BTreeSet;
 use std::sync::{Condvar, Mutex};
 use std::time::{Duration, Instant};
+
+use super::{pthread, win32};
+use crate::interp::thread_sync::{CondQueues, Mutexes, Slots};
+use crate::interp::{ExecState, HashMap};
 
 /// Interpreter value stack of a thread other than the first.
 pub(super) const THREAD_STACK: usize = 8 << 20;
@@ -356,8 +357,9 @@ pub(in crate::interp) struct Shared {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::sync::Arc;
+
+    use super::*;
 
     fn sched_with(count: usize) -> Arc<Shared> {
         let shared = Shared::new(0);

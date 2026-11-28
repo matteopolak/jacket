@@ -1,5 +1,7 @@
 //! Optional semantic lifetime sidecar. Events are emitted in lowering order, in the
 //! checker's actual blocks. No AST control flow is reconstructed by consumers.
+use std::sync::Arc;
+
 use crate::ast::{self, ExprKind as E};
 use crate::fxhash::{HashMap, HashSet};
 use crate::ir::{self, Val};
@@ -7,7 +9,6 @@ use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, EntityId, ProcId, ScopeId};
 use crate::source::Span;
 use crate::types::{ArrayKind, TypeId, TypeKind};
-use std::sync::Arc;
 
 mod addresses;
 mod booleans;
@@ -657,7 +658,6 @@ impl FnCtx {
             },
         );
     }
-
 
     pub(crate) fn lifetime_store(&mut self, place: Val, value: Val, ty: TypeId, span: Span) {
         if !self.type_only

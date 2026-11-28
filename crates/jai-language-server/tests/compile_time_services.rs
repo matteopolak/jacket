@@ -1,11 +1,12 @@
 //! Compile-time services in the editor: an answer that is not in yet leaves the code that asked
 //! for it unknown (no diagnostics), and once it arrives the file is checked again with it.
-use jai_language_server::services::EditorServices;
-use jai_language_server::{DocumentUri, Limits, Session};
-use jaic::service::{ServiceConfig, Services};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
+
+use jai_language_server::services::EditorServices;
+use jai_language_server::{DocumentUri, Limits, Session};
+use jaic::service::{ServiceConfig, Services};
 
 /// The `jaic` the workspace build made in the target folder this test runs from, if any.
 fn built_jaic() -> Option<PathBuf> {

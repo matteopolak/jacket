@@ -1,4 +1,7 @@
 //! Syntax-only features: workspace symbols, folding, lenses and polymorphs.
+use jaic::fxhash::HashSet;
+use jaic::ide::meta::IdeClass;
+
 use super::clip;
 use crate::analysis::{Span, TokenKind};
 use crate::session::Session;
@@ -6,8 +9,6 @@ use crate::{
     CodeLens, Command, DocumentUri, Error, FoldingRange, Location, Position, Range,
     SymbolInformation,
 };
-use jaic::fxhash::HashSet;
-use jaic::ide::meta::IdeClass;
 
 impl Session {
     // Syntax-only features
@@ -208,7 +209,7 @@ impl Session {
     pub fn polymorphs(&self, uri: &DocumentUri, position: Position) -> Vec<String> {
         self.polymorph_rows(uri)
             .into_iter()
-            .find(|(range, _, _)| range.start <= position && position <= range.end)
+            .find(|(range, ..)| range.start <= position && position <= range.end)
             .map(|(_, i, _)| i)
             .unwrap_or_default()
     }

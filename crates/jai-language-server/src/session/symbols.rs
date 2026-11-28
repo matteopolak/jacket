@@ -1,9 +1,11 @@
 //! Document symbols, reachable documents and name bindings.
+use std::collections::BTreeSet;
+
+use jaic::intern::Sym;
+
 use super::{Document, Session, contains, tokens_at};
 use crate::analysis::{Token, TokenKind};
 use crate::{DocumentSymbol, DocumentUri, Error, Position, analysis::SymbolRow};
-use jaic::intern::Sym;
-use std::collections::BTreeSet;
 
 /// How much of a declaration its detail and its source-only hover quote, in written bytes
 /// (whitespace not counted).

@@ -1,8 +1,9 @@
 //! Release versions: `0.21.0`, `v0.21.0`, `0.22.0-rc.1`, read as a dependency's semver tag is
 //! ([`crate::dep::version::parse_tag`]). Ordered by semver precedence (build metadata ignored),
 //! so `upgrade` can tell newer from older without caring how the tag is spelled.
-use crate::dep::version::{self, Scheme};
 use std::cmp::Ordering;
+
+use crate::dep::version::{self, Scheme};
 
 #[derive(Debug, Clone)]
 pub struct Version(semver::Version);

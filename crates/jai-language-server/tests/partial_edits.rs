@@ -273,9 +273,10 @@ fn missing_close_brace_keeps_procedure_locals_and_next_global_separate() {
 
 #[test]
 fn recovered_or_semantically_invalid_bodies_cannot_run_at_compile_time() {
+    use std::{path::Path, rc::Rc};
+
     use jaic::ide::IdeFacts;
     use jaic::sema::{Compiler, Options, VirtualFs};
-    use std::{path::Path, rc::Rc};
 
     for broken in [
         "bad := (",

@@ -1,7 +1,8 @@
 //! `Runtime_Support` on `OS == .NONE`: no libc, no system entry point (docs/native/embedded.md).
+use std::{path::Path, rc::Rc};
+
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 use jaic::target::{TargetCpu, TargetOs};
-use std::{path::Path, rc::Rc};
 
 fn compile(source: &str) -> (Compiler, jaic::sema::Result<()>) {
     let library = Path::new(env!("CARGO_MANIFEST_DIR"))

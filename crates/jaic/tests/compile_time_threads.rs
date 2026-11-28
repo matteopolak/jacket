@@ -1,9 +1,10 @@
 //! Compiler hooks called from a thread a compile-time run started see the same symbols and record
 //! names as the compiling thread.
 #![cfg(unix)]
+use std::{path::Path, rc::Rc};
+
 use jaic::build::{BuildEnv, Workspaces};
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
-use std::{path::Path, rc::Rc};
 
 const PROGRAM: &str = r#"
 #import "Basic";

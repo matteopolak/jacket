@@ -11,12 +11,14 @@
 //! - `--config FILE`: that file's `[format]` applies to everything;
 //! - `--is-ignored FILE`: answered here (exit 0 ignored, 1 not, 2 error);
 //! - `--help`, `--version`, and `--set`/`--no-config` given by the user go to `jaifmt` untouched.
-use crate::compile::Context;
-use jacket_config::{Config, FILE_NAME, Files, PathPattern, locate, relative_text};
 use std::collections::BTreeMap;
 use std::ffi::{OsStr, OsString};
 use std::path::{Component, Path, PathBuf};
 use std::rc::Rc;
+
+use jacket_config::{Config, FILE_NAME, Files, PathPattern, locate, relative_text};
+
+use crate::compile::Context;
 
 /// Bytes of file names one `jaifmt` command line carries (Windows allows 32767 characters in all).
 const COMMAND_LINE_BUDGET: usize = if cfg!(windows) {
@@ -492,8 +494,9 @@ pub fn run(plan: &Plan) -> std::process::ExitCode {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use jacket_config::Disk;
+
+    use super::*;
 
     fn scratch(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("jacket-fmt-{name}-{}", std::process::id()));

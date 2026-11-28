@@ -1,6 +1,10 @@
 //! Running a compile for an analysis.
-use super::overlay::{OverlayFs, Reads};
-use super::{BuildFacts, BuiltProgram, Environment, Program};
+use std::cell::RefCell;
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
+use std::sync::Arc;
+
 use jaic::build::WorkspaceObserver;
 use jaic::diagnostics::Code;
 use jaic::fxhash::HashSet;
@@ -10,11 +14,9 @@ use jaic::interp::SandboxHost;
 use jaic::sema::{Compiler, FileSystem};
 use jaic::source::FileId;
 use jaic::target::TargetOs;
-use std::cell::RefCell;
-use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
-use std::rc::Rc;
-use std::sync::Arc;
+
+use super::overlay::{OverlayFs, Reads};
+use super::{BuildFacts, BuiltProgram, Environment, Program};
 
 /// `path`'s id among the files `compiler` compiled.
 pub(super) fn find_file(compiler: &Compiler, path: &Path) -> Option<FileId> {

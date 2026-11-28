@@ -5,9 +5,10 @@
 //! faults. Each reservation remembers every page's state for `VirtualProtect`'s old protection
 //! and for refusing to protect pages that were never committed. Only whole reservations are
 //! freed; decommitting a range is refused.
+use std::collections::BTreeMap;
+
 use super::host_pages::{self, Access};
 use super::sandbox::guest::{fill, write_u16, write_u32, write_u64};
-use std::collections::BTreeMap;
 
 pub(super) const MEM_COMMIT: u64 = 0x1000;
 pub(super) const MEM_RESERVE: u64 = 0x2000;

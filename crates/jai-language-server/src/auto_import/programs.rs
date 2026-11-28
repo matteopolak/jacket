@@ -1,11 +1,12 @@
 //! Which program a file belongs to: the project's files, its `jacket.toml`, the file a fragment is
 //! analysed from, and the folders and entries that make up one program.
-use super::index_fs::IndexFs;
-use super::{Index, Program, SKIPPED_FOLDERS, Sources};
-use crate::project::{self, ProjectConfig, ProjectFs};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+
+use super::index_fs::IndexFs;
+use super::{Index, Program, SKIPPED_FOLDERS, Sources};
+use crate::project::{self, ProjectConfig, ProjectFs};
 
 /// The sources as a bare file system: the shared tree walk of [`ProjectFs::project_files`]
 /// over their directory listings, without the index that [`IndexFs`] caches the walk in.

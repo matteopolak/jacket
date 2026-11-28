@@ -1,10 +1,11 @@
 //! Small syntax utilities shared by non-lifetime rules. Lifetime checks use the semantic CFG.
-use super::callee_procs;
-use crate::syntax::Cx;
 use jaic::ast::walk::{Node, walk_node};
 use jaic::ast::{Expr, ExprKind as E, Stmt, StmtKind as S};
 use jaic::sema::EntityId;
 use jaic::sema::scope::EntityKind;
+
+use super::callee_procs;
+use crate::syntax::Cx;
 
 /// The one local variable or parameter an identifier names.
 pub(super) fn local_of(cx: &Cx, e: &Expr) -> Option<EntityId> {

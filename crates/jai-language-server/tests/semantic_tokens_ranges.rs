@@ -97,7 +97,7 @@ fn a_range_holds_the_tokens_that_start_in_it() {
     let found = positions(&data);
     let expected: Vec<_> = all
         .iter()
-        .filter(|(line, _, _)| *line == 1)
+        .filter(|(line, ..)| *line == 1)
         .copied()
         .collect();
 

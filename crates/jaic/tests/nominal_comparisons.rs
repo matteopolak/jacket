@@ -1,6 +1,7 @@
 //! Nominal inheritance controls; dispatch never depends on type names.
-use jaic::sema::{Compiler, Options, VirtualFs};
 use std::{path::Path, rc::Rc};
+
+use jaic::sema::{Compiler, Options, VirtualFs};
 
 fn compile(source: &str, private: bool) -> Result<(), String> {
     let mut fs = VirtualFs::default();

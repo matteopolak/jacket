@@ -1,4 +1,6 @@
 //! Declarations, procedures, structs and enums.
+use std::sync::Arc;
+
 use super::{Convert, R, expr::mk};
 use crate::{
     ast::{
@@ -10,7 +12,6 @@ use crate::{
     interp::Trap,
     types::TypeId,
 };
-use std::sync::Arc;
 
 /// The procedure directives a header reports as `#name` text.
 const REPORTED: [(&str, ProcBits); 5] = [

@@ -1,7 +1,8 @@
 //! "Run test" and "Debug test" lenses over `@test` procedures.
+use std::path::Path;
+
 use jai_language_server::{CodeLens, JsonSession, Limits};
 use serde_json::{Value, json};
-use std::path::Path;
 use test_support::lsp::{at_nth, uri_of, virtual_session};
 
 const TESTS: &str = r#"#import "Extensions/Testing";

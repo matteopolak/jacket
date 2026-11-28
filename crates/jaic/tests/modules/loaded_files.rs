@@ -1,6 +1,7 @@
 //! Private namespaces of loaded files and the arguments bundled modules accept.
-use super::{compiler, namespace_source, rejects, succeeds};
 use std::path::Path;
+
+use super::{compiler, namespace_source, rejects, succeeds};
 
 #[test]
 fn loaded_pointer_constructor_keeps_public_type_and_storage_identity() {

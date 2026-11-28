@@ -1,4 +1,6 @@
 //! Unifying operand types and emitting the operation, with its overflow check.
+use std::sync::Arc;
+
 use super::{Binary, Unified, arith_op, cmp_op, is_comparison, is_shift};
 use crate::ast::BinOp;
 use crate::diagnostics::Code;
@@ -8,7 +10,6 @@ use crate::sema::lower::{FnCtx, Operand, Origin};
 use crate::sema::scope::Resolved;
 use crate::sema::{Compiler, Diagnostic, Result, Span, Sym, TypeId, Value, ast, err, ir};
 use crate::types::TypeKind;
-use std::sync::Arc;
 
 impl Compiler {
     /// Convert both operands to the operation's type and load them. Returns that type, the

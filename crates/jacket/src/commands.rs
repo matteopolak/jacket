@@ -1,9 +1,11 @@
 //! `jacket`'s own commands: `new`, `init`, `config`, `clean`, `explain` and `version`.
-use crate::cli::{CompletionTool, ConfigAction, ToolchainAction};
-use crate::{project, tools};
-use jacket_config::{Disk, FILE_NAME};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
+
+use jacket_config::{Disk, FILE_NAME};
+
+use crate::cli::{CompletionTool, ConfigAction, ToolchainAction};
+use crate::{project, tools};
 
 pub(crate) fn fail(message: impl std::fmt::Display) -> ExitCode {
     eprintln!("jacket: error: {message}");

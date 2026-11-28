@@ -1,8 +1,9 @@
 //! Reachability and the values each instruction defines and uses.
+use std::fmt;
+
 use super::func::Func;
 use super::insts::{Callee, Inst, Term};
 use super::{BlockId, Val};
-use std::fmt;
 
 impl Func {
     /// Can control reach `target` from the entry block?

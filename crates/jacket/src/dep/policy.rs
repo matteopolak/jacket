@@ -5,8 +5,9 @@
 //! everyone on one project agrees while different projects wait different times and a
 //! compromised release reaches them in stages. A project without a seed hashes the package and
 //! version alone, so the offset is still the same on every machine.
-use super::types::Age;
 use sha2::{Digest, Sha256};
+
+use super::types::Age;
 
 /// "20 hours ago", "3 days ago".
 pub fn ago(seconds: i64) -> String {

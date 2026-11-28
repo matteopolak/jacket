@@ -1,12 +1,14 @@
 //! Validate type positions with the same declaration lookup used by HTML and search links.
 //! Values are parsed too: casts, literals and procedure types can contain type positions.
-use super::model::{Kind, TypeRef};
-use super::site::{BUILTIN_TYPES, Site};
+use std::collections::BTreeSet;
+use std::path::Path;
+
 use jaic::ast::walk::{self, Node};
 use jaic::ast::{Expr, ExprKind, StmtKind};
 use jaic::source::FileId;
-use std::collections::BTreeSet;
-use std::path::Path;
+
+use super::model::{Kind, TypeRef};
+use super::site::{BUILTIN_TYPES, Site};
 
 impl Site {
     pub fn unlinked_types(&self) -> Vec<String> {

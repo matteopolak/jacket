@@ -1,6 +1,7 @@
 //! A `+Plugin` sees the build options the command line asked for, and can still replace them.
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
 use test_support::TempDir;
 
 /// Prints the options of the workspace it is attached to, then, with `-optimize`, switches the

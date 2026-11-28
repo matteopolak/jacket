@@ -10,12 +10,13 @@
 //! These fixes are not part of `source.fixAll.jailint`: that action applies jailint's
 //! machine-applicable fixes, while a suggestion of the compiler is a choice about the program,
 //! made one diagnostic at a time.
+use jaic::source::{Applicability, Edit, ImportSuggestion};
+
 use crate::analysis::Span;
 use crate::document::DocumentUri;
 use crate::lints::ActionContext;
 use crate::model::{CodeAction, TextEdit};
 use crate::session::Session;
-use jaic::source::{Applicability, Edit, ImportSuggestion};
 
 /// The code of the type checker's diagnostic on the wire.
 pub const CHECK_CODE: &str = "check";
@@ -200,8 +201,9 @@ pub(crate) fn insertion(
 
 #[cfg(test)]
 mod tests {
-    use super::{insertion, planned};
     use jaic::source::ImportSuggestion;
+
+    use super::{insertion, planned};
 
     fn import(module: &str, name: Option<&str>) -> ImportSuggestion {
         ImportSuggestion {

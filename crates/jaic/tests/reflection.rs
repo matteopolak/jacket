@@ -1,9 +1,10 @@
 //! Generic-default metadata exposed through the public record fields.
-use jaic::sema::{Compiler, Options, VirtualFs};
 use std::{path::Path, rc::Rc};
 
-use crate::reflection_bootstrap as bootstrap;
 use bootstrap::BOOTSTRAP;
+use jaic::sema::{Compiler, Options, VirtualFs};
+
+use crate::reflection_bootstrap as bootstrap;
 
 #[test]
 fn hidden_procedure_members_keep_the_marker_and_struct_alignment() {

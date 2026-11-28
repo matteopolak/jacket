@@ -1,7 +1,8 @@
 //! The text actions compile to the clipboard calls of the Linux backend; nothing is executed.
+use std::{path::PathBuf, rc::Rc};
+
 use jaic::sema::{Compiler, NativeFs, Options};
 use jaic::target::{TargetCpu, TargetOs};
-use std::{path::PathBuf, rc::Rc};
 
 #[test]
 fn public_getrect_text_actions_reach_canonical_linux_clipboard_calls() {

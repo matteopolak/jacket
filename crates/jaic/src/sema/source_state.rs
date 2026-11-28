@@ -1,16 +1,15 @@
 //! Source files of one compile: the file system, loaded and provided texts, path canonicalisation and parse-ahead workers.
-use super::body_probe::{Probed, W};
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 
+use super::body_probe::{Probed, W};
+use super::modules::{self, FileSystem};
+use super::{FileInfo, ModuleId};
 use crate::fxhash::{HashMap, HashSet};
 use crate::parse_ahead::ParseAhead;
 use crate::paths::CanonCache;
 use crate::source::{FileId, SourceMap, Span};
-
-use super::modules::{self, FileSystem};
-use super::{FileInfo, ModuleId};
 
 /// The string literal byte ranges of one source text.
 pub(in crate::sema) struct StringRanges {

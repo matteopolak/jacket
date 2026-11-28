@@ -39,7 +39,9 @@ pub struct AsmBlockSyntax {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AsmPlace {
     /// Between `#asm` and `{`: a feature modifier, starting at the given offset, is typed.
-    Features { word_start: u32 },
+    Features {
+        word_start: u32,
+    },
     /// Inside the body.
     Body,
 }

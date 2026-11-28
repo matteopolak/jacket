@@ -1,9 +1,10 @@
 //! `jacket test --list --deps`: the source files the programs the tests build read.
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::{Path, PathBuf};
+
 use super::build::{PLUGIN, Toolchain};
 use super::deps_store::{self, Program};
 use super::{Case, Kind, discover};
-use std::collections::{BTreeMap, BTreeSet};
-use std::path::{Path, PathBuf};
 
 /// A program whose reads are wanted, and how the store knows it.
 struct Query {
@@ -464,8 +465,9 @@ fn affected(selected: Vec<Case>, changed: &[PathBuf], ctx: &Context) -> Result<V
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use super::*;
 
     fn set(paths: &[&str]) -> BTreeSet<PathBuf> {
         paths.iter().map(PathBuf::from).collect()

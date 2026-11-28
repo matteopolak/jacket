@@ -3,10 +3,12 @@
 //! A request is answered from what the last lookup found; a lookup that is missing or older
 //! than [`REFRESH`] starts on a thread of its own (at most [`THREADS`] at once), and the server
 //! is told when one finishes so the client asks for its hints again.
-use super::dependencies::{Request, Source, Standing};
-use jaic::fxhash::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
+
+use jaic::fxhash::HashMap;
+
+use super::dependencies::{Request, Source, Standing};
 
 /// How long a standing is shown before it is looked up again.
 const REFRESH: Duration = Duration::from_mins(10);

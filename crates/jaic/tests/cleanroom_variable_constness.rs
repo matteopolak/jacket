@@ -1,6 +1,7 @@
 //! A variable is never a constant: only `::` and `: T :` declarations name constants.
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
+
+use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 
 fn compile(source: &str) -> Result<(), String> {
     let mut options = Options::host();

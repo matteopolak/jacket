@@ -1,7 +1,10 @@
 //! Compile one root with lint facts, or for the platform-leak pass.
-use super::Options;
-use super::plan::canonical;
-use super::rooted_fs::RootedFs;
+use std::cell::RefCell;
+use std::collections::BTreeSet;
+use std::path::PathBuf;
+use std::rc::Rc;
+use std::sync::Arc;
+
 use jaic::build::{SharedWorkspaces, WorkspaceObserver};
 use jaic::ide::IdeRoot;
 use jaic::ide::lint_compile::{LintCompile, LintRoot, LintSetup};
@@ -11,11 +14,10 @@ use jaic::paths::CanonCache;
 use jaic::project::{Program, Root};
 use jaic::sema::{Compiler, FileSystem, ProgramSource};
 use jaic::target::{TargetCpu, TargetOs};
-use std::cell::RefCell;
-use std::collections::BTreeSet;
-use std::path::PathBuf;
-use std::rc::Rc;
-use std::sync::Arc;
+
+use super::Options;
+use super::plan::canonical;
+use super::rooted_fs::RootedFs;
 
 /// What the roots of one run share: files parsed once, and where paths resolve to. Nothing in
 /// them changes while a run lints, so a root may take what another found.

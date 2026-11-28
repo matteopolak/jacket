@@ -10,16 +10,18 @@ mod navigation;
 mod signature;
 mod symbols;
 
-use crate::analysis::Span;
-use crate::semantic;
-use crate::session::{Session, contains};
-use crate::{DocumentUri, Location, Range, TextEdit};
+use std::path::Path;
+use std::sync::Arc;
+
 use jaic::fxhash::HashSet;
 use jaic::ide::meta::{IdeCallInfo, IdeExpansion, IdeExpansionKind};
 use jaic::parser::ide_facts;
 use jaic::source::FileId;
-use std::path::Path;
-use std::sync::Arc;
+
+use crate::analysis::Span;
+use crate::semantic;
+use crate::session::{Session, contains};
+use crate::{DocumentUri, Location, Range, TextEdit};
 
 /// URI scheme of expansion documents.
 pub const EXPANSION_SCHEME: &str = "jai-expansion://";

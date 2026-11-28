@@ -10,9 +10,9 @@
 //! prints, rerun it with `INSTA_UPDATE=always` (or review with `cargo insta review`) and read
 //! the diff; CI never writes snapshots.
 
-pub use insta;
-
 use std::path::{Path, PathBuf};
+
+pub use insta;
 
 /// Asserts that `$text` matches the snapshot `$name` stored beside the calling test file, in
 /// `snapshots/<test file>__<name>.snap`. Repository paths in the text are normalised first.
@@ -145,13 +145,13 @@ impl Redactor {
     }
 
     fn add(&mut self, spelling: String, label: &str, relative: bool) {
-        if spelling.is_empty() || self.patterns.iter().any(|(s, _, _)| *s == spelling) {
+        if spelling.is_empty() || self.patterns.iter().any(|(s, ..)| *s == spelling) {
             return;
         }
 
         self.patterns.push((spelling, label.to_string(), relative));
         self.patterns
-            .sort_by_key(|(s, _, _)| std::cmp::Reverse(s.len()));
+            .sort_by_key(|(s, ..)| std::cmp::Reverse(s.len()));
     }
 
     /// `text` with every recognised root replaced.

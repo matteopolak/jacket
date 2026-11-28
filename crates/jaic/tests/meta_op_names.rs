@@ -1,7 +1,8 @@
 //! Only the retained syntax extensions expose private compiler hooks to Jai.
-use jaic::{build::MetaOp, interp::Hook};
 use std::collections::BTreeSet;
 use std::path::Path;
+
+use jaic::{build::MetaOp, interp::Hook};
 
 fn declared_primitives() -> BTreeSet<String> {
     let stdlib = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");

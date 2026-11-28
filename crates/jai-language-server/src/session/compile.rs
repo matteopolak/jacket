@@ -1,13 +1,14 @@
 //! Rebuilding analyses and running semantic compiles for a document.
-use super::{CompileInputs, Session};
-use crate::analysis::Span;
-use crate::semantic::{self};
-use crate::{DiagnosticCode, DiagnosticSeverity, DocumentUri, analysis::Analysis};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
+
+use super::{CompileInputs, Session};
+use crate::analysis::Span;
+use crate::semantic::{self};
+use crate::{DiagnosticCode, DiagnosticSeverity, DocumentUri, analysis::Analysis};
 
 impl Session {
     pub(super) fn rebuild(&mut self) {

@@ -1,5 +1,6 @@
 //! Current-stack capture includes its own helper frame; disabled tracing stays empty.
 use std::{path::Path, process::Command};
+
 #[cfg(feature = "llvm")]
 use test_support::TempDir;
 

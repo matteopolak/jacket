@@ -1,11 +1,13 @@
 //! Format-call hovers and expansion documents.
+use std::path::Path;
+
+use jaic::ide::meta::IdeExpansionKind;
+
 use super::{EXPANSION_SCHEME, clip, kind_name, span_of};
 use crate::analysis::Span;
 use crate::hover::{Block, FormatRow, HoverText, Inline};
 use crate::session::{Session, contains};
 use crate::{DocumentUri, Error, Expansion, Location, Position};
-use jaic::ide::meta::IdeExpansionKind;
-use std::path::Path;
 
 impl Session {
     /// The calls of the document with a literal format string whose callee is declared

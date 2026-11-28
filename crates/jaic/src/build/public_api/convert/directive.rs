@@ -1,4 +1,6 @@
 //! Directives: `#run`, `#insert`, `#import`, generic directives, using filters and `#asm`.
+use std::sync::Arc;
+
 use super::{Convert, R, STATEMENT_KINDS, expr::mk};
 use crate::{
     ast::{
@@ -12,7 +14,6 @@ use crate::{
     parser::GENERIC_DIRECTIVES,
     types::TypeId,
 };
-use std::sync::Arc;
 
 impl Convert<'_, '_> {
     /// A `#run` node's body and `,flags`.

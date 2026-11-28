@@ -28,10 +28,11 @@ mod masks;
 mod pcmpstr;
 mod shuffle;
 mod tables;
+pub(in crate::sema) use ext::{GfOp, ShaOp};
+
 pub(super) use self::helpers::WriteMask;
 use self::helpers::{load_dyn, mask_bit, when, xtime};
 pub(super) use self::tables::{consumes_mask, dst_class, elem_size, lookup_simd, mmx_capable};
-pub(in crate::sema) use ext::{GfOp, ShaOp};
 
 /// Lane-wise binary operations beyond `vec::Lane`.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

@@ -1,10 +1,11 @@
 #![cfg(not(target_arch = "wasm32"))]
-use jai_language_server::framing::{FrameDecoder, encode};
-use serde_json::{Value, json};
 use std::{
     io::Write,
     process::{Command, Stdio},
 };
+
+use jai_language_server::framing::{FrameDecoder, encode};
+use serde_json::{Value, json};
 
 #[test]
 fn native_stdio_serves_the_same_core_and_shuts_down_cleanly() {

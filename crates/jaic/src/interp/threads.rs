@@ -154,14 +154,15 @@ mod pthread_name_tests {
 
 #[cfg(test)]
 mod worker_lifetime_tests {
+    use std::rc::Rc;
+    use std::sync::Arc;
+    use std::time::{Duration, Instant};
+
     #[cfg(windows)]
     use super::sched::CANCELLED_EXIT_CODE;
     use super::*;
     use crate::interp::{Host, ir, native};
     use crate::sema::{Compiler, Options, ProgramSource, VirtualFs};
-    use std::rc::Rc;
-    use std::sync::Arc;
-    use std::time::{Duration, Instant};
 
     #[test]
     fn compiler_keeps_its_owned_state_alive_through_interpreter_teardown() {

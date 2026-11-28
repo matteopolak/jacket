@@ -1,10 +1,12 @@
 //! Bounded byte channels for the shared language server; no pointers or IO.
-use crate::play::{STDLIB_ROOT, program_options, virtual_fs};
-use jai_language_server::{Environment, JsonSession, Limits};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::rc::Rc;
+
+use jai_language_server::{Environment, JsonSession, Limits};
+
+use crate::play::{STDLIB_ROOT, program_options, virtual_fs};
 
 const INPUT_LIMIT: usize = 1024 * 1024;
 const OUTPUT_LIMIT: usize = 2 * 1024 * 1024;

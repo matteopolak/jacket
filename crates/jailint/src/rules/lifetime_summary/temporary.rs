@@ -287,7 +287,7 @@ impl Resolver<'_> {
             })
             .collect();
 
-        globals.sort_by_key(|(id, _, _)| id.0);
+        globals.sort_by_key(|(id, ..)| id.0);
         out.extend(
             globals
                 .into_iter()

@@ -1,7 +1,8 @@
 //! Completion, signature help and hovers over polymorphs, baked procedures and other targets.
-use super::{at_nth, file_uri, hover, session, uri};
 use jai_language_server::Session;
 use test_support::lsp::position;
+
+use super::{at_nth, file_uri, hover, session, uri};
 
 /// Complete at the end of `typed` (the text before the cursor) inside `main`, with a
 /// `table` array and a `lo`/`hi` pair in scope.

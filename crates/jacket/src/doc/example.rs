@@ -1,5 +1,9 @@
 //! Examples: the ```` ```jai ```` blocks of doc comments, shown as `jacket test` reads them and
 //! run in the browser as the very program it builds for them.
+use std::path::PathBuf;
+
+use sha2::{Digest, Sha256};
+
 use super::highlight;
 use super::model::Module;
 use super::site::Site;
@@ -7,8 +11,6 @@ use super::view::Example;
 use crate::markup::escape;
 use crate::test::doctest::{self, Block, Mode};
 use crate::test::options::{RunMode, Target};
-use sha2::{Digest, Sha256};
-use std::path::PathBuf;
 
 /// Why an example is never run, if it is: the disabled Run button's hover.
 fn why_not_run(block: &Block) -> Option<String> {

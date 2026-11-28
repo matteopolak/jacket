@@ -23,7 +23,10 @@ pub(in crate::sema) enum LitMisfit {
     /// A positional value after the last member.
     TooMany,
     /// Only positional values, and fewer than the members without a default.
-    NotEnough { given: usize, needed: usize },
+    NotEnough {
+        given: usize,
+        needed: usize,
+    },
 }
 
 /// What a literal that gives `given` of `needed` positional values leaves out.

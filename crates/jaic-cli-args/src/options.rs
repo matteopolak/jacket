@@ -1,9 +1,11 @@
 //! Command-line errors, what a command line asks for, and how the options read their values.
-use super::cli::{Added, Cli};
+use std::path::PathBuf;
+
 use argdef::{Error, Shell};
 use jaic::flags::{self, FlagError, Shared, SharedFlag};
 use jaic::target::{TargetCpu, TargetOs};
-use std::path::PathBuf;
+
+use super::cli::{Added, Cli};
 
 /// A build's exit status when the program has no `main` (its work is all `#run`s), so
 /// tools can tell "nothing to build" from a failed compile.

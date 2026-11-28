@@ -1,4 +1,7 @@
 //! Re-checking bodies that failed in an editor analysis.
+use std::rc::Rc;
+use std::sync::Arc;
+
 use super::scope::EntityKind;
 use super::value::ProcId;
 use super::{Compiler, Options, Value, VirtualFs};
@@ -7,8 +10,6 @@ use crate::ide::{IdeFacts, IdeRoot};
 use crate::intern::Sym;
 use crate::source::Span;
 use crate::types::TypeId;
-use std::rc::Rc;
-use std::sync::Arc;
 
 fn failed() -> (Compiler, ProcId) {
     let mut fs = VirtualFs::default();

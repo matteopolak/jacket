@@ -1,7 +1,8 @@
 //! Startup options checked against the actual runtime library.
+use std::{path::Path, rc::Rc};
+
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 use jaic::target::{TargetCpu, TargetOs};
-use std::{path::Path, rc::Rc};
 
 fn compile(entry: bool, backtrace: bool) -> (Compiler, jaic::sema::Result<()>) {
     let library = Path::new(env!("CARGO_MANIFEST_DIR"))

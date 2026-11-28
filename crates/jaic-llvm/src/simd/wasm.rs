@@ -1,8 +1,9 @@
 //! WebAssembly: `i8x16.swizzle` with `simd128`.
 
+use inkwell::values::{PointerValue, VectorValue};
+
 use super::features::{Family, Feature};
 use super::{Cx, R};
-use inkwell::values::{PointerValue, VectorValue};
 
 pub fn byte_lookup<'ctx>(
     cx: &Cx<'_, 'ctx>,

@@ -1,9 +1,10 @@
 //! The language support embedded programs use (docs/extensions/embedded.md): `@Section` on
 //! globals and procedures, and volatile loads and stores that the optimizer keeps.
+use std::rc::Rc;
+
 use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use jaic::target::{TargetCpu, TargetOs};
 use jaic_llvm::{Codegen, OptLevel, emit_object};
-use std::rc::Rc;
 use test_support::TempDir;
 use test_support::ir::{body as function, has_line};
 

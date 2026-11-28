@@ -1,15 +1,16 @@
 //! Cases the typing-session checker found (docs/tools/lsp-fuzzing.md), reduced by hand: answers
 //! while someone types must not depend on which requests came before, on a half-typed neighbour,
 //! or on a lexical edit that has since been completed.
+use std::path::Path;
+
+use jai_language_server::{Limits, Position, Range, SemanticTokenKind, Session, TextChange};
+use test_support::lsp::{position, uri};
+
 #[allow(
     dead_code,
     reason = "each includer uses only some helpers of the shared file"
 )]
 use crate::typing_files;
-
-use jai_language_server::{Limits, Position, Range, SemanticTokenKind, Session, TextChange};
-use std::path::Path;
-use test_support::lsp::{position, uri};
 
 fn session() -> Session {
     let stdlib = Path::new(env!("CARGO_MANIFEST_DIR"))

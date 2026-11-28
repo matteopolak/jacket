@@ -1,6 +1,7 @@
 //! Module names and ranks for auto-import.
-use jaic::target::TargetOs;
 use std::path::Path;
+
+use jaic::target::TargetOs;
 
 /// Whether a module asserting `only_os` builds for `os`.
 pub(super) fn builds_for(only_os: Option<&[String]>, os: TargetOs) -> bool {

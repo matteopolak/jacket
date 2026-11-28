@@ -1,6 +1,7 @@
 //! Mixed scalar/spread normalization regressions.
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
+
+use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 
 #[path = "support/variadic_source.rs"]
 mod source;

@@ -1,10 +1,11 @@
 //! Each construct Jacket accepts although the official compiler rejects it is a warning with a
 //! code of its own and the shared note (`docs/language/leniencies.md`); the same construct in an
 //! imported module is not reported.
+use std::{path::Path, rc::Rc};
+
 use jaic::diagnostics::Diagnostic;
 use jaic::diagnostics::{Code, LENIENCY_NOTE as NOTE};
 use jaic::sema::{Compiler, Options, VirtualFs};
-use std::{path::Path, rc::Rc};
 
 /// The types the compiler wants from the preload file: a dynamic array carries an `Allocator`
 /// and `#caller_location` has a `Source_Code_Location`.

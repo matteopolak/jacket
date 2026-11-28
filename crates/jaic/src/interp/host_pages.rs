@@ -26,8 +26,9 @@ pub(super) fn granularity() -> usize {
 
 #[cfg(unix)]
 mod sys {
-    use super::Access;
     use std::ffi::c_void;
+
+    use super::Access;
 
     unsafe extern "C" {
         fn mmap(
@@ -103,8 +104,9 @@ mod sys {
 
 #[cfg(windows)]
 mod sys {
-    use super::Access;
     use std::ffi::c_void;
+
+    use super::Access;
 
     #[link(name = "kernel32")]
     unsafe extern "system" {

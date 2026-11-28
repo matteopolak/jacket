@@ -5,9 +5,10 @@
 //! them by their C names (`accept`, `recv`, `send`, `shutdown`), and the answers here follow what
 //! the WASI runtime (`stdlib/Extensions/Wasi_Runtime/sockets.jai`) makes of those names.
 
-use super::{EBADF, EINVAL, LibcFn, SandboxHost, read_bytes, write_bytes, write_u32};
 use std::io::{Read, Write};
 use std::net::{Shutdown, TcpListener, TcpStream, ToSocketAddrs};
+
+use super::{EBADF, EINVAL, LibcFn, SandboxHost, read_bytes, write_bytes, write_u32};
 
 const ENOTSOCK: u64 = 88;
 const ENOTCONN: u64 = 107;

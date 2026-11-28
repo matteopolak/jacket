@@ -1,6 +1,7 @@
 //! Workspace snapshots must survive independent compilers and real child emission.
 #![cfg(feature = "llvm")]
 use std::{path::PathBuf, process::Command};
+
 use test_support::TempDir;
 use test_support::process::succeeded as checked;
 

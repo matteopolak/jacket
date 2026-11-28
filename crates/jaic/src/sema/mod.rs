@@ -109,15 +109,10 @@ mod typeinfo;
 pub(crate) mod using;
 mod wide;
 
-use crate::ast;
-use crate::diagnostics::{Code, Diagnostic};
-use crate::fxhash::{HashMap, HashSet};
-use crate::intern::Sym;
-use crate::ir;
-pub use crate::lang_items::PreludeType;
-use crate::source::{FileId, SourcePath, Span};
-use crate::target::{TargetCpu, TargetOs};
-use crate::types::{TypeId, Types};
+use std::path::PathBuf;
+use std::rc::Rc;
+use std::sync::Arc;
+
 /// The `#asm` instruction table, for editors (`jailsp`).
 pub use asm::catalog as asm_catalog;
 pub use code_export::{Contents, Modification};
@@ -138,11 +133,18 @@ pub use output::Output;
 pub use proc_state::ProcState;
 pub use scope::{EntityId, ScopeId};
 pub use source_state::SourceState;
-use std::path::PathBuf;
-use std::rc::Rc;
-use std::sync::Arc;
 pub use type_state::TypeState;
 pub use value::{ModuleId, ProcId, Value};
+
+use crate::ast;
+use crate::diagnostics::{Code, Diagnostic};
+use crate::fxhash::{HashMap, HashSet};
+use crate::intern::Sym;
+use crate::ir;
+pub use crate::lang_items::PreludeType;
+use crate::source::{FileId, SourcePath, Span};
+use crate::target::{TargetCpu, TargetOs};
+use crate::types::{TypeId, Types};
 
 pub type Result<T> = std::result::Result<T, Box<Diagnostic>>;
 

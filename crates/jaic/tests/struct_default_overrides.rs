@@ -1,6 +1,7 @@
 //! Struct defaults retain expanded assignments and validate every target.
-use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 use std::rc::Rc;
+
+use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 
 fn check(source: &str) -> Result<(), String> {
     let mut options = Options::host();

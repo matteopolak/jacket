@@ -4,14 +4,15 @@
 //! crate would be a dependency (and a platform backend) for little more. A change is acted on
 //! once the files have been still for [`SETTLE`]. If every changed file is a test file the next
 //! run only runs that file's tests; any other change (code the tests import) runs all of them.
-use super::discover::{self, Root};
-use super::{coverage, run_once};
-use crate::cli::TestArgs;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::{Duration, SystemTime};
+
+use super::discover::{self, Root};
+use super::{coverage, run_once};
+use crate::cli::TestArgs;
 
 /// How often the folders are looked at.
 const POLL: Duration = Duration::from_millis(150);

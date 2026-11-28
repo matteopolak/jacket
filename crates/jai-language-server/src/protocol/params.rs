@@ -1,8 +1,9 @@
 //! Typed request parameters as they arrive on the wire.
-use super::RequestId;
-use crate::{CallHierarchyItem, Position, Range, SymbolKind, TextChange};
 use serde::Deserialize;
 use serde_json::Value;
+
+use super::RequestId;
+use crate::{CallHierarchyItem, Position, Range, SymbolKind, TextChange};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]

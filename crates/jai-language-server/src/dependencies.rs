@@ -2,9 +2,10 @@
 //! way `jacket build` passes them (`-package_import_dir`), by the code both share
 //! (`jacket_config::packages::dependency_roots`). That includes the copy of a shared dependency
 //! each package is routed to when the project holds several versions of it.
+use std::path::Path;
+
 use jacket_config::{ConfigError, Files};
 use jaic::sema::{FileSystem, PackageImports};
-use std::path::Path;
 
 /// A compiler file system read as `jacket_config` files, so the compile that reads a project's
 /// manifests records them as inputs.

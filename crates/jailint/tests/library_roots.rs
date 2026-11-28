@@ -1,9 +1,10 @@
 //! Private-library lint coverage and application privacy regressions.
+use std::{path::PathBuf, process::Command};
+
 use jailint::{
     config::Config,
     driver::{Options, run},
 };
-use std::{path::PathBuf, process::Command};
 use test_support::TempDir;
 
 fn fixture(name: &str) -> TempDir {

@@ -4,10 +4,11 @@
 //! platform version and the runtime library filled in: about 8 ms for a small program, a sixth of
 //! its whole build. For a plain executable link this module writes that `ld` command itself and
 //! [`super::link`] runs it; when `ld` fails, its own message is the error.
-use jacket_config::os_text;
-use jaic_toolchain::apple::{self, Xcode};
 use std::ffi::OsString;
 use std::process::Command;
+
+use jacket_config::os_text;
+use jaic_toolchain::apple::{self, Xcode};
 
 /// The arguments `cc` would pass `ld` for `args`. `Ok(None)` when `args` hold something other
 /// than the forms a native link uses (`-o`, `-l`, `-L`, `-framework`, `-Wl,`): only the driver

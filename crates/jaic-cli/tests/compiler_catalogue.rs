@@ -1,5 +1,6 @@
 //! Diagnostics for public compiler capabilities this compiler does not provide.
 use std::{path::PathBuf, process::Command};
+
 use test_support::TempDir;
 
 #[test]

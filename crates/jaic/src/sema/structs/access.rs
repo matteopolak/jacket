@@ -396,7 +396,7 @@ impl Compiler {
             return Ok(self
                 .builtin_members(ty, span)?
                 .into_iter()
-                .find(|(member, _, _)| *member == name)
+                .find(|(member, ..)| *member == name)
                 .map(|(_, ty, _)| ty));
         };
 

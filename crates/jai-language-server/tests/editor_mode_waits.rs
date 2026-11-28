@@ -1,8 +1,9 @@
 //! Editor analyses wait for what a metaprogram or an `#insert` declares later, rather than
 //! reporting the names as unknown, and treat a file as a module only when it declares
 //! `#module_parameters`.
-use jai_language_server::{DiagnosticSeverity, Environment, Limits, Session};
 use std::rc::Rc;
+
+use jai_language_server::{DiagnosticSeverity, Environment, Limits, Session};
 use test_support::lsp::{file_uri, virtual_session};
 
 fn errors(files: &[(&str, &str)], import_paths: &[&str], main: &str, text: &str) -> Vec<String> {

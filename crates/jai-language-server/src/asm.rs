@@ -7,15 +7,16 @@
 //! `jaic::parser::asm_ide`, which is tolerant of what is being typed: an unterminated
 //! `#asm {` still gets help (its body runs to the brace that closes it, or to the end of the
 //! file).
-use crate::hover::{Block, HoverText, Inline};
-use crate::session::Session;
-use crate::{CompletionItem, CompletionKind, SignatureHelp, SignatureInformation};
 use jaic::parser::asm_ide::{
     AsmBlockSyntax, AsmPlace, AsmStmtKind, AsmStmtSyntax, asm_blocks, parse_asm_statement,
     word_range,
 };
 use jaic::sema::asm_catalog::{self as catalog, AsmInstruction};
 use jaic::source::Span;
+
+use crate::hover::{Block, HoverText, Inline};
+use crate::session::Session;
+use crate::{CompletionItem, CompletionKind, SignatureHelp, SignatureInformation};
 
 mod completion;
 

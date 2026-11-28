@@ -1,8 +1,10 @@
 //! Field names inside a struct literal are another completion source: `Foo.{ a = 1, | }` and
 //! `.{ | }` (or `x: Foo = { | }`) offer the fields of the literal's type that are not assigned yet.
-use crate::{CompletionItem, CompletionKind, DocumentUri, Session, analysis::Span};
-use jaic::lexer::{Lexed, P, Tok};
 use std::collections::BTreeSet;
+
+use jaic::lexer::{Lexed, P, Tok};
+
+use crate::{CompletionItem, CompletionKind, DocumentUri, Session, analysis::Span};
 
 /// The field-name position the cursor is at.
 struct Site {

@@ -2,6 +2,7 @@
 //! met a spelling first. Each program is compiled under several `JAIC_SYM_SCRAMBLE` seeds and the
 //! output compared (`test_support::determinism`).
 use std::path::{Path, PathBuf};
+
 use test_support::determinism::assert_stable;
 
 fn root() -> PathBuf {

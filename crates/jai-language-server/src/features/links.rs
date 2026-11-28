@@ -1,12 +1,14 @@
 //! `#load` and `#import` links.
+use std::cell::OnceCell;
+use std::path::{Path, PathBuf};
+
+use jaic::project::{DirectiveLink as Link, LinkSource};
+use jaic::sema::FileSystem;
+
 use super::OpenFiles;
 use crate::analysis::Span;
 use crate::session::Session;
 use crate::{DocumentUri, Error, Location, Range};
-use jaic::project::{DirectiveLink as Link, LinkSource};
-use jaic::sema::FileSystem;
-use std::cell::OnceCell;
-use std::path::{Path, PathBuf};
 
 impl Session {
     // `#load` / `#import` links

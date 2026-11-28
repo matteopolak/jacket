@@ -1,10 +1,12 @@
 //! Decoding helpers and error replies.
+use std::path::PathBuf;
+
+use serde_json::{Value, json};
+
 use super::RequestId;
 use super::methods::{ErrorCode, Failure};
 use super::params::{DocumentParams, PositionParams};
 use crate::{DocumentUri, Error, Position};
-use serde_json::{Value, json};
-use std::path::PathBuf;
 
 /// The path of a `file://` URI value.
 pub(super) fn folder_path(uri: &Value) -> Option<PathBuf> {

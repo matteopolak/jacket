@@ -15,9 +15,8 @@ mod state;
 mod symbols;
 mod types;
 
-pub use self::error::Error;
-pub use self::plan::{LowerOptions, Plan, Shard, lower_program};
-use crate::debuginfo::DebugInfo;
+use std::cell::{OnceCell, RefCell};
+
 use inkwell::attributes::{Attribute, AttributeLoc};
 use inkwell::builder::Builder;
 use inkwell::context::Context;
@@ -26,7 +25,10 @@ use inkwell::values::{FunctionValue, GlobalValue, IntValue, PointerValue};
 use jaic::abi::Arch;
 use jaic::fxhash::HashMap;
 use jaic::ir::Program;
-use std::cell::{OnceCell, RefCell};
+
+pub use self::error::Error;
+pub use self::plan::{LowerOptions, Plan, Shard, lower_program};
+use crate::debuginfo::DebugInfo;
 
 type R<T> = Result<T, Error>;
 

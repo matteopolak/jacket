@@ -1,12 +1,14 @@
 //! Finding and running linkers, archives, output names and library arguments.
-use super::link::{LinkArg, toolchain_for};
-use super::toolchain::{command, lookup};
+use std::path::{Path, PathBuf};
+use std::process::{Command, Output, Stdio};
+
 use jaic::ir::Library;
 use jaic::target::Target as BuildTarget;
 use jaic::toolchain::{Linker, Toolchain};
 use jaic_toolchain::{Found, Origin, Overrides};
-use std::path::{Path, PathBuf};
-use std::process::{Command, Output, Stdio};
+
+use super::link::{LinkArg, toolchain_for};
+use super::toolchain::{command, lookup};
 
 /// A non-system `#library` with a static archive or object next to the declaring file
 /// (`name.a`, `libname.a`, `name.o`), for the targets that link no shared libraries: wasm and
@@ -463,9 +465,10 @@ pub(super) fn library_args(
 
 #[cfg(test)]
 mod dsymutil_tests {
-    use super::*;
     use jaic_toolchain::Lookup;
     use jaic_toolchain::testing::FakeHost;
+
+    use super::*;
 
     #[test]
     fn a_mac_without_dsymutil_is_told_what_to_install_and_how_to_skip_debug_info() {

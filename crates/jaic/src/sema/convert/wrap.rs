@@ -1,12 +1,11 @@
 //! Suggestions that wrap an expression in what converts it: `cast(T)`, `.*`, `*` or `!= 0`.
 //! One helper builds the edit, so every conversion error (an assignment, an argument, an
 //! operand, an explicit cast) rewrites the code the same way. See docs/compiler/diagnostics.md.
+use super::super::TypeState;
 use crate::ast::Expr;
 use crate::sema::{Compiler, Diagnostic, Span, TypeId};
 use crate::source::{Applicability, Edit, SourceMap, Suggestion};
 use crate::types::TypeKind;
-
-use super::super::TypeState;
 
 /// What to put around an expression.
 #[derive(Clone, Debug, PartialEq, Eq)]

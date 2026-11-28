@@ -364,11 +364,12 @@ pub fn start(mode: Mode, verb: &str, name: &str, shown: &str) {
 /// there the line is never drawn.
 #[cfg(not(target_arch = "wasm32"))]
 mod ticker {
+    use std::time::{Duration, Instant};
+
     use super::{
         FILES, LIVE, MODULES, Ordering, PHASE, PROCEDURES, Phase, Status, lock, status_line,
         write_err,
     };
-    use std::time::{Duration, Instant};
 
     /// The phases by number, as `PHASE` stores them.
     const PHASES: [Phase; 8] = [

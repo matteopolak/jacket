@@ -1,11 +1,13 @@
 //! Hovers over expansions, links, directives, casts and contextual using filters.
+use std::path::Path;
+
+use jaic::ide::meta::{IdeExpansion, IdeExpansionKind};
+
 use super::directive_at;
 use crate::DocumentUri;
 use crate::analysis::TokenKind;
 use crate::hover::{Block, HoverText, Inline};
 use crate::session::Session;
-use jaic::ide::meta::{IdeExpansion, IdeExpansionKind};
-use std::path::Path;
 
 impl Session {
     /// What an expansion produced, for a hover. Produced code comes last, in sections of

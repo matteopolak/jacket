@@ -1,10 +1,11 @@
 //! Code actions and inlay hints.
+use jaic::ide::meta::IdeExpansionKind;
+
 use super::{
     HINT_CHARS, ambiguous_params, clip, inferred_name_ends, inline_insert, literal, span_of,
 };
 use crate::session::{Session, contains};
 use crate::{CodeAction, Command, DocumentUri, Error, InlayHint, InlayHintKind, Range, TextEdit};
-use jaic::ide::meta::IdeExpansionKind;
 
 impl Session {
     /// Show an expansion; inline an `#insert` or a `#run` value; add an `#import` an unknown name

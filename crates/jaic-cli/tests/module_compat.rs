@@ -1,6 +1,7 @@
 //! Programs shaped like the code that modules written for other Jai installs contain: each is
 //! type-checked with `-check`, with and without `-no_dce`, and must be accepted.
 use std::process::Command;
+
 use test_support::TempDir;
 
 /// Writes `source` as `<name>/main.jai` under the test scratch folder and runs

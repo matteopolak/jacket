@@ -15,11 +15,12 @@
 //!   when it hands the process its first tests;
 //! - `--list` is that first process too, told to name the cases of the `@cases` tests (`--list`)
 //!   and not to run anything.
-use super::deps_store::{Program, Store};
-use super::exec::{self, Demux, Invocation, Piece, Started};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
+
+use super::deps_store::{Program, Store};
+use super::exec::{self, Demux, Invocation, Piece, Started};
 
 pub const PLUGIN: &str = "+Extensions/Testing/Discovery";
 

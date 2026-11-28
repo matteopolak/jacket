@@ -1,4 +1,6 @@
 //! Default-value identity checks, without calling a Type formatter.
+use std::{path::Path, rc::Rc};
+
 use jaic::{
     sema::{
         Compiler, Options, VirtualFs,
@@ -7,7 +9,6 @@ use jaic::{
     source::Span,
     types::TypeId,
 };
-use std::{path::Path, rc::Rc};
 
 use crate::reflection_bootstrap as bootstrap;
 

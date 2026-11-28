@@ -1,7 +1,8 @@
 //! The migrations, oldest change first. Each is a `Migration` constant and an entry in
 //! [`MIGRATIONS`]; `docs/tools/jacket-migrate.md` lists them for users.
-use super::{Answer, CompileError, Detect, Migration, Source};
 use jaic::lexer::{P, Tok, Token};
+
+use super::{Answer, CompileError, Detect, Migration, Source};
 
 /// Every migration, in the order the language changed.
 pub static MIGRATIONS: &[Migration] = &[

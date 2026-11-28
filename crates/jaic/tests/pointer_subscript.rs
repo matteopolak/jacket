@@ -1,6 +1,7 @@
 //! Pointer-subscript dispatch and lvalue controls.
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
+
+use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 
 use crate::reflection_bootstrap as bootstrap;
 

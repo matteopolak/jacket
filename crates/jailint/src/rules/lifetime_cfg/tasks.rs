@@ -1,12 +1,13 @@
 //! Borrowed worker lifetimes. Contracts identify a receiver and callback; the callback's
 //! parameter-relative access summary selects captured fields without container-name rules.
+use jaic::ir::Val;
+
 use super::{
     Cell, Cells, Cx, Event, Facts, HashMap, LifetimeBody, LifetimeOperand, Places, Resolver, Site,
     Span, Summaries,
 };
 use crate::rules::lifetime_movement::{self, Selector};
 use crate::rules::lifetime_summary::{Path, Root};
-use jaic::ir::Val;
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub(super) struct Token {

@@ -9,14 +9,15 @@
 //! The dumps are `insta` snapshots in `tests/snapshots/`. After an intended change to what is
 //! recorded, rewrite them with `INSTA_UPDATE=always cargo test -p jaic --test integration ide_facts_golden::`
 //! (or `cargo insta review`) and read the diff.
+use std::fmt::Write;
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
+
 use jaic::fxhash::HashMap;
 use jaic::ide::{IdeFacts, IdeRoot};
 use jaic::sema::{Compiler, EntityId, NativeFs, Options, ProcId, ProgramSource, ScopeId};
 use jaic::source::{FileId, Span};
 use jaic::types::{StructId, TypeId};
-use std::fmt::Write;
-use std::path::{Path, PathBuf};
-use std::rc::Rc;
 
 fn repo() -> PathBuf {
     test_support::repo::root()

@@ -1,7 +1,9 @@
 //! The library folders the interpreter searches by name, from `jaic-toolchain`'s lookups.
-use super::crash_runtime;
-use jaic_toolchain::{System, apple, native_libs};
 use std::path::{Path, PathBuf};
+
+use jaic_toolchain::{System, apple, native_libs};
+
+use super::crash_runtime;
 
 /// The crash runtime's folder, the built third-party libraries (`JAIC_NATIVE_LIBS`) and, on a
 /// Mac, the selected toolchain's `libclang.dylib` folder. When the crash runtime cannot be

@@ -8,7 +8,6 @@ use super::{
 };
 use crate::diagnostics::Code;
 use crate::ide::Recorder;
-
 use crate::ir::Ty;
 use crate::lang_items;
 use crate::sema::CompileTime;
@@ -669,7 +668,6 @@ impl Compiler {
         self.write_value(&mut agg, 0, &value, ty, expr.span)?;
         Ok(Arc::new(agg))
     }
-
 
     /// `Source_Code_Location` constant.
     pub fn build_location_value(

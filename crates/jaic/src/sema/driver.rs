@@ -1,6 +1,8 @@
 //! Whole-program compilation: load Preload, `Runtime_Support` and the main
 //! file, run top-level directives, and lower everything reachable from the
 //! exported entry points.
+use std::path::Path;
+
 use super::scope::{EntityId, EntityKind, EntityState, Resolved, ScopeKind};
 use super::{
     BootstrapModule, Compiler, DeadCode, Diagnostic, FileId, ModuleId, PathBuf, PreludeType,
@@ -14,7 +16,6 @@ use crate::sema::MODULE_ASM_NOTE;
 use crate::sema::Output;
 use crate::target::TargetOs;
 use crate::types::TypeKind;
-use std::path::Path;
 
 /// One input of a program: a file on the import file system or source text.
 #[derive(Clone, Debug)]

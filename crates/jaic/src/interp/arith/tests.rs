@@ -388,7 +388,7 @@ fn float_to_integer_conversions_saturate_and_send_nan_to_zero() {
         (f64::NAN, 0, 0),
     ];
 
-    for (x, _, _) in cases {
+    for (x, ..) in cases {
         let from64 = x.to_bits();
         let from32 = (x as f32).to_bits() as u64;
         let narrow = x as f32 as f64;

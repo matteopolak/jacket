@@ -18,11 +18,12 @@
 //! ```
 //!
 //! On a terminal it gains context lines, multi-line spans, colour and (with UTF-8) box drawing.
-use crate::{Level, Lint};
 use jaic::diagnostics::{Code, Severity};
 pub use jaic::render::Style;
 use jaic::render::{Fix, Help, Label, Report};
 use jaic::source::{LineIndex, SourcePath};
+
+use crate::{Level, Lint};
 
 /// `lint` in `text` (the file's contents, indexed by `lines`), its path shown as `path`.
 /// Callers rendering many lints of one file build the index once.

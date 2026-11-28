@@ -1,9 +1,10 @@
 //! Closed program-data procedure slots. Exports and exposed addresses keep an open-world member.
+use jaic::ir::{GlobalId, RelocTarget, Storage};
+use jaic::types::TypeId;
+
 use super::{
     Compiler, Event, HashMap, HashSet, LifetimeBody, LifetimeOperand, ProcId, Set, Val, procedure,
 };
-use jaic::ir::{GlobalId, RelocTarget, Storage};
-use jaic::types::TypeId;
 
 #[derive(Clone, Copy)]
 pub(super) struct Slot {

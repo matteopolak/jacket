@@ -1,6 +1,9 @@
 //! "Did you mean" help for unknown names. Working out the closest visible name costs a walk
 //! over every scope in reach, so it happens when an error is rendered for the user, not each
 //! time a lookup fails (failed lookups are routine while checking overloads and `#if`s).
+use std::path::Path;
+use std::rc::Rc;
+
 use super::module_rank::ModuleRanking;
 use super::name_caches::DeclaringKey;
 use super::scope::{ScopeId, UsingEntry};
@@ -14,8 +17,6 @@ use crate::lexer::{P, Tok};
 use crate::sema::SourceState;
 use crate::sema::TypeState;
 use crate::source::{Applicability, FileId, ImportSuggestion, Span, Suggestion};
-use std::path::Path;
-use std::rc::Rc;
 
 /// The most modules an unknown name's help offers to import.
 const MAX_IMPORTS: usize = 4;

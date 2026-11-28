@@ -1,4 +1,9 @@
 //! Playground entry point: compile and run a set of files with the `jaic` core.
+use std::cell::RefCell;
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
+
 use jaic::build::{BuildEnv, Workspaces};
 use jaic::diagnostics::{Code, Diagnostic, Severity};
 use jaic::interp::{Host, SandboxHost, SharedHost};
@@ -7,10 +12,6 @@ use jaic::sema::{Compiler, FileSystem, Options, VirtualFs};
 use jaic::source::Span;
 use jaic::target::TargetOs;
 use serde_json::json;
-use std::cell::RefCell;
-use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
-use std::rc::Rc;
 
 include!(concat!(env!("OUT_DIR"), "/stdlib_files.rs"));
 

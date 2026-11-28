@@ -1,5 +1,6 @@
 //! `jaic -doc_comments` and `-doc_gaps` find imported modules through `-import_dir`.
 use std::{path::PathBuf, process::Command};
+
 use test_support::TempDir;
 
 fn stdlib() -> PathBuf {

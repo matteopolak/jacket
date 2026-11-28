@@ -1,10 +1,11 @@
 //! A file system that overlays open buffers on disk.
-use jaic::sema::FileSystem;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
+
+use jaic::sema::FileSystem;
 
 /// Every path a compile asked its file system about, by canonical key: files read or tested,
 /// folders tested. Compile-time code reads through the same file system, so what `#run` read

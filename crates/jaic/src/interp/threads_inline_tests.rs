@@ -1,10 +1,11 @@
 //! The inline scheduler's thread slots, seen from Jai code. The POSIX tests are the ones the
 //! native scheduler runs (`threads/slot_tests.rs`).
+use std::rc::Rc;
+
 use super::SandboxHost;
 use super::threads::slot_tests::{posix, posix_slot_tests, posix_warmed};
 use crate::ir::{FuncId, Linkage};
 use crate::sema::{Compiler, Options, ProgramSource, VirtualFs};
-use std::rc::Rc;
 
 /// Run the `check :: () -> bool` in `source` as a program on the inline scheduler (compile-time
 /// code cannot suspend, so it is not run there) and return its slot count.

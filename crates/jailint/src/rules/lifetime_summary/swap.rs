@@ -1,7 +1,8 @@
 //! A checked three-copy exchange preserves the identities of two pointer arguments.
-use super::{Compiler, ProcId};
 use jaic::ast::{AssignOp, DeclKind, Expr, ExprKind as E, StmtKind as S, UnOp};
 use jaic::intern::Sym;
+
+use super::{Compiler, ProcId};
 
 pub(in crate::rules) fn swaps_arguments(c: &Compiler, id: ProcId) -> bool {
     let proc = &c.pr.procs[id.0 as usize];

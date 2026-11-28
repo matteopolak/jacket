@@ -1,8 +1,9 @@
 //! Reproducible file-open orders and observations before and after the other files open.
-use jai_language_server::{DocumentUri, Position, Range, Session};
-use serde_json::{Value, json};
 use std::io::Write;
 use std::path::Path;
+
+use jai_language_server::{DocumentUri, Position, Range, Session};
+use serde_json::{Value, json};
 
 /// Fisher–Yates with an explicit seed; zero retains canonical order for the baseline.
 pub fn shuffle<T>(values: &mut [T], mut seed: u64) {

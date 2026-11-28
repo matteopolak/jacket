@@ -1,9 +1,10 @@
 //! Native backend acceptance: every corpus case with a runtime expectation
 //! that passes under `jaic -interp` must also pass when built with a plain `jaic`
 //! and executed as a native program.
-use jaic_toolchain::quiet_crash;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+use jaic_toolchain::quiet_crash;
 use test_support::TempDir;
 
 mod abi_layout;

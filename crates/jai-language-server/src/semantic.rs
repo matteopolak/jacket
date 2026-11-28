@@ -8,6 +8,17 @@ mod parses;
 mod queries;
 mod shift;
 
+use std::cell::RefCell;
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
+use std::sync::Arc;
+
+use jaic::ide::IdeLayout;
+use jaic::sema::{Compiler, FileSystem, Options};
+use jaic::source::FileId;
+use jaic::target::TargetOs;
+
 pub use self::cache::Cache;
 pub use self::overlay::Reads;
 pub(crate) use self::parses::text_key;
@@ -16,15 +27,6 @@ pub(crate) use self::queries::CheckFinding;
 pub use self::queries::EvalCost;
 pub(crate) use self::queries::LimitKind;
 pub use self::shift::Shift;
-use jaic::ide::IdeLayout;
-use jaic::sema::{Compiler, FileSystem, Options};
-use jaic::source::FileId;
-use jaic::target::TargetOs;
-use std::cell::RefCell;
-use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
-use std::rc::Rc;
-use std::sync::Arc;
 
 /// Where the language server finds modules: a file system for everything that is not an open
 /// document, and compiler options for a main file (import paths, Preload, target).

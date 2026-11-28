@@ -193,7 +193,7 @@ pub(super) fn invalidates(m: Mutation, index: Selector, length: Option<i128>) ->
     use Selector::{Constant as C, Last, Unknown};
 
     match (m.action, index, m.first) {
-        (Action::Reset, _, _) => true,
+        (Action::Reset, ..) => true,
         (Action::Count, _, C(0)) => true,
         (Action::Count, C(i), C(n)) => i >= n,
         (Action::Count, Last, Last) => true,
@@ -265,7 +265,7 @@ pub(super) fn possibly_invalidates(m: Mutation, index: Selector, length: Option<
         },
         (Action::Reverse, C(i), _) => length.is_none_or(|n| i != n - 1 - i),
         (Action::Pop, C(i), _) => length.is_none_or(|n| i == n - 1),
-        (Action::Sort, _, _) => length.is_none_or(|n| n > 1),
+        (Action::Sort, ..) => length.is_none_or(|n| n > 1),
         (Action::Count, Last, Last) => true,
         _ => true,
     }

@@ -1,15 +1,16 @@
 //! Real host filesystem backing for Windows compile-time calls on another OS.
+use std::{
+    fs::{self, File, OpenOptions},
+    io::{self, Read, Seek, SeekFrom, Write},
+    time::{Instant, SystemTime, UNIX_EPOCH},
+};
+
 use super::errno::{EEXIST, EINVAL, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM};
 use super::posix::Open;
 use super::sandbox::guest::write_bytes;
 use super::sandbox::symbols::WinFn;
 use super::windows::{FileDetails, WindowsBackend, WindowsCalls};
 use crate::fxhash::HashMap;
-use std::{
-    fs::{self, File, OpenOptions},
-    io::{self, Read, Seek, SeekFrom, Write},
-    time::{Instant, SystemTime, UNIX_EPOCH},
-};
 
 #[derive(Default)]
 pub(super) struct NativeWindows {

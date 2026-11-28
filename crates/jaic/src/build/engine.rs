@@ -3,6 +3,9 @@
 //! `public_api` reads each operation's arguments through the caller's declarations and calls
 //! these; nothing here knows a Jai layout.
 
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
 use super::state::{INTERCEPT_REPORT_POLYMORPHS, INTERCEPT_REPORT_RUNS};
 use super::{
     DataSegment, Event, Interp, ProgramSource, ProvidedImport, ReportSeverity, SharedWorkspaces,
@@ -10,8 +13,6 @@ use super::{
 };
 use crate::records::Item;
 use crate::sema::value::CodeId;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 fn trap(message: String) -> Trap {
     Trap::new(message)

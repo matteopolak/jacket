@@ -1,7 +1,9 @@
 //! `--partition`: which tests a part of a split run keeps.
-use super::Case;
-use jaic::fxhash::HashMap;
 use std::path::Path;
+
+use jaic::fxhash::HashMap;
+
+use super::Case;
 
 /// `hash:K/N` or `count:K/N`: whether the `index`-th test named `name` is in this part.
 pub(super) fn partition(spec: &str) -> Result<impl Fn(usize, &str) -> bool + use<>, String> {

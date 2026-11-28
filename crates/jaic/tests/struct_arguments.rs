@@ -1,7 +1,8 @@
 mod bindings {
     //! Typed generic-struct argument inference, without application code.
-    use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
     use std::rc::Rc;
+
+    use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 
     fn compile(source: &str) -> Result<(), String> {
         let mut options = Options::host();
@@ -194,8 +195,9 @@ mod bindings {
 
 mod conversion {
     //! Generic struct arguments obey their declared type before binding and reflection.
-    use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
     use std::{path::PathBuf, rc::Rc};
+
+    use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 
     fn compile(source: &str) -> Result<(), String> {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");

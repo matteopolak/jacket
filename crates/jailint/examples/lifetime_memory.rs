@@ -1,9 +1,10 @@
 //! Exact retained Rust-allocation deltas on the same roots and facts as `jacket lint`.
 //! Run with `--release`, `JAILINT_LIFETIME_MEMORY=1`, and no other heavy job.
 #![forbid(unsafe_code)]
+use std::path::PathBuf;
+
 use jailint::config::{Config, Level};
 use jailint::driver::{Options, run};
-use std::path::PathBuf;
 
 #[global_allocator]
 static ALLOCATOR: jaic::memory_limit::CountingAllocator =

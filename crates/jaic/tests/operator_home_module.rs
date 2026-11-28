@@ -2,13 +2,14 @@
 //! namespaced import (`V :: #import "Vec"`) is enough to use `a + b`. Using it that way warns
 //! with the portable spelling (`V.operator +(a, b)`); an operator nothing reaches names the
 //! import or alias that has it.
-use jaic::diagnostics::Diagnostic;
-use jaic::sema::{Compiler, Options, VirtualFs};
-use jaic::source::{Applicability, Edit};
 use std::{
     path::{Path, PathBuf},
     rc::Rc,
 };
+
+use jaic::diagnostics::Diagnostic;
+use jaic::sema::{Compiler, Options, VirtualFs};
+use jaic::source::{Applicability, Edit};
 
 const VEC: &str = "
 Vec2 :: struct { x: int; y: int; }
@@ -293,7 +294,7 @@ fn a_module_with_an_overload_for_the_operands_is_suggested() {
 
 #[test]
 fn a_unary_operator_no_module_overloads_gets_no_import_suggestion() {
-    let (result, _, _) = compile(
+    let (result, ..) = compile(
         "T :: #import \"Other\";
         main :: () { a: T.Thing; c := -a; }",
     );

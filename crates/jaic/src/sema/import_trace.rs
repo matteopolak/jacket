@@ -4,10 +4,11 @@
 //! asked for the file whose `#assert` failed, and (with [`Compiler::keep_going_past_asserts`])
 //! every failing `#assert` of the compile rather than the first. Import sites are noted only in
 //! that mode, so an ordinary compile pays nothing; failed asserts are always noted.
-use super::Compiler;
-use crate::source::{FileId, Span};
 use std::cell::RefCell;
 use std::path::PathBuf;
+
+use super::Compiler;
+use crate::source::{FileId, Span};
 
 /// What a compile noted while loading files.
 #[derive(Default)]
@@ -121,9 +122,10 @@ impl Compiler {
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use super::*;
     use crate::sema::{Options, ProgramSource, VirtualFs};
-    use std::rc::Rc;
 
     fn compile(keep_going: bool) -> (Compiler, bool) {
         let mut fs = VirtualFs::default();

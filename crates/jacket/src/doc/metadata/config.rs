@@ -1,12 +1,14 @@
 //! Publication settings and auxiliary page inputs, kept separate from model extraction.
+use std::path::Path;
+
+use jacket_config::schema::Doc;
+
 use super::{Metadata, valid_origin};
 use crate::cli::DocArgs;
 use crate::doc::{
     site::Site,
     view::{self, SiteView},
 };
-use jacket_config::schema::Doc;
-use std::path::Path;
 
 pub struct Publication {
     pub metadata: Metadata,

@@ -1,11 +1,12 @@
 //! The lookups by source span (`Compiler::ide_entities_at` and the others): each answers from
 //! the record of one small program, and none of them sees what a sketch of a polymorphic
 //! procedure recorded.
+use std::rc::Rc;
+
 use jaic::ide::{IdeFacts, IdeRoot};
 use jaic::sema::scope::EntityKind;
 use jaic::sema::{Compiler, NativeFs, Options, ProcId, ProgramSource};
 use jaic::source::{FileId, Span};
-use std::rc::Rc;
 
 const SOURCE: &str = "\
 main :: () {

@@ -1,10 +1,11 @@
 //! Fill a switch's cases or a struct literal's members.
-use super::text::{indent_at, starts_line, stmt_extent};
-use super::{Cx, REWRITE};
-use crate::CodeAction;
 use jaic::ast::{ExprKind as E, StmtKind as S};
 use jaic::fxhash::HashSet;
 use jaic::source::line_start;
+
+use super::text::{indent_at, starts_line, stmt_extent};
+use super::{Cx, REWRITE};
+use crate::CodeAction;
 
 impl Cx<'_> {
     // Fill in missing cases and fields

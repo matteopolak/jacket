@@ -1,8 +1,9 @@
 //! Anonymous private mappings owned by one sandbox; no file mappings or executable pages.
+use std::sync::Arc;
+
 use super::{EINVAL, EPERM};
 use super::{LibcFn, SandboxHost};
 use crate::interp::host_pages::{self, Access};
-use std::sync::Arc;
 
 /// The most address space one sandbox host maps in total. Compile-time code that maps without
 /// freeing would otherwise reserve memory for as long as the compiler runs.

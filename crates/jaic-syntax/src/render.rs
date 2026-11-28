@@ -16,11 +16,12 @@
 //! by each command-line tool; libraries and the language server leave it at `Style::PLAIN`.
 //! A caller that renders for someone else (the browser playground, one run per request)
 //! uses `with_style`, which applies to its own thread only.
-use crate::diagnostics::{Code, Severity};
-use crate::source::{LineIndex, SourcePath};
 use std::borrow::Cow;
 use std::cell::Cell;
 use std::sync::atomic::{AtomicU8, Ordering};
+
+use crate::diagnostics::{Code, Severity};
+use crate::source::{LineIndex, SourcePath};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Layout {
@@ -1120,7 +1121,7 @@ pub fn changed_lines(
         .collect();
     let mut out = changed_lines_in(&text[start..end], &window);
 
-    for (line, _, _) in &mut out {
+    for (line, ..) in &mut out {
         if let Ok(n) = line.parse::<usize>() {
             *line = (n + base).to_string();
         }

@@ -1,9 +1,10 @@
 //! The language server, the linter and the command line search the same module folders, in the
 //! same order, for a project with a `jacket.toml` and a `modules` folder.
+use std::path::{Path, PathBuf};
+
 use jai_language_server::{Limits, Session};
 use jailint::config::Config;
 use jailint::driver::{Options, root_import_paths};
-use std::path::{Path, PathBuf};
 use test_support::lsp::{modules_environment, project, stdlib, uri_of};
 
 fn existing(paths: impl IntoIterator<Item = PathBuf>) -> Vec<PathBuf> {

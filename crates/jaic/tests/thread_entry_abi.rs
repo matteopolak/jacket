@@ -1,6 +1,7 @@
 //! Native thread entry signatures are checked before allocating an OS thread.
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
+
+use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 
 #[test]
 fn posix_start_routines_require_one_pointer_argument_and_result_with_c_abi() {

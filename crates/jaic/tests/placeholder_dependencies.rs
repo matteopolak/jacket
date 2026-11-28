@@ -1,6 +1,7 @@
 //! Placeholder binding and deferred-body dependency regressions.
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
+
+use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use test_support::compiler::compile_main_file as compile;
 
 

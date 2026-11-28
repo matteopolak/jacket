@@ -1,5 +1,4 @@
 //! Statements and control flow.
-use crate::diagnostics::Code;
 use std::sync::Arc;
 
 use super::{PResult, Parser};
@@ -8,6 +7,7 @@ use crate::ast::{
     PushContextDeferStmt, PushContextStmt, Stmt, StmtKind, SwitchStmt, UsingFilter,
     UsingFilterKind, UsingStmt, WhileStmt,
 };
+use crate::diagnostics::Code;
 use crate::diagnostics::Diagnostic;
 use crate::lexer::{P, Tok};
 use crate::lexicon::is_using_filter;

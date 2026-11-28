@@ -1,8 +1,9 @@
 //! The release each item first appeared in, from the file `[doc] since` names. The standard
 //! library's, `since.tsv` here, is written by `tools/generators/generate_doc_since.py` from the
 //! release tags; see `docs/tools/jacket-doc.md`.
-use super::model::Module;
 use std::collections::BTreeMap;
+
+use super::model::Module;
 
 /// Marks the items of the oldest release the data covers: older than anything known.
 const OLDER: &str = "-";

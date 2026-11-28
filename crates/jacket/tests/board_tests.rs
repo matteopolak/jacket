@@ -2,6 +2,7 @@
 //! emulator, with the result coming back over semihosting.
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+
 use test_support::{TempDir, toolchain};
 
 const TESTS: &str = r#"#import "Basic";

@@ -1,14 +1,15 @@
 //! Extract procedure: the variables a selection reads and writes.
-use super::exprs::{header_poly, mentioned_in};
-use super::text::{fresh, stmt_extent};
-use super::tree::root;
-use super::{Cx, EXTRACT, Local};
-use crate::CodeAction;
 use jaic::ast::walk::{Node, walk};
 use jaic::ast::{DeclKind, ExprKind as E, ForOver, Stmt, StmtKind as S, UnOp};
 use jaic::fxhash::HashSet;
 use jaic::intern::Sym;
 use jaic::source::{line_end, line_start};
+
+use super::exprs::{header_poly, mentioned_in};
+use super::text::{fresh, stmt_extent};
+use super::tree::root;
+use super::{Cx, EXTRACT, Local};
+use crate::CodeAction;
 
 impl Cx<'_> {
     // Extract into procedure

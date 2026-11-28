@@ -8,9 +8,10 @@
 //! Not on the pool, on purpose: the parse-ahead workers (`parse_ahead.rs`), which wait on a
 //! condition variable for the crawl to find files and would hold pool threads idle; and the
 //! interpreter's threads, which are Jai program threads (`interp/threads.rs`).
-use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
+
+use rayon::{ThreadPool, ThreadPoolBuilder};
 
 /// The size [`configure`] set, 0 until then.
 static CONFIGURED: AtomicUsize = AtomicUsize::new(0);

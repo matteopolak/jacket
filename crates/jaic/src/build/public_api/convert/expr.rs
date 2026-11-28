@@ -1,4 +1,6 @@
 //! Expressions, literals and type instantiations.
+use std::sync::Arc;
+
 use super::{Convert, R, quote_bytes};
 use crate::{
     ast::{
@@ -12,7 +14,6 @@ use crate::{
     source::Span,
     types::TypeId,
 };
-use std::sync::Arc;
 
 pub(super) fn mk(kind: ExprKind, span: Span) -> Expr {
     Expr {

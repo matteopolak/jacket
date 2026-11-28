@@ -1,4 +1,7 @@
 //! Recording references, entities and missing modules as the checker visits them.
+use std::path::Path;
+use std::sync::Arc;
+
 use super::facts::{
     IdeCast, IdeExprFact, IdeMissingModule, IdeMissingModuleEpoch, IdeRef, IdeWhat,
 };
@@ -14,8 +17,6 @@ use crate::source::SourcePath;
 use crate::source::Span;
 use crate::types::TypeId;
 use crate::types::TypeKind;
-use std::path::Path;
-use std::sync::Arc;
 
 impl Compiler {
     fn ide_missing_module_epoch(&self) -> IdeMissingModuleEpoch {
@@ -235,7 +236,7 @@ impl Compiler {
         }
 
         let (span, what) = match &expr.kind {
-            ast::ExprKind::Ident(_) | ast::ExprKind::Member(_, _) => {
+            ast::ExprKind::Ident(_) | ast::ExprKind::Member(..) => {
                 let (span, qualified_member) = match &expr.kind {
                     ast::ExprKind::Member(_, name) => (name.span, Some(name.name)),
                     _ => (expr.span, None),

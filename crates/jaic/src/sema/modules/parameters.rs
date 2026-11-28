@@ -1,4 +1,6 @@
 //! Module parameters and program parameters: declaring them, binding arguments and checking their contracts.
+use std::path::Path;
+
 use crate::diagnostics::Code;
 use crate::sema::convert::Site;
 use crate::sema::lower::Origin;
@@ -7,7 +9,6 @@ use crate::sema::{
     Arc, Compiler, Diagnostic, EntityId, ModuleId, Result, ScopeId, Span, Sym, TypeId, Value, ast,
     err, ir, lower, procs, scope,
 };
-use std::path::Path;
 
 /// A module-owned header contract, evaluated in its declaring file namespace.
 /// Registration must not consume a default while an importing type is forming.
@@ -544,7 +545,7 @@ impl ValueClass {
             Value::Bool(_) => Some(ValueClass::Bool),
             Value::String(_) => Some(ValueClass::String),
             Value::Int(_) => Some(ValueClass::Integer),
-            Value::Float(_, _) => Some(ValueClass::Float),
+            Value::Float(..) => Some(ValueClass::Float),
             _ => None,
         }
     }

@@ -4,10 +4,11 @@
 //! sizes of the compiler's shared tables, charges the growth to the body that caused it (growth
 //! made by bodies lowered on demand inside it is charged to those), and prints a histogram when
 //! the compile ends. It costs nothing when the variable is unset.
-use super::Compiler;
-use super::scope::ScopeKind;
 use std::cell::RefCell;
 use std::time::{Duration, Instant};
+
+use super::Compiler;
+use super::scope::ScopeKind;
 
 macro_rules! writes {
     ($($v:ident $n:literal,)*) => {
@@ -271,8 +272,8 @@ impl<'a, T, const I: usize> IntoIterator for &'a Probed<T, I>
 where
     &'a T: IntoIterator,
 {
-    type Item = <&'a T as IntoIterator>::Item;
     type IntoIter = <&'a T as IntoIterator>::IntoIter;
+    type Item = <&'a T as IntoIterator>::Item;
 
     fn into_iter(self) -> Self::IntoIter {
         (&self.0).into_iter()
@@ -285,8 +286,8 @@ impl<'a, T, const I: usize> IntoIterator for &'a mut Probed<T, I>
 where
     &'a mut T: IntoIterator,
 {
-    type Item = <&'a mut T as IntoIterator>::Item;
     type IntoIter = <&'a mut T as IntoIterator>::IntoIter;
+    type Item = <&'a mut T as IntoIterator>::Item;
 
     fn into_iter(self) -> Self::IntoIter {
         write_at(I);
@@ -295,8 +296,8 @@ where
 }
 
 impl<T: IntoIterator, const I: usize> IntoIterator for Probed<T, I> {
-    type Item = T::Item;
     type IntoIter = T::IntoIter;
+    type Item = T::Item;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()

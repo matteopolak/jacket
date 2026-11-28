@@ -1,10 +1,11 @@
 //! The folders dependencies add to the module search: their own `[package] import-path`, the
 //! parent of a module that is not at their root, and the copy of a dependency that each package
 //! needs when the program holds several (see [`Roots::packages`]).
-use crate::version::{Scheme, Version, parse_range, parse_tag};
-use crate::{Config, ConfigError, Dependency, FILE_NAME, Files, Package};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+
+use crate::version::{Scheme, Version, parse_range, parse_tag};
+use crate::{Config, ConfigError, Dependency, FILE_NAME, Files, Package};
 
 /// What the dependencies of a project add to the compiler's module search.
 #[derive(Debug, Default, PartialEq, Eq)]

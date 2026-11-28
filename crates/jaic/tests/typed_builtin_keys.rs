@@ -1,7 +1,8 @@
 //! The typed builtin keys and values in `jaic::builtin_keys` must match the enums that stdlib
 //! declares: the builtins receive the Jai enum's integer value.
-use jaic::builtin_keys::*;
 use std::path::PathBuf;
+
+use jaic::builtin_keys::*;
 
 fn stdlib(path: &str) -> String {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");

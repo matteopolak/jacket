@@ -1,8 +1,9 @@
 //! Private worker for `tools/lsp/scale_sandbox.py`, never a direct untrusted-input runner.
 //! The registered scale test always delegates confinement to the owning bench launcher.
-use jai_language_server::{DocumentUri, Limits};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
+
+use jai_language_server::{DocumentUri, Limits};
 
 const SCALE_BUDGET: Duration = Duration::from_secs(120);
 

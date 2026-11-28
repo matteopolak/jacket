@@ -2,6 +2,7 @@
 mod doc {
     use std::path::{Path, PathBuf};
     use std::process::Command;
+
     use test_support::{TempDir, toolchain};
 
     static RUN: std::sync::Mutex<()> = std::sync::Mutex::new(());

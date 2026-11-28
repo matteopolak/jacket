@@ -1,6 +1,7 @@
 //! Arguments are evaluated left to right: a variable read as an argument has the value it had
 //! before the calls among the arguments to its right ran, at run time and at compile time.
 use std::process::Command;
+
 use test_support::TempDir;
 
 const PROBE: &str = r#"#import "Basic";

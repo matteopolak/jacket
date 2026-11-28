@@ -10,13 +10,15 @@
 //!    asked for the core the program is built for.
 //! 4. The builtins `jacket toolchain add` built from compiler-rt's source for the exact target.
 //! 5. An error that says how to get them.
+use std::path::PathBuf;
+
+use jaic::target::{Target, TargetAbi, TargetCpu};
+
 use crate::cache;
 use crate::found::{Found, Missing, Origin};
 use crate::lookup::Lookup;
 use crate::overrides::Overrides;
 use crate::package::{Need, PackageManager};
-use jaic::target::{Target, TargetAbi, TargetCpu};
-use std::path::PathBuf;
 
 /// The file name compiler-rt gives its builtins for `target`: `libclang_rt.builtins-<arch>.a`.
 fn builtins_file(target: Target) -> String {

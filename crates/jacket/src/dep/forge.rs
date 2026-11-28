@@ -8,13 +8,15 @@
 //! Lookups are cached for good, keyed by host, repository, tag and commit, so a tag pushed again
 //! to another commit misses the cache. Release lists are fetched with `If-None-Match`, which
 //! GitHub does not count against its rate limit when nothing changed.
+use std::collections::BTreeMap;
+use std::path::PathBuf;
+
+use serde_json::Value;
+
 use super::DepError;
 use super::policy::parse_time;
 use super::types::CommitId;
 use crate::net::{Curl, Response, parse_response};
-use serde_json::Value;
-use std::collections::BTreeMap;
-use std::path::PathBuf;
 
 /// Status, lower-cased headers and body of an HTTP answer.
 
@@ -609,8 +611,9 @@ impl Http {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::cell::RefCell;
+
+    use super::*;
 
     struct Fake {
         answers: RefCell<Vec<Result<Fetched, ForgeError>>>,

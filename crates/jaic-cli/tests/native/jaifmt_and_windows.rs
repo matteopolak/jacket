@@ -1,8 +1,10 @@
 //! The formatter build, Windows runtime programs and PDBs.
-use super::{build_and_run, exe_path, formatter_fixtures, jaic, repo_root};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
 use test_support::{TempDir, toolchain};
+
+use super::{build_and_run, exe_path, formatter_fixtures, jaic, repo_root};
 
 /// Whether a Windows crash runtime library is anywhere jaic looks for one: beside its source, in
 /// the compiler's cache of built runtimes, or in a `native-libs` folder under the build output.

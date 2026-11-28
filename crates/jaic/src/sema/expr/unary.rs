@@ -177,7 +177,7 @@ impl Compiler {
                 .with_callable(parameters))
             }
             Operand::Const {
-                value: Value::Int(_) | Value::Float(_, _) | Value::Bool(_),
+                value: Value::Int(_) | Value::Float(..) | Value::Bool(_),
                 ..
             } => err(
                 Code::CannotTakeAddress,
@@ -454,7 +454,6 @@ impl Compiler {
             }
         }
     }
-
 
     /// Give an untyped constant a concrete type from context (or its default).
     pub fn settle_untyped(&self, op: Operand, expected: Option<TypeId>) -> Operand {

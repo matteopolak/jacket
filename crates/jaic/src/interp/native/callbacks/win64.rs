@@ -16,13 +16,14 @@
 //! Unlike System V there is a single family: the return shape is decided in `dispatch` (an
 //! integer or aggregate of 1, 2, 4 or 8 bytes in RAX, a float in XMM0, anything else through
 //! the hidden pointer in the first slot, also returned in RAX).
+use std::sync::{Arc, Mutex};
+
 use super::{Gate, Reenter, enter, fatal, free_slots, same_gate, slot_for};
 use crate::abi::{self, Arch, Passing};
 use crate::interp::Trap;
 use crate::interp::native::{read_bytes, write_bytes};
 use crate::ir::{FuncId, Sig, Ty};
 use crate::layout::DataLayout;
-use std::sync::{Arc, Mutex};
 
 /// Interpreted procedures that can be handed to C at once.
 const SLOTS: usize = 256;

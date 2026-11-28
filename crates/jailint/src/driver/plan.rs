@@ -1,15 +1,17 @@
 //! From paths on the command line to the roots to compile and the files to report on.
-use super::Options;
-use super::marked_target::{Marked, marked_target};
-use crate::config::Configs;
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::{Path, PathBuf};
+
 use jaic::project::{
     self, DiskFs, LoadCache, Program, ProgramInputs, ProjectFs, Root, RootOptions, program_for,
     resolve_program,
 };
 use jaic::target::{TargetCpu, TargetOs};
 use jaic::test_notes::{TargetNotes, header_notes, header_target_notes, in_compile_fail_folder};
-use std::collections::{BTreeMap, BTreeSet};
-use std::path::{Path, PathBuf};
+
+use super::Options;
+use super::marked_target::{Marked, marked_target};
+use crate::config::Configs;
 
 /// The identity of a file in a run: its real path, as `jaic::paths::file_identity` gives it.
 pub(super) fn canonical(path: &Path) -> PathBuf {

@@ -2,6 +2,10 @@
 //! reads source and cannot know what an `#insert` declares, so a module that has a public one is
 //! compiled once with its default module parameters and each insert's text goes back into the
 //! model as source it declares.
+use std::cell::RefCell;
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
+
 use crate::fxhash::HashMap;
 use crate::ide::lint_compile::{CheckLimits, LintCompile, LintSetup};
 use crate::ide::{IdeFacts, IdeRoot};
@@ -9,9 +13,6 @@ use crate::interp::SandboxHost;
 use crate::project::{ProgramInputs, module_import};
 use crate::sema::{Compiler, FileSystem, NativeFs, Options, ProgramSource};
 use crate::source::FileId;
-use std::cell::RefCell;
-use std::path::{Path, PathBuf};
-use std::rc::Rc;
 
 /// What compiling the module expanded.
 struct Expanded {

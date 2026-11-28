@@ -1,6 +1,7 @@
 //! Declaration lookup must not request offsets from a record being laid out.
-use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 use std::{path::PathBuf, rc::Rc};
+
+use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 
 fn check(source: &str) -> Result<(), String> {
     let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");

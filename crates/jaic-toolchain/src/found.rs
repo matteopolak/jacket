@@ -1,7 +1,8 @@
 //! The outcome of a lookup: the tool and how it was chosen, or what is missing and how to get it.
-use crate::lookup::{Lookup, version_of};
 use std::ffi::OsString;
 use std::path::PathBuf;
+
+use crate::lookup::{Lookup, version_of};
 
 /// How a tool came to be chosen. A status line shows it.
 #[derive(Clone, Debug, PartialEq, Eq)]

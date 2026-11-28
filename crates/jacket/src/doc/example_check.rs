@@ -1,9 +1,10 @@
 //! Testing the examples of a site: every one with a Run button is run before the site is written,
 //! the way the browser runs it, so a Run button never opens on an error.
-use crate::test::exec::{Invocation, run_bounded};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Duration;
+
+use crate::test::exec::{Invocation, run_bounded};
 
 /// The most an example may run when it has no `timeout(n)` of its own.
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
@@ -34,7 +35,10 @@ pub enum Engine<'a> {
         import_dir: Vec<std::ffi::OsString>,
     },
     /// The bundle's own `engine.mjs` under Node, exactly the compiler the page loads.
-    Browser { node: PathBuf, runtime: &'a Path },
+    Browser {
+        node: PathBuf,
+        runtime: &'a Path,
+    },
 }
 
 pub struct Failure {

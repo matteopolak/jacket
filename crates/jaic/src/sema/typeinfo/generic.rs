@@ -110,7 +110,7 @@ impl Compiler {
 
         // Inferred pattern bindings and baked arguments are not ordinary
         // declared parameters, but their types/default expressions can name them.
-        for (name, value, ty) in actual.iter().filter(|(name, _, _)| {
+        for (name, value, ty) in actual.iter().filter(|(name, ..)| {
             !lit.params
                 .iter()
                 .any(|p| p.name.is_some_and(|n| n.name == *name))
@@ -188,7 +188,7 @@ impl Compiler {
                 .or_else(|| {
                     actual
                         .iter()
-                        .find(|(n, _, _)| *n == name)
+                        .find(|(n, ..)| *n == name)
                         .map(|(_, _, ty)| *ty)
                 });
             let member = self.parameter_member(
@@ -204,7 +204,7 @@ impl Compiler {
             members.bytes.resize(at + msize as usize, 0);
             structs::write_agg(&mut members, at as u64, &member);
 
-            if let Some((_, value, ty)) = actual.iter().find(|(n, _, _)| *n == name) {
+            if let Some((_, value, ty)) = actual.iter().find(|(n, ..)| *n == name) {
                 self.add_const(scope, name, parameter.span, value.clone(), *ty);
             } else if let Some(value) = default {
                 self.add_const(

@@ -16,10 +16,11 @@
 //!
 //! Run with `INSTA_UPDATE=always` to rewrite the snapshots and `bad.fixed.jai` files from the
 //! current output.
+use std::path::{Path, PathBuf};
+
 use jailint::config::{Config, Level};
 use jailint::render::{Style, render};
 use jailint::{Lint, RULES};
-use std::path::{Path, PathBuf};
 use test_support::TempDir;
 
 fn repo() -> PathBuf {

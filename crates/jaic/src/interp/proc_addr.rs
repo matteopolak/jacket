@@ -7,9 +7,8 @@
 //! 2-byte pointers (AVR) each kind gets 8192 values at the top of the 64 KiB range.
 //!
 //! `width` below is the program's pointer size in bytes, 8 when its addresses are the host's.
-use crate::ir::{ForeignId, FuncId};
-
 use super::{FOREIGN_TAG, FUNC_TAG, TAG_MASK};
+use crate::ir::{ForeignId, FuncId};
 
 /// Procedure values of a program with 4-byte pointers.
 pub(super) const FUNC_BASE32: u64 = 0xE000_0000;

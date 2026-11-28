@@ -5,13 +5,14 @@
 //! as expressions in the caller's scope, with spans pointing into the string, and the call is
 //! rewritten: `f(db, "a %x b")` is checked as `f(db, "a % b", x)`. Everything after that is the
 //! ordinary path, which is why diagnostics, hover, go to definition and rename work on a hole.
+use std::sync::Arc;
+
 use super::{Compiler, Diagnostic, ProcId, Result, Span, ast};
 use crate::ast::ExprKind as E;
 use crate::diagnostics::Code;
 use crate::interpolate::{self, Mode};
 use crate::lexer;
 use crate::parser;
-use std::sync::Arc;
 
 impl Compiler {
     /// The mode of `p`'s `@Interpolates` note, and the index of the parameter it marks.

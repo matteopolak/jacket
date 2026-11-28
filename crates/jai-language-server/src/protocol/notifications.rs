@@ -1,12 +1,14 @@
 //! Notification handlers, publications and configuration.
+use std::path::PathBuf;
+
+use serde_json::{Value, json};
+
 use super::JsonSession;
 use super::helpers::{decode, domain, fail, file_document, folder_path, is_file_uri, uri};
 use super::methods::{ErrorCode, Failure, Notification};
 use super::params::{ChangeParams, OpenParams};
 use super::wire::diagnostic_wire;
 use crate::{Diagnostic, DocumentUri, Error};
-use serde_json::{Value, json};
-use std::path::PathBuf;
 
 impl JsonSession {
     pub(super) fn notification(
@@ -273,7 +275,6 @@ impl JsonSession {
         self.session.set_workspace_folders(kept);
     }
 
-
     /// The version and diagnostics of `target` for a pull (none for a document that is not open).
     pub(super) fn pulled(
         &self,
@@ -367,7 +368,7 @@ impl JsonSession {
         let Some(reports) = self.session.workspace_reports() else {
             return Vec::new();
         };
-        let current = reports.iter().map(|(uri, _, _)| uri.clone()).collect();
+        let current = reports.iter().map(|(uri, ..)| uri.clone()).collect();
         let mut messages: Vec<_> = reports.into_iter().map(|(uri, version, diagnostics)| {
             let mut params = json!({"uri":uri,"diagnostics":diagnostics.iter().map(diagnostic_wire).collect::<Vec<_>>()});
 

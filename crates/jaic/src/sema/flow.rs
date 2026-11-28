@@ -5,9 +5,10 @@
 //! Both follow the structure of the code, not the values in it: `if true return 1;` can still
 //! fall through, `while true {}` ends the body, and a `while` counts as returning when its body
 //! does. Only `#if` is decided, by the branch the checker took (`FnCtx::static_taken`).
-use super::{Compiler, ast, lower};
 use ast::StmtKind as S;
 use lower::FnCtx;
+
+use super::{Compiler, ast, lower};
 
 impl Compiler {
     /// Whether leaving the end of `stmts` is impossible because one of them returns.

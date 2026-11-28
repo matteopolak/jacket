@@ -1,6 +1,7 @@
 //! Binding-time interface validation independent of particular library modules.
-use jaic::sema::{Compiler, Options, VirtualFs};
 use std::{path::Path, rc::Rc};
+
+use jaic::sema::{Compiler, Options, VirtualFs};
 
 const MODULE: &str = r"
 #module_parameters(HOOKS: $I/interface Required = Required) {

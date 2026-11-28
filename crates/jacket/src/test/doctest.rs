@@ -8,16 +8,17 @@
 //! lines moved to file level. Either way the program runs the example through the Testing module,
 //! so a failed `assert` or `expect` fails the doc test. Options follow `jai` on the fence:
 //! `ignore`, `no_run`, `compile_fail`, `should_fail`, and the notes of a test (`only(linux)`).
-use super::build::{Toolchain, compile_output};
-use super::exec::{Ending, Failure, Live};
-use super::golden::{self, Checked};
-use super::jobs::ending_text;
-use super::options::TestOptions;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
+
+use super::build::{Toolchain, compile_output};
+use super::exec::{Ending, Failure, Live};
+use super::golden::{self, Checked};
+use super::jobs::ending_text;
+use super::options::TestOptions;
 
 /// How a doc block is checked.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

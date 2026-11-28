@@ -1,6 +1,7 @@
 //! Code the runtime's check handler reaches is runtime code, even when a `#run` also calls it.
-use super::*;
 use jaic::sema::VirtualFs;
+
+use super::*;
 
 #[test]
 fn procedures_the_check_handler_calls_are_not_compile_time_only() {

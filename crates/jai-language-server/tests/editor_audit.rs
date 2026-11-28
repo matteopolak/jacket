@@ -1,7 +1,8 @@
 //! Original causal IDE audit fixtures, independent of corpus and library implementations.
+use std::{path::Path, rc::Rc};
+
 use jaic::ide::IdeFacts;
 use jaic::sema::{Compiler, Options, VirtualFs};
-use std::{path::Path, rc::Rc};
 
 fn compiler(source: &str, dependency: &str) -> Compiler {
     let mut fs = VirtualFs::default();

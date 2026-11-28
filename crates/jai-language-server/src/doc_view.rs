@@ -2,6 +2,11 @@
 //! declaration's docs, and the intra-doc links inside the comments (go to definition, hover,
 //! `textDocument/documentLink`, semantic tokens). The text-level work is in `docs`; this
 //! resolves link names through the type checker and renders for the client's format.
+use std::path::Path;
+
+use jaic::fxhash::HashMap;
+use jaic::ide::meta::IdeSignature;
+
 use crate::analysis::Span;
 use crate::docs::{self, Site};
 use crate::hover::{Block, HoverText};
@@ -9,9 +14,6 @@ use crate::model::{CompletionData, Location};
 use crate::semantic::{self, Decl};
 use crate::session::Session;
 use crate::{DocumentUri, MarkupKind, Range, SemanticTokenKind};
-use jaic::fxhash::HashMap;
-use jaic::ide::meta::IdeSignature;
-use std::path::Path;
 
 /// Completion lists this short carry their documentation; longer ones leave it to
 /// `completionItem/resolve`, so a list of thousands of names costs no more than before.

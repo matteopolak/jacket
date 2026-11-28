@@ -29,17 +29,18 @@ mod review;
 pub(crate) mod stdlib;
 mod watch;
 
-use crate::cli::{BenchArgs, TestArgs};
-use crate::{project, tools};
-use build::{Built, Toolchain};
-use coverage_plan::coverage_for;
-use options::{RunMode, Target, TestOptions};
-
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::atomic::{AtomicBool, AtomicUsize};
 use std::time::{Duration, Instant};
+
+use build::{Built, Toolchain};
+use coverage_plan::coverage_for;
+use options::{RunMode, Target, TestOptions};
+
+use crate::cli::{BenchArgs, TestArgs};
+use crate::{project, tools};
 
 const DEFAULT_TIMEOUT: u64 = 120;
 const DEFAULT_SLOW: u64 = 30;

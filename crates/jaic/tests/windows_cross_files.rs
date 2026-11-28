@@ -1,8 +1,9 @@
 //! Target-side metaprograms must use real host files through the target Windows API.
+use std::{path::PathBuf, rc::Rc};
+
 use jaic::build::{BuildEnv, Workspaces};
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 use jaic::target::TargetOs;
-use std::{path::PathBuf, rc::Rc};
 
 #[test]
 fn windows_target_run_reads_and_walks_real_host_files() {

@@ -1,4 +1,6 @@
 //! `struct`, `union` and `enum` literals.
+use std::sync::Arc;
+
 use super::expr::mk;
 use super::{PResult, Parser};
 use crate::ast::{
@@ -6,7 +8,6 @@ use crate::ast::{
     StructLit, UsingStmt,
 };
 use crate::lexer::{P, Tok};
-use std::sync::Arc;
 
 impl Parser<'_> {
     /// `struct (T: Type) #flags { ... }` / `union { ... }`.

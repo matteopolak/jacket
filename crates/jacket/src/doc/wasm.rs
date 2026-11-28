@@ -1,8 +1,9 @@
 //! Whether a documented module also builds for wasm, found by checking a program that imports it.
 
-use super::model::Module;
 use std::path::Path;
 use std::process::Command;
+
+use super::model::Module;
 
 /// `flags` without the ones that choose a target (`-os`, `-cpu`, `-target`) or a mode; the error
 /// is a flag the compiler would refuse.

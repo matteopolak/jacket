@@ -1,9 +1,10 @@
 //! Choosing a commit for an entry: what was asked, and which tags can answer it.
+use jacket_config::Dependency;
+
 use super::git::RemoteTag;
 use super::spec::At;
 use super::types::{RefName, Rev};
 use super::version::{self, Range, Requirement, Scheme, Tagged, Version};
-use jacket_config::Dependency;
 
 /// How an entry reads tags.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

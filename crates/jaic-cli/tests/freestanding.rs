@@ -6,6 +6,7 @@
 
 use std::path::Path;
 use std::process::{Command, Output};
+
 use test_support::{TempDir, toolchain};
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");

@@ -5,15 +5,16 @@
 //! The index is keyed by the stdlib folder and valid while the `FileSystem::stamp` of every
 //! path it was built from is unchanged, so editing a stdlib file (or adding one) builds a new
 //! one. A file system without stamps gets an index of its own for each compile.
+use std::cell::RefCell;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, OnceLock};
+
 use super::FileSystem;
 use super::modules::module_listed;
 use crate::ast::{ScopeKind, Stmt, StmtKind};
 use crate::fxhash::{HashMap, HashSet};
 use crate::lang_items::modules;
 use crate::source::FileId;
-use std::cell::RefCell;
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, OnceLock};
 
 /// Indexes kept for reuse (several stdlib folders, or one that changed under a long-running
 /// process).

@@ -2,11 +2,12 @@
 //! through the innermost scope recorded at a position, so a block checked without recording its
 //! span hides its locals from completion (a `#run { }` block once offered to import a module's
 //! `options` in place of the local being typed).
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
+
 use jaic::ide::{IdeFacts, IdeRoot};
 use jaic::sema::scope::{EntityKind, ScopeKind};
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource, ScopeId};
-use std::path::{Path, PathBuf};
-use std::rc::Rc;
 
 fn repo() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))

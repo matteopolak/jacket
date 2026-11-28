@@ -1,9 +1,9 @@
 //! Running a request: the compile, interpret and write steps.
-use super::backend::{build, native_backend};
-use super::leak::{LeakOnExit, flush_sandbox};
-use super::native_paths::native_lib_dirs;
-use super::parse::{check_input, print_cli_error, print_error, shown};
-use super::timings;
+use std::cell::RefCell;
+use std::path::{Path, PathBuf};
+use std::process::ExitCode;
+use std::rc::Rc;
+
 use jaic::build::{BuildEnv, BuildSettings, OutputBackend, OutputType, Workspaces};
 use jaic::builtin_keys::BitcodeOptimization;
 use jaic::interp::{NativeHost, SandboxHost, SharedHost};
@@ -12,10 +12,12 @@ use jaic::target::TargetOs;
 use jaic_cli_args::cli::{Cli, Flavor, Mode};
 use jaic_cli_args::options::NO_MAIN_STATUS;
 use jaic_cli_args::tuning;
-use std::cell::RefCell;
-use std::path::{Path, PathBuf};
-use std::process::ExitCode;
-use std::rc::Rc;
+
+use super::backend::{build, native_backend};
+use super::leak::{LeakOnExit, flush_sandbox};
+use super::native_paths::native_lib_dirs;
+use super::parse::{check_input, print_cli_error, print_error, shown};
+use super::timings;
 
 /// Compile-time runs listed by `-profile_runs`.
 const RUN_COST_ROWS: usize = 25;

@@ -1,12 +1,13 @@
 //! Extract and inline variable.
+use jaic::ast::walk::{Node, walk};
+use jaic::ast::{BinOp, DeclKind, ExprKind as E, StmtKind as S, UnOp};
+use jaic::source::{line_end, line_start};
+
 use super::exprs::{atomic, changes, contains_range, has_call, hoistable, suggest_name, type_like};
 use super::text::{fresh, indent_at, starts_line, stmt_extent};
 use super::tree::{in_list, plain_statement};
 use super::{Cx, EXTRACT, INLINE};
 use crate::CodeAction;
-use jaic::ast::walk::{Node, walk};
-use jaic::ast::{BinOp, DeclKind, ExprKind as E, StmtKind as S, UnOp};
-use jaic::source::{line_end, line_start};
 
 impl Cx<'_> {
     // Extract into variable

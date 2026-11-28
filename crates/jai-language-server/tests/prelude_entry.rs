@@ -1,6 +1,7 @@
 //! A root prelude wrapper must preserve relative loads and editor navigation.
-use jai_language_server::{DiagnosticCode, Limits, Session};
 use std::path::Path;
+
+use jai_language_server::{DiagnosticCode, Limits, Session};
 use test_support::TempDir;
 use test_support::lsp::{modules_environment, position, uri_of};
 

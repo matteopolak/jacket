@@ -1,6 +1,7 @@
 //! Byte data in globals (string literals, constant tables, zero-padded arrays and pointers between
 //! them) reaches the executable intact at every optimization level.
 use std::process::Command;
+
 use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");

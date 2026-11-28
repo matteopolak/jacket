@@ -1,9 +1,10 @@
 //! Where a declaration's docs are written when it only renames another declaration.
+use std::sync::Arc;
+
 use crate::docs::{self, Resolver};
 use crate::intern::Sym;
 use crate::sema::Compiler;
 use crate::source::{FileId, Span};
-use std::sync::Arc;
 
 /// The type checker as the resolver of [`docs::docs_site`].
 struct Checked<'a>(&'a mut Compiler);

@@ -10,9 +10,10 @@
 //! definition there; (c) blank lines and `jaifmt` change nothing beyond positions, and editing the
 //! session into such a text equals opening it fresh; (d) completion at member accesses and struct
 //! literals lists what the code uses. One JSON object per file on stdout.
+use std::path::{Path, PathBuf};
+
 use jai_language_server::{DocumentUri, Limits, Position, Session};
 use serde::Serialize;
-use std::path::{Path, PathBuf};
 
 #[allow(
     dead_code,
@@ -374,8 +375,9 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{metamorphic::with_blank_lines, project_settings};
     use std::path::PathBuf;
+
+    use super::{metamorphic::with_blank_lines, project_settings};
 
     /// An export line belongs to the declaration below it, with the docs above both: a blank line
     /// after it detaches them, which is not an edit that leaves hovers alone.

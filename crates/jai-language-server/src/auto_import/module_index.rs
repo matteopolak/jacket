@@ -1,14 +1,16 @@
 //! Finding the modules an import can name: the files a program loads, the standard library's
 //! modules (ranked, cached) and the project's own.
+use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+
+use jaic::fxhash::HashMap;
+use jaic::sema::ModuleRanking;
+
 use super::index_fs::IndexFs;
 use super::{AskedOptions, Index, MAX_LOADED, Module, ModuleCache, Modules, Recorded, Sources};
 use crate::exports::{Decl, Visibility};
 use crate::project;
-use jaic::fxhash::HashMap;
-use jaic::sema::ModuleRanking;
-use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
 
 impl Sources<'_> {
     /// `root` and every file its `#load`s reach (and the files a build metaprogram compiles).

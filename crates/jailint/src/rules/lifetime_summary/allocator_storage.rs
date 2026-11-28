@@ -1,6 +1,7 @@
 //! The global reset epoch belongs to returned context-owned bytes, not every bump allocator.
-use super::{Event, HashMap, HashSet, LifetimeBody, LifetimeOperand};
 use jaic::ir::Val;
+
+use super::{Event, HashMap, HashSet, LifetimeBody, LifetimeOperand};
 
 pub(super) fn returns_context_storage(c: &super::Compiler, body: &LifetimeBody) -> bool {
     let contexts: HashSet<_> = body

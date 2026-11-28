@@ -1,9 +1,10 @@
 //! What `--coverage` records and where its report goes.
 
+use std::path::{Path, PathBuf};
+
 use super::build::Toolchain;
 use super::{coverage, discover, prerequisites, watch};
 use crate::cli::{CoverageFormat, TestArgs};
-use std::path::{Path, PathBuf};
 
 /// The folder a coverage report goes to without `--coverage-out`: `JACKET_OUTPUT_DIR` (a
 /// relative one is below the checkout the standard library is in, as everywhere else), else

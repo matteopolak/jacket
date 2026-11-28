@@ -355,8 +355,9 @@ impl Interp {
 
     /// `long double` operations in software (`crate::wide_float`), whatever the host.
     fn wide(&mut self, op: ir::WideOp, fmt: ir::WideFloat, a: &[u64]) -> Res<Vec<u64>> {
-        use crate::wide_float as w;
         use ir::WideOp as W;
+
+        use crate::wide_float as w;
         let value = |s: &Self, addr: u64| -> Res<w::Bytes> {
             if addr < 4096 {
                 return s.null_trap(null_access("read", addr));

@@ -1,6 +1,7 @@
 //! Atomic intrinsic regressions; no module-specific implementation.
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
+
+use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 
 const DECLS: &str = r"
 atomic_load :: (pointer: *$T) -> T #intrinsic;

@@ -1,6 +1,7 @@
 //! Controls for anonymous imports in loaded files.
-use jaic::sema::{Compiler, Options, VirtualFs};
 use std::{path::Path, rc::Rc};
+
+use jaic::sema::{Compiler, Options, VirtualFs};
 
 fn compile(piece: &str, main: &str) -> Result<(), String> {
     let mut fs = VirtualFs::default();

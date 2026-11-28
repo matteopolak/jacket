@@ -1,12 +1,13 @@
 //! `jacket.toml` in the editor: its problems, key and path completion, hover, dependency hints,
 //! and what a file that does not read does to the Jai files under it.
+use std::cell::RefCell;
+use std::path::Path;
+use std::rc::Rc;
+
 use jai_language_server::{
     CompletionItem, DependencyRequest, DependencySource, DependencyStanding, DiagnosticCode,
     DiagnosticSeverity, DocumentUri, Position, Range, Session, TextChange,
 };
-use std::cell::RefCell;
-use std::path::Path;
-use std::rc::Rc;
 
 fn open(files: &[(&str, &str)], config: &str) -> (test_support::TempDir, Session, DocumentUri) {
     let mut all = files.to_vec();

@@ -3,6 +3,7 @@
 //! with status 2.
 use std::path::Path;
 use std::process::Command;
+
 use test_support::TempDir;
 
 fn scratch(name: &str) -> TempDir {
@@ -176,7 +177,7 @@ fn a_file_a_nearby_program_loads_is_checked_as_part_of_that_program() {
         "#load \"basics/basics.jai\";\nmain :: () { run_basics(); stray := 2; }\n",
     )
     .unwrap();
-    let (out, _, _) = run(&["-D", "warnings", "tour/basics/basics.jai"]);
+    let (out, ..) = run(&["-D", "warnings", "tour/basics/basics.jai"]);
 
     assert!(!out.contains("stray"), "{out}");
 }

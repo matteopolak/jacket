@@ -1,8 +1,9 @@
 //! Compile-time code built for another C library than the host's is answered in the target's
 //! ABI, or refused, never handed to the host's C library as if the two were the same.
+use std::{path::PathBuf, rc::Rc};
+
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 use jaic::target::{TargetCpu, TargetOs};
-use std::{path::PathBuf, rc::Rc};
 
 /// A POSIX target whose C library is not the host's.
 fn other_c_library() -> TargetOs {

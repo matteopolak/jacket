@@ -420,8 +420,9 @@ fn short_header_flags_and_provider_paths_are_validated() {
 
 #[test]
 fn source_configured_and_sdk_candidate_order_and_explicit_names() {
-    use imports::{Candidate, candidates};
     use std::path::{Path, PathBuf};
+
+    use imports::{Candidate, candidates};
     let dirs = vec![PathBuf::from("configured"), PathBuf::from("sdk")];
     let plan = candidates("widget", false, "source", &dirs, false).unwrap();
 

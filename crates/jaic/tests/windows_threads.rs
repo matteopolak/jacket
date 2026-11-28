@@ -1,7 +1,8 @@
 mod win32_threads {
     //! Host-independent execution of the interpreter's Win32 scheduler API.
-    use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
     use std::rc::Rc;
+
+    use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 
     #[test]
     fn win32_and_crt_threads_start_gated_resume_and_keep_their_exit_code() {
@@ -139,8 +140,9 @@ mod win32_threads {
 mod thread_aliases {
     //! Kernel queries through unregistered duplicates must observe real entry completion.
     #![cfg(windows)]
-    use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
     use std::rc::Rc;
+
+    use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 
     #[test]
     fn real_kernel_aliases_preserve_exit_codes_and_handle_lifetimes() {
@@ -163,8 +165,9 @@ mod thread_aliases {
 mod thread_description {
     //! Real Windows thread object semantics for interpreted SDK calls.
     #![cfg(windows)]
-    use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
     use std::rc::Rc;
+
+    use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 
     #[test]
     fn managed_handles_names_queries_pseudo_handles_and_errors_are_native() {

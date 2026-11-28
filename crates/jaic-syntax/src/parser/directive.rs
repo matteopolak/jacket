@@ -1,4 +1,6 @@
 //! `#directive` expressions.
+use std::sync::Arc;
+
 use super::expr::mk;
 use super::{PResult, Parser};
 use crate::ast::{
@@ -8,7 +10,6 @@ use crate::ast::{
 use crate::diagnostics::Code;
 use crate::lexer::{P, Tok};
 use crate::macros::raw_enum;
-use std::sync::Arc;
 
 /// `,name` or `,name(expr)` after a directive, e.g. `#run,stallable` or `#insert,scope(x)`.
 pub(super) struct DirectiveFlag {

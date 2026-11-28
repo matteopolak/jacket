@@ -3,9 +3,10 @@
 //! that two overloads fit, and a declaration named like a builtin type. They are errors in
 //! imported modules as well (`docs/language/casts-and-conversions.md`, `procedures.md` and
 //! `declarations-and-constants.md`).
+use std::{path::Path, rc::Rc};
+
 use jaic::diagnostics::{Code, Diagnostic};
 use jaic::sema::{Compiler, Options, VirtualFs};
-use std::{path::Path, rc::Rc};
 
 fn compile(main: &str, modules: &[(&str, &str)]) -> Result<(), Box<Diagnostic>> {
     let mut fs = VirtualFs::default();

@@ -1,5 +1,6 @@
 //! Concrete generic instances created during overload probing are not lint roots.
 use std::process::Command;
+
 use test_support::TempDir;
 
 fn audit(name: &str, source: &str) -> std::process::Output {

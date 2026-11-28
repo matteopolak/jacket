@@ -1,6 +1,7 @@
 //! `jaic -deps`: the source files a compile read.
 use std::path::Path;
 use std::process::{Command, Output};
+
 use test_support::TempDir;
 
 fn deps(file: &Path, extra: &[&str]) -> Output {

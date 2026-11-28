@@ -5,12 +5,14 @@
 //! `@compile_time` and `@cases` say what kind. The lens commands are the client's
 //! (`jai.runTest`, `jai.debugTest`); their argument names the test and the `jacket test`
 //! flags that select exactly it.
+use std::path::{Path, PathBuf};
+
+use jaic::parser::ide_facts::Procedure;
+use serde_json::json;
+
 use crate::analysis::Span;
 use crate::session::Session;
 use crate::{CodeLens, Command, DocumentUri, Error};
-use jaic::parser::ide_facts::Procedure;
-use serde_json::json;
-use std::path::{Path, PathBuf};
 
 pub(crate) const RUN_COMMAND: &str = "jai.runTest";
 pub(crate) const DEBUG_COMMAND: &str = "jai.debugTest";

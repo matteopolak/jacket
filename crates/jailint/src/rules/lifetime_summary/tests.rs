@@ -7,10 +7,12 @@ mod releases;
 mod retains;
 mod stdlib_allocations;
 
-use super::*;
+use std::rc::Rc;
+
 use jaic::ide::{IdeFacts, IdeRoot};
 use jaic::sema::{NativeFs, Options, ProgramSource};
-use std::rc::Rc;
+
+use super::*;
 
 #[test]
 fn allocator_mode_guards_distinguish_allocate_resize_and_free() {

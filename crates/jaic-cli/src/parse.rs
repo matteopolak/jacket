@@ -1,11 +1,13 @@
 //! Parsing arguments into a request and checking the input file.
-use super::usage::{no_file_error, program_args_error, unknown_option};
-use argdef::{Args, ErrorKind};
-use jaic_cli_args::cli::{Cli, Mode};
-use jaic_cli_args::options::{CliError, Request};
 use std::ffi::OsString;
 use std::path::Path;
 use std::process::ExitCode;
+
+use argdef::{Args, ErrorKind};
+use jaic_cli_args::cli::{Cli, Mode};
+use jaic_cli_args::options::{CliError, Request};
+
+use super::usage::{no_file_error, program_args_error, unknown_option};
 
 pub(super) fn parse(args: &[OsString]) -> Result<Request, CliError> {
     if args.is_empty() {
