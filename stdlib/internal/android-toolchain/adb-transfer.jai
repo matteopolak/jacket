@@ -1,3 +1,7 @@
+// Copies `local_source` to `remote_destination` on the device with `adb push`.
+//
+// `only_update_newer_files` passes `--sync`, and `dry_run` passes `-n`. A compression algorithm, or
+// `disable_compression`, but not both, can be chosen; combining them fails an assertion.
 adb_push :: (local_source: string, remote_destination: string, only_update_newer_files := false, dry_run := false, compression_algorithm := Adb_Compression_Algorithm.UNSPECIFIED, disable_compression := false) -> bool {
     arguments: [..] string;
 
@@ -13,6 +17,10 @@ adb_push :: (local_source: string, remote_destination: string, only_update_newer
     return discard_capture(arguments);
 }
 
+// Copies `remote_source` from the device to `local_destination` with `adb pull`.
+//
+// `preserve_timestamps` passes `-a`. An empty `local_destination` pulls into the current folder. The
+// compression arguments behave as in [adb_push].
 adb_pull :: (remote_source: string, local_destination := "", preserve_timestamps := true, disable_compression := false, compression_algorithm := Adb_Compression_Algorithm.UNSPECIFIED) -> bool {
     arguments: [..] string;
 
@@ -27,12 +35,17 @@ adb_pull :: (remote_source: string, local_destination := "", preserve_timestamps
     return discard_capture(arguments);
 }
 
+// Creates the folder `path` and its parents on the device; the path is quoted for the device shell.
 adb_shell_mkdir :: (path: string) -> bool {
     quoted := quote_remote(path);
     defer free(quoted);
     return shell_status("mkdir", "-p", quoted);
 }
 
+// Returns whether `adb shell pidof` found the app `package_name`, and its first process id.
+//
+// Returns `false` and -1 when no process is found or the query fails; a query other than "no process" is also
+// logged. Extra process ids are ignored with a warning.
 adb_shell_pidof :: (package_name: string) -> bool, s32 {
     quoted := quote_remote(package_name);
 
@@ -61,6 +74,7 @@ adb_shell_pidof :: (package_name: string) -> bool, s32 {
     return true, pid;
 }
 
+// Uninstalls `package_name` from the device, deleting its data; returns `true` when `adb` succeeds.
 adb_uninstall :: (package_name: string) -> bool {
     success, output, errors := adb("uninstall", package_name);
     defer free(output);

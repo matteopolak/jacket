@@ -1,3 +1,7 @@
+// Reads one signer entry of an APK v2 signing block from `s`, and advances `s` past it.
+//
+// Returns `true` and the digest, signature and certificate lists with the signed data and public key. On
+// failure `s` is unchanged, `false` is returned, and an error is logged that also fails an assertion.
 apk_read_signing_block_v2 :: (s: *string) -> bool, Apk_Signing_Block_V2 {
     original := s.*;
     remaining := original;

@@ -1,3 +1,4 @@
+// Lists the ZIP compression methods by their numeric id; the writer here supports only `NONE` and `DEFLATE`.
 Zip_Compression_Method :: enum u16 {
     NONE :: 0;
     SHRUNK :: 1;
@@ -19,6 +20,7 @@ Zip_Compression_Method :: enum u16 {
     PPMD :: 98;
 }
 
+// Is the ZIP local file header as it is stored: little-endian, packed to 30 bytes.
 Zip_Local_File_Header :: struct {
     SIGNATURE: u32 : 0x04034b50;
     signature: u32 = SIGNATURE;
@@ -34,6 +36,7 @@ Zip_Local_File_Header :: struct {
     extra_field_length: u16 #align 1;
 } #no_padding
 
+// Is the ZIP central directory file header as it is stored: little-endian, packed to 46 bytes.
 Zip_Central_Directory_Header :: struct {
     SIGNATURE: u32 : 0x02014b50;
     signature: u32 = SIGNATURE;
@@ -55,6 +58,7 @@ Zip_Central_Directory_Header :: struct {
     relative_offset_of_local_header: u32 #align 1;
 } #no_padding
 
+// Is the ZIP end of central directory record without its comment, as it is stored: little-endian, 22 bytes.
 Zip_End_Of_Central_Directory_Record :: struct {
     SIGNATURE :: 0x06054b50;
     signature: u32 = SIGNATURE;

@@ -1,5 +1,11 @@
+// Is the short name for [read_silly_alias].
 read :: read_silly_alias;
 
+// Reads a block that starts with a 32-bit little-endian length from the front of `s`, and advances `s` past
+// it.
+//
+// Returns the block, which points into `s`. Returns an empty string when the prefix or the block runs past the
+// end; that also logs an error and fails an assertion and leaves `s` unchanged.
 read_length_prefixed_block :: (s: *string) -> string {
     if s.count < 4 {
         wire_failure("binary length prefix exceeds input");
@@ -21,6 +27,11 @@ read_length_prefixed_block :: (s: *string) -> string {
     return value;
 }
 
+// Reads an integer of type `Int_Type` (one, two, four or eight bytes) from the front of `s`.
+//
+// The bytes are little-endian, or big-endian with `BIG_ENDIAN`. Advances `s`. Too little input returns zero
+// with a logged error that also fails an assertion. The little-endian read stores bytes in order, so it
+// matches the host only on little-endian CPUs.
 read_silly_alias :: ($Int_Type: Type, s: *string, $BIG_ENDIAN := false) -> Int_Type {
     #assert type_info(Int_Type).type == .INTEGER;
     #assert size_of(Int_Type) == 1 || size_of(Int_Type) == 2 || size_of(Int_Type) == 4 || size_of(Int_Type) == 8;
@@ -46,6 +57,9 @@ read_silly_alias :: ($Int_Type: Type, s: *string, $BIG_ENDIAN := false) -> Int_T
     return result;
 }
 
+// Takes the first `length` bytes of `s` as a string that points into `s`, and advances `s` past them.
+//
+// A negative or too long `length` returns an empty string with a logged error that also fails an assertion.
 read_block :: (s: *string, length: int) -> string {
     if length < 0 || length > s.count {
         wire_failure("binary block read exceeds input");

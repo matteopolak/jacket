@@ -1,3 +1,9 @@
+// Returns the SubjectPublicKeyInfo SEQUENCE of a DER X.509 certificate.
+//
+// Walks the certificate structure to the key field without decoding other fields. The certificate version,
+// when present, must be 1, 2 or 3. Returns an empty value, after logging an error that also fails an
+// assertion, when the structure is not as expected. The signature, validity dates and extensions are not
+// checked.
 x509_get_subject_public_key_info :: (certificate_data: string) -> ASN1_Value {
     encoded := certificate_data;
     valid, certificate := x509_field(*encoded, .SEQUENCE);

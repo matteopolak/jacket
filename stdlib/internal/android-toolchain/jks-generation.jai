@@ -1,3 +1,11 @@
+// Creates a JKS keystore with one new key pair by running Java's `keytool`.
+//
+// `java_bin_path` is the folder holding `keytool`. The key is valid for 365 days. `algorithm` and `key_size`
+// (0 means the default) must be one of: RSA with 1024 (default), 2048, 4096, 8192 or 16384 bits; DSA with 1024
+// (default), 2048 or 3072; EC (P-256) only with size 0. Returns `true` and a key naming the store, the alias
+// and the password (copies that the caller frees), or `false` and an empty key when an argument is invalid,
+// `keystore_path` already exists (the store is never updated), `keytool` fails or the store is empty. The
+// password is passed to `keytool` on its command line.
 android_generate_jks_keystore :: (java_bin_path: string, keystore_path: string, key_alias := DEFAULT_KEYSTORE_ALIAS, key_password := DEFAULT_KEYSTORE_PASSWORD, algorithm := Android_Signing_Key_Signature_Algorithm.EC, key_size := 0, common_name := "Jai Android", organization_name := "Jai", country_code := "US") -> bool, Android_Signing_Key {
     bits := key_size;
     algorithm_name: string;

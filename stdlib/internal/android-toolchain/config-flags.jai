@@ -1,3 +1,4 @@
+// Lists the `android:configChanges` values; each member is the flag's bit.
 Android_Config_Changes :: enum_flags s32 {
     // Display geometry, appearance and language.
     orientation :: 0x0080;
@@ -19,6 +20,10 @@ Android_Config_Changes :: enum_flags s32 {
     mnc :: 0x0002;
 }
 
+// Parses `s`, a `|`-separated list of `configChanges` names such as `orientation|screenSize`, into flags.
+//
+// An empty string gives no flags. A name that is not a member (names are case-sensitive, with no spaces
+// allowed) logs an error, fails an assertion, and returns no flags.
 android_config_changes_from_string :: (s: string) -> Android_Config_Changes {
     result: Android_Config_Changes;
     start: s64;

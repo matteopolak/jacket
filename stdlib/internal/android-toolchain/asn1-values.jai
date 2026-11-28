@@ -1,3 +1,7 @@
+// Decodes the content octets of an ASN.1 INTEGER as a non-negative `s64`.
+//
+// Accepts one through eight octets with the top bit clear. Anything else returns 0 with a logged error that
+// also fails an assertion.
 asn1_decode_integer :: (data: string) -> s64 {
     if data.count < 1 || data.count > 8 || (data[0] & 128) != 0 {
         wire_failure("ASN.1 INTEGER requires one through eight nonnegative content octets");
@@ -14,6 +18,11 @@ asn1_decode_integer :: (data: string) -> s64 {
     return value;
 }
 
+// Decodes the content octets of an ASN.1 OBJECT IDENTIFIER into its arcs.
+//
+// Splits the first octet group into the first two arcs. Returns an empty identifier when the data is empty or
+// truncated, an arc does not fit 64 bits, or there are more than 12 arcs; each case logs an error and fails an
+// assertion.
 asn1_decode_object_identifier :: (data: string) -> ASN1_Object_Identifier {
     result: ASN1_Object_Identifier;
 
@@ -76,6 +85,10 @@ asn1_decode_object_identifier :: (data: string) -> ASN1_Object_Identifier {
     return result;
 }
 
+// Returns `oid` in dotted form, with a trailing dot after the last arc (`1.3.6.1.`).
+//
+// The result is allocated; the caller frees it. An identifier with fewer than two arcs, or whose first two
+// arcs are out of range, returns an empty string with a logged error that also fails an assertion.
 asn1_to_string :: (oid: ASN1_Object_Identifier) -> string {
     if oid.parts_count < 2 || oid.parts_count > ASN1_Object_Identifier.MAX_SUBIDENTIFIERS ||
        oid.parts[0] > 2 || (oid.parts[0] < 2 && oid.parts[1] >= 40) {

@@ -1,5 +1,9 @@
 JAVA_ENV_NAME :: "JAVA_HOME";
 
+// Finds a Java installation from `JAVA_HOME`.
+//
+// Returns `true`, the `bin` folder and the `java` executable path when `<JAVA_HOME>/bin/java -version` runs
+// and exits with status 0, and `false` with empty strings otherwise. The caller frees the strings.
 find_java_bin_path_from_environment :: () -> bool, bin_path: string, exe_path: string {
     C :: #import "Process";
     home := tool_environment(JAVA_ENV_NAME);

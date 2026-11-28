@@ -16,6 +16,10 @@ EVP_DigestVerifyUpdate :: (ctx: *EVP_MD_CTX, bytes: *void, count: u64) -> s32 #f
 EVP_DigestVerifyFinal :: (ctx: *EVP_MD_CTX, signature: *u8, count: u64) -> s32 #foreign android_crypto;
 
 #scope_export
+// Parses a DER SubjectPublicKeyInfo into a native key, or returns null.
+//
+// The data must be consumed completely. The caller frees the key with `EVP_PKEY_free`. Failure logs the native
+// error and fails an assertion.
 libressl_get_public_key :: (subject_public_key_info: string) -> *evp_pkey_st {
     if !crypto_der_length(subject_public_key_info) return null;
 
@@ -33,6 +37,10 @@ libressl_get_public_key :: (subject_public_key_info: string) -> *evp_pkey_st {
     return key;
 }
 
+// Parses a DER private key (PKCS#8 or the algorithm's own format) into a native key, or returns null.
+//
+// The data must be consumed completely. The caller frees the key with `EVP_PKEY_free`. Failure logs the native
+// error and fails an assertion.
 libressl_get_private_key :: (private_key_info: string) -> *evp_pkey_st {
     if !crypto_der_length(private_key_info) return null;
 
@@ -50,10 +58,13 @@ libressl_get_private_key :: (private_key_info: string) -> *evp_pkey_st {
     return key;
 }
 
+// Logs the native error queue and fails an assertion when `result` is not 1.
 CheckSSL :: (result: s32, loc := #caller_location) #expand {
     crypto_check(result, loc);
 }
 
+// Is the callback that forwards native error text to `context.logger`; `u` is a pointer to the `#Context` to
+// use.
 libressl_error_callback :: (str: *u8, len: u64, u: *void) -> s32 #c_call {
     // ERR_print_errors_cb invokes synchronously; userdata outlives the drain.
     supplied_context := cast(*#Context) u;
@@ -64,6 +75,10 @@ libressl_error_callback :: (str: *u8, len: u64, u: *void) -> s32 #c_call {
     return 1;
 }
 
+// Signs `message` with SHA-256 using the DER private key `private_key_info`.
+//
+// Returns `true` and the signature, which the caller frees, or `false` and an empty string. For an ECDSA key
+// the signature is DER-encoded. A native failure logs an error and fails an assertion.
 sign_data :: (private_key_info: string, message: string) -> bool, string {
     key := libressl_get_private_key(private_key_info);
     if !key return false, "";

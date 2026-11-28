@@ -1,3 +1,10 @@
+// Returns the APK signature scheme v2 content digest of `apk`.
+//
+// Hashes the ZIP content, the central directory and the end record in 1 MiB chunks, then hashes the chunk
+// digests together. While it runs, the end record's directory offset in `apk` is set to the end of the content
+// (where an unsigned APK's directory starts) and restored afterward, so do not digest one APK from two
+// threads. Only `.SHA256` is supported and the APK must be fully loaded; other arguments fail an assertion and
+// return zeros.
 apk_compute_digest_libressl :: (apk: Android_Apk, algorithm: Digest_Hash_Algorithm) -> [SHA256_DIGEST_LENGTH] u8 {
     assert(algorithm == .SHA256, "APK digest supports SHA256 only");
     assert(apk.entire_apk_is_loaded, "APK digest requires the entire APK");

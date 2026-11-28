@@ -1,3 +1,9 @@
+// Is an APK split into the regions that the v2 signature covers.
+//
+// `data` is the whole file. `content` is the ZIP entries, `signing_block` the signing block (empty when
+// `is_signed` is false), `central_directory` and `end_of_central_directory` the trailing records; all four are
+// views into `data`. [apk_load] leaves `entire_apk_is_loaded` true; the digest, verification and iteration
+// require it.
 Android_Apk :: struct {
     filepath: string;
     zip_dir: Apk_Zip.Zip_Directory;
@@ -10,6 +16,10 @@ Android_Apk :: struct {
     is_signed := false;
 }
 
+// Describes one entry of an APK read with [apk_load].
+//
+// `offset` is where the entry's data starts in the file, and `compressed_size` and `uncompressed_size` are the
+// sizes of that data.
 Android_Apk_Entry :: struct {
     filename: string;
     compression_method: Zip_Compression_Method;
@@ -20,6 +30,10 @@ Android_Apk_Entry :: struct {
 
 ANDROID_APK_SIGNING_BLOCK_MAGIC :: "APK Sig Block 42";
 
+// Reads the APK `filepath` into memory and splits it into its regions.
+//
+// The directory, the end record and the signing block's sizes are checked to be consistent. Failure logs an
+// error that also fails an assertion, and returns an empty value. Release the result with [apk_deinit].
 apk_load :: (filepath: string) -> Android_Apk {
     apk: Android_Apk;
     apk.filepath = filepath;
@@ -47,12 +61,17 @@ apk_load :: (filepath: string) -> Android_Apk {
     return apk;
 }
 
+// Frees what [apk_load] allocated and zeroes `apk`.
 apk_deinit :: (apk: *Android_Apk) {
     Apk_Zip.deinit(*apk.zip_dir);
     free(apk.data);
     memset(apk, 0, size_of(Android_Apk));
 }
 
+// Iterates the entries of `apk` as [Android_Apk_Entry] values, in directory order or reversed.
+//
+// `it_index` is the entry's index in the ZIP directory. Pointer iteration is not supported. An entry whose
+// local header is truncated, mismatched or out of bounds logs an error and fails an assertion.
 for_expansion :: (apk: Android_Apk, body: Code, flags: For_Flags) #expand {
     #assert (flags & .POINTER) == 0, "APK iteration yields values, not pointers";
     assert(apk.entire_apk_is_loaded, "APK iteration requires complete file bytes");
@@ -74,6 +93,7 @@ for_expansion :: (apk: Android_Apk, body: Code, flags: For_Flags) #expand {
     }
 }
 
+// Prints the path of `apk` and the sizes of its regions to standard output.
 apk_print_sections :: (apk: Android_Apk) {
     print("APK %\nContent: % bytes\nSigning block: % bytes\nCentral directory: % bytes\nEnd record: % bytes\n",
         apk.filepath, apk.content.count, apk.signing_block.count, apk.central_directory.count,

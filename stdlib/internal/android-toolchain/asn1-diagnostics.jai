@@ -1,13 +1,20 @@
+// Prints the content of `value` as an indented tree of ASN.1 values; see [asn1_print] taking a string.
 asn1_print :: (name: string, value: ASN1_Value) {
     asn1_print(name, value.content);
 }
 
+// Prints `data` as a tree of ASN.1 values between two banner lines that show `name`.
 asn1_print :: (name: string, data: string) {
     diagnostic_banner(name);
     asn1_print(data);
     diagnostic_banner(name);
 }
 
+// Prints the DER values in `data` to standard output, one per line, indented four spaces per level.
+//
+// Handles sequences, sets, context-specific tags, integers, OIDs, nulls, printable and UTF-8 strings, UTC
+// times, bit strings and octet strings. A value of another type, or a malformed one, stops the output with a
+// logged error that also fails an assertion. `depth` is the starting indentation level.
 asn1_print :: (data: string, depth := 0, hack_skip_depth := false) {
     if depth < 0 || depth > 0x1fffffffffffffff {
         wire_failure("ASN.1 diagnostic depth is outside supported range");

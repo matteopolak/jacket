@@ -1,3 +1,4 @@
+// Lists the ASN.1 tag classes.
 ASN1_Tag_Class :: enum u8 {
     UNIVERSAL :: 0;
     APPLICATION :: 1;
@@ -5,11 +6,13 @@ ASN1_Tag_Class :: enum u8 {
     PRIVATE :: 3;
 }
 
+// Tells whether an ASN.1 value is primitive or constructed.
 ASN1_Tag_Length_Value :: enum u8 {
     PRIMITIVE :: 0;
     CONSTRUCTED :: 1;
 }
 
+// Lists the ASN.1 universal tag numbers.
 ASN1_Universal_Type :: enum u8 {
     RERSERVED_FOR_ENCODING_RULES :: 0;
     SEQUENCE :: 16;
@@ -41,6 +44,9 @@ ASN1_Universal_Type :: enum u8 {
     GENERALIZED_TIME :: 24;
 }
 
+// Is a DER identifier octet: the tag number, whether the value is constructed, and the tag class.
+//
+// `number` and `universal_type` are the same byte.
 ASN1_Tag :: struct {
     union {
         number: u8;
@@ -52,12 +58,20 @@ ASN1_Tag :: struct {
 
 ASN1_KNOWN_OIDS :: ASN1_Object_Identifier.[OID_SUN_JKS_ENCRYPTION];
 
+// Reads a DER tag from the front of `s` and advances `s` past it.
+//
+// Returns an empty tag when `s` is empty or the tag is not supported: high tag numbers, the application and
+// private classes, and reserved universal types. That also logs an error and fails an assertion.
 asn1_read_tag :: (s: *string) -> ASN1_Tag {
     success, result := parse_wire_tag(s);
     if !success return .{};
     return result;
 }
 
+// Reads a DER length from the front of `s` and advances `s` past it; returns 0 on failure.
+//
+// Accepts the short form and the long form of up to eight octets, and does not check the minimal encoding. An
+// indefinite length or truncated input logs an error and fails an assertion.
 asn1_read_length :: (s: *string) -> u64 {
     success, result := parse_wire_length(s);
     if !success return 0;

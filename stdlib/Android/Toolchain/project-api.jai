@@ -1,3 +1,6 @@
+// Returns the platform style resource name for `theme`, such as `@android:style/Theme.Black`.
+//
+// Returns an empty string for a value that is not one of the [Android_Default_Theme] members.
 android_theme_to_string :: (theme: Android_Default_Theme) -> string {
     if theme == .Theme return "@android:style/Theme";
     if theme == .Theme_NoTitleBar return "@android:style/Theme.NoTitleBar";
@@ -16,6 +19,14 @@ android_theme_to_string :: (theme: Android_Default_Theme) -> string {
     return "";
 }
 
+// Writes a Gradle project for `config` into `config.project_path`.
+//
+// Creates the Gradle build files, `gradle.properties`, the wrapper properties and
+// `app/src/main/AndroidManifest.xml`, which is `config.android_manifest` when set and a generated
+// native-activity manifest otherwise. Does not write the Gradle wrapper scripts. Values from `config` are
+// escaped for their file. With `recreate_existing_files` false the call returns `false` when
+// `app/build.gradle` already exists. Also returns `false` when `project_path` is empty or a file cannot be
+// written.
 generate_android_project :: (using config: Android_Project_Config, recreate_existing_files := true) -> bool {
     return android_project_generate(config, recreate_existing_files);
 }

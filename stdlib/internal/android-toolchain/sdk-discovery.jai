@@ -1,3 +1,8 @@
+// Finds the Android SDK folder and returns `true` and a copy of its path.
+//
+// Takes the first existing folder among `~/Android/Sdk` (`~/AppData/Local/Android/Sdk` on Windows),
+// `ANDROID_HOME`, `ANDROID_SDK_ROOT` and `ANDROID_SDK_HOME`, in that order. An environment path that is not a
+// folder logs a warning. Returns `false` and an empty string when none exists; the caller frees the path.
 android_find_sdk_path :: () -> bool, string {
     S :: #import "System";
     home, have_home := S.get_home_directory();
@@ -20,6 +25,10 @@ android_find_sdk_path :: () -> bool, string {
     return select_sdk_directory(string.[conventional, primary, legacy_root, legacy_home]);
 }
 
+// Finds the SDK's `platform-tools/adb` executable.
+//
+// Returns `true` and the path, in temporary storage, or `false` and an empty string when the SDK or the file
+// is missing.
 is_adb_installed :: () -> bool, string {
     F :: #import "File_Utilities";
     found, sdk := android_find_sdk_path();

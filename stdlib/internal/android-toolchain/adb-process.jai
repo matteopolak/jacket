@@ -1,3 +1,11 @@
+// Runs `adb` with `command_args` and returns whether it exited with status 0.
+//
+// Returns the success flag, the captured standard output and error (both owned by the caller), and the exit
+// code (0 when the process did not exit normally). Finds `adb` in the SDK's `platform-tools` on first use and
+// starts the `adb` server before every call. With `device_serial` empty the call targets `adb_device_serial`
+// when that is set. For `shell` commands, each argument containing a space is wrapped in double quotes unless
+// `try_and_escape_spaces_in_shell_arguments` is false. A missing command or `adb`, or a failed server start,
+// returns false; the server start failure also fails an assertion.
 adb :: (command_args: ..string, device_serial := "", log_adb_command_errors := false, print_captured_output := false, loc := #caller_location, try_and_escape_spaces_in_shell_arguments := true) -> (bool, output_string := "", error_string := "", exit_code := 0) {
     C :: #import "Process";
 
@@ -67,6 +75,10 @@ adb :: (command_args: ..string, device_serial := "", log_adb_command_errors := f
     return success, output, errors, code;
 }
 
+// Returns the version information printed by `adb version`, and whether it could be read.
+//
+// The strings point into temporary storage. Returns `false` when `adb` fails or the output has an unexpected
+// shape.
 adb_version :: () -> Adb_Version_Info, bool {
     success, output, errors := adb("version");
 
@@ -90,6 +102,11 @@ adb_version :: () -> Adb_Version_Info, bool {
     return info, true;
 }
 
+// Returns the devices listed by `adb devices -l`.
+//
+// With `return_only_ready_devices` only devices in the `.READY` state are kept. The array and its strings are
+// in temporary storage. Returns `false` and an empty array when `adb` fails; a malformed list also fails an
+// assertion.
 adb_devices :: (return_only_ready_devices := false) -> bool, [] Adb_Device {
     success, output, errors := adb("devices", "-l");
 

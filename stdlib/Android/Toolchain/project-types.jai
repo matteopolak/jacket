@@ -1,3 +1,7 @@
+// Holds the app's identity and manifest settings, used to generate the project and the manifest.
+//
+// `android_manifest`, when set, replaces the generated manifest text in a generated project. The binary
+// manifest writer and the generated manifest read the other fields.
 Android_Project_Config :: struct {
     app_name := "MyJaiApp";
     project_path := "AndroidProject";
@@ -27,6 +31,7 @@ Android_Project_Config :: struct {
     gradle_version := "8.2";
 }
 
+// Lists the values of the `android:screenOrientation` attribute written to the generated manifest.
 Android_Screen_Orientation :: enum {
     UNSPECIFIED;
     LANDSCAPE;
@@ -46,6 +51,9 @@ Android_Screen_Orientation :: enum {
     LOCKED;
 }
 
+// Lists the platform themes [Android_Project_Config.theme] can name; each value is the theme's resource id.
+//
+// [android_theme_to_string] gives the style name.
 Android_Default_Theme :: enum u16 {
     Theme :: 0x0005;
     Theme_NoTitleBar :: 0x0006;

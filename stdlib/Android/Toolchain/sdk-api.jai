@@ -1,9 +1,16 @@
+// Holds the folders of an NDK install; all three are empty when none was found.
 NDK_Paths :: struct {
     root: string;
     toolchain: string;
     sysroot: string;
 }
 
+// Finds the Android NDK and returns `true` and its root folder, which the caller frees.
+//
+// Looks at `ANDROID_NDK_HOME`, `ANDROID_NDK_ROOT`, `NDK_HOME` and `NDK_ROOT` in that order, then the newest
+// numbered version under `<sdk>/ndk`, then `<sdk>/ndk-bundle`. A candidate counts only when it has an LLVM
+// toolchain with a sysroot and `bin/clang` for the host. Returns `false` and an empty string when none does;
+// `log_errors` logs that.
 android_find_ndk_path :: (log_errors := false) -> bool, string {
     for variable: string.["ANDROID_NDK_HOME", "ANDROID_NDK_ROOT", "NDK_HOME", "NDK_ROOT"] {
         path := tool_environment(variable);
@@ -35,6 +42,9 @@ android_find_ndk_path :: (log_errors := false) -> bool, string {
     return false, "";
 }
 
+// Returns the Android target triple for `cpu`, and the same triple with [ANDROID_SDK_LEVEL] appended.
+//
+// Logs an error and returns two empty strings when the CPU has no Android triple.
 get_android_target_triple :: (cpu: CPU_Tag) -> triple: string, triple_with_sdk: string {
     triple = Target_Triple.default_target_triple(.ANDROID, cpu);
 
@@ -46,6 +56,9 @@ get_android_target_triple :: (cpu: CPU_Tag) -> triple: string, triple_with_sdk: 
     return triple, tprint("%%", triple, ANDROID_SDK_LEVEL);
 }
 
+// Returns the NDK's root, LLVM toolchain and sysroot folders, found with [android_find_ndk_path].
+//
+// All three are empty when no usable NDK is found. They are allocated; the caller frees them.
 get_ndk_paths :: () -> NDK_Paths {
     found, root := android_find_ndk_path();
     if !found return .{};
@@ -65,6 +78,9 @@ get_ndk_paths :: () -> NDK_Paths {
     return .{ root, toolchain, tool_path_join(toolchain, "sysroot") };
 }
 
+// Returns the NDK's C include folder and its target-specific subfolder for `cpu`.
+//
+// Both are empty when no NDK is found or `cpu` has no Android triple. The caller frees them.
 get_ndk_libc_paths :: (cpu: CPU_Tag) -> libc_path: string, libc_platform_path: string {
     paths := get_ndk_paths();
 
@@ -77,6 +93,10 @@ get_ndk_libc_paths :: (cpu: CPU_Tag) -> libc_path: string, libc_platform_path: s
     return include, tool_path_join(include, triple);
 }
 
+// Returns the paths of the `libclang` library files that exist in the NDK toolchain.
+//
+// Checks the Linux, macOS and Windows names. The result is empty when no NDK is found; the caller frees the
+// array and its strings.
 get_ndk_libclang_paths :: () -> [] string {
     paths := get_ndk_paths();
 
@@ -94,6 +114,9 @@ get_ndk_libclang_paths :: () -> [] string {
     return result;
 }
 
+// Copies the NDK's `libc++_shared.so` for `cpu_target` into `output_dir`, creating the folder.
+//
+// Returns `false` when no NDK is found, the CPU has no Android triple, or the folder or copy fails.
 copy_android_libcpp :: (cpu_target: CPU_Tag, output_dir: string) -> bool {
     paths := get_ndk_paths();
 
@@ -112,6 +135,12 @@ copy_android_libcpp :: (cpu_target: CPU_Tag, output_dir: string) -> bool {
     return Android_Sdk_Files.copy_file(source, target);
 }
 
+// Links the compiler's objects with the NDK's clang as a custom link step.
+//
+// Sets `message.linker_exit_code` and `message.executable_write_failed` from the result, and completes the
+// custom link command when `message` is in that phase. The failure values are set before anything else, so
+// every early return reports a failed link. Supports executable and shared-library output only. Passes
+// `extra_args` after `options.additional_linker_arguments`.
 run_android_link_command :: (message: *Message_Phase, options: Build_Options, extra_args: [] string = .[]) {
     paths := get_ndk_paths();
 

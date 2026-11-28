@@ -1,3 +1,10 @@
+// Decrypts the protected key data of a JKS entry (the content of the key's OCTET STRING).
+//
+// The data is a 20-byte salt, the encrypted key, and a 20-byte SHA-1 check. The key is recovered with the
+// store's proprietary SHA-1 keystream and `password` (ASCII only), and the check is compared to the SHA-1 of
+// the password and the plaintext. Returns `true` and the key, which the caller frees, or `false` and an empty
+// string when the data is too short or the check fails. A wrong password fails the check; it also logs an
+// error that fails an assertion.
 jdk_decrypt_private_key :: (encrypted_data: string, password: string) -> bool, string {
     if encrypted_data.count < 40 {
         jks_failure("JKS protected key requires salt and integrity digest");
@@ -43,6 +50,13 @@ jdk_decrypt_private_key :: (encrypted_data: string, password: string) -> bool, s
     return true, plaintext;
 }
 
+// Decrypts an encrypted private key as stored in a JKS entry, returning `true` and the PKCS#8 key bytes.
+//
+// The input must be one DER SEQUENCE of the algorithm identifier (the Sun JKS key-protection OID, with absent
+// or NULL parameters) and an OCTET STRING, with nothing after it. Other algorithms are not supported. The data
+// is then decrypted as [jdk_decrypt_private_key] does; a wrong password fails its SHA-1 check. The caller
+// frees the key and should zero it first. Malformed input returns `false` and an empty string with a logged
+// error that also fails an assertion.
 decrypt_private_key :: (encrypted_private_key_info: string, password: string) -> bool, private_key_info: string {
     cursor := encrypted_private_key_info;
     ok, sequence := parse_wire_value(*cursor);

@@ -1,3 +1,6 @@
+// Frees everything `manifest` owns and zeroes it.
+//
+// Frees the strings and arrays that reading allocated, and `raw_data` when `free_data_on_deinit` is set.
 deinit :: (using manifest: *Android_Manifest_Binary) {
     for s: string_pool free(s);
 
@@ -11,6 +14,11 @@ deinit :: (using manifest: *Android_Manifest_Binary) {
     memset(manifest, 0, size_of(Android_Manifest_Binary));
 }
 
+// Parses the binary `AndroidManifest.xml` in `data`.
+//
+// Returns `true` and the manifest, or `false` and an empty manifest when the data is not a supported binary
+// XML document. The manifest keeps `data` as `raw_data` without copying it, so `data` must outlive it and the
+// caller keeps ownership. `filename` only names the input in the debug message.
 read_binary_manifest_from_memory :: (data: string, filename := "<memory>") -> bool, Android_Manifest_Binary {
     result: Android_Manifest_Binary;
     result.raw_data = data;
@@ -23,6 +31,10 @@ read_binary_manifest_from_memory :: (data: string, filename := "<memory>") -> bo
     return true, result;
 }
 
+// Reads the file `filename` and parses it as a binary `AndroidManifest.xml`.
+//
+// Returns `true` and the manifest, or `false` and an empty manifest when the file cannot be read or parsed.
+// The manifest owns the file contents; [deinit] frees them.
 read_binary_manifest_from_file :: (filename: string) -> bool, Android_Manifest_Binary {
     data, loaded := Manifest_File.read_entire_file(filename);
     if !loaded return false, .{};
@@ -38,6 +50,11 @@ read_binary_manifest_from_file :: (filename: string) -> bool, Android_Manifest_B
     return true, result;
 }
 
+// Reads the binary `AndroidManifest.xml` entry out of the APK `apk_filename`.
+//
+// Accepts stored and DEFLATE entries and checks the entry's CRC-32 against the ZIP directory; any other
+// compression method fails. Returns `true` and the manifest, or `false` and an empty manifest when the APK has
+// no such entry or the entry is damaged or invalid. The manifest owns its data; [deinit] frees it.
 read_binary_manifest_from_apk :: (apk_filename: string) -> bool, Android_Manifest_Binary {
     apk := apk_load(apk_filename);
 
@@ -78,6 +95,9 @@ read_binary_manifest_from_apk :: (apk_filename: string) -> bool, Android_Manifes
     return false, .{};
 }
 
+// Encodes the binary `AndroidManifest.xml` for `config`.
+//
+// Returns `true` and the bytes, which the caller frees, or `false` and an empty string when encoding fails.
 write_binary_app_manifest_to_memory :: (config: Android_Project_Config) -> bool, string {
     b: String_Builder;
     defer free_buffers(*b);
@@ -85,6 +105,9 @@ write_binary_app_manifest_to_memory :: (config: Android_Project_Config) -> bool,
     return true, builder_to_string(*b);
 }
 
+// Writes the binary `AndroidManifest.xml` for `config` to `out_filepath`.
+//
+// Returns `false` when encoding or writing the file fails.
 write_binary_app_manifest_to_file :: (using config: Android_Project_Config, out_filepath: string) -> bool {
     ok, data := write_binary_app_manifest_to_memory(config);
     if !ok return false;
@@ -92,10 +115,15 @@ write_binary_app_manifest_to_file :: (using config: Android_Project_Config, out_
     return Manifest_File.write_entire_file(out_filepath, data);
 }
 
+// Appends the binary `AndroidManifest.xml` for `config` to `b`. Returns `false` when encoding fails.
 write_binary_app_manifest_to_builder :: (b: *String_Builder, config: Android_Project_Config) -> bool {
     return am_write(b, config);
 }
 
+// Prints `manifest` as indented XML, one element per line, to standard output.
+//
+// With `print_strings` the string pool is listed first, and with `print_resource_ids` the resource ids, each
+// as `index: value`. Attribute values show the raw string, or the typed 32-bit value when there is none.
 print_binary_manifest :: (using manifest: Android_Manifest_Binary, print_strings := false, print_resource_ids := false) {
     if print_strings for s: string_pool print("%: %\n", it_index, s);
     if print_resource_ids for id: resource_ids print("%: %\n", it_index, id);

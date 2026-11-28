@@ -1,3 +1,11 @@
+// Parses a JKS keystore in `data` and returns its certificate and its encrypted private key.
+//
+// Requires one private-key entry and JKS version 1 or 2; a certificate chain needs version 2, and each chain
+// entry must be X.509. Verifies the trailing SHA-1 integrity digest, which depends on `password` (ASCII only),
+// before returning; the comparison runs over all bytes. Returns `true`, the last certificate of the chain
+// (empty when the chain is empty) and the encrypted key, all pointing into `data`; or `false` and empty
+// strings. Malformed data, a wrong password or an unsupported store also logs an error and fails an assertion.
+// The alias and the entry's timestamp are not used.
 jks_read :: (data: string, password: string) -> bool, certificate: string, encrypted_private_key_info: string {
     if data.count < 32 {
         jks_failure("JKS input is shorter than header and integrity digest");

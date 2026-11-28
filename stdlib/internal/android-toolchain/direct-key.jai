@@ -1,3 +1,12 @@
+// Generates a self-signed certificate and private key as two DER files, by running `openssl`.
+//
+// Creates a folder `<key_name>-XXXXXX` below `out_path` and writes `<key_name>.certificate.der` and
+// `<key_name>.private-key.der` (PKCS#8, unencrypted, mode 0600) into it; the temporary PEM files are removed.
+// The certificate is valid for 365 days and signed with SHA-256. `algorithm` may be `.EC` (P-256) or `.RSA`
+// (2048 bits); `key_size` is ignored. Returns `true` and a key whose paths point at the files, or `false` and
+// an empty key when an argument is rejected, `openssl` fails, or the host is not macOS, Linux or Android; on
+// failure it removes what it made. `key_name` may not contain a slash, backslash or NUL. Runs `openssl` from
+// the `PATH`.
 android_generate_signing_key_direct :: (out_path: string, key_name: string, algorithm := Android_Signing_Key_Signature_Algorithm.EC, key_size := 0, common_name := "Jai Android", organization_name := "Jai", country_code := "US") -> bool, Android_Signing_Key {
     // The generator ignores key_size; actual EC/RSA sizes are fixed.
     if algorithm != .EC && algorithm != .RSA return false, .{};

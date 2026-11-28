@@ -1,3 +1,9 @@
+// Builds a ZIP file in memory, one entry at a time, then its directory.
+//
+// Add entries with [zip_add_file] or [zip_add_file_from_memory], then call [zip_write_central_directory]; the
+// bytes are in `builder`. `write_crcs` false stores a placeholder CRC. Entry names are kept by reference until
+// the directory is written. The file is limited to the 32-bit ZIP format: sizes and offsets below 4 GiB and at
+// most 65535 entries.
 Zip_Writer :: struct {
     File_Info :: struct {
         filename: string;
@@ -14,6 +20,11 @@ Zip_Writer :: struct {
     write_crcs := true;
 }
 
+// Prepares `w` to write a ZIP file.
+//
+// `do_crcs` false stores a placeholder CRC instead of the real one. `max_alignment` is the largest padding the
+// writer may need for aligned entries (4096 when [zip_add_file] is asked for alignment); it reserves zeroed
+// padding memory in the temporary allocator, as does the list of entries.
 zip_init_writer :: (using w: *Zip_Writer, do_crcs := true, max_alignment := 0) {
     if max_alignment < 0 {
         zip_wire_failure("ZIP padding capacity must be nonnegative");
@@ -36,6 +47,9 @@ zip_init_writer :: (using w: *Zip_Writer, do_crcs := true, max_alignment := 0) {
     }
 }
 
+// Reads the file `filepath` and adds it as the entry `zip_filename`; see [zip_add_file_from_memory].
+//
+// Returns `false` when the file cannot be read; that also logs an error and fails an assertion.
 zip_add_file :: (using w: *Zip_Writer, filepath: string, zip_filename: string, compression := Zip_Compression_Method.NONE, alignment := 0) -> bool {
     data, success := Zip_File.read_entire_file(filepath);
     if !success {
@@ -48,6 +62,13 @@ zip_add_file :: (using w: *Zip_Writer, filepath: string, zip_filename: string, c
     return zip_add_file_from_memory(w, data, zip_filename, compression, alignment);
 }
 
+// Adds `file_data` as the entry `zip_filename`, and returns `true` on success.
+//
+// `compression` may be `.NONE` or `.DEFLATE`; DEFLATE entries are written as uncompressed (stored) DEFLATE
+// blocks, so they are larger than the input. `alignment` is 0 or 4096; with 4096 the entry's data starts at a
+// multiple of 4096 bytes, using zero padding in the extra field. `zip_filename` must stay valid until
+// [zip_write_central_directory]. Returns `false` for an unsupported method, size or entry-count limit, or
+// alignment; the invalid-argument cases also log an error and fail an assertion.
 zip_add_file_from_memory :: (using w: *Zip_Writer, file_data: string, zip_filename: string, compression := Zip_Compression_Method.NONE, alignment := 0) -> bool {
     if compression != .NONE && compression != .DEFLATE {
         context.logger("ZIP compression method is unsupported", context.logger_data, Log_Info.{ common_flags = .ERROR });
@@ -119,6 +140,9 @@ zip_add_file_from_memory :: (using w: *Zip_Writer, file_data: string, zip_filena
     return true;
 }
 
+// Appends the central directory and end record, completing the file in `w.builder`.
+//
+// Does nothing but log an error and fail an assertion when the entries exceed the 32-bit ZIP limits.
 zip_write_central_directory :: (using w: *Zip_Writer) {
     offset := builder_string_length(*builder);
     if offset > 0xffffffff || zip_file_infos.count > 0xffff {

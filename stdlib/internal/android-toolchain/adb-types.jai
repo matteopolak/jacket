@@ -1,9 +1,13 @@
+// Holds the version strings from `adb version` and the path of the executable.
 Adb_Version_Info :: struct {
     tool_version: string;
     protocol_version: string;
     exe_path: string;
 }
 
+// Describes one device from `adb devices -l`.
+//
+// The strings are empty when `adb` did not report them.
 Adb_Device :: struct {
     Connection_State :: enum {
         CONNECTING :: 0;
@@ -27,6 +31,9 @@ Adb_Device :: struct {
     transport_id: int;
 }
 
+// Lists the values of the `-z` compression option of `adb push` and `adb pull`.
+//
+// `.UNSPECIFIED` passes no option.
 Adb_Compression_Algorithm :: enum {
     UNSPECIFIED :: 0;
     ANY :: 1;
