@@ -1,12 +1,13 @@
 // Native SDK field assignments are the independent ABI oracle.
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 S :: #import "Socket";
 F :: #import "File";
 P :: #import "String";
 
 main :: () {
     #if OS == .MACOS {
-        filename := sprint("%/../../../../target/portable-socket-fields/vectors.bin", P.path_strip_filename(#file));
+        filename := Env_Output.output_path("portable-socket-fields/vectors.bin");
 
         defer free(filename);
         bytes, loaded := F.read_entire_file(filename);

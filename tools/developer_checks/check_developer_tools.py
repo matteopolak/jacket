@@ -440,7 +440,7 @@ def inline_lint():
     consumers = "".join(path.read_text() for path in driven_matching("*.jai"))
 
     def loaded_fragment(path):
-        return path.parent == output_dir() and f'target/{path.name}"' in consumers
+        return path.parent == output_dir() and (f'target/{path.name}"' in consumers or f'output_path("{path.name}")' in consumers)
 
     host_lint_paths = [path for path in paths if path not in checker_contextual
                        and not not_lintable_on_host(path) and not loaded_fragment(path)]

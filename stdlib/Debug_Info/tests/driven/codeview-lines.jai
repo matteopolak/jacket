@@ -1,4 +1,5 @@
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "File";
 D :: #import "Debug_Info";
 
@@ -18,7 +19,7 @@ main :: () {
     }
 
     for architecture: string.["x64", "arm64"] {
-        bytes, ok := read_entire_file(tprint("%../../../../target/developer-tools-codeview-%.bin", #filepath, architecture));
+        bytes, ok := read_entire_file(tprint("%/developer-tools-codeview-%.bin", Env_Output.output_directory(), architecture));
 
         assert(ok && bytes.count == 8);
         defer free(bytes);

@@ -1,4 +1,5 @@
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "Compiler";
 #import "Hash_Table";
 H :: #import "Generate_C_Header";
@@ -20,6 +21,6 @@ main :: () {
     procedure.name = "point_sum";
     procedure.type = type_info(#type (point: *Point) -> s64 #c_call);
     array_add(*info.exported_procedures, *procedure);
-    assert(H.generate_header(*info, sprint("%../../../../target/developer-tools-point.h", #filepath)));
+    assert(H.generate_header(*info, sprint("%/developer-tools-point.h", Env_Output.output_directory())));
     print("ok\n");
 }

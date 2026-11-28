@@ -1,8 +1,11 @@
+Env_Output_File :: #import "File";
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "File";
 D :: #import "Debug_Info";
 #load "codeview-test-support.jai";
-#load "../../../../target/debug-info-codeview-sdk.jai";
+
+#insert #run Env_Output_File.read_entire_file(Env_Output.output_path("debug-info-codeview-sdk.jai"));
 
 main :: () {
     push_context {
@@ -28,7 +31,7 @@ check_all :: () {
         assert(denied && !parsed_ok && parsed.count == 0 && live_allocations == before);
     }
 
-    bytes, read_ok := read_entire_file(tprint("%../../../../target/debug-info-codeview-types.bin", #filepath));
+    bytes, read_ok := read_entire_file(tprint("%/debug-info-codeview-types.bin", Env_Output.output_directory()));
 
     assert(read_ok);
     defer free(bytes);

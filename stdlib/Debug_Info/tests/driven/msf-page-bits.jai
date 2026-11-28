@@ -1,15 +1,16 @@
 // Reviewed public map/signatures; bit meanings and reserved blocks from official LLVM MSF docs.
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "File";
 D :: #import "Debug_Info";
 
 main :: () {
     for architecture: string.["x64", "arm64"] {
-        bytes, ok := read_entire_file(tprint("%../../../../target/developer-tools-msf-%.pdb", #filepath, architecture));
+        bytes, ok := read_entire_file(tprint("%/developer-tools-msf-%.pdb", Env_Output.output_directory(), architecture));
 
         assert(ok);
         defer free(bytes);
-        oracle, oracle_ok := read_entire_file(tprint("%../../../../target/developer-tools-msf-%.fpm.bin", #filepath, architecture));
+        oracle, oracle_ok := read_entire_file(tprint("%/developer-tools-msf-%.fpm.bin", Env_Output.output_directory(), architecture));
 
         assert(oracle_ok && oracle.count == 4096);
         defer free(oracle);

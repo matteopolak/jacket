@@ -1,3 +1,5 @@
+Env_Output :: #import "Extensions/Environment";
+Compiler_Output :: #import "Compiler";
 #import "Basic";
 
 Support_User :: struct {
@@ -9,7 +11,9 @@ Support_User :: struct {
     callback: (value: s32) -> s32 #c_call;
 }
 
-native :: #library "../../../../target/developer_tools_support";
+#run Compiler_Output.compiler_add_library_search_directory(Env_Output.output_directory());
+
+native :: #library "developer_tools_support";
 support_sum :: (value: *Support_User) -> s64 #foreign native;
 
 main :: () {

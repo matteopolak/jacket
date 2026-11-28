@@ -1,11 +1,15 @@
 // Distinct thread contexts must be published with the serialized native install.
+Env_Output :: #import "Extensions/Environment";
+Compiler_Output :: #import "Compiler";
 #import "Basic";
 D :: #import "Debug";
 
 #add_context original_debug_sentinel: u64;
 #add_context original_debug_complement: u64;
 
-oracle :: #library "../../../../target/developer_tools_debug_lifecycle";
+#run Compiler_Output.compiler_add_library_search_directory(Env_Output.output_directory());
+
+oracle :: #library "developer_tools_debug_lifecycle";
 Work :: #type (tag: s64) #c_call;
 run_threads :: (work: Work) -> s32 #foreign oracle "original_debug_run_threads";
 install_prior :: () -> s32 #foreign oracle "original_debug_install_prior";

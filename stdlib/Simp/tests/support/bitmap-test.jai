@@ -1,3 +1,5 @@
+Env_Output :: #import "Extensions/Environment";
+
 main :: () {
     bitmap: S.Bitmap;
 
@@ -11,7 +13,7 @@ main :: () {
         bitmap.data[i * 4 + 3] = cast(u8) (200 + i);
     }
 
-    path := sprint("%../../../../target/window-bitmap-test.png", #filepath);
+    path := sprint("%/window-bitmap-test.png", Env_Output.output_directory());
 
     assert(S.bitmap_save(*bitmap, path, true));
     decoded: S.Bitmap;

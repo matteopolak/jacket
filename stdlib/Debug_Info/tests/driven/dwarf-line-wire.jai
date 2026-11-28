@@ -1,14 +1,17 @@
 // Private parser dependency: actual DWARF4 line sections, independently decoded SDK rows.
+Env_Output_File :: #import "File";
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "File";
 D :: #import "Debug_Info";
-#load "../../../../target/developer-tools-dwarf-line-wire.jai";
-#load "../../../../target/developer-tools-dwarf-line-wire-oracle.jai";
+
+#insert #run Env_Output_File.read_entire_file(Env_Output.output_path("developer-tools-dwarf-line-wire.jai"));
+#insert #run Env_Output_File.read_entire_file(Env_Output.output_path("developer-tools-dwarf-line-wire-oracle.jai"));
 
 main :: () {
     assert(size_of(D.Line_Program_Header) == 16);
     check_native_line_wire();
-    bytes, bytes_ok := read_entire_file(tprint("%../../../../target/developer-tools-dwarf-line-x64-o0.bin", #filepath));
+    bytes, bytes_ok := read_entire_file(tprint("%/developer-tools-dwarf-line-x64-o0.bin", Env_Output.output_directory()));
 
     assert(bytes_ok);
     defer free(bytes);

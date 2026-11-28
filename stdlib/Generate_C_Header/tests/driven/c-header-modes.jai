@@ -1,4 +1,5 @@
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "Compiler";
 #import "File";
 #import "Hash_Table";
@@ -58,7 +59,7 @@ main :: () {
     info: H.Header_Info;
 
     table_add(*info.exported_types, type_info(SmallMode), "SmallMode");
-    normal := tprint("%../../../../target/developer-tools-enum-normal.h", #filepath);
+    normal := tprint("%/developer-tools-enum-normal.h", Env_Output.output_directory());
 
     assert(H.generate_header(*info, normal));
     normal_text, normal_ok := read_entire_file(normal);
@@ -69,7 +70,7 @@ main :: () {
     info.enum_internal_types = true;
     info.prefix_enum_values = true;
     info.jai_type_prefix = "Jai";
-    fixed := tprint("%../../../../target/developer-tools-enum-fixed.h", #filepath);
+    fixed := tprint("%/developer-tools-enum-fixed.h", Env_Output.output_directory());
 
     assert(H.generate_header(*info, fixed));
     fixed_text, fixed_ok := read_entire_file(fixed);
@@ -100,7 +101,7 @@ main :: () {
     omitted.name = "non_c_call_must_be_omitted";
     omitted.type = type_info(#type () -> s64);
     array_add(*info.exported_procedures, *omitted);
-    support := tprint("%../../../../target/developer-tools-support.h", #filepath);
+    support := tprint("%/developer-tools-support.h", Env_Output.output_directory());
 
     assert(H.generate_header(*info, support));
     text, ok := read_entire_file(support);

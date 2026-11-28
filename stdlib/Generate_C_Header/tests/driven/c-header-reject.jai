@@ -1,10 +1,11 @@
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "Compiler";
 #import "File";
 H :: #import "Generate_C_Header";
 
 main :: () {
-    path := tprint("%../../../../target/developer-tools-reject.h", #filepath);
+    path := tprint("%/developer-tools-reject.h", Env_Output.output_directory());
 
     assert(write_entire_file(path, "preserve existing output"));
     declaration: Code_Declaration;

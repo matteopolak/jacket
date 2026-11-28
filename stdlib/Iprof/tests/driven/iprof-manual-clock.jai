@@ -1,4 +1,5 @@
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "File";
 I :: #import "Iprof"(IMPORT_MODE = .CLIENT, MANUAL_MODE = true, USE_GRAPHICS = false, DO_HISTORY = false);
 #if OS == .WINDOWS W :: #import "Windows";
@@ -116,7 +117,7 @@ main :: () {
     array_add(*report.records, I.Report_Row.{ name = outer.zone.name, self_time = cast(float64) outer.total_self_ticks * I.timestamps_to_seconds * 1000, hier_time = cast(float64) outer.total_hier_ticks * I.timestamps_to_seconds * 1000, calls = cast(float64) outer.total_entry_count, zone = outer.zone });
     array_add(*report.records, I.Report_Row.{ name = inner.zone.name, self_time = cast(float64) inner.total_self_ticks * I.timestamps_to_seconds * 1000, hier_time = cast(float64) inner.total_hier_ticks * I.timestamps_to_seconds * 1000, calls = cast(float64) inner.total_entry_count, zone = inner.zone });
     defer array_free(report.records);
-    filename := tprint("%../../../../target/developer-tools-iprof-measured.csv", #filepath);
+    filename := tprint("%/developer-tools-iprof-measured.csv", Env_Output.output_directory());
 
     I.save_csv_report(*report, filename);
     csv, csv_ok := read_entire_file(filename);

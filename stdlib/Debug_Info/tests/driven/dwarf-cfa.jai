@@ -1,4 +1,5 @@
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "File";
 D :: #import "Debug_Info";
 
@@ -26,7 +27,7 @@ main :: () {
     invalid, overflow_ok := D.decode_cfa_instructions(overflow);
 
     assert(!overflow_ok && invalid.count == 0);
-    native, read_ok := read_entire_file(tprint("%../../../../target/developer-tools-eh-frame.bin", #filepath));
+    native, read_ok := read_entire_file(tprint("%/developer-tools-eh-frame.bin", Env_Output.output_directory()));
 
     defer free(native);
     assert(read_ok);

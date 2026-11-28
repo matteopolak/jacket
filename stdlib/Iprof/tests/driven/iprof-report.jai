@@ -1,4 +1,5 @@
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "File";
 I :: #import "Iprof"(USE_GRAPHICS = false);
 M :: #import "Iprof"(MANUAL_MODE = true, USE_GRAPHICS = false, DO_HISTORY = false);
@@ -26,7 +27,7 @@ main :: () {
     array_add(*report.records, I.Report_Row.{ name = "quoted \"zone\",\nname", self_time = 250, hier_time = 500, calls = 3, heat = 0.75 });
     array_add(*report.records, I.Report_Row.{ name = "zero calls", self_time = 9, hier_time = 9 });
     defer array_free(report.records);
-    path := tprint("%../../../../target/developer-tools-iprof.csv", #filepath);
+    path := tprint("%/developer-tools-iprof.csv", Env_Output.output_directory());
 
     I.save_csv_report(*report, path);
     csv, ok := read_entire_file(path);
@@ -89,7 +90,7 @@ main :: () {
 
     push_context {
         context.logger = capture;
-        I.save_csv_report(*report, tprint("%../../../../target/developer-tools-iprof-absent-parent/report.csv", #filepath));
+        I.save_csv_report(*report, tprint("%/developer-tools-iprof-absent-parent/report.csv", Env_Output.output_directory()));
     }
 
     assert(errors >= 1 && csv_failures == 1 && contains(captured, "could not write CSV report"));

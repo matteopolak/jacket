@@ -1,4 +1,5 @@
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "Compiler";
 I :: #import "Iprof"(USE_GRAPHICS = false);
 
@@ -37,7 +38,7 @@ I :: #import "Iprof"(USE_GRAPHICS = false);
             options.output_path = tprint("%../../../../target", #filepath);
             options.output_executable_name = tprint("profiler-codex-size-o%-d%", ifx index == 0 then 0 else 2, offset);
             set_build_options(options, p.workspace);
-            destination := tprint("%../../../../target/profiler-codex-size-o%-d%.csv", #filepath, ifx index == 0 then 0 else 2, offset);
+            destination := tprint("%/profiler-codex-size-o%-d%.csv", Env_Output.output_directory(), ifx index == 0 then 0 else 2, offset);
 
             assert(I.init(p, .["-min_size", tprint("%", expression_count + offset), "-csv", destination]));
             flags: Intercept_Flags;

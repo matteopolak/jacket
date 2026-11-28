@@ -1,4 +1,5 @@
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "Compiler";
 #import "File";
 C :: #import "Codex";
@@ -28,7 +29,7 @@ capture :: (text: string, data: *void, info: Log_Info) {
     options := get_build_options(p.workspace);
     options.output_type = .NO_OUTPUT;
     set_build_options(options, p.workspace);
-    destination := tprint("%../../../../target/profiler-codex-lifecycle.codex", #filepath);
+    destination := tprint("%/profiler-codex-lifecycle.codex", Env_Output.output_directory());
 
     assert(C.init(p, .["-export_file", destination]));
     project := copy_string("project héllo");
@@ -77,7 +78,7 @@ capture :: (text: string, data: *void, info: Log_Info) {
 
     push_context {
         context.logger = capture;
-        missing := tprint("%../../../../target/profiler-codex-absent-parent/export.codex", #filepath);
+        missing := tprint("%/profiler-codex-absent-parent/export.codex", Env_Output.output_directory());
         assert(C.init(p, .["-export_file", missing]));
         C.finish(p);
     }

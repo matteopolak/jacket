@@ -1,10 +1,11 @@
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "File";
 C :: #import "Codex";
 R :: #import "Relative_Pointers";
 
 main :: () {
-    memory, read_ok := read_entire_file(tprint("%../../../../target/profiler-codex-export.codex", #filepath));
+    memory, read_ok := read_entire_file(tprint("%/profiler-codex-export.codex", Env_Output.output_directory()));
 
     assert(read_ok);
     defer free(memory);

@@ -1,4 +1,7 @@
 // Jai callers must remain named and unwindable across an actual SDK fault.
+Env_Output :: #import "Extensions/Environment";
+Compiler_Output :: #import "Compiler";
+
 #program_export "platform_io_fault_leaf"
 fault_leaf :: no_inline () -> u64 #c_call {
     value := native_fault();
@@ -32,7 +35,9 @@ main :: () {
 #scope_file
 #import "Basic";
 
-sdk :: #library "../../../../target/platform-io-tests/platform_io_fault_sdk";
+#run Compiler_Output.compiler_add_library_search_directory(Env_Output.output_path("platform-io-tests"));
+
+sdk :: #library "platform_io_fault_sdk";
 native_fault :: () -> u32 #foreign sdk "platform_io_native_fault";
 
 kernel32 :: #system_library "kernel32";

@@ -1,9 +1,13 @@
 // Real Java-produced JKS through reviewed public read/decrypt/sign interfaces.
+Env_Output :: #import "Extensions/Environment";
+Compiler_Output :: #import "Compiler";
 #import "Basic";
 A :: #import "Android/Toolchain";
 F :: #import "File";
 
-Verifier :: #library "../../../../../target/portable-crypto-integration/sdk-verify";
+#run Compiler_Output.compiler_add_library_search_directory(Env_Output.output_path("portable-crypto-integration"));
+
+Verifier :: #library "sdk-verify";
 verify_signature :: (public_key: *u8, public_count: u64, message: *u8, message_count: u64, signature: *u8, signature_count: u64) -> s32 #foreign Verifier "integration_verify_signature";
 
 main :: () {

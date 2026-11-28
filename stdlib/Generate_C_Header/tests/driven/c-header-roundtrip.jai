@@ -1,3 +1,5 @@
+Env_Output :: #import "Extensions/Environment";
+Compiler_Output :: #import "Compiler";
 #import "Basic";
 
 Point :: struct {
@@ -9,7 +11,8 @@ Point :: struct {
 }
 
 point_sum :: (point: *Point) -> s64 #foreign native;
-native :: #library "../../../../target/developer_tools_point";
+#run Compiler_Output.compiler_add_library_search_directory(Env_Output.output_directory());
+native :: #library "developer_tools_point";
 
 main :: () {
     point: Point;

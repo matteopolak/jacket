@@ -1,7 +1,10 @@
+Env_Output :: #import "Extensions/Environment";
+Env_Output_File :: #import "File";
 #import "Basic";
 #import "String";
 B :: #import "Bindings_Generator";
-#load "../../../../target/developer-tools-cpp-visitor-oracle.jai";
+
+#insert #run Env_Output_File.read_entire_file(Env_Output.output_path("developer-tools-cpp-visitor-oracle.jai"));
 
 Cursors :: struct {
     rows: [512] B.CXCursor;

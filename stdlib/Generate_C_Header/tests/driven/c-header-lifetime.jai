@@ -1,4 +1,5 @@
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "Hash_Table";
 H :: #import "Generate_C_Header";
 
@@ -10,7 +11,7 @@ main :: () {
     info: H.Header_Info;
     info.jai_type_prefix = "Jai";
     table_add(*info.exported_types, type_info(Lifetime_Point), "Lifetime");
-    path := sprint("%../../../../target/developer-tools-lifetime.h", #filepath);
+    path := sprint("%/developer-tools-lifetime.h", Env_Output.output_directory());
 
     defer free(path);
     assert(H.generate_header(*info, path));

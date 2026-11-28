@@ -1,9 +1,12 @@
+Env_Output_File :: #import "File";
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "File";
 D :: #import "Debug_Info";
 BA :: #import "Bucket_Array";
-#load "../../../../target/debug-info-sdk.jai";
-#load "../../../../target/debug-info-synthetic.jai";
+
+#insert #run Env_Output_File.read_entire_file(Env_Output.output_path("debug-info-sdk.jai"));
+#insert #run Env_Output_File.read_entire_file(Env_Output.output_path("debug-info-synthetic.jai"));
 
 errors: s64;
 allocations: s64;
@@ -114,10 +117,10 @@ check_all :: () {
     bad, bad_ok = D.parse_dwarf_debug_info(negative_high, high_abbrev, .{}, .{});
     assert(!bad_ok && bad.compilation_units.count == 0);
     check_sdk_units();
-    info, info_ok := read_entire_file(tprint("%../../../../target/debug-info-info.bin", #filepath));
-    abbrev, abbrev_ok := read_entire_file(tprint("%../../../../target/debug-info-abbrev.bin", #filepath));
-    lines, lines_ok := read_entire_file(tprint("%../../../../target/debug-info-line.bin", #filepath));
-    strings, strings_ok := read_entire_file(tprint("%../../../../target/debug-info-str.bin", #filepath));
+    info, info_ok := read_entire_file(tprint("%/debug-info-info.bin", Env_Output.output_directory()));
+    abbrev, abbrev_ok := read_entire_file(tprint("%/debug-info-abbrev.bin", Env_Output.output_directory()));
+    lines, lines_ok := read_entire_file(tprint("%/debug-info-line.bin", Env_Output.output_directory()));
+    strings, strings_ok := read_entire_file(tprint("%/debug-info-str.bin", Env_Output.output_directory()));
 
     assert(info_ok && abbrev_ok && lines_ok && strings_ok);
     defer free(info);

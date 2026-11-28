@@ -1,8 +1,11 @@
 // Reviewed Debug_Info MSF layout/read APIs; original native streams use SDK byte oracles.
+Env_Output_File :: #import "File";
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "File";
 D :: #import "Debug_Info";
-#load "../../../../target/developer-tools-msf-wire.jai";
+
+#insert #run Env_Output_File.read_entire_file(Env_Output.output_path("developer-tools-msf-wire.jai"));
 
 #run {
     record: D.Msf;
@@ -26,7 +29,7 @@ capture :: (_text: string, _data: *void, info: Log_Info) {
 
 main :: () {
     for architecture: string.["x64", "arm64"] {
-        bytes, ok := read_entire_file(tprint("%../../../../target/developer-tools-msf-%.pdb", #filepath, architecture));
+        bytes, ok := read_entire_file(tprint("%/developer-tools-msf-%.pdb", Env_Output.output_directory(), architecture));
 
         assert(ok && D.is_msf(bytes) && D.is_pdb(bytes));
         defer free(bytes);
@@ -62,7 +65,7 @@ main :: () {
 
             assert(copy_ok);
             defer free(actual.data);
-            expected, expected_ok := read_entire_file(tprint("%../../../../target/developer-tools-msf-%-stream-%.bin", #filepath, architecture, index));
+            expected, expected_ok := read_entire_file(tprint("%/developer-tools-msf-%-stream-%.bin", Env_Output.output_directory(), architecture, index));
 
             assert(expected_ok && cast(string) actual == expected);
             defer free(expected);

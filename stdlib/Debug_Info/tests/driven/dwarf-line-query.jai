@@ -1,6 +1,9 @@
+Env_Output :: #import "Extensions/Environment";
+Env_Output_File :: #import "File";
 #import "Basic";
 D :: #import "Debug_Info";
-#load "../../../../target/developer-tools-dwarf-line-oracle.jai";
+
+#insert #run Env_Output_File.read_entire_file(Env_Output.output_path("developer-tools-dwarf-line-oracle.jai"));
 
 errors: s64;
 

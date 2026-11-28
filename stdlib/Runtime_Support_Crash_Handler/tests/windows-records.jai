@@ -1,4 +1,6 @@
 // test: check_only
+Env_Output :: #import "Extensions/Environment";
+Compiler_Output :: #import "Compiler";
 #import "Basic";
 #if OS == .WINDOWS C :: #import "Runtime_Support_Crash_Handler";
 
@@ -91,7 +93,9 @@ main :: () {
         assert((name.count > 0) == found);
     }
 
-    sdk :: #library "../../../target/platform-io-tests/platform_io_section_sdk";
+    #run Compiler_Output.compiler_add_library_search_directory(Env_Output.output_path("platform-io-tests"));
+
+    sdk :: #library "platform_io_section_sdk";
     kernel32 :: #system_library "kernel32";
     set_filter :: (callback: *void) -> *void #foreign kernel32 "SetUnhandledExceptionFilter";
     sdk_image_probe :: (writable: s32) -> *void #foreign sdk "platform_io_sdk_image_probe";

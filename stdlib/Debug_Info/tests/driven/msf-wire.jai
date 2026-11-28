@@ -1,10 +1,13 @@
+Env_Output_File :: #import "File";
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "File";
-#load "../../../../target/developer-tools-msf-wire.jai";
+
+#insert #run Env_Output_File.read_entire_file(Env_Output.output_path("developer-tools-msf-wire.jai"));
 
 main :: () {
     for architecture: string.["x64", "arm64"] {
-        bytes, read_ok := read_entire_file(tprint("%../../../../target/developer-tools-msf-%.pdb", #filepath, architecture));
+        bytes, read_ok := read_entire_file(tprint("%/developer-tools-msf-%.pdb", Env_Output.output_directory(), architecture));
 
         assert(read_ok);
         defer free(bytes);
@@ -16,7 +19,7 @@ main :: () {
         assert(view.block_size == 4096 && view.streams.count >= 5);
 
         for stream, index: view.streams {
-            expected, expected_ok := read_entire_file(tprint("%../../../../target/developer-tools-msf-%-stream-%.bin", #filepath, architecture, index));
+            expected, expected_ok := read_entire_file(tprint("%/developer-tools-msf-%-stream-%.bin", Env_Output.output_directory(), architecture, index));
 
             assert(expected_ok);
             defer free(expected);
@@ -56,7 +59,7 @@ main :: () {
         assert(copy_error == .STREAM && data.count == 0);
     }
 
-    synthetic, synthetic_ok := read_entire_file(tprint("%../../../../target/developer-tools-msf-synthetic.bin", #filepath));
+    synthetic, synthetic_ok := read_entire_file(tprint("%/developer-tools-msf-synthetic.bin", Env_Output.output_directory()));
 
     assert(synthetic_ok);
     defer free(synthetic);

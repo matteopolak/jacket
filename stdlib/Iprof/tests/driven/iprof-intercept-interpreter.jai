@@ -1,4 +1,5 @@
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "Compiler";
 I :: #import "Iprof"(USE_GRAPHICS = false);
 
@@ -9,7 +10,7 @@ I :: #import "Iprof"(USE_GRAPHICS = false);
     options.output_type = .NO_OUTPUT;
     options.import_path = .[tprint("%profiler-modules", #filepath)];
     set_build_options(options, p.workspace);
-    destination := tprint("%../../../../target/profiler-codex-interpreted-edited.csv", #filepath);
+    destination := tprint("%/profiler-codex-interpreted-edited.csv", Env_Output.output_directory());
 
     assert(I.init(p, .["-min_size", "0", "-csv", destination]));
     flags: Intercept_Flags;

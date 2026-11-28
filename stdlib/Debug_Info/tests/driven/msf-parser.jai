@@ -1,4 +1,5 @@
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "File";
 D :: #import "Debug_Info";
 
@@ -21,7 +22,7 @@ main :: () {
 
 check_all :: () {
     for architecture: string.["x64", "arm64"] {
-        bytes, read_ok := read_entire_file(tprint("%../../../../target/developer-tools-msf-%.pdb", #filepath, architecture));
+        bytes, read_ok := read_entire_file(tprint("%/developer-tools-msf-%.pdb", Env_Output.output_directory(), architecture));
 
         assert(read_ok);
         defer free(bytes);
@@ -45,7 +46,7 @@ check_all :: () {
 
             assert(copy_ok);
             defer free(actual.data);
-            expected, expected_ok := read_entire_file(tprint("%../../../../target/developer-tools-msf-%-stream-%.bin", #filepath, architecture, index));
+            expected, expected_ok := read_entire_file(tprint("%/developer-tools-msf-%-stream-%.bin", Env_Output.output_directory(), architecture, index));
 
             assert(expected_ok && cast(string) actual == expected && stream.byte_count == expected.count);
             defer free(expected);

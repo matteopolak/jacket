@@ -1,11 +1,12 @@
 // Reviewed Socket CMSG signatures and actual native SDK macro output.
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 S :: #import "Socket";
 F :: #import "File";
 P :: #import "String";
 
 main :: () {
-    filename := sprint("%/../../../../target/portable-socket-cmsg/vectors.bin", P.path_strip_filename(#file));
+    filename := Env_Output.output_path("portable-socket-cmsg/vectors.bin");
 
     defer free(filename);
     data, valid := F.read_entire_file(filename);

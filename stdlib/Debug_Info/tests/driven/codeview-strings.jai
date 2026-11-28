@@ -1,7 +1,10 @@
+Env_Output :: #import "Extensions/Environment";
+Env_Output_File :: #import "File";
 #import "Basic";
 #import "File";
 D :: #import "Debug_Info";
-#load "../../../../target/developer-tools-codeview-string-oracle.jai";
+
+#insert #run Env_Output_File.read_entire_file(Env_Output.output_path("developer-tools-codeview-string-oracle.jai"));
 
 errors: s64;
 

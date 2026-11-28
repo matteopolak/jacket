@@ -1,4 +1,5 @@
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "File";
 C :: #import "Codex";
 
@@ -9,8 +10,8 @@ capture :: (text: string, data: *void, info: Log_Info) {
 }
 
 main :: () {
-    assert(C.dump_file(tprint("%../../../../target/profiler-codex-export.codex", #filepath)));
-    invalid := tprint("%../../../../target/profiler-codex-invalid-header.codex", #filepath);
+    assert(C.dump_file(tprint("%/profiler-codex-export.codex", Env_Output.output_directory())));
+    invalid := tprint("%/profiler-codex-invalid-header.codex", Env_Output.output_directory());
 
     assert(write_entire_file(invalid, "bad"));
 

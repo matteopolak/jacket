@@ -1,5 +1,6 @@
 // test: skip_on(.WASM, reason = "needs the native SDL library, which has no wasm build")
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 K :: #import "Keymap";
 I :: #import "Input";
 Bucket :: #import "Bucket_Array";
@@ -73,7 +74,7 @@ main :: () {
     assert(second.mappings.count == map.mappings.count);
     assert(second.mappings[2].command_string == "hello world");
     assert(second.mappings[2].command_string.data != map.mappings[2].command_string.data);
-    path := sprint("%../../../target/window-keymap-test.txt", #filepath);
+    path := sprint("%/window-keymap-test.txt", Env_Output.output_directory());
 
     defer free(path);
     K.save_to_file(*set, path);

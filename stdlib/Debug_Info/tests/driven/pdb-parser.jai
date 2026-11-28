@@ -1,8 +1,11 @@
+Env_Output_File :: #import "File";
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "File";
 D :: #import "Debug_Info";
 #load "codeview-test-support.jai";
-#load "../../../../target/debug-info-pdb-sdk.jai";
+
+#insert #run Env_Output_File.read_entire_file(Env_Output.output_path("debug-info-pdb-sdk.jai"));
 
 main :: () {
     push_context {
@@ -17,7 +20,7 @@ main :: () {
 
 check_all :: () {
     for architecture: string.["x64", "arm64"] {
-        bytes, read_ok := read_entire_file(tprint("%../../../../target/developer-tools-msf-%.pdb", #filepath, architecture));
+        bytes, read_ok := read_entire_file(tprint("%/developer-tools-msf-%.pdb", Env_Output.output_directory(), architecture));
 
         assert(read_ok);
         defer free(bytes);

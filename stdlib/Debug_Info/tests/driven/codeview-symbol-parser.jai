@@ -1,10 +1,13 @@
+Env_Output_File :: #import "File";
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "File";
 D :: #import "Debug_Info";
 #load "codeview-test-support.jai";
-#load "../../../../target/debug-info-symbol-sdk.jai";
-#load "../../../../target/debug-info-symbol-mutations.jai";
-#load "../../../../target/debug-info-symbol-synthetic.jai";
+
+#insert #run Env_Output_File.read_entire_file(Env_Output.output_path("debug-info-symbol-sdk.jai"));
+#insert #run Env_Output_File.read_entire_file(Env_Output.output_path("debug-info-symbol-mutations.jai"));
+#insert #run Env_Output_File.read_entire_file(Env_Output.output_path("debug-info-symbol-synthetic.jai"));
 
 main :: () {
     push_context {
@@ -20,7 +23,7 @@ main :: () {
 check_all :: () {
     check_synthetic_symbol_records();
     check_sdk_symbol_workflows();
-    bytes, read_ok := read_entire_file(tprint("%../../../../target/codeview-inline-original.bin", #filepath));
+    bytes, read_ok := read_entire_file(tprint("%/codeview-inline-original.bin", Env_Output.output_directory()));
 
     assert(read_ok);
     defer free(bytes);

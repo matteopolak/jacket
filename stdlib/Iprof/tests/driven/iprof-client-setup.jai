@@ -1,4 +1,5 @@
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "Compiler";
 #import "File";
 Default :: #import "Iprof";
@@ -23,7 +24,7 @@ C111 :: #import "Iprof"(MANUAL_MODE = true, USE_GRAPHICS = true, DO_HISTORY = tr
         source := sprint("%\n#scope_export\nOriginal_Expected_Manual :: %; Original_Expected_Graphics :: %; Original_Expected_History :: %;\n%", text, expected_manual, expected_graphics, expected_history, input);
 
         defer free(source);
-        filename := tprint("%../../../../target/developer-tools-iprof-client-input-c%.jai", #filepath, configuration);
+        filename := tprint("%/developer-tools-iprof-client-input-c%.jai", Env_Output.output_directory(), configuration);
 
         assert(write_entire_file(filename, source));
 

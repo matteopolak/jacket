@@ -1,11 +1,14 @@
+Env_Output_File :: #import "File";
 #import "Basic";
+Env_Output :: #import "Extensions/Environment";
 #import "File";
 D :: #import "Debug_Info";
-#load "../../../../target/developer-tools-eh-frame-oracle.jai";
+
+#insert #run Env_Output_File.read_entire_file(Env_Output.output_path("developer-tools-eh-frame-oracle.jai"));
 
 main :: () {
     for fixture: native_eh_frames {
-        bytes, read_ok := read_entire_file(tprint("%../../../../target/%", #filepath, fixture.filename));
+        bytes, read_ok := read_entire_file(tprint("%/%", Env_Output.output_directory(), fixture.filename));
 
         assert(read_ok);
         defer free(bytes);
