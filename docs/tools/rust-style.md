@@ -88,3 +88,7 @@ Statements inside macro invocations are token trees and are left alone, as are s
 | `struct_variant_width = 0` | Enum struct variants always span lines, like struct literals |
 
 Tried and left out: `wrap_comments` (refills hand-wrapped paragraphs and splits inline code), `imports_granularity` (splits `use a::{b, c}` or merges whole crates), `overflow_delimited_expr` and `combine_control_expr = false` (denser or noisier), `force_multiline_blocks`, `match_block_trailing_comma`.
+
+## Blame
+
+`.git-blame-ignore-revs` lists the workspace-wide formatting commits. Run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once so `git blame` skips them; GitHub reads the file on its own. Add a commit there whenever a formatter change rewrites the whole workspace.

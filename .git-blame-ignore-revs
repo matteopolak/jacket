@@ -1,0 +1,5 @@
+# Whole-workspace formatting commits; `git config blame.ignoreRevsFile .git-blame-ignore-revs` skips them in blame.
+# style(rust): blank lines around guard blocks, after let runs and between items
+dbc2496d007ab1db5232614182b0ac4104cb3dc5
+# style(rust): import grouping, doc-example formatting and other rustfmt options
+547ced5ffbc09aca365e610bd014a8f3bee65fa5
