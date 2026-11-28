@@ -25,6 +25,7 @@ Extensions/Environment
 Extensions/Fuzz
 Extensions/Gltf
 Extensions/Hash_Map
+Extensions/Io_Uring
 Extensions/Iprof_Trace
 Extensions/Jai_Format
 Extensions/Json
@@ -71,6 +72,7 @@ Runtime_Support_Crash_Handler
 Simple_Package
 Sloppy_Math
 Soa
+Socket
 Sort
 Srgb
 String
