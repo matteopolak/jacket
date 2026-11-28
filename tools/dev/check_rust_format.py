@@ -44,8 +44,8 @@ def main() -> int:
         commands = [["cargo", "fmt", "--all", "--", "--check"]]
         commands.extend(["cargo", "fmt", "--manifest-path", manifest, "--", "--check"]
                         for manifest in standalone_manifests(root))
-        # rustfmt does not put blank lines between items; tools/dev/rust_item_spacing.py does.
-        commands.append([sys.executable, str(root / "tools" / "dev" / "rust_item_spacing.py"), "--check"])
+        # rustfmt does not add blank lines inside blocks or between items; tools/rust-spacing does.
+        commands.append(["cargo", "run", "--quiet", "--locked", "-p", "rust-spacing", "--", "--check"])
         results = [subprocess.run(command, cwd=root, check=False).returncode
                    for command in commands]
         return int(any(results))

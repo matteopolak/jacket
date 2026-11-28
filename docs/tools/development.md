@@ -9,7 +9,7 @@ Each dev command has one name, and CI's format and lint steps call the same reci
 | Recipe | Does |
 | --- | --- |
 | `build` | Builds `jaic-cli`, `jai-language-server`, `jailint`, `target/jaifmt` and the native pieces a release archive ships (`--release`, `--native=false`) |
-| `fmt` | `jaifmt` on Jai; `cargo fmt` plus `tools/dev/rust_item_spacing.py` on Rust (`--check`, `--lang`, `--staged`) |
+| `fmt` | `jaifmt` on Jai; `cargo fmt` plus [`rust-spacing`](rust-style.md) on Rust (`--check`, `--lang`, `--staged`) |
 | `lint` | `jailint -D warnings` on Jai; clippy on Rust (`--fix`, `--lang`, `--staged`) |
 | `check` | `fmt --check`, `lint`, `editor`, `nvim-test --unit` (fails without nvim 0.11+) |
 | `test` | `cargo nextest run --profile ci` (needs cargo-nextest) plus doctests and the `tools/` unittests (`--suite cargo\|tools\|all`, `--crate`, `--partition slice:K/N`) |
@@ -72,7 +72,7 @@ On macOS each crash makes `ReportCrash` symbolicate and save a report. Test harn
 | Staged files | Check |
 | --- | --- |
 | `*.jai` | `jaifmt --check`; `jailint -D warnings` |
-| `crates/**/*.rs` | `rustfmt --check`; `rust_item_spacing.py --check` |
+| `crates/**/*.rs` | `rustfmt --check`; `rust-spacing --check` |
 | shell scripts | `shellcheck` (skipped if not installed) |
 | `tools/**/*.py`, `.github/**/*.py` | `ruff check` with `ruff.toml`, as CI does (skipped if not installed) |
 | `.github/workflows/*.yml` | `actionlint` (skipped if not installed) |
@@ -90,7 +90,7 @@ Tools are built from this checkout (`jailint` through cargo, `jaifmt` rebuilt wh
 | `JACKET_JAIFMT=PATH` | Use the `jaifmt` at `PATH` as is, with no staleness or origin check; for a job whose prebuilt toolchain matches this checkout |
 | `JACKET_HOOKS_NO_CARGO=1` | For jobs with only a prebuilt toolchain and no Rust: skip the cargo steps (below) |
 
-Cargo is needed to build `jaic` and `jailint`, run `rustfmt` and check lock files. When it is missing the hook fails with an install hint. Set `JACKET_HOOKS_NO_CARGO=1` to opt out: those steps are skipped, nothing is built, and `jaifmt` (`target/jaifmt` or `JACKET_JAIFMT`) and `jailint` must already exist (otherwise the hook warns and skips their checks, as above). Everything else still runs: item spacing, shellcheck, actionlint, repo checks, the editor check. No CI job runs the hooks today; a job that does and has no Rust should set it.
+Cargo is needed to build `jaic`, `jailint` and `rust-spacing`, run `rustfmt` and check lock files. When it is missing the hook fails with an install hint. Set `JACKET_HOOKS_NO_CARGO=1` to opt out: those steps are skipped, nothing is built, and `jaifmt` (`target/jaifmt` or `JACKET_JAIFMT`) and `jailint` must already exist (otherwise the hook warns and skips their checks, as above). With `JACKET_HOOKS_NO_CARGO=1` a prebuilt `target/debug/rust-spacing` must already exist (otherwise the hook warns and skips its check). Everything else still runs: shellcheck, actionlint, repo checks, the editor check. No CI job runs the hooks today; a job that does and has no Rust should set it.
 
 A new per-system file under `stdlib/internal` (imports `windows-api`, `posix-api`, X11, or `#assert`s an OS) must be listed in `[lint.portability.platforms]` in `jacket.toml`, or the `platform_leak` check fails. Tests: `tools/ci/test_pre_commit_hook.py`.
 

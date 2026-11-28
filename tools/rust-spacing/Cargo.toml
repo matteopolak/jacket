@@ -1,0 +1,20 @@
+[package]
+name = "rust-spacing"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Inserts the blank lines rustfmt leaves out: around guard blocks, after let runs, between items."
+publish = false
+
+[[bin]]
+name = "rust-spacing"
+path = "src/main.rs"
+
+[dependencies]
+proc-macro2 = { version = "=1.0.107", default-features = false, features = ["span-locations"] }
+syn = { version = "=3.0.9", default-features = false, features = ["full", "parsing", "printing", "visit"] }
+
+[lints]
+workspace = true

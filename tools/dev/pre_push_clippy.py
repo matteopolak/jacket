@@ -211,6 +211,23 @@ def lint_x86_tests(selected: list[str]) -> int:
     return result.returncode
 
 
+def format_check(files: set[str]) -> int:
+    """`cargo fmt --check` and `rust-spacing --check` when `files` hold Rust or the rustfmt config."""
+    if not any(f.endswith(".rs") or f == "rustfmt.toml" for f in files):
+        return 0
+    print("pre-push: cargo fmt and rust-spacing --check", file=sys.stderr)
+    for command in (
+        ["cargo", "fmt", "--all", "--", "--check"],
+        ["cargo", "run", "--quiet", "--locked", "-p", "rust-spacing", "--", "--check"],
+    ):
+        result = subprocess.run(command, cwd=ROOT)
+        if result.returncode:
+            print("pre-push: formatting failed; run `python3 tools/dev/dev.py fmt --lang rust`, "
+                  "or push with --no-verify", file=sys.stderr)
+            return result.returncode
+    return 0
+
+
 def dirty_rust() -> bool:
     return any(
         line[3:].endswith((".rs", "Cargo.toml")) or line[3:] in WORKSPACE_FILES
@@ -234,7 +251,9 @@ def check() -> int:
     if dirty:
         print("pre-push: warning: the checks also see uncommitted changes, so this run is not recorded", file=sys.stderr)
     with build_slot.slot():
-        code = clippy(selected) if selected else 0
+        code = format_check(files)
+        if code == 0 and selected:
+            code = clippy(selected)
         if code == 0 and stdlib:
             code = stdlib_tests(stdlib)
     if code == 0 and not dirty:

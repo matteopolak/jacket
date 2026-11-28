@@ -17,6 +17,7 @@ members = [
     "crates/jacket-config",
     "crates/jacket",
     "crates/test-support",
+    "tools/rust-spacing",
 ]
 # cargo-fuzz targets: their own workspace and lock file (docs/tools/testing.md).
 exclude = ["fuzz"]

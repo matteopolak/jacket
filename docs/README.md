@@ -62,7 +62,7 @@ One page per topic in [language/](language/), describing what jaic does: [module
 
 ## Building and testing
 
-- Workflow: [development](tools/development.md), [testing](tools/testing.md), [test harness](tools/test-harness.md), [tools layout](tools/tools-layout.md), [tools scripts](tools/tools-scripts.md), [CI job selection and wall time](tools/ci-job-selection.md), [action pins](tools/action-pins.md), [pin updates](tools/pin-updates.md), [LLVM setup](tools/llvm-setup.md), [Linux container](tools/linux-container.md), [generated images](tools/generated-images.md).
+- Workflow: [development](tools/development.md), [Rust style](tools/rust-style.md), [testing](tools/testing.md), [test harness](tools/test-harness.md), [tools layout](tools/tools-layout.md), [tools scripts](tools/tools-scripts.md), [CI job selection and wall time](tools/ci-job-selection.md), [action pins](tools/action-pins.md), [pin updates](tools/pin-updates.md), [LLVM setup](tools/llvm-setup.md), [Linux container](tools/linux-container.md), [generated images](tools/generated-images.md).
 - Quality: [diagnostic coverage](tools/diagnostic-coverage.md), [stdlib doc gaps](tools/stdlib-doc-gaps.md), [determinism](tools/determinism.md), [coverage](tools/coverage.md), [Rust coverage](tools/rust-coverage.md), [sanitizers and Miri](tools/sanitizers.md), [mutation testing](tools/mutation-testing.md).
 - Language server: [project indexing](tools/lsp-project-indexing.md), [inclusion-graph audit](tools/lsp-graph-audit.md), [architecture plan](tools/lsp-architecture.md), [typing sessions](tools/lsp-fuzzing.md), [oracle](tools/lsp-oracle.md).
 - Fuzzing: [stdlib fuzzing](tools/stdlib-fuzzing.md).

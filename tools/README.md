@@ -150,7 +150,6 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `lsp_partial_edits.py` | Run source-built IDE correctness checks in timeout-isolated per-file processes. | - |
 | `pre_push_clippy.py` | Clippy for the crates a push changes, and the stdlib tests its stdlib changes can affect. | hook, tools |
 | `render_packages.py` | Render the Homebrew formula for a release from packaging/. | CI, tools |
-| `rust_item_spacing.py` | Enforce a blank line between Rust items, which rustfmt does not do. | tools |
 
 ## `developer_checks/`
 

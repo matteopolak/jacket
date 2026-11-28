@@ -46,7 +46,7 @@ class PreCommitHookTests(unittest.TestCase):
         (self.repo / ".githooks").mkdir()
         shutil.copy(REPO / ".githooks/pre-commit", self.repo / ".githooks/pre-commit")
         (self.repo / "tools/dev").mkdir(parents=True)
-        for script in ("dev.py", "build_slot.py", "rust_item_spacing.py", "staged-files.sh"):
+        for script in ("dev.py", "build_slot.py", "staged-files.sh"):
             shutil.copy(REPO / "tools/dev" / script, self.repo / "tools/dev" / script)
         shutil.copy(REPO / "tools/repo_output.py", self.repo / "tools/repo_output.py")
         shutil.copytree(
@@ -321,15 +321,16 @@ class PreCommitHookTests(unittest.TestCase):
         self.env["JACKET_HOOKS_NO_CARGO"] = "1"
         self.tool("target/jaifmt")
         self.tool("target/debug/jailint")
-        self.write("crates/x/src/lib.rs", "fn a() {\n    1;\n}\nfn  b( ) { }\n")
+        self.tool("target/debug/rust-spacing")
+        self.write("crates/x/src/lib.rs", "BAD\n")
         self.write("Cargo.toml", "[package]\n")
         self.write("a.jai", "main :: () {}\n")
         sh(["git", "add", "crates", "Cargo.toml", "a.jai"], self.repo)
         result = self.commit()
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertNotIn("cargo not found", result.stderr)
-        # The spacing check needs no cargo and still runs; the unformatted file is rustfmt's, which is skipped.
-        self.assertIn("needs item spacing", result.stderr)
+        # A prebuilt rust-spacing still runs; rustfmt, which needs cargo, is skipped.
+        self.assertIn("needs blank lines", result.stderr)
         self.write("crates/x/src/lib.rs", "fn a() {\n    1;\n}\n")
         sh(["git", "add", "crates"], self.repo)
         self.write("b.jai", "BAD\n")
@@ -372,13 +373,22 @@ class PreCommitHookTests(unittest.TestCase):
         result = self.commit()
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_item_spacing_is_checked(self):
-        self.write("crates/x/src/lib.rs", "fn a() {\n    1;\n}\nfn b() {\n    2;\n}\n")
+    def test_rust_spacing_is_checked(self):
+        # A stand-in for the built binary: it fails on a file containing BAD.
+        self.tool("target/debug/rust-spacing")
+        self.write("crates/x/src/lib.rs", "BAD\n")
         sh(["git", "add", "crates"], self.repo)
         result = self.commit()
         self.assertEqual(result.returncode, 1, result.stderr)
-        self.assertIn("needs item spacing: crates/x/src/lib.rs", result.stderr)
-        self.assertIn("python3 tools/dev/rust_item_spacing.py", result.stderr)
+        self.assertIn("rust-spacing: needs blank lines", result.stderr)
+        self.assertIn("cargo run -p rust-spacing", result.stderr)
+
+    def test_a_missing_rust_spacing_binary_is_reported_without_a_build(self):
+        self.write("crates/x/src/lib.rs", "fn a() {}\n")
+        sh(["git", "add", "crates"], self.repo)
+        result = self.commit()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("no rust-spacing built", result.stderr)
 
     def test_rustfmt_checks_staged_rust(self):
         if shutil.which("rustfmt") is None:

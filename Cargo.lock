@@ -674,6 +674,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cab834c73d247e67f4fae452806d17d3c7501756d98c8808d7c9c7aa7d18f973"
 
 [[package]]
+name = "rust-spacing"
+version = "0.40.0"
+dependencies = [
+ "proc-macro2",
+ "syn",
+]
+
+[[package]]
 name = "rustix"
 version = "1.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"

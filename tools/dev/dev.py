@@ -115,6 +115,13 @@ def ensure_jailint(jobs: str, release: bool = False) -> Path:
     return cargo_binary("jailint", "release" if release else "debug")
 
 
+def ensure_spacing(jobs: str) -> Path:
+    """The rust-spacing binary (tools/rust-spacing), which adds the blank lines rustfmt leaves out."""
+    if cargo_build(["-p", "rust-spacing"], jobs):
+        sys.exit("could not build rust-spacing")
+    return cargo_binary("rust-spacing")
+
+
 def jaifmt_stamp(out: Path) -> Path:
     """Next to a built jaifmt: the checkout it was built in. A shared cargo target directory can hold one
     built in another checkout (a deleted worktree's), whose sources and mtimes mean nothing here."""
@@ -339,16 +346,17 @@ def cmd_fmt(args) -> int:
         failed |= bool(run([str(jaifmt), *(["--check"] if args.check else []), *(jai or JAI_DIRS)]))
     if wants(args.lang, "rust") and (whole or rust):
         check = ["--check"] if args.check else []
-        spacing = [sys.executable, str(ROOT / "tools" / "dev" / "rust_item_spacing.py"), *check]
         if whole and args.check and sys.version_info >= (3, 11):
             # CI's check: also fails when an authored crate is outside the formatted workspace.
             failed |= bool(run([sys.executable, str(ROOT / "tools" / "dev" / "check_rust_format.py")]))
-        elif whole:
-            failed |= bool(run(["cargo", "fmt", "--all", *(["--", "--check"] if args.check else [])]))
-            failed |= bool(run(spacing))
         else:
-            failed |= bool(run(["rustfmt", "--edition", "2024", *check, *rust]))
-            failed |= bool(run([*spacing, *rust]))
+            spacing = [str(ensure_spacing(args.jobs)), *check]
+            if whole:
+                failed |= bool(run(["cargo", "fmt", "--all", *(["--", "--check"] if args.check else [])]))
+                failed |= bool(run(spacing))
+            else:
+                failed |= bool(run(["rustfmt", "--edition", "2024", *check, *rust]))
+                failed |= bool(run([*spacing, *rust]))
     return int(failed)
 
 
@@ -735,6 +743,20 @@ def hook_jailint(hook: Hook) -> str | None:
     return str(fresh[0]) if fresh else None
 
 
+def hook_spacing(hook: Hook) -> str | None:
+    """The debug rust-spacing cargo builds from this checkout, else (without a build) an existing one newer than
+    its sources, else None."""
+    if not hook.no_build and hook.need_cargo("build rust-spacing"):
+        hook.say("building rust-spacing")
+        status, output = run_captured(["cargo", "build", "--quiet", "-p", "rust-spacing"])
+        if status == 0:
+            return str(cargo_binary("rust-spacing", "debug"))
+        hook.fail("cargo build -p rust-spacing", output)
+        return None
+    binary = cargo_binary("rust-spacing", "debug")
+    return str(binary) if binary.is_file() and not stale(binary, "tools/rust-spacing", "Cargo.lock") else None
+
+
 def check_jai(hook: Hook, jai: list[str]) -> None:
     if not hook.skipped("jaifmt"):
         jaifmt = hook_jaifmt(hook)
@@ -784,15 +806,16 @@ def check_rust(hook: Hook, rust: list[str]) -> None:
                 hook.failed = True
                 hook.fixes.append("cargo fmt --all")
     if not hook.skipped("spacing"):
-        spacing = ROOT / "tools" / "dev" / "rust_item_spacing.py"
-        if not spacing.is_file():
-            hook_warn("tools/dev/rust_item_spacing.py not found; skipping the Rust item spacing check")
+        spacing = hook_spacing(hook)
+        if spacing is None:
+            hook_warn("no rust-spacing built from this checkout (cargo build -p rust-spacing); skipping the Rust spacing check")
         else:
-            # It runs in the export, so a relative PYTHONPATH from the caller would not find toolkit/.
-            env = dict(os.environ, PYTHONPATH=str(ROOT / "tools"))
-            status, output = run_captured([sys.executable, str(spacing), "--check", *rust], cwd=hook.tmp, env=env)
+            hook.say("rust-spacing --check")
+            status, output = run_captured([spacing, "--check", *rust], cwd=hook.tmp)
             if status:
-                hook.fail("PYTHONPATH=tools python3 tools/dev/rust_item_spacing.py <files>", output.replace(f"{hook.tmp}/", ""))
+                hook.failed = True
+                hook.fixes.append("cargo run -p rust-spacing")
+                sys.stderr.write("rust-spacing: needs blank lines:\n" + output.replace(f"{hook.tmp}/", ""))
 
 
 def check_shell(hook: Hook, shell: list[str]) -> None:
