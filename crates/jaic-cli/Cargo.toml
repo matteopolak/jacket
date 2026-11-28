@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Command line driver for the jaic compiler core."
+autotests = false
 
 [[bin]]
 name = "jaic"
@@ -55,4 +56,29 @@ workspace = true
 
 [[test]]
 name = "native"
+path = "tests/native.rs"
 required-features = ["llvm"]
+
+[[test]]
+name = "integration"
+path = "tests/main.rs"
+
+[[test]]
+name = "debug_info"
+path = "tests/debug_info.rs"
+
+[[test]]
+name = "embedded_data"
+path = "tests/embedded_data.rs"
+
+[[test]]
+name = "objc_selectors"
+path = "tests/objc_selectors.rs"
+
+[[test]]
+name = "optimized_split"
+path = "tests/optimized_split.rs"
+
+[[test]]
+name = "stdlib_targets"
+path = "tests/stdlib_targets.rs"

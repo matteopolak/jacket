@@ -32,6 +32,15 @@ To add a recipe, give it a doc comment and a `[group(...)]`, keep the body to on
 
 `cargo nextest run --profile ci`. Settings are in `.config/nextest.toml`, which lists tests left out because they need separately supplied sources; add to `default-filter` to skip another. Nextest does not run doctests, so `just test` runs `cargo test --doc` too. The compiler and stdlib test tools are in [testing](testing.md).
 
+Each crate's integration tests build as one binary, `integration`, from `tests/main.rs`: every file in `tests/` is a module there, so the compiler is linked once per crate rather than once per file. The crates set `autotests = false`, so cargo no longer finds a new file by itself. Add it to `tests/main.rs`:
+
+```rust
+#[path = "new_feature.rs"]
+mod new_feature;
+```
+
+`every_test_file_is_built` in each `main.rs` fails, naming the line to add, when a file is missing (`test_support::layout`). A file another test declares with `mod name;` is a support module and needs no line. Tests CI runs on their own (`native`, `stdlib_targets`, `scale`, ...) stay separate `[[test]]` targets in `Cargo.toml`. Select tests by module, not binary: `cargo nextest run -p jaic -E 'test(/^modules::/)'`, or `--test integration modules::`.
+
 ## Pre-commit hook
 
 `.githooks/pre-commit` runs `python3 tools/dev/dev.py precommit`. Enable it with `just hooks`; skip once with `--no-verify`. It checks the staged contents exported to a temp directory, so a partly staged file is checked as staged. The hook path is relative, so each worktree runs its own hooks. It fails with an install hint when `python3` is missing; use `--no-verify` to skip it.

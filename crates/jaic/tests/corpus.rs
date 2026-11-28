@@ -1,4 +1,4 @@
-//! Corpus sweep: `JAIC_CORPUS_ROOT=<repo> JAIC_CORPUS_STAGE=lex|parse cargo test -p jaic --test corpus -- --ignored --nocapture`.
+//! Corpus sweep: `JAIC_CORPUS_ROOT=<repo> JAIC_CORPUS_STAGE=lex|parse cargo test -p jaic --test integration corpus:: -- --ignored --nocapture`.
 //! Walks public upstream projects and standard-library sources and reports failures.
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+autotests = false
 
 [[bin]]
 name = "jailsp"
@@ -26,3 +27,15 @@ test-support = { path = "../test-support", features = ["lsp"] }
 
 [lints]
 workspace = true
+
+[[test]]
+name = "integration"
+path = "tests/main.rs"
+
+[[test]]
+name = "postgres_typed_queries"
+path = "tests/postgres_typed_queries.rs"
+
+[[test]]
+name = "scale"
+path = "tests/scale.rs"

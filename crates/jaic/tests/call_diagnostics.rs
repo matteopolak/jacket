@@ -3,8 +3,7 @@ use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
 use test_support::compiler::bare_compiler as compiler;
 
-#[path = "support/reflection_bootstrap.rs"]
-mod bootstrap;
+use crate::reflection_bootstrap as bootstrap;
 
 
 #[test]

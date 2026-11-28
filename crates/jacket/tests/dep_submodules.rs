@@ -1,6 +1,6 @@
 //! What `jacket dep` leaves in the repository, read back with git itself: the state must be the
 //! one `git submodule` would have written, so plain git keeps working on the project.
-mod dep_support;
+use crate::dep_support;
 use dep_support::{Origin, Project, git, run_in};
 
 const MODULE: &[(&str, &str)] = &[("module.jai", "answer :: 42;\n")];

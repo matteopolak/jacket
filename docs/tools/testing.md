@@ -33,7 +33,7 @@ Options: `--filter`, `--verbose`, `--timeout`, `--jobs`, `--memory-limit GIB` (d
 - The memory limit reaches `jaic` as `JAIC_MEMORY_LIMIT`; it exits 120 past it.
 - The sweep refuses a `jaic` older than the compiler sources.
 - `upstream` needs `PYTHONPATH=tools python3 tools/fetch_upstreams.py` first.
-- `cargo test -p jaic-cli --test examples` checks every program in `examples/` for each OS its row in `PROGRAMS` lists. A new example fails until it has a row and a case in `tests/corpus/examples.json`.
+- `cargo test -p jaic-cli --test integration examples::` checks every program in `examples/` for each OS its row in `PROGRAMS` lists. A new example fails until it has a row and a case in `tests/corpus/examples.json`.
 
 Adding cases:
 

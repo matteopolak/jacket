@@ -169,9 +169,25 @@ def packages(files: set[str]) -> list[str]:
 
 
 def x86_only_tests(package: str) -> list[str]:
-    """The integration tests of `package` with x86-64-gated code (whole-file or per item)."""
-    tests = ROOT / "crates" / package / "tests"
-    return sorted(f.stem for f in tests.glob("*.rs") if X86_ONLY_TEST.search(f.read_text()))
+    """The test targets of `package` holding x86-64-gated code (whole-file or per item).
+
+    A file that is its own `[[test]]` in `Cargo.toml` is that target; every other file is a
+    module of the `integration` target (`tests/main.rs`), and so is a file in a folder, unless the
+    folder holds a target's modules (`native/` for `native.rs`).
+    """
+    crate = ROOT / "crates" / package
+    own = dict(re.findall(r'\[\[test\]\]\nname = "([^"]+)"\npath = "tests/([^"]+)"', (crate / "Cargo.toml").read_text()))
+    # A target's file and the folder of the same name, which holds its modules.
+    owner = {}
+    for name, path in own.items():
+        owner[path] = name
+        owner[path.removesuffix(".rs").removesuffix("/main")] = name
+    targets = set()
+    for f in (crate / "tests").rglob("*.rs"):
+        if X86_ONLY_TEST.search(f.read_text()):
+            relative = f.relative_to(crate / "tests").as_posix()
+            targets.add(owner.get(relative) or owner.get(relative.split("/")[0]) or "integration")
+    return sorted(targets)
 
 
 def lint_x86_tests(selected: list[str]) -> int:

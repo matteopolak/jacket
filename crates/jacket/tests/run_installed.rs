@@ -1,8 +1,7 @@
 //! `jacket run` on a project `jacket new` made, with the tools laid out like a release archive
 //! (`jacket` and `jaic` side by side). The project's build metaprogram
 //! names its own executable, which `jacket` cannot work out from the command line.
-#[path = "support/installed.rs"]
-mod installed;
+use crate::installed;
 use installed::{archive, jacket, scratch, stdlib};
 use std::process::Command;
 

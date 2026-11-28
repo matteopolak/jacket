@@ -2,8 +2,7 @@
 use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
 
-#[path = "support/reflection_bootstrap.rs"]
-mod bootstrap;
+use crate::reflection_bootstrap as bootstrap;
 
 const STORAGE: &str = r"
     Storage :: struct(Elem: Type, chunk: int, mode := false) { data: *Elem; }

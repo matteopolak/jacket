@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Lints for Jai programs, run on jaic's type-checked program."
+autotests = false
 
 [[bin]]
 name = "jailint"
@@ -31,3 +32,7 @@ test-support = { path = "../test-support" }
 
 [lints]
 workspace = true
+
+[[test]]
+name = "integration"
+path = "tests/main.rs"

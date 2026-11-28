@@ -1,6 +1,6 @@
 //! `[resolver] dedupe`: one copy of each shared module, checked on local repositories and by
 //! compiling the result.
-mod dep_support;
+use crate::dep_support;
 use dep_support::{Origin, Project, Run, git};
 use std::collections::BTreeMap;
 use std::path::Path;

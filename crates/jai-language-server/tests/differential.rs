@@ -7,7 +7,7 @@
 //! The default is a few short sequences. For a long run:
 //!
 //! ```sh
-//! JAI_DIFF_STEPS=60 JAI_DIFF_SEEDS=20 cargo nextest run -p jai-language-server --test differential
+//! JAI_DIFF_STEPS=60 JAI_DIFF_SEEDS=20 cargo nextest run -p jai-language-server --test integration differential::
 //! ```
 //!
 //! `JAI_DIFF_SEED=n` replays one seed. A failure prints the seed, the step and the events so far.

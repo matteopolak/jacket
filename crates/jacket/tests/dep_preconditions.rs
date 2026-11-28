@@ -1,6 +1,6 @@
 //! What `jacket dep` does when git is missing or a remote cannot be read: it stops before
 //! changing anything and says what to do.
-mod dep_support;
+use crate::dep_support;
 use dep_support::{Origin, Project};
 
 const MODULE: &[(&str, &str)] = &[("module.jai", "answer :: 42;\n")];

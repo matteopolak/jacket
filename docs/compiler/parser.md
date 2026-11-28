@@ -35,4 +35,4 @@ Gotchas:
 - `continues_after_block` stops `(`, `[`, `*`, `-`, `+`, `<<` and `.` at the start of a line after `}` from continuing the previous expression.
 - `AstId::fresh()` numbers are unique across threads but follow thread timing.
 
-Corpus runs: `JAIC_CORPUS_ROOT=/path JAIC_CORPUS_STAGE=lex|parse cargo test -p jaic --test corpus -- --ignored --nocapture`.
+Corpus runs: `JAIC_CORPUS_ROOT=/path JAIC_CORPUS_STAGE=lex|parse cargo test -p jaic --test integration corpus:: -- --ignored --nocapture`.

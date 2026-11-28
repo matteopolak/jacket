@@ -1,5 +1,5 @@
 //! Version schemes, prefixes and ranges against local bare repositories with many tags.
-mod dep_support;
+use crate::dep_support;
 use dep_support::{Origin, Project, git};
 
 fn tagged(names: &[&str]) -> (Project, Origin) {

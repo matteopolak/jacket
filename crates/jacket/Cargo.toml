@@ -7,6 +7,7 @@ license.workspace = true
 repository.workspace = true
 documentation.workspace = true
 description = "The jacket command: one front door to the Jai compiler, linter, formatter and language server."
+autotests = false
 
 [[bin]]
 name = "jacket"
@@ -35,3 +36,7 @@ test-support = { path = "../test-support" }
 
 [lints]
 workspace = true
+
+[[test]]
+name = "integration"
+path = "tests/main.rs"

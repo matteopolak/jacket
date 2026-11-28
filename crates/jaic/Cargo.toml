@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Jai compiler core: lexer, parser, demand-driven semantic analysis, IR and interpreter."
+autotests = false
 
 [features]
 # Count the in-place writes shared compiler state takes while a body is checked
@@ -26,3 +27,7 @@ test-support = { path = "../test-support", features = ["compiler"] }
 
 [lints]
 workspace = true
+
+[[test]]
+name = "integration"
+path = "tests/main.rs"

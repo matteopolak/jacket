@@ -3,7 +3,7 @@
 A seeded checker that types into documents the way an editor does and asks the language server the same questions before, during and after, to find answers that get lost, change or contradict a fresh start. Run it after touching `jai-language-server`, the IDE parts of `jaic` (`parser/ide.rs`, `ide/`, `sema/ide_sketch.rs`) or incremental analysis.
 
 ```sh
-cargo test -p jai-language-server --test typing_session        # fast slice, fixed seeds
+cargo test -p jai-language-server --test integration typing_session::        # fast slice, fixed seeds
 cargo run --release -p jai-language-server --example typing_fuzz -- \
     --seeds 0..20 --scenarios 6 --diff-every 7 stdlib/Hash/tests/scalars.jai examples/*.jai
 fuzz/run.sh lsp_typing 600                                      # libFuzzer

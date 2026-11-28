@@ -5,8 +5,7 @@
     dead_code,
     reason = "each includer uses only some helpers of the shared file"
 )]
-#[path = "../examples/support/typing_files.rs"]
-mod typing_files;
+use crate::typing_files;
 
 use jai_language_server::{Limits, Position, Range, SemanticTokenKind, Session, TextChange};
 use std::path::Path;

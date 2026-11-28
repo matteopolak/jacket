@@ -1,12 +1,11 @@
 //! A fixed-seed slice of the typing-session checker (see docs/tools/lsp-fuzzing.md). The example
 //! `typing_fuzz` runs the same checker over many more files and seeds.
-#[path = "../examples/support/typing_files.rs"]
-mod typing_files;
+use crate::typing_files;
 #[path = "../examples/support/typing_session.rs"]
-mod typing_session;
+mod checker;
 
+use checker::{Config, Input, Seeded};
 use std::path::{Path, PathBuf};
-use typing_session::{Config, Input, Seeded};
 
 fn repository() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -28,7 +27,7 @@ fn check(file: &str, seeds: std::ops::Range<u64>, config: &Config) -> Vec<String
     };
     let mut problems = Vec::new();
     for seed in seeds {
-        let report = typing_session::run(&input, config.clone(), Seeded(seed));
+        let report = checker::run(&input, config.clone(), Seeded(seed));
         assert!(
             report.versions > 20,
             "{file} seed {seed}: {} versions",
@@ -37,8 +36,7 @@ fn check(file: &str, seeds: std::ops::Range<u64>, config: &Config) -> Vec<String
         for failure in &report.failures {
             let mut text = format!("{file} seed {seed}: {failure}");
             for (doc, history) in &report.histories {
-                if let Some(small) = typing_session::minimise_history(&input, *doc, history, config)
-                {
+                if let Some(small) = checker::minimise_history(&input, *doc, history, config) {
                     text.push_str("\nminimised edits:");
                     for step in &small.steps {
                         text.push_str(&format!("\n  {:?}", step.text));

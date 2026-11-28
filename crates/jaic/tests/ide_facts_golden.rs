@@ -7,7 +7,7 @@
 //! same-named siblings in that file), so editing the library never rewrites a dump.
 //!
 //! The dumps are `insta` snapshots in `tests/snapshots/`. After an intended change to what is
-//! recorded, rewrite them with `INSTA_UPDATE=always cargo test -p jaic --test ide_facts_golden`
+//! recorded, rewrite them with `INSTA_UPDATE=always cargo test -p jaic --test integration ide_facts_golden::`
 //! (or `cargo insta review`) and read the diff.
 use jaic::fxhash::HashMap;
 use jaic::ide::{IdeFacts, IdeRoot};

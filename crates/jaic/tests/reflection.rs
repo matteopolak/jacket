@@ -2,8 +2,7 @@
 use jaic::sema::{Compiler, Options, VirtualFs};
 use std::{path::Path, rc::Rc};
 
-#[path = "support/reflection_bootstrap.rs"]
-mod bootstrap;
+use crate::reflection_bootstrap as bootstrap;
 use bootstrap::BOOTSTRAP;
 
 #[test]

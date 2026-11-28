@@ -1,5 +1,5 @@
 //! `[package]` in a dependency's own `jacket.toml`: module discovery, names and requirements.
-mod dep_support;
+use crate::dep_support;
 use dep_support::{Origin, Project};
 
 const MODULE: &[(&str, &str)] = &[("module.jai", "answer :: 42;\n")];

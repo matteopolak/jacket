@@ -9,8 +9,7 @@ use jaic::{
 };
 use std::{path::Path, rc::Rc};
 
-#[path = "support/reflection_bootstrap.rs"]
-mod bootstrap;
+use crate::reflection_bootstrap as bootstrap;
 
 fn compiler(source: &str) -> Compiler {
     let mut fs = VirtualFs::default();

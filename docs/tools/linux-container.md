@@ -5,7 +5,7 @@
 ```sh
 tools/dev/linux_x64.sh build
 tools/dev/linux_x64.sh test -p jaic --lib guard
-LINUX_ARCH=arm64 tools/dev/linux_x64.sh test -p jaic-cli --test wild_pointers
+LINUX_ARCH=arm64 tools/dev/linux_x64.sh test -p jaic-cli --test integration wild_pointers::
 tools/dev/linux_x64.sh run -m "$PWD/scratch" -- -check /repo/examples/basics/main.jai
 tools/dev/linux_x64.sh shell
 ```

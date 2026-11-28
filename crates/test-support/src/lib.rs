@@ -19,6 +19,7 @@
 
 pub mod determinism;
 pub mod ir;
+pub mod layout;
 pub mod plugin;
 pub mod process;
 pub mod repo;

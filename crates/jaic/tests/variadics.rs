@@ -6,8 +6,7 @@ use std::rc::Rc;
 mod source;
 use source::SOURCE;
 
-#[path = "support/reflection_bootstrap.rs"]
-mod bootstrap;
+use crate::reflection_bootstrap as bootstrap;
 
 #[test]
 fn baked_mixed_type_packs_preserve_relocations_and_deduplicate_instances() {

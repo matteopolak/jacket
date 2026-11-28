@@ -1,6 +1,5 @@
 //! Native test builds include the lines their compile-time generators ran.
-#[path = "support/installed.rs"]
-mod installed;
+use crate::installed;
 use installed::{archive, jacket, scratch};
 
 #[test]
