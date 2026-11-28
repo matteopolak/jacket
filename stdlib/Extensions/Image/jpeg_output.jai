@@ -1,4 +1,5 @@
 // Inverse DCT, chroma upsampling and colour conversion of the JPEG decoder.
+#scope_module
 
 // The 8x8 inverse DCT is a separable integer transform with 13-bit constants: a column pass
 // that keeps two extra fractional bits, then a row pass that rounds, adds the level shift of 128

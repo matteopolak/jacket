@@ -395,6 +395,22 @@ fn a_failed_assert_reports_and_panics() {
 }
 
 #[test]
+fn a_failed_runtime_check_reports_its_reason_and_aborts() {
+    let Some(out) = run("bounds", &board("bounds.jai", "DEBUG")) else {
+        return;
+    };
+
+    assert!(!out.status.success(), "{out:?}");
+    let stdout = console(&out);
+
+    assert!(
+        stdout.contains("array bounds check failed: index 5 is outside an array of 3 elements"),
+        "{stdout}"
+    );
+    assert!(!stdout.contains("not reached"), "{stdout}");
+}
+
+#[test]
 fn the_runtime_memory_functions_are_correct_at_every_optimization_level() {
     let expected = "copy true\nmove up true\nmove down true\nset true true\n\
                     struct 2 4\ncmp true true\n";

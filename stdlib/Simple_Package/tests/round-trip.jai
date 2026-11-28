@@ -79,8 +79,7 @@ main :: () {
 
     assert(P.init_from_file(*file_package, sorted_path));
     all_ok &= check_entries("file", *file_package);
-    free(file_package.data.data);
-    release(*file_package);
+    P.free_package(*file_package);
 
     ordered_bytes, ordered_ok := F.read_entire_file(ordered_path);
 

@@ -26,7 +26,7 @@ encode_archive :: (items: [] Archive_Item, format: Archive_Format, limits := Arc
 // Every item is checked before anything is written: an invalid name (bad UTF-8 or a NUL),
 // a payload on a non-file, a link in a ZIP or a special entry fails with `.INVALID` or
 // `.UNSUPPORTED`, and sizes past `limits` with `.LIMIT`. A `.DEFLATE` item is compressed in memory
-// first; `.TAR_GZIP` builds the whole TAR in memory. A ZIP entry over 4 GiB is written as ZIP64. A
+// first; `.TAR_GZIP` builds the whole TAR in memory. A ZIP entry over 4 GiB is written as ZIP64; `limits.zip64_from` lowers that cut-off. A
 // writer that returns `false` stops the call with `.IO`, after part of the archive was written.
 //
 // ```jai
@@ -87,7 +87,7 @@ write_archive :: (writer: Archive_Writer, items: [] Archive_Item, format: Archiv
     w: Archive_Output;
     w.writer = writer;
     w.limit = limits.max_archive;
-    if format == .ZIP return zip_write(*w, items);
+    if format == .ZIP return zip_write(*w, items, limits.zip64_from);
 
     return tar_write(*w, items);
 }
@@ -133,7 +133,8 @@ put :: (b: [] u8, p: s64, value: u64, width: s64) {
     for 0..width - 1 b[p + it] = cast,trunc(u8) (value >> cast(u64) (8 * it));
 }
 
-zip_write :: (w: *Archive_Output, items: [] Archive_Item) -> Archive_Error {
+zip_write :: (w: *Archive_Output, items: [] Archive_Item, zip64_from: s64) -> Archive_Error {
+    from := cast(u64) zip64_from;
     central: Archive_Buffer;
 
     defer array_free(central.bytes);
@@ -152,8 +153,8 @@ zip_write :: (w: *Archive_Output, items: [] Archive_Item) -> Archive_Error {
         size := cast(u64) it.data.count;
         compressed := cast(u64) packed.count;
         offset := cast(u64) w.at;
-        wide := size >= 0xffffffff || compressed >= 0xffffffff;
-        wide_offset := offset >= 0xffffffff;
+        wide := size >= from || compressed >= from;
+        wide_offset := offset >= from;
         crc := Deflate.crc32(it.data);
         h: [30] u8;
 
@@ -246,7 +247,7 @@ zip_write :: (w: *Archive_Output, items: [] Archive_Item) -> Archive_Error {
     emit(w, central.bytes);
     count := cast(u64) items.count;
     size := cast(u64) central.bytes.count;
-    wide := start >= 0xffffffff || size >= 0xffffffff || count >= 65535;
+    wide := start >= from || size >= from || count >= 65535;
 
     if wide {
         end := cast(u64) w.at;
@@ -272,10 +273,11 @@ zip_write :: (w: *Archive_Output, items: [] Archive_Item) -> Archive_Error {
     end: [22] u8;
 
     put(end, 0, 0x06054b50, 4);
-    put(end, 8, min(count, 65535), 2);
-    put(end, 10, min(count, 65535), 2);
-    put(end, 12, min(size, 0xffffffff), 4);
-    put(end, 16, min(start, 0xffffffff), 4);
+    // With ZIP64 records the classic fields hold the all-ones marker, which sends a reader to them.
+    put(end, 8, ifx wide then 65535 else count, 2);
+    put(end, 10, ifx wide then 65535 else count, 2);
+    put(end, 12, ifx wide then 0xffffffff else size, 4);
+    put(end, 16, ifx wide then 0xffffffff else start, 4);
     emit(w, end);
 
     return w.error;

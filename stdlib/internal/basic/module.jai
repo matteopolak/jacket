@@ -9,11 +9,19 @@
 #load "allocation.jai";
 #load "memory-debugger.jai";
 #load "leak-types.jai";
-#load "leak-traces.jai";
 #load "leak-reports.jai";
-#load "visualization-events.jai";
-#load "visualization.jai";
-#load "visualization-packets.jai";
+#load "leak-traces.jai";
+#load "visualization-api.jai";
+
+// The report builder and the memory viewer are only parsed when the memory
+// debugger is on: they are about a quarter of Basic's source.
+#if MEMORY_DEBUGGER {
+    #load "leak-builder.jai";
+    #load "visualization-events.jai";
+    #load "visualization.jai";
+    #load "visualization-packets.jai";
+}
+
 #load "arrays.jai";
 #load "scalar.jai";
 #load "builder.jai";

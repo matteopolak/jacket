@@ -4,6 +4,7 @@
 // counts the valid bits. Block decoders keep bits, nbits, pos, data and end in locals and use the
 // jpeg_ macros below on them. After a marker, or at the end of the data, the reader supplies zero
 // bits and counts them in `pad`; `pad > nbits` therefore means that padding has been consumed.
+#scope_module
 
 // One Huffman table, with lookup tables for codes of up to 9 bits and a slow path for longer ones.
 Jpeg_Huffman :: struct {

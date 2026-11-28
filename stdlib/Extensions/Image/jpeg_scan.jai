@@ -4,6 +4,7 @@
 // Sequential scans transform each block into its component plane as soon as it is decoded.
 // Progressive scans accumulate quantized coefficients (natural order, undequantized) in
 // Jpeg_Component.coefs and transform everything once the last scan is in.
+#scope_module
 
 JPEG_SEQUENTIAL :: 0;
 JPEG_DC_FIRST :: 1;

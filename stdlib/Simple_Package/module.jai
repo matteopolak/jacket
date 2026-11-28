@@ -36,6 +36,7 @@ KNOWN_HEADER_SIZE :: Impl.KNOWN_HEADER_SIZE;
 KNOWN_TABLE_OF_CONTENTS_SIZE :: Impl.KNOWN_TABLE_OF_CONTENTS_SIZE;
 init_from_memory :: Impl.init_from_memory;
 init_from_file :: Impl.init_from_file;
+free_package :: Impl.free_package;
 load_table_of_contents :: Impl.load_table_of_contents;
 load_table_of_contents_only :: Impl.load_table_of_contents_only;
 

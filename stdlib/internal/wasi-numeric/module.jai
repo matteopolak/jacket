@@ -2,8 +2,7 @@
 #scope_module
 B :: #import "Basic";
 
-libc :: #system_library "libc"; @native(external)
-errno_location :: () -> *s32 #foreign libc "__errno_location";
+#import "internal/libc";
 
 c_text :: (text: *u8) -> string #no_context {
     length: s64;
@@ -69,7 +68,7 @@ wasi_strtod :: (text: *u8, end: **u8) -> float64 #c_call {
     consumed := ifx success then original.count - rest.count else 0;
 
     if end end.* = text + consumed;
-    if success && range_error(original, consumed, value) errno_location().* = ERANGE;
+    if success && range_error(original, consumed, value) c_errno_address().* = ERANGE;
 
     return value;
 }
@@ -84,7 +83,7 @@ wasi_strtof :: (text: *u8, end: **u8) -> float32 #c_call {
     consumed := ifx success then original.count - rest.count else 0;
 
     if end end.* = text + consumed;
-    if success && range_error(original, consumed, value) errno_location().* = ERANGE;
+    if success && range_error(original, consumed, value) c_errno_address().* = ERANGE;
 
     return value;
 }

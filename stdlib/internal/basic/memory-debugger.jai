@@ -314,7 +314,7 @@ debug_record :: (owner: Allocator, memory: *void, size: s64, heap: bool, trace: 
         frame_allocated_bytes += cast(u64) size;
     }
 
-    if !heap visualization_note_locked(record, false, size);
+    #if MEMORY_DEBUGGER if !heap visualization_note_locked(record, false, size);
 
     debug_unlock();
 }
@@ -410,7 +410,7 @@ finish_release_locked :: (list: *Allocation) {
     event_record := released;
 
     while event_record {
-        if !event_record.heap visualization_note_locked(event_record, true, event_record.size);
+        #if MEMORY_DEBUGGER if !event_record.heap visualization_note_locked(event_record, true, event_record.size);
         event_record = event_record.next;
     }
 

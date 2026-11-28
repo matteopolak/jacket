@@ -11,6 +11,7 @@
 // its entry again. jaic does that only to programs that call `pthread_create`, and then sets
 // `green.enabled`; without it, a wait that nothing could end reports EDEADLK at once, as there
 // is no other thread. See docs/native/wasm-target.md.
+#scope_module
 
 // The compiler reads these by offset: state at 0, top at 8, limit at 16, enabled at 24.
 Green_Control :: struct {

@@ -177,7 +177,7 @@ ring_deinit :: (ring: *Ring) {
     if ring.sqes != null munmap(ring.sqes, ring.sqes_bytes);
     if ring.cq_ring != null && ring.cq_ring != ring.sq_ring munmap(ring.cq_ring, ring.cq_ring_bytes);
     if ring.sq_ring != null munmap(ring.sq_ring, ring.sq_ring_bytes);
-    if ring.fd >= 0 close(ring.fd);
+    if ring.fd >= 0 c_close(ring.fd);
 
     ring.* = .{};
 }
@@ -409,7 +409,6 @@ libc :: #system_library "libc"; @native(external)
 
 mmap :: (address: *void, length: u64, protection: s32, flags: s32, descriptor: s32, offset: s64) -> *void #foreign libc;
 munmap :: (address: *void, length: u64) -> s32 #foreign libc; @MaybeFreesArgument
-close :: (descriptor: s32) -> s32 #foreign libc; @FreesArgument
 
 PROT_READ_WRITE :: 3;
 MAP_SHARED :: 0x01;

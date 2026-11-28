@@ -28,6 +28,44 @@ Leaf :: struct {
     message: string;
 }
 
+// The notes of a `Table(string, V)` member that describe its values, handed to the table's code
+// as a compile-time argument: `@toml(range=1..16)` on a `Table(string, int)` limits every value.
+Value_Notes :: struct {
+    as_number: bool;
+    enum_rule := Rename_Rule.SNAKE;
+    has_range: bool;
+    low: s64;
+    high: s64;
+    message: string;
+}
+
+// The value notes of `leaf`, as the compile-time argument the table procedures take, or "" when
+// `info` is not a table of values or the leaf has none.
+notes_arg :: (leaf: *Leaf, info: *Type_Info) -> string {
+    if !is_map(info) return "";
+    if !leaf.as_number && !leaf.has_range && !leaf.message.count && leaf.enum_rule == .SNAKE return "";
+
+    return tprint(", Value_Notes.{ as_number = %, enum_rule = Rename_Rule.%, has_range = %, low = %, high = %, message = % }", leaf.as_number, leaf.enum_rule, leaf.has_range, leaf.low, leaf.high, jai_quote(leaf.message));
+}
+
+apply_notes :: (leaf: *Leaf, notes: Value_Notes) {
+    leaf.as_number = notes.as_number;
+    leaf.enum_rule = notes.enum_rule;
+    leaf.has_range = notes.has_range;
+    leaf.low = notes.low;
+    leaf.high = notes.high;
+    leaf.message = notes.message;
+}
+
+// The type that `range=` limits: the integer a table of integers, or a table of such tables, holds.
+range_target :: (info: *Type_Info) -> *Type_Info {
+    while is_map(info) {
+        _, info = map_types(info);
+    }
+
+    return info;
+}
+
 Plan :: struct {
     type_name: string;
     ok := true;
@@ -318,8 +356,8 @@ read_leaf :: (plan: *Plan, leaf: *Leaf, member: *Type_Info_Struct_Member, struct
         leaf.skip_serializing = true;
     }
 
-    if leaf.has_range && member.type.type != .INTEGER {
-        complain(plan.type_name, member.name, "`range=` needs an integer field");
+    if leaf.has_range && range_target(member.type).type != .INTEGER {
+        complain(plan.type_name, member.name, "`range=` needs an integer field, or a table of integers");
         ok = false;
     }
 
@@ -575,7 +613,7 @@ emit_read :: (g: *Gen, target: string, info: *Type_Info, leaf: *Leaf) {
             } else if is_map(info) && !has_string_keys(info) {
                 fail(g, "a Hash_Table must have string keys to be decoded from a table");
             } else {
-                print(out, "if !toml_inline(r, %, %) return false;\n", address_of(target), message);
+                print(out, "if !toml_inline(r, %, %%) return false;\n", address_of(target), message, notes_arg(leaf, info));
             }
         case;
             fail(g, tprint("cannot decode %", type_label(info)));
@@ -699,13 +737,15 @@ emit_step :: (g: *Gen, place: string, leaf: *Leaf) {
 
     if shape == .STRUCT || shape == .VALUE || shape == .POINTER {
         table := place;
+        shape_info := leaf.info;
 
         if shape == .POINTER {
             print(out, "if !% % = New(type_of(%.*));\n", place, place, place);
             table = tprint("%.*", place);
+            shape_info = (cast(*Type_Info_Pointer) leaf.info).pointer_to;
         }
 
-        print(out, "if step == .FINAL_ARRAY return toml_fail(r, .TYPE, \"key is not an array of tables\", r.statement_at);\nif !decl.child decl.child = toml_new_frame();\nif step == .FINAL_TABLE return true;\nreturn toml_descend(r, %, decl.child, keys, index + 1, op, nav);\n", address_of(table));
+        print(out, "if step == .FINAL_ARRAY return toml_fail(r, .TYPE, \"key is not an array of tables\", r.statement_at);\nif !decl.child decl.child = toml_new_frame();\nif step == .FINAL_TABLE return true;\nreturn toml_descend(r, %, decl.child, keys, index + 1, op, nav%);\n", address_of(table), notes_arg(leaf, shape_info));
 
         return;
     }
@@ -718,7 +758,7 @@ emit_step :: (g: *Gen, place: string, leaf: *Leaf) {
         print(out, "if decl.child {\nif decl.capacity {\nelement_mark := toml_path_index(r, decl.capacity - 1);\nif !toml_finish(r, *%[decl.capacity - 1], decl.child, decl.span.start) return false;\nr.path.count = element_mark;\n}\ntoml_free_frame(decl.child);\n}\n", place);
         print(out, "decl.child = toml_new_frame();\ndecl.capacity += 1;\nreturn true;\n}\n");
         print(out, "if step == .FINAL_TABLE || decl.kind != .ARRAY_TABLE || !decl.capacity return toml_fail(r, .TYPE, \"key is not a table\", r.statement_at);\n");
-        print(out, "array_add(*r.path, Toml_Path_Part.{ index = decl.capacity - 1 });\nreturn toml_descend(r, *%[decl.capacity - 1], decl.child, keys, index + 1, op, nav);\n", place);
+        print(out, "array_add(*r.path, Toml_Path_Part.{ index = decl.capacity - 1 });\nreturn toml_descend(r, *%[decl.capacity - 1], decl.child, keys, index + 1, op, nav%);\n", place, notes_arg(leaf, (cast(*Type_Info_Array) leaf.info).element_type));
 
         return;
     }
@@ -736,12 +776,12 @@ emit_step :: (g: *Gen, place: string, leaf: *Leaf) {
 
     print(out, "return true;\n}\n");
     print(out, "if step == .FINAL_TABLE || decl.kind != .ARRAY_TABLE || !%.count return toml_fail(r, .TYPE, \"key is not a table\", r.statement_at);\n", place);
-    print(out, "array_add(*r.path, Toml_Path_Part.{ index = %.count - 1 });\nreturn toml_descend(r, *%[%.count - 1], decl.child, keys, index + 1, op, nav);\n", place, place, place);
+    print(out, "array_add(*r.path, Toml_Path_Part.{ index = %.count - 1 });\nreturn toml_descend(r, *%[%.count - 1], decl.child, keys, index + 1, op, nav%);\n", place, place, place, notes_arg(leaf, (cast(*Type_Info_Array) leaf.info).element_type));
 }
 
 // The descent into a `Table(string, V)`: each key is a record in the frame, and the value is
 // added to the table the first time the key is declared.
-generate_map_descend :: (T: Type) -> string {
+generate_map_descend :: (T: Type, notes: Value_Notes) -> string {
     g: Gen;
     info := type_info(T);
     key, element := map_types(info);
@@ -757,6 +797,7 @@ generate_map_descend :: (T: Type) -> string {
     leaf: Leaf;
 
     leaf.info = element;
+    apply_notes(*leaf, notes);
 
     print(*g.out, "key := keys[index];\nstep := toml_step(op, index, keys.count, nav);\npath_mark := r.path.count;\narray_add(*r.path, Toml_Path_Part.{ name = key });\ndefer r.path.count = path_mark;\nentry := toml_frame_entry(r, frame, key);\nfresh := !entry.decl.declared;\ndecl := *entry.decl;\nif !toml_enter(r, decl, step, r.statement_at) return false;\n");
     print(*g.out, "if fresh {\nitem: type_of(out.entries[0].value);\ntable_add(out, copy_string(key), item);\n}\nslot := table_find_pointer(out, key);\n");
@@ -767,11 +808,11 @@ generate_map_descend :: (T: Type) -> string {
     return builder_to_string(*g.out,, temp);
 }
 
-generate_descend :: (T: Type) -> string {
+generate_descend :: (T: Type, notes: Value_Notes) -> string {
     info := type_info(T);
 
     if is_value(info) return "return toml_descend_value(r, out, frame, keys, index, op, nav);";
-    if is_map(info) return generate_map_descend(T);
+    if is_map(info) return generate_map_descend(T, notes);
 
     g: Gen;
     plan := analyze(T);
@@ -1085,7 +1126,7 @@ emit_write :: (g: *Gen, value: string, info: *Type_Info, leaf: *Leaf) {
         case .STRUCT;
             if is_datetime(info) print(out, "toml_write_datetime(w, %);\n", address_of(value));
             else if is_value(info) print(out, "toml_write_value(w, %, w.depth);\n", address_of(value));
-            else print(out, "toml_encode_inline(w, %);\n", address_of(value));
+            else print(out, "toml_encode_inline(w, %%);\n", address_of(value), notes_arg(leaf, info));
         case;
             fail(g, tprint("cannot encode %", type_label(info)));
     }
@@ -1201,21 +1242,21 @@ emit_member_table :: (g: *Gen, leaf: *Leaf, key: string, value: string) {
     print(out, "if % {\nmark := w.path.count;\narray_add(*w.path, Toml_Path_Part.{ name = % });\n", condition, key);
 
     if shape == .STRUCT {
-        print(out, "toml_write_header(w, false);\ntoml_encode_body(w, %);\n", address_of(value));
+        print(out, "toml_write_header(w, false);\ntoml_encode_body(w, %%);\n", address_of(value), notes_arg(leaf, leaf.info));
     } else if shape == .POINTER {
-        print(out, "toml_write_header(w, false);\ntoml_encode_body(w, %);\n", value);
+        print(out, "toml_write_header(w, false);\ntoml_encode_body(w, %%);\n", value, notes_arg(leaf, (cast(*Type_Info_Pointer) leaf.info).pointer_to));
     } else if shape == .VALUE {
         print(out, "if toml_is_header_table(%) {\ntoml_write_header(w, false);\ntoml_encode_body(w, %);\n} else if toml_is_table_array(%) {\n", address_of(value), address_of(value), address_of(value));
         print(out, "if !toml_begin_value(w) return;\nfor item: %.items {\nitem_mark := toml_path_index_for_write(w, it_index);\ntoml_write_header(w, true);\ntoml_encode_body(w, item);\nw.path.count = item_mark;\nif w.error.kind != .NONE break;\n}\ntoml_end_value(w);\n}\n", value);
     } else {
-        print(out, "if !toml_begin_value(w) return;\nfor *item: % {\nitem_mark := toml_path_index_for_write(w, it_index);\ntoml_write_header(w, true);\ntoml_encode_body(w, item);\nw.path.count = item_mark;\nif w.error.kind != .NONE break;\n}\ntoml_end_value(w);\n", value);
+        print(out, "if !toml_begin_value(w) return;\nfor *item: % {\nitem_mark := toml_path_index_for_write(w, it_index);\ntoml_write_header(w, true);\ntoml_encode_body(w, item%);\nw.path.count = item_mark;\nif w.error.kind != .NONE break;\n}\ntoml_end_value(w);\n", value, notes_arg(leaf, (cast(*Type_Info_Array) leaf.info).element_type));
     }
 
     print(out, "w.path.count = mark;\n}\n");
 }
 
 // The entries of a `Table(string, V)` as the members of a table, or null if it cannot be written.
-map_leaf :: (g: *Gen, info: *Type_Info) -> *Leaf {
+map_leaf :: (g: *Gen, info: *Type_Info, notes: Value_Notes) -> *Leaf {
     key, element := map_types(info);
 
     if key.type != .STRING {
@@ -1227,12 +1268,13 @@ map_leaf :: (g: *Gen, info: *Type_Info) -> *Leaf {
     leaf := New(Leaf,, temp);
 
     leaf.info = element;
+    apply_notes(leaf, notes);
 
     return leaf;
 }
 
 // Writes `key = value` lines then the sub-tables, for the body of a table or array element.
-generate_body_encoder :: (T: Type) -> string {
+generate_body_encoder :: (T: Type, notes: Value_Notes) -> string {
     g: Gen;
     info := type_info(T);
 
@@ -1242,7 +1284,7 @@ generate_body_encoder :: (T: Type) -> string {
 
     if is_map(info) {
         g.type_name = tprint("%", T);
-        leaf := map_leaf(*g, info);
+        leaf := map_leaf(*g, info, notes);
 
         if !leaf return "";
 
@@ -1288,14 +1330,14 @@ generate_body_encoder :: (T: Type) -> string {
 }
 
 // `{ key = value, ... }`, for a struct inside an array or another inline table.
-generate_inline_encoder :: (T: Type) -> string {
+generate_inline_encoder :: (T: Type, notes: Value_Notes) -> string {
     g: Gen;
     info := type_info(T);
     out := *g.out;
 
     if is_map(info) {
         g.type_name = tprint("%", T);
-        leaf := map_leaf(*g, info);
+        leaf := map_leaf(*g, info, notes);
 
         if !leaf return "";
 

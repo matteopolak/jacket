@@ -66,6 +66,9 @@ c_getenv :: (name: *u8) -> *u8 #foreign libc "getenv";
         return read(fd, data, cast,trunc(C_Size) count);
     }
 
+    // Close `fd`; 0, or -1 with `errno` set.
+    c_close :: (fd: s32) -> s32 #foreign libc "close"; @FreesArgument
+
     // Write up to `count` bytes of `data` to `fd`; the count written, or -1.
     c_write :: inline (fd: s32, data: *void, count: u64) -> s64 #no_context {
         return write(fd, data, cast,trunc(C_Size) count);

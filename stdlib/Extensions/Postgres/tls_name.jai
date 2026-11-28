@@ -1,3 +1,4 @@
+#scope_module
 // Whether the server's certificate is for the host the client connected to (sslmode=verify-full),
 // by the rules of libpq rather than the TLS library's:
 //

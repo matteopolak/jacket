@@ -43,6 +43,44 @@ zip64_count :: (t: *Test) {
     free_archive(*a);
 } @test @timeout(60)
 
+// Entry sizes and offsets past `zip64_from` take the ZIP64 records; a small cut-off exercises the
+// writer's wide paths (the 4 GiB ones) with small data, and the reader must give the data back.
+zip64_entries :: (t: *Test) {
+    items := Archive_Item.[
+        .{ name = "plain.txt", data = cast([] u8) "short" },
+        .{ name = "packed.txt", data = cast([] u8) "hello hello hello hello hello", method = .DEFLATE },
+        .{ name = "last.txt", data = cast([] u8) "the last entry" },
+    ];
+
+    narrow, narrow_error := encode_archive(items, .ZIP);
+    wide, wide_error := encode_archive(items, .ZIP, .{ zip64_from = 8 });
+
+    require(narrow_error.kind == .NONE && wide_error.kind == .NONE);
+    defer free(narrow.data);
+    defer free(wide.data);
+    expect(wide.count > narrow.count);
+
+    // The end record is preceded by the ZIP64 end record and its locator.
+    expect(wide[wide.count - 22 - 20] == 0x50 && wide[wide.count - 22 - 20 + 2] == 6);
+
+    a, e := read_archive(wide, .ZIP);
+
+    require(e.kind == .NONE && a.entries.count == items.count, tprint("% % at %", e.kind, e.message, e.offset));
+    defer free_archive(*a);
+
+    for items {
+        entry, error := read_entry(*a, it_index);
+
+        require(error.kind == .NONE);
+        expect(cast(string) entry.bytes == cast(string) it.data, tprint("%: %", it.name, cast(string) entry.bytes));
+        free_archive(*entry);
+    }
+
+    _, low := encode_archive(items, .ZIP, .{ zip64_from = 0 });
+
+    expect(low.kind == .LIMIT);
+} @test
+
 Resize_Count :: struct {
     backing: Allocator;
     resizes: s64;

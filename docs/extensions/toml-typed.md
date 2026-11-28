@@ -28,7 +28,7 @@ Encoding writes key/value lines first, then `[table]` and `[[array of tables]]` 
 
 Integers (range-checked), floats (integers are accepted), `bool`, `string`, enums (by name; `as_number` for numbers), `Toml_Datetime`, structs, pointers (absent keys stay null), `[..] T`, `[] T` and `[N] T`. Arrays of tables (`[[x]]`) go into a `[..]`, `[]` or `[N]` of structs; a `[]` view is grown in place, so it must start empty, and a `[N]` needs exactly `N` headers (or an inline array of `N` elements). Unions are not supported.
 
-`Table(string, V)` (the `Hash_Table`) takes a table: its keys come from inline tables, dotted keys and `[a.key]` headers, and `V` is anything else on this list, including structs, arrays of tables (`[[a.key]]`) and other tables. Keys are copied and freed with the table. `@toml(...)` options on the field apply to the table, not to its values; the values' own struct notes still apply.
+`Table(string, V)` (the `Hash_Table`) takes a table: its keys come from inline tables, dotted keys and `[a.key]` headers, and `V` is anything else on this list, including structs, arrays of tables (`[[a.key]]`) and other tables. Keys are copied and freed with the table. The value options `as_number`, `range=`, `message=` and `rename_all=` on the field apply to every value (and to the values of nested tables); the other options apply to the field. The values' own struct notes still apply.
 
 `Toml_Value` takes any value as the document parser would build it, whatever shape the data has: `extra = { a = 1, b = [1, 'x'] }`, or a table made of `[extra.sub]` and `[[extra.list]]` headers. It is an untyped tree that the target owns (nothing points into the input), so `toml_get`, `toml_get_path` and `write_toml` work on it, and `free_toml_value` releases it. `from_toml(Toml_Value, text)` and `from_toml(Table(string, V), text)` also work as a whole document. `[..] Toml_Value` also takes `[[x]]` headers, each element a table; the encoder writes it as an inline array. `*Toml_Value` reads inline values only.
 
@@ -44,7 +44,7 @@ Integers (range-checked), floats (integers are accepted), `bool`, `string`, enum
 | `skip`, `skip_serializing`, `skip_deserializing` | field | Ignore in both or one direction |
 | `skip_serializing_if=empty\|zero\|null` | field | Omit when true |
 | `flatten` | struct field | The field's keys appear in the parent table |
-| `range=lo..hi` | integer field | Narrower bounds than the type |
+| `range=lo..hi` | integer field, or a table of integers | Narrower bounds than the type |
 | `message="..."` | field | Static text for the field's type and range errors |
 | `as_number` | enum field | Read and write the integer value |
 | `unknown` | `[..] Toml_Unknown` field | Collects ignored keys: dotted `path`, the statement `start`/`end`, the assignment's `value` offset and `header` |

@@ -1,3 +1,4 @@
+#scope_module
 // SCRAM-SHA-256 and SCRAM-SHA-256-PLUS (RFC 5802, RFC 7677, RFC 5929 tls-server-end-point).
 
 // The client side of one SCRAM exchange: what it sent and the signature it expects back.

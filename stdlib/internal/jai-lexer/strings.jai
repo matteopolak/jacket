@@ -120,7 +120,6 @@ skip_header_gap :: (lexer: *J.Lexer) {
 // comments, then the body up to the first line that starts with the name. Text may follow the name
 // on that line; it is left for the next token.
 parse_here_string :: (lexer: *J.Lexer) -> *J.Token {
-    Basic.assert(lexer.num_incoming_tokens == 0, "here-string parsing requires empty buffered lookahead");
     line := lexer.current_line_number;
     column := lexer.current_character_index;
 

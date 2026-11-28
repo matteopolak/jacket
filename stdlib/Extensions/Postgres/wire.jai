@@ -1,3 +1,4 @@
+#scope_module
 // Messages on the wire: a type byte (none for the first messages a client sends), a big-endian
 // length that counts itself, and the body. Integers are big-endian throughout.
 

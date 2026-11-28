@@ -1,3 +1,4 @@
+#scope_module
 // Opening a session: the transport, TLS, the startup message and authentication.
 
 PROTOCOL_3_0 :: 196608; // 3 << 16

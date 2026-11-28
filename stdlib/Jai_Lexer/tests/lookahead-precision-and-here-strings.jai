@@ -57,5 +57,12 @@ main :: () {
     assert(token.type == .STRING && token.string_value == " a\r\n  END_SUFFIX\r\n");
     assert(L.count_herestring_lines(*lexer, token) == 2);
     assert(!lexer.reported_error);
+
+    L.set_input_from_string(*lexer, "a #string END\nbody\nEND\nb");
+    token = L.peek_token(*lexer, 1);
+    assert(token.type == .STRING && token.string_value == "body\n");
+    assert(L.peek_token(*lexer, 2).ident_value.name == "b");
+    assert(L.peek_token(*lexer, 0).ident_value.name == "a");
+    assert(!lexer.reported_error);
     print("ok\n");
 }

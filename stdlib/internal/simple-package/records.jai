@@ -45,4 +45,5 @@ Load_Package :: struct {
     table_of_contents: Table_Of_Contents;
     entries: [] Entry_Info;
     lookup: HT.Table(string, *Entry_Info);
+    owns_data: bool; // `data` was allocated by a reader and [free_package] frees it
 }

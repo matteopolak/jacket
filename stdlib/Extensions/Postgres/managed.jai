@@ -1,3 +1,4 @@
+#scope_module
 // Managed PostgreSQL: downloads pinned server binaries once, keeps a throwaway cluster, starts it
 // on a Unix socket (TCP on localhost for Windows) and hands back a `Config`. See
 // docs/postgres/managed.md.

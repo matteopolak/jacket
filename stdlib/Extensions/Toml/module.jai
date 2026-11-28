@@ -428,9 +428,9 @@ toml_free_nodes :: (doc: *Toml_Document) {
     array_free(doc.statements);
 }
 
-toml_descend :: (r: *Toml_Reader, out: *$T, frame: *Toml_Frame, keys: [] string, index: int, op: Toml_Op, nav: int) -> bool {
+toml_descend :: (r: *Toml_Reader, out: *$T, frame: *Toml_Frame, keys: [] string, index: int, op: Toml_Op, nav: int, $notes := Value_Notes.{}) -> bool {
     #insert -> string {
-        return generate_descend(T);
+        return generate_descend(T, notes);
     };
 }
 
@@ -446,15 +446,15 @@ toml_free_fields :: (value: *$T, defaults: *T) {
     };
 }
 
-toml_encode_body :: (w: *Toml_Writer, value: *$T) {
+toml_encode_body :: (w: *Toml_Writer, value: *$T, $notes := Value_Notes.{}) {
     #insert -> string {
-        return generate_body_encoder(T);
+        return generate_body_encoder(T, notes);
     };
 }
 
-toml_encode_inline :: (w: *Toml_Writer, value: *$T) {
+toml_encode_inline :: (w: *Toml_Writer, value: *$T, $notes := Value_Notes.{}) {
     #insert -> string {
-        return generate_inline_encoder(T);
+        return generate_inline_encoder(T, notes);
     };
 }
 

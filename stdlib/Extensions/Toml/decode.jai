@@ -581,7 +581,7 @@ toml_clear_header_keys :: (r: *Toml_Reader) {
 
 // One `key = value` pair, either a statement of the document (`prefix` holds the keys of the
 // header it sits under) or a member of an inline table (no prefix).
-toml_decode_pair :: (r: *Toml_Reader, out: *$T, frame: *Toml_Frame, prefix: [] string) -> bool {
+toml_decode_pair :: (r: *Toml_Reader, out: *$T, frame: *Toml_Frame, prefix: [] string, $notes := Value_Notes.{}) -> bool {
     if r.error.kind != .NONE return false;
 
     // An inline table's members are statements of their own; the enclosing one resumes after.
@@ -610,7 +610,7 @@ toml_decode_pair :: (r: *Toml_Reader, out: *$T, frame: *Toml_Frame, prefix: [] s
     // The descent puts each key (and `[[x]]` element) on the path as it reaches it.
     defer r.path.count = saved_path;
 
-    if !prefix.count return toml_descend(r, out, frame, keys, 0, .ASSIGN, 0);
+    if !prefix.count return toml_descend(r, out, frame, keys, 0, .ASSIGN, 0, notes);
 
     full: [..] string;
     full_slot := toml_acquire_keys(r, *full);
@@ -623,7 +623,7 @@ toml_decode_pair :: (r: *Toml_Reader, out: *$T, frame: *Toml_Frame, prefix: [] s
     for prefix array_add(*full, it);
     for keys array_add(*full, it);
 
-    result := toml_descend(r, out, frame, full, 0, .ASSIGN, prefix.count);
+    result := toml_descend(r, out, frame, full, 0, .ASSIGN, prefix.count, notes);
 
     // Do not let the release below free keys the header and pair still own.
     full.count = 0;
@@ -687,7 +687,7 @@ toml_decode_document :: (r: *Toml_Reader, out: *$T) -> bool {
 }
 
 // An inline table `{ ... }` read into a struct. Its members have their own declaration scope.
-toml_inline :: (r: *Toml_Reader, out: *$T, message: string) -> bool {
+toml_inline :: (r: *Toml_Reader, out: *$T, message: string, $notes := Value_Notes.{}) -> bool {
     start := r.pos;
 
     if toml_peek(r) != 123 return toml_fail(r, .TYPE, ifx message.count then message else "expected a table", start);
@@ -702,7 +702,7 @@ toml_inline :: (r: *Toml_Reader, out: *$T, message: string) -> bool {
 
     if toml_peek(r) != 125 {
         while true {
-            if !toml_decode_pair(r, out, frame, .[]) || !toml_gap(r) return false;
+            if !toml_decode_pair(r, out, frame, .[], notes) || !toml_gap(r) return false;
             if toml_peek(r) == 125 break;
 
             if toml_peek(r) != 44 return toml_fail(r, .SYNTAX, "expected ',' or '}' in inline table");

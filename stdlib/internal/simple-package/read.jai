@@ -33,7 +33,26 @@ init_from_file :: (package: *Load_Package, filename: string) -> bool {
         return false;
     }
 
+    package.owns_data = true;
+
     return true;
+}
+
+// Frees what reading `package` allocated: its entries, its lookup table and, for a package read
+// by [init_from_file] or [load_table_of_contents_only], the bytes in `package.data`. The package
+// is empty afterwards. Bytes passed to [init_from_memory] stay the caller's.
+//
+// ```jai,no_run
+// pack: Load_Package;
+// assert(init_from_file(*pack, "assets.pack"));
+// free_package(*pack);
+// ```
+free_package :: (package: *Load_Package) {
+    release_metadata(package);
+
+    if package.owns_data B.free(package.data.data);
+
+    package.* = .{};
 }
 
 // Reads only the header and table of contents of a file: entry names, sizes and offsets, without
@@ -74,6 +93,8 @@ load_table_of_contents_only :: (filename: string, okay_if_it_does_not_exist := f
         B.free(bytes);
         return false, .{};
     }
+
+    package.owns_data = true;
 
     return true, package;
 }

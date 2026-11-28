@@ -297,7 +297,7 @@ fn visualization_descriptor_reset_contract_preserves_the_header() {
         facts.lint = true;
         c.ed.record(facts);
         c.begin_sources(&[ProgramSource::String(
-            "#import \"Basic\"; main :: () {}".into(),
+            "#import \"Basic\"()(MEMORY_DEBUGGER = true); main :: () {}".into(),
         )])
         .unwrap();
         c.finish_program().unwrap();

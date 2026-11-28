@@ -4,6 +4,8 @@ FILE :: struct {};
 DIR :: struct {};
 mode_t :: u32;
 
+#import "internal/libc";
+
 #if size_of(*void) == 4 {
     size_t :: u32;
 } else {
@@ -30,14 +32,12 @@ EINVAL :: 22;
 ENOSYS :: 38;
 EAFNOSUPPORT :: 97;
 
-errno_location :: () -> *s32 #foreign libc "__errno_location";
-
 errno :: () -> OS_Error_Code {
-    return errno_location().*;
+    return c_errno_address().*;
 }
 
 set_errno :: (code: OS_Error_Code) {
-    errno_location().* = code;
+    c_errno_address().* = code;
 }
 
 // The Linux x86-64 layouts, which Wasi_Runtime and the interpreter's sandbox both fill in.

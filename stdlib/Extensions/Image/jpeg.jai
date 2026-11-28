@@ -49,6 +49,7 @@ decode_jpeg :: (data: [] u8, max_pixels: s64) -> image: Image, ok: bool, error: 
     return image, true, "";
 }
 
+#scope_module
 JPEG_MAX_COMPONENTS :: 4;
 
 // One colour component of the frame: its sampling factors, tables and decoded sample plane.

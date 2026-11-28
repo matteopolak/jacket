@@ -134,6 +134,7 @@ Archive_Limits :: struct {
     max_entry: s64 = 256 << 20; // uncompressed size of one entry
     max_total: s64 = 1 << 30; // uncompressed size of all entries
     max_ratio: s64 = 1000; // largest uncompressed-to-stored size ratio of an entry
+    zip64_from: s64 = 0xffffffff; // writing ZIP: sizes and offsets from here on are ZIP64 records; lower it to test them
 }
 
 // A seekable byte source for [read_archive], such as a file read by offset.
@@ -485,7 +486,7 @@ problem :: (kind: Archive_Error_Kind, message: string, offset: s64 = 0, entry :=
 }
 
 valid_limits :: (l: Archive_Limits) -> bool {
-    return l.max_archive >= 0 && l.max_metadata >= 0 && l.max_entries >= 0 && l.max_entry >= 0 && l.max_total >= 0 && l.max_ratio > 0;
+    return l.max_archive >= 0 && l.max_metadata >= 0 && l.max_entries >= 0 && l.max_entry >= 0 && l.max_total >= 0 && l.max_ratio > 0 && l.zip64_from > 0 && l.zip64_from <= 0xffffffff;
 }
 
 open_index :: (initial: Archive) -> Archive, Archive_Error {
