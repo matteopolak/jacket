@@ -120,6 +120,7 @@ raw_enum! {
         Rename = "rename",
         Link = "link",
         Mkdir = "mkdir",
+        Mkdtemp = "mkdtemp",
         Rmdir = "rmdir",
         Opendir = "opendir",
         Readdir = "readdir",

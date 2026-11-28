@@ -21,7 +21,7 @@ const SAME_IN_EVERY_C_LIBRARY: &[&str] = &[
 /// runtime, whose `long` has 32 bits, whose streams translate line ends and which has no
 /// descriptor or path calls of these names: `long` numbers, descriptor reads and writes,
 /// `FILE*` streams (opaque handles, standard mode strings, `SEEK_*` 0 to 2, 64-bit `off_t`) and
-/// path calls that take only paths, `mkdir`'s permission bits or `access`'s `F_OK` family.
+/// path calls that take only paths, `mkdir`'s permission bits, `mkdtemp`'s `XXXXXX` template or `access`'s `F_OK` family.
 const SAME_IN_POSIX_C_LIBRARIES: &[&str] = &[
     "strtol",
     "strtoul",
@@ -45,6 +45,7 @@ const SAME_IN_POSIX_C_LIBRARIES: &[&str] = &[
     "chdir",
     "access",
     "mkdir",
+    "mkdtemp",
     "rmdir",
     "unlink",
     "rename",

@@ -9,8 +9,8 @@ const SOURCE: &str = "#import \"Basic\";\n\
     make_dir :: () -> string {\n    template := copy_string(\"/tmp/jacket-XXXXXX\");\n    \
     if !mkdtemp(template.data) return \"\";\n    return template;\n}\n\
     #run {\n    dir := make_dir();\n    print(\"%\\n\", dir);\n}\n\
-    DIR :: #run make_dir();\n\
-    main :: () {\n    copy := DIR;\n    print(\"%\\n\", copy);\n}\n\
+    TEMP_DIR :: #run make_dir();\n\
+    main :: () {\n    copy := TEMP_DIR;\n    print(\"%\\n\", copy);\n}\n\
     broken :: () {\n    wrong: s64 = \"text\";\n}\n";
 
 #[test]

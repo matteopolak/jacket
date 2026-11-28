@@ -386,6 +386,32 @@ fn open_flags_and_errors_follow_the_darwin_target() {
 }
 
 #[test]
+fn mkdtemp_fills_the_template_with_a_new_directory() {
+    let mut h = host();
+    let template = cstring("tmp-XXXXXX");
+    let first = call(&mut h, "mkdtemp", &[template.as_ptr() as u64]);
+
+    assert_eq!(first, template.as_ptr() as u64);
+    let made = cstr(first);
+
+    assert!(
+        made.starts_with("tmp-") && !made.ends_with("XXXXXX"),
+        "{made}"
+    );
+    assert!(h.fs.is_dir(&format!("/tmp/{made}")));
+    // The next call finds the first name taken.
+    let again = cstring("tmp-XXXXXX");
+
+    call(&mut h, "mkdtemp", &[again.as_ptr() as u64]);
+    assert_ne!(cstr(again.as_ptr() as u64), made);
+    // A template without the six `X`s is refused.
+    let bad = cstring("tmp-XXXXX");
+
+    assert_eq!(call(&mut h, "mkdtemp", &[bad.as_ptr() as u64]), 0);
+    assert_eq!(errno(&h), EINVAL as u32);
+}
+
+#[test]
 fn stat_access_and_chmod_describe_files_and_directories() {
     let mut h = host();
     let fd = open(&mut h, "s.txt", O_CREAT | O_RDWR);

@@ -113,6 +113,12 @@ const FILE_CALLS: &str = r#"
         }
         assert(found_at == 0 && info.st_size == 5, "fstatat with a directory: % %", found_at, info.st_size);
         close(directory);
+
+        // `mkdtemp` fills the template in place and means the same in both libraries.
+        template := tprint("%/tmp-XXXXXX\0", dir);
+        assert(mkdtemp(template.data) != null, "mkdtemp: %", errno());
+        assert(template[template.count - 7] != #char "X", "mkdtemp replaced the template");
+        assert(is_directory(string.{ count = template.count - 1, data = template.data }), "mkdtemp made a directory");
     }
 "#;
 

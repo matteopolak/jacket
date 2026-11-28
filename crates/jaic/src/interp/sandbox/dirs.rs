@@ -1,7 +1,7 @@
 //! The working directory and directory streams.
 
 use super::{
-    DirStream, EBADF, EEXIST, ENOENT, ENOTDIR, ENOTEMPTY, LibcFn, SandboxHost, records,
+    DirStream, EBADF, EEXIST, EINVAL, ENOENT, ENOTDIR, ENOTEMPTY, LibcFn, SandboxHost, records,
     write_bytes, write_u8,
 };
 
@@ -65,6 +65,50 @@ impl SandboxHost {
                     self.fs.dirs.insert(path);
                     0
                 }
+            }
+            LibcFn::Mkdtemp => {
+                let template = super::cstr(arg(0));
+
+                if !template.ends_with("XXXXXX") {
+                    self.set_errno(EINVAL);
+                    return Some(0);
+                }
+
+                let stem = template.len() - 6;
+                let cwd = if self.cwd.is_empty() {
+                    "/".to_string()
+                } else {
+                    self.cwd.clone()
+                };
+                let digits = b"abcdefghijklmnopqrstuvwxyz0123456789";
+                let Some(name) = (0..36u64.pow(6))
+                    .map(|n| {
+                        let suffix = (0..6)
+                            .map(|place| digits[(n / 36u64.pow(place) % 36) as usize] as char)
+                            .collect::<String>();
+
+                        format!("{}{suffix}", &template[..stem])
+                    })
+                    .find(|name| {
+                        let path = super::absolute(&cwd, name);
+
+                        !self.fs.is_dir(&path) && !self.fs.exists_file(&path)
+                    })
+                else {
+                    self.set_errno(EEXIST);
+                    return Some(0);
+                };
+                let path = super::absolute(&cwd, &name);
+
+                if !self.parent_exists(&path) {
+                    self.set_errno(ENOENT);
+                    return Some(0);
+                }
+
+                self.fs.removed.remove(&path);
+                self.fs.dirs.insert(path);
+                write_bytes(arg(0) + stem as u64, &name.as_bytes()[stem..]);
+                arg(0)
             }
             LibcFn::Rmdir => {
                 let path = self.path(arg(0));
