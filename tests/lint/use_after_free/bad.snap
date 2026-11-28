@@ -163,3 +163,34 @@ error[use_after_free]: `value` is used after the call above freed it
     = help: free it after its last use, or give it a new value before using it again
     = note: `use_after_free` is `deny` by default
     = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
+
+error[use_after_free]: `copy.p` is used after the call above freed it
+   --> tests/lint/use_after_free/bad.jai:186:18
+    |
+182 |     original.p = New(int);
+    |                  -------- storage derived here
+    ...
+185 |     free(original.p);
+    |     ---------------- storage invalidated here
+186 |     print("%\n", copy.p.*);
+    |                  ^^^^^^
+    |
+    = help: free it after its last use, or give it a new value before using it again
+    = note: `use_after_free` is `deny` by default
+    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
+
+error[use_after_free]: `value` is used after the call above freed it
+   --> tests/lint/use_after_free/bad.jai:198:18
+    |
+190 |     free(value);
+    |     ----------- storage invalidated here
+    ...
+195 |     value := New(int);
+    |              -------- storage derived here
+    ...
+198 |     print("%\n", value.*);
+    |                  ^^^^^
+    |
+    = help: free it after its last use, or give it a new value before using it again
+    = note: `use_after_free` is `deny` by default
+    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free

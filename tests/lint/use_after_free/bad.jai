@@ -175,3 +175,25 @@ installed_then_freed :: () {
     install_and_release(*cell, value);
     print("%\n", value.*);
 }
+
+// A struct copied before one of its pointers is freed still holds that pointer.
+copied_then_freed :: () {
+    original: Slot;
+    original.p = New(int);
+    copy := original;
+
+    free(original.p);
+    print("%\n", copy.p.*);
+}
+
+release_later :: (value: *int) #expand {
+    free(value);
+}
+
+// A macro's release counts like a call's.
+released_by_macro :: () {
+    value := New(int);
+
+    release_later(value);
+    print("%\n", value.*);
+}
