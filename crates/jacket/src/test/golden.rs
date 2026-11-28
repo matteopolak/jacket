@@ -47,13 +47,14 @@ fn alternatives(path: &Path) -> Vec<PathBuf> {
 }
 
 /// Compares `got` to the expected file at `path` (or to any of its `alternatives`), or writes it
-/// there with `accept`; with alternatives, `accept` writes only a new output that none of them has.
+/// there with `accept`; `accept` writes only an output that none of the existing files has, so a
+/// passing golden is never rewritten.
 fn expect_text(path: &Path, got: &str, what: &str, accept: bool, checked: &mut Checked) {
     let others = alternatives(path);
     let matches = |file: &Path| std::fs::read(file).is_ok_and(|b| normalized(&b) == got);
 
     if accept {
-        if !others.is_empty() && (matches(path) || others.iter().any(|f| matches(f))) {
+        if matches(path) || others.iter().any(|f| matches(f)) {
             return;
         }
 
@@ -468,6 +469,7 @@ pub(super) fn golden(
 
     if accept && exit_file.is_file() {
         if let Some(code) = code
+            && code != want_code
             && std::fs::write(&exit_file, format!("{code}\n")).is_ok()
         {
             checked.accepted.push(exit_file.clone());
@@ -879,6 +881,39 @@ mod tests {
         );
         assert!(checked.accepted.is_empty());
         assert_eq!(std::fs::read_to_string(&expected).unwrap(), "opened\n");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepting_leaves_a_passing_golden_untouched() {
+        let dir = std::env::temp_dir().join(format!("jacket-accept-{}", std::process::id()));
+
+        std::fs::create_dir_all(&dir).unwrap();
+        let expected = dir.join("t.stdout");
+
+        // Windows line endings compare equal after normalising, so the file is already right.
+        std::fs::write(&expected, "one\r\ntwo\r\n").unwrap();
+        let mut checked = Checked::default();
+
+        expect_text(
+            &expected,
+            "one\ntwo\n",
+            "standard output",
+            true,
+            &mut checked,
+        );
+        assert!(checked.accepted.is_empty());
+        assert_eq!(std::fs::read(&expected).unwrap(), b"one\r\ntwo\r\n");
+
+        expect_text(
+            &expected,
+            "changed\n",
+            "standard output",
+            true,
+            &mut checked,
+        );
+        assert_eq!(checked.accepted, std::slice::from_ref(&expected));
+        assert_eq!(std::fs::read_to_string(&expected).unwrap(), "changed\n");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
