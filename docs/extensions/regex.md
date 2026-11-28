@@ -41,17 +41,10 @@ Both runtime and `Static` patterns support `is_match`, `find`, `find_all`, `capt
 
 `Options` (run time): `case_insensitive`, `multi_line`, `dot_all`, `swap_greed`, `ignore_space`, `crlf`, `unicode` (default on); inline flags `(?imsxRU-u)` also work. Limits: `DEFAULT_STATE_LIMIT`, `STATIC_STATE_LIMIT`, `ONEPASS_STATE_LIMIT`, `MAX_NESTING` (250). Depends on [Byte_Search](byte-search.md) and Atomics. Tests are in `stdlib/Extensions/Regex/tests/`.
 
-## Compared with the community libraries
+## Comparing with other libraries
 
-`benchmarks/compare/regex/benches/regex.jai` (`tools/bench/library_compare.py regex`, see [library comparisons](../tools/library-comparisons.md)) runs the same patterns over generated ASCII text with Jacket (run-time and `Static`), Uniform (an RE2 port, Pike VM only) and Rematch (an ECMAScript backtracker). Time relative to `Static` (Apple M5; above 1 is slower):
+`benchmarks/compare/regex/benches/regex.jai` (`tools/bench/library_compare.py regex`, see [library comparisons](../tools/library-comparisons.md)) runs the same patterns over generated ASCII text with Jacket (run-time and `Static`), Uniform (an RE2 port, Pike VM only) and Rematch (an ECMAScript backtracker): log parse with captures, log filter without, extracting emails and URLs, and searching names and `[a-zA-Z]+ing`. Times are relative to `Static`.
 
-| Workload | Uniform | Rematch |
-| --- | --- | --- |
-| log parse (six captures per line) | 14x | 4x |
-| log filter (no captures) | 8x | 45x |
-| extract emails / URLs | 328x / 27x | 249x / 43x |
-| search names / `[a-zA-Z]+ing` | 105x / 52x | 356x / 80x |
-
-The gap is the engine: Uniform runs its NFA over every byte and Rematch backtracks from every start, while Jacket's DFA skips to where a match can start. Run-time and `Static` are level except in capture-heavy work. Compiling is the one place the others win or tie: 6 us for an e-mail pattern, level with Uniform; Rematch only parses.
+The gap is the engine: Uniform runs its NFA over every byte and Rematch backtracks from every start, while Jacket's DFA skips to where a match can start. Run-time and `Static` are level except in capture-heavy work. Compiling a pattern is where the others tie or win.
 
 Rematch has backreferences, look-around, match limits and stream input, which Jacket doesn't. Jacket has Unicode classes, linear time, split, typed groups and compile-time patterns; Uniform lacks named groups, find-all and replace.

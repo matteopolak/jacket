@@ -58,7 +58,7 @@ target/release/jaic hello.jai -timings   # prints "jaic-timing: load backend"
 
 ## Effect
 
-A release `jaic` on macOS arm64 is 10 MB instead of 102 MB, and the library is 91 MB. `jaic hello.jai -check` no longer maps the static LLVM image at start-up: on an Apple M5 it takes 56 ms instead of 62 ms and uses 40 MiB of memory instead of 52. A 60k-line generated program checks in 124 ms instead of 130 ms. A native build opens the library once and takes the same time as before (hello 153 ms against 154 ms, the 60k-line program 439 ms against 437 ms). Measure with `tools/bench`: `compare` for `-check` and build of a generated program, `compile --only hello` for start-up.
+A release `jaic` is a small executable plus the library, so `-check` and `-interp` start without mapping the static LLVM image. A native build opens the library once and takes the same time as an in-process build. Measure with `tools/bench`: `compare` for `-check` and build of a generated program, `compile --only hello` for start-up.
 
 ## Why the default stays in-process
 

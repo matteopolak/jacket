@@ -220,7 +220,7 @@ jailint [OPTIONS] [paths]...
 | `-A <rule>` | Allow a rule or a compiler warning (repeatable; `all` for every rule) |
 | `-W <rule>` | Warn on a rule or a compiler warning |
 | `-D <rule>` | Deny a rule; `-D warnings` makes every warning an error |
-| `--max-nesting <n>` | Blocks `excessive_nesting` allows (default: `[lint] max_nesting` in `jacket.toml`, else 6) |
+| `--max-nesting <n>` | Blocks `excessive_nesting` allows (default: `[lint] max-nesting` in `jacket.toml`, else 6) |
 | `--lifetime-mode <must\|strict>` | Lifetime proof mode (default: [lint.lifetimes] mode, else must) |
 | `--compile-time-budget <steps>` | Steps (loop iterations and calls) one compile-time evaluation may run before it fails (default: 100000000; 0: no limit) |
 | `--check-time-limit <seconds>` | Seconds each program may take to check before its check stops with partial results; every program gets the whole limit, and the run as a whole has none (default: 10; 0: no limit) |
@@ -277,7 +277,7 @@ jaifmt [OPTIONS] [PATHS]...
 | `--is-ignored <FILE>` | Print nothing; exit 0 when FILE is ignored by the nearest config's ignore list, 1 when it is not (for editors) |
 | `--set <KEY=VALUE>` | Set one [format] key, written as in jacket.toml (--set indent-width=2); implies --no-config. `jacket fmt` passes every resolved setting this way |
 | `--[no-]no-config` | Read no jacket.toml: start from the defaults, then --config and --set. Nothing is ignored, since the caller chooses the files |
-| `-v, --[no-]verbose` | Report every file, a summary, and lines over max_width |
+| `-v, --[no-]verbose` | Report every file, a summary, and lines over max-width |
 | `-j, --jobs <N>` | Format this many files at once [default: the number of cores] |
 | `--color <COLOR>` | Colour errors; auto means on a terminal, unless NO_COLOR is set [possible values: auto, always, never] |
 | `-h, --help` | Print help |

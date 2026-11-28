@@ -65,9 +65,9 @@ Any script under `tools/` that defines `OUTPUTS` is run, and a script in `tools/
 
 `generate_reference_docs.py` writes `docs/reference/` from the tools themselves (their `--help`, the environment-variable registry and the lint rules). Edit the code that defines a variable, rule or flag, not the pages.
 
-## Tests
+## Running tests
 
-`PYTHONPATH=tools python3 tools/portable/build_portable.py zip` writes the stdlib ZIP fixtures through Python's `zipfile` module. The stored entries use the ZIP epoch and fixed Unix file metadata, so identical content produces identical bytes across clock changes and hosts; malformed variants derive from that same archive. Keep those fields explicit when adding an entry, and retain the controlled-clock regression in `portable/test_build_portable.py`. `JACKET_OUTPUT_DIR` selects the output root through `repo_output`.
+`build_portable.py zip` writes the stdlib ZIP fixtures with fixed timestamps and Unix metadata so the bytes are reproducible; keep those fields explicit when adding an entry (`portable/test_build_portable.py` covers it).
 
 `tools/` has no `__init__.py`, so plain `unittest discover` skips subfolders. Use `python3 tools/run_tests.py [FOLDER ...] [-p PATTERN]... [--skip FOLDER]... [-v] [-j N] [--timeout S]`: one `discover` per folder, each in its own process, run in parallel. Folders run at the same time, so tests must not share scratch paths. A folder that needs prepared inputs has an entry in `FIXTURES`; when the inputs cannot be prepared the folder fails with the fix, and `--skip FOLDER` deselects it on purpose. A script that only runs a suite by hand must not be named `test_*.py`. The SDL tests in `bindings/` need `SDL_TEST_TMPDIR` and prepared sources: `run_tests.py` prepares them, and run by hand without them they skip with the command to prepare them. When `CI` is set a missing input is an error instead, so CI cannot skip them silently. Node tests (`tools/browser/test_*.mjs`) run with `node --test`.
 

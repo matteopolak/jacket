@@ -44,16 +44,7 @@ An `Image` is `width`, `height`, `format` and `pixels`, rows packed top to botto
 jacket bench --path stdlib/Extensions/Image
 ```
 
-The benchmark compares against `stb_image`, `stb_image_write` and `stb_image_resize` on synthetic photo and UI content (Apple M-series, 8.4 MP):
-
-| Case | Speed vs stb |
-| --- | --- |
-| PNG decode, photo | 1.4-1.7x |
-| PNG decode, UI | 1.1-1.3x |
-| PNG encode level 6, photo | 1.0x, output 0.65 of stb's size |
-| PNG encode level 6, UI | 2.1-2.4x, output 0.34-0.39 of stb's size |
-| resize down 4x | 3.3-4.0x |
-| resize up 2x | 1.1-1.3x |
+The benchmark compares against `stb_image`, `stb_image_write` and `stb_image_resize` on synthetic photo and UI content for PNG decode and encode (level 6) and resize.
 
 PNG time is mostly [Deflate](deflate.md). Also uses `Extensions/SIMD` for unfilter and resize loops, and `Extensions/Byte_Search` for JPEG marker preflight.
 

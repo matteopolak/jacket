@@ -35,16 +35,7 @@ The helpers (`black_box`, `set_bytes`, `set_items`, `pause_timer`, `resume_timer
 
 ## Configuration
 
-| Flag | Default | |
-| --- | --- | --- |
-| `--samples N` | 50 | samples per benchmark |
-| `--warmup MS` | 100 | least warm-up |
-| `--measure-ms MS` | 1000 | time spent sampling |
-| `--resamples N` | 100000 | bootstrap resamples |
-| `--noise-threshold PCT` | 2 | smaller changes are noise |
-| `--significance P` | 0.05 | p-value cutoff |
-
-Plus the selection and build options of `jacket test`. Close other programs for steadier numbers.
+The measuring flags (`--samples`, `--warmup`, `--measure-ms`, `--resamples`, `--noise-threshold`, `--significance`) and their defaults are in the [command-line reference](../reference/tools.md#benchmarking); the selection and build options are those of `jacket test`. Close other programs for steadier numbers.
 
 ## Dependencies
 

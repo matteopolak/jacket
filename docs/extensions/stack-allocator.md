@@ -35,4 +35,4 @@ rewind(*stack, scope);
 
 ## Dependencies
 
-`Basic`. `jacket bench --path stdlib/Extensions/Stack_Allocator`: 100 allocations and reverse-order frees took 0.15 µs against 4.6 µs for the default allocator.
+`Basic`. `jacket bench --path stdlib/Extensions/Stack_Allocator`.

@@ -26,6 +26,15 @@ PYTHONPATH=tools:tools/native_bindings python3 tools/native_bindings/generate.py
 
 Add a CPU in the `ARCHES` table of `vendor_linux_posix.py`. `--check` fails when the committed JSON is stale. Run it for `i686`, `s390x` and `armv7`; a record with `__attribute__((aligned(N)))` becomes `struct #align N`, and a `typedef union { ... } name` the spec declares as a pointer or scalar becomes a record.
 
+## Known gaps on non-x64 Linux targets
+
+The stdlib modules that pass on each CPU are listed in `tools/dev/<cpu>-roots.txt` and run in CI. Not covered:
+
+- `i686`, `armv7`: Socket, Http, Grpc, WebSocket and Tls, because `internal/net/socket-abi-linux.jai` has one 64-bit layout; the third-party native libraries (X11, mbedtls, freetype, lz4, stb), which have no 32-bit builds; the `Syscall` intrinsic, which is x86-64 only; musl.
+- `s390x`: fibers, which have no switch routine.
+- `powerpc64`: fibers and IBM double-double `long double`.
+- Big-endian: the interpreter sandbox's hard-coded record layouts (`stat`, `dirent`) are little-endian.
+
 ## Configuration
 
 `CROSS_SCRATCH` and the container image come from `tools/dev/linux_x64.sh`. The probe's header list is `PROBE_HEADERS` in `vendor_linux_posix.py`.

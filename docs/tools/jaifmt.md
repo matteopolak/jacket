@@ -17,7 +17,7 @@ Paths are files or directories (searched for `*.jai`, skipping dot-directories a
 
 Files are formatted in parallel, one worker per logical core, or `-j N` workers (`-j 1` stays on one thread). Each file is read, formatted and written independently by `format_batch` (`jaifmt/batch.jai`); the main thread then reports the results in sorted path order, so output, totals and exit status are the same for any `-j`. Config files are resolved before the workers start, because the config cache and its warnings are not thread-safe. `jaifmt/tests/batch-order.jai` checks that a parallel run gives the same results as a serial one. The wasm build formats one input from stdin and uses no threads.
 
-`jaifmt/build.jai` builds with `set_optimization(.OPTIMIZED)` and needs real `jaic`, not `-check`. CI, Nix and the tests use `jaic jaifmt/main.jai -O2`, which keeps the checks.
+`jaifmt/build.jai` builds optimized and needs a real `jaic`, not `-check`. CI, Nix and the tests use `jaic jaifmt/main.jai -O2`, which keeps the checks.
 
 [Format rules](jaifmt-rules.md) shows every rule and setting with the code before and after. Its ```` ```jai after ```` blocks are checked: the golden test (`Jai_Format/tests/golden.jai`) formats each ```` ```jai before ```` block with the settings named after `after` and fails if the output differs, so change the page when you change the output.
 
@@ -99,8 +99,6 @@ formatted, ok, error := format_source(source, config);   // free `formatted`; on
 
 `Jai_Format` uses `Basic` and `String` only. The CLI adds `File`, `File_Utilities`, `Sort` and `POSIX`/`Windows`. `jaifmt.wasm` needs a native `jaic` with `wasm-ld` and `Wasi_Runtime`.
 
-## TOML validation and migration
+## TOML validation
 
-Standalone and browser configuration parsing now requires a complete valid TOML 1.1 document, including unrelated sections. Earlier releases ignored some malformed unrelated statements and repeated keys; these now produce line-specific errors. Dotted-key/table redefinitions rejected by TOML are also errors. Unknown valid settings are still ignored and warned about using the existing schema policy.
-
-Settings consume decoded values, so valid integer spellings such as `indent-width = 0x2`, escaped strings and TOML 1.1 syntax outside formatter tables work consistently. The same semantic conversion handles `--set`. `[doc.format]` values retain their original value spans and source order; decoded settings and copied raw overrides remain valid after the temporary TOML document is freed. File discovery and ignore-glob matching stay in the formatter adapter. The Rust `jacket-config` parser remains an independent implementation.
+Standalone and browser configuration parsing requires a complete valid TOML 1.1 document, including unrelated sections; malformed statements, repeated keys and dotted-key or table redefinitions are line-specific errors. Unknown valid settings are ignored and warned about. Settings consume decoded values, so integer spellings such as `indent-width = 0x2`, escaped strings and TOML 1.1 syntax work, and `--set` converts the same way. `[doc.format]` values keep their value spans and source order. File discovery and ignore-glob matching stay in the formatter adapter. The Rust `jacket-config` parser is an independent implementation.

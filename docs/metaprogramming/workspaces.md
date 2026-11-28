@@ -17,8 +17,8 @@ Public `#compiler` declarations bind to `Hook::PublicCompiler` through `build/pu
 
 `build::step` advances a workspace when its events are read, or from `build::finish_all` for workspaces nobody intercepted.
 
-1. **Open to Checked.** `Compiler::begin_sources` loads the bootstrap and sources and runs their `#run`s. Events: FILE..., PHASE `ALL_SOURCE_CODE_PARSED`, PHASE `TYPECHECKED_ALL_WE_CAN`.
-2. **New sources.** `add_source` and `settle`, more FILE events, `TYPECHECKED_ALL_WE_CAN` again.
+1. **Open to Checked.** `Compiler::begin_sources` loads the bootstrap and sources and runs their `#run`s.
+2. **New sources.** `add_source` and `settle`, then another round of events.
 3. **Checked to Done.** `finish_program` lowers, then PHASE `ALL_TARGET_CODE_BUILT` and `PRE_WRITE_EXECUTABLE`. In an intercepted workspace the output is written on the next step (`finish_write`), so what the metaprogram does on `PRE_WRITE_EXECUTABLE` (a board plugin writes its linker script) comes first. Then `POST_WRITE_EXECUTABLE` and COMPLETE.
 
 Never hold `shared.borrow_mut()` across `compile_sources` or a backend call: the registry borrow is released while a compiler runs so nested metaprograms work. One interpreter budget (`Interp::block_budget`) bounds a whole compilation.
@@ -27,7 +27,7 @@ Events: `FILE` (1), `IMPORT` (4) and `TYPECHECKED` (5) exist only for intercepte
 
 ### Output
 
-With `do_output` and `output_type != NO_OUTPUT`, `OutputBackend::write_output` gets the IR program and `BuildSettings`. `jaic` and `jaic -interp` pass an LLVM backend; `-interp` differs only in interpreting the top-level program, so a build metaprogram can launch what it builds. `-check`, `-no_workspace_output`, the browser, jailsp and jailint pass none, so workspaces are only checked. Without a backend nothing is written, so there is no `PRE_WRITE_EXECUTABLE` or `POST_WRITE_EXECUTABLE`: a metaprogram tells `-check` from a build by their absence. `BuildEnv::unwritten_output_hint` makes `-check` warn when a workspace asks for an executable.
+`OutputBackend::write_output` gets the IR program and `BuildSettings`. `jaic` and `jaic -interp` pass an LLVM backend; `-interp` differs only in interpreting the top-level program, so a build metaprogram can launch what it builds. Embedders that pass none only check workspaces; a metaprogram tells `-check` from a build by the missing `PRE_WRITE_EXECUTABLE` and `POST_WRITE_EXECUTABLE`. Details in Rules below.
 
 ### Plugins
 

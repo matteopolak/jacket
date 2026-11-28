@@ -19,7 +19,7 @@ Io.io_run(() { db, pg_error := Pg.connect(server.config); ... });
 4. If `pg_ctl status` says a server already runs on the data folder, it is reused. Otherwise `pg_ctl start -w`.
 5. The server listens on a Unix socket only (a short `/tmp/jacket-pg-<hash>` folder if the path would be too long), or on `127.0.0.1` on Windows. `Managed_Server.config` connects as `postgres`, no TLS.
 
-`stop_managed` runs `pg_ctl stop -m fast` and only stops a server this process started, unless `force`. The data folder stays, so the next start takes about 0.1 s instead of about 5 s.
+`stop_managed` runs `pg_ctl stop -m fast` and only stops a server this process started, unless `force`. The data folder stays, so the next start skips `initdb`.
 
 Cache: `$XDG_CACHE_HOME/jacket/postgres` or `~/.cache/jacket/postgres` (Linux), `~/Library/Caches/jacket/postgres` (macOS), `%LOCALAPPDATA%\jacket\postgres` (Windows). Data: `<cache>/cluster-<major>`.
 
@@ -28,7 +28,7 @@ Cache: `$XDG_CACHE_HOME/jacket/postgres` or `~/.cache/jacket/postgres` (Linux), 
 [Typed queries](typed-queries.md) pick the managed server when there is no URL, `JACKET_PG_OFFLINE` is unset and managed mode is on. The pg tool's `prepare`, `check`, `generate` and `diff` follow the same rule. A good cache entry still wins; only a miss starts the server.
 
 - **Migrations are required.** A managed server starts empty, so its schema comes from `db/migrations`. With none, a miss is a compile error.
-- **Two steps.** The first start downloads about 30 MB, longer than a service request may take. The build calls `prepare_managed` (download, `initdb`) once; the describe service only calls `start_managed`.
+- **Two steps.** The first start downloads the binaries, which can take longer than a service request may take. The build calls `prepare_managed` (download, `initdb`) once; the describe service only calls `start_managed`.
 - **The service owns the server.** It starts it on first need and does not stop it on exit, which is why the next build is quick. Stop it with `pg_ctl stop -D <cache>/cluster-<major>`.
 
 ## How to change it

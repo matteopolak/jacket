@@ -5,7 +5,7 @@ A freestanding target has no operating system: `Operating_System_Tag.NONE`, a tr
 > [!WARNING]
 > Experimental: these targets and their APIs may change in any release.
 
-`aarch64-none-elf` and the Cortex-M triples `thumbv7em-none-eabihf` (Cortex-M4F) and `thumbv8m.main-none-eabihf` (Cortex-M33) build. They are 32-bit targets: 4-byte pointers, Thumb-2 code, the hard-float AAPCS. 16-bit AVR waits on the N-bit layout work.
+`aarch64-none-elf` and the Cortex-M triples `thumbv7em-none-eabihf` (Cortex-M4F) and `thumbv8m.main-none-eabihf` (Cortex-M33) build. The Cortex-M targets have 4-byte pointers, Thumb-2 code and the hard-float AAPCS. `avr-none-elf` has 2-byte pointers ([AVR](#avr-arduino-uno)). The boards and the `Extensions/Embedded` API are in [Embedded](../extensions/embedded.md); a walkthrough is in [other targets](../guides/other-targets.md).
 
 ## How it works
 
@@ -20,9 +20,9 @@ A freestanding target has no operating system: `Operating_System_Tag.NONE`, a tr
   - `write_string` and `print` go through `console_hook`. With none set, output is dropped.
   - Failed asserts and checks write their detail to the console, then call `panic_hook`, then halt in a breakpoint loop.
 
-## How to run one
+## Running without a board
 
-The `Qemu_Virt_Aarch64` and `Mps2_An386` boards in [Extensions/Embedded](../extensions/embedded.md) need no startup file or linker script of its own. `tests/freestanding` in `crates/jaic-cli` also has a hand-written one: `start.S` sets the stack and calls Jai, the program exits through the semihosting `SYS_EXIT_EXTENDED` call, and QEMU turns that into its own exit code.
+`crates/jaic-cli/tests/freestanding` has a hand-written program: `start.S` sets the stack and calls Jai, and the program exits through the semihosting `SYS_EXIT_EXTENDED` call, which QEMU turns into its own exit code.
 
 ```sh
 jaic build.jai    # writes prog.elf
@@ -30,19 +30,12 @@ qemu-system-aarch64 -M virt -cpu cortex-a53 -nographic -nic none \
     -semihosting-config enable=on,target=native -kernel prog.elf
 ```
 
-The Cortex-M boards run under `qemu-system-arm` (`-M mps2-an386 -cpu cortex-m4`, `-M mps2-an505 -cpu cortex-m33`) with the same semihosting options and `-kernel prog.elf`.
-
-With jacket, name the board in `jacket.toml` and let it do the rest (`[target.dev] board = "Qemu_Virt_Aarch64"`, [targets](../tools/jacket.md#targets)):
-
-```sh
-jacket run --target dev    # builds with the board plugin, runs it under QEMU
-jacket toolchain           # what --target accepts, and whether this machine can build and run each
-```
+The Cortex-M boards run under `qemu-system-arm` (`-M mps2-an386 -cpu cortex-m4`, `-M mps2-an505 -cpu cortex-m33`) with the same semihosting options. With boards, use `jacket run --target <board>` ([targets](../tools/jacket.md#targets)).
 
 ## How to change it
 
-- Another board for `--target`: give its module a `get_plugin` that runs its `configure` (see `Qemu_Virt_Aarch64`) give it string constants `triple` (which `configure` uses) and `runner`, and add its module to `BOARD_SOURCES` in `crates/jacket/src/target.rs`.
-- Another OS-only procedure on NONE: put it behind `#if OS != .NONE`, so calling it is a compile error naming it. Never add a stub that fails at run time.
+- Another board: see [Embedded](../extensions/embedded.md#how-to-change-it).
+- OS-only procedure on NONE: put it behind `#if OS != .NONE`, so calling it is a compile error naming it. Never add a stub that fails at run time.
 - Another freestanding CPU or core: `Target::parse` (and `CortexM` for another Cortex-M), `emulation` in `jaic-native/src/freestanding.rs`, the LLVM CPU in `baseline_cpu` of `jaic-llvm/src/machine.rs`, and the compiler-rt file name in `toolchain/freestanding.rs`.
 
 ## Configuration
@@ -53,13 +46,7 @@ jacket toolchain           # what --target accepts, and whether this machine can
 
 ## Dependencies
 
-`ld.lld` (Homebrew `lld`, Debian `lld-<llvm major>`), compiler-rt builtins for the target, and for the tests `clang`, `qemu-system-aarch64` and `qemu-system-arm`.
-
-Build the builtins with `jacket toolchain add TRIPLE`. It downloads the pinned compiler-rt source and compiles it with the installed `clang` and `llvm-ar`, into jacket's cache; later builds find it there. See [toolchain discovery](toolchain-discovery.md).
-
-```bash
-jacket toolchain add aarch64-none-elf
-```
+`ld.lld`, compiler-rt builtins for the target ([toolchain discovery](toolchain-discovery.md)), and for the tests `clang`, `qemu-system-aarch64` and `qemu-system-arm`.
 
 ## AVR (Arduino Uno)
 
@@ -70,7 +57,7 @@ jaic -exe app app.jai +Extensions/Embedded/Boards/Arduino_Uno
 qemu-system-avr -M uno -bios app -nographic -serial stdio -monitor none
 ```
 
-`print("hello\n")` builds to about 5.7 KB of code, 0.45 KB of `.data` and 0.4 KB of `.bss`. The qemu tests in `crates/jaic-cli/tests/avr.rs` run it, and a program that calls through `#c_call` and Jai procedure pointers.
+The qemu tests in `crates/jaic-cli/tests/avr.rs` run it, and a program that calls through `#c_call` and Jai procedure pointers.
 
 How it differs from the other boards:
 
@@ -81,6 +68,6 @@ How it differs from the other boards:
 - **Build options.** The board sets `set_optimization(.OPTIMIZED_SMALL)` (an unoptimized image keeps compile-time scratch buffers and does not fit), `stack_trace = false` (trace text is RAM), `null_pointer_check = .OFF` (RAM starts at data address 0x100, so no low address is unmapped) and a 64-byte temporary storage.
 - **Size.** A `String_Builder` is 256 bytes where pointers are 2 bytes wide (4 KiB elsewhere). `print` with no `%` and no values writes the text directly, so none of the formatter is linked; a `print` with values pulls in the formatter, which does not fit 32 KiB of flash with the rest of `Basic`. `init_runtime` leaves `context_info` empty, because describing `Context` links about 17 KB of type information. Call `describe_context()` after `init_runtime()` when something needs it, such as `Remap_Context`.
 - **C ABI.** The runtime's `memset`, `memcmp` and `bcmp` take `int` and `size_t` at the target's width (16 bits on AVR), as LLVM's calls pass them.
-- **Compile time.** The interpreter runs the program's own layout in a 48 KiB window, and the compile-time buffers shrink to fit, so `-check` works. Compile-time code at host width with values relaid out when they reach the program is not built (see [n-bit and embedded](n-bit-and-embedded.md)).
+- **Compile time.** The interpreter runs the program's own layout in a 48 KiB window, and the compile-time buffers shrink to fit, so `-check` works. Compile-time code does not run at host width with values relaid out when they reach the program; a narrow target always runs it in its own layout inside the window ([targets](../compiler/targets.md)).
 
 Required tools: `ld.lld` built with AVR support, the compiler-rt archive, and `qemu-system-avr` (Debian `qemu-system-misc`) to run it. Without a tool the tests skip with its install note; under `CI` they fail.

@@ -65,13 +65,11 @@ shortened :: (slug: string, options: Short_Options) -> string {
 jacket doc --out site
 ```
 
-The build prints a line like `jacket doc: 2 modules, 6 items (3 procedures), written to site`. Open `site/index.html` through a static server (links are absolute, so opening the files directly won't style them):
+Serve `site/` with a static server that finds `/api/Basic/print` in `api/Basic/print.html`. `python3 -m http.server` does not, and opening the files directly loses the styles because links are absolute:
 
 ```sh
 npx serve site
 ```
-
-The server has to find `/api/Basic/print` in `api/Basic/print.html`, which `python3 -m http.server` does not.
 
 ## Writing doc comments
 
@@ -173,7 +171,7 @@ modules = ["src/Slugs"]
 name = "Words"
 modules = ["src/Words"]
 
-[[doc.page]]                             # a Markdown page under pages_title
+[[doc.page]]                             # a Markdown page under pages-title
 file = "notes/getting-started.md"
 name = "Getting started"
 

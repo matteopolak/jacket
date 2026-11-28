@@ -41,16 +41,6 @@ Plain :: #import "Extensions/Hash_Map"(SCALAR_GROUPS = true);
 
 ## Measured against Hash_Table and the community map
 
-Benchmarks in `benchmarks/compare/hash-map` (`tools/bench/library_compare.py hash-map --per-item`, see [library comparisons](../tools/library-comparisons.md)); keys are random `s64` or strings, at 1k to 1M entries. Ratio is Hash_Table's time over Hash_Map's (above 1 means Hash_Map is faster), Apple M5.
-
-| Workload | 1k | 100k | 1m |
-| --- | --- | --- | --- |
-| insert | 0.91x | 1.94x | 2.16x |
-| hit | 1.35x | 1.12x | 1.05x |
-| miss | 1.14x | 1.25x | 3.95x |
-| churn | 0.97x | 1.53x | 1.60x |
-| iterate | 1.94x | 6.18x | 2.61x |
-| string insert | 1.19x | 1.97x | 1.63x |
-| string hit | 1.20x | 1.14x | 1.14x |
+Benchmarks are in `benchmarks/compare/hash-map` (`tools/bench/library_compare.py hash-map --per-item`, see [library comparisons](../tools/library-comparisons.md)); keys are random `s64` or strings, at 1k to 1M entries, and results are Hash_Table's time over Hash_Map's.
 
 It wins most once the map outgrows the cache: a miss ends after one group, removed slots are reused, and iteration skips empty groups. Small maps are close to even because they rebuild several times on the way up.

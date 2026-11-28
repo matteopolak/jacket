@@ -12,7 +12,7 @@ Real applications written in Jai under `examples/`, to exercise the compiler, st
 - `examples/music/`: a music player on `Extensions/UI`: recursive library scan sorted by Vorbis tags, a queue through `Sound_Player`, streaming via `Extensions/Audio_Stream`, a waveform computed on a worker and synced `.lrc` lyrics. See its README.
 - `examples/term/`: a VT terminal emulator on `Extensions/Pty` and `Extensions/UI`: cell grid, attributes, alternate screen, titles and resize. macOS and Linux; Windows only type-checks. See its README.
 - `examples/traceview/`: a viewer for `Extensions/Iprof_Trace` recordings: frame bars, a flame view, per-zone statistics, search and frame comparison. `examples/traceview/tools/record/` writes a sample trace. See its README.
-- `examples/editor/`: a native text editor on `Extensions/UI` and `Extensions/Desktop` with a `jailsp` client. See [the editor doc](../extensions/ui-editor.md) and its README.
+- `examples/editor/`: a native text editor on `Extensions/UI` and `Extensions/Desktop` with a `jailsp` client. See its README.
 - `examples/seek/`: a small grep. `search/` (file walk with `visit_files`, globs, `Extensions/Regex` or fixed-text matching, one `Thread_Group` job per file with a buffer per worker, output joined in path order), `main.jai` (`Extensions/Args`), and `tests/`, which `jacket test` runs in that folder. See its README.
 
 ## Running

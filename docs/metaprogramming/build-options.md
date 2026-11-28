@@ -11,7 +11,7 @@ set_build_options(options, w);
 
 ## How it works
 
-`set_build_options` is bound to `build/public_api/options.rs`. It reads each field through the declared `Build_Options` layout and hands it to `Workspaces::set_text/set_flag/set_number/append_list`, keyed by the `Workspace_*` enums in `builtin_keys.rs`, so a field cannot be read and then dropped ([compiler builtins](../compiler/compiler-builtins.md)).
+`set_build_options` is bound to `build/public_api/options.rs`. It reads each field through the declared `Build_Options` layout and hands it to `Workspaces::set_text/set_flag/set_number/append_list`, keyed by the `Workspace_*` enums in `builtin_keys.rs`, so a field cannot be read and then dropped ([compiler builtins](../compiler/stdlib-contract.md#compiler-builtins)).
 
 - **Honoured:** output type, names and paths, `import_path`, linker arguments, `os_target`/`cpu_target`, `intermediate_path`, `entry_point_name`, the runtime checks, `stack_trace`, `dead_code_elimination`, `backtrace_on_crash`, `minimum_os_version`, frame pointer and red zone switches, `emit_debug_info`, `temporary_storage_size` and the `Llvm_Options` switches.
 - **Rejected** with a `require` error: `interactive_bytecode_debugger`, raw `llvm_options.command_line`, `disable_mem2reg`, memory breakpoints, `developer_debug`, another workspace's `get_runtime_info`, and `add_build_string` with another workspace's message.

@@ -1,5 +1,5 @@
 //! Programs built for targets whose pointers are narrower than the host's, run in the
-//! interpreter (docs/compiler/targets.md, docs/native/n-bit-and-embedded.md).
+//! interpreter (docs/compiler/targets.md, docs/native/linux-cpu-bindings.md).
 use std::path::Path;
 use std::process::Command;
 

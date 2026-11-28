@@ -40,4 +40,4 @@ No flags or environment variables. `init(tlsf, bytes, thread_safe, backing)` tak
 
 ## Dependencies
 
-`Basic`, `Atomics` and `Bit_Operations`. `jacket bench --path stdlib/Extensions/Tlsf` compares it with the default allocator: a 100-allocation churn took 5.1 µs against 3.6 µs on an M-series Mac, with steady timing.
+`Basic`, `Atomics` and `Bit_Operations`. `jacket bench --path stdlib/Extensions/Tlsf` compares it with the default allocator; allocation time is steady rather than lowest.

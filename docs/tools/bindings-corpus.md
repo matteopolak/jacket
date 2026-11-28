@@ -57,23 +57,6 @@ Top level: `triples` maps each triple to its generator `os` (`linux` or `none`) 
 
 Targets without a sysroot (macOS hosts, bare metal) have no C library headers. `corpus/bindings/libc/` holds declaration-only headers for the parts the libraries name (`string.h`, `stdio.h`, `stdlib.h`, `ctype.h`, `assert.h`, `limits.h`, ...). `-ffreestanding` makes clang take `stdint.h`, `stddef.h` and `stdbool.h` from its own resource directory. The generator and the oracle use the same shim, so both see the same typedef widths. The comparison checks the generator, not glibc.
 
-## Results
-
-Recorded with the driver at this commit (see the manifest for the pins):
-
-| Library | x86_64 | i686 | thumbv7em | avr | Notes |
-|---|---|---|---|---|---|
-| littlefs | ok | ok | ok | ok | |
-| FatFs R0.15 | ok | ok | ok | ok | |
-| FreeRTOS 11.1.0 | ok | ok | ok | ok | Posix port on x86, ARM_CM4F, ATMega323 |
-| mbedTLS 3.6.2 | ok | ok | ok | ok | |
-| nanopb 0.4.9.1 | ok | ok | ok | ok | |
-| TinyUSB 0.17.0 | ok | ok | ok | ok | |
-| CMSIS-Core 5.9.0 | skip | skip | ok | skip | Arm-only; see the manifest reasons |
-| lwIP 2.2.1 | ok | ok | ok | ok | |
-| LVGL 9.2.2 | ok | ok | ok | ok | |
-
-
 ## Change it
 
 - New library: add an entry; put its config headers in `corpus/bindings/config/<id>/`. Run the driver with `--library <id>` and fix the first `ERROR` line it prints.

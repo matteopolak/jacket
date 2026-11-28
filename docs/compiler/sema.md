@@ -54,6 +54,29 @@ The editor fades code that cannot run, and batch compiles warn after `return`, `
 - `ide/never_returns.rs` finds procedures that never return by fixed point.
 - In an editor analysis the ruled-out branch is still checked so hover works there; its errors are dropped.
 
+### Constants versus variables
+
+Only `::` and `: T :` declarations name constants. A `:=` or `: T =` variable never does, even when its initializer folds.
+
+```jai
+G := 4;
+A :: G;          // error: constant declaration needs a constant value, but `G` is a variable
+```
+
+- Contexts that need a constant (`#if` conditions, `::` values, array sizes, enum values, `$` arguments, `#insert` operands) go through `eval_const` in `sema/decls.rs`. Reading a global variable there is an error.
+- Exempt on purpose: `#run` bodies, `#assert`, global initializers (`eval_const_or_run`), `type_of`/`size_of` operands, and address-of (`*G`, `*G.field`).
+- A new constant context calls `eval_const`, or `eval_const_as` with its own wording. A context that may read variables at compile time uses `eval_const_or_run`. Test: `crates/jaic/tests/cleanroom_variable_constness.rs`.
+
+### Standard-library index
+
+`sema/stdlib_index.rs` is a process-wide index of what the standard library's modules declare, so the "import it" help for an unknown name or operator (`sema/suggestions.rs`, its only user) is a lookup instead of parsing the whole library.
+
+- `StdlibIndex::shared(fs, stdlib_root)` reuses an index from an earlier compile while it is still current, else builds one. Up to four are kept. The stdlib folder comes from `Options::stdlib_root()`.
+- Build: lists modules (`prelude`, `Preload`, `Runtime_Support` excluded), then line-scans each `.jai` file (skipping `tests`, `examples`, `modules`) for top-level declarations, `operator` declarations, and `#import`s used for ranking. A name found by the scan is confirmed by parsing its file once, which decides what is really exported (`#scope_export`, `#scope_module`, top-level `#if`).
+- Per compile, `StdlibView` drops the preloaded module. `Compiler::imports_declaring*` rank results (project imports first, then stdlib importers, `Extensions/` last) and cap them at `MAX_IMPORTS`.
+- Invalidation: every path the build asked the file system about is recorded with its `FileSystem::stamp` (size and mtime on disk, content hash for virtual and overlay files). The index is reused while all stamps match. A `FileSystem` returning `None` for stamps gets no sharing, so a wrapper should forward `stamp` and include whatever it overlays.
+- A new fact about modules goes in `add_file`: keep the scan cheap and parse lazily like `file_exports`. Answers stay per module (a union over its files): declarations outside `#scope_file`, names of letters, digits and `_`, operators without blanks or `::`.
+
 ### Pending and deferred work
 
 - Resolving an undefined `#placeholder` makes dependent items wait and retry at the next settle, since a metaprogram may define it later.

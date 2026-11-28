@@ -26,7 +26,7 @@ Io.io_run(() {
 - **TLS.** `SSLRequest` then handshake, or `ssl_direct` with ALPN `postgresql`. `VERIFY_FULL` checks the host name by libpq's rules (`tls_name.jai`). `ssl_mode = .ALLOW`/`.PREFER` retry the other way as libpq does.
 - **Startup.** Asks for `max_protocol_version` (default 3.0; `.LATEST` is 3.2) and accepts a downgrade down to `min_protocol_version`. Sets `client_encoding=UTF8`, `DateStyle=ISO` and `IntervalStyle=postgres`, which the text decoders rely on.
 - **Authentication.** SCRAM verifies the server's signature before accepting `AuthenticationOk`. `-PLUS` binds to the server certificate hash. Cleartext passwords go only over TLS or with `allow_cleartext_password`. The PBKDF2 step is cached per process so pool reconnects don't repeat it.
-- **Queries.** `query_dynamic` sends Parse/Bind/Describe/Execute/Sync in one round trip with text results; `query_binary` asks for binary. `query_cached` and the typed queries use a named-statement cache. `execute_script` and `run_script` use the simple protocol; `run_script` reports each statement's result and handles COPY through `Script_Hooks`. `copy_in`/`copy_out` run COPY ([copy](../postgres/copy.md)). `describe_statement` returns parameter and column types without running anything.
+- **Queries.** `query_dynamic` sends Parse/Bind/Describe/Execute/Sync in one round trip with text results; `query_binary` asks for binary. `query_cached` and the typed queries use a named-statement cache. `execute_script` and `run_script` use the simple protocol; `run_script` reports each statement's result and handles COPY through `Script_Hooks`. `copy_in`/`copy_out` run COPY. `describe_statement` returns parameter and column types without running anything.
 - **Statement cache** (`statements.jai`). Up to `statement_cache_size` (256) prepared statements per connection, named from a hash of SQL and parameter types, evicted least-recently-used. A hit that fails with `0A000` or `26000` is dropped and resent once. `plan = .CUSTOM` or `Config.statement_cache = .OFF` use the unnamed statement (for PgBouncer before 1.21). `verify_statements` checks column counts and names against what a typed query was compiled against.
 - **Parameters.** Integers, bools and strings go as text with OID 0 so the server infers the type; floats, bytea, uuid, dates, times and arrays go as binary with their OID. Arrays are one-dimensional. `Nullable(T)` with `null` sends NULL.
 - **Results.** `Result` copies rows into one buffer; `get(*result, row, column, T)` decodes on demand and everything it returns stays valid until `free_result`. NULL into a non-`Nullable` type, or a value that doesn't fit, is a `.DECODE` error, never a silent zero.
@@ -81,21 +81,8 @@ sh stdlib/Extensions/Postgres/tests/start_server.sh /tmp/pgtest 54329
 
 The script needs `initdb`, `pg_ctl` and `psql` (PostgreSQL 15+) on `PATH` or in `PG_BIN`.
 
-## Compared with the community libraries
+## Benchmarks
 
-`benchmarks/compare/postgres/benches/postgres.jai` (`tools/bench/library_compare.py postgres`, see [library comparisons](../tools/library-comparisons.md)) runs against a local PostgreSQL server over loopback, so it measures the client and protocol, not the network. Jacket versus the `jai-postgres` libpq wrapper, time per iteration:
+`tools/bench/library_compare.py postgres` (cases in `benchmarks/compare/postgres/benches/postgres.jai`, see [library comparisons](../tools/library-comparisons.md)) compares against the `jai-postgres` libpq wrapper on a local PostgreSQL server over loopback, so it measures the client and protocol, not the network. Single statements are level with the wrapper because the time is the server round trip; the differences are in pipelining, COPY and wide-row decoding. The wrapper has no pool, pipelining, COPY, LISTEN/NOTIFY, cancel or fiber-friendly waiting, and partial type coverage (no arrays, json, intervals).
 
-| Workload | Jacket | libpq wrapper |
-| --- | --- | --- |
-| point select | 33.8 us | 32.9 us |
-| point select over TLS | 38.4 us | 39.1 us |
-| point select, prepared | 24 us | n/a |
-| 1,000 inserts in a transaction | 27.3 ms | 28.2 ms |
-| 1,000 inserts, pipelined | 6.19 ms | n/a |
-| 1,000 rows by binary COPY | 3.9 ms | n/a |
-| fetch 1,000 rows x 24 columns | 1.02 ms | 1.28 ms |
-
-Single statements are level because the time is the server round trip. Jacket wins where the protocol allows it: pipelining is 4x quicker than a loop, COPY 7x, and wide rows decode 1.25x faster. The wrapper has no pool, pipelining, COPY, LISTEN/NOTIFY, cancel or fiber-friendly waiting, and has partial type coverage (no arrays, json, intervals).
-
-Run benchmarks with `jacket bench --path stdlib/Extensions/Postgres`. Cases live in `benches/`; setup precedes the `for b` loop, and inputs/results use `black_box`.
-The TPC-B cases start and stop a managed scratch server, load scale-1 tables, and run eight clients in simple or prepared mode. See [the load test](../postgres/benchmark.md).
+Run benchmarks with `jacket bench --path stdlib/Extensions/Postgres`. Cases live in `benches/`; setup precedes the `for b` loop, and inputs/results use `black_box`. The TPC-B cases start and stop a managed scratch server, load scale-1 tables and run eight clients in simple or prepared mode.

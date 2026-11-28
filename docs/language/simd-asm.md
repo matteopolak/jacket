@@ -1,6 +1,6 @@
 # SIMD and `#asm`
 
-`#asm` blocks with x64 scalar, string, SSE through AVX2, FMA, AES and AVX-512 instructions, including op-mask registers. jaic never emits machine code for them: each instruction lowers to ordinary IR, so `#asm` runs on any CPU, in the interpreter and in the browser. The instruction list and internals are in [jaic `#asm` blocks](../compiler/asm.md).
+What `#asm` code means in jaic: each instruction lowers to ordinary IR, so blocks run on any CPU, in the interpreter and in the browser. The instruction list, lowering and how to add an instruction are in [jaic `#asm` blocks](../compiler/asm.md).
 
 ```jai
 x: s64 = 10;
@@ -40,4 +40,4 @@ The first block leaves `x == 12` {#asm.4}; afterwards `a` holds `10, 40, 90, 160
 
 ## How to change it
 
-Add a mnemonic in `sema/asm.rs`, `asm/scalar.rs`, `asm/mask.rs`, or `lookup_simd` in `asm/simd.rs`, plus a test case. Vectors are 64-byte locals processed through a scratch buffer so aliased operands behave as on hardware: never write the destination before every source is read. Tests: `tests/compiler/regressions/lang-asm.jai`, `asm-vector-instructions.jai`, `asm-avx512-masks.jai`.
+See [jaic `#asm` blocks](../compiler/asm.md#how-to-change-it). Tests: `tests/compiler/regressions/lang-asm.jai`, `asm-vector-instructions.jai`, `asm-avx512-masks.jai`.

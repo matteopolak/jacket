@@ -231,52 +231,19 @@ quoted line breaks, including records longer than the window. The chunk and limi
 tests in `tests/streaming.jai` compare them byte for byte, including error
 positions.
 
-`benches/bench.jai` reads the same two ~50 MB files of a million rows as the comparison below ("quoted" is `bench.csv`, "plain" is built in memory) and gives chunked sources 4096 bytes at a time. Median of three alternating runs per version on a shared Apple M5 (load about 5), `jacket bench --samples 10`:
-
-| Workload | Before | After |
-| --- | --- | --- |
-| records, quoted | 46 ms | 47 ms |
-| records, plain | 39 ms | 37 ms |
-| records, plain, `trim` | 69 ms | 40 ms |
-| records, quoted, chunked | 100 ms | 44 ms |
-| records, plain, chunked | 96 ms | 44 ms |
-| records, plain, `trim`, chunked | 96 ms | 47 ms |
-| typed rows, quoted | 107 ms | 108 ms |
-| typed rows, quoted, `borrow` | 89 ms | 86 ms |
-
-Chunked and trimmed input run at the speed of a slice now (2.1x to 2.3x faster for chunks, 1.7x for `trim`). Dropping the per-field `Csv_Cell` changed records and typed rows by less than the spread between runs (about 5%): the scan is not bound by those 64-byte writes, and typed rows spend their time decoding members.
+`benches/bench.jai` reads the same two ~50 MB files of a million rows as the comparison below ("quoted" is `bench.csv`, "plain" is built in memory) and gives chunked sources 4096 bytes at a time. Run it with `jacket bench --samples 10`, alternating old and new builds on a quiet machine and comparing medians. Chunked and trimmed input should run at slice speed. Typed rows spend most of their time decoding members, not scanning.
 
 The spectrum test compares all twelve CSV/JSON pairs with no skipped cases.
 At the pinned revision, `location_coordinates.json` gives a different phone
 number than its CSV, so `fetch.py` corrects that one value. Unit tests cover strict rejection, lax quotes, limits, round trips,
 chunk boundaries, typed conversions and allocation balance.
 
-## Compared with the community libraries
+## Comparing with other libraries
 
-`benchmarks/compare/csv/benches/csv.jai` (`tools/bench/library_compare.py csv`, see [library comparisons](../tools/library-comparisons.md)) runs Csv and [rluba/jai-csv](https://github.com/rluba/jai-csv) on two ~50 MB files of a million rows (LF endings so jai-csv can read them) and on 100,000 records written (Apple M5, one thread). "Quoted" repeats one row of an integer, a quoted name with a comma, a float, a bool and a quoted field with doubled quotes. "Plain" is closer to exported data: varied ids, names, numbers and notes, with one row in twenty holding a quoted name with a comma.
+`benchmarks/compare/csv/benches/csv.jai` (`tools/bench/library_compare.py csv`, see [library comparisons](../tools/library-comparisons.md)) runs Csv and [rluba/jai-csv](https://github.com/rluba/jai-csv) on two ~50 MB files of a million rows (LF endings so jai-csv can read them) and on 100,000 records written. "Quoted" repeats one row of an integer, a quoted name with a comma, a float, a bool and a quoted field with doubled quotes. "Plain" is closer to exported data: varied ids, names, numbers and notes, with one row in twenty holding a quoted name with a comma. Both libraries must produce the same counts, rows and written bytes before the timer starts.
 
-| Workload | Csv | Csv with `borrow` | jai-csv |
-| --- | --- | --- | --- |
-| records, quoted | 48 ms, 1140 MB/s | | 83 ms, 666 MB/s |
-| typed rows, quoted | 97 ms, 569 MB/s | 92 ms, 601 MB/s | 122 ms, 453 MB/s |
-| records, plain | 36 ms, 1420 MB/s | | 53 ms, 974 MB/s |
-| typed rows, plain | 88 ms, 590 MB/s | 62 ms, 832 MB/s | 95 ms, 546 MB/s |
-| write | 6.6 ms, 839 MB/s | | 7.7 ms, 718 MB/s |
+jai-csv has no record reader, so "records" calls its `csv_consume_col` per field, and "typed" uses `csv_parse` into the same struct without the `bool` column, which it cannot read. It does less: it keeps no position, has no limits, takes the whole input at once, reads only LF endings (`` stays in the last field), keeps a BOM in the first field, reports errors only as log messages, and has no record writer. Csv streams `Csv_Source` chunks, skips the BOM, has field, field-count and record limits, reports kind, offset, line and column, and supports lax quotes and typed rows with rename and skip notes.
 
-One run of both libraries at a one-minute load average of 5 to 9 on the 10 cores; the spread within a run was under 3% except for typed rows with `borrow`, and jai-csv varied between runs (records 75 to 83 ms on the quoted file). Before the block scanner the same benchmark gave 74 ms (746 MB/s) and 64 ms (805 MB/s) for records, 120 ms and 105 ms for typed rows, so records now parse 1.5x to 1.8x faster than before and 1.5x to 1.7x faster than jai-csv; typed rows are about 1.2x faster than before and 1.1x to 1.3x faster than jai-csv, and `borrow` saves another 5% to 30% (more on the plain file, where fewer strings need copying). Typed rows spend most of their time decoding members, not scanning, so they gained less. Writing is unchanged, 1.2x faster than jai-csv. The reader maps header names once, so a row only decodes its members. jai-csv does less: it keeps no position, has no limits and takes the whole input at once. jai-csv has no record reader, so "records" calls its `csv_consume_col` per field, and "typed" uses `csv_parse` into the same struct without the `bool` column, which it can't read. Both libraries produce the same counts, rows and written bytes on both files, checked before the timer.
-
-| Feature | Csv | jai-csv |
-| --- | --- | --- |
-| Streaming input | yes, `Csv_Source` chunks | no, whole string |
-| Quoted newlines | yes | yes |
-| CRLF and CR endings | yes | no, only LF (`\r` stays in the last field) |
-| BOM | skipped | kept in the first field |
-| Limits | field, field count, record | none |
-| Error positions | kind, offset, line, column | log message only |
-| Typed rows | all scalars, `bool`, optional, rename and skip notes | string, integer and float via a column callback |
-| Writer | records and typed rows, line ending choice, whitespace protection | `csv_escape` per field, no record writer, `\r` not quoted |
-| Lax quotes | option | no, stray quotes fail |
-
-On the csv-spectrum cases Csv matches all twelve (stray-quote `location_coordinates` with `lax_quotes`). jai-csv, read through `csv_consume_col`, matches eight: it fails on `empty_crlf` and `location_coordinates` (quote errors) and leaves `\r` in the last field of `simple_crlf` and `newlines_crlf`.
+On the csv-spectrum cases Csv matches all twelve (the stray-quote `location_coordinates` with `lax_quotes`); jai-csv, read through `csv_consume_col`, fails on the quote errors of `empty_crlf` and `location_coordinates` and leaves `\r` in the last field of the CRLF cases.
 
 Extend `csv.jai` by adding a `WORKLOAD__LIBRARY` pair and a matching check in `prepare`.

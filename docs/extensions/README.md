@@ -12,13 +12,13 @@
 | `Embedded` | The runtime, memory maps, `@Section`, volatile access, flash images and boards for programs with no OS | [embedded](embedded.md) |
 | `Time` | Civil time, exact instants, TZif zones and calendar-aware spans | [time](time.md) |
 | `Archive` | bounded ZIP/ZIP64 and TAR codecs, CRC checks and safe extraction | [archive](archive.md) |
-| `Environment` | reading environment variables, UTF-8 on every platform | [environment](environment.md) |
+| `Environment` | reading environment variables, UTF-8 on every platform | — |
 | `Testing` | `@test` procedures, checks, subtests and a leak-checking allocator, run by `jacket test` | [testing](testing.md) |
 | `Fuzz` | deterministic argument generators and procedure fuzz runners | [stdlib fuzzing](../tools/stdlib-fuzzing.md) |
 | `Long_Double` | C's `long double` in the target's format, for calling C functions that take or return one | [Long_Double](../language/long-double.md) |
 | `Args` | typed, compile-time-generated command-line parser (clap-like); `jaifmt` uses it | [args](args.md) |
 | `Regex` | Rust-`regex` syntax and semantics, linear time; `Regex.Static` patterns give typed groups | [regex](regex.md) |
-| `Toml` | TOML 1.1 values, parsing and semantic writing; formatter configuration | [toml](toml.md), [typed](toml-typed.md), [performance](toml-performance.md) |
+| `Toml` | TOML 1.1 values, parsing and semantic writing; formatter configuration | [toml](toml.md), [typed](toml-typed.md) |
 | `Uuid` | RFC 9562 UUID parsing, formatting, v3/v4/v5/v7 generation and Json field handlers | [uuid](uuid.md) |
 | `Gltf` | glTF/GLB typed codecs, bounded resources and core validation | [gltf](gltf.md) |
 | `Csv` | Streaming CSV records, bounded writing and typed rows | [csv](csv.md) |
@@ -42,13 +42,13 @@
 | `Frame_Arena` | fixed-capacity per-frame bump arena, and a double-frame pair that keeps the previous frame alive | [frame-arena](frame-arena.md) |
 | `Stack_Allocator` | LIFO allocator with `mark` and `rewind` | [stack-allocator](stack-allocator.md) |
 | `Hash_Map` | opt-in SwissTable hash map: single-key, 16-slot SIMD group probing | [hash-map](hash-map.md) |
-| `Utf8` | strict UTF-8 decode, encode and validation | [utf8](utf8.md) |
+| `Utf8` | strict UTF-8 decode, encode and validation | — |
 | `Byte_Search` | vectorized `memchr`/`memmem` | [byte-search](byte-search.md) |
 | `Jai_Format` | the formatter behind `jaifmt` and the playground's Format button | [jaifmt](../tools/jaifmt.md) |
 | `WebGPU` | the standard `webgpu.h` API: wgpu-native natively, the page's WebGPU in the playground | [webgpu](webgpu.md) |
 | `Unicode_Text` | UCD 17.0.0 normalization and extended grapheme, word and sentence boundaries | [unicode-text](unicode-text.md) |
 | `Text_Buffer` | piece-table text buffer with lines, undo and redo, grapheme and word movement | [text-buffer](text-buffer.md) |
-| `UI` | native windows with our own WebGPU rendering, FreeType text, layout and a retained widget tree declared with `for` containers; headless for tests | [ui](ui.md), [editor example](ui-editor.md) |
+| `UI` | native windows with our own WebGPU rendering, FreeType text, layout and a retained widget tree declared with `for` containers; headless for tests | [ui](ui.md), [editor example](../../examples/editor/README.md) |
 | `Desktop` | native menus, file dialogs and IME composition for `Window_Creation` windows on macOS and Windows; `@experimental` | [desktop](desktop.md) |
 | `SDL3` | the SDL3 C API (`SDL` stays SDL2) | [sdl3](sdl3.md) |
 | `Io` | fibers, channels, TCP, files, deadlines over a completion engine | [io-engine](io-engine.md) |

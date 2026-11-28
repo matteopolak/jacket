@@ -552,7 +552,7 @@ jobs:
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',diff,') && runner.os == 'Linux' && matrix.architecture == 'x86_64' && needs.changes.outputs.full == 'true' }}
         # The stdlib roots that are fully green on i686 (4-byte pointers, 4-aligned 64-bit integers),
         # linked with gcc -m32 and run natively: an x86-64 kernel runs 32-bit programs
-        # (docs/compiler/targets.md). Add a root to tools/dev/i686-roots.txt when it passes; docs/native/n-bit-and-embedded.md.
+        # (docs/compiler/targets.md). Add a root to tools/dev/i686-roots.txt when it passes.
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends gcc-multilib

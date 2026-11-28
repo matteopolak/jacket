@@ -13,22 +13,15 @@ jaic main.jai -os windows -cpu arm64
 
 Options go before or after the file. `jaic -help` lists every option; the full table is the [command-line reference](../reference/tools.md#compiling). [`jacket`](jacket.md) runs `jaic` with your arguments plus the project's entry file and settings. Other source files come in through `#load` and `#import`.
 
-## Options worth knowing
+## Options
+
+Every option is in the [reference](../reference/tools.md#compiling). Behaviour that the table doesn't show:
 
 - `-check` and `-interp` can't be combined. Build-only options (`-exe`, `-o`, `-sanitize`, ...) are accepted and ignored with either, so one command line can build, check or interpret.
-- `-deps` type-checks and prints the absolute path of every source file read, sorted. CI uses it to pick jobs ([CI job selection](ci-job-selection.md)).
-- `-deps_file <file>` does the same in any mode (build, `-check` or `-interp`): once the compile has finished, it writes the list to the file, written whole or not at all, and prints nothing. A failed compile writes no file. `jacket test` records the lists its own compiles read this way ([jacket test](jacket-test.md)).
-- `-print_stdlib` prints the standard library folder in use.
-- `-add "code"` adds code to the program; `-run "code"` runs it at compile time. `-I dir` adds a module folder. `-j <n>` sets worker threads.
-- `-target <triple>` builds for an LLVM triple that `-os`/`-cpu` don't cover.
-- `-no_dce` also type-checks module code nothing references.
-- `-run_budget N` caps the steps one compile-time run may take (default 1000000000, `0` for no limit), so a `#run` that never ends can't hang a build.
+- `-deps` and `-deps_file` list the source files a compile read. CI uses `-deps` to pick jobs ([CI job selection](ci-job-selection.md)); `jacket test` records the lists its own compiles read with `-deps_file` ([jacket test](jacket-test.md#dependency-store)). `-deps_file` writes the file whole, or not at all, and a failed compile writes none.
 - `-profile`, `-profile_ops` and `-coverage` (with `-interp`) count what the interpreter runs ([coverage](coverage.md)).
 - `-dev_*` flags study the compiler itself and may change at any time.
-
-### Build flavors
-
-With no flavor you get an unoptimized build with stack traces and runtime checks. `-od` keeps the checks and lightly optimizes, `-o` optimizes fully and drops stack traces and checks, `-very_debug` turns every check on. `-O0` to `-O3` pick the LLVM level directly; don't combine them with a flavor. `-no_inline`, `-no_split`, `-no_debug_info` and `-no_backtrace_on_crash` each turn off one thing. `-sanitize address,undefined,fuzzer` builds with sanitizers, `-emit_ir out.ll` also writes LLVM IR. `-codegen_units N`, `-threads N` and `-parse_threads N` tune parallelism. These override a build metaprogram's optimization level.
+- A build flavor (`-od`, `-o`, `-very_debug`) overrides a build metaprogram's optimization level; don't combine it with `-O0` to `-O3`.
 
 ### Where the executable goes
 
@@ -67,10 +60,6 @@ On a terminal `jaic` prints a `Compiling` line, a live status line (`Parsing`, `
 
 With `-interp`, a program that runs to the end exits with its own status. See [diagnostics](../compiler/diagnostics.md#exit-status).
 
-## Configuration
-
-Environment variables (`JAIC_MEMORY_LIMIT`, `JAIC_DIAGNOSTICS`, `JAIC_PROGRESS`, `JACKET_PROJECT`, `NO_COLOR`, ...) are in the [environment variable reference](../reference/tools.md#environment-variables).
-
 ## How to change it
 
 Options are the fields of `Cli` (`crates/jaic-cli-args/src/cli.rs`, and `Tuning` in `tuning.rs`), declared with [`argdef`](argdef.md). The doc comment on a field is its `-help` line, so the struct drives parsing, "did you mean" suggestions, `-name=value` splitting, help and shell completions. To add one:
@@ -88,10 +77,6 @@ Options are the fields of `Cli` (`crates/jaic-cli-args/src/cli.rs`, and `Tuning`
 
 Tests are in `crates/jaic-cli/tests/` (`cli.rs`, `diagnostics.rs`, `native.rs`).
 
-## Shell completions
+## Configuration and dependencies
 
-`jaic -completions bash|zsh|fish` prints a completion script for the options in `-help`, with folder and file completion for the options that take one. `jacket completions bash|zsh|fish` prints one for `jacket`; `jacket completions bash --tool jaic` prints jaic's.
-
-## Dependencies
-
-[Metaprogram plugins](../metaprogramming/workspaces.md), [build options](../metaprogramming/build-options.md), and the [diagnostics](../compiler/diagnostics.md) renderer.
+Environment variables are in the [reference](../reference/tools.md#environment-variables), and completion scripts in its [shell completions](../reference/tools.md#shell-completions) section. Depends on [metaprogram plugins](../metaprogramming/workspaces.md), [build options](../metaprogramming/build-options.md) and the [diagnostics](../compiler/diagnostics.md) renderer.

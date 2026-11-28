@@ -1,16 +1,8 @@
 # HTTP/2
 
-The part of `Extensions/Http` that speaks HTTP/2 (RFC 9113) and HPACK (RFC 7541), for both the server and the client. Users never call it directly: a TLS connection that picks `h2` through ALPN is handed to it, and the usual `App` handlers or `Client` calls work unchanged. Turning it on and off, and the limits a user can set, are covered in [http-server.md](http-server.md) and [http-client.md](http-client.md). This page is for changing the implementation.
+The part of `Extensions/Http` that speaks HTTP/2 (RFC 9113) and HPACK (RFC 7541), for both the server and the client. Users never call it directly: a TLS connection that picks `h2` through ALPN is handed to it, and the usual `App` handlers or `Client` calls work unchanged. Turning it on and off, and the limits a user can set, are covered in [http-server.md](http-server.md) and [http-client.md](http-client.md). This page is for changing the implementation; the duplex exchange API is at the end.
 
-## Files
-
-| File | What it holds |
-| --- | --- |
-| `h2_frame.jai` | Frame codec: the 9-byte header, each frame type's payload, `h2_put_*` writers. No IO. |
-| `hpack.jai`, `hpack_huffman.jai` | Header compression: encoder and decoder, each with its own dynamic table, plus the Huffman code (the decoder table is built at compile time with `#run`). |
-| `h2.jai` | The shared connection: `H2_Conn`, `H2_Stream`, the reader loop, the writer fiber, flow control, frame rules. |
-| `h2_server.jai` | `serve_h2`: turns each request stream into a `Request_Frame` and runs `handle_request` on it. |
-| `h2_client.jai` | One pooled `H2_Conn` per origin, `converse_h2` for one request, retry on refused streams. |
+Files: `h2_frame.jai` (frame codec, no IO), `hpack.jai` and `hpack_huffman.jai` (header compression; the decoder table is built at compile time with `#run`), `h2.jai` (the shared `H2_Conn`/`H2_Stream`, reader loop, writer fiber, flow control), `h2_server.jai` (`serve_h2`), `h2_client.jai` (one pooled `H2_Conn` per origin, `converse_h2`), `h2_exchange.jai` (duplex exchanges).
 
 ## How a connection runs
 

@@ -176,74 +176,21 @@ proto2 and proto3 are fixed defaults for these. In editions, `option features.x 
 
 `benchmarks/compare/protobuf/conformance/testee.jai` runs Google's `conformance_test_runner` against this module. It generates the test messages from a protobuf checkout given at build time: `jaic -O2 testee.jai -add 'PROTOBUF_ROOT :: "/path/to/protobuf";'`.
 
-The runner is upstream code, so it runs only inside the `tools/bench` sandbox. It runs with `--maximum_edition 2024 --enforce_recommended --failure_list failure_list.txt`. Every binary test passes (2,864), proto2, proto3 and editions alike, and so does every JSON test in both directions (5,786 tests in all); the failure list is empty. Text-format tests are skipped.
+The runner is upstream code, so it runs only inside the `tools/bench` sandbox. It runs with `--maximum_edition 2024 --enforce_recommended --failure_list failure_list.txt`. Every binary test (proto2, proto3 and editions) and every JSON test in both directions passes; the failure list is empty. Text-format tests are skipped.
 
-`jacket bench --path stdlib/Extensions/Protobuf` covers mixed messages, packed numbers, deep nesting, logs, spans and schema generation. Each encode, size and owned/borrowed decode mode has its own case, including UTF-8 checking on/off and proto3/plain JSON. Use `jacket bench --path stdlib/Extensions/Protobuf --interp generation` for generation in the interpreter. A 100-message, 1,000-line schema generates in about 190 ms in the interpreter and about 4 KB of Jai per 9-field message.
-
-JSON is close to `Extensions/Json` reading the same data into a plain struct. On the string-heavy logs it decodes at about 770 MB/s (Extensions/Json: about 670 MB/s) with 7 allocations against 4,010, and encodes at about 1.6 GB/s, roughly 1.4 times slower than Extensions/Json.
+`jacket bench --path stdlib/Extensions/Protobuf` covers mixed messages, packed numbers, deep nesting, logs, spans and schema generation. Each encode, size and owned/borrowed decode mode has its own case, including UTF-8 checking on/off and proto3/plain JSON. Use `jacket bench --path stdlib/Extensions/Protobuf --interp generation` for generation in the interpreter.
 
 A nightly job in `.github/workflows/fuzz.yml` fuzzes the binary and JSON decoders under ASan (`tools/fuzz/properties/Protobuf.jai`).
 
-## Compared with jai-protobuf and C++
+## Comparing with other libraries
 
-`benchmarks/compare/protobuf/benches/protobuf.jai` (`tools/bench/library_compare.py protobuf`, see [library comparisons](../tools/library-comparisons.md)) runs the same schema and values through Jacket and jai-protobuf, after checking that each library decodes the other's bytes. `benchmarks/compare/protobuf/cpp/build.py` runs the same shapes through Google's C++ library. Apple M5, 16 GB, `-O2`; the fastest of three runs, per call:
+`benchmarks/compare/protobuf/benches/protobuf.jai` (`tools/bench/library_compare.py protobuf`, see [library comparisons](../tools/library-comparisons.md)) runs the same schema and values through Jacket and jai-protobuf, after checking that each library decodes the other's bytes. `benchmarks/compare/protobuf/cpp/build.py` runs the same shapes through Google's C++ library.
 
-| Workload | Jacket | `borrow` | `borrow` + `skip_utf8` | jai-protobuf | C++ |
-| --- | --- | --- | --- | --- | --- |
-| encode mixed (83 B) | 98 ns | | | 250 ns | 106 ns |
-| decode mixed | 151 ns | 132 ns | 127 ns | 129 ns² | 380 ns |
-| encode 1 MiB packed | 13.6 µs | | | 13.6 µs | 29.4 µs |
-| decode 1 MiB packed | 13.6 µs | 13.5 µs | | 13.4 µs² | 18.8 µs |
-| encode 64-deep | 1.48 µs | | | n/a¹ | 0.89 µs |
-| decode 64-deep | 1.47 µs | 1.46 µs | 1.47 µs | n/a¹ | 2.48 µs |
-| encode logs (98 KB) | 23.9 µs | | | 69.8 µs | 33.9 µs |
-| decode logs | 40.1 µs | 27.7 µs | 22.1 µs | 36.3 µs² | 130 µs |
-| encode 2,000 spans (574 KB) | 392 µs | | | 1.14 ms | 405 µs |
-| decode 2,000 spans | 745 µs | 637 µs | 415 µs | 576 µs² | 1.68 ms |
-
-¹ A message that contains itself doesn't compile in jai-protobuf.
-
-² jai-protobuf decodes less: strings always point into the input, unknown fields are dropped, and it doesn't check UTF-8 or required fields, accepts field 0 and stray end-group tags, and has no depth limit. `borrow` + `skip_utf8` is the closest Jacket decode.
-
-Jacket encodes two to three times as fast as jai-protobuf, except packed numbers, where both copy at memory speed. A Jacket decode of the spans makes 18 allocations (14 with `borrow`); jai-protobuf makes 5,346 and C++ 57,931. A program that encodes and decodes one message adds 89 KiB to an `-O2` executable, against 26 KiB for jai-protobuf, and compiles in about the same time.
-
-| Feature | Jacket | jai-protobuf |
-| --- | --- | --- |
-| proto3 | ✅ | ✅ |
-| proto2: presence, defaults, closed enums | ✅ | ⚠️ defaults only |
-| editions 2023/2024 | ✅ | ⚠️ parsed as proto3 |
-| groups | ✅ | ❌ |
-| oneof, maps, packed and unpacked | ✅ | ✅ |
-| recursive messages | ✅ | ⚠️ only through `repeated` |
-| imports, whole folders | ✅ | ✅ |
-| well-known types without the files | ✅ | ❌ |
-| unknown fields kept | ✅ | ❌ |
-| required-field check | ✅ | ❌ |
-| UTF-8 check | ✅ | ❌ |
-| malformed input rejected | ✅ | ⚠️ accepts stray groups and field 0; no depth limit |
-| merge | ✅ | ✅ |
-| equality | ✅ | ❌ |
-| copying or borrowed strings | ✅ both | ⚠️ borrowed only |
-| proto3 JSON | ✅ | ❌ |
-| text format, reflection | not planned | ❌ |
-| services | gRPC planned as a separate module | ❌ |
-| extensions | ✅ | ❌ |
+jai-protobuf decodes less than Jacket: strings always point into the input, unknown fields are dropped, it does not check UTF-8 or required fields, accepts field 0 and stray end-group tags, and has no depth limit. Compare it with the `borrow` and `skip_utf8` decode modes, not the default. It does not compile a message that contains itself. It has no proto3 JSON, extensions, equality, well-known types without the files, or editions beyond proto3 behaviour; Jacket does, and does not provide text format or reflection.
 
 ## Real-world schemas
 
-`tools/protobuf_schemas` fetches hash-pinned public schemas into a cache and generates each one (Apple M5, interpreter generation, then an `-O2` build of a program that encodes and decodes a message):
-
-| Schema | Generate | `-O2` build | Jai emitted | protoc C++ |
-| --- | --- | --- | --- | --- |
-| ONNX | 9 ms | 0.8 s | 0.1 MB | 1.3 MB |
-| OpenTelemetry | 31 ms | 0.7 s | 0.2 MB | 2.5 MB |
-| Pub/Sub | 31 ms | 0.9 s | 0.3 MB | 5.4 MB |
-| TensorFlow framework | 43 ms | 1.1 s | 0.3 MB | 4.6 MB |
-| Kubernetes core/v1 | 62 ms | 3.1 s | 0.8 MB | 13.3 MB |
-| googleapis, 299 files | 0.6 s | 1.9 s | 6.7 MB | 114 MB |
-| Envoy API, 824 files | 0.7 s | 9.0 s | 5.6 MB | 97 MB |
-
-All 25 variants in `schemas.json` generate, compile and round-trip. jai-protobuf builds `descriptor.proto` and the TensorFlow config; the others stop on recursive messages, packages repeated across files, or fields named like Jai types (`float`).
+`tools/protobuf_schemas` fetches hash-pinned public schemas (ONNX, OpenTelemetry, Pub/Sub, TensorFlow, Kubernetes, googleapis, Envoy and others, listed in `schemas.json`) into a cache, generates each one in the interpreter, builds an `-O2` program that encodes and decodes a message, and reports generation time, build time and emitted Jai size. Every variant must generate, compile and round-trip.
 
 ```sh
 python3 -I tools/protobuf_schemas/fetch.py
@@ -273,7 +220,7 @@ Schemas are cached in `target/protobuf-schemas` and scratch output goes to `targ
 
 ## Generated gRPC services
 
-Message-only generation remains the default and does not import Http or Tls.
+Message-only generation is the default and does not import Http or Tls.
 Enable `GRPC = true` on a Schema import, `Generate_Options.grpc = true` with
 `protobuf_generate`, or `--grpc` in the standalone `stdlib/Extensions/Protobuf/tools/gen.jai` command to emit
 [gRPC services](grpc.md). Service/method options are parsed, endpoints must resolve
@@ -286,6 +233,5 @@ Each service exposes typed client/server contexts, method descriptors, unary cal
 conveniences and a `Handlers`/`register` server API. Handlers and their state belong
 to the caller and outlive all registered requests. Generated adapters use the same
 message types and common Grpc runtime; they do not regenerate a separate Schema
-module or duplicate framing. When GRPC is false, service bodies retain the previous
-skip behavior. See the [independent peer procedure](../tools/grpc-interop.md) for the
+module or duplicate framing. When GRPC is false, service bodies are skipped. See the [independent peer procedure](../tools/grpc-interop.md) for the
 required generated-client/generated-server interoperability matrix.

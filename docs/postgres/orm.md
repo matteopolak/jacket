@@ -19,7 +19,7 @@ removed, error := Pg.delete(db, User, where = #code it.id == row.id);
 | `for each(db, T, *error, where?, ...)` | a loop over `T` that selects only the columns the body reads |
 | `insert(db, value)` | the stored row (`returning`); fields marked `@pg_default` or `@pg_generated` are left out |
 | `insert_many(db, values)` | stored rows, one `insert` each |
-| `copy_many(db, values)` | rows stored, via binary COPY ([copy.md](copy.md)) |
+| `copy_many(db, values)` | rows stored, via binary COPY ([below](#bulk-loading-copy)) |
 | `update(db, T, set, where)`, `delete(db, T, where)` | rows changed. `where` is required (`#code true` for all rows) |
 | `load_many(db, parents, "posts")`, `load_one(db, posts, "author")` | related rows for many parents in one query |
 
@@ -79,12 +79,41 @@ The query runs when the loop starts; a failure goes to `error` and the body neve
 
   Keys go in as one array parameter, rows come back once, and a hash table hands them out. Everything lives until `free_loaded`. Multi-column keys match pairs through `unnest`. A null key gives an empty list or null item.
 
+## Bulk loading (COPY)
+
+`Pg.copy_in` sends an array of structs through `COPY ... FROM STDIN (FORMAT BINARY)`, the fastest way to load many rows. `Pg.copy_many` is the form for table structs. Both return the number of rows stored and read nothing back; use `insert`/`insert_many` when you need ids or defaults.
+
+```jai
+stored, error := Pg.copy_in(db, "copy users (email, score) from stdin (format binary)", rows, .["email", "score"]);
+stored, error := Pg.copy_many(db, users);
+
+count, error := Pg.copy_out(db, "copy (select email from users) to stdout (format csv)", write_piece, user_data);
+copied, error := Pg.copy_out(db, "copy users (email, score) to stdout (format binary)", User_Row, .["email", "score"]);
+for copied.rows print("% %\n", it.email, it.score);
+Pg.free_copy_rows(*copied);
+```
+
+The callback form of `copy_out` hands each piece to you as it arrives, in any format. The row form decodes a binary COPY into `Copy_Rows(Row)`. All of them also take a `*Pool`.
+
+- `copy_in` feeds `run_script` from a `Script_Hooks.copy_in` hook (`copy.jai`): header, rows in 64 KiB pieces, then the trailer. `copy_put_member` is written for the row struct at compile time, one case per member, each calling `put_copy_value` for its type. Arrays use `array_param_of` and elements use `put_scalar` (`encoders.jai`), so no row walks type information.
+- `columns` picks members by name in the statement's column order. Empty means every member.
+- `copy_many` builds its statement at compile time from `@pg_table` and the fields without `@pg_default`/`@pg_generated`.
+- `copy_out` decodes rows with the same decoders as `get`. A NULL needs a `Nullable` member; a wrong width, text format or count mismatch is an error.
+- A row that cannot be encoded aborts the COPY; the error names the row and member.
+
+Gotchas:
+
+- Binary COPY casts nothing. Member types must match columns exactly: `s32` for `int4`, `s64` for `int8`, `[] string` for `text[]` (not `varchar[]`). Generated structs always match.
+- A `Json(T)` member goes as `jsonb` unless it has `@pg_json`, which `generate` writes on `json` columns.
+- Arrays of enums are refused.
+
 ## How to change it
 
 - Pruning: `orm_read_columns` decides the columns, `orm_each_code` writes the loop.
 - Relations: `orm_relation` parses the notes, `orm_related_column` writes the subquery, `orm_load_code` writes `load_many`/`load_one`. The note format is shared with `generate.jai` and `diff.jai`.
 - New operator or call: a case in `orm_binary` or `orm_call`, a stub next to `like`, a use in `tests/orm/main.jai`, an error case in `tests/typed/bad.py`.
 - New parameter type: `parameter_cast`. An unknown type gets no cast.
+- New COPY type: add it to `scalar_oid` and `put_scalar` (`encoders.jai`; query arguments and array elements get it too, once it is in `PLAIN_TYPES`) and to `put_copy_value`, which has its own typed branch per type. A type with no branch there is an error naming it.
 
 Gotchas:
 
@@ -98,4 +127,4 @@ Same as [typed queries](typed-queries.md#configuration): `DATABASE_URL`, `JACKET
 
 ## Dependencies
 
-`typed.jai` and the describe service, `Compiler` (`compiler_get_nodes`, `compiler_report`) and `Program_Print`. Tests: `tests/orm/`, run by step 8 of `tests/typed/run.sh`, and the `orm` cases of `tests/typed/bad.py`.
+`typed.jai` and the describe service, `query.jai` (`run_script`, `Script_Hooks`), `codecs.jai`, `Compiler` (`compiler_get_nodes`, `compiler_report`) and `Program_Print`. Tests: `test_copy_out` in `tests/server.jai`, `test_copy` in `tests/orm/main.jai`, `tests/orm/`, run by step 8 of `tests/typed/run.sh`, and the `orm` cases of `tests/typed/bad.py`.

@@ -1,6 +1,6 @@
 # Catching memory bugs
 
-`jacket lint` follows pointers through your program and reports the ones used after their memory is gone: freed blocks, reset temporary storage, returned stack frames and arrays that moved when they grew. It also reports allocations nobody frees. This guide shows what it catches and how to read and tune it. The rules themselves are in [jailint](../tools/jailint.md#lifetime-rules).
+`jacket lint` follows pointers through your program and reports the ones used after their memory is gone: freed blocks, reset temporary storage, returned stack frames and arrays that moved when they grew. It also reports allocations nobody frees. The rules are in [jailint](../tools/jailint.md#lifetime-rules).
 
 ## What it catches
 

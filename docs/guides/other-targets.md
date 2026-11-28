@@ -1,6 +1,6 @@
 # Other targets
 
-Jacket builds for 32-bit WebAssembly, 32-bit x86 and ARM Linux, big-endian Linux, and microcontrollers with no operating system, down to the 8-bit AVR with 16-bit pointers. This page builds and runs a program on each, then links to the reference docs.
+Jacket builds for 32-bit WebAssembly, 32-bit x86 and ARM Linux, big-endian Linux, and microcontrollers with no operating system, down to the 8-bit AVR with 16-bit pointers. This page builds and runs a program on WebAssembly, 32-bit ARM Linux and a board.
 
 > [!WARNING]
 > These targets and their APIs are experimental and may change in any release.
@@ -136,26 +136,7 @@ triple = "thumbv6m-none-eabi"
 runner = "flash {exe}"     # whatever puts the program on your board
 ```
 
-`jacket toolchain` lists every name `--target` accepts with the linker, libraries and runner it needs, and whether this machine has them:
-
-```console cwd=../examples/targets/board/blink cache
-$ jacket toolchain
-TARGET             FROM      TRIPLE                     LINKER                                   LIBRARIES                    RUNNER
-host               -         aarch64-apple-darwin       /usr/bin/cc 21.0.0                       -                            -
-Arduino_Uno        built in  avr-none-elf               /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  missing                      /opt/homebrew/bin/qemu-system-avr 11.1.3
-Qemu_Virt_Aarch64  built in  aarch64-none-elf           /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  missing                      /opt/homebrew/bin/qemu-system-aarch64 11.1.3
-Mps2_An386         built in  thumbv7em-none-eabihf      /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  compiler-rt 21.1.8 (cached)  /opt/homebrew/bin/qemu-system-arm 11.1.3
-Mps2_An505         built in  thumbv8m.main-none-eabihf  /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  missing                      /opt/homebrew/bin/qemu-system-arm 11.1.3
-
-Arduino_Uno: no builtins for avr-none-elf
-note: run `jacket toolchain add avr-none-elf` to build its builtins, or install the AVR GNU toolchain with `brew install osx-cross/avr/avr-gcc`
-
-Qemu_Virt_Aarch64: no builtins for aarch64-none-elf
-note: run `jacket toolchain add aarch64-none-elf` to build its builtins
-
-Mps2_An505: no builtins for thumbv8m.main-none-eabihf
-note: run `jacket toolchain add thumbv8m.main-none-eabihf` to build its builtins, or install the GNU Arm embedded toolchain with `brew install --cask gcc-arm-embedded`
-```
+`jacket toolchain` lists every name `--target` accepts and whether this machine has what each needs; see [Toolchains](toolchains.md).
 
 ## Tests on the target
 

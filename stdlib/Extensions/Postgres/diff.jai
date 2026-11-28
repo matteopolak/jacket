@@ -1,6 +1,6 @@
 // `diff`: compares the structs of a hand-edited `db/schema.jai` with the catalog of the
 // migrations' schema database and writes the SQL of a proposed migration. Scaffolding only: it
-// never applies anything. docs/postgres/diff.md has the overview.
+// never applies anything. docs/postgres/schema.md has the overview.
 //
 // ```jai,ignore
 // proposal, problem := Pg.diff_schema(config, "db/migrations", "db/schema.jai");   // needs a server
@@ -160,7 +160,7 @@ parse_schema_text :: (text: string) -> Schema_Description, problem: string {
 }
 
 // Compares the structs with the catalog and writes the SQL that would bring the migrated schema
-// to what the structs say. See docs/postgres/diff.md for what it covers.
+// to what the structs say. See docs/postgres/schema.md for what it covers.
 //
 // - catalog: the migrated schema.
 // - description: the structs and enums read from the schema file.

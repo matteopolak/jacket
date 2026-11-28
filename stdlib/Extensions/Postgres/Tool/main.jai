@@ -22,7 +22,7 @@
 // `status` lists each migration's state there, and `new NAME` creates the next
 // `db/migrations/NNNN_name.sql`. `diff` compares the structs of a hand-edited `db/schema.jai`
 // with the migrations' schema database and writes the next migration as a proposal; it applies
-// nothing (docs/postgres/diff.md). See docs/postgres/schema.md.
+// nothing (docs/postgres/schema.md).
 
 #import "Basic";
 #import "String";

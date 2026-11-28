@@ -1,6 +1,6 @@
 # UI
 
-A native user interface library: a window, our own rendering on [WebGPU](webgpu.md), FreeType text, input routing, layout and a retained widget tree that app code declares with plain calls every frame. The [text editor](ui-editor.md) is its first user, and the library grows only as far as the editor needs. Native only.
+A native user interface library: a window, our own rendering on [WebGPU](webgpu.md), FreeType text, input routing, layout and a retained widget tree that app code declares with plain calls every frame. [`examples/editor`](../../examples/editor/README.md) is a full application built on it. Native only.
 
 ```jai
 #import "Basic";
@@ -59,16 +59,14 @@ expect_snapshot(t, layout_dump(*ui));   // the tree with roles, text and rectang
 
 Options: `App_Options` (`title`, `width`, `height`, `theme`, `fonts`, `frame_limit`, `menus`), `Headless_Options`, `Theme`. Needs the wgpu-native library in `native-libs`. Tests: `jacket test --path stdlib/Extensions/UI` (synthetic fonts, no GPU). Local screenshot: `jaic examples/ui-gallery/main.jai -interp -- --screenshot out.png`.
 
-## Image rendering checks
+## Image rendering
 
-Images use nearest filtering and clamp-to-edge sampling. Destinations and clips are in logical points, multiplied by `ui.text.scale`; scissors floor the starting boundary and ceil the ending boundary. Uploaded images and offscreen targets use `RGBA8Unorm`, without sRGB conversion. The shader premultiplies straight-alpha source colors and blends source-over. With a transparent-black clear, readback RGB is premultiplied. With an opaque clear, alpha stays opaque. `Rendered_Image.pixels` holds packed RGBA rows from top to bottom; release it with `array_free`.
+`draw_image` uses nearest filtering and clamp-to-edge sampling. Destinations and clips are in logical points, multiplied by `ui.text.scale`; scissors floor the start and ceil the end. Uploaded images and offscreen targets are `RGBA8Unorm` with no sRGB conversion. The shader premultiplies straight-alpha source colors and blends source-over, so readback RGB is premultiplied over a transparent-black clear and alpha stays opaque over an opaque clear. `Rendered_Image.pixels` holds packed RGBA rows from top to bottom; release it with `array_free`.
 
-`create_offscreen_renderer(width, height, adapter_options = null)` accepts optional `WGPURequestAdapterOptions`, including `forceFallbackAdapter`. Null uses default selection, and setup failure returns null. The driven test preflights the same options: only adapter absence exits 77; device and setup failures fail the test. It awaits a validation error scope around each render/readback and captures unexpected GPU error logs for the renderer lifetime.
+`create_offscreen_renderer(width, height, adapter_options = null)` takes optional `WGPURequestAdapterOptions` (for example `forceFallbackAdapter`); null uses default selection and a setup failure returns null.
 
 ```sh
 PYTHONPATH=tools python3 tools/bindings/run_webgpu_native.py --jaic target/debug/jaic --test ui-images --require-adapter
 ```
 
-This runs the production upload, shader, blending and readback in interpreted and compiled modes. Fixtures cover orientation, RGBA order, stretching, transparent and translucent pixels, draw order across solid batches, scale, clipping and changed caller pixels across frames. Native FreeType and wgpu-native libraries are required; synthetic fonts need no system font files. Extend `tests/driven/images.jai` when changing rendering semantics; keep borrowed-buffer and argument checks in ordinary `tests/images.jai`.
-
-The separately selectable `images-ui-intel` CI job runs these image checks alongside portable filename/ICO and CPU stage regressions on macOS x64. See [focused Intel acceptance](../tools/ci-job-selection.md#focused-intel-image-acceptance). It preserves explicit no-adapter skips and leaves the full matrix intact.
+This runs the real upload, shader, blending and readback in interpreted and compiled modes, and needs the native FreeType and wgpu-native libraries. Only a missing adapter exits 77; device and setup failures fail the test. Extend `tests/driven/images.jai` when changing rendering semantics; keep borrowed-buffer and argument checks in `tests/images.jai`. The `images-ui-intel` CI job runs these checks on macOS x64 ([CI job selection](../tools/ci-job-selection.md)).

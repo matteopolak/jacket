@@ -105,7 +105,7 @@ To add a target: `pub fn <name>(data: &[u8])` in `harness/src/lib.rs`, a file in
 
 Stdlib tests run under [`jacket test`](jacket-test.md) (every folder under `[test] paths` in `jacket.toml`): natively, interpreted, at `-O2`, as WebAssembly on Linux x64 (`tools/ci/stdlib_jacket_test.sh`) and under sanitizers (`stdlib_jacket_sanitize.sh`). Put a module's tests in its `tests/` directory.
 
-`tools/stdlib/stdlib_runtime.py` runs the compiler regressions in `tests/compiler/regressions/` in modes `interp`, `native`, `wasm-interp`, `wasm-native` and `check`. Each top-level `*.jai` is a case that must build and exit 0. The folder's `manifest.json` refines cases (expected output, platform, unsupported modes); `interpreter_only: true` marks a metaprogram that works at compile time. The `check` mode runs `-check -no_dce`, checking code nothing calls; `uses_dead_code_elimination: true` drops `-no_dce` for a case that leaves uncalled code broken on purpose. The checked-operand metadata regression also belongs to `crates/jaic-cli/tests/code_roundtrips.rs`, which compiles and runs it at native O0/O2 so that the catalogue classification retains explicit native coverage.
+`tools/stdlib/stdlib_runtime.py` runs the compiler regressions in `tests/compiler/regressions/` in modes `interp`, `native`, `wasm-interp`, `wasm-native` and `check`. Each top-level `*.jai` is a case that must build and exit 0. The folder's `manifest.json` refines cases (expected output, platform, unsupported modes); `interpreter_only: true` marks a metaprogram that works at compile time. The `check` mode runs `-check -no_dce`, checking code nothing calls; `uses_dead_code_elimination: true` drops `-no_dce` for a case that leaves uncalled code broken on purpose. The checked-operand metadata regression is also covered by `crates/jaic-cli/tests/code_roundtrips.rs`, which compiles and runs it at native O0/O2.
 
 ```sh
 PYTHONPATH=tools python3 tools/native/build_native_libs.py
@@ -113,7 +113,7 @@ PYTHONPATH=tools python3 tools/stdlib/stdlib_runtime.py --jaic target/release/ja
 PYTHONPATH=tools python3 tools/stdlib/check_stdlib_suites.py --jaic target/release/jaic --stdlib stdlib
 ```
 
-The CI jobs run these with a release build of `jaic` and `jacket`, Windows included: the interpreter runs the tests' programs, and a debug build of it is about six times slower there (200000 allocator blocks take 10 s instead of 1.8 s), so a slow-looking Windows test usually means the wrong build.
+The CI jobs run these with a release build of `jaic` and `jacket`, Windows included: the interpreter runs the tests' programs and is much slower in a debug build, so a slow Windows test usually means the wrong build.
 
 `check_stdlib_suites.py` runs the module drivers that need native setup or target matrices; `--suite`, `--exclude` and `--jobs` select and parallelize. `GROUPS` keeps suites with shared mutable resources together. Tooling rebuilds and reconfigures the private native-tool package while bindings snapshots and executes it, so they run consecutively in one group. Portable/platform and audio/window keep their independent groups. When adding a suite, group it with existing readers/writers of the same package, scratch directory or device; `--jobs` limits concurrent groups.
 
@@ -133,15 +133,11 @@ The same CI step also runs `jacket test --check-only --os <os>` for linux, macos
 
 Selectors are strings, so a typo type-checks and fails at run time. `cargo test -p jaic-cli --test objc_selectors` reads literal `sel_registerName` calls: the argument count must equal the number of `:` (every host), and on macOS the method must exist (checked via the Objective-C runtime against `tests/compiler/objc-selectors.txt`). Pass selectors as literals. If a method only exists on newer macOS, list it in that file with a reason.
 
-## Crash-summary acceptance
+## Crash summary
 
-On a fuzz failure, `tools/fuzz/crash_summary.py` appends each retained input's identity,
-SHA-256, bounded hex/text representation and replay panic/backtrace to the Actions summary.
-Replay build failures are reporting failures: inputs remain visible, no replay is attempted,
-and the command exits 1. The workflow's summary step keeps its own error separate from the
-original failed fuzz step through `continue-on-error`; neither result establishes reproduction.
+On a fuzz failure, `tools/fuzz/crash_summary.py` appends each retained input's identity, SHA-256, a bounded hex/text view and the replay panic and backtrace to the Actions summary. A replay build failure is a reporting failure: the inputs stay visible, no replay is attempted and the command exits 1. The summary step is `continue-on-error`, so its result stays separate from the failed fuzz step's.
 
-The isolated validator compiles a tiny Rust harness that panics on known bytes:
+`tools/fuzz/validate_crash_summary.py` compiles a small Rust harness that panics on known bytes and checks panic capture, the non-zero replay status, the bounded backtrace, the exact input bytes and the report. It is synthetic and finds no compiler bug.
 
 ```sh
 PYTHONPATH=tools python3 tools/fuzz/validate_crash_summary.py --out target/panic-summary
@@ -149,30 +145,6 @@ PYTHONPATH=tools python3 tools/fuzz/validate_crash_summary.py --out target/panic
 gh workflow run ci.yml --ref YOUR_BRANCH -f jobs=docs -F fuzz_summary=true
 ```
 
-A green validator proves actual Rust panic capture, nonzero replay status, bounded backtrace,
-exact input bytes, report append behavior and saved artifact identity. It is synthetic and does
-not discover a compiler bug. `summary.md`, `replay.json` and the hash-named input are the evidence.
-The hosted job uploads them even on a failed validator. Inspect the rendered job summary as
-well as the artifact before recording acceptance.
+`summary.md`, `replay.json` and the hash-named input are the output; the hosted job uploads them even when the validator fails. To check that the real `failure()` scheduling works, use a disposable manual-only ref: run the validator with `--phase fuzz` in the fuzz step (expected non-zero), then `--phase summary` in the unchanged failure-gated summary step. Only the deliberate panic step may fail; summary and artifact upload must succeed. Keep this injection out of the deliverable branch.
 
-Production `failure()` scheduling needs a separate isolated negative check. On a disposable
-manual-only ref, invoke the validator with `--phase fuzz` in the fuzz step (expected nonzero),
-then `--phase summary` in the unchanged failure-gated summary step and retain failure-gated
-artifact upload. The expected red run must have only the deliberate panic step fail; summary
-and upload must succeed and the downloaded input must match its recorded hash. Keep this
-injection out of the deliverable branch. A green wrapper alone cannot prove failure scheduling.
-
-The runtime validator builds and checks its report locally; its CLI publishes the verified
-report to the job summary. Unit tests exercise publication against a temporary destination.
-
-Change report formatting in `crash_summary.py`; extend real-process acceptance in
-`validate_crash_summary.py` and the boundary tests in `test_crash_summary.py`. These tools need
-Python and Rust; normal replay additionally depends on the fuzz harness and its Cargo lockfile.
-
-The isolated failure-gate check was validated in [run 41815239378](https://github.com/matteopolak/jacket/actions/runs/41815239378)
-(source `99d4397757024de0e52390e5109fc31b25a9bde7`): only the synthetic Fuzz step
-failed, while summary, artifact upload and original-outcome assertions succeeded. The
-20-byte input SHA-256 is `0311004acd24f2579f3446994acd356f5a1e2736942ac53739ca10c3e8bb1d38`;
-the downloaded replay status was 101 and its Markdown contained the panic/backtrace and
-both encodings. The generated Markdown and artifact were verified; the signed-out browser
-hid GitHub's rendered job summary, so that UI check remains unverified.
+Change the report format in `crash_summary.py`, real-process acceptance in `validate_crash_summary.py` and boundary tests in `test_crash_summary.py`.

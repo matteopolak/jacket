@@ -5196,7 +5196,7 @@ main :: () {
 }
 ```
 
-Off by default; turn it on for a project that builds for a 32-bit or 16-bit CPU (`[lint.rules] narrow_pointers = "warn"`). It flags a bit operation that reaches bit 32 or above of a value made from a pointer, `cast(*u64)` or `cast(*s64)` of a `**T`, and an integer constant of 2³² or more cast to a pointer. It reads types only, so it does not depend on `--target`. It does not yet re-evaluate `size_of` constants under a 4-byte pointer, or compare `#foreign` integer widths with the C aliases; see [the plan](../native/n-bit-and-embedded.md).
+Off by default; turn it on for a project that builds for a 32-bit or 16-bit CPU (`[lint.rules] narrow_pointers = "warn"`). It flags a bit operation that reaches bit 32 or above of a value made from a pointer, `cast(*u64)` or `cast(*s64)` of a `**T`, and an integer constant of 2³² or more cast to a pointer. It reads types only, so it does not depend on `--target`. It does not yet re-evaluate `size_of` constants under a 4-byte pointer, or compare `#foreign` integer widths with the C aliases.
 
 ### platform_leak
 

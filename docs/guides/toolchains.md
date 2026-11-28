@@ -1,6 +1,6 @@
 # Toolchains
 
-To build for another OS or a microcontroller, `jaic` needs more than itself: a linker for the target, the target's C library for Linux targets, and the compiler builtins for targets with no OS. Jacket finds these on your machine with no configuration. This page shows what it looks for, how to see what it found, and how to get what's missing.
+To build for another OS or a microcontroller, `jaic` needs more than itself: a linker for the target, the target's C library for Linux targets, and the compiler builtins for targets with no OS. Jacket finds these on your machine with no configuration.
 
 > [!WARNING]
 > Cross and bare-metal targets are experimental and may change in any release.

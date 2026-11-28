@@ -1,4 +1,4 @@
-# Stdlib roots whose tests all pass on s390x Linux under qemu-user; CI runs them (docs/native/n-bit-and-embedded.md).
+# Stdlib roots whose tests all pass on s390x Linux under qemu-user; CI runs them.
 Adpcm
 Atomics
 Bit_Operations

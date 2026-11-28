@@ -43,6 +43,15 @@ The `stdlib-runtime` legs run `jacket test` over the whole standard library (`to
 
 Everything else runs every test: any file outside those patterns (compiler, runtime, tools, CI config, a stdlib `.c`/`.h`/data file), pushes to `main`/`staging`, scheduled and manual runs, an undiffable range, and any failure of `jacket` or the script (exit 3). To force a full run on a branch, include a non-stdlib file in the change or run the workflow by hand. `Basic` and other widely imported modules select nearly everything on their own. The Windows and sanitizer `jacket test` steps and the `sdl3` jobs are not narrowed this way (`sdl3` stays own-paths-only).
 
+## Wall time
+
+Wall time is push to the last job finishing, queueing included. GitHub runs 40 jobs at once, 5 of them on macOS, so a run with more jobs than that queues, and a macOS job holds a cap slot during its setup as well as its tests.
+
+- Keep the macOS legs few and long. Add to `stdlib_matrix(False)` in `tools/ci/ci_changes.py` with that in mind (`test_ci_changes.py` checks the count).
+- Build once, download in the legs: `stdlib-build` restores the Rust cache of `stdlib-runtime` (`rust-cache-key`) so it starts warm.
+- The native helper-library cache is its own entry per OS, CPU and LLVM version and restores the newest older entry when its key changes; each helper has an input stamp, so a change under `stdlib/internal/**` or `tools/` rebuilds only the helpers it affects.
+- To measure a change: `gh workflow run ci.yml --ref BRANCH -f tier=fast`, then read each job's `created_at`, `started_at` and `completed_at` from `gh api repos/OWNER/REPO/actions/runs/ID/jobs`. Queue time is `started_at - created_at`.
+
 ## How to change it
 
 - Gate another job: add its id to `GATED` in `job_inputs.py` and to an area in `ci_changes.py`; `ci.yml` gates it with `contains(fromJSON(needs.changes.outputs.jobs), 'ID')`.
@@ -50,11 +59,12 @@ Everything else runs every test: any file outside those patterns (compiler, runt
 - A new `cargo -p` crate in a gated job: add it to `CRATES` (the drift test says which).
 - Inspect a job's inputs: `python3 tools/ci/job_inputs.py --print [JOB ...]`.
 - Which diffs narrow the stdlib tests: `NARROW_STDLIB`, `FULL_REFS` and `NARROW_STDLIB_LIMIT` in `ci_changes.py`. How a test depends on a file is `crates/jacket/src/test/deps.rs`.
+- What `platform_only` runs is whatever `platform_modules.py` finds; extend `PATTERNS` there for another OS's APIs.
 - Tests: `test_job_inputs.py`, `test_ci_changes.py` and `test_select_tests.py`.
 
 ## Configuration
 
-`ci_changes.py` reads the GitHub event variables (`GITHUB_EVENT_NAME`, `EVENT_BEFORE`, `SHA`, the pull request base). `JAIC_DEPS_JAIC` names a `jaic` for the stdlib closure. `GITHUB_REF` decides the branch rule above; `JACKET_TEST_CHANGED` is read by `stdlib_jacket_test.sh`. `JACKET_TEST_DEPS_DIR` is the cached dependency store of the stdlib `jacket test` step.
+`ci_changes.py` reads the GitHub event variables (`GITHUB_EVENT_NAME`, `EVENT_BEFORE`, `SHA`, the pull request base). `JAIC_DEPS_JAIC` names a `jaic` for the stdlib closure. `GITHUB_REF` decides the branch rule above; `JACKET_TEST_CHANGED` is read by `stdlib_jacket_test.sh`. `JACKET_TEST_DEPS_DIR` is the cached dependency store of the stdlib `jacket test` step. `JACKET_TEST_PLATFORM_ONLY` (set from the leg's `platform_only`) limits `stdlib_jacket_test.sh` to the host's modules.
 
 The first Linux x64 TOML tooling leg runs `test_pins.py`, `test_job_inputs.py` and `test_ci_changes.py` once with its pinned Python, so pin, input-closure and matrix regressions have a job that needs no compiler matrix. Extend those modules when changing the matching CI behavior.
 

@@ -1,6 +1,6 @@
 //! What the standard library's modules declare, worked out once and shared by every compile in
 //! the process: the "import it" help of an unknown name or operator reads this instead of
-//! opening and parsing the modules (see `docs/compiler/stdlib-index.md`).
+//! opening and parsing the modules (see `docs/compiler/sema.md`).
 //!
 //! The index is keyed by the stdlib folder and valid while the `FileSystem::stamp` of every
 //! path it was built from is unchanged, so editing a stdlib file (or adding one) builds a new

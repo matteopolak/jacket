@@ -29,12 +29,6 @@
         "command": "jacket run hello.jai --target Mps2_An386",
         "output": "\u001b[1;32m   Compiling\u001b[0m blink (hello.jai)\n\u001b[1;32m      Linker\u001b[0m /opt/homebrew/opt/lld/bin/ld.lld 23.1.6\n\u001b[1;32m    Builtins\u001b[0m compiler-rt 21.1.8 (cached)\n\u001b[1;32m      Script\u001b[0m hello.ld\n\u001b[1;32m    Finished\u001b[0m debug [unoptimized] in 0.17s\n\u001b[1;32m     Running\u001b[0m `hello`\nHello, world!"
       }
-    ],
-    [
-      {
-        "command": "jacket toolchain",
-        "output": "TARGET             FROM      TRIPLE                     LINKER                                   LIBRARIES                    RUNNER\nhost               -         aarch64-apple-darwin       /usr/bin/cc 21.0.0                       -                            -\nArduino_Uno        built in  avr-none-elf               /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  missing                      /opt/homebrew/bin/qemu-system-avr 11.1.3\nQemu_Virt_Aarch64  built in  aarch64-none-elf           /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  missing                      /opt/homebrew/bin/qemu-system-aarch64 11.1.3\nMps2_An386         built in  thumbv7em-none-eabihf      /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  compiler-rt 21.1.8 (cached)  /opt/homebrew/bin/qemu-system-arm 11.1.3\nMps2_An505         built in  thumbv8m.main-none-eabihf  /opt/homebrew/opt/lld/bin/ld.lld 23.1.6  missing                      /opt/homebrew/bin/qemu-system-arm 11.1.3\n\nArduino_Uno: no builtins for avr-none-elf\nnote: run `jacket toolchain add avr-none-elf` to build its builtins, or install the AVR GNU toolchain with `brew install osx-cross/avr/avr-gcc`\n\nQemu_Virt_Aarch64: no builtins for aarch64-none-elf\nnote: run `jacket toolchain add aarch64-none-elf` to build its builtins\n\nMps2_An505: no builtins for thumbv8m.main-none-eabihf\nnote: run `jacket toolchain add thumbv8m.main-none-eabihf` to build its builtins, or install the GNU Arm embedded toolchain with `brew install --cask gcc-arm-embedded`"
-      }
     ]
   ]
 }

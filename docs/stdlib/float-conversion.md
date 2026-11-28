@@ -10,7 +10,7 @@
 2. **Eisel-Lemire.** Multiply the normalised `w` by a 128-bit approximation of `5^q` (`FIVE_POWER_WORDS`) and take the top bits. The table rounds down, so the path declines when the shortfall could reach the kept bits or hide a rounding boundary.
 3. **Big integers.** More than 19 significant digits, huge exponents, hex floats and anything declined go to the exact rational code in `numeric-conversion.jai`.
 
-Each step returns the correctly rounded bits or declines, so adding or removing a step changes cost, never results. Short decimals cost about 240 instructions against tens of thousands on the big-integer path.
+Each step returns the correctly rounded bits or declines, so adding or removing a step changes cost, never results.
 
 ## Formatting
 
@@ -23,8 +23,6 @@ Each step returns the correctly rounded bits or declines, so adding or removing 
 When it declines (precision past 27 fraction digits or 19 significant digits, extreme magnitudes), `portable_float` builds the full decimal expansion.
 
 **Shortest mode** (`shortest_text`) bisects on digit count for the smallest `g` precision that reads back as the same value (powers of two also try the rounded-up text). `digits_read_back` checks each try with 128-bit integers against the rounding interval, without writing or parsing text; `text_reads_back` does the same on `Natural` big integers when numbers do not fit. It never calls the parser, so a program that prints does not compile the parsing code.
-
-Rough costs at `-O2`: `formatFloat(x, trailing_width = 3)` about 800 instructions, `print("%", x)` about 900, shortest mode about 3,100.
 
 ## How to change it
 

@@ -1,13 +1,6 @@
 # Assets
 
-`load_asset(path)` loads a file a program ships with (texture, sound, level) by relative path. The same call works natively, in `-os wasm` programs and in the browser playground, where the page fetches it.
-
-```jai
-#import "Extensions/Assets";
-
-bytes, ok := load_asset("assets/jacket.png");
-defer array_free(bytes);
-```
+`load_asset(path)` loads a file a program ships with (texture, sound, level) by relative path. It works natively, in `-os wasm` programs and in the browser playground, where the page fetches the file. Usage is in the module's doc comment; this page is the host protocol.
 
 ## How it works
 

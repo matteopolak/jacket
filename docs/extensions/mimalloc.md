@@ -35,4 +35,4 @@ Mimalloc reads `MIMALLOC_*` environment variables at startup (for example `MIMAL
 
 ## Dependencies
 
-The native library from [`tools/native/native-libs.json`](../tools/native-libs.md), `Basic`. Tests are in `stdlib/Extensions/Mimalloc/tests`; `jacket bench --path stdlib/Extensions/Mimalloc` compares it with the default allocator. In a 100-allocation churn on an M-series Mac the default allocator took 3.2 µs and mimalloc 7.4 µs, so it is not faster for single-threaded small blocks; its advantage is the private heaps and cross-thread frees.
+The native library from [`tools/native/native-libs.json`](../tools/native-libs.md), `Basic`. Tests are in `stdlib/Extensions/Mimalloc/tests`; `jacket bench --path stdlib/Extensions/Mimalloc` compares it with the default allocator. It is not faster for single-threaded small blocks; its advantage is the private heaps and cross-thread frees.

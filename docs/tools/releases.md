@@ -49,21 +49,21 @@ Each platform job:
 
 A packaged binary finds its stdlib through `jaic::default_stdlib_dir`: `JAIC_STDLIB`, else `stdlib/` beside the executable (also behind symlinks). Nothing of the build machine is built in; without either, `jaic`, `jailint` and `jailsp` stop with the missing-stdlib error ([prelude selection](../compiler/prelude-selection.md)).
 
-### Bindings_Generator
+### Bindings
 
-`generate_bindings` needs at run time: the `generator_platform` helper (in `native-libs/<platform>/` on every platform), libclang (shipped on Linux and Windows; on macOS `jaic` uses the one in the developer folder `xcode-select` selects (`crates/jaic-toolchain/src/apple.rs`), since a Mac running it has Xcode and shipping libclang would double the archive; no other Xcode is searched, and when the selected folder has none the load fails with a note to run `xcode-select -s` or set `DEVELOPER_DIR`), and a C compiler plus `llvm-nm` from `PATH`. Failures name the library and every directory searched. A checkout builds developer copies with `tools/native/ci_native_deps.sh developer`.
+`Bindings_Generator`'s `generate_bindings` needs at run time: the `generator_platform` helper (in `native-libs/<platform>/` on every platform), libclang (shipped on Linux and Windows; on macOS `jaic` uses the one in the developer folder `xcode-select` selects (`crates/jaic-toolchain/src/apple.rs`), since a Mac running it has Xcode and shipping libclang would double the archive; no other Xcode is searched, and when the selected folder has none the load fails with a note to run `xcode-select -s` or set `DEVELOPER_DIR`), and a C compiler plus `llvm-nm` from `PATH`. Failures name the library and every directory searched. A checkout builds developer copies with `tools/native/ci_native_deps.sh developer`.
 
 ### PGO and BOLT
 
-Our Rust code is built with profile-guided optimisation (`tools/dev/build_pgo.py`): an instrumented build, a training run (corpus sweeps, short `benchmarks/*.jai` programs, a `jaifmt` build, `jailint` over a stdlib subset, a scripted `jailsp` session), a merge, and an optimised rebuild. Only our code is profiled. It gains 6 to 9% on front-end work and 2 to 5% on the interpreter. On Linux x86-64, BOLT then reorders code (`--bolt`). Linux arm64, macOS arm64 and Windows x64 get PGO only. Windows arm64 gets a plain build because the profile runtime crashes there (`pgo_works()`), and macOS Intel gets one (`--no-pgo`, `pgo: false` in the matrix) because training on the slow Intel runner pushed the job past its timeout and few people use that build.
+Our Rust code is built with profile-guided optimisation (`tools/dev/build_pgo.py`): an instrumented build, a training run (corpus sweeps, short `benchmarks/*.jai` programs, a `jaifmt` build, `jailint` over a stdlib subset, a scripted `jailsp` session), a merge, and an optimised rebuild. Only our code is profiled. On Linux x86-64, BOLT then reorders code (`--bolt`). Linux arm64, macOS arm64 and Windows x64 get PGO only. Windows arm64 gets a plain build because the profile runtime crashes there (`pgo_works()`), and macOS Intel gets one (`--no-pgo`, `pgo: false` in the matrix) because training on its slow runner exceeds the job timeout.
 
 - Profiles must be merged by the `llvm-profdata` of rustc's LLVM (rustup `llvm-tools`), not the LLVM `jaic` links.
 - Change the training in `train()` and `lsp_session()`; heavier training slows the release.
-- Each training pass keeps its logs and a `summary.json` (commands, expected exits, durations, outcomes) in `<target-dir>/pgo/training/pgo/` (or `bolt/`). A new run clears them first, after checking that a supplied `--profile` is a readable file outside that folder. `completed` means the command exited 0, not that training covered everything.
-- Training commands run in their own process group (a Job Object on Windows) that is killed on timeout or interruption. Programs that start another session are not covered.
-- A failed step prints the last 16 KiB of its output; `--verbose` prints all of it. Any failed step (a non-zero exit or a timeout) stops the build before the optimised rebuild, so a broken workload cannot ship a profile that silently misses code.
-- The `jailint` training lints `LINT_TRAINING_PATHS` (generic containers, format and parsing modules, time and compression code), about a tenth of the stdlib: the whole of it took 15 to 25 minutes on the Intel macOS runner and the same linter paths run on every module. Bindings and generated code add volume, not coverage. The second lint step runs the examples and compiler regressions with `--allow-incomplete`, because some regression programs deliberately do not compile fully.
-- To check process cleanup on Windows x64 and arm64: `gh workflow run ci.yml --ref my-branch -f jobs=docs -f tier=fast -F pgo_processes=true`. It runs `tools/ci/check_native_python.py` and the focused Python tests, without building the compiler.
+- Each training pass keeps its logs and a `summary.json` (commands, expected exits, durations, outcomes) in `<target-dir>/pgo/training/pgo/` (or `bolt/`); a new run clears them first. `completed` means the command exited 0, not that training covered everything.
+- Training commands run in their own process group (a Job Object on Windows) killed on timeout or interruption. Programs that start another session are not covered.
+- A failed step prints the last 16 KiB of its output (`--verbose` prints all). Any failed step (non-zero exit or timeout) stops the build before the optimised rebuild, so a broken workload can't ship a profile that misses code.
+- The `jailint` training lints `LINT_TRAINING_PATHS` (generic containers, format and parsing modules, time and compression code), a subset of the stdlib: the whole of it is too slow on the Intel macOS runner and bindings and generated code add volume, not coverage. The second lint step runs the examples and compiler regressions with `--allow-incomplete`, because some regression programs deliberately do not compile fully.
+- To check process cleanup on Windows: `gh workflow run ci.yml --ref my-branch -f jobs=docs -f tier=fast -F pgo_processes=true` (runs `tools/ci/check_native_python.py` and the focused Python tests, without building the compiler).
 - Locally: `PYTHONPATH=tools python3 tools/dev/build_pgo.py --jobs 4`. Options: `--llvm dynamic|static|lazy|none`, `--bolt`, `--target`, `--out`, `--profile`. Tests: `tools/dev/test_build_pgo.py`.
 
 ## Release token
@@ -94,25 +94,16 @@ When it expires, make a new one and set the secret again. The other jobs use the
 
 A tag push publishes everything: the GitHub release, both extension stores, the Homebrew tap and the Neovim mirror. A manual run publishes to the stores only with `publish_integrations`. The editor can be released alone with `editor_version`; stores keep versions immutable, so a checksum repin needs a new editor version.
 
-A forced tag update validates the release metadata but deliberately skips builds and publishing.
-If that tag has not been published, resume it explicitly from its own workflow revision:
+A forced tag update validates the release metadata but skips builds and publishing. To publish an unpublished tag after one, resume it from its own workflow revision, then confirm the build and publish jobs succeeded (a metadata-only run is not publication):
 
 ```sh
 gh workflow run release.yml --ref vX.Y.Z -f tag=vX.Y.Z \
   -f publish_integrations=true -f editor_version=X.Y.Z
 ```
 
-Confirm the build and publish jobs actually succeeded; a successful metadata-only run does not
-establish publication. Run `release-smoke.yml` with `version=vX.Y.Z` after a manual release,
-since its automatic trigger accepts tag-push releases only. Do not rebuild an immutable published
-release or replace its archives and checksums.
+After a manual release run `release-smoke.yml` with `version=vX.Y.Z`; its automatic trigger accepts tag-push releases only. Never rebuild a published release or replace its archives and checksums.
 
-The browser bundle has its own `browser-release.yml` validation. It builds a native compiler and
-formatter before running the LLVM-free language-server and Wasm tests: formatting tests execute
-the real `jaifmt` through `JAIFMT`. Packaging then uses that compiler to build the browser formatter.
-To validate a released compiler with updated workflow setup, dispatch the workflow from the fixed
-branch and set `compiler_revision` to the release's full commit SHA; checkout and bundle provenance
-remain pinned to that compiler revision.
+`browser-release.yml` validates the browser bundle separately: it builds a native compiler and formatter first, because the formatting tests execute the real `jaifmt` through `JAIFMT`, then packages with that compiler. To validate a released compiler with updated workflow setup, dispatch the workflow from the fixed branch with `compiler_revision` set to the release's full commit SHA.
 
 Gotchas:
 
@@ -137,7 +128,7 @@ Gotchas:
 | `portfolio` | `gh workflow run jacket-web.yml -R matteopolak/portfolio -f jai_ref=<tag> -f update_pointer=true`; run by the maintainer after the release |
 | `all` | the publishing steps in order, for a release run by hand |
 
-The portfolio step dispatches `jacket-web.yml` on the portfolio's default branch with `jai_ref=vX.Y.Z` and `update_pointer=true`. That workflow resolves the tag to a full compiler SHA, validates its bundle, then updates the deployment pointer. For example, inspect the intended command without publishing with `python3 tools/release.py portfolio --tag vX.Y.Z --dry-run` (substitute a numeric tag).
+`portfolio` dispatches `jacket-web.yml` on the portfolio's default branch with `jai_ref=vX.Y.Z` and `update_pointer=true`; that workflow resolves the tag to a full compiler SHA, validates its bundle, then updates the deployment pointer.
 
 `--dry-run` prints each command (secrets as `***`) and runs nothing. To add a step: a `step_<name>(args, shell)` function and a `step(...)` row in `build_parser`; run every command through `shell.run`; add it to `PUBLISHING` if `all` should run it; `tools/test_release.py` has the fakes.
 

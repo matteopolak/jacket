@@ -93,17 +93,9 @@ The generated code is straight-line per struct and field, with no runtime type s
 
 Other knobs: `json_use_simd` (true), `json_index_min_size`, `json_index_stats`.
 
-## Compared with the community libraries
+## Comparing with other libraries
 
-`benchmarks/compare/json/benches/json.jai` (`tools/bench/library_compare.py json`, see [library comparisons](../tools/library-comparisons.md)) decodes and encodes the same text and types with Jacket, jaison and Contiguous on three generated documents: a 69 KB API page, 20,000 telemetry records, and a configuration nested 100 deep (Apple M5). Time relative to Jacket (above 1 is slower):
-
-| Workload | jaison | Contiguous |
-| --- | --- | --- |
-| typed decode | 2.5x-3.7x | 1.1x-1.2x |
-| untyped tree decode | 1.7x-2.2x | 1.2x-1.3x (75x on the deep config) |
-| encode | 2.9x-3.4x | 1.7x-2.3x |
-
-jaison walks `Type_Info` on every call. Contiguous is close on typed decode because it doesn't unescape strings and checks input only with `assert`. `borrow` makes Jacket another 3-5% faster on typed decodes and 13-29% on untyped trees.
+`benchmarks/compare/json/benches/json.jai` (`tools/bench/library_compare.py json`, see [library comparisons](../tools/library-comparisons.md)) decodes and encodes the same text and types with Jacket, jaison and Contiguous on three generated documents: a 69 KB API page, 20,000 telemetry records, and a configuration nested 100 deep. jaison walks `Type_Info` on every call. Contiguous is close on typed decode because it does not unescape strings and checks input only with `assert`. `borrow` makes Jacket faster again on typed decodes and untyped trees.
 
 Beyond speed: Jacket's parser follows RFC 8259 with positioned errors, handles surrogate pairs, tells absent from null, has tagged unions, maps, `flatten`, depth limits and query-string decoding. Neither community library has these.
 

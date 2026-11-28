@@ -1,6 +1,6 @@
 // The Jacket text editor. `jaic examples/editor/main.jai -interp -- [folder or file]` opens it on
 // a folder (the current one by default) or on a file's folder with the file open. See
-// docs/extensions/ui-editor.md.
+// examples/editor/README.md.
 
 #load "smoke-session.jai";
 Args :: #import "Extensions/Args";

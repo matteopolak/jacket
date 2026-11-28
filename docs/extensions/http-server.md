@@ -39,9 +39,9 @@ main :: () {
 - **Errors** (`bad_request`, `not_found`, `http_error(status, detail)`, and extractor failures, 404, 405, 408, 413, 414, 431) are RFC 9457 `application/problem+json`. `app.on_error` replaces the format.
 - **Routing.** Segment trie: static beats `{param}` beats `{rest...}`, with backtracking. Wrong-method paths get 405 with `Allow`; `HEAD` runs `GET`; `OPTIONS` answers 204. `use(*app, mw)` adds middleware `(request, next) -> Response`; `group(*app, "/admin", mw)` adds a prefix and middleware, and nests.
 - **Connections.** One fiber per connection, handlers in order. Temporary storage resets after each response. A crashing handler isn't caught; return `Http_Error`.
-- **Memory.** An idle keep-alive connection gives its read buffer back to a per-scheduler pool and waits with `Io.wait_readable`; a connection that has served a request also releases the stack pages its handler touched. Cost is about 22 KiB per idle connection (`bench/idle_bench.jai`). Don't hold pointers into the read buffer across a wait.
+- **Memory.** An idle keep-alive connection gives its read buffer back to a per-scheduler pool and waits with `Io.wait_readable`; a connection that has served a request also releases the stack pages its handler touched. `bench/idle_bench.jai` measures the cost per idle connection. Don't hold pointers into the read buffer across a wait.
 - **Serving.** `serve(*app)` runs `config.threads` schedulers, each with its own `SO_REUSEPORT` listener. It returns a `Serve_Error` (`.INVALID_ROUTES`, `.INVALID_TLS`, `.CANNOT_LISTEN`) or kind `.NONE` after a clean stop; nothing is printed. SIGINT/SIGTERM or `shutdown(*app)` close the listener, finish in-flight requests with `Connection: close` and cut the rest after `shutdown_timeout`. `start(*app)` inside `Io.io_run` returns a `Server` for tests.
-- **HTTPS.** Set `app.config.tls = *config` (a `Tls_Config` that went through `tls_config_init` and outlives the server). ALPN none or `http/1.1` is served as HTTP/1.1; `h2` is served as HTTP/2 when `tls.alpn` lists it (`string.["h2", "http/1.1"]`); anything else drops the connection. About 34 KiB per connection.
+- **HTTPS.** Set `app.config.tls = *config` (a `Tls_Config` that went through `tls_config_init` and outlives the server). ALPN none or `http/1.1` is served as HTTP/1.1; `h2` is served as HTTP/2 when `tls.alpn` lists it (`string.["h2", "http/1.1"]`); anything else drops the connection.
 - **HTTP/2.** Same handlers, middleware and streaming responses as HTTP/1.1; a handler cannot tell which protocol carried the request. To turn it off set `config.http2 = false`: `h2` is dropped from the ALPN list the server accepts (it uses a copy of `tls`), and clients fall back to HTTP/1.1; `h2_max_streams` (100), `h2_window` (256 KiB per stream) and `h2_connection_window` (1 MiB) set the advertised limits. Violations get GOAWAY or RST_STREAM with the RFC 9113 code. Not supported: cleartext h2c, server push, and priorities (parsed, ignored).
 
 ### Request bodies
@@ -133,19 +133,11 @@ main :: () { run_tests(.[ .{ "creates a note and reads it back", creates_and_rea
 
 Also `app.state`, `app.on_error`, `app.json_options`.
 
-Tests: `server-routing`, `server-extractors`, `server-responses`, `testing`, `server-bodies`, `server-connections`, `https` and `client` in `stdlib/Extensions/Http/tests/`. Run parser benchmarks with `jacket bench --path stdlib/Extensions/Http`; the network experiments remain standalone in `bench/`. The server load needs a peer that persists across samples, and the client/idle experiments report RSS or stack residency. The supplied runner provides neither per-run fixture teardown nor those memory metrics. `tools/stdlib/http_conformance.py` also builds `tools/stdlib/http_garden/server.jai`, an echo server for an http-garden image.
+Tests: `server-routing`, `server-extractors`, `server-responses`, `testing`, `server-bodies`, `server-connections`, `https` and `client` in `stdlib/Extensions/Http/tests/`. Run parser benchmarks with `jacket bench --path stdlib/Extensions/Http`. The network experiments are standalone programs in `bench/`, because they need a peer that persists across samples and report RSS or stack residency, which the bench runner does not provide. `tools/stdlib/http_conformance.py` also builds `tools/stdlib/http_garden/server.jai`, an echo server for an http-garden image.
 
-## Compared with the community servers
+## Comparing with other servers
 
-`benchmarks/compare/http/` (`PYTHONPATH=tools python3 tools/bench/http_compare.py`) serves the same small JSON API (`GET /items/{id}` over 1,000 items) from Jacket and from the hyperserve and simplehttp libraries, with 1, 64 and 1,024 keep-alive loopback connections (Apple M5, `-o` builds, in the bench sandbox). Read the ratios, not the absolute numbers.
-
-| Server | Connections | Requests/s | p99 |
-| --- | --- | --- | --- |
-| Jacket | 1 / 64 / 1024 | 51,945 / 175,958 / 149,674 | 35 us / 506 us / 7.81 ms |
-| hyperserve | 1 / 64 / 1024 | 32,794 / 94,869 / 87,134 | 48 us / 887 us / 14.1 ms |
-| simplehttp | 1 / 64 / 1024 | 16,360 / 1,808 / 30,659 | 73 us / 1.76 ms / 97.3 ms |
-
-Idle connections cost about 22 KiB each in Jacket and hyperserve, 68 KiB in simplehttp. Jacket also has streaming bodies, per-route limits, chunked request bodies, streaming responses, slow-client timeouts, HTTPS and an in-memory test client, which neither community server has.
+`PYTHONPATH=tools python3 tools/bench/http_compare.py` (inputs in `benchmarks/compare/http/`) serves the same small JSON API (`GET /items/{id}` over 1,000 items) from Jacket and from the hyperserve and simplehttp libraries, with 1, 64 and 1,024 keep-alive loopback connections, in the bench sandbox. Compare ratios on one machine, not absolute numbers.
 
 ## Route callbacks with independent state
 

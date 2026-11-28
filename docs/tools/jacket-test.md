@@ -2,35 +2,9 @@
 
 The test runner for Jai projects. It builds a folder's unit programs once, runs their cases and separate golden programs in parallel, and reports as text, JSON lines or JUnit XML. Tests are written with the [`Testing` module](../extensions/testing.md); golden-output and compile-fail files need no module. How to use it is in the [testing guide](../guides/testing.md); this page is the reference and how it works.
 
-```
-$ jacket test
-    Starting 12 tests
-        PASS [   0.004s] parses_numbers
-        FAIL [   0.003s] splits_on_commas
-        SKIP             reads_the_registry (only on windows)
-
---- splits_on_commas (FAIL) ---
-  tests/strings.jai:14:
-    got:  ["a", "b"]
-    want: ["a", "b", "c"]
-  rerun: jacket test --exact 'splits_on_commas'
-
-     Summary [   0.120s] 11 tests run: 10 passed, 1 failed, 1 skipped
-```
-
 Exit status: 0 when every test passed (or was skipped, or failed under `@xfail`), 1 when a test failed, 2 when nothing matched, the tests didn't compile, or the command line or `jacket.toml` was wrong. Every flag is in the [command-line reference](../reference/tools.md#testing).
 
-`--list` preserves the host catalogue. Use `--list --list-target` when the catalogue must match
-another target's compile-time `#if OS` or `#if CPU` declarations. Pass the same compiler flags
-as the run; discovery uses them without executing test bodies:
-
-```sh
-jacket test --list --list-target --interp -- -os=wasm
-jacket test --interp -- -os=wasm
-```
-
-The listing view is selected in `test/build.rs`; keep it separate from the shared compiler
-argument/target policy. Dependency probes use that catalogue's same compiler setup and target; actual runs and checks use their selected target. CI uses the selected-target view for coverage and changed-file filters.
+`--list` shows the host's catalogue. `--list --list-target` makes it match the selected target's compile-time `#if OS` and `#if CPU`; pass the same compiler flags as the run (`jacket test --list --list-target --interp -- -os=wasm`). The listing view is chosen in `test/build.rs`, apart from the shared compiler argument and target policy. CI uses the selected-target view for coverage and changed-file filters.
 
 ## Where tests are
 
@@ -108,19 +82,24 @@ A compile-fail test with no `.stderr` yet gets one on its first run, from what t
 
 ### Doc tests
 
-Examples in a library's doc comments are tests (`crates/jacket/src/test/doctest.rs`). The comment is the `//` run or block comment directly above a constant declaration, or the run that opens `module.jai`. jacket gets them from `jaic -doc_comments DIR`, passing the same `-import_dir` folders the tests are compiled with so an alias of a module in one of them takes that module's docs; if `jaic` cannot be started or cannot read a library, the run fails with that error instead of testing no examples. An alias without its own comment forwards to its target, so an example runs once.
+Examples in a library's doc comments are tests (`crates/jacket/src/test/doctest.rs`). The comment is the `//` run or block comment directly above a constant declaration, or the run that opens `module.jai`. jacket gets them from `jaic -doc_comments DIR`, passing the `-import_dir` folders the tests compile with, so an alias of a module in one of them takes that module's docs; if `jaic` can't be started or can't read a library, the run fails instead of testing no examples. An alias without its own comment forwards to its target, so an example runs once.
 
-Each block is a program importing `Basic` and the library. A block with a file-level `main` is used as is; otherwise its lines become a procedure body with `#import`/`#load` lines moved to file level. A failed `assert`, `expect` or `require` fails the test and shows the example's line and code like one in a `@test` does: the Testing module prints each as `FILE:LINE: MESSAGE` (later lines indented four spaces) and `doctest::reported_failures` reads them from the example's standard error. Under `jacket test` a failed `assert` ends its test with that report instead of the stack trace, and the tests after it run in a new program. Only fences starting with `jai` are tests; the options (`no_run`, `compile_fail`, `should_fail`, `ignore`) are in the [guide](../guides/testing.md#doc-tests). The notes above also work as options without the `@`: ```` ```jai,only(linux, macos) ````, `skip_on(wasm)`, `needs(...)`, `timeout(...)`. A `// test:` line in its own comment run at the top of the library's `module.jai` (after the module docs, with a blank line on each side) applies to every doc test of the library, so a module with no wasm target writes `// test: skip_on(.WASM, reason = "needs threads")` once instead of annotating each fence. It is a header like a test file's, so it is not part of the module docs. Doc tests are named `doc: Module.symbol#N`. `--doc` runs only doc tests, `--no-doc` leaves them out.
+- Each block is a program importing `Basic` and the library. A block with a file-level `main` is used as is; otherwise its lines become a procedure body with `#import`/`#load` lines moved to file level.
+- A failed `assert`, `expect` or `require` fails the test and shows the example's line and code. The Testing module prints each as `FILE:LINE: MESSAGE` (later lines indented four spaces) and `doctest::reported_failures` reads them from the example's standard error. A failed `assert` ends its test with that report instead of the stack trace, and the tests after it run in a new program.
+- Only fences starting with `jai` are tests. The fence options (`no_run`, `compile_fail`, `should_fail`, `ignore`) are in the [guide](../guides/testing.md#doc-tests); the notes above also work as options without the `@`: ```` ```jai,only(linux, macos) ````, `skip_on(wasm)`, `needs(...)`, `timeout(...)`.
+- A `// test:` line in its own comment run at the top of `module.jai` (after the module docs, with a blank line on each side) applies to every doc test of the library, so a module with no wasm target writes `// test: skip_on(.WASM, reason = "needs threads")` once. It is a header like a test file's and is not part of the module docs.
+- Doc tests are named `doc: Module.symbol#N`. `--doc` runs only doc tests, `--no-doc` leaves them out.
 
 ### Checking examples for another OS
 
-Examples are built for the machine they run on, so a mistake that only exists on another OS (`sin_addr.s_addr` where Windows has `sin_addr.S_un.S_addr`) would first show up on that OS's CI runner. `--check-only --os <os>` type-checks every unit test, golden test and example for the target from any machine, without building, linking or running:
+`--check-only --os <os>` type-checks every unit test, golden test and example for that target from any machine, without building, linking or running (`jacket test --check-only --os windows`; `--cpu` picks the CPU). It catches mistakes that only exist on another OS, such as a struct member Windows names differently.
 
-```sh
-jacket test --check-only --os windows      # also linux, macos, wasm; --cpu picks the CPU
-```
+- `only(...)` and `skip_on(...)` notes on a fence, and the `// test:` header of `module.jai`, are matched against `--os`, not the host.
+- Every example is checked as `no_run` is: a `compile_fail` example must still not compile and a `should_fail` example must compile. Mark a limit of the target with a note (in the module header when the whole module lacks the target); otherwise fix the example.
+- A unit test root is checked as a whole with every procedure kept (`-no_dce`). `--doc` limits the check to examples.
+- A golden test's `#run` code still runs, so a check that fails is held to its `should_fail` or `xfail`. A test whose `#run` builds and runs a program says `skip_on(mode = .CHECK, reason = "...")`, since `-check` writes no output for the workspaces a metaprogram creates.
 
-The target decides which examples take part: `only(...)` and `skip_on(...)` notes on a fence, and the `// test:` header of `module.jai`, are matched against `--os`, not the host. Every example is checked as `no_run` is (`compile_fail` still must not compile; a `should_fail` example must compile), so one that needs a foreign library or a device still passes if it type-checks. Mark a limit of the target with a note, in the module header when a whole module lacks the target, and fix the example otherwise. `--check-only` builds no test programs: a unit test root is checked as a whole with every procedure kept (`-no_dce`), so a test that only breaks on that OS fails; `--doc` limits it to the examples. A golden test's `#run` code still runs, so a check that fails is held to its `should_fail` or `xfail`; one that passes is a pass, since the program itself does not run. A `-check` run writes no output for the workspaces a metaprogram creates, so a test whose `#run` code builds a program and runs it says `skip_on(mode = .CHECK, reason = "...")` and is skipped under `--check-only`. CI runs it for the four OSes in the stdlib type-check job ([testing](testing.md)).
+CI runs it for the four OSes in the stdlib type-check job ([testing](testing.md)).
 
 ## Running
 
@@ -132,8 +111,11 @@ Examples of every flag are in the [guide](../guides/testing.md#running-tests).
 - Each test gets a fresh `temp_dir`; a failing test's is kept and printed (`--keep-temp` keeps all).
 - Statuses: `PASS`, `FAIL`, `SKIP`, `TIMEOUT`, `XFAIL`, `XPASS` (fails the run so the note gets removed), `FLAKY` (failed, then passed on a `--retries` attempt; a pass unless `flaky-fails`). `--fail-fast` starts no new tests after the first failure.
 - `--changed FILE` (repeat it per file) keeps the tests a change to FILE can affect, before `--partition` splits what is left. A unit-test root, a golden program and a compile-fail test are kept when their program reads FILE (the `--list --deps` closure); a compile-fail test and a root's doc examples cannot be compiled alone, so they stand for the modules they `#import`. A test whose program does not compile is kept (a deleted file breaks its importers), and so is every test of a root that gains a file no program reads (a new test, a data file). `Basic` changes keep nearly everything. What a program reads comes from the [dependency store](#dependency-store), so a warm store costs no compiles. Pass paths as they exist from the current directory. CI's use of it: [CI job selection](ci-job-selection.md).
-- `--partition hash:K/N` keeps tests whose name hashes to part K of N (stable across machines); `count:K/N` takes every Nth. `time:K/N` with `--partition-times FILE` (a JSON object of seconds per test name) deals the tests, slowest first, to the part with the least time so far, so the parts take about equal time; a test missing from the file weighs the median of those listed. The split depends only on the set of names and the times, so each part computes it on its own. CI's table is `tools/ci/test-times.json` (built by `tools/ci/test_times.py` from `--junit` files).
 - `-os`/`-cpu` are spelled as in jaic. A cross-built test is skipped unless `--runner` can run it (compile-fail tests still run). `--target TRIPLE` for another machine, with no runner, fails and names the fix. `--runner` is split on spaces; the program and its arguments follow.
+
+### Partitions
+
+`--partition hash:K/N` keeps tests whose name hashes to part K of N (stable across machines); `count:K/N` takes every Nth. `time:K/N` with `--partition-times FILE` (a JSON object of seconds per test name) deals the tests, slowest first, to the part with the least time so far, so the parts take about equal time; a test missing from the file weighs the median of those listed. The split depends only on the set of names and the times, so each part computes it on its own. CI's table is `tools/ci/test-times.json` (built by `tools/ci/test_times.py` from `--junit` files).
 
 ### Filter expressions
 
@@ -149,32 +131,27 @@ Examples of every flag are in the [guide](../guides/testing.md#running-tests).
 
 Operators, tightest first: `not` / `!`, `and` / `&`, `or` / `|`; parentheses group.
 
-### Seeds
-
-`--seed N` sets the property-test seed; otherwise one number is drawn per run and each test mixes in its name. See the [guide](../guides/testing.md#many-inputs).
+`--seed N` sets the property-test seed; otherwise one number is drawn per run and each test mixes in its name.
 
 ### Which standard library
 
-Every `jaic` that `jacket test` starts gets `JAIC_STDLIB` (`stdlib_dir` in `crates/jacket/src/test/mod.rs`). The first of these decides: `JAIC_STDLIB` in the environment; the project's own `stdlib/` if it holds the library (so a git worktree tests its own checkout); else what `jaic -print_stdlib` reports. `$STDLIB` in expectations stands for its canonical path, and `$ROOT` for the project folder.
+Every `jaic` that `jacket test` starts gets `JAIC_STDLIB` (`stdlib_dir` in `crates/jacket/src/test/mod.rs`). The first of these decides: `JAIC_STDLIB` in the environment; the project's own `stdlib/` if it holds the library (so a git worktree tests its own checkout); else what `jaic -print_stdlib` reports. `$STDLIB` in expectations is its canonical path and `$ROOT` the project folder.
 
-Native libraries are searched in `<stdlib>/../target/native-libs/<os>-<cpu>`, then in the main checkout's, where `build_native_libs.py` puts them. Missing test inputs that can be built are prepared once before the run: the fixture data, the machine fixture, the conformance data that the Time, Csv, Unicode_Text, Archive and Gltf (validator) tests read, and the Debug helper. All but the helper come from one `build_portable.py data` run, which downloads pinned archives. A test needs a setup when its code (comments are ignored) names the setup's fixture directory. They are looked for in `JACKET_OUTPUT_DIR` when it is set, else in `target/`, where the tests read them. The Gltf sample models are not part of `data`; fetch them with `tools/gltf_conformance/fetch.py --samples`; if `python3` is missing or a build script fails, the run stops with the command to run by hand (`prepare` in `crates/jacket/src/test/prerequisites.rs`; add a `SETUPS` entry for a new one; a test fails if a generated directory the stdlib tests read has none). A failure list ending in `missing build outputs` names the rest with the command that builds each; `tools/native/ci_native_deps.sh full` builds them all the way CI does.
+Native libraries are searched in `<stdlib>/../target/native-libs/<os>-<cpu>`, then in the main checkout's, where `build_native_libs.py` puts them.
 
-On macOS and Linux the run also builds the small C probe libraries some stdlib test drivers link (`thread_sdk_identity`, and on macOS `unmapping_protection` and `window_gl_probe`) with `cc` and `ar`, into `jacket-test-probes/` of the output directory. A probe that does not build stops the run with the failing command and its output. A test that fails only because a test-driver probe library is missing fails too. `--allow-missing-prerequisites` turns both into skips, each with the command that builds the library; nothing else changes this, on CI or off.
+**Prepared inputs.** Missing inputs that can be built are prepared once before the run: the fixture data, the machine fixture, the conformance data the Time, Csv, Unicode_Text, Archive and Gltf (validator) tests read, and the Debug helper. All but the helper come from one `build_portable.py data` run, which downloads pinned archives. A test needs a setup when its code (comments ignored) names the setup's fixture directory. They are looked for in `JACKET_OUTPUT_DIR` when set, else in `target/`. The Gltf sample models are not part of `data`; fetch them with `tools/gltf_conformance/fetch.py --samples`. If `python3` is missing or a build script fails, the run stops with the command to run by hand (`prepare` in `crates/jacket/src/test/prerequisites.rs`; add a `SETUPS` entry for a new setup). A failure list ending in `missing build outputs` names the rest with the command that builds each; `tools/native/ci_native_deps.sh full` builds them all the way CI does.
+
+On macOS and Linux the run also builds the small C probe libraries some stdlib test drivers link (`thread_sdk_identity`, and on macOS `unmapping_protection` and `window_gl_probe`) with `cc` and `ar`, into `jacket-test-probes/` of the output directory. A probe that does not build stops the run with the failing command. `--allow-missing-prerequisites` turns a missing probe or prepared input into a skip, each with the command that builds it.
 
 ### Coverage
 
-`jacket test --coverage` reports which lines of the code under test ran and writes lcov (`--coverage-out FILE`, default `target/lcov.info`, or in `JACKET_OUTPUT_DIR`, which when relative is below the checkout the standard library is in), or with `--coverage-format html` one self-contained page. `--coverage-by file|module` groups the table; `--coverage-include DIR` (repeatable) adds folders to report (`--coverage-include stdlib` for the whole standard library). Files under a `tests` or `benches` folder are not reported: they are not the code under test.
+`jacket test --coverage` reports which lines of the code under test ran. It writes lcov (`--coverage-out FILE`, default `target/lcov.info`, or in `JACKET_OUTPUT_DIR`; a relative `JACKET_OUTPUT_DIR` is below the checkout the standard library is in) or, with `--coverage-format html`, one self-contained page. `--coverage-by file|module` groups the table and `--coverage-include DIR` adds folders to report (`stdlib` for the whole standard library). Files under `tests` or `benches` are not reported.
 
-```
-File                     Lines   Cover    Functions   Cover
-src/Mathy/module.jai       7/8   87.5%          2/2  100.0%
-```
+Every program the run executes is built with `jaic -coverage` ([coverage](coverage.md)), and lines add up across unit tests, golden programs and doc examples. Native coverage needs `llvm-dwarfdump` (`LLVM_PREFIX`, Homebrew LLVM or `PATH`); with `--interp` every program runs as `jaic -interp -coverage` and needs no LLVM. Build unoptimized, since `-O2` moves blocks. Procedures nothing references are added as never run.
 
-Every program the run executes is built with `jaic -coverage` ([coverage](coverage.md)); lines add up across unit tests, golden programs and doc examples. Native coverage needs `llvm-dwarfdump` (`LLVM_PREFIX`, Homebrew LLVM or `PATH`). With `--interp` every program runs as `jaic -interp -coverage` and needs no LLVM. Build unoptimized; `-O2` moves blocks. Procedures nothing references are added as never run.
+A test process writes its coverage as it exits on its own. One that ends without (`_exit`, a handler that never returns) or whose file is cut short makes the run fail with exit code 2 after the report is written, naming the processes, and no baseline is compared or recorded. Look at how that program exits before suspecting the report.
 
-A test process that ends on its own (exit status, no crash) writes its coverage as it exits. One that ends without, or whose file is cut short, makes the run fail with exit code 2 after the report is written, naming the processes, and no baseline is compared or recorded: counting what it ran as never run would make the numbers too low. Look at how that program exits (`_exit`, a handler that never returns) before suspecting the report.
-
-Baselines keep coverage from dropping: `--coverage-record FILE` writes per-module numbers as JSON, `--coverage-baseline FILE` exits 1 when a module or the total falls more than `--coverage-margin` points (default 0.5) below it and runs more than 5 lines fewer than the baseline's share would (fewer is timing noise), and `--coverage-summary FILE` appends a markdown table. CI runs `tools/ci/stdlib_coverage.sh` against `tools/ci/coverage-baseline.json` with `--seed 1`, so property tests draw the same values every run; re-record with `tools/ci/stdlib_coverage.sh --record`. Native programs on Linux and other non-Apple targets keep every file's lines in their DWARF 5 line table only because the compile unit's file has a name of its own ([debug info](../native/debug-info.md)); if a module's whole `module.jai` reads 0%, look at the line table (`llvm-dwarfdump --debug-line`) for its folder.
+**Baselines** keep coverage from dropping. `--coverage-record FILE` writes per-module numbers as JSON; `--coverage-baseline FILE` exits 1 when a module or the total falls more than `--coverage-margin` points (default 0.5) below it and runs more than 5 lines fewer than the baseline's share would; `--coverage-summary FILE` appends a markdown table. CI runs `tools/ci/stdlib_coverage.sh` against `tools/ci/coverage-baseline.json` with `--seed 1`; re-record with `tools/ci/stdlib_coverage.sh --record`. On Linux and other non-Apple targets the DWARF 5 line table keeps every file's lines only because the compile unit's file has a name of its own ([debug info](../native/debug-info.md)); if a module's whole `module.jai` reads 0%, inspect `llvm-dwarfdump --debug-line` for its folder.
 
 ## Tests on a board
 
@@ -221,21 +198,13 @@ The test program (`stdlib/Extensions/Testing/runner.jai`) takes `--list`, `--run
 
 ### Dependency store
 
-`--changed` needs the source files each test program reads. The compiles jacket does anyway (a root's unit-test build or listing, a golden program's build, check or `--interp` run) pass `jaic -deps_file <entry>`, and `jaic` writes the list there when the compile finishes, whole or not at all. The store is the folder of those entries: `jacket/test-deps` in the user cache folder, or `JACKET_TEST_DEPS_DIR` (CI points it at a cached folder). With no cache folder (no `HOME`, `XDG_CACHE_HOME` or `LOCALAPPDATA`) and no `JACKET_TEST_DEPS_DIR`, `jacket test` stops and asks for the variable, and a store it cannot read or write is an error too. A compiler that does not start while `--changed` lists a program's reads is an error, not a reason to keep every test.
+`--changed` needs the source files each test program reads. The compiles jacket does anyway (a root's unit-test build or listing, a golden program's build, check or `--interp` run) pass `jaic -deps_file <entry>`. The store is the folder of those entries: `jacket/test-deps` in the user cache folder, or `JACKET_TEST_DEPS_DIR` (CI points it at a cached folder). With neither a cache folder nor the variable, or a store it cannot read or write, `jacket test` stops with an error. A compiler that does not start while `--changed` lists a program's reads is an error, not a reason to keep every test.
 
-An entry is named by a hash of the `jaic` binary's contents, the standard library path, the program (its path, or its text for a generated program such as a root's `tests.jai`, whose folder changes every run), the compiler flags, the root's flags, and whether the Discovery plugin runs. The mode (build, `-interp`, `-check`) is not part of it, so a list from any of them answers a query. The `-add` that points at the prepared probe libraries is left out too: it cannot change what is read.
+An entry is named by a hash of the `jaic` binary's contents, the standard library path, the program (its path, or its text for a generated program such as a root's `tests.jai`), the compiler flags, the root's flags, and whether the Discovery plugin runs. The mode (build, `-interp`, `-check`) and the `-add` that points at the prepared probe libraries are not part of it.
 
-`--changed` reads the store first. A program with no entry is compiled with `jaic -check -deps_file`, `-j` programs at a time, which stores its list; this covers compile-fail tests and doc examples too, which are read through a stand-in program of their imports. A compile that fails leaves no entry (the old one is removed first), and a program with no list is always kept.
+`--changed` reads the store first. A program with no entry is compiled with `jaic -check -deps_file`, `-j` programs at a time; this covers compile-fail tests and doc examples through a stand-in program of their imports. A compile that fails leaves no entry, and a program with no list is always kept.
 
-A stored list can be older than the files. That is sound for selection: a program starts reading a new file only if a file it already read changed to import or load it, and that file is in the old list, so the program is selected anyway. A new file that shadows module resolution is the unlisted file of a root, which `--changed` selects. Opening the store deletes entries not read or written for 30 days (a compiler that changes leaves its entries behind); remove the folder to start over. The argument above holds within one checkout. A store copied from a checkout with different file contents at the same paths can hold lists that miss a file this checkout's programs read, so cache one store per checkout history, not across unrelated branches.
-
-Design choices:
-
-- Notes are lowercase (`@test`) and go after the body, like the language's other notes. The procedure's name is the test's name.
-- jacket runs `jaic` as a program, not in-process: it links none of the tools, and tests build exactly as `jaic` builds them.
-- Per-test options are notes on the test; `jacket.toml` holds only run-wide settings.
-- Doc tests run every ```` ```jai ```` block, so an example that stops compiling is a failure. Untagged fences aren't run.
-- Expected-output files hold whole output, not substrings.
+A stored list can be older than the files, which is sound for selection: a program starts reading a new file only if a file it already read changed to import or load it, and that file is in the old list. A new file that shadows module resolution is the unlisted file of a root, which `--changed` selects. This holds within one checkout; cache one store per checkout history, not across unrelated branches. Entries not used for 30 days are deleted when the store is opened; remove the folder to start over.
 
 ## How to change it
 
@@ -276,32 +245,11 @@ Flags win over the profile, the profile over `[test]`. Environment: `JAIC_STDLIB
 
 ## Effective compiler target
 
-Target filters, cross-target skips and runner routing use the final compiler arguments.
-`jacket test --os windows -- -os=wasm` therefore selects wasm tests and needs a wasm
-runner. Repeated OS/CPU flags keep the last value; `-target` overrides OS and CPU,
-regardless of their order. CPU aliases and defaults come from the compiler's shared
-`Selection` policy. Cross-OS checking defaults to x64; wasm builds have a wasm CPU.
+Target filters, cross-target skips and runner routing use the final compiler arguments: `jacket test --os windows -- -os=wasm` selects wasm tests and needs a wasm runner. Repeated OS or CPU flags keep the last value, and `-target` overrides both whatever the order. CPU aliases and defaults come from the compiler's shared `Selection` policy; cross-OS checking defaults to x64 and wasm builds have the wasm CPU in every mode.
 
-Host-side discovery removes target options, including inline values and triples, using
-`jaic-cli-args`'s compiler option table. Values of unrelated flags, plugin options and arguments
-after `-` or `--` retain their meaning. Target-side builds keep the user's argument bytes.
-A metaprogram that changes its workspace target is outside this command-line selection;
-its target cannot be inferred before that program runs.
+- Host-side discovery removes target options, including inline values and triples, using the option table of `jaic-cli-args`. Values of unrelated flags, plugin options and arguments after `-` or `--` keep their meaning. Target-side builds keep the user's argument bytes.
+- A metaprogram that changes its workspace target is outside this selection; its target can't be known before it runs.
+- Forwarded compiler mode switches are resolved once, then removed before the per-case commands are built. Compile-fail cases keep `-check` during an interpreted run, and host discovery keeps its own interpreter mode. Conflicts such as `-check -interp` stay errors, including with `--check-only`. Forwarded `-interp` selects interpreted execution too. Use `jacket test --list --deps` for dependency lists: forwarding `-deps` is rejected.
+- Compile-only cases use checking target rules, and native link support is validated when a program is built, so compile-fail and check-only examples can select cross-target filters without a foreign linker.
 
-To extend target selection, update the shared policy in `jaic::target` and compiler option
-metadata in `jaic-cli-args`, then exercise `crates/jacket/tests/forwarded_targets.rs`. Keep
-selection and build/runner behavior in the same regression. Forwarded `-interp` selects interpreted execution too; use
-`--check-only` (with `--doc` for examples only) to type-check tests without running them (`-check` alone cannot run unit tests).
-The neutral argument layer shares its option table with the compiler binary. Backend,
-allocator and panic initialization remain binary concerns.
-
-Compile-only cases use checking target rules. Native link support is validated by the
-compiler when a program is built. This lets compile-fail and check-only examples select
-cross-target OS/CPU filters without requiring a foreign native linker. Wasm has its own CPU
-class in every mode, so native CPU filters have the same meaning when interpreted.
-
-Forwarded compiler mode switches are resolved once, then removed before jacket builds its
-per-case compiler commands. Compile-fail cases therefore keep `-check` even during an
-interpreted run, and host discovery keeps its own interpreter mode. Compiler conflicts
-such as `-check -interp` remain errors, including with `--check-only`. For dependency
-listing use `jacket test --list --deps`; forwarding compiler `-deps` is rejected.
+To extend target selection, update the shared policy in `jaic::target` and the option metadata in `jaic-cli-args`, then exercise `crates/jacket/tests/forwarded_targets.rs`; keep selection and build/runner behaviour in the same regression.

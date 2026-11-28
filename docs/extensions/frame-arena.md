@@ -39,4 +39,4 @@ while running {
 
 ## Dependencies
 
-`Basic`. `jacket bench --path stdlib/Extensions/Frame_Arena`: 100 allocations took 0.31 µs in a `Frame_Arena` (0.42 µs in a double arena) against 3.7 µs allocating and freeing through the default allocator.
+`Basic`. `jacket bench --path stdlib/Extensions/Frame_Arena`.

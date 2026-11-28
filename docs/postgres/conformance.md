@@ -1,4 +1,4 @@
-# Postgres conformance
+# Postgres conformance and load test
 
 The Postgres client is checked against PostgreSQL's own test suites, not only tests written for it. The `pg-conformance` workflow fetches the suites at pinned versions (15 to 18, plus the next major in beta) and runs them against real servers. A `managed` job runs the [managed-server](managed.md) tests on Linux, macOS and Windows.
 
@@ -18,7 +18,7 @@ Runs are differential: each suite runs with the real `psql` and with the shim, a
 | psql TAP | options, `\watch`, notifications, query cancellation |
 | Pipeline traces (`pipeline_traces.jai`) | the exact message sequence of nine pipeline scenarios |
 
-Not applicable: pgbench and the isolation tester link libpq (the [load test](benchmark.md) stands in for pgbench). Skipped with reasons: GSS rows, SSPI (Windows), tab completion, libpq's C API tests, DNS load balancing, replication mode. The lists are `TAP_SKIPS`/`TAP_BASIC_SKIPS` in `run.py` and `tests/conformance/regress-skip.txt`.
+Not applicable: pgbench and the isolation tester link libpq (the [load test](#load-test) stands in for pgbench). Skipped with reasons: GSS rows, SSPI (Windows), tab completion, libpq's C API tests, DNS load balancing, replication mode. The lists are `TAP_SKIPS`/`TAP_BASIC_SKIPS` in `run.py` and `tests/conformance/regress-skip.txt`.
 
 ### The psql shim
 
@@ -27,6 +27,19 @@ Not applicable: pgbench and the isolation tester link libpq (the [load test](ben
 ### The binary round trip
 
 For each distinct value of each column the client decodes, it fetches text and binary and checks they decode to the same value (floats by bit pattern), then sends the value back and has the server check `$1::T is not distinct from $2::T` and the same text. Types it does not decode (ranges, `inet`, `bit`, multi-dimensional arrays) are counted as skipped. `edge_values.sql` adds awkward values: integer and float limits, `NaN`, huge numerics, BC dates, infinities, every `bytea` byte, arrays with nulls and lower bounds, odd json.
+
+## Load test
+
+`stdlib/Extensions/Postgres/benches/tpcb.jai` runs pgbench's TPC-B transaction through eight fibers sharing one `Pool`. Each sample starts a [managed](managed.md) scratch server, loads scale-1 tables and stops it afterwards.
+
+```sh
+jacket bench --path stdlib/Extensions/Postgres
+jacket bench --path stdlib/Extensions/Postgres tpcb_prepared
+```
+
+Setup creates the four `pgbench_*` tables with pgbench's row counts, then runs `vacuum analyze`. Each iteration runs one transaction on each of eight clients: `begin`, three updates, a select, an insert and `end` as separate extended-protocol statements. `tpcb_prepared` uses the statement cache; `tpcb_simple` uses unnamed statements. Errors fail the case. At scale 1 every transaction updates the single branch row, so the run measures lock hand-off, on a scheduler with one thread.
+
+To change it, keep the `statements` table in `run_transaction` in step with pgbench's `tpcb-like` script and keep server/table initialization before the `for b` loop. `JACKET_OUTPUT_DIR` relocates the scratch cluster from `target/tpcb-bench`; no `DATABASE_URL` is used.
 
 ## How to change it
 

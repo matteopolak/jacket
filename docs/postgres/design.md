@@ -3,8 +3,8 @@
 `Extensions/Postgres` is a PostgreSQL client written in Jai, with SQL that is checked while your program compiles. Four layers, each usable without the ones above it:
 
 1. **Client.** The wire protocol on [Io](../extensions/io-engine.md) fibers and [Tls](../extensions/tls.md): auth, extended protocol, pipelines, COPY, LISTEN/NOTIFY, cancellation, a pool. Reference: [Postgres client](../extensions/postgres.md).
-2. **Typed queries.** `Pg.query(db, "select ... where id = %id")` is described by a real server at compile time, so row types, nullability and argument types come from the database. [typed-queries.md](typed-queries.md).
-3. **Schema and migrations.** SQL migrations are the source of truth; Jai structs are generated from them and committed. [migrations.md](migrations.md), [schema.md](schema.md), [diff.md](diff.md).
+2. **Typed queries.** `Pg.query(db, "select ... where id = %id")` is described by a real server at compile time, so row types, nullability and argument types come from the database. [typed queries](typed-queries.md).
+3. **Schema and migrations.** SQL migrations are the source of truth; Jai structs are generated from them and committed. [migrations](migrations.md), [schema and diff](schema.md).
 4. **ORM.** `Pg.select`, `insert`, `update` and `delete` take filters as Jai expressions and lower to layer 2. [orm.md](orm.md).
 
 ```jai

@@ -1,10 +1,6 @@
-# TOML values and configuration
+# TOML
 
-`Extensions/Toml` is an in-memory TOML 1.1 parser and semantic writer. It represents strings, signed 64-bit integers, binary64 floats, booleans, arrays, tables and the four TOML date/time categories. It has no null value. Comment-preserving editing is outside this module. [Typed decoding and encoding](toml-typed.md) (`from_toml`, `to_toml`) maps structs without building this document.
-
-## Ownership and flow
-
-`parse_toml(text)` returns an owning `Toml_Document` and a structured error. On success the document keeps its own source copy, decoded keys/strings and stable value nodes. On failure it releases all partial storage and returns an empty document. `free_toml(*doc)` uses the allocator captured during parsing and clears the document, so a second call does nothing.
+`Extensions/Toml` is an in-memory TOML 1.1 parser and semantic writer, plus a typed path (`from_toml`, `to_toml`) that maps structs without building a document. It has no null value. It keeps semantic values, not comments or layout, so it is not an in-place configuration editor. Typed decoding is on its own page: [toml-typed](toml-typed.md).
 
 ```jai
 #import "Extensions/Toml";
@@ -18,25 +14,20 @@ free(text);
 free_toml(*doc);
 ```
 
-`toml_get(table, key)` treats dots literally and returns null for an absent key or non-table. A node pointer remains valid until document destruction.
+## How it works
 
-For document-owned nodes, treat kind, container arrays and internal fields as read-only; change text/fractions and attachments through the builder procedures. Scalar fields may be assigned only for their matching fixed kind. Array/member storage can move on growth. Nodes belong to one document. Builder insertion rejects cross-document nodes, shared children, roots and cycles. Nodes cannot be removed or reparented. `write_toml` returns a string allocated with the active caller allocator, which must also be used to free that output; the document allocator is independent. The captured allocator and its state must outlive the document; changing the active context allocator before destruction is supported. Wide tables use a balanced member-index tree; small tables use linear lookup, and both preserve insertion order. Parsed key descriptors move into their semantic members after capacity admission; nonempty plain keys use retained source bytes, while escaped and empty keys own decoded copies. Temporary key vectors are reused by active parsing scope, with their cached capacity charged until parser cleanup. Recursive scopes keep separate vectors, so nested inline values cannot overwrite an outer assignment path.
+- **Ownership.** `parse_toml` returns an owning `Toml_Document` and a structured error. The document keeps its own source copy, decoded strings and stable value nodes; a node pointer stays valid until `free_toml`. On failure all partial storage is released and the document is empty. `free_toml` uses the allocator captured at parse time and is safe to call twice. That allocator and its state must outlive the document.
+- **Nodes.** Treat kind, container arrays and internal fields as read-only; change text, fractions and attachments through the builder procedures. Nodes belong to one document: builder insertion rejects cross-document nodes, shared children, roots and cycles, and nodes cannot be removed or reparented. Do not shallow-copy a document.
+- **Lookup.** `toml_get(table, key)` treats dots literally and returns null for an absent key or a non-table. Wide tables use an index tree and small ones a linear scan; both keep insertion order.
+- **Writer.** `write_toml` returns text allocated from the caller's current allocator; free it with that one. Keys of letters, digits, `_` and `-` are bare, others quoted. Plain values go first, then `[header]` tables and `[[header]]` arrays of tables (an empty table is a bare `[header]`); a table inside a mixed array stays inline. Floats use the shortest digits that read back as the same binary64, and always keep a fraction or exponent.
+- **Dates and times.** Civil fields with exact fractional digits and fixed offsets; nothing reads a clock or timezone. `-00:00` stays distinct from `+00:00`. A `:60` second is kept for offset and local values without checking historical leap seconds; values above 60 are rejected. Fractions and offsets are never clamped.
+- **Errors.** Static messages and numeric half-open byte spans, so they outlive the input and the document. Lines and Unicode-scalar columns count from one. A duplicate declaration carries the earlier span as `related`. Invalid UTF-8 is rejected.
+- **Profile.** TOML 1.1 only; there is no 1.0 switch. The parser tracks how each table was introduced (implicit parent, header, dotted key, closed inline table, array of tables) to apply the duplicate and redefinition rules.
+- **Statements.** `record_statements = true` keeps an ordered list of assignments and headers with value, byte span, line and header depth; `toml_statement_path` writes the decoded key path into caller storage. Events describe the original source, not later edits.
 
-Do not shallow-copy document ownership or change its source/bookkeeping. Value spans and statement events describe the original immutable source, including after scalar edits.
+## Configuration
 
-Errors use static messages and numeric source spans, so they survive input and document release. Spans are half-open byte ranges. Display lines and Unicode scalar columns count from one; tabs count as one column. Duplicate declarations carry an earlier related span. Invalid UTF-8 is rejected without normalization.
-
-Private lookup/insertion helpers live in `index.jai`. An absent-key cursor keeps only bounded node indices and directions across detached value parsing; snapshot/path checks protect reuse, and stale cursors re-probe before mutation. Capacity relocation preserves indices. The private helper regression loads that same source against concrete module field types, without exporting test hooks.
-
-## Profiles and limits
-
-Plain nonempty parsed keys can refer directly to the document-owned immutable source; escaped and empty keys retain decoded copies. Builder insertion always copies keys. This reduces allocation requests without borrowing caller input; source and container data remain read-only.
-
-The parser targets TOML 1.1; there is no strict 1.0 switch. Table provenance distinguishes implicit parents, explicit declarations, dotted-key definitions, closed inline tables and arrays of tables. The writer emits nonempty ASCII keys containing only letters, digits, `_` and `-` without quotes; other keys remain quoted. String values remain quoted. A table inside a table is written under a `[header]` and a nonempty array of tables under `[[header]]`, after the table's own `key = value` lines; an empty table is a bare `[header]`, matching the typed encoder; a table inside a mixed array stays inline. Members keep insertion order within each group. Finite floats use the shortest digits that read back as the same binary64, independent of display style: plain decimals (`0.1`, `100.0`) while the exponent is small, `1e+21`-style beyond. Every spelling keeps a fraction or an exponent, so it stays a float; signed zeros and subnormals round-trip. Each key and each value asks for its output room once. The writer reuses float conversion scratch and emits validated temporal prefixes/suffixes directly, keeping exact fractional digits. It preserves semantic values rather than comments or the original layout; do not use it as an in-place configuration editor.
-
-`Toml_Options` bounds input bytes, depth, nodes, each decoded key/string/fraction, numeric token bytes, retained allocation capacity and output bytes. Limits report `.LIMIT` separately from syntax/range errors. Retained limits count requested allocation payload, including capacity and parser provenance, rather than allocator metadata. Rejected operations do not consume budget; replacement accounts for the retained size difference. Copy-before-free replacement can temporarily hold both old and new strings, so this is a retained-storage limit, not a peak-allocation guarantee. `write_toml` applies depth, node, per-field string/fraction and output-byte limits. Input and numeric-token limits apply only to parsing; retained-byte limits apply to parser/builder document storage, not writer scratch allocation. Allocation failure follows the owning Basic allocator contract; the module does not promise recoverable OOM when that allocator aborts.
-
-Default options are deliberately finite:
+`Toml_Options` bounds input bytes, depth, nodes, each decoded key/string/fraction, numeric token size, retained allocation and output bytes. Exceeding one returns `.LIMIT`, separate from syntax and range errors. Retained limits count requested payload, not allocator metadata, and rejected operations spend no budget. `write_toml` applies depth, node, per-field and output limits.
 
 | Option | Default |
 | --- | ---: |
@@ -45,106 +36,52 @@ Default options are deliberately finite:
 | Nodes | 1,048,576 |
 | Each decoded key/string/fraction | 16 MiB |
 | Numeric token | 4,096 B |
-| Retained document allocation payload | 128 MiB |
+| Retained document allocation | 128 MiB |
 | Written output | 32 MiB |
-| Source statement history | Disabled |
+| Statement history | off |
 
-Dates and times use format-owned civil fields with exact fractional digits and fixed offsets. Parsing never reads a clock or timezone and does not import tzdb. Negative-zero offsets remain distinct. A `:60` spelling is retained for offset and local values without validating historical insertion events, including structurally valid non-event dates. Values above 60 are rejected. This explicit implementation policy follows the [upstream leap-second guidance](https://github.com/toml-lang/toml-test/issues/160#issuecomment-2187827569); it does not provide RFC 3339 event validation or instant conversion. Fractions and offsets are never clamped or normalized.
+## How to change it
 
-`record_statements = true` retains an ordered source projection for consumers needing declaration history. Each event identifies its value, byte span, source line and enclosing header depth. `toml_statement_path` writes borrowed decoded key segments into caller storage, omitting array element indices. Events describe the original parsed source and do not track subsequent edits. Jai_Format no longer needs it: it reads `jacket.toml` with [typed decoding](toml-typed.md), whose `@toml(unknown)` list carries unknown-setting names, header history and raw documentation overrides.
+- `module.jai` holds the public model; `reader.jai` the declaration state and grammar; `scalar.jai` UTF-8, strings, numbers and dates; `writer.jai` output; `index.jai` lookup and insertion.
+- Keep declaration state separate from the semantic model. Add a regression before changing what is accepted, especially cross-notation duplicates, date precision, failure cleanup and spans.
+- Typed decoding restates the declaration rules in `toml_enter` (`decode.jai`); change it together with `toml_parent`/`toml_header` in `reader.jai`.
 
-## Extending and verifying
+Dependencies: `Basic` and `String`. The core does no file or network access; the test-only tagged-JSON adapter uses `Extensions/Json`.
 
-The public model and lifetime boundary are in `module.jai`; `reader.jai` owns declaration state and document grammar; `scalar.jai` owns UTF-8, strings, numbers and temporal syntax; `writer.jai` owns output policy. Keep declaration state separate from the semantic model. Add a regression before changing acceptance, especially cross-notation duplicate rules, temporal precision, failure cleanup and source spans.
+## Conformance
 
-Runtime dependencies are the owned `Basic` and `String` modules. The test-only tagged-JSON adapter uses `Extensions/Json` and explicit stdin/stdout file operations. The core performs no file/network access. Independent conformance is pinned to `toml-lang/toml-test` v2.2.0 with the explicit 1.1 profile; decoder and encoder must both pass the complete applicable inventory before release. Pin updates require reviewed hashes, licensing and case-count changes, rather than silently following upstream main.
-
-## Coverage and independent comparisons
-
-The independent inventory is pinned in `tools/stdlib/toml/pin.json`: toml-test v2.2.0, commit `ce08da1ddb075d1c7596d663c7fcba9a2ae02c5c`, explicit `-toml=1.1`. Its 895 outcomes comprise 214 valid decoder cases, 214 semantic encoder cases and 467 invalid decoder cases. The runner compares every result ID against the profile manifest, rejects missing/duplicate/skipped cases and retains verbose JSON. Decoder errors must exit exactly 1; crashes do not count as valid rejection. The suite checks only millisecond temporal precision and considers signed floating zero equivalent, so its result does not establish those stronger contracts.
-
-| Contract | Local regression or evidence | Scope |
-| --- | --- | --- |
-| Full 1.1 grammar, read and semantic write | Pinned decoder and encoder inventory | Complete applicable inventory; no selected exclusions |
-| Header, dotted, implicit and inline declaration conflicts | `tests/declarations.jai`, `tests/api.jai` | Includes per-element array-of-table state and earlier declaration spans |
-| Stable lookup pointers and wide tables | `tests/index.jai`, `tests/key-comparison.jai`, `tests/insert-hint.jai`, `tests/builder-state.jai` | Byte ordering across NUL/UTF-8/unaligned/overlapping views, rotations, sorted/reverse/zigzag insertion, detached nested values, stale snapshots, path-cap fallback, writer prefix indices and lookup across growth |
-| Ownership and failure cleanup | `tests/ownership.jai`, `tests/builder-state.jai` | Source release, changed allocator, truncations, cross-document/shared/root/cyclic attachment rejection |
-| Limits and diagnostics | `tests/errors.jai`, `tests/builder-state.jai` | UTF-8 byte location, Unicode columns, CRLF, depth, per-field size and transactional retained capacity |
-| Temporal precision and leap policy | `tests/temporal.jai`, `tests/api.jai` | Exact >9-digit write/reparse, signed-zero offset, real/shifted/local/structural `:60`, rejection above 60 and fractions without seconds |
-| Parser allocation and bounded string scanning | `tests/key-storage.jai`, `tests/key-views.jai`, `tests/key-source-limits.jai`, `tests/string-spans.jai`, `tests/number-staging.jai` | Source-backed plain keys, owned decoded keys, exact allocation ledger and nonnull zero-byte cleanup, reused scope vectors, nested/truncated/quota cleanup, decoded UTF-8 widths, plain-span limits and no unused integer normalization |
-| Constructed-value validation | `tests/writer.jai`, `tests/writer-index.jai`, `tests/writer-keys.jai`, `tests/writer-integers.jai`, `tests/writer-floats.jai`, `tests/writer-limits.jai`, `tests/utf8-values.jai` | Bare/quoted key spelling and quotas, exact tiny-table duplicate equality, canonical signed64 decimal, 527 finite binary64 bit-pattern round trips including signed zero/subnormals, and no added per-value result-string allocation beyond the float conversion primitive, UTF-8 diagnostics, checked cached-index witness, corrupt-cache fallback, output spans, invalid date, duplicate key, negative floating zero and display-style independence |
-| Writer limits at their boundaries | `tests/writer-boundaries.jai` | Every output byte limit and the nesting limit, in the document writer and the typed encoder, with the same error and path; nesting counts scalars and empty arrays, root is depth 0 |
-| Writer layout | `tests/writer-headers.jai` | `[table]` and `[[array]]` headers, inline mixed-array tables, bare empty-table headers, rewrite of the output is identical |
-| Source projection | `tests/statements.jai` | Assignment/header order, nested inline values, array-of-table identity and caller path buffer |
-| Actual formatter consumer | `Jai_Format/tests/toml-config.jai`, `toml-warning-history.jai`, existing golden cases | Strict whole-file migration, valid settings, raw overrides, unknown-name/header history and command-line precedence |
-
-Competitor execution uses identical pinned fixture IDs where a compatible adapter exists. The community Jai library is pinned separately in `tools/stdlib/toml/community-pin.json`; its implementation is opaque to this project. Compilation and execution occur only through `tools/bench` Sandbox. Its documented public read/write API does not expose a documented tagged-value projection, so this comparison is a **read/write interoperability pipeline**: community parse/write followed by Python tagged conversion for decoding, and independently constructed TOML followed by community parse/write for encoding. A valid-case failure therefore does not identify parsing versus writing as the cause. Accepted invalid syntax is observable at the read API. Default and explicitly configured float formatting are separate runs.
-
-| Library/profile | Read | Write | Precision and behavior boundary | Evidence source |
-| --- | --- | --- | --- | --- |
-| `Extensions/Toml`, 1.1 | General semantic tree | Semantic tree | s64/binary64, exact fraction digits, signed floating/offset zero | Local regressions and pinned independent inventory |
-| `sjorsdonkers/toml-jai`, pinned revision | Public general-value API | Public general-value API | README claims broad 1.0/1.1 support; measured interoperability is narrower than direct tagged conformance | Pinned README/public API and black-box pipeline; no implementation inspection |
-| Rust `toml` 1.1.2 | General value tree | Semantic value tree | Independent formatter-settings oracle; observed fractions retain 9 digits | Existing pinned Cargo dependency and `toml-oracle` example |
-| Python `tomllib` 3.15 | General value tree, 1.1 | No writer | Observed fractions retain 6 digits; no writer | Installed runtime and official Python documentation; decoder-only suite |
-
-| Practical coverage | Ours | Existing Rust settings/parser | Python reader | Community public API |
-| --- | --- | --- | --- | --- |
-| Formatter consumer | Real `Jai_Format` file/schema, `--set`, raw override and warning-history regressions | Existing `jacket-config` schema remains independent; shared settings checked | Generic reader comparison only | Generic read/write pipeline only |
-| Diagnostics and limits | Error kinds/path/primary/related spans; configured input/depth/nodes/string/token/retained/output boundaries tested | Oracle captures message/optional span; default depth probe checked; other quotas not assessed | Expected errors classified; depth probe checked; other quotas not assessed | Adapter observes public success flags; structured errors and configurable quotas not assessed |
-| Executed platforms in this comparison | macOS native/interpreter, full WASI suite and browser-engine consumer; wider native CI pending | macOS release oracle | macOS Python 3.15 | macOS sandboxed black box; other targets not run |
-
-The separate authored feature probes retain original inputs and raw outputs, so datetime adapters cannot hide precision loss. These are observations of the pinned configuration, not inferred upper bounds or unsupported-platform claims.
-
-| Identical probe | Ours | Rust `toml` 1.1.2 projection | Python 3.15.0 projection | Community scientific read/write (17 fractional digits) |
-| --- | --- | --- | --- | --- |
-| 12 fractional digits, offset datetime and local time | All 12 retained | First 9 retained | First 6 retained | Output retains first 3 |
-| Floating `-0.0` | Sign retained | Sign retained | Sign retained | Sign retained |
-| Offset `-00:00` | Distinct spelling retained | Becomes `+00:00` | Becomes `+00:00` | Negative-zero spelling retained |
-| Historical `2016-12-31T23:59:60Z` | Retained | Retained | Rejected | Retained |
-| Structural non-event `2024-02-29T12:00:60Z` | Retained by documented policy | Retained | Rejected | Retained |
-| Integer `9223372036854775808` | Range rejection | Range rejection | Integer retained | Accepted; output changes to floating syntax |
-| 129 nested arrays, default options | Limit rejection | Rejected | Accepted in this probe | Accepted in this probe |
-
-Community roundtrip output does not establish its internal read representation. The fraction row therefore attributes the observed loss to the read/write path. Leap spelling acceptance does not imply historical event validation for any implementation. The depth probe does not establish that accepting libraries have no upper limit.
-
-The measured native conformance snapshot on macOS arm64 gives the following counts. A pipeline encoder row is not a direct community tagged-value encoder claim.
-
-| Implementation / configuration | Valid decoder (214) | Encoder (214) | Invalid rejected (467) | Skips |
-| --- | ---: | ---: | ---: | ---: |
-| Ours, default | 214 | 214 | 467 | 0 |
-| Ours, source statements enabled | 214 | 214 | 467 | 0 |
-| Ours, WASI default | 214 | 214 | 467 | 0 |
-| Ours, WASI source statements enabled | 214 | 214 | 467 | 0 |
-| Rust `toml` 1.1.2 | 214 | 214 | 467 | 0 |
-| Python `tomllib` 3.15.0 | 214 | Not supplied | 467 | 0 |
-| Community pipeline, default float formatting | 205 | 205 | 449 | 0 |
-| Community pipeline, shortest float formatting | 209 | 209 | 449 | 0 |
-| Community pipeline, scientific, 16 fractional digits, no zero removal | 214 | 214 | 449 | 0 |
-
-The community negative failures comprise missing array separators, nonstandard infinity/NaN spellings, missing key newline, string concatenation/termination/Unicode escape cases and text following strings. Configure float formatting before using its valid-case roundtrip counts; default precision loss is not evidence that its parser read the original number incorrectly. Earlier Rust oracle failures for omitted seconds were adapter normalization errors, fixed before the table above.
-
-Local contract validation also passed 21 interpreted core tests, 22 native tests and 22 WASI tests (the extra case exercises the real formatter), all 30 existing formatter golden cases, 50 shared settings-schema cases against Rust, 324 authored-value/mutation differential cases against Rust/Python, and 3,000 lifecycle-aware mutation/construction fuzz calls with zero skips/findings. These counts describe distinct checks; they are not multiplied into the independent suite inventory.
-
-The browser compiler engine passed the signed-zero, minimum-subnormal, wide-index and formatter consumer checks on the current insertion-cursor source bundle under Node 24.12.0. All 30 formatter golden cases, valid wrong-type schema rejection and malformed unrelated-section rejection also passed through that engine. These checks exercise the browser engine, not Chrome UI behavior. Linux/Windows execution and required final-head CI remain separate acceptance gates.
-
-[TOML performance](toml-performance.md) gives the measurement method, current results and how to rerun them.
-
-Reproduce the native suite through the shared local heavy-job gate:
+Decoder and encoder run the whole applicable `toml-lang/toml-test` inventory with the explicit 1.1 profile. The version, commit and hashes are pinned in `tools/stdlib/toml/pin.json`; updating the pin means reviewing hashes, licensing and case counts. The runner compares every result id against the profile manifest and rejects missing, duplicate or skipped cases. Decoder errors must exit exactly 1, so a crash is not a valid rejection. The suite checks only millisecond date precision and treats signed float zeros as equal, so local tests cover those. Rust `toml` and Python `tomllib` serve as independent oracles; the community Jai parser is compared only inside the `tools/bench` sandbox.
 
 ```sh
 export PYTHONPATH="$PWD/tools"
-PYTHONPATH=tools python3 tools/stdlib/toml/run.py --jaic /absolute/path/to/jaic --cache /tmp/toml-suite --report /tmp/toml-result.json
-PYTHONPATH=tools python3 tools/stdlib/toml/run.py --jaic /absolute/path/to/jaic --cache /tmp/toml-suite --report /tmp/toml-statements.json --record-statements
+python3 tools/stdlib/toml/run.py --jaic /absolute/path/to/jaic --cache /tmp/toml-suite --report /tmp/toml-result.json
+python3 tools/stdlib/toml/run.py --jaic /absolute/path/to/jaic --cache /tmp/toml-suite --report /tmp/toml-statements.json --record-statements
 python3 tools/stdlib/toml/run_wasi.py --jaic /absolute/path/to/jaic --cache /tmp/toml-wasi --report /tmp/toml-wasi.json
 python3 tools/stdlib/toml/compare_conformance.py --cache /tmp/toml-suite --python --rust /absolute/path/to/toml-oracle
 python3 tools/stdlib/toml/settings.py --own /absolute/path/to/settings-adapter --rust /absolute/path/to/toml-oracle --report /tmp/toml-settings.json
-python3 tools/stdlib/toml/features.py --own /tmp/toml-suite/decoder --rust /absolute/path/to/toml-oracle --community /absolute/path/to/community --scratch /tmp/toml-features --report /tmp/toml-features.json
 python3 tools/stdlib/toml/differential.py --own /tmp/toml-suite/decoder --rust /absolute/path/to/toml-oracle --report /tmp/toml-differential.json
-python3 tools/stdlib/toml/workloads.py --output /tmp/toml-workloads
 ```
 
-The independent Python reader needs TOML 1.1 support. Its exact `python_toml` version is managed in `.github/pins.json` separately from the ordinary CI-tools Python version; `tools/ci/pins.py sync` updates the job-local setting. The first Linux tooling job selects that interpreter for its final TOML checks. Existing setup and runtime/producer checks run first with the ordinary tools pin; other legs retain that pin throughout.
+The Python reader needs TOML 1.1 support; its version is `python_toml` in `.github/pins.json`, separate from the ordinary CI Python (`tools/ci/pins.py sync` updates the job-local setting). CI runs both profiles (default and `--record-statements`) once per native platform and CPU, and under WASI with Node on Linux x64. The pinned runner has no Windows ARM64 controller, so ARM64 jobs pass `--runner-asset windows-amd64.exe` and `--expected-windows-cpu arm64` to check that the parser itself is native.
 
-CI runs both complete modes once per represented native platform/CPU using the existing production compiler builds: the first Linux tooling part, each macOS suite leg and the first Windows shard. Linux x64 also runs both complete profiles under actual WASI with Node. Both profiles run even if one fails; either failure fails the job. Complete JSON outcomes and the expected inventory are retained, and missing profile reports fail the job. These independent checks run after existing setup/runtime work so a TOML failure cannot skip unrelated prerequisites. Controller JSON and schema-adapter subprocess input/output use explicit UTF-8, independently of the host code page. Pinned license files use exact-byte Git attributes; Windows newline conversion must not alter their archive comparison.
+## Performance
 
-The [pinned runner release](https://github.com/toml-lang/toml-test/releases/expanded_assets/v2.2.0) publishes a Windows x64 controller but no Windows ARM64 controller. ARM64 jobs explicitly select `--runner-asset windows-amd64.exe`; [Windows 11 supports x64 application emulation](https://learn.microsoft.com/en-us/windows/arm/apps-on-arm-x86-emulation). The parser adapter remains native ARM64: `--expected-windows-cpu arm64` verifies its PE machine separately. Reports record controller asset and parser CPU; there is no silent architecture fallback or parser emulation claim. Both complete native Windows profiles passed on x64 and ARM64; reports record their independent controller and parser architectures.
+The comparison measures read (parse and free the tree), lookup (every root key), write (serialize a prebuilt tree) and the `jaifmt` configuration load, against the Rust `toml-oracle` example, the pinned community Jai parser and Python.
+
+- Same compiler flags for every Jai client: `-O2 -no_debug_info`.
+- Inputs come from `tools/stdlib/toml/workloads.py` (valid files from 155 B to 10 MiB, including the repository `jacket.toml`). Every result is first checked for the same semantic output.
+- Three unscored warm-up rounds, then twelve scored rounds per task and input. Report medians of paired samples, not ratios of medians.
+- Do not time anything while a build runs. On a shared machine, alternate old and new runs and report medians with the load average.
+- Writing a table built by hand (no lookup index) checks duplicate keys with a per-write hash set; tables built with `toml_insert` or parsed carry an index and skip it.
+
+```sh
+python3 tools/stdlib/toml/prepare_community.py --archive /tmp/toml-jai.tar.gz --output /tmp/toml-imports
+python3 tools/stdlib/toml/build_oracle.py --target-dir /tmp/toml-target --receipt /tmp/toml-oracle.json
+python3 tools/stdlib/toml/workloads.py --output /tmp/toml-inputs
+python3 benchmarks/compare/toml/measure.py --scratch /tmp/toml-bench --jaic /path/to/jaic \
+  --community-dir /tmp/toml-imports --community-archive /tmp/toml-jai.tar.gz --build
+python3 benchmarks/compare/toml/measure.py --scratch /tmp/toml-bench --rust /tmp/toml-target/release/examples/toml-oracle \
+  --rust-receipt /tmp/toml-oracle.json --workloads /tmp/toml-inputs --invalid-workloads /tmp/toml-inputs/invalid --verify-only
+```
+
+Drop `--verify-only` for `--pilot`, then `--freeze-plan` and `--batch-plan <plan> --run` for a full comparison. `benchmarks/compare/toml/formatter_batch.jai <file> <iterations>` times the `jaifmt` config load.

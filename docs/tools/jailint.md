@@ -9,64 +9,45 @@ jacket lint -D warnings stdlib    # fail on any finding (CI)
 jacket lint --list                # rules and default levels
 ```
 
-`jacket lint` runs `jailint` with the same arguments ([jacket](jacket.md)). Every flag is in the [command-line reference](../reference/tools.md#linting); the useful ones:
+`jacket lint` runs `jailint` with the same arguments ([jacket](jacket.md)). Every flag is in the [command-line reference](../reference/tools.md#linting). Behaviour the table doesn't show:
 
-- `-A` / `-W` / `-D <rule>` allow, warn or deny a rule or category (`-D warnings` denies all warnings).
-- The compiler's own warnings in the linted files (`warning[struct-literal-as-dynamic-array]`, as `jacket check` prints them) are reported with the findings. Their codes, `leniencies` and `compiler` (every compiler warning) take levels wherever a rule does (`-A` / `-W` / `-D`, `[lint.rules]`, `[[lint.overrides]]`), and `-D warnings` denies them too. Suggestions the compiler marks as safe are applied by `--fix`.
-- `--config <file>` use this `jacket.toml`; `--max-nesting <n>`; `-I <dir>`; `-j <n>` programs compiled at once.
-- `--compile-time-budget <steps>` and `--check-time-limit <seconds>` cap compile-time code per program. They are command-line only, so a project cannot raise them.
-- `-os`, `-cpu`, `-target` pick the system to lint for.
+- `-A` / `-W` / `-D <rule>` take a rule or category (`-D warnings` denies all warnings).
+- The compiler's own warnings in the linted files (`warning[struct-literal-as-dynamic-array]`, as `jacket check` prints them) are reported with the findings. Their codes, `leniencies` and `compiler` (every compiler warning) take levels wherever a rule does (`-A` / `-W` / `-D`, `[lint.rules]`, `[[lint.overrides]]`), and `-D warnings` denies them too. `--fix` applies the suggestions the compiler marks as safe.
+- `--compile-time-budget` and `--check-time-limit` cap compile-time code per program. They are command-line only, so a project can't raise them.
+- `-os`, `-cpu` and `-target` select real compiler options; they don't rewrite OS/CPU constants, and linker and SDK availability are not checked.
 
 Exit status: 0 clean, 1 a denied finding or a program that did not compile fully (`--allow-incomplete` skips that; each is reported on standard error as `warning[lint-incomplete]`, one line for all of them with `--allow-incomplete` unless `-v` lists them), 2 usage or configuration error.
 
 ## How it works
 
 - **Plan** (`driver/plan.rs`): paths become `.jai` files minus `exclude`. A module is compiled by importing it from an empty program so every procedure is checked; a file that a module `#load`s is compiled as part of it. Only the listed files are reported.
-  A file under an import folder (the standard library, say) is a module unless it sets program parameters, `#import "M"()(X = 1)`: only a workspace's main program may, so such a file, a test beside its module, is compiled as its own program (`project::sets_program_parameters`, used by `resolve_root`). A `module.jai` is always a module. A directory scan leaves out files marked `// test: compile_fail`, `should_fail` or `xfail`, modules included, and every `tests/compile_fail/*.jai` (which `jacket test` expects to fail without a note), so a negative fixture such as `stdlib/Basic/tests/config-negative/modules/Non_Main_Basic_Parameters` is not reported; name the file to lint it.
-  A module in a `modules` folder (`tests/modules/Facade`) finds the modules beside it, as it does when a program next to that folder imports it (`project::module_of`).
-  A file whose `// test:` header restricts where it runs (`only(.WINDOWS)`, `skip_on(.MACOS)`, `mode =`, `interp_only`, `native_only`) is compiled for the nearest system that passes the notes (the host's own first), not for the system being linted for. Linting has no run mode, so a note passes if either mode would run. A file no system the compiler can target passes (`only(.ANDROID)`) is left out of a directory scan, as `jacket test` runs it nowhere; named on the command line it is compiled on the host. An `only(...)` or `skip_on(...)` note that does not parse (an unknown target) is ignored and reported once as `warning[lint-test-note]` with the file's path, as `jacket test` warns about it; this covers the files a root loads as well as the roots. Each file's header is read once per run (`FileNotes` in `driver/plan.rs`) and shared by the scan, the compile and the warnings. The notes are read, and the decision of where a file runs made, by `jaic::test_notes::TargetNotes`, shared with `jacket test` (`driver/marked_target.rs`; `driver/plan.rs` for the scan).
-- **Compile** (`driver/compile.rs`): the same lint compile the language server uses, with lint facts on (`IdeFacts::lint`): expression types, constness, cast types and what each name resolved to. Compile-time code runs sandboxed ([limits](../compiler/compile-time-limits.md)).
-  The roots of one run share what they would each repeat (`RunCaches` in `driver/compile.rs`): files parsed by one root are taken by the others (`SharedParseReuse`, keyed by path, file id and text, so the standard library is parsed once, not once per root), and resolved paths are remembered. Neither changes during a run. The binary uses mimalloc (`main.rs`): with the system allocator, parallel roots waited on each other and `-j 4` spent far more CPU than `-j 1`. `tests/shared_parses.rs` checks that shared roots report what each reports alone.
+  - A file under an import folder (the standard library, say) is a module unless it sets program parameters, `#import "M"()(X = 1)`: only a workspace's main program may, so such a file (a test beside its module) is compiled as its own program (`project::sets_program_parameters`, used by `resolve_root`). A `module.jai` is always a module. A module in a `modules` folder (`tests/modules/Facade`) finds the modules beside it (`project::module_of`).
+  - A directory scan leaves out files marked `// test: compile_fail`, `should_fail` or `xfail`, and every `tests/compile_fail/*.jai`, so negative fixtures aren't reported; name the file to lint it.
+  - A file whose `// test:` header restricts where it runs (`only(.WINDOWS)`, `skip_on(.MACOS)`, `mode =`, `interp_only`, `native_only`) is compiled for the nearest system that passes the notes (the host's first), not the system being linted for. A file no system the compiler can target passes (`only(.ANDROID)`) is left out of a directory scan and, when named, compiled on the host. A note that doesn't parse (an unknown target) is ignored and reported once as `warning[lint-test-note]`. Notes are read once per run (`FileNotes` in `driver/plan.rs`) and the decision is made by `jaic::test_notes::TargetNotes`, shared with `jacket test` (`driver/marked_target.rs`).
+- **Compile** (`driver/compile.rs`): the same lint compile the language server uses, with lint facts on (`IdeFacts::lint`): expression types, constness, cast types and what each name resolved to. Compile-time code runs sandboxed ([limits](../compiler/compile-time-limits.md)). Roots of one run share parsed files (`SharedParseReuse` in `RunCaches`, keyed by path, file id and text, so the standard library is parsed once) and resolved paths. The binary uses mimalloc (`main.rs`): with the system allocator parallel roots waited on each other. `tests/shared_parses.rs` checks that shared roots report what each reports alone.
 - **Lint** (`lib.rs`, `driver/lint_root.rs`): re-parse, build suppressions, run each enabled rule. Where the compiler did not look (an `#if` branch left out, a failed body) rules fall back to text and stay quiet.
-- **Compiler warnings** (`compiler_warnings` in `driver/lint_root.rs`): each compile's warnings in the files it owns become findings named by their code, at the levels of `Config::compiler_level`, with the compiler's suggestions as help lines and the first one's edits as the fix. Only the command line adds them; the language server already shows the compiler's diagnostics. The rule-case tests allow them, as they allow every rule but the one tested.
+- **Compiler warnings** (`compiler_warnings` in `driver/lint_root.rs`): each compile's warnings in the files it owns become findings named by their code, at the levels of `Config::compiler_level`, with the compiler's suggestions as help lines and the first one's edits as the fix. Only the command line adds them; the language server already shows the compiler's diagnostics.
 - **Leak pass** (`driver/leak.rs`, only with `platform_leak`): portable roots are compiled again for every target system and the imports and failed asserts are traced.
-- **Fix** (`fix.rs`): `--fix` applies non-overlapping machine-applicable fixes and re-lints, up to 5 passes. A fix that removes a statement goes through `Cx::statement_removal`, which keeps the `;` of a statement that is the whole brace-less body of a loop, `if`, `defer` or `#if` arm (`for 0..2 x: int;` becomes `for 0..2 ;`), so the file still parses.
+- **Fix** (`fix.rs`): `--fix` applies non-overlapping machine-applicable fixes and re-lints, up to 5 passes. A fix that removes a statement goes through `Cx::statement_removal`, which keeps the `;` of a statement that is the whole brace-less body of a loop, `if`, `defer` or `#if` arm, so the file still parses.
+- **Metaprogram operands.** Style rules that exclude `#code`, `#run` or `#insert` operands use `Cx::in_code_operand` (`crates/jailint/src/syntax.rs`), which indexes ownership in the full source before procedures are collected separately; `redundant_alias` and `unused_variable` share it. Ordinary procedures called by `#run` stay eligible. Keep the lookup and the `rules/accuracy.rs` regressions together when extending source traversal.
 
 In editors, diagnostics carry the rule as `code` and link to its `### <rule>` section below; `deny` rules are errors. Settings come from the `[lint]` table of the nearest `jacket.toml` ([language server](../compiler/language-server.md#lints-and-quick-fixes)).
 
-Style rules that exclude metaprogram operands use `Cx::in_code_operand` in
-`crates/jailint/src/syntax.rs`. It indexes ownership in the full source before
-procedures are collected separately. This keeps a procedure literal inside
-`#code`, `#run` or `#insert` inside that boundary even after it checks successfully.
-`redundant_alias` and `unused_variable` share the lookup; ordinary procedures
-called by `#run` remain eligible because their source is outside the operand.
-There are no extra settings. When extending source traversal, keep the ownership
-lookup and `rules/accuracy.rs` regressions together.
-
 ## Project and explicit-path runs
 
-With no paths, `jailint` and `jacket lint` use the nearest configured `[project] entry` list, or the first existing inferred entry (`build.jai`, `first.jai`, `main.jai`, `src/main.jai`, `module.jai`). The build metaprogram supplies each child workspace's source and module parameters. Only selected project sources actually visited by those checks are linted; unrelated vendor examples and other-platform sources are not compiled as separate programs. Real check failures still produce incomplete-check errors, and the manifest lists unvisited files.
+With no paths, `jailint` and `jacket lint` use the nearest `[project] entry` list, or the first existing inferred entry (`build.jai`, `first.jai`, `main.jai`, `src/main.jai`, `module.jai`). The build metaprogram supplies each child workspace's source and module parameters, and only project sources those checks visited are linted. Without a project entry, the default is a recursive scan. `driver/lint_root.rs` uses the actual child compilers rather than reconstructing their parameters; change entry selection in the CLI and root planning in `driver/plan.rs`.
 
 ```sh
 jacket lint                 # current project's compiled inclusion graph
-jailint .                   # explicitly scan the directory as independent roots
+jailint .                   # scan the directory as independent roots
 jailint --context first.jai src/draw.jai  # one file in its build context
 ```
 
-If no project entry exists, the default remains a recursive scan. Explicit files and directories retain their existing selection semantics. `--context` selects an enclosing program explicitly. Change default entry selection in the CLI and root planning in `driver/plan.rs`; `driver/lint_root.rs` uses the actual child compilers rather than reconstructing their parameters.
-
-## Target checking
+`--context <program>` checks a module inside a real enclosing program (so module parameters are real) and reports only the requested paths. `--manifest <file>` writes JSON listing each compiler context, `unvisited_files` (target-inactive conditional loads) and incomplete roots. A file seen only in an incomplete context is not coverage, so run one invocation per target and merge the manifests:
 
 ```sh
-jacket lint -os windows -cpu arm64 -D warnings path/to/module
-jacket lint -target wasm64-unknown-wasi -D warnings path/to/module
-jacket lint -os windows --manifest target/windows-lint.json path/to/module
-jacket lint --context app/main.jai path/to/parameterized-module
+jacket lint -os windows --manifest target/windows-lint.json -D warnings path/to/module
 ```
-
-`-os`, `-cpu` and `-target` select real compiler options; they do not rewrite OS/CPU constants. Linker and SDK availability are not checked.
-
-`--context <program>` checks a module inside a real enclosing program (so module parameters are real) and reports only the requested paths. `--manifest <file>` writes JSON listing each compiler context, `unvisited_files` (target-inactive conditional loads) and incomplete roots. A file seen only in an incomplete context is not coverage, so run one invocation per target and merge the manifests.
 
 ## Declaration notes
 
@@ -344,7 +325,7 @@ Read from the tokens, so it needs no types; literals in macros and generated fil
 Only locals named directly in a range end (`n` in `0..n-1`); `xs.count` bounds are left alone.
 
 ### narrow_pointers
-Off by default; turn it on for a project that builds for a 32-bit or 16-bit CPU (`[lint.rules] narrow_pointers = "warn"`). It flags a bit operation that reaches bit 32 or above of a value made from a pointer, `cast(*u64)` or `cast(*s64)` of a `**T`, and an integer constant of 2³² or more cast to a pointer. It reads types only, so it does not depend on `--target`. It does not yet re-evaluate `size_of` constants under a 4-byte pointer, or compare `#foreign` integer widths with the C aliases; see [the plan](../native/n-bit-and-embedded.md).
+Off by default; turn it on for a project that builds for a 32-bit or 16-bit CPU (`[lint.rules] narrow_pointers = "warn"`). It flags a bit operation that reaches bit 32 or above of a value made from a pointer, `cast(*u64)` or `cast(*s64)` of a `**T`, and an integer constant of 2³² or more cast to a pointer. It reads types only, so it does not depend on `--target`. It does not yet re-evaluate `size_of` constants under a 4-byte pointer, or compare `#foreign` integer widths with the C aliases.
 
 ### needless_bool
 A trailing `if c return true; return false;` is left alone when an earlier guard in the block also returns a literal.

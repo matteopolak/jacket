@@ -29,7 +29,7 @@ Compile-time calls select the portable 16-byte implementation without ISA probin
 ## How to change it
 
 - New byte search: add an `#insert #run dispatch(...)` line in `#scope_module` using `forward_search`/`backward_search`, then a one-line public procedure.
-- Keep vector loops `no_inline`. Inlined into a big caller, LLVM can degrade them to byte loads (`find_pair` fell from 4 GB/s to 1 GB/s).
+- Keep vector loops `no_inline`. Inlined into a big caller, LLVM can degrade them to byte loads.
 - The rarity table only needs a rough order (`make_rarity`). The Two-Way switch is `misses * 32 > scanned`.
 - Tests: `tests/variants.jai` and `tests/search.jai` compare against naive loops. Run `PYTHONPATH=tools python3 tools/stdlib/stdlib_runtime.py --filter Byte_Search`.
 

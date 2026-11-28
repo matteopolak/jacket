@@ -45,9 +45,10 @@ Every module is in the sidebar. Press <kbd>/</kbd> to search by name, or by sign
 ## Guides
 
 - [Implicit context](../language/context.md): `#Context`, the active `context` value and scoped overrides.
-
 - [Testing](../guides/testing.md): `@test` procedures, golden files and checked doc examples.
 - [Benchmarking](../guides/benchmarking.md): `@bench` procedures and comparing runs against a baseline.
 - [Documenting a library](../guides/documenting.md): doc comments, runnable examples and building a site like this one.
+- [Dependencies](../guides/dependencies.md): adding other people's modules with `jacket dep`.
+- [Toolchains](../guides/toolchains.md) and [other targets](../guides/other-targets.md): building for another OS, WebAssembly or a microcontroller.
 - [Memory safety](../guides/memory-safety.md): what `jacket lint` reports about freed, reset and moved memory, and must versus strict mode.
 - [Tools](tools.md), [lint rules](lint-rules.md) and [format rules](../tools/jaifmt-rules.md) list every command, check and setting.

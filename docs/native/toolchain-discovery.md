@@ -28,50 +28,20 @@ Cross and bare-metal builds need tools beyond `jaic`: a linker for the target, t
 
 Builtins for a freestanding target, in order: the override file; the LLVM install's `libclang_rt.builtins.a` for the triple; `libgcc.a` from an installed `arm-none-eabi-gcc` or `avr-gcc` (asked with `-print-libgcc-file-name`); the cached compiler-rt build. Thumb-1 (`thumbv6m`) has no backend and is reported as a missing linker.
 
-## Error notes
+## Error notes and status lines
 
-```
-error: no linker for thumbv7em-none-eabihf
-note: install one with `brew install lld`, or set JAIC_LINKER
+A missing tool is an error whose `note:` names the package for the detected manager (`brew`, `apt`, `dnf`, `pacman`, `winget`), or the package and its download page when none is detected, or the `jacket toolchain add` command. The table is `Need` in `crates/jaic-toolchain/src/package.rs`; a test checks that every row has text for every manager.
 
-error: no Linux C library for armv7-unknown-linux-gnueabihf
-note: run `jacket toolchain add armv7-unknown-linux-gnueabihf`
-```
+Cross and bare-metal builds print where each tool came from (`Linker`, `Builtins`, `Sysroot`, `Script`) in the style of `Compiling` and `Finished`. Host builds print them only with `-v`. An override is labelled; `-quiet` hides them. See [toolchains](../guides/toolchains.md) for the output.
 
-The note names the package for the manager jacket detects (`brew`, `apt`, `dnf`, `pacman`, `winget`), or the package and its download page when none is detected. The table is `Need` in `crates/jaic-toolchain/src/package.rs`; a test checks that every row has text for every manager.
+## `jacket toolchain add`
 
-## Status lines
-
-Cross and bare-metal builds print where each tool came from, in the bold right-aligned style of `Compiling` and `Finished`. Host builds print them only with `-v` (`-verbose` in jaic). An override is labelled. `-quiet` hides them.
-
-```
-   Compiling blink (thumbv7em-none-eabihf, board Mps2_An386)
-      Linker /usr/bin/ld.lld 19.1.7
-    Builtins ~/Library/Caches/jacket/toolchains/thumbv7em-none-eabihf/builtins/libclang_rt.builtins.a compiler-rt 21.1.8 (cached)
-      Script board.ld
-    Finished debug in 0.92s
-```
-
-Cross Linux links add a `Sysroot` line. Home folders are shortened to `~` on screen only.
-
-## `jacket toolchain`
-
-```sh
-jacket toolchain                                  # every target: linker, libraries, runner
-jacket toolchain check [TARGET...] [--tool NAME]  # exit 1 when anything is missing, with notes
-jacket toolchain add TARGET...                    # fetch a sysroot or build builtins into the cache
-jacket toolchain list                             # what the cache holds
-jacket toolchain remove TARGET... | --all
-```
-
-With no subcommand it lists the host, the project's `[target.NAME]` tables and the built-in boards. `check --tool node` checks a program on `PATH` (CI uses it for `node`, `qemu-*`).
-
-`add` takes a Linux triple or a freestanding one:
+The commands are in [toolchains](../guides/toolchains.md). What `add` fetches:
 
 - **Sysroot** (`armv7-unknown-linux-gnueabihf`, `aarch64-unknown-linux-gnu`, `i686-...`, `x86_64-...`, `s390x-...`): a pinned set of Debian bookworm packages (`libc6`, `libc6-dev`, `linux-libc-dev`, `libcrypt`, `libgcc`) unpacked into `<cache>/jacket/toolchains/<triple>/sysroot`.
-- **Builtins** (`aarch64-none-elf`, `thumbv7em-none-eabihf`, `thumbv8m.main-none-eabihf`, `avr-none-elf`): compiler-rt's pinned source, compiled file by file with the installed `clang` and archived with `llvm-ar`. No cmake, ninja, git or bash, so it works on Windows. A second `add` says `(cached)`; a build made from an older source list is rebuilt.
+- **Builtins** (`aarch64-none-elf`, `thumbv7em-none-eabihf`, `thumbv8m.main-none-eabihf`, `avr-none-elf`): compiler-rt's pinned source, compiled file by file with the installed `clang` and archived with `llvm-ar`. No cmake, ninja, git or bash, so it works on Windows. A build made from an older source list is rebuilt.
 
-`XDG_CACHE_HOME` moves the cache. `remove` deletes only entries `add` made.
+`remove` deletes only entries `add` made. `check --tool NAME` checks a program on `PATH`.
 
 ## `jacket.toml`
 
@@ -99,7 +69,7 @@ gc-sections = true
 
 ## How to change it
 
-- Lookup and notes: `crates/jaic-toolchain/src/` (`lookup.rs` finds programs, `linker.rs` linkers and sysroots, `builtins.rs` builtins, `apple.rs` the selected Xcode's `ld`, SDK, runtime and `libclang.dylib`, `msvc.rs` a Clang outside `PATH` and the `link.exe` check, `native_libs.rs` the built third-party library folders, `package.rs` the notes, `pins.rs` the pins). Visual Studio, Windows SDK and `LIB` discovery is in `jaic::toolchain::discover` on the `find-msvc-tools` crate, because the interpreter needs `LIB` too ([crate layout](../architecture/crate-layout.md)). It reads the machine through the `Host` trait, so tests build a `FakeHost` instead of needing real tools.
+- Lookup and notes: `crates/jaic-toolchain/src/` (`lookup.rs` finds programs, `linker.rs` linkers and sysroots, `builtins.rs` builtins, `apple.rs` the selected Xcode's `ld`, SDK, runtime and `libclang.dylib`, `msvc.rs` a Clang outside `PATH` and the `link.exe` check, `native_libs.rs` the built third-party library folders, `package.rs` the notes, `pins.rs` the pins). Visual Studio, Windows SDK and `LIB` discovery is in `jaic::toolchain::discover` on the `find-msvc-tools` crate, because the interpreter needs `LIB` too ([crate layout](../compiler/architecture.md#crates)). It reads the machine through the `Host` trait, so tests build a `FakeHost` instead of needing real tools.
 - Pins: `crates/jaic-toolchain/data/sysroots.txt` and `compiler-rt.txt` are generated. Rewrite them with `PYTHONPATH=tools python3 tools/embedded/pin_sysroots.py` or `pin_compiler_rt.py`; `--check` fails when they are stale.
 - Status lines: `crates/jaic/src/progress.rs`; callers in `crates/jaic-native/src/`.
 - `add`, `list`, `remove`: `crates/jacket/src/toolchain/`.
@@ -115,8 +85,6 @@ gc-sections = true
 | `-compiler_rt`, `JAIC_COMPILER_RT` | one builtins archive for a freestanding target |
 | `JAIC_AR` | the archiver |
 | `XDG_CACHE_HOME` | moves jacket's cache |
-
-Removed: `JAIC_LLD`, `JAIC_WASM_LD`, `JAIC_SANITIZER_CC`, `JAIC_CROSS_LIBS`, `JAIC_REQUIRE_TOOLCHAIN`, the `cross_link.sh` and `build-compiler-rt.sh` scripts. `jacket targets` is now `jacket toolchain`.
 
 ## Dependencies
 
