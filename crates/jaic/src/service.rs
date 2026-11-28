@@ -36,6 +36,7 @@ pub struct ServiceReply {
 }
 
 impl ServiceReply {
+    /// A reply with `status` and `body`.
     #[must_use]
     pub fn new(status: ServiceStatus, body: impl Into<Vec<u8>>) -> Self {
         Self {
@@ -44,16 +45,19 @@ impl ServiceReply {
         }
     }
 
+    /// An `Unavailable` reply whose body is `message`.
     #[must_use]
     pub fn unavailable(message: impl Into<String>) -> Self {
         Self::new(ServiceStatus::Unavailable, message.into().into_bytes())
     }
 
+    /// A `Failed` reply whose body is `message`.
     #[must_use]
     pub fn failed(message: impl Into<String>) -> Self {
         Self::new(ServiceStatus::Failed, message.into().into_bytes())
     }
 
+    /// A `Pending` reply with an empty body.
     #[must_use]
     pub fn pending() -> Self {
         Self::new(ServiceStatus::Pending, Vec::new())
@@ -109,6 +113,7 @@ pub fn resolve(service: &str, base: Option<&Path>) -> PathBuf {
 /// What a sandboxed host asks for answers (the language server's provider memoizes them and
 /// answers [`ServiceStatus::Pending`] while one is computed).
 pub trait ServiceProvider {
+    /// Answers `request` for the service at `service`; may return `Pending` and answer later.
     fn ask(&self, service: &Path, request: &[u8]) -> ServiceReply;
 
     /// Some answer was [`ServiceStatus::Pending`] and has not arrived yet.
@@ -184,6 +189,7 @@ mod native {
     }
 
     impl Services {
+        /// Creates a set of services that run workers as `config` says.
         #[must_use]
         pub fn new(config: ServiceConfig) -> Self {
             Self {
@@ -198,6 +204,7 @@ mod native {
             GLOBAL.get_or_init(|| Self::new(ServiceConfig::default()))
         }
 
+        /// The configuration given to `new`.
         #[must_use]
         pub fn config(&self) -> &ServiceConfig {
             &self.config

@@ -21,6 +21,7 @@ use std::sync::{OnceLock, PoisonError, RwLock};
 use crate::builtin_keys::SyntaxKey;
 use crate::fxhash::HashMap;
 
+/// One value in a list field, or a scalar field.
 #[derive(Clone, Debug)]
 pub enum Item {
     /// Integers, enums, bools; floats as their raw bits.
@@ -55,6 +56,7 @@ pub enum List<'a> {
 }
 
 impl List<'_> {
+    /// The number of elements.
     pub fn len(self) -> usize {
         match self {
             List::Items(items) => items.len(),
@@ -62,10 +64,12 @@ impl List<'_> {
         }
     }
 
+    /// Whether there are no elements.
     pub fn is_empty(self) -> bool {
         self.len() == 0
     }
 
+    /// The element at `index`, or `None` past the end.
     pub fn get(self, index: usize) -> Option<Item> {
         match self {
             List::Items(items) => items.get(index).cloned(),
@@ -73,6 +77,7 @@ impl List<'_> {
         }
     }
 
+    /// The elements in order.
     pub fn iter(self) -> impl Iterator<Item = Item> {
         (0..self.len()).filter_map(move |i| self.get(i))
     }
@@ -176,6 +181,7 @@ impl Name {
         id
     }
 
+    /// The text of the name.
     pub fn as_str(self) -> &'static str {
         SEEN.with_borrow_mut(|seen| {
             let at = self.0 as usize;
@@ -218,6 +224,7 @@ impl Name {
 
 /// What names a record field: a literal, or a typed syntax attribute.
 pub trait FieldKey: Copy {
+    /// The interned field name.
     fn name(self) -> Name;
 }
 
@@ -269,6 +276,7 @@ macro_rules! record_tags {
         }
 
         impl RecordTag {
+            /// Every tag.
             pub const ALL: &'static [RecordTag] = &[$(RecordTag::$variant,)*];
 
             /// The Jai struct's name.
@@ -364,6 +372,7 @@ impl std::fmt::Display for RecordTag {
     }
 }
 
+/// The fields of one compiler object, handed to a metaprogram as the Jai struct that `tag` names.
 #[derive(Clone, Debug)]
 pub struct Record {
     pub tag: RecordTag,
@@ -372,6 +381,7 @@ pub struct Record {
 }
 
 impl Record {
+    /// An empty record.
     pub fn new(tag: RecordTag) -> Self {
         Record {
             tag,
@@ -402,11 +412,14 @@ impl Record {
         self.extra.len() as i64 - 1
     }
 
+    /// Adds an integer field. Setting the same name again adds a second field; use `set` to
+    /// replace.
     pub fn int(&mut self, name: impl FieldKey, v: i64) -> &mut Self {
         self.push(name.name(), KIND_INT, v);
         self
     }
 
+    /// Adds a string field.
     pub fn str(&mut self, name: impl FieldKey, s: &[u8]) -> &mut Self {
         let at = self.push_extra(Extra::Str(s.into()));
 
@@ -423,6 +436,7 @@ impl Record {
         self
     }
 
+    /// Adds a list field of `items`.
     pub fn list(&mut self, name: impl FieldKey, items: Vec<Item>) -> &mut Self {
         let at = self.push_extra(Extra::List(items));
 
@@ -430,6 +444,7 @@ impl Record {
         self
     }
 
+    /// Adds a list field of record ids.
     pub fn refs(&mut self, name: impl FieldKey, ids: impl IntoIterator<Item = i64>) -> &mut Self {
         let at = self.push_extra(Extra::Refs(ids.into_iter().collect()));
 
@@ -447,6 +462,7 @@ impl Record {
         }
     }
 
+    /// The field named `name`, or `None` when it is not set.
     pub fn field(&self, name: &str) -> Option<FieldRef<'_>> {
         self.field_named(Name::find(name)?)
     }
@@ -466,11 +482,13 @@ impl Record {
         self.value(&self.slots[i])
     }
 
+    /// The first field with `name`, or `None`.
     pub fn field_named(&self, name: Name) -> Option<FieldRef<'_>> {
         let slot = self.slots.iter().find(|s| s.name == name)?;
         Some(self.value(slot))
     }
 
+    /// Sets the field `name` to `field`, replacing an existing field of that name.
     pub fn set(&mut self, name: impl FieldKey, field: Field) {
         let (kind, value) = match field {
             Field::Item(Item::Int(v)) => (KIND_INT, v),
@@ -493,8 +511,11 @@ impl Record {
 /// How a field slot's value is stored.
 pub const KIND_INT: i64 = 1;
 
+/// A field slot holding the index of a string.
 pub const KIND_STRING: i64 = 2;
+/// A field slot holding a record id.
 pub const KIND_REF: i64 = 3;
+/// A field slot holding the index of a list.
 pub const KIND_LIST: i64 = 4;
 
 /// Every record of one compilation, by id (1, 2, ...).
@@ -522,6 +543,7 @@ impl Records {
         self.add(Record::new(tag))
     }
 
+    /// Adds `record` and returns its new id.
     pub fn add(&mut self, record: Record) -> i64 {
         let id = self.last.get() + 1;
 
@@ -544,10 +566,13 @@ impl Records {
         (id as usize).checked_sub(1 + self.first).filter(|_| id > 0)
     }
 
+    /// The record with `id`, or `None` when there is none here.
     pub fn get(&self, id: i64) -> Option<&Record> {
         self.list.get(self.index(id)?)?.as_ref()
     }
 
+    /// The record with `id` for modification, which counts as a change to it in `changes_since`;
+    /// `None` when there is none here.
     pub fn get_mut(&mut self, id: i64) -> Option<&mut Record> {
         let at = self.index(id)?;
         let record = self.list.get_mut(at)?.as_mut()?;
@@ -556,6 +581,8 @@ impl Records {
         Some(record)
     }
 
+    /// The number of changes so far and the ids changed since `cursor` (a number a previous call
+    /// returned, or 0), repeats included.
     pub fn changes_since(&self, cursor: usize) -> (usize, Vec<i64>) {
         let changes = self.changes.borrow();
         (changes.len(), changes[cursor..].to_vec())
@@ -585,6 +612,7 @@ impl Records {
         }
     }
 
+    /// The field `name` of record `id`, or `None` when either is missing.
     pub fn field(&self, id: i64, name: &str) -> Option<FieldRef<'_>> {
         self.get(id)?.field(name)
     }
@@ -646,7 +674,7 @@ mod tests {
 
     /// Struct names defined in the Jai sources the tags draw from, nested ones included.
     fn stdlib_struct_names(files: &[&str]) -> std::collections::BTreeSet<String> {
-        let root = test_support::repo::stdlib();
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
         let mut names = std::collections::BTreeSet::new();
 
         for file in files {

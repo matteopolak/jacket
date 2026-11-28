@@ -27,11 +27,13 @@ use crate::source::FileId;
 /// One doc comment.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LibraryDoc {
+    /// The file the comment is in.
     pub file: PathBuf,
     /// The line of the first line of `text`.
     pub line: usize,
     /// The constant it documents, or `None` for a module's opening comment.
     pub symbol: Option<String>,
+    /// The comment's text with its comment markers removed.
     pub text: String,
     /// What the constant renames when `text` is the docs of that, not its own (`Impl.hello`).
     /// The examples in such a comment run under the target, not once more under the alias.

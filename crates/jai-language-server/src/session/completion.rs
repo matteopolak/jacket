@@ -265,6 +265,9 @@ impl Session {
         Some(self.document(&uri).is_ok_and(|d| d.text == text))
     }
 
+    /// The completion items at `position`. A `jacket.toml` gets manifest completion. Fails when
+    /// the document is not open; a list cut at [`Limits::symbols`](crate::Limits::symbols) is
+    /// marked incomplete.
     pub fn completion(
         &self,
         uri: &DocumentUri,

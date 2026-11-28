@@ -7,7 +7,9 @@ use std::sync::OnceLock;
 /// A value and where it came from, for the status line.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Given<T> {
+    /// The value.
     pub value: T,
+    /// Where it came from: a flag (`-linker`) or a variable name (`JAIC_LINKER`).
     pub from: &'static str,
 }
 
@@ -15,9 +17,13 @@ pub struct Given<T> {
 /// unset variable.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Overrides {
+    /// The linker program (`-linker`, `JAIC_LINKER`).
     pub linker: Option<Given<OsString>>,
+    /// The archiver program (`JAIC_AR`; there is no flag).
     pub archiver: Option<Given<OsString>>,
+    /// The sysroot folder (`-sysroot`, `JAIC_SYSROOT`).
     pub sysroot: Option<Given<PathBuf>>,
+    /// The compiler-rt builtins (`-compiler_rt`, `JAIC_COMPILER_RT`).
     pub compiler_rt: Option<Given<PathBuf>>,
 }
 

@@ -13,9 +13,12 @@ use crate::ir;
 use crate::source::Span;
 use crate::types::{StructId, TypeId};
 
+/// Procedures and code bodies, the queue of bodies waiting to be checked and lowered, and the failures remembered per body.
 #[derive(Default)]
 pub struct ProcState {
+    /// Procedure records, indexed by `ProcId`.
     pub procs: Probed<Vec<procs::ProcInfo>, { W::PrProcs as usize }>,
+    /// Bodies of `Code` values, indexed by `CodeId`.
     pub codes: Probed<Vec<Arc<ast::CodeBody>>, { W::PrCodes as usize }>,
     /// Runtime opt-in to compiler-host assertion faults, keyed by actual procedure identity.
     pub runtime_interpreter_assertion: Option<ProcId>,
@@ -42,6 +45,7 @@ pub struct ProcState {
     /// Library bodies left unchecked (`BodyState::Deferred`) and how many of them something
     /// later needed (`promoted_bodies`): the cost of the fallback is visible.
     pub deferred_bodies: u64,
+    /// How many of the `deferred_bodies` something later needed.
     pub promoted_bodies: u64,
     /// Procedures that need their bodies lowered.
     pub body_queue: Probed<Vec<ProcId>, { W::PrBodyQueue as usize }>,
@@ -63,15 +67,16 @@ pub struct ProcState {
     /// Procedures `compiler_make_procedure_live` asked to keep in the program though nothing
     /// calls them.
     pub live_procs: Probed<Vec<ProcId>, { W::PrLiveProcs as usize }>,
+    /// The procedures declared `#program_export`.
     pub exports: Probed<Vec<ProcId>, { W::PrExports as usize }>,
     /// Procedure literals and anonymous types, per (AST node, scope).
     pub anonymous_procs:
         Probed<HashMap<(ast::AstId, ScopeId), ProcId>, { W::PrAnonymousProcs as usize }>,
-    /// Macro parameters whose argument was a compile-time constant: compile-time code in
-    /// the macro (`#insert -> string { ... }`) reads them even though they are locals.
     /// User-written calls being emitted, innermost last: `#caller_code` evaluates to the
     /// innermost one. Only calls to procedures that use `#caller_code` are recorded.
     pub calls_in_flight: Probed<Vec<(Arc<ast::Expr>, ScopeId)>, { W::PrCallsInFlight as usize }>,
+    /// Macro parameters whose argument was a compile-time constant: compile-time code in
+    /// the macro (`#insert -> string { ... }`) reads them even though they are locals.
     pub local_consts: Probed<HashMap<EntityId, (Value, TypeId)>, { W::PrLocalConsts as usize }>,
     /// `#discard` parameters: naming one in the body is an error.
     pub discard_params: Probed<HashSet<EntityId>, { W::PrDiscardParams as usize }>,

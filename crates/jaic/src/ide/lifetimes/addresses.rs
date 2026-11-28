@@ -1,6 +1,7 @@
 //! Integer representations of pointers remain available after executable IR is released.
 use crate::ir::{self, Val};
 
+/// A bitcast between a pointer and a 32- or 64-bit integer: `value` is the result, `source` the operand, and `to_pointer` says which way it goes.
 #[derive(Clone, Copy, Debug)]
 pub struct LifetimeAddressCast {
     pub value: Val,

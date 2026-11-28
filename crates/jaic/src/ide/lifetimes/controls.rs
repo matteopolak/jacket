@@ -1,6 +1,7 @@
 //! A backward slice of integer branch operands, excluding aliased memory.
 use super::{HashMap, HashSet, Val, ir};
 
+/// The slice of a procedure's integer branch operands: the slots and values they depend on, the constants among them, and the instructions that compute them, per block.
 #[derive(Clone, Debug, Default)]
 pub struct LifetimeControls {
     pub slots: Vec<Val>,

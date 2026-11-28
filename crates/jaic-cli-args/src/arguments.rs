@@ -10,12 +10,19 @@ use crate::cli::Cli;
 /// Target selection and host arguments with compiler target/mode options removed.
 #[derive(Debug)]
 pub struct TargetFlags {
+    /// The target `-os`, `-cpu` and `-target` choose; a later flag overrides an earlier one.
     pub selection: Selection,
+    /// The arguments for the host side, in order: every argument but the target flags and the
+    /// mode switches, then everything from the first boundary on.
     pub host: Vec<String>,
+    /// Whether `-check` was given.
     pub check: bool,
+    /// Whether `-interp` was given.
     pub interp: bool,
+    /// Whether `-deps` was given.
     pub deps: bool,
     mode_indices: Vec<usize>,
+    /// Every option value before the first boundary, target flags included.
     pub values: Vec<ArgumentValue>,
 }
 
@@ -42,6 +49,7 @@ impl TargetFlags {
 /// One value consumed by a compiler option, before plugin or program arguments.
 #[derive(Debug)]
 pub struct ArgumentValue {
+    /// The option as written, without an inline value.
     pub name: String,
     pub value: String,
     index: usize,

@@ -14,8 +14,10 @@ use crate::model::InlayHint;
 pub struct Request {
     /// The folder of the `jacket.toml`.
     pub dir: PathBuf,
+    /// The key of the entry in `[dependencies]`.
     pub name: String,
     pub entry: Dependency,
+    /// The `[resolver]` settings of the same file.
     pub resolver: Resolver,
 }
 

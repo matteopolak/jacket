@@ -86,12 +86,14 @@ pub enum Action {
 #[derive(Debug, PartialEq, Eq)]
 pub struct DepError {
     pub message: String,
+    /// Printed as `note:` lines after the message; a note's later lines are indented under it.
     pub notes: Vec<String>,
     /// The policy refused a version that may be fine later (too new), not one that is wrong.
     pub too_new: bool,
 }
 
 impl DepError {
+    /// An error with no notes.
     pub fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
@@ -100,6 +102,7 @@ impl DepError {
         }
     }
 
+    /// Adds a note line.
     #[must_use]
     pub fn note(mut self, note: impl Into<String>) -> Self {
         self.notes.push(note.into());
@@ -129,17 +132,26 @@ impl From<String> for DepError {
     }
 }
 
+/// The result of a `jacket dep` step.
 pub type Result<T> = std::result::Result<T, DepError>;
 
 /// The project a command runs in: the nearest `jacket.toml`, as text and as settings.
 pub struct Project {
+    /// The folder holding `jacket.toml`.
     pub dir: PathBuf,
+    /// The path of `jacket.toml`.
     pub file: PathBuf,
+    /// The file's text, which edits start from so that comments and layout survive.
     pub text: String,
+    /// `text` parsed.
     pub config: Config,
 }
 
 impl Project {
+    /// Reads the nearest `jacket.toml` at or above `cwd`.
+    ///
+    /// Fails when there is none, it cannot be read or parsed, or a `[dependencies]` entry is not
+    /// usable (see `check_entries`).
     pub fn open(cwd: &Path) -> Result<Self> {
         let Some(location) = jacket_config::locate(&Disk, cwd) else {
             return Err(
@@ -162,6 +174,10 @@ impl Project {
         })
     }
 
+    /// Writes `text` to `jacket.toml`, then reads it back into `config`.
+    ///
+    /// The file is written before `text` is checked, so a `text` that fails the check stays on
+    /// disk and this project keeps its old `text` and `config`.
     pub fn save(&mut self, text: String) -> Result<()> {
         std::fs::write(&self.file, &text)
             .map_err(|e| DepError::new(format!("could not write {}: {e}", self.file.display())))?;
@@ -199,6 +215,9 @@ pub struct Ctx<'a> {
     pub err: &'a mut dyn Write,
 }
 
+/// Runs `action` in the project at or above `cwd`, printing to the terminal, and returns the
+/// exit status: 0 when it succeeded, 1 when it finished but found a problem (`check`), 2 after
+/// printing an error.
 pub fn run(action: Action, cwd: &Path) -> ExitCode {
     let (stdout, stderr) = (&mut std::io::stdout(), &mut std::io::stderr());
     let mut cache = forge::Cache::open();

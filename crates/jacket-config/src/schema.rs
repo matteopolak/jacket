@@ -7,22 +7,31 @@ use serde::{Deserialize, Serialize};
 
 use crate::pattern::PathPattern;
 
+/// The settings of a `jacket.toml`: one field per table, each empty when the table is absent.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct Config {
+    /// `[project]`: what to build.
     #[serde(default, skip_serializing_if = "Project::is_empty")]
     pub project: Project,
+    /// `[toolchain]`: the release the project is written for.
     #[serde(default, skip_serializing_if = "Toolchain::is_empty")]
     pub toolchain: Toolchain,
+    /// `[lint]`: settings of `jailint`.
     #[serde(default, skip_serializing_if = "Lint::is_empty")]
     pub lint: Lint,
+    /// `[format]`: settings of `jaifmt`.
     #[serde(default, skip_serializing_if = "Format::is_empty")]
     pub format: Format,
+    /// `[experimental]`: performance and debugging knobs.
     #[serde(default, skip_serializing_if = "Experimental::is_empty")]
     pub experimental: Experimental,
+    /// `[postgres]`: settings of the Postgres module.
     #[serde(default, skip_serializing_if = "Postgres::is_empty")]
     pub postgres: Postgres,
+    /// `[test]`: settings of `jacket test`.
     #[serde(default, skip_serializing_if = "Test::is_empty")]
     pub test: Test,
+    /// `[doc]`: the site `jacket doc` writes.
     #[serde(default, skip_serializing_if = "Doc::is_empty")]
     pub doc: Doc,
     /// Named build targets (`[target.pico]`) that `--target` selects.
@@ -106,6 +115,7 @@ impl Resolver {
     /// `release-age-jitter` when none is set.
     pub const DEFAULT_RELEASE_AGE_JITTER: &'static str = "3d";
 
+    /// Whether no key is set.
     pub fn is_empty(&self) -> bool {
         *self == Self::default()
     }
@@ -136,6 +146,7 @@ pub struct Package {
 }
 
 impl Package {
+    /// Whether no key is set.
     pub fn is_empty(&self) -> bool {
         *self == Self::default()
     }
@@ -187,6 +198,7 @@ impl<'de> Deserialize<'de> for Strings {
     }
 }
 
+/// `[project]`: the entry files and module folders of a build.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct Project {
@@ -210,6 +222,7 @@ impl Project {
     }
 }
 
+/// `[toolchain]`: the release the project is written for.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct Toolchain {
     /// The `x.y.z` release the project is written for.
@@ -221,8 +234,10 @@ pub struct Toolchain {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LifetimeMode {
+    /// On every path.
     #[default]
     Must,
+    /// On any path.
     Strict,
 }
 
@@ -238,8 +253,10 @@ impl std::str::FromStr for LifetimeMode {
     }
 }
 
+/// Settings of the lifetime rules.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct Lifetimes {
+    /// Whether a diagnostic needs an invalidation on every path or on any path.
     #[serde(default)]
     pub mode: LifetimeMode,
 }
@@ -254,9 +271,11 @@ pub struct Freestanding {
     pub max_frame_bytes: Option<usize>,
 }
 
+/// `[lint]`: settings of `jailint`.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct Lint {
+    /// Settings of the lifetime rules.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lifetimes: Option<Lifetimes>,
     /// Limits for the `freestanding` rule.
@@ -328,6 +347,8 @@ pub struct LintOverride {
     pub rules: BTreeMap<String, String>,
 }
 
+/// `[format]`: settings of `jaifmt`. Names, ranges and defaults are in [`FORMAT_SETTINGS`]; a
+/// field left `None` takes the default.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct Format {
@@ -372,6 +393,7 @@ pub enum Kind {
         min: i64,
         max: i64,
     },
+    /// `true` or `false`.
     Flag,
     /// One of these strings.
     Choice(&'static [&'static str]),
@@ -382,10 +404,13 @@ pub enum Kind {
 /// What a `[format]` setting is when the file does not set it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Fallback {
+    /// This integer.
     Int(i64),
     /// The value of `indent_width`.
     IndentWidth,
+    /// This flag.
     Flag(bool),
+    /// This string.
     Choice(&'static str),
     /// An empty list.
     Empty,
@@ -395,8 +420,11 @@ pub enum Fallback {
 /// keys standalone, and a test keeps `stdlib/Extensions/Jai_Format` in step with this table.
 #[derive(Clone, Copy, Debug)]
 pub struct Setting {
+    /// The key, as `jacket.toml` spells it (`indent-width`).
     pub name: &'static str,
+    /// Its type and allowed values.
     pub kind: Kind,
+    /// What it is when unset.
     pub default: Fallback,
 }
 
@@ -697,6 +725,7 @@ pub struct Doc {
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct DocCategory {
+    /// The heading.
     pub name: String,
     /// Patterns of module folders.
     #[serde(default)]
@@ -710,18 +739,22 @@ pub struct DocCategory {
     /// The badge colour (`#1f7a8c`), and the one for dark themes (default: `color`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
+    /// The badge colour for dark themes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color_dark: Option<String>,
 }
 
+/// A folding group of modules inside a heading of `[doc]`.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct DocGroup {
+    /// The group's title.
     pub name: String,
     /// Patterns of module folders.
     #[serde(default)]
     pub modules: Vec<PathPattern>,
 }
 
+/// A Markdown file rendered as an extra page of the site.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct DocPage {
     /// The Markdown file.
@@ -861,7 +894,9 @@ fn is_empty_strings(s: &Strings) -> bool {
 }
 
 macro_rules! is_empty {
-    ($($t:ty),*) => {$(impl $t { pub fn is_empty(&self) -> bool { *self == Self::default() } })*};
+    ($($t:ty),*) => {$(impl $t {
+    /// Whether no key is set.
+    pub fn is_empty(&self) -> bool { *self == Self::default() } })*};
 }
 
 is_empty!(

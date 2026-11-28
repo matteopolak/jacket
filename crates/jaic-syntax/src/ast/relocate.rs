@@ -17,6 +17,7 @@ use crate::source::FileId;
 /// The file id a worker parses with. No real file has it, and `Span::NONE`'s differs.
 pub const PLACEHOLDER_FILE: FileId = FileId(u32::MAX - 1);
 
+/// Rewrites the file id of every span in a tree; [`relocate`] is the entry point.
 pub struct Relocator {
     file: FileId,
     shared: HashSet<*const ()>,

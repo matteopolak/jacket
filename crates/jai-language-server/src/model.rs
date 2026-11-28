@@ -1,6 +1,7 @@
 //! Typed source-analysis results. LSP wire numbers and strings live in protocol.rs.
 use crate::{Position, Range};
 
+/// The kind of a symbol, which decides its icon.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SymbolKind {
     File,
@@ -17,6 +18,7 @@ pub enum SymbolKind {
     Event,
 }
 
+/// How serious a diagnostic is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DiagnosticSeverity {
     Error,
@@ -27,6 +29,7 @@ pub enum DiagnosticSeverity {
     Hint,
 }
 
+/// Which part of the toolchain a diagnostic comes from, and its name there.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DiagnosticCode {
     Lexer,
@@ -63,6 +66,7 @@ impl DiagnosticCode {
     }
 }
 
+/// The kind of a completion item, which decides its icon.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum CompletionKind {
     Function,
@@ -84,6 +88,7 @@ pub enum CompletionKind {
     Snippet,
 }
 
+/// A problem or note about a range of a document.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Diagnostic {
     pub range: Range,
@@ -102,16 +107,20 @@ pub struct RelatedInformation {
     pub message: String,
 }
 
+/// A declaration in a document, with the declarations nested in it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DocumentSymbol {
     pub name: String,
     pub detail: String,
     pub kind: SymbolKind,
+    /// The whole declaration.
     pub range: Range,
+    /// The name, which is inside `range`.
     pub selection_range: Range,
     pub children: Vec<DocumentSymbol>,
 }
 
+/// A range of a document, which `uri` names.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Location {
     pub uri: String,
@@ -127,18 +136,21 @@ pub enum MarkupKind {
     Markdown,
 }
 
+/// Text with the markup it is written in.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MarkupContent {
     pub kind: MarkupKind,
     pub value: String,
 }
 
+/// What to show for a hovered place, and the range it covers.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Hover {
     pub contents: MarkupContent,
     pub range: Range,
 }
 
+/// One entry of a completion list.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct CompletionItem {
     pub label: String,
@@ -185,12 +197,15 @@ pub struct CompletionData {
     pub offset: usize,
 }
 
+/// The completion items at a place.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct CompletionList {
+    /// The client asks again as the typed word changes, because `items` was cut short.
     pub is_incomplete: bool,
     pub items: Vec<CompletionItem>,
 }
 
+/// What a semantic token is, which decides how the editor colors it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SemanticTokenKind {
     Keyword,
@@ -256,9 +271,11 @@ impl SemanticTokenKind {
     }
 }
 
+/// A classified run of text on one line.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SemanticToken {
     pub position: Position,
+    /// In UTF-16 code units.
     pub length: u32,
     pub kind: SemanticTokenKind,
     pub declaration: bool,
@@ -267,22 +284,26 @@ pub struct SemanticToken {
     pub expand: bool,
 }
 
+/// What an inlay hint shows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum InlayHintKind {
     Type,
     Parameter,
 }
 
+/// Text the editor draws inline at `position`, such as an inferred type or a parameter name.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct InlayHint {
     pub position: Position,
     pub label: String,
     pub kind: Option<InlayHintKind>,
+    /// The editor leaves a space before or after the hint.
     pub padding_left: bool,
     pub padding_right: bool,
     pub tooltip: Option<String>,
 }
 
+/// A replacement of `range` with `new_text`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TextEdit {
     pub range: Range,
@@ -309,9 +330,11 @@ impl Command {
     }
 }
 
+/// A fix or refactoring the editor offers.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct CodeAction {
     pub title: String,
+    /// The LSP code action kind (`quickfix`), if any.
     pub kind: Option<&'static str>,
     /// Edits of one document.
     pub edit: Option<(String, Vec<TextEdit>)>,
@@ -336,6 +359,7 @@ pub struct Expansion {
     pub text: String,
 }
 
+/// One overload of a procedure, for signature help.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SignatureInformation {
     pub label: String,
@@ -347,13 +371,18 @@ pub struct SignatureInformation {
     pub parameter_docs: Vec<Option<String>>,
 }
 
+/// The overloads of the procedure being called, and which of them and which parameter the
+/// cursor is on.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SignatureHelp {
     pub signatures: Vec<SignatureInformation>,
+    /// Index into `signatures`.
     pub active_signature: usize,
+    /// Index into the active signature's `parameters`.
     pub active_parameter: usize,
 }
 
+/// A range of whole lines the editor can fold.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct FoldingRange {
     pub start_line: u32,
@@ -362,17 +391,20 @@ pub struct FoldingRange {
     pub imports: bool,
 }
 
+/// A command shown above a line, for the code in `range`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CodeLens {
     pub range: Range,
     pub command: Command,
 }
 
+/// A declaration found by a workspace-wide search.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SymbolInformation {
     pub name: String,
     pub kind: SymbolKind,
     pub location: Location,
+    /// The name of the declaration it is nested in.
     pub container: Option<String>,
 }
 

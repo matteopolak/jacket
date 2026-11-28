@@ -8,8 +8,11 @@ use jaic::target::TargetOs;
 /// An `#assert` that failed while compiling `root` for `os`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AssertFailure {
+    /// The file the compile started from.
     pub root: PathBuf,
+    /// The operating system the compile targeted.
     pub os: TargetOs,
+    /// The file holding the `#assert`.
     pub path: PathBuf,
     /// Byte range of the assert's condition in `path`.
     pub start: usize,
@@ -26,7 +29,9 @@ pub struct AssertFailure {
 /// One `#import` or `#load` statement.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ImportSite {
+    /// The file holding the statement.
     pub path: PathBuf,
+    /// Byte range of the statement in `path`.
     pub start: usize,
     pub end: usize,
 }

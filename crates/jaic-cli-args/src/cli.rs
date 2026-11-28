@@ -102,6 +102,7 @@ pub struct Plugin {
     pub module: String,
     /// The text inside `Name(...)`: module parameters, `A=1,B=2`.
     parameters: Option<String>,
+    /// The arguments after the plugin's name, up to the next `+Plugin` or boundary, as written.
     pub options: Vec<String>,
 }
 
@@ -211,8 +212,11 @@ pub struct Cli {
     /// like -check, then print every source file the compile read, one per line
     #[arg(name = "-deps", tag = "deps")]
     pub deps: bool,
+    /// What `-check`, `-interp` and `-deps` resolve to; the caller sets it after parsing, with
+    /// [`Mode::from_flags`].
     #[arg(skip)]
     pub mode: Mode,
+    /// The program's source file; the caller sets it after parsing.
     #[arg(skip)]
     pub file: String,
     /// also look for modules in <dir> (repeatable; short form -I)
@@ -419,6 +423,7 @@ pub struct Cli {
     #[arg(name = "-W", value = "code", needs = "a warning code, `leniencies` or `warnings`", with = store_level, attached, help = "warn about a code (the default)")]
     #[arg(name = "-D", value = "code", needs = "a warning code, `leniencies` or `warnings`", with = store_level, attached, help = "deny a warning: print it as an error and fail (`-D warnings` for all)")]
     pub level_flags: Vec<(String, jaic::diagnostics::Level)>,
+    /// What `level_flags` make of each warning; the caller sets it after parsing.
     #[arg(skip)]
     pub levels: jaic::diagnostics::Levels,
     /// print nothing but errors (no build status either)
@@ -542,6 +547,7 @@ impl Cli {
         self.build_target_from(Options::host().os, Options::host().cpu)
     }
 
+    /// Like [`build_target`](Cli::build_target) for a given host, instead of the running one.
     pub fn build_target_from(
         &self,
         host_os: TargetOs,

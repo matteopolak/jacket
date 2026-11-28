@@ -6,7 +6,9 @@ use jaic::target::{Target, TargetAbi, TargetCpu, TargetOs};
 /// The GNU cross toolchain's package names for a target.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct GnuPackages {
+    /// The `apt` package, when there is one.
     pub apt: Option<&'static str>,
+    /// The `dnf` package, when there is one.
     pub dnf: Option<&'static str>,
 }
 
@@ -88,9 +90,13 @@ pub fn sysroot(target: Target) -> Option<SysrootPin> {
 /// One Debian package of a sysroot.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DebPin {
+    /// The package name.
     pub package: &'static str,
+    /// The pinned version.
     pub version: &'static str,
+    /// The file's size in bytes.
     pub size: u64,
+    /// The checksum the download must have, in hex.
     pub sha256: &'static str,
     /// Where it is, under [`DebianPins::mirror`].
     pub path: &'static str,
@@ -101,6 +107,7 @@ pub struct DebPin {
 pub struct DebianPins {
     /// A snapshot of Debian's archive: the same bytes for ever.
     pub mirror: &'static str,
+    /// The packages, in the order the pin file lists them.
     pub packages: Vec<DebPin>,
 }
 
@@ -148,8 +155,11 @@ const COMPILER_RT_PINS: &str = include_str!("../data/compiler-rt.txt");
 /// compiled from. `tools/embedded/pin_compiler_rt.py` writes `data/compiler-rt.txt`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CompilerRt {
+    /// The release.
     pub version: &'static str,
+    /// The checksum of the source archive, in hex.
     pub sha256: &'static str,
+    /// Where the source archive is downloaded from.
     pub url: &'static str,
     /// Each source file under `lib/builtins` with the macros it is compiled with.
     pub sources: Vec<(&'static str, Vec<&'static str>)>,

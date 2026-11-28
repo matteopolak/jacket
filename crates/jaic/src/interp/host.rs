@@ -83,6 +83,8 @@ pub struct LocationLayout {
 
 /// Where program output and platform services go.
 pub trait Host {
+    /// Writes `bytes` of program output to standard error when `to_stderr` is set, else to standard
+    /// output.
     fn write(&mut self, bytes: &[u8], to_stderr: bool);
 
     /// A provider for a fresh isolated compile-time interpreter. Embedders with
@@ -176,6 +178,7 @@ pub struct PendingDataGlobal {
 }
 
 impl PendingDataGlobal {
+    /// The address of the storage.
     pub fn address(&self) -> u64 {
         self.storage.addr()
     }

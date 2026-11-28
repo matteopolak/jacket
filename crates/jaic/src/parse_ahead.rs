@@ -139,6 +139,7 @@ mod imp {
         cpu: TargetCpu,
     }
 
+    /// Handle to the parse workers, started with `start`; dropping it shuts them down.
     pub struct ParseAhead {
         shared: Arc<Shared>,
     }

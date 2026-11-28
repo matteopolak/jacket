@@ -32,8 +32,11 @@ raw_enum! {
 /// `a` of a `CheckReason::NullPointer` failure: what the access did.
 pub const NULL_READ: u64 = 0;
 
+/// A store.
 pub const NULL_WRITE: u64 = 1;
+/// A memory copy.
 pub const NULL_COPY: u64 = 2;
+/// A memory fill.
 pub const NULL_FILL: u64 = 3;
 
 /// `b` of a `CheckReason::CastOverflow` failure: the target's size in bytes (low byte), whether the

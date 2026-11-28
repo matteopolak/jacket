@@ -10,6 +10,7 @@ use crate::{Check, Config, parse_lenient, unknown_note};
 /// One problem in the file.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Issue {
+    /// What is wrong, in the words [`crate::parse`] or the check gave.
     pub message: String,
     /// The bytes it is about; `None` when no key or value is to blame.
     pub span: Option<Range<usize>>,

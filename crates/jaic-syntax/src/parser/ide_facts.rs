@@ -37,6 +37,7 @@ pub enum DeclClass {
     Constant,
 }
 
+/// What the declaration's value makes it.
 pub fn decl_class(decl: &Decl) -> DeclClass {
     if decl.kind == DeclKind::Var {
         return DeclClass::Variable;
@@ -129,6 +130,7 @@ impl From<ScopeKind> for Visibility {
 }
 
 #[derive(Clone, Copy, Debug)]
+/// What a top-level statement is.
 pub enum TopLevelKind<'a> {
     Decl(&'a Decl),
     /// `#import "X";` or `X :: #import "X";`.

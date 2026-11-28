@@ -71,18 +71,29 @@ const MIB: usize = 1024 * 1024;
 /// shares one wasm heap with the page.
 #[derive(Clone, Copy, Debug)]
 pub struct Limits {
+    /// Most documents open at once, `jacket.toml` files included.
     pub documents: usize,
+    /// Largest text of one open document.
     pub document_bytes: usize,
+    /// Total of every open document's text and URI.
     pub workspace_bytes: usize,
+    /// Largest incoming JSON message.
     pub message_bytes: usize,
+    /// Largest total of the messages sent in answer to one message.
     pub output_bytes: usize,
+    /// Most tokens in one document; past it the document gets no syntax navigation.
     pub tokens: usize,
+    /// The deepest bracket nesting plus the longest run of prefix operators a document may have
+    /// before it is left unparsed (its tokens are still kept).
     pub recursive_tokens: usize,
     /// Most results of one completion or workspace-symbol query.
     pub symbols: usize,
     /// Declarations recorded per document for navigation (symbols, rename, highlights).
     pub rows: usize,
+    /// Most changes in one `didChange`.
     pub edits: usize,
+    /// How many cancelled and completed request ids are remembered; 0 remembers none, so a
+    /// cancellation arriving before its request is ignored.
     pub cancelled_requests: usize,
 }
 
@@ -120,6 +131,7 @@ impl Limits {
     }
 }
 
+/// Why the session refused a change: a malformed input, a limit, or a document in the wrong state.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Error {
     Uri(&'static str),

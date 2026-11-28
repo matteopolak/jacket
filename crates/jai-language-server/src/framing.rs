@@ -1,4 +1,6 @@
 //! Incremental LSP framing. This module has no stdio or filesystem operations.
+/// Why input is not a valid stream of framed messages; [`Display`](std::fmt::Display) says what
+/// was wrong.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FrameError {
     HeaderLimit,
@@ -33,11 +35,17 @@ impl std::error::Error for FrameError {
 /// A message that was over the size limit and thrown away unread.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Oversized {
+    /// The body length its header declared.
     pub length: usize,
     /// The first bytes of its body, enough to find the request id.
     pub head: Vec<u8>,
 }
 
+/// Cuts a byte stream into `Content-Length` framed messages as the bytes arrive.
+///
+/// A header over 8 KiB, a missing or repeated `Content-Length`, a charset other than UTF-8 and
+/// a body that is not UTF-8 are errors. A body over the size limit is not: it is skipped as it
+/// arrives and reported by [`FrameDecoder::take_oversized`].
 pub struct FrameDecoder {
     buffer: Vec<u8>,
     expected: Option<usize>,
@@ -56,6 +64,7 @@ const HEADER_LIMIT: usize = 8192;
 const HEAD_LIMIT: usize = 4096;
 
 impl FrameDecoder {
+    /// A decoder that skips bodies longer than `body_limit` bytes.
     pub fn new(body_limit: usize) -> Self {
         Self {
             buffer: vec![],
@@ -93,6 +102,20 @@ impl FrameDecoder {
         skipped
     }
 
+    /// Adds `bytes` and returns the messages they complete, in order; a partial message waits
+    /// for the next call.
+    ///
+    /// ```
+    /// use jai_language_server::framing::{FrameDecoder, encode};
+    ///
+    /// let wire = encode(r#"{"id":1}"#);
+    /// let (first, rest) = wire.split_at(5);
+    /// let mut decoder = FrameDecoder::new(1024);
+    ///
+    /// assert!(decoder.push(first).unwrap().is_empty());
+    /// assert_eq!(decoder.push(rest).unwrap(), [r#"{"id":1}"#]);
+    /// assert!(decoder.finish().is_ok());
+    /// ```
     pub fn push(&mut self, bytes: &[u8]) -> Result<Vec<String>, FrameError> {
         let skipped = self.skip(bytes);
         let bytes = &bytes[skipped..];
@@ -182,6 +205,8 @@ impl FrameDecoder {
         Ok(Some(length))
     }
 
+    /// Checks that the stream ended between messages; [`FrameError::Incomplete`] if it ended
+    /// inside one.
     pub fn finish(&self) -> Result<(), FrameError> {
         if self.buffer.is_empty() && self.expected.is_none() {
             Ok(())
@@ -231,6 +256,7 @@ fn utf8_charset(content_type: &str) -> bool {
     })
 }
 
+/// `message` with the `Content-Length` header that frames it.
 pub fn encode(message: &str) -> Vec<u8> {
     let mut output = format!("Content-Length: {}\r\n\r\n", message.len()).into_bytes();
 

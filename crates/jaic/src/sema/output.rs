@@ -13,7 +13,9 @@ pub(super) type ConstAddrKey = (TypeId, Vec<u8>, Vec<ir::Reloc>);
 
 #[derive(Default)]
 
+/// What the compile produces.
 pub struct Output {
+    /// The IR program being built.
     pub program: Probed<ir::Program, { W::OutProgram as usize }>,
     pub(in crate::sema) registered_data_segments:
         Probed<HashMap<ir::GlobalId, u16>, { W::OutRegisteredDataSegments as usize }>,
@@ -29,6 +31,7 @@ pub struct Output {
     /// The data of constant views made from baked variadic arguments, deduplicated by
     /// contents so that equal argument lists share one global (and one instance).
     pub packs: Probed<HashMap<PackKey, ir::GlobalId>, { W::OutPacks as usize }>,
+    /// What compile-time code printed.
     pub output: Probed<Vec<u8>, { W::OutOutput as usize }>,
     /// Spin lock word shared by `lock_cmpxchg8b`/`lock_cmpxchg16b` in `#asm` blocks.
     pub asm_pair_lock: Option<ir::GlobalId>,

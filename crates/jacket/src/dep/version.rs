@@ -8,8 +8,11 @@ use super::types::CommitId;
 /// A tag read as a version.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Tagged {
+    /// The tag's name.
     pub tag: String,
+    /// The commit the tag points at.
     pub commit: CommitId,
+    /// The version `tag` names.
     pub version: Version,
 }
 

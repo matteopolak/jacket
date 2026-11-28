@@ -140,6 +140,8 @@ pub struct MadeCode {
     pub fingerprint: Box<[u8]>,
 }
 
+/// The compile-time interpreter: runs IR procedures against a simulated address space, sending
+/// output and platform requests to a `Host`.
 pub struct Interp {
     /// How the program's data is laid out in memory.
     layout: crate::layout::DataLayout,
@@ -225,6 +227,8 @@ pub struct Interp {
     pub codes: Vec<std::sync::Arc<crate::ast::CodeBody>>,
     /// Codes made by compile-time code (`compiler_get_code`). The compiler adopts them lazily.
     pub made_codes: Vec<MadeCode>,
+    /// Data globals made by `register_data_global` that the compiler has not yet bound to a global
+    /// with `adopt_data_global`.
     pub pending_data_globals: Vec<PendingDataGlobal>,
     data_segment_tags: HashMap<GlobalId, u16>,
     /// The codes the current compile-time run made, in order, and how many of them its

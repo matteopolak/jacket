@@ -8,6 +8,7 @@
 use super::{Code, Diagnostic, Severity};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// How a warning is reported: not at all, as a warning, or as an error.
 pub enum Level {
     Allow,
     Warn,
@@ -15,6 +16,7 @@ pub enum Level {
 }
 
 impl Level {
+    /// The level spelled `allow`, `warn` or `deny`; `None` for any other text.
     pub fn parse(text: &str) -> Option<Level> {
         match text {
             "allow" => Some(Level::Allow),
@@ -24,6 +26,7 @@ impl Level {
         }
     }
 
+    /// The spelling [`Level::parse`] reads.
     pub fn as_str(self) -> &'static str {
         match self {
             Level::Allow => "allow",

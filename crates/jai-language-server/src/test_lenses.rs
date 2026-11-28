@@ -114,6 +114,7 @@ impl Session {
         self.test_lenses = on;
     }
 
+    /// Whether the "Run test" and "Debug test" lenses are on.
     pub fn test_lenses_enabled(&self) -> bool {
         self.test_lenses
     }

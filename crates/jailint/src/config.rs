@@ -46,6 +46,7 @@ pub enum Category {
 }
 
 impl Category {
+    /// Every category, from `correctness` to `restriction`.
     pub const ALL: [Category; 7] = [
         Category::Correctness,
         Category::Suspicious,
@@ -56,6 +57,7 @@ impl Category {
         Category::Restriction,
     ];
 
+    /// The name settings and command-line flags use for the category.
     pub fn as_str(self) -> &'static str {
         match self {
             Category::Correctness => "correctness",
@@ -81,6 +83,7 @@ impl Category {
         }
     }
 
+    /// The category named `text` (the inverse of [`as_str`](Category::as_str)), or `None`.
     pub fn parse(text: &str) -> Option<Category> {
         Category::ALL.into_iter().find(|c| c.as_str() == text)
     }
@@ -97,8 +100,13 @@ impl Category {
     }
 }
 
+/// The linter's settings for one `jacket.toml` (or none), merged with the command-line flags.
+///
+/// A setting left as `None` falls back to the matching `DEFAULT_*` constant when a rule reads it.
 #[derive(Clone, Debug, Default)]
 pub struct Config {
+    /// Whether the lifetime rules need a problem on every path (`must`) or on any path
+    /// (`strict`); `None` leaves it to the rules' default.
     pub lifetime_mode: Option<jacket_config::LifetimeMode>,
     /// Invocation-level setting, preserved across nested configuration discovery.
     pub flag_lifetime_mode: Option<jacket_config::LifetimeMode>,
@@ -161,6 +169,7 @@ pub struct Configs {
 }
 
 impl Configs {
+    /// Starts a run's settings from `base`; nested `jacket.toml` files are read when first asked for.
     pub fn new(base: &Config) -> Configs {
         Configs {
             base: Arc::new(base.clone()),

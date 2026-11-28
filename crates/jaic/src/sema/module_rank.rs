@@ -22,6 +22,7 @@ const FIELD: u32 = 20;
 const MAX_FIELD: u64 = (1 << FIELD) - 1;
 
 impl ModuleRanking {
+    /// Creates a ranking from import counts: `project` counts imports in the project's own files, `importers` counts the stdlib modules that import each stdlib module.
     pub fn new(project: HashMap<String, u32>, importers: HashMap<String, u32>) -> Self {
         Self {
             project,

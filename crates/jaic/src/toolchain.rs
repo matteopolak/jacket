@@ -30,6 +30,7 @@ pub enum Linker {
 }
 
 impl Linker {
+    /// Whether the linker takes Windows-style arguments: every linker but `Unix`.
     pub fn is_windows(self) -> bool {
         self != Linker::Unix
     }
@@ -125,6 +126,7 @@ pub struct Runtime {
 }
 
 impl Runtime {
+    /// A runtime with no libraries and no DLL selection.
     pub const NONE: Runtime = Runtime {
         libs: &[],
         exclude: &[],

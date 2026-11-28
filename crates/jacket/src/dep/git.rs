@@ -30,6 +30,7 @@ pub struct Submodule {
 
 type Result<T> = std::result::Result<T, DepError>;
 
+/// The git operations `jacket dep` needs; [`RealGit`] runs them.
 pub trait Git {
     /// Stops with next steps when `git` is not installed or `dir` is not in a repository. Run
     /// before anything changes.
@@ -85,6 +86,7 @@ pub trait Git {
     fn remove_tree(&self, dir: &Path, path: &SubPath) -> Result<()>;
 }
 
+/// [`Git`] over the `git` on `PATH`.
 pub struct RealGit;
 
 impl Git for RealGit {

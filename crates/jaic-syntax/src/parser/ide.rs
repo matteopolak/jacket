@@ -2,6 +2,8 @@
 use super::{Diagnostic, File, FileId, P, PResult, Parser, Span, Stmt, Tok, Token, parse_tokens};
 use crate::diagnostics::Code;
 
+/// The result of an editor parse: the tree built from whatever could be read, the tokens it came
+/// from, and the lexical and syntax errors together.
 pub struct IdeParse {
     pub file: File,
     pub tokens: Vec<Token>,
@@ -18,6 +20,9 @@ impl IdeParse {
     }
 }
 
+/// Parses `text` for the editor, recovering from errors so every part of the file that can be read
+/// becomes part of the tree. Lexical errors come first in the diagnostics, except those inside
+/// a string literal the rescan verified.
 pub fn parse_file_ide(file: FileId, text: &str) -> IdeParse {
     let (tokens, diagnostics) = crate::lexer::lex_ide(file, text);
     let mut parsed = parse_tokens_ide(file, text, tokens);
@@ -465,6 +470,7 @@ mod callee_tests {
 
 /// An editor parse that later compiles may share.
 pub struct SharedParse {
+    /// The tree.
     pub file: File,
     pub diagnostics: Vec<Diagnostic>,
 }

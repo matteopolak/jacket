@@ -37,6 +37,7 @@ pub struct ImportEdge {
 /// An `#assert` that failed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FailedAssert {
+    /// The file holding the assert.
     pub path: PathBuf,
     /// Byte range of the assert's condition in `path`.
     pub start: usize,

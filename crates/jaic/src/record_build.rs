@@ -276,6 +276,8 @@ struct Fill<'a> {
 }
 
 impl Builder {
+    /// Notes that type `name` has descriptor `info`. A name given two different descriptors is
+    /// recorded as `0`.
     pub fn add_type(&mut self, name: String, info: u64) {
         self.tags
             .entry(name.into())
@@ -287,6 +289,7 @@ impl Builder {
             .or_insert(info);
     }
 
+    /// Notes that builtin `name` has descriptor `info`, replacing any earlier one.
     pub fn add_builtin(&mut self, name: String, info: u64) {
         self.builtins.insert(name.into(), info);
     }

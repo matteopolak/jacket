@@ -5,6 +5,7 @@ use crate::host::{Host, Os};
 
 /// The one place programs are searched for.
 pub struct Lookup<'a> {
+    /// The machine searched.
     pub host: &'a dyn Host,
     /// The `bin` folders of the LLVM installs jaic knows (`jacket_config::llvm::bin_dirs`), best
     /// first. Asked for only when an LLVM program is looked up: finding them starts `llvm-config`.
@@ -14,6 +15,8 @@ pub struct Lookup<'a> {
 }
 
 impl<'a> Lookup<'a> {
+    /// A lookup that knows no LLVM installs; add them with [`Lookup::with_llvm_bins`] and
+    /// [`Lookup::with_llvm_prefixes`].
     pub fn new(host: &'a dyn Host) -> Lookup<'a> {
         Lookup {
             host,
@@ -22,12 +25,16 @@ impl<'a> Lookup<'a> {
         }
     }
 
+    /// Sets how the `bin` folders of the known LLVM installs are listed, best first. `bins` is
+    /// called each time an LLVM program is looked up.
     #[must_use]
     pub fn with_llvm_bins(mut self, bins: impl Fn() -> Vec<PathBuf> + 'a) -> Lookup<'a> {
         self.llvm_bins = Box::new(bins);
         self
     }
 
+    /// Sets how the known LLVM installs are listed, best first. `prefixes` is called each time
+    /// they are asked for.
     #[must_use]
     pub fn with_llvm_prefixes(mut self, prefixes: impl Fn() -> Vec<PathBuf> + 'a) -> Lookup<'a> {
         self.llvm_prefixes = Box::new(prefixes);

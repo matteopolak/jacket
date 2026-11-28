@@ -14,7 +14,9 @@ pub(super) const CONTEXT_CAPACITY: u64 = 4096;
 /// A top-level `#assert`: condition, message, extra arguments, and the scope it is checked in.
 pub(super) type TopLevelAssert = (ast::Expr, Option<ast::Expr>, Vec<ast::Expr>, ScopeId);
 
+/// What compile-time code has done in this compile.
 pub struct CompileTime {
+    /// The interpreter compile-time code runs in.
     pub interp: Probed<Interp, { W::CtInterp as usize }>,
     /// Interpreter address of the compile-time `#Context`.
     pub context: Option<u64>,
@@ -27,7 +29,9 @@ pub struct CompileTime {
     pub(crate) executions: u64,
     /// Compile-time runs that ended in a trap so far.
     pub traps: u64,
+    /// Top-level `#run` expressions and the scope each is evaluated in.
     pub top_level_runs: Probed<Vec<(ast::Expr, ScopeId)>, { W::CtTopLevelRuns as usize }>,
+    /// Top-level `#assert`s.
     pub asserts: Probed<Vec<TopLevelAssert>, { W::CtAsserts as usize }>,
     /// How many of `top_level_runs`/`asserts` already executed.
     pub(crate) runs_done: usize,

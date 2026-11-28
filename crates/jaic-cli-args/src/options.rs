@@ -13,7 +13,9 @@ pub const NO_MAIN_STATUS: u8 = 3;
 
 /// A command-line mistake: the message, then help lines.
 pub struct CliError {
+    /// What went wrong.
     pub message: String,
+    /// Extra lines printed after the message, one hint each.
     pub help: Vec<String>,
 }
 
@@ -36,6 +38,7 @@ impl From<Error> for CliError {
 }
 
 impl CliError {
+    /// A mistake with no help lines.
     pub fn new(message: impl Into<String>) -> Self {
         CliError {
             message: message.into(),
@@ -43,6 +46,7 @@ impl CliError {
         }
     }
 
+    /// Adds a hint line after the message.
     #[must_use]
     pub fn help(mut self, help: impl Into<String>) -> Self {
         self.help.push(help.into());
@@ -52,8 +56,11 @@ impl CliError {
 
 /// What the command line asks for.
 pub enum Request {
+    /// Compile, check or interpret a program with these settings.
     Compile(Box<Cli>),
+    /// Print the help page.
     Help,
+    /// Print the version.
     Version,
     /// Print the standard library folder in use.
     Stdlib,
@@ -61,6 +68,7 @@ pub enum Request {
     Completions(Shell),
     /// Print the doc comments of the library in a folder.
     DocComments(String, Vec<std::path::PathBuf>),
+    /// Print which public declarations of the library in a folder have docs and an example.
     DocGaps(String, Vec<std::path::PathBuf>),
     /// Print the documentation model of the library in a folder as JSON.
     DocModel(String, Vec<std::path::PathBuf>),
@@ -83,6 +91,7 @@ fn shared(flag: &SharedFlag, name: &str, text: &str) -> Result<Shared, Error> {
     flag.parse(name, text).map_err(flag_error)
 }
 
+/// Reads the `-os` value; the error lists the valid names.
 pub fn read_os(name: &str, text: &str) -> Result<TargetOs, Error> {
     match shared(&flags::OS, name, text)? {
         Shared::Os(os) => Ok(os),
@@ -90,6 +99,7 @@ pub fn read_os(name: &str, text: &str) -> Result<TargetOs, Error> {
     }
 }
 
+/// Reads the `-cpu` value, `x64` or `arm64` (or their long names).
 pub fn read_cpu(name: &str, text: &str) -> Result<TargetCpu, Error> {
     match shared(&flags::CPU, name, text)? {
         Shared::Cpu(cpu) => Ok(cpu),
@@ -110,6 +120,8 @@ pub fn read_backend(name: &str, text: &str) -> Result<CodegenBackend, Error> {
     }
 }
 
+/// Reads a `-package_import_dir` value, `<package>=<dir>`, into the package folder and the
+/// folder to search for it; both halves must be non-empty.
 pub fn read_package_import(name: &str, text: &str) -> Result<(PathBuf, PathBuf), Error> {
     match shared(&flags::PACKAGE_IMPORT_DIR, name, text)? {
         Shared::PackageImportDir(package, dir) => Ok((package, dir)),
@@ -125,6 +137,7 @@ pub fn read_jobs(name: &str, text: &str) -> Result<Option<usize>, Error> {
     }
 }
 
+/// Stores `--color`: turns colour off for `never` and on for `auto` and `always`.
 pub fn set_color(cli: &mut Cli, name: &str, text: &str) -> Result<(), Error> {
     match shared(&flags::COLOR, name, text)? {
         Shared::Color(choice) => cli.no_color = choice == jaic::render::ColorChoice::Never,
@@ -134,11 +147,13 @@ pub fn set_color(cli: &mut Cli, name: &str, text: &str) -> Result<(), Error> {
     Ok(())
 }
 
+/// Appends a `-add` string to `cli.added`.
 pub fn add_code(cli: &mut Cli, _: &str, code: &str) -> Result<(), Error> {
     cli.added.push(Added::Code(code.to_string()));
     Ok(())
 }
 
+/// Appends a `-run` string to `cli.added`.
 pub fn add_run(cli: &mut Cli, _: &str, code: &str) -> Result<(), Error> {
     cli.added.push(Added::Run(code.to_string()));
     Ok(())
@@ -156,6 +171,8 @@ pub fn store_level(cli: &mut Cli, option: &str, code: &str) -> Result<(), Error>
     Ok(())
 }
 
+/// Stores a `-sanitize` list, a comma-separated set of `address`, `undefined` and `fuzzer`;
+/// any other name is refused.
 pub fn add_sanitizer(cli: &mut Cli, option: &str, list: &str) -> Result<(), Error> {
     if let Some(bad) = list
         .split(',')

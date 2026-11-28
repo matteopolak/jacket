@@ -26,7 +26,9 @@ const MAX_ALTERNATIVES: usize = 256;
 /// A pattern that could not be compiled.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PatternError {
+    /// The pattern as written.
     pub pattern: String,
+    /// What is wrong with it, such as an unclosed `{` or `[`.
     pub message: String,
 }
 
@@ -77,6 +79,20 @@ pub struct PathPattern {
 }
 
 impl PathPattern {
+    /// Compiles `source`, or says what is malformed in it.
+    ///
+    /// A trailing `/` is ignored, so `docs/` is `docs`; an empty pattern is valid and matches
+    /// nothing. Fails on an unclosed `{` or `[`, a `\` that ends the pattern, a class range that
+    /// runs backwards (`[z-a]`), and more than 256 alternatives from `{a,b}` forms.
+    ///
+    /// ```
+    /// use jacket_config::PathPattern;
+    ///
+    /// let pattern = PathPattern::new("src/**/*.{jai,toml}").unwrap();
+    /// assert!(pattern.is_match("src/a/b.jai"));
+    /// assert!(!pattern.is_match("src/a/b.rs"));
+    /// assert!(PathPattern::new("src/{a,b").is_err());
+    /// ```
     pub fn new(source: &str) -> Result<PathPattern, PatternError> {
         let fail = |message: String| PatternError {
             pattern: source.to_string(),

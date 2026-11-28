@@ -7,17 +7,21 @@ use std::hash::{BuildHasherDefault, Hasher};
     clippy::disallowed_types,
     reason = "this alias is the sanctioned replacement"
 )]
+/// A `HashMap` that hashes with [`FxHasher`]. Use it in place of `std::collections::HashMap`.
 pub type HashMap<K, V> = std::collections::HashMap<K, V, BuildHasherDefault<FxHasher>>;
 
 #[expect(
     clippy::disallowed_types,
     reason = "this alias is the sanctioned replacement"
 )]
+/// A `HashSet` that hashes with [`FxHasher`]. Use it in place of `std::collections::HashSet`.
 pub type HashSet<K> = std::collections::HashSet<K, BuildHasherDefault<FxHasher>>;
 
 const SEED: u64 = 0x51_7c_c1_b7_27_22_0a_95;
 
 #[derive(Default, Clone, Copy)]
+/// The multiply-rotate hasher behind [`HashMap`] and [`HashSet`]. Its results are stable across
+/// runs but not meant to be stored.
 pub struct FxHasher {
     hash: u64,
 }

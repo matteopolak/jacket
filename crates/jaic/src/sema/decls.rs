@@ -287,6 +287,7 @@ impl Compiler {
         })
     }
 
+    /// Returns the type a constant has when it is used with no declared type: integers are `s64`, a float is `float32` unless it requires or defaults to `float64`, a procedure has its procedure type (a void pointer if its signature does not resolve), and aggregates and `void` are `void`.
     pub fn type_of_value(&mut self, value: &Value) -> TypeId {
         match value {
             Value::Int(_) => TypeId::S64,
@@ -576,6 +577,7 @@ impl Compiler {
         }
     }
 
+    /// Returns the file that `scope` is written in, found through its parents. Returns `FileId(0)` if none has one.
     pub fn scope_file(&self, mut scope: ScopeId) -> FileId {
         loop {
             let s = self.scope(scope);
@@ -776,6 +778,7 @@ impl Compiler {
         self.operand_as_type(op, expr.span)
     }
 
+    /// Reads `op` as a type: a type, a procedure (its procedure type), or a polymorphic struct whose parameters all have defaults (instantiated with them). Anything else fails with `ExpectedType`.
     pub fn operand_as_type(&mut self, op: Operand, span: Span) -> Result<TypeId> {
         match op {
             Operand::Type(t) => Ok(t),
@@ -799,6 +802,7 @@ impl Compiler {
         }
     }
 
+    /// Returns a short description of what `op` is, such as `a value of type s32` or `a module`, for error messages.
     pub fn describe(&self, op: &Operand) -> String {
         match op {
             Operand::Callable {
@@ -830,6 +834,7 @@ impl Compiler {
         }
     }
 
+    /// Evaluates `expr` in `scope` as a constant integer; a bool gives 0 or 1. Fails with `ExpectedConstantInteger` for anything else.
     pub fn eval_int(&mut self, scope: ScopeId, expr: &ast::Expr) -> Result<i128> {
         match self.eval_const(scope, expr, None)? {
             Operand::Const {
@@ -851,6 +856,7 @@ impl Compiler {
         }
     }
 
+    /// Evaluates `expr` in `scope` as a constant, running `#run` code if needed. Fails with `ExpectedConstant` if it is not one.
     pub fn eval_const_value(&mut self, scope: ScopeId, expr: &ast::Expr) -> Result<Value> {
         Ok(self.eval_const_typed(scope, expr)?.0)
     }
@@ -891,6 +897,7 @@ impl Compiler {
         }
     }
 
+    /// Evaluates the condition of an `#if` as a compile-time bool. Reading a variable is an error.
     pub fn eval_static_condition(&mut self, scope: ScopeId, expr: &ast::Expr) -> Result<bool> {
         self.eval_static_condition_as(scope, expr, Some("#if condition must be a constant"))
     }

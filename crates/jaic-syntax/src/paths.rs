@@ -181,6 +181,7 @@ impl CanonCache {
     /// How many paths are kept before the cache is emptied.
     pub const LIMIT: usize = 20_000;
 
+    /// An empty cache.
     pub fn new() -> Self {
         Self::default()
     }

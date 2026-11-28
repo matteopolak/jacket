@@ -10,10 +10,12 @@ use super::version::{self, Range, Requirement, Scheme, Tagged, Version};
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Reading {
     pub scheme: Scheme,
+    /// Text stripped from the front of a tag before it is read as a version.
     pub prefix: Option<String>,
 }
 
 impl Reading {
+    /// How `entry` reads tags; fails when its `scheme` is not one jacket knows.
     pub fn of(entry: &Dependency) -> Result<Self, String> {
         Ok(Self {
             scheme: entry
@@ -26,18 +28,22 @@ impl Reading {
         })
     }
 
+    /// The version `tag` names, or `None` when it does not read as one.
     pub fn parse(&self, tag: &str) -> Option<Version> {
         version::parse_tag(self.scheme, self.prefix.as_deref(), tag)
     }
 
+    /// The tags that read as versions, with the version each names; the rest are dropped.
     pub fn versions(&self, tags: &[RemoteTag]) -> Vec<Tagged> {
         version::versions(self.scheme, self.prefix.as_deref(), tags)
     }
 
+    /// Reads `text` as a range of versions under this scheme.
     pub fn range(&self, text: &str) -> Result<Range, String> {
         version::parse_range(self.scheme, text)
     }
 
+    /// Reads `text` as a range under this scheme, keeping the text as written.
     pub fn requirement(&self, text: &str) -> Result<Requirement, String> {
         Requirement::parse(self.scheme, text)
     }
@@ -59,14 +65,19 @@ pub enum Ask {
 /// What an entry of `jacket.toml` asks for: at most one of a version range, a tag or a commit.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Asked {
+    /// The newest tag the range admits.
     Range(Requirement),
+    /// A tag, named exactly.
     Tag(RefName),
+    /// A commit.
     Rev(Rev),
     /// Nothing: the newest version, else the default branch.
     Unpinned,
 }
 
 impl Asked {
+    /// What `entry` asks for; fails when it sets more than one of `version`, `tag` and `rev`, or
+    /// the one it sets is not valid.
     pub fn of(entry: &Dependency) -> Result<Self, String> {
         match (&entry.version, &entry.tag, &entry.rev) {
             (Some(range), None, None) => Ok(Self::Range(Reading::of(entry)?.requirement(range)?)),
@@ -146,9 +157,12 @@ pub fn recorded(reading: &Reading, picked: &Tagged) -> Recorded {
     }
 }
 
+/// The setting a chosen version is written to `jacket.toml` as.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Recorded {
+    /// A `version` range.
     Version(String),
+    /// A `tag`.
     Tag(String),
 }
 

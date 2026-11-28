@@ -24,6 +24,7 @@ impl Session {
         Ok(tokens)
     }
 
+    /// The semantic tokens of the whole document. Fails when it is not open.
     pub fn semantic_tokens(&self, uri: &DocumentUri) -> Result<Vec<SemanticToken>, Error> {
         let (uri, doc) = self.document_entry(uri)?;
         let text = doc.text.as_str();

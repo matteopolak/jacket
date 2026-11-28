@@ -10,10 +10,15 @@ use crate::lookup::Lookup;
 /// A system package manager jacket knows the names of packages for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PackageManager {
+    /// Homebrew.
     Brew,
+    /// `apt`, for Debian and Ubuntu.
     Apt,
+    /// `dnf`, for Fedora.
     Dnf,
+    /// `pacman`, for Arch.
     Pacman,
+    /// `winget`, for Windows.
     Winget,
 }
 
@@ -85,10 +90,12 @@ pub enum Need {
     Archiver,
     /// A GNU cross driver and C library for a Linux target, or its sysroot from the cache.
     CrossLinux {
+        /// The Linux target built for.
         target: Target,
     },
     /// MinGW-w64, for a Windows target built on another system.
     Mingw {
+        /// Whether the Windows target is Arm64 rather than x64.
         aarch64: bool,
     },
     /// The MSVC linker (Visual Studio build tools) or an LLVM that can stand in for it.
@@ -97,6 +104,7 @@ pub enum Need {
     AppleSdk,
     /// compiler-rt builtins (or `libgcc.a`) for a freestanding target.
     Builtins {
+        /// The freestanding target.
         target: Target,
     },
     /// The GNU Arm embedded toolchain.
@@ -107,7 +115,9 @@ pub enum Need {
     Qemu {
         program: String,
     },
+    /// Node.js, a runner program.
     Node,
+    /// `wasmtime`, a runner program.
     Wasmtime,
     /// `git`, which `jacket migrate` and `jacket dep` ask about the work tree.
     Git,

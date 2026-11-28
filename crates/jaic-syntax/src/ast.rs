@@ -23,6 +23,7 @@ pub use flags::{CallHintFlag, CheckBits, ProcBits, ProcFlags, StructBits, Struct
 pub use spelling::Spelling;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+/// Identifies a declaration or expression node across the whole compilation; see [`AstId::fresh`].
 pub struct AstId(pub u32);
 
 /// Ids a thread takes from `NEXT_AST_BLOCK` at a time, so `fresh` rarely touches the atomic.
@@ -60,12 +61,14 @@ impl AstId {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// A name as written, with where.
 pub struct Ident {
     pub name: Sym,
     pub span: Span,
 }
 
 #[derive(Clone, Debug, PartialEq)]
+/// An `@note` annotation: its text without the `@`, and where it is.
 pub struct Note {
     pub text: Arc<str>,
     pub span: Span,
@@ -92,10 +95,12 @@ impl Note {
 pub struct Notes(Option<Box<Vec<Note>>>);
 
 impl Notes {
+    /// Wraps `notes`, allocating nothing when it is empty.
     pub fn new(notes: Vec<Note>) -> Notes {
         Notes::from(notes)
     }
 
+    /// Appends `notes`, after the ones already held.
     pub fn extend(&mut self, notes: impl IntoIterator<Item = Note>) {
         let mut all = self.0.take().map_or_else(Vec::new, |notes| *notes);
 
@@ -140,10 +145,12 @@ impl<'a> IntoIterator for &'a Notes {
 pub struct Int128([u64; 2]);
 
 impl Int128 {
+    /// Packs `value` into its two words.
     pub fn new(value: u128) -> Int128 {
         Int128([value as u64, (value >> 64) as u64])
     }
 
+    /// The value as a `u128`.
     pub fn get(self) -> u128 {
         self.0[0] as u128 | (self.0[1] as u128) << 64
     }
@@ -152,6 +159,7 @@ impl Int128 {
 // Expressions
 
 #[derive(Clone, Debug)]
+/// An expression, which may denote a type or a value; sema decides which.
 pub struct Expr {
     pub kind: ExprKind,
     pub span: Span,
@@ -162,6 +170,7 @@ pub struct Expr {
 }
 
 impl Expr {
+    /// An expression of `kind` at `span`, with no parentheses recorded.
     pub fn new(kind: ExprKind, span: Span) -> Self {
         Self {
             kind,
@@ -220,6 +229,7 @@ pub enum UnOp {
 }
 
 #[derive(Clone, Debug)]
+/// An argument of a call or a field of a struct literal, with its modifiers.
 pub struct Arg {
     /// `name = value` named argument / struct literal field.
     pub name: Option<Ident>,
@@ -233,6 +243,8 @@ pub struct Arg {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// The options written after `cast`: `cast,no_check`, `cast,force`, and `cast,trunc` (any other
+/// option spelling is read as `trunc`).
 pub struct CastFlags {
     pub no_check: bool,
     pub truncate: bool,
@@ -267,6 +279,8 @@ pub enum TypeModifier {
 }
 
 #[derive(Clone, Debug)]
+/// What an expression is. Types are expressions too, so type syntax (`*T`, `[] T`, `struct {}`,
+/// procedure headers) is here as well.
 pub enum ExprKind {
     Ident(Sym),
     /// `$T` introduces a polymorphic variable; `$$x` is a baked argument
@@ -420,6 +434,7 @@ pub enum DirectiveKind {
 }
 
 impl DirectiveKind {
+    /// The kind of the directive spelled `name` (without the `#`); `Other` for any name not listed.
     pub fn of(name: &str) -> Self {
         match name {
             "Context" => DirectiveKind::Context,
@@ -435,6 +450,7 @@ impl DirectiveKind {
         }
     }
 
+    /// Whether this is one of the `#library` forms.
     pub fn is_library(self) -> bool {
         matches!(self, DirectiveKind::Library { .. })
     }
@@ -555,6 +571,7 @@ pub enum CodeBody {
 // Procedures
 
 #[derive(Clone, Debug)]
+/// A procedure parameter, or a `#module_parameters` entry.
 pub struct Param {
     pub name: Option<Ident>,
     /// `$name: T` (the parameter's value must be a compile-time constant).
@@ -575,6 +592,7 @@ pub struct Param {
 }
 
 #[derive(Clone, Debug)]
+/// A return value of a procedure header, optionally named or defaulted.
 pub struct Return {
     pub name: Option<Ident>,
     /// `None` for `-> x := 5` (the type comes from the default value).
@@ -612,6 +630,7 @@ pub enum LambdaKind {
 }
 
 #[derive(Clone, Debug)]
+/// A procedure's signature and directives: what a procedure literal and a procedure type share.
 pub struct ProcHeader {
     pub id: AstId,
     pub params: Vec<Param>,
@@ -638,6 +657,7 @@ impl ProcHeader {
 }
 
 #[derive(Clone, Debug)]
+/// A procedure literal: its header and body.
 pub struct ProcLit {
     pub header: Arc<ProcHeader>,
     /// `None` for foreign, `#compiler`, `#intrinsic` and `#elsewhere` declarations.
@@ -660,6 +680,7 @@ pub struct UnionTag {
 }
 
 #[derive(Clone, Debug)]
+/// A `struct` or `union` definition.
 pub struct StructLit {
     pub id: AstId,
     pub kind: StructKind,
@@ -702,6 +723,7 @@ pub enum EnumItem {
 }
 
 #[derive(Clone, Debug)]
+/// An `enum` or `enum_flags` definition.
 pub struct EnumLit {
     pub id: AstId,
     pub flags_enum: bool,
@@ -716,6 +738,7 @@ pub struct EnumLit {
 // Statements and declarations
 
 #[derive(Clone, Debug)]
+/// A braced list of statements, which opens a lexical scope.
 pub struct Block {
     pub stmts: Vec<Stmt>,
     pub span: Span,
@@ -733,6 +756,8 @@ pub enum DeclKind {
 }
 
 #[derive(Clone, Debug)]
+/// A declaration statement: one or more names with a type and/or a value (`a, b := 1, 2;`,
+/// `f :: () {}`). Fields that few declarations use are in [`DeclRare`].
 pub struct Decl {
     pub id: AstId,
     pub names: Vec<Ident>,
@@ -815,44 +840,54 @@ impl Decl {
         self.rare.get_or_insert_with(Default::default)
     }
 
+    /// [`DeclRare::extra_values`], empty when there are none.
     pub fn extra_values(&self) -> &[Expr] {
         self.rare.as_ref().map_or(&[], |r| &r.extra_values)
     }
 
+    /// [`DeclRare::existing`], empty when there are none.
     pub fn existing(&self) -> &[bool] {
         self.rare.as_ref().map_or(&[], |r| &r.existing)
     }
 
+    /// [`DeclRare::targets`], empty when there are none.
     pub fn targets(&self) -> &[Option<Expr>] {
         self.rare.as_ref().map_or(&[], |r| &r.targets)
     }
 
+    /// [`DeclRare::using_filter`].
     pub fn using_filter(&self) -> Option<&UsingFilter> {
         self.rare.as_ref().and_then(|r| r.using_filter.as_ref())
     }
 
+    /// [`DeclRare::backtick_names`], empty when there are none.
     pub fn backtick_names(&self) -> &[bool] {
         self.rare.as_ref().map_or(&[], |r| &r.backtick_names)
     }
 
+    /// [`DeclRare::align`].
     pub fn align(&self) -> Option<&Expr> {
         self.rare.as_ref().and_then(|r| r.align.as_ref())
     }
 
+    /// [`DeclRare::flags`], empty when there are none.
     pub fn flags(&self) -> &[Ident] {
         self.rare.as_ref().map_or(&[], |r| &r.flags)
     }
 
+    /// [`DeclRare::foreign`].
     pub fn foreign(&self) -> Option<&Foreign> {
         self.rare.as_ref().and_then(|r| r.foreign.as_ref())
     }
 
+    /// [`DeclRare::union_tag`].
     pub fn union_tag(&self) -> Option<&Expr> {
         self.rare.as_ref().and_then(|r| r.union_tag.as_ref())
     }
 }
 
 #[derive(Clone, Debug)]
+/// One `case` of a `switch` or `#if` switch.
 pub struct Case {
     /// Empty = default case (`case;`).
     pub values: Vec<Expr>,
@@ -869,6 +904,7 @@ pub enum AssignOp {
 }
 
 #[derive(Clone, Debug)]
+/// A `for` loop over a range or a collection, with its iteration modifiers.
 pub struct For {
     /// `for x, i: range` names (iterator and index).
     pub it: Option<Ident>,
@@ -906,6 +942,7 @@ pub enum ForOver {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// The visibility set by `#scope_file`, `#scope_export` or `#scope_module`.
 pub enum ScopeKind {
     File,
     Export,
@@ -925,6 +962,7 @@ pub enum ImportSource {
 }
 
 #[derive(Clone, Debug)]
+/// An `#import` in any of its forms, with its argument lists and the name it binds.
 pub struct Import {
     pub source: ImportSource,
     /// `#import "X"(PARAM=1)`
@@ -975,6 +1013,7 @@ pub enum UsingFilterKind {
 }
 
 #[derive(Clone, Debug)]
+/// What a statement is.
 pub enum StmtKind {
     Decl(Arc<Decl>),
     Expr(Expr),
@@ -1062,6 +1101,7 @@ pub struct SwitchStmt {
 }
 
 #[derive(Clone, Debug)]
+/// A `while` loop.
 pub struct WhileStmt {
     pub label: Option<Ident>,
     /// `while name := cond`: `name` also holds the condition's value inside the loop.
@@ -1098,6 +1138,7 @@ pub struct PushContextDeferStmt {
 }
 
 #[derive(Clone, Debug)]
+/// A statement-level `#if`, whose branches are lists of statements.
 pub struct StaticIfStmt {
     pub cond: Expr,
     pub then_branch: Vec<Stmt>,
@@ -1139,6 +1180,7 @@ pub struct DirectiveStmt {
 }
 
 #[derive(Clone, Debug)]
+/// A statement, with the `@note`s written after it.
 pub struct Stmt {
     pub kind: StmtKind,
     pub span: Span,

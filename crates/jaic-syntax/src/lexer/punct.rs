@@ -1,67 +1,128 @@
 //! Punctuation tokens and their spellings.
 
+/// A punctuation token. Each variant is documented with its spelling, and [`P::text`] gives it back.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum P {
     // Multi-character punctuation, longest first in `PUNCT`.
-    RotlAssign,   // <<<=
-    RotrAssign,   // >>>=
-    Uninit,       // ---
-    AndAndAssign, // &&=
-    OrOrAssign,   // ||=
-    ShlAssign,    // <<=
-    ShrAssign,    // >>=
-    Rotl,         // <<<
-    Rotr,         // >>>
-    ColonColon,   // ::
-    ColonEq,      // :=
-    Arrow,        // ->
-    FatArrow,     // =>
-    DotDot,       // ..
-    DotBrace,     // .{
-    DotBracket,   // .[
-    DotStar,      // .*
-    Shl,          // <<
-    Shr,          // >>
-    Le,           // <=
-    Ge,           // >=
-    EqEq,         // ==
-    Ne,           // !=
-    AndAnd,       // &&
-    OrOr,         // ||
+    /// `<<<=`
+    RotlAssign,
+    /// `>>>=`
+    RotrAssign,
+    /// `---`
+    Uninit,
+    /// `&&=`
+    AndAndAssign,
+    /// `||=`
+    OrOrAssign,
+    /// `<<=`
+    ShlAssign,
+    /// `>>=`
+    ShrAssign,
+    /// `<<<`
+    Rotl,
+    /// `>>>`
+    Rotr,
+    /// `::`
+    ColonColon,
+    /// `:=`
+    ColonEq,
+    /// `->`
+    Arrow,
+    /// `=>`
+    FatArrow,
+    /// `..`
+    DotDot,
+    /// `.{`
+    DotBrace,
+    /// `.[`
+    DotBracket,
+    /// `.*`
+    DotStar,
+    /// `<<`
+    Shl,
+    /// `>>`
+    Shr,
+    /// `<=`
+    Le,
+    /// `>=`
+    Ge,
+    /// `==`
+    EqEq,
+    /// `!=`
+    Ne,
+    /// `&&`
+    AndAnd,
+    /// `||`
+    OrOr,
+    /// `+=`
     AddAssign,
+    /// `-=`
     SubAssign,
+    /// `*=`
     MulAssign,
+    /// `/=`
     DivAssign,
+    /// `%=`
     RemAssign,
+    /// `&=`
     AndAssign,
+    /// `|=`
     OrAssign,
+    /// `^=`
     XorAssign,
-    DollarDollar, // $$
+    /// `$$`
+    DollarDollar,
+    /// `{`
     LBrace,
+    /// `}`
     RBrace,
+    /// `[`
     LBracket,
+    /// `]`
     RBracket,
+    /// `(`
     LParen,
+    /// `)`
     RParen,
+    /// `;`
     Semi,
+    /// `,`
     Comma,
+    /// `:`
     Colon,
+    /// `.`
     Dot,
+    /// `$`
     Dollar,
+    /// ```
     Backtick,
+    /// `+`
     Plus,
+    /// `-`
     Minus,
+    /// `*`
     Star,
+    /// `/`
     Slash,
+    /// `%`
     Percent,
+    /// `=`
     Eq,
+    /// `!`
     Bang,
+    /// `<`
     Lt,
+    /// `>`
     Gt,
+    /// `|`
     Pipe,
+    /// `&`
     Amp,
+    /// `^`
     Caret,
+    /// `~`
     Tilde,
+    /// `?`
     Question,
 }
 
@@ -199,6 +260,7 @@ pub fn spellings() -> impl Iterator<Item = &'static str> {
 }
 
 impl P {
+    /// The spelling in source.
     pub fn text(self) -> &'static str {
         PUNCT
             .iter()

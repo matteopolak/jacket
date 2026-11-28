@@ -128,6 +128,8 @@ impl Default for BuildSettings {
 
 /// Writes a compiled workspace's output. Returns the files written.
 pub trait OutputBackend {
+    /// Compiles `program` under `settings` and writes the result to `output`. Fails with the
+    /// message to report.
     fn write_output(
         &mut self,
         program: &ir::Program,

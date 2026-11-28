@@ -5,17 +5,20 @@ use crate::sema::{
     ast, err, ir,
 };
 
+/// What a procedure becomes in the program.
 #[derive(Clone, Copy, Debug)]
 pub enum ProcTarget {
     Func(ir::FuncId),
     Foreign(ir::ForeignId),
 }
 
+/// A declared parameter of a procedure.
 #[derive(Clone, Debug)]
 pub struct ParamInfo {
     pub name: Option<Sym>,
     pub ty: TypeId,
     pub default: Option<ast::Expr>,
+    /// Names and defaults of the parameter's procedure type, when it has them.
     pub callable: Option<Arc<ProcTypeParams>>,
     pub variadic: bool,
     pub using: bool,
@@ -25,12 +28,14 @@ pub struct ParamInfo {
     pub span: Span,
 }
 
+/// The resolved signature of a procedure.
 #[derive(Clone, Debug)]
 pub struct Signature {
     pub params: Vec<ParamInfo>,
     pub returns: Vec<TypeId>,
     pub return_callables: Vec<Option<Arc<ProcTypeParams>>>,
     pub return_names: Vec<Option<Sym>>,
+    /// The procedure's type.
     pub ty: TypeId,
     pub has_context: bool,
     pub c_call: bool,
@@ -61,6 +66,7 @@ pub(in crate::sema) fn validate_c_variadic_header(header: &ast::ProcHeader) -> R
     Ok(())
 }
 
+/// A procedure the compiler knows about: its literal, its resolved signature, its target and the state of its body. A polymorphic procedure keeps its instances here.
 pub struct ProcInfo {
     pub name: Sym,
     pub lit: Arc<ast::ProcLit>,
@@ -72,15 +78,20 @@ pub struct ProcInfo {
     pub poly_checked: bool,
     pub is_macro: bool,
     pub sig: Option<Arc<Signature>>,
+    /// Set while the signature is being resolved, so that a signature that depends on itself is reported instead of recursing.
     pub sig_resolving: bool,
+    /// The function or foreign symbol of the procedure, once it has one.
     pub target: Option<ProcTarget>,
     pub body_state: BodyState,
+    /// Instances of a polymorphic procedure, by the values bound to its compile-time parameters.
     pub instances: HashMap<Vec<InstanceKeyValue>, ProcId>,
     /// For instances: scope with the polymorphic bindings (parent = defining scope).
     pub bindings: Option<ScopeId>,
+    /// The symbol of a `#program_export` procedure: the name given, or the procedure's own.
     pub export: Option<String>,
 }
 
+/// How far a procedure's body has got.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BodyState {
     NotNeeded,

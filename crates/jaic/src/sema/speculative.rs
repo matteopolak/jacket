@@ -100,10 +100,12 @@ pub fn init() {
     ON.with(|o| o.set(on && BUILT));
 }
 
+/// Returns whether speculative checking is on: the flag is set and this build can intercept writes ([`BUILT`]).
 pub fn enabled() -> bool {
     BUILT && ON.with(Cell::get)
 }
 
+/// Reports a mutable access to the table `table` (a `W` index), at element `at` if it is indexed. Abandons the speculative body, if one is active, unless the access is to a scope or entity the body made itself.
 #[inline(always)]
 pub fn write_hit(table: usize, at: Option<usize>) {
     if ACTIVE.with(Cell::get) {
@@ -111,6 +113,7 @@ pub fn write_hit(table: usize, at: Option<usize>) {
     }
 }
 
+/// Reports an append to the table `table`. Abandons the speculative body, if one is active, unless the table holds scopes or entities.
 #[inline(always)]
 pub fn append_hit(table: usize) {
     if ACTIVE.with(Cell::get) && table != W::NsScopes as usize && table != W::NsEntities as usize {

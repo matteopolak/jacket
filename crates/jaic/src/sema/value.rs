@@ -5,18 +5,23 @@ use crate::diagnostics::Code;
 use crate::ir::Reloc;
 use crate::types::{TypeId, Types};
 
+/// Index into `ProcState::procs`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct ProcId(pub u32);
 
+/// Index into `Namespaces::modules`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct ModuleId(pub u32);
 
+/// Index into `TypeState::poly_structs`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct PolyStructId(pub u32);
 
+/// Index into `Namespaces::libraries`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct LibraryId(pub u32);
 
+/// Index into `ProcState::codes`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct CodeId(pub u32);
 
@@ -39,6 +44,7 @@ pub enum Value {
     Void,
 }
 
+/// The bytes of an aggregate constant, with the pointers inside it as relocations.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Aggregate {
     pub bytes: Vec<u8>,
@@ -117,14 +123,17 @@ impl std::hash::Hash for Value {
 }
 
 impl Value {
+    /// Returns a float with no `float64` requirement.
     pub fn float(value: f64) -> Value {
         Value::Float(value, crate::lexer::FloatLiteralPrecision::default())
     }
 
+    /// Returns whether this is a float that must stay `float64` (see the second field of `Value::Float`).
     pub fn requires_float64(&self) -> bool {
         matches!(self, Value::Float(_, precision) if precision.requires_float64)
     }
 
+    /// Returns the integer, or a bool as 0 or 1. Any other kind gives `None`.
     pub fn as_int(&self) -> Option<i128> {
         match self {
             Value::Int(v) => Some(*v),
@@ -133,6 +142,7 @@ impl Value {
         }
     }
 
+    /// Returns the type of a `Value::Type`; any other kind gives `None`.
     pub fn as_type(&self) -> Option<TypeId> {
         match self {
             Value::Type(t) => Some(*t),

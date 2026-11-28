@@ -9,10 +9,16 @@ use crate::paths::normalize;
 /// Source access. Native builds read the filesystem; the browser supplies a
 /// virtual file system containing the workspace, prelude and stdlib.
 pub trait FileSystem {
+    /// The bytes of the file at `path`, or `None` when it cannot be read.
     fn read(&self, path: &Path) -> Option<Vec<u8>>;
+
+    /// Whether `path` is a file.
     fn is_file(&self, path: &Path) -> bool;
+
+    /// Whether `path` is a directory.
     fn is_dir(&self, path: &Path) -> bool;
 
+    /// `path` with `.` and `..` components resolved by text alone; the default, for file systems that cannot ask better.
     fn canonical(&self, path: &Path) -> PathBuf {
         normalize(path)
     }
@@ -53,6 +59,7 @@ pub fn content_stamp(bytes: &[u8]) -> u64 {
     hasher.finish()
 }
 
+/// The operating system's files, read directly. Paths are canonicalized with [`crate::canonicalize`].
 pub struct NativeFs;
 
 impl FileSystem for NativeFs {
@@ -129,6 +136,8 @@ impl FileSystem for NativeFs {
 }
 
 #[derive(Default)]
+/// Files held in memory, for the browser playground and tests. Paths are normalized on insert
+/// and on every lookup.
 pub struct VirtualFs {
     files: HashMap<PathBuf, Arc<[u8]>>,
     /// Every directory holding a file, however deep, with the names directly inside it (and
@@ -141,6 +150,8 @@ pub struct VirtualFs {
 }
 
 impl VirtualFs {
+    /// Adds or replaces the file at `path`, creating the directory entries above it, and clears the
+    /// stamps worked out so far.
     pub fn insert(&mut self, path: impl Into<PathBuf>, bytes: impl Into<Arc<[u8]>>) {
         let path = normalize(&path.into());
         let parts: Vec<_> = path.components().collect();

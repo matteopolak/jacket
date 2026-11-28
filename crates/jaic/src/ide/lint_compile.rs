@@ -106,10 +106,13 @@ pub enum LintRoot<'a> {
 /// A compiler ready to compile one root, with the host and workspaces it shares with the
 /// metaprograms it runs.
 pub struct LintCompile {
+    /// The root's compiler.
     pub compiler: Box<Compiler>,
+    /// The workspaces the root's metaprograms create.
     pub workspaces: SharedWorkspaces,
     /// The host of the root's compile-time code and of every workspace's.
     pub host: Rc<RefCell<SandboxHost>>,
+    /// What bounds the compile.
     pub limits: CheckLimits,
 }
 
@@ -129,6 +132,8 @@ pub struct LintSetup {
 }
 
 impl LintCompile {
+    /// Builds the root's compiler and its shared workspaces from `setup`, applying `limits`
+    /// (evaluation step budget and wall-clock stop) to the host and compiler. Compiles nothing.
     pub fn start(setup: LintSetup) -> Self {
         let LintSetup {
             fs,

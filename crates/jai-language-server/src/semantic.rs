@@ -31,7 +31,9 @@ pub(crate) use self::shift::Shift;
 /// Where the language server finds modules: a file system for everything that is not an open
 /// document, and compiler options for a main file (import paths, Preload, target).
 pub struct Environment {
+    /// Reads files that are not open documents.
     pub fs: Rc<dyn FileSystem>,
+    /// The compiler options for the main file at the given path.
     pub options: Box<dyn Fn(&Path) -> Options>,
     /// Compile-time services for trusted workspaces (`services::EditorServices`); `None`
     /// answers every call as unavailable.
@@ -41,14 +43,21 @@ pub struct Environment {
 /// Observed semantic analysis coverage, without source text or diagnostic payloads.
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct SemanticCoverage {
+    /// Names the compile the counts are from; the same value means the same compile.
     pub context_id: String,
     /// Passive provenance of the selected analysis/program, not configured CLI intent.
     pub analysis: SemanticAnalysisContext,
+    /// The compile read the file asked about.
     pub source_loaded: bool,
+    /// Name references the compile recorded in that file.
     pub recorded_references: usize,
+    /// Field names in that file the compile tied to a struct.
     pub recorded_fields: usize,
+    /// The compile finished without errors.
     pub program_complete: bool,
+    /// How many errors the compile reported, in any file.
     pub program_errors: usize,
+    /// The target as `Os/Cpu`.
     pub target: String,
 }
 
@@ -58,6 +67,7 @@ pub struct SemanticCoverage {
 pub struct SemanticPath {
     #[serde(skip)]
     pub path: PathBuf,
+    /// A hash of the path: equal paths have equal identities, and it reveals nothing else.
     pub identity: String,
 }
 

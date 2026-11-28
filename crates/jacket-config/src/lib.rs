@@ -94,12 +94,14 @@ pub type Check = fn(&Config, &Path) -> Result<(), String>;
 
 /// The files a lookup sees: the disk, or an editor's open buffers over it.
 pub trait Files {
+    /// Whether `path` names an existing file; a directory is not one.
     fn is_file(&self, path: &Path) -> bool;
 
     /// The file's text, or why it could not be read.
     fn read(&self, path: &Path) -> std::io::Result<String>;
 }
 
+/// [`Files`] over the real file system.
 pub struct Disk;
 
 impl Files for Disk {
@@ -115,10 +117,12 @@ impl Files for Disk {
 /// The nearest directory holding a `jacket.toml`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Location {
+    /// The directory holding the `jacket.toml`.
     pub dir: PathBuf,
 }
 
 impl Location {
+    /// The path of the `jacket.toml` in [`Location::dir`].
     pub fn file(&self) -> PathBuf {
         self.dir.join(FILE_NAME)
     }
@@ -137,7 +141,9 @@ pub fn locate(fs: &dyn Files, start: &Path) -> Option<Location> {
 /// A settings file that could not be read.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ConfigError {
+    /// The `jacket.toml` that failed.
     pub path: PathBuf,
+    /// Why: an unreadable file, or the [`parse`] error.
     pub message: String,
 }
 
@@ -153,7 +159,9 @@ impl std::error::Error for ConfigError {
 /// Settings and where they came from.
 #[derive(Clone, Debug)]
 pub struct Loaded {
+    /// The parsed settings.
     pub config: Config,
+    /// The directory the file was found in.
     pub location: Location,
     /// Always empty: a key the schema does not know is an error. Read by `jacket`'s callers
     /// until they drop it.
@@ -163,6 +171,7 @@ pub struct Loaded {
 }
 
 impl Loaded {
+    /// The directory holding the `jacket.toml`.
     pub fn dir(&self) -> &Path {
         &self.location.dir
     }
@@ -347,6 +356,7 @@ pub fn line_of(text: &str, key: &str) -> Option<usize> {
 
 /// The entry files of the project based at `base`.
 pub struct EntryFiles {
+    /// Candidate paths under the base, in order of preference. They may not exist.
     pub paths: Vec<PathBuf>,
     /// They are the configured `[project] entry`; otherwise they are the [`INFERRED_ENTRIES`],
     /// of which only those that exist are entries.

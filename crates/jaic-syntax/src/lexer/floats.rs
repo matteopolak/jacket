@@ -17,11 +17,14 @@ pub struct FloatLiteralPrecision {
     pub requires_float64_due_to_significant_digits: bool,
 }
 
+/// Whether `value` is a normal number whose binary exponent falls outside the `float32` range.
+/// Zero, subnormals, infinities and NaN are not.
 pub fn has_big_float32_exponent(value: f64) -> bool {
     let encoded = ((value.to_bits() >> 52) & 0x7ff) as i32;
     encoded != 0 && encoded != 0x7ff && !(-126..=127).contains(&(encoded - 1023))
 }
 
+/// Works out the precision rules for the float literal spelled `text`, whose value is `value`.
 pub fn float_literal_precision(text: &str, value: f64) -> FloatLiteralPrecision {
     if let Some(hex) = text.strip_prefix("0h").or_else(|| text.strip_prefix("0H")) {
         return FloatLiteralPrecision {

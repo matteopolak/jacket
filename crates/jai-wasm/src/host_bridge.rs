@@ -52,6 +52,7 @@ const STDIN_CHUNK: usize = 4096;
 
 /// The playground's interpreter host: the sandbox plus the page's host functions.
 pub struct PlayHost {
+    /// The sandbox state, which the caller keeps a handle to.
     pub shared: SharedHost,
     budget: Option<u64>,
     waited: bool,
@@ -60,6 +61,8 @@ pub struct PlayHost {
 }
 
 impl PlayHost {
+    /// A host over `shared`. `budget` is the number of interpreter steps granted again each time
+    /// the program has waited for the page; with `None` an exhausted budget is never refilled.
     pub fn new(shared: SharedHost, budget: Option<u64>) -> PlayHost {
         PlayHost {
             shared,

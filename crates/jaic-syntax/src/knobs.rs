@@ -22,6 +22,7 @@ pub enum Profile {
 }
 
 #[derive(Clone, Debug, Default)]
+/// The settings, each off or unset by default.
 pub struct Knobs {
     /// Size of the shared thread pool (`-threads`, `jaic::pool`); `None`: one per core.
     pub threads: Option<usize>,

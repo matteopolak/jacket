@@ -76,6 +76,7 @@ impl Compiler {
         )
     }
 
+    /// Checks a struct literal `Type.{...}`, or `.{...}` whose type comes from `expected`. Fails with `StructCannotInferType` when neither gives a type.
     pub fn check_struct_literal(
         &mut self,
         f: &mut FnCtx,
@@ -369,6 +370,7 @@ impl Compiler {
         })
     }
 
+    /// Checks an array literal `Type.[...]`, or `.[...]`. The element type comes from the written type or from an array type in `expected`.
     pub fn check_array_literal(
         &mut self,
         f: &mut FnCtx,

@@ -481,6 +481,7 @@ impl Compiler {
         scratch
     }
 
+    /// Checks `expr` in a scratch function context that discards whatever it emits, and returns its operand. Used to learn an expression's type or constant value.
     pub fn check_expr_no_emit(&mut self, scope: ScopeId, expr: &ast::Expr) -> Result<Operand> {
         let mut scratch = self.scratch_ctx(scope);
         self.check_expr(&mut scratch, scope, expr, None)
@@ -659,6 +660,9 @@ impl Compiler {
         Some(self.match_candidate(proc, &args, span).ok()?.proc)
     }
 
+    /// Checks `#procedure_of_call call`: returns the procedure, as `Operand::Procs`, that the call would invoke, without emitting a call. Only the argument types matter.
+    ///
+    /// Fails when `call` is not a call (`CallProcedureNeedsExpression`), its callee is not a procedure (`CallProcedureNeedsProcedure`), or no overload accepts the arguments (`CallNoProcedureMatches`).
     pub fn check_procedure_of_call(
         &mut self,
         f: &mut FnCtx,

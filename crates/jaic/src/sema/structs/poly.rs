@@ -13,6 +13,7 @@ use crate::sema::{
 use crate::types::{ArrayKind, LayoutState, StructInfo, TypeKind};
 
 impl Compiler {
+    /// Creates the struct type for `lit`, named `name` and written in `parent`, with `bindings` declared as constants in the struct's own scope. `poly` is set for an instance of a polymorphic struct: the struct and the argument values.
     pub fn new_struct_type(
         &mut self,
         name: Sym,
@@ -280,6 +281,7 @@ impl Compiler {
         }))
     }
 
+    /// Returns the instance of polymorphic struct `ps` for `args`, creating it on first use. Fails when `ps` already has [`MAX_INSTANCES`](crate::sema::MAX_INSTANCES) instances.
     pub fn instantiate_struct(
         &mut self,
         ps: PolyStructId,
@@ -572,6 +574,7 @@ impl TypeState {
         })
     }
 
+    /// Registers the polymorphic struct `lit`, named `name` and declared in `scope`, and returns its id.
     pub fn new_poly_struct(
         &mut self,
         name: Sym,

@@ -383,6 +383,7 @@ impl Compiler {
         Ok(())
     }
 
+    /// Checks one statement and emits its code into `f`. First records the statement's position (`Inst::Loc`) when it is in the function's own file and the block is still open.
     pub fn check_stmt(&mut self, f: &mut FnCtx, scope: ScopeId, stmt: &ast::Stmt) -> Result<()> {
         let span = stmt.span;
 

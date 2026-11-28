@@ -215,8 +215,11 @@ pub fn check_sanitizer_target(target: Option<BuildTarget>) -> Result<(), String>
 /// What a native build writes.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum OutputKind {
+    /// A program.
     Executable,
+    /// A shared library (`.dll`, `.so`, `.dylib`).
     DynamicLibrary,
+    /// A static archive.
     StaticLibrary,
 }
 

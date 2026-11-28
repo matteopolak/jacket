@@ -35,6 +35,7 @@ pub use rules::{RULES, RuleInfo};
 /// One replacement in the linted file: bytes `start..end` become `text`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Edit {
+    /// Byte range into the file's text that `text` replaces.
     pub start: usize,
     pub end: usize,
     pub text: String,
@@ -45,6 +46,7 @@ pub struct Edit {
 pub struct Fix {
     /// What the change does (`loop over the elements`).
     pub title: String,
+    /// The replacements, in the one file the finding is in.
     pub edits: Vec<Edit>,
     /// Safe to apply without review (`--fix` applies only these).
     pub machine_applicable: bool,
@@ -54,17 +56,23 @@ pub struct Fix {
 /// compiler's source allocation, so multiple labels never copy an entire file.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SecondaryLabel {
+    /// The file the label is in; it may differ from the finding's file.
     pub path: String,
+    /// The whole text of that file.
     pub text: Arc<str>,
+    /// Byte range into `text`.
     pub start: usize,
     pub end: usize,
+    /// The text shown at the range.
     pub message: String,
 }
 
 /// A finding.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Lint {
+    /// The name of the rule that reported it.
     pub rule: &'static str,
+    /// The level the rule has for this file, after settings and flags.
     pub level: Level,
     pub path: String,
     /// Byte range into the file's text.
@@ -77,6 +85,7 @@ pub struct Lint {
     pub help: Option<String>,
     /// Further facts, printed as `note:` lines after the advice.
     pub notes: Vec<String>,
+    /// Other places that explain the finding.
     pub secondary: Vec<SecondaryLabel>,
     pub fix: Option<Fix>,
 }

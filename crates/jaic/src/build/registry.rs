@@ -29,6 +29,7 @@ impl Workspaces {
         }
     }
 
+    /// Creates the workspace registry for `env`, holding only the top-level `Target Program` workspace (already `Checked`).
     pub fn new(env: BuildEnv) -> SharedWorkspaces {
         let mut top = Workspace::new("Target Program".into());
 

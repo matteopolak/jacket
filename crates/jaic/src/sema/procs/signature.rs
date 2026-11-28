@@ -15,6 +15,7 @@ use crate::sema::{
 use crate::types::{ArrayKind, ProcType, TypeKind};
 
 impl Compiler {
+    /// Adds a procedure record for `lit`, defined in `scope`, and returns its id. The record has no signature, target or body yet. A `#program_export` procedure is also listed in `ProcState::exports`.
     pub fn new_proc(
         &mut self,
         name: Sym,
@@ -135,6 +136,7 @@ impl Compiler {
         })
     }
 
+    /// Returns the polymorphic struct that `name` denotes in `scope`, or `None` if it denotes something else or nothing, or if resolving it fails.
     pub fn ident_poly_struct(
         &mut self,
         scope: ScopeId,
@@ -167,6 +169,7 @@ impl Compiler {
         })
     }
 
+    /// Returns the record of procedure `id`.
     pub fn proc(&self, id: ProcId) -> &ProcInfo {
         &self.pr.procs[id.0 as usize]
     }
@@ -203,6 +206,9 @@ impl Compiler {
         }
     }
 
+    /// Returns the signature of a non-polymorphic procedure or instance, resolving it on first use.
+    ///
+    /// Fails with `ProcSignatureDependsItself` if resolving it needs its own signature.
     pub fn signature(&mut self, id: ProcId, span: Span) -> Result<Arc<Signature>> {
         if let Some(sig) = &self.proc(id).sig {
             return Ok(sig.clone());
@@ -546,6 +552,7 @@ impl Compiler {
         })
     }
 
+    /// Returns the procedure type of `id`, resolving its signature if needed.
     pub fn proc_type(&mut self, id: ProcId, span: Span) -> Result<TypeId> {
         Ok(self.signature(id, span)?.ty)
     }

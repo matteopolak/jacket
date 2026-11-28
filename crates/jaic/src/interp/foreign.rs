@@ -222,6 +222,8 @@ impl Interp {
         Ok(())
     }
 
+    /// Resolves the native address of foreign procedure `id`, loading the libraries the program
+    /// requires first. A found address is cached.
     pub fn foreign_addr(&mut self, program: &Program, id: ForeignId) -> Res<u64> {
         // A required library may register classes/constructors without supplying
         // the symbol being requested. Include libraries added since an earlier lookup.

@@ -14,15 +14,18 @@ pub enum ErrorKind {
 /// A command-line mistake: a message, then help lines.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Error {
+    /// Which mistake it is.
     pub kind: ErrorKind,
     /// The option involved (`-timing`), when there is one.
     pub subject: String,
+    /// What went wrong; it is also the [`Display`](std::fmt::Display) text.
     pub message: String,
+    /// Extra lines a tool prints after the message, one hint each.
     pub help: Vec<String>,
 }
 
 impl Error {
-    /// A refused value or argument.
+    /// A refused value or argument, with an empty `subject`.
     pub fn invalid(message: impl Into<String>) -> Self {
         Error {
             kind: ErrorKind::Invalid,
@@ -32,6 +35,12 @@ impl Error {
         }
     }
 
+    /// Adds a hint line after the message.
+    ///
+    /// ```
+    /// let error = argdef::Error::invalid("bad value").help("use a number");
+    /// assert_eq!(error.help, ["use a number"]);
+    /// ```
     #[must_use]
     pub fn help(mut self, help: impl Into<String>) -> Self {
         self.help.push(help.into());

@@ -56,6 +56,7 @@ proc_bits! {
 pub struct CheckBits(u8);
 
 impl CheckBits {
+    /// No checks turned off.
     pub const NONE: Self = Self(0);
     /// `#no_abc`: no array bounds checks.
     pub const NO_ABC: Self = Self(1);
@@ -63,16 +64,19 @@ impl CheckBits {
     pub const NO_AOC: Self = Self(2);
 
     #[must_use]
+    /// Whether array bounds checks are off.
     pub fn no_abc(self) -> bool {
         self.0 & Self::NO_ABC.0 != 0
     }
 
     #[must_use]
+    /// Whether arithmetic overflow checks are off.
     pub fn no_aoc(self) -> bool {
         self.0 & Self::NO_AOC.0 != 0
     }
 
     #[must_use]
+    /// Whether every check is left on.
     pub fn is_empty(self) -> bool {
         self.0 == 0
     }
@@ -97,13 +101,18 @@ impl CheckBits {
 }
 
 #[derive(Clone, Debug, Default)]
+/// The directives of a procedure header: the on/off bits (read through the getters, such as
+/// `c_call()`) and the ones that carry a value.
 pub struct ProcFlags {
     /// Set on the header of a lambda's desugared procedure literal.
     pub lambda: LambdaKind,
     pub(crate) bits: ProcBits,
+    /// `#elsewhere`: `Some` when written, holding the library name if one follows.
     pub elsewhere: Option<Option<Ident>>,
     pub inline: CallHintFlag,
+    /// `#deprecated`: `Some` when written, holding the message string if one follows.
     pub deprecated: Option<Option<Arc<[u8]>>>,
+    /// `#program_export`: `Some` when written, holding the exported symbol name if one follows.
     pub program_export: Option<Option<Arc<[u8]>>>,
     /// The string after `#target_features`: CPU features (`"avx2,bmi2"`) the native code of
     /// this procedure may use on top of the build's.
@@ -144,6 +153,7 @@ impl ProcFlags {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// A `#no_inline` or `#inline` directive on a procedure header.
 pub enum CallHintFlag {
     #[default]
     None,
@@ -160,9 +170,13 @@ pub enum CallHintFlag {
 pub struct StructBits(u8);
 
 impl StructBits {
+    /// `#no_padding`.
     pub const NO_PADDING: Self = Self(0x04);
+    /// `#type_info_none`.
     pub const TYPE_INFO_NONE: Self = Self(0x08);
+    /// `#type_info_no_size_complaint`.
     pub const TYPE_INFO_NO_SIZE_COMPLAINT: Self = Self(0x10);
+    /// `#type_info_procedures_are_void_pointers`.
     pub const TYPE_INFO_PROCEDURES_ARE_VOID_POINTERS: Self = Self(0x20);
 
     /// The bit for the directive `name` (without the `#`), if it is a flag directive.
@@ -187,8 +201,10 @@ impl StructBits {
 }
 
 #[derive(Clone, Debug, Default)]
+/// The directives of a struct header: the flag bits (see [`StructBits`]) and `#align`.
 pub struct StructFlags {
     bits: StructBits,
+    /// The expression after `#align`.
     pub align: Option<Expr>,
 }
 

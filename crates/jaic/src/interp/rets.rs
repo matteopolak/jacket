@@ -26,6 +26,7 @@ impl Rets {
         rets
     }
 
+    /// The values in order.
     pub fn into_vec(self) -> Vec<u64> {
         if self.len <= 4 {
             self.inline[..self.len].to_vec()

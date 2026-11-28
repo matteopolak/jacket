@@ -330,6 +330,7 @@ impl Compiler {
         Ok(None)
     }
 
+    /// Returns whether the type `ty`, or the type it points to, has a member called `name`.
     pub fn type_has_member(&mut self, ty: TypeId, name: Sym) -> Result<bool> {
         let target = self.ty.types.pointee(ty).unwrap_or(ty);
 

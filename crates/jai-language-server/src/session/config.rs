@@ -252,6 +252,8 @@ impl Session {
             .is_some_and(|services| services.waiting())
     }
 
+    /// Whether the workspace's compile-time code may run (see `set_trusted`); true by
+    /// default.
     pub fn trusted(&self) -> bool {
         self.semantic.borrow().trusted()
     }
@@ -272,6 +274,8 @@ impl Session {
         self.formatter_path = path;
     }
 
+    /// Sets the client's workspace folders, where projects without a `jacket.toml` are inferred.
+    /// Duplicates are dropped, and every compile's inputs count as changed.
     pub fn set_workspace_folders(&mut self, folders: Vec<PathBuf>) {
         self.workspace_diagnostics.borrow_mut().invalidate_all();
         self.polymorph_index.borrow_mut().clear();
@@ -347,10 +351,12 @@ impl Session {
         }
     }
 
+    /// The limits the session was made with.
     pub fn limits(&self) -> Limits {
         self.limits
     }
 
+    /// The text of every open Jai document, by path. `jacket.toml` files are left out.
     pub fn source_snapshot(&self) -> VirtualSources {
         VirtualSources {
             files: self
@@ -361,6 +367,7 @@ impl Session {
         }
     }
 
+    /// The document's text with every change so far. Fails when it is not open.
     pub fn document_text(&self, uri: &DocumentUri) -> Result<&str, Error> {
         if let Some((_, config)) = self.config_document(uri) {
             return Ok(config.text.as_str());
@@ -369,6 +376,7 @@ impl Session {
         Ok(self.document(uri)?.text.as_str())
     }
 
+    /// The version the client last sent for the document. Fails when it is not open.
     pub fn version(&self, uri: &DocumentUri) -> Result<i32, Error> {
         if let Some((_, config)) = self.config_document(uri) {
             return Ok(config.version);

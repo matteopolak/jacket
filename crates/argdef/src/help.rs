@@ -4,6 +4,7 @@ use crate::spec::Spec;
 /// One line of a section: a label and what it means.
 #[derive(Clone, Debug)]
 pub struct Row {
+    /// The left column, such as `-out <file>`; a label longer than 24 characters puts its text on the next line.
     pub label: String,
     /// Further lines are indented under the first.
     pub text: String,
@@ -13,10 +14,15 @@ pub struct Row {
 #[derive(Clone, Debug)]
 pub struct Help {
     pub name: String,
+    /// Printed after the name; omitted when empty.
     pub version: String,
+    /// Printed after the name and version as `: about`; omitted when empty.
     pub about: String,
+    /// The line after `Usage:`; the heading is omitted when empty.
     pub usage: String,
+    /// A paragraph after the usage line; omitted when empty.
     pub description: String,
+    /// Titles with their rows, in print order. A section with no rows is still printed.
     pub sections: Vec<(String, Vec<Row>)>,
     /// Paragraphs after the sections.
     pub footer: Vec<String>,

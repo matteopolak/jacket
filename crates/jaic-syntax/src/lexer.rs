@@ -27,6 +27,7 @@ use crate::intern::Sym;
 use crate::source::Span;
 
 #[derive(Clone, Debug, PartialEq)]
+/// A token's kind and payload.
 pub enum Tok {
     Ident(Sym),
     /// `#name`, stored without the hash.
@@ -53,6 +54,7 @@ impl Tok {
 }
 
 #[derive(Clone, Debug)]
+/// A token with its place in the source.
 pub struct Token {
     pub tok: Tok,
     pub span: Span,

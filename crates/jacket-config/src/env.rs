@@ -16,11 +16,17 @@ use std::ffi::OsString;
 /// harness.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Reader {
+    /// The compiler, `jaic`.
     Jaic,
+    /// The project tool, `jacket`.
     Jacket,
+    /// The linter, `jailint`.
     Jailint,
+    /// The language server, `jailsp`.
     Jailsp,
+    /// The test harnesses.
     Tests,
+    /// The fuzz harness.
     Fuzz,
 }
 
@@ -52,6 +58,7 @@ pub enum Group {
 }
 
 impl Group {
+    /// Every group, in the order the reference page lists them.
     pub const ALL: [Group; 4] = [
         Group::Settings,
         Group::Handoff,
@@ -73,12 +80,15 @@ impl Group {
 /// One environment variable.
 #[derive(Clone, Copy, Debug)]
 pub struct Var {
+    /// The name in the environment, such as `JAIC_STDLIB`.
     pub name: &'static str,
+    /// Which section of the reference page lists it.
     pub group: Group,
     /// What it does, one or two sentences.
     pub summary: &'static str,
     /// What happens when it is unset.
     pub default: &'static str,
+    /// The programs that read it.
     pub readers: &'static [Reader],
 }
 
@@ -111,6 +121,9 @@ macro_rules! vars {
         default: $default:literal, summary: $summary:literal $(,)?
     })*) => {
         $(
+            // The summaries are prose for the reference page, not Markdown.
+            #[allow(clippy::doc_markdown)]
+            #[doc = $summary]
             $(#[$meta])*
             pub const $id: Var = Var {
                 name: $name,
@@ -126,13 +139,11 @@ macro_rules! vars {
 }
 
 vars! {
-    /// Exact retained-fact measurements with the dedicated counted-allocator example.
     LIFETIME_MEMORY {
         name: "JAILINT_LIFETIME_MEMORY", group: Settings, readers: [Jailint, Tests],
         default: "No destructive retained-fact profiling.",
         summary: "With the lifetime_memory example and one worker, measure selected lifetime facts separately from all other lint facts after each compiler finishes linting.",
     }
-    /// Coverage counters for the lifetime rules.
     LIFETIME_STATS {
         name: "JAILINT_LIFETIME_STATS", group: Settings, readers: [Jailint],
         default: "No lifetime coverage counters.",
@@ -598,7 +609,7 @@ pub fn output_dir_below(
         .map(|dir| root.join(dir))
 }
 
-/// The declaration of the variable called `name`.
+/// The declaration of the variable called `name`, or `None` when none is declared.
 pub fn find(name: &str) -> Option<&'static Var> {
     ALL.iter().find(|var| var.name == name)
 }

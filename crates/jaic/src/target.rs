@@ -35,6 +35,8 @@ pub enum TargetCpu {
 /// The names `-os` accepts.
 pub const OS_NAMES: [&str; 5] = ["linux", "windows", "macos", "wasm", "none"];
 
+/// The OS named `name` (`linux`, `windows`, `macos`, `wasm` or `none`), or `None` for any other
+/// name.
 pub fn parse_os(name: &str) -> Option<TargetOs> {
     match name {
         "linux" => Some(TargetOs::Linux),
@@ -61,6 +63,7 @@ pub fn parse_cpu(name: &str) -> Option<TargetCpu> {
     }
 }
 
+/// The name `parse_os` reads back to `os`.
 pub fn os_name(os: TargetOs) -> &'static str {
     match os {
         TargetOs::Windows => "windows",
@@ -71,6 +74,7 @@ pub fn os_name(os: TargetOs) -> &'static str {
     }
 }
 
+/// The name of `cpu` as flags and notes spell it, such as `x64` or `ppc64`.
 pub fn cpu_name(cpu: TargetCpu) -> &'static str {
     match cpu {
         TargetCpu::X64 => "x64",
@@ -472,10 +476,12 @@ impl Target {
         crate::toolchain::Toolchain::for_target(self)
     }
 
+    /// Whether the OS is Windows.
     pub fn is_windows(self) -> bool {
         self.os == TargetOs::Windows
     }
 
+    /// Whether the OS is WebAssembly.
     pub fn is_wasm(self) -> bool {
         self.os == TargetOs::Wasm
     }
@@ -485,6 +491,7 @@ impl Target {
         self.os == TargetOs::None
     }
 
+    /// Whether the OS is macOS.
     pub fn is_apple(self) -> bool {
         self.os == TargetOs::MacOS
     }

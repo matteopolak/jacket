@@ -93,6 +93,7 @@ impl Compiler {
         }
     }
 
+    /// Returns the module instance that `import`, written in `from_scope`, names, loading it on first use. The import's arguments are evaluated here.
     pub fn resolve_import(
         &mut self,
         from_scope: ScopeId,

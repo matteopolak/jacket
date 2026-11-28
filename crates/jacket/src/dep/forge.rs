@@ -18,8 +18,7 @@ use super::policy::parse_time;
 use super::types::CommitId;
 use crate::net::{Curl, Response, parse_response};
 
-/// Status, lower-cased headers and body of an HTTP answer.
-
+/// The API a forge host speaks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind {
     GitHub,
@@ -38,6 +37,7 @@ pub fn kind_of(host: &str) -> Option<Kind> {
     }
 }
 
+/// A tag's release and when it was published.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Release {
     pub tag: String,
@@ -45,15 +45,19 @@ pub struct Release {
     pub published: i64,
 }
 
+/// The answer to a release-list request.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Fetched {
+    /// The list as the forge has it now, with the `ETag` to revalidate it by.
     Fresh {
         etag: Option<String>,
         releases: Vec<Release>,
     },
+    /// The `ETag` sent still matches, so the list held is current.
     NotModified,
 }
 
+/// Why a forge request failed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ForgeError {
     /// The forge refused for now: the text says until when, or how to lift the limit.
@@ -77,11 +81,13 @@ pub struct Repo {
 }
 
 impl Repo {
+    /// `host/path`, the form the cache is keyed by.
     pub fn key(&self) -> String {
         format!("{}/{}", self.host, self.path)
     }
 }
 
+/// A source of release lists; [`Http`] is the real one.
 pub trait Forge {
     /// Stops with next steps when the forges cannot be asked (`curl` is not installed). Run
     /// before anything changes.
@@ -168,6 +174,8 @@ impl Cache {
         cache
     }
 
+    /// Writes the cache to its file. Does nothing for an in-memory cache, and a write that fails
+    /// is ignored: the cache only saves requests.
     pub fn save(&self) {
         let Some(file) = &self.file else {
             return;
@@ -205,6 +213,7 @@ impl Cache {
         self.times.get(&Self::time_key(repo, tag, commit)).copied()
     }
 
+    /// Keeps `releases` as the list for `repo` and counts it as fetched during this run.
     pub fn remember_list(&mut self, repo: &Repo, etag: Option<String>, releases: Vec<Release>) {
         self.fresh.insert(repo.key());
         self.lists.insert(repo.key(), (etag, releases));
@@ -320,6 +329,8 @@ pub struct Http {
 }
 
 impl Http {
+    /// Reads the forge API base and the GitHub and GitLab tokens from the environment; a token
+    /// that is empty counts as unset.
     pub fn from_env() -> Self {
         let token = |var: &jacket_config::env::Var| {
             var.get()

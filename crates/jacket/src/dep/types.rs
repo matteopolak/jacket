@@ -33,6 +33,7 @@ impl CommitId {
         Self(format!("{hex:0>40}"))
     }
 
+    /// The id as 40 or 64 lowercase hex digits.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -70,6 +71,7 @@ impl fmt::Display for CommitId {
 pub struct Rev(String);
 
 impl Rev {
+    /// Reads 7 to 64 hex digits, in either case, into lowercase.
     pub fn parse(text: &str) -> Result<Self, String> {
         let text = text.trim();
 
@@ -80,6 +82,7 @@ impl Rev {
         }
     }
 
+    /// The digits, in lowercase.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -106,6 +109,7 @@ pub enum Target {
 }
 
 impl Target {
+    /// The commit id or abbreviation as text.
     pub fn as_str(&self) -> &str {
         match self {
             Self::Commit(id) => id.as_str(),
@@ -131,6 +135,9 @@ impl From<CommitId> for Target {
 pub struct RefName(String);
 
 impl RefName {
+    /// Reads a name, refusing what `git check-ref-format` refuses: an empty name, a leading `-`,
+    /// `/` or `.`, a trailing `/`, `.` or `.lock`, `..`, `//`, `@{`, a lone `@`, and whitespace,
+    /// control characters and `~^:?*[\`.
     pub fn parse(text: &str) -> Result<Self, String> {
         let bad = |why: &str| Err(format!("`{text}` is not a tag or branch name: {why}"));
 
@@ -159,6 +166,7 @@ impl RefName {
         Ok(Self(text.to_string()))
     }
 
+    /// The name as written.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -184,6 +192,8 @@ impl fmt::Display for RefName {
 pub struct SubPath(String);
 
 impl SubPath {
+    /// Reads a folder written with `/`. Fails when it is empty, absolute (a leading `/`, a `\`
+    /// or a drive letter), has a control character, or has an empty, `.` or `..` part.
     pub fn parse(text: &str) -> Result<Self, String> {
         let bad = |why: &str| {
             Err(format!(
@@ -210,6 +220,7 @@ impl SubPath {
         Ok(Self(text.to_string()))
     }
 
+    /// The path as written, with `/` separators.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -266,6 +277,7 @@ pub enum Revision {
 }
 
 impl Revision {
+    /// The id, abbreviation or tag name as text.
     pub fn as_str(&self) -> &str {
         match self {
             Self::Commit(id) => id.as_str(),
@@ -301,8 +313,11 @@ impl From<&RefName> for Revision {
 pub struct Age(i64);
 
 impl Age {
+    /// No age: every version passes.
     pub const ZERO: Self = Self(0);
 
+    /// Reads a whole number and a unit (`s`, `m`, `h`, `d` or `w`), or `0`. Fails on a negative
+    /// number, a missing unit and a value that overflows.
     pub fn parse(text: &str) -> Result<Self, String> {
         let text = text.trim();
         let bad = || {
@@ -332,6 +347,7 @@ impl Age {
         n.checked_mul(scale).map(Self).ok_or_else(bad)
     }
 
+    /// The age in seconds.
     pub fn seconds(self) -> i64 {
         self.0
     }

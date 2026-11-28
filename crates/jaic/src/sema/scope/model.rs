@@ -4,19 +4,23 @@ use crate::sema::{
 };
 use crate::types::TypeId;
 
+/// Index into `Namespaces::scopes`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct ScopeId(pub u32);
 
+/// Index into `Namespaces::entities`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct EntityId(pub u32);
 
 /// Result of a full name lookup.
 pub enum Found {
+    /// The name is bound to these entities.
     Entities(Vec<EntityId>),
     /// The name is a member reached through a `using` entry.
     Using(UsingEntry, Sym),
 }
 
+/// What a scope belongs to.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ScopeKind {
     Root,
@@ -31,6 +35,7 @@ pub enum ScopeKind {
     Macro,
 }
 
+/// How far a pending item has got in its expansion.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PendingState {
     Waiting,
@@ -47,10 +52,12 @@ pub struct Pending {
     pub state: PendingState,
 }
 
+/// An import written in a scope: a named `#import`, or a `using` of one.
 #[derive(Clone)]
 pub struct ImportEntry {
     pub import: Arc<ast::Import>,
     pub module: Option<ModuleId>,
+    /// Set while the import's module is being resolved, so that a recursive reference sees no module yet instead of recursing.
     pub loading: bool,
     /// The file that wrote the import (for relative paths and parameter evaluation).
     pub from_scope: ScopeId,
@@ -99,6 +106,7 @@ impl UsingEntry {
         }
     }
 
+    /// Returns the type whose members this entry brings in, or `None` for a module.
     pub fn member_type(&self) -> Option<TypeId> {
         match self {
             Self::Place {
@@ -111,6 +119,7 @@ impl UsingEntry {
     }
 }
 
+/// A lexical scope: the names declared in it, its imports, its pending items and its `using` entries.
 pub struct Scope {
     pub kind: ScopeKind,
     /// Deferred headers read enclosing declarations at their instantiation site.
@@ -122,12 +131,15 @@ pub struct Scope {
     pub inserted_into: Option<ScopeId>,
     pub module: ModuleId,
     pub file: Option<FileId>,
+    /// Entities declared in the scope, by name. [`Scope::declared`] lists them in a stable order.
     pub names: HashMap<Sym, Vec<EntityId>>,
     pub imports: Vec<ImportEntry>,
+    /// Conditional or generated top-level items whose declarations are not known yet.
     pub pending: Vec<Pending>,
     /// How many leading `pending` items are `Done`: a done item never changes again, so
     /// scans start after them (every name lookup into the scope asks).
     pub pending_done: usize,
+    /// The `using` entries in effect in the scope.
     pub usings: Vec<UsingEntry>,
     /// Procedure whose body this scope belongs to (locals are only visible inside it).
     pub proc_depth: u32,
@@ -156,6 +168,7 @@ impl Scope {
     }
 }
 
+/// A name the compiler defines itself.
 #[derive(Clone, Debug)]
 pub enum Builtin {
     Type(TypeId),
@@ -165,6 +178,7 @@ pub enum Builtin {
     TargetConstant(Sym),
 }
 
+/// A procedure the call checker handles itself.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BuiltinProc {
     SizeOf,
@@ -178,6 +192,7 @@ pub enum BuiltinProc {
     CodeOf,
 }
 
+/// What an entity was declared as.
 #[derive(Clone, Debug)]
 pub enum EntityKind {
     /// Global or struct-level constant/variable from source.
@@ -191,7 +206,9 @@ pub enum EntityKind {
     /// A runtime local living at `addr` in the procedure being lowered.
     Local {
         ty: TypeId,
+        /// Address of the variable in the function being lowered.
         addr: ir::Val,
+        /// The `proc_depth` of the scope of the procedure that owns the variable.
         depth: u32,
     },
     /// A known constant (polymorphic bindings, module parameters, enum members...).
@@ -209,6 +226,7 @@ pub enum EntityKind {
     UnboundGenericParameter,
 }
 
+/// What a resolved entity names.
 #[derive(Clone, Debug)]
 pub enum Resolved {
     Const {
@@ -227,6 +245,7 @@ pub enum Resolved {
     PolyStruct(value::PolyStructId),
 }
 
+/// How far an entity's resolution has got.
 #[derive(Clone, Debug)]
 pub enum EntityState {
     Unresolved,
@@ -238,6 +257,7 @@ pub enum EntityState {
     Failed(Box<Diagnostic>),
 }
 
+/// A named declaration and the state of its resolution.
 pub struct Entity {
     pub name: Sym,
     pub span: Span,

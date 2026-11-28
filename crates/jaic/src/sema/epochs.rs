@@ -1,6 +1,7 @@
 //! Counters and flags that say how far checking has got: what may change a cached failure
 //! (`lower_epoch`), and which phase of deferred expansion is running.
 
+/// Counters and flags that say how far checking has got, in particular what may change a cached failure.
 #[derive(Default)]
 pub struct Epochs {
     /// Bumped whenever a name, import, `using` or expanded item becomes visible in a scope

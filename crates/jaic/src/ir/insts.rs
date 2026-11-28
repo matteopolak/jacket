@@ -31,6 +31,7 @@ pub enum X86Fence {
     Full,
 }
 
+/// The hint of an [`Intrinsic::X86Prefetch`]: `T0`, `T1` and `T2` are `prefetcht0` to `prefetcht2`, and `NonTemporal` is `prefetchnta`.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum X86Prefetch {
     T0,
@@ -62,6 +63,7 @@ pub enum Intrinsic {
     /// `(ptr, old, new, width) -> (success, previous)`: a compare-exchange with the success and
     /// failure memory orders of the payload.
     AtomicCas(u8, u8),
+    /// Stops in an attached debugger.
     DebugBreak,
     /// Abort with a runtime error. An optional `i64` operand says why (`CheckReason`), for the
     /// message (native code reports it through `Program::check_failed` when it has one).
@@ -189,6 +191,7 @@ pub enum WideOp {
     ToU64,
 }
 
+/// The target of a call.
 #[derive(Clone, Debug)]
 pub enum Callee {
     Func(FuncId),
@@ -202,6 +205,7 @@ pub enum Callee {
 pub struct Sig {
     pub params: Vec<Ty>,
     pub returns: Vec<Ty>,
+    /// Calling convention.
     pub conv: Conv,
     /// C variadic. A call site appends its variadic arguments' classes to `params`; the first
     /// `c_fixed` are the declared parameters (Apple arm64 passes the rest on the stack).
@@ -229,6 +233,7 @@ impl Sig {
 /// an aggregate that the C ABI passes by value.
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Default)]
 pub struct CAbi {
+    /// One entry per IR parameter.
     pub params: Vec<Option<AggLayout>>,
     /// The single C return value is an aggregate returned through the last IR param (out-pointer).
     pub ret: Option<AggLayout>,
@@ -240,6 +245,7 @@ pub struct CAbi {
     pub ret_after_this: bool,
 }
 
+/// The size, alignment and scalar fields of an aggregate.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct AggLayout {
     pub size: u64,
@@ -248,6 +254,7 @@ pub struct AggLayout {
     pub fields: Vec<(u64, Ty)>,
 }
 
+/// A call instruction: `results` receive the values the callee returns.
 #[derive(Clone, Debug)]
 pub struct CallInst {
     pub results: Vec<Val>,
@@ -255,6 +262,7 @@ pub struct CallInst {
     pub args: Vec<Val>,
 }
 
+/// An intrinsic instruction: `results` receive the values the operation yields.
 #[derive(Clone, Debug)]
 pub struct IntrinsicInst {
     pub results: Vec<Val>,
@@ -262,6 +270,7 @@ pub struct IntrinsicInst {
     pub args: Vec<Val>,
 }
 
+/// One instruction of a block. Most define the value named `dst`.
 #[derive(Clone, Debug)]
 pub enum Inst {
     IConst {
@@ -371,6 +380,7 @@ pub enum Inst {
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(std::mem::size_of::<Inst>() <= 24);
 
+/// How a block ends.
 #[derive(Clone, Debug)]
 pub enum Term {
     Jump(BlockId),

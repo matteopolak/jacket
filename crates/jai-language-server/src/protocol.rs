@@ -15,6 +15,7 @@ pub use self::helpers::{message_too_large, oversized_replies};
 pub use self::request_id::RequestId;
 use crate::{MarkupKind, Session};
 
+/// Why a message got no answer at all: the transport should report it, not reply.
 #[derive(Clone, Debug)]
 pub enum ProtocolError {
     MessageLimit,
@@ -44,6 +45,11 @@ enum Lifecycle {
     Exited(u8),
 }
 
+/// A language server over JSON-RPC messages: text in, the answers as text out, with no
+/// transport of its own (see [`framing`](crate::framing) for `Content-Length` framing).
+///
+/// It owns a [`Session`] and the protocol's lifecycle (`initialize`, `shutdown`, `exit`),
+/// cancellation and the requests the server makes of the client.
 pub struct JsonSession {
     session: Session,
     lifecycle: Lifecycle,

@@ -23,6 +23,7 @@ pub(in crate::sema) enum DeclaringKey {
 /// A cached `module_declarations` answer and the `namespace_generation` it holds for.
 type ModuleNames = (u64, Arc<[EntityId]>);
 
+/// Memoised name lookups, each valid only for the `Epochs` counters it was computed under.
 #[derive(Default)]
 pub struct NameCaches {
     /// `module_declarations` answers (before `bound_entities`) and the `namespace_generation`

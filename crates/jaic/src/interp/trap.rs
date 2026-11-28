@@ -73,6 +73,7 @@ impl Trap {
     }
 }
 
+/// Why a compile-time run failed and where it was when it did.
 #[derive(Debug, Clone, Default)]
 pub struct TrapDetails {
     pub message: String,

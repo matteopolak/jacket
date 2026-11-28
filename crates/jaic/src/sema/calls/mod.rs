@@ -230,6 +230,9 @@ raw_enum! {
 }
 
 impl Compiler {
+    /// Checks the call `callee(args)`, emits it into `f` and returns its result. `expected` is the type the context wants, if known.
+    ///
+    /// A call with `,,` arguments runs with a modified copy of the context. A type as the callee fails with `CallCannotType`, except a polymorphic struct's name, which instantiates it.
     pub fn check_call(
         &mut self,
         f: &mut FnCtx,

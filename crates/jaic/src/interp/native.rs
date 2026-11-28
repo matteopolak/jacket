@@ -109,6 +109,8 @@ pub fn missing_library(name: &str) -> Option<&'static str> {
 static EXTRA_LIBRARY_DIRS: std::sync::Mutex<Vec<std::path::PathBuf>> =
     std::sync::Mutex::new(Vec::new());
 
+/// Adds `dir` to the extra directories searched for native libraries. A directory already added is
+/// ignored.
 pub fn add_library_dir(dir: std::path::PathBuf) {
     let mut dirs = EXTRA_LIBRARY_DIRS
         .lock()

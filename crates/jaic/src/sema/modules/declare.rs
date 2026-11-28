@@ -36,6 +36,9 @@ impl Compiler {
         }
     }
 
+    /// Enters one top-level statement into `scope` without checking it. `vis` is the visibility in force. The result is the visibility for the next statement, which only a scope statement changes.
+    ///
+    /// In a struct body only constants and `#if` are entered. Fails with `ModuleStatementNotAllowed` for a statement that is not allowed at file scope.
     pub fn declare_stmt(
         &mut self,
         scope: ScopeId,

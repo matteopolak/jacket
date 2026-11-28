@@ -18,6 +18,10 @@ const FAILURE_KEPT: Duration = Duration::from_secs(10);
 /// Remembered answers past this many are all dropped.
 const MEMO_LIMIT: usize = 4096;
 
+/// The compile-time services of a workspace, answered without blocking the editor.
+///
+/// An answer that takes over 50 ms reads as pending until it arrives. Answers are remembered by
+/// request; a failure is asked again after 10 seconds, and all answers are dropped past 4096.
 pub struct EditorServices {
     services: Services,
     state: RefCell<State>,
@@ -36,6 +40,7 @@ enum Answer {
 }
 
 impl EditorServices {
+    /// Answers for the services `services` holds.
     #[must_use]
     pub fn new(services: Services) -> Self {
         Self {

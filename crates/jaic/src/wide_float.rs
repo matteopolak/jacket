@@ -29,6 +29,7 @@ pub enum Arith {
     Div,
 }
 
+/// The 16 little-endian bytes of a value in memory; for x87 the last six are zero.
 pub type Bytes = [u8; 16];
 
 /// Precision and exponent range of a binary format. `bits` counts the significand including
@@ -281,14 +282,18 @@ fn from_num(fmt: WideFloat, n: Num) -> Bytes {
     encode(fmt, n)
 }
 
+/// The value of `x` in `fmt`; exact.
 pub fn from_f64(fmt: WideFloat, x: f64) -> Bytes {
     from_num(fmt, decode_ieee(x.to_bits() as u128, P64, 11))
 }
 
+/// The value of `x` in `fmt`; exact.
 pub fn from_f32(fmt: WideFloat, x: f32) -> Bytes {
     from_num(fmt, decode_ieee(x.to_bits() as u128, P32, 8))
 }
 
+/// The value of `v` in `fmt`, rounded to nearest, ties to even, when it needs more bits than the
+/// format has.
 pub fn from_i64(fmt: WideFloat, v: i64) -> Bytes {
     if v == 0 {
         return encode(fmt, Num::Zero(false));
@@ -297,6 +302,8 @@ pub fn from_i64(fmt: WideFloat, v: i64) -> Bytes {
     from_num(fmt, Num::Fin(v < 0, v.unsigned_abs() as u128, 0))
 }
 
+/// The value of `v` in `fmt`, rounded to nearest, ties to even, when it needs more bits than the
+/// format has.
 pub fn from_u64(fmt: WideFloat, v: u64) -> Bytes {
     if v == 0 {
         return encode(fmt, Num::Zero(false));
@@ -321,10 +328,12 @@ pub fn convert(from: WideFloat, to: WideFloat, b: &Bytes) -> Bytes {
     from_num(to, decode(from, b))
 }
 
+/// The value of `b` rounded to the nearest `f64`, ties to even.
 pub fn to_f64(fmt: WideFloat, b: &Bytes) -> f64 {
     f64::from_bits(narrow(fmt, b, P64, 11) as u64)
 }
 
+/// The value of `b` rounded to the nearest `f32`, ties to even.
 pub fn to_f32(fmt: WideFloat, b: &Bytes) -> f32 {
     f32::from_bits(narrow(fmt, b, P32, 8) as u32)
 }
@@ -381,6 +390,7 @@ pub fn to_u64(fmt: WideFloat, b: &Bytes) -> u64 {
     truncate(fmt, b).clamp(0, u64::MAX as i128) as u64
 }
 
+/// `b` with its sign flipped.
 pub fn neg(fmt: WideFloat, b: &Bytes) -> Bytes {
     let mut out = *b;
 
@@ -428,6 +438,7 @@ pub fn compare(fmt: WideFloat, a: &Bytes, b: &Bytes) -> Option<Ordering> {
     })
 }
 
+/// `a op b`, rounded to nearest, ties to even.
 pub fn arith(fmt: WideFloat, op: Arith, a: &Bytes, b: &Bytes) -> Bytes {
     let p = prec(fmt);
     let (x, y) = (decode(fmt, a), decode(fmt, b));

@@ -359,6 +359,7 @@ impl Compiler {
         }
     }
 
+    /// Returns what the entities `ids`, all found for one name, denote. If they are all locals, the newest one wins (a macro's backtick redeclaration shadows its parameter). Procedures form an overload set, and overloads with identical parameter types are rejected. Any other mix fails with `DeclaredMoreOnce`.
     pub fn entities_operand(
         &mut self,
         f: &mut FnCtx,
@@ -885,6 +886,7 @@ impl Compiler {
         })
     }
 
+    /// Returns the type `ty` that `Preload` declares. Fails with `PreloadMissingDeclaration` when there is no `Preload`, when it lacks the name, or when the name is not a type.
     pub fn preload_type(&mut self, ty: PreludeType, span: Span) -> Result<TypeId> {
         let name = ty.name();
         let Some(preload) = self.ns.preload else {

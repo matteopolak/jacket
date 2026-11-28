@@ -12,6 +12,9 @@ pub struct Source(String);
 pub struct RepoUrl(String);
 
 impl Source {
+    /// Reads a repository address. Fails on empty text, text that starts with `-` (git would
+    /// read it as an option), and text with whitespace or control characters; nothing else is
+    /// checked.
     pub fn parse(text: &str) -> Result<Self, String> {
         let text = text.trim();
 
@@ -94,6 +97,7 @@ impl fmt::Display for Source {
 }
 
 impl RepoUrl {
+    /// The address as text.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -140,6 +144,8 @@ impl fmt::Display for RepoUrl {
 pub struct At(String);
 
 impl At {
+    /// Reads what follows an `@`. Fails on empty text, text that starts with `-`, and text with
+    /// control characters.
     pub fn parse(text: &str) -> Result<Self, String> {
         let text = text.trim();
 
@@ -150,6 +156,7 @@ impl At {
         Ok(Self(text.to_string()))
     }
 
+    /// The text as written, trimmed.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -164,6 +171,7 @@ impl fmt::Display for At {
 /// A parsed `<spec>`: `user/repo`, a host path or a URL, with an optional `@<what>`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Spec {
+    /// The repository.
     pub git: Source,
     /// What follows the `@`.
     pub at: Option<At>,

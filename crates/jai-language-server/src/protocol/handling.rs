@@ -12,6 +12,7 @@ use super::{JsonSession, Lifecycle, ProtocolError, RequestId};
 use crate::{Error, Limits, MarkupKind, Session, Stage};
 
 impl JsonSession {
+    /// A server that does not type-check: answers come from syntax alone.
     pub fn new(limits: Limits) -> Self {
         Self::with_session(Session::new(limits))
     }
@@ -49,10 +50,12 @@ impl JsonSession {
         }
     }
 
+    /// The document session behind the protocol.
     pub fn session(&self) -> &Session {
         &self.session
     }
 
+    /// The process exit code once `exit` has arrived, else `None`.
     pub fn exit_status(&self) -> Option<u8> {
         if let Lifecycle::Exited(code) = self.lifecycle {
             Some(code)
@@ -325,6 +328,10 @@ impl JsonSession {
         self.encode_unprompted(Self::publication_messages(publications))
     }
 
+    /// Answers one JSON-RPC message with the messages to send back, each already serialized.
+    ///
+    /// A malformed message gets an error reply, not an `Err`. Fails when `input` is over
+    /// [`Limits::message_bytes`], and when the replies together are over [`Limits::output_bytes`].
     pub fn handle_json(&mut self, input: &str) -> Result<Vec<String>, ProtocolError> {
         if input.len() > self.session.limits().message_bytes {
             return Err(ProtocolError::MessageLimit);
@@ -538,6 +545,8 @@ impl JsonSession {
             .collect()
     }
 
+    /// Marks the request `id` cancelled, so it is answered with `RequestCancelled` when it
+    /// arrives. Does nothing for one already answered. Fails when `id` is not a valid request id.
     pub fn cancel_request(&mut self, id: RequestId) -> Result<(), Error> {
         if !valid_id(&id) {
             return Err(Error::InvalidEdit("invalid cancellation id"));

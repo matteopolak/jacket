@@ -351,6 +351,7 @@ impl Trivia {
 pub struct Docs(Rc<Trivia>);
 
 impl Docs {
+    /// Lexes `text` once.
     pub fn new(text: &str) -> Self {
         Self(trivia(text))
     }

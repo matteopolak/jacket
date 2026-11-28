@@ -201,6 +201,7 @@ impl DataLayout {
         self.pointer_size as u64
     }
 
+    /// The width of a pointer in bits.
     pub const fn ptr_bits(&self) -> u32 {
         self.pointer_size as u32 * 8
     }
@@ -344,6 +345,7 @@ impl DataLayout {
         self.read_uint(&bytes[..8])
     }
 
+    /// Writes `value` into the first 8 bytes of `bytes` in the target's byte order.
     pub fn write_u64(&self, bytes: &mut [u8], value: u64) {
         self.write_uint(&mut bytes[..8], value);
     }
@@ -366,6 +368,7 @@ impl DataLayout {
         )
     }
 
+    /// Reads a `u32` from the first 4 bytes of `bytes` in the target's byte order.
     pub fn read_u32(&self, bytes: &[u8]) -> u32 {
         self.read_uint(&bytes[..4]) as u32
     }
@@ -378,22 +381,27 @@ impl DataLayout {
         bytes
     }
 
+    /// Writes `value` into the first 4 bytes of `bytes` in the target's byte order.
     pub fn write_u32(&self, bytes: &mut [u8], value: u32) {
         self.write_uint(&mut bytes[..4], u64::from(value));
     }
 
+    /// Writes `value` into the first 2 bytes of `bytes` in the target's byte order.
     pub fn write_u16(&self, bytes: &mut [u8], value: u16) {
         self.write_uint(&mut bytes[..2], u64::from(value));
     }
 
+    /// Reads an `f32` from the first 4 bytes of `bytes` in the target's byte order.
     pub fn read_f32(&self, bytes: &[u8]) -> f32 {
         f32::from_bits(self.read_u32(bytes))
     }
 
+    /// Writes `value` into the first 4 bytes of `bytes` in the target's byte order.
     pub fn write_f32(&self, bytes: &mut [u8], value: f32) {
         self.write_u32(bytes, value.to_bits());
     }
 
+    /// Writes `value` into the first 8 bytes of `bytes` in the target's byte order.
     pub fn write_f64(&self, bytes: &mut [u8], value: f64) {
         self.write_u64(bytes, value.to_bits());
     }

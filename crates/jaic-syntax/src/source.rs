@@ -42,9 +42,11 @@ fn find_line_break(bytes: &[u8]) -> Option<usize> {
 pub use suggestion::{Applicability, Edit, ImportSuggestion, Suggestion, Suggestions};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+/// Names a file in a [`SourceMap`].
 pub struct FileId(pub u32);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+/// A byte range `start..end` of one file.
 pub struct Span {
     pub file: FileId,
     pub start: u32,
@@ -61,6 +63,7 @@ impl Span {
         end: 0,
     };
 
+    /// The span `start..end` of `file`.
     pub fn new(file: FileId, start: usize, end: usize) -> Self {
         Self {
             file,
@@ -70,6 +73,7 @@ impl Span {
     }
 
     #[must_use]
+    /// The smallest span covering both, in `self`'s file.
     pub fn to(self, other: Span) -> Span {
         Span {
             file: self.file,
@@ -94,6 +98,7 @@ pub struct LineIndex {
 }
 
 impl LineIndex {
+    /// Builds the index in one pass over `text`.
     pub fn new(text: &str) -> Self {
         let mut index = Self {
             starts: vec![0],
@@ -297,6 +302,7 @@ impl SourcePath {
         }
     }
 
+    /// Whether the source has no file on disk.
     pub fn is_virtual(&self) -> bool {
         matches!(self, SourcePath::Virtual(_))
     }
@@ -347,6 +353,7 @@ impl From<&str> for SourcePath {
 }
 
 #[derive(Clone)]
+/// A source's name, text and line index.
 pub struct SourceFile {
     pub path: SourcePath,
     pub text: Arc<str>,
@@ -354,6 +361,7 @@ pub struct SourceFile {
 }
 
 impl SourceFile {
+    /// Indexes the lines of `text`.
     pub fn new(path: SourcePath, text: Arc<str>) -> Self {
         let lines = LineIndex::new(&text);
 
@@ -455,6 +463,8 @@ impl FileTable {
 }
 
 #[derive(Default)]
+/// The sources of a compile, by [`FileId`]. A clone is a snapshot; [`SourceMap::share`] makes a
+/// map that sees later additions too.
 pub struct SourceMap {
     table: Rc<FileTable>,
     typechecked_use: TypecheckedUse,
@@ -495,6 +505,7 @@ pub struct TypecheckedState {
 }
 
 impl TypecheckedState {
+    /// The bits set so far: whether and how the program reads `Message_Typechecked`.
     pub fn get(&self) -> u8 {
         self.bits.get()
     }
@@ -711,6 +722,7 @@ impl SourceMap {
         self.typechecked_use = usage;
     }
 
+    /// Adds a source and returns its id.
     pub fn add(&mut self, path: impl Into<SourcePath>, text: Arc<str>) -> FileId {
         let path = path.into();
 
@@ -718,6 +730,7 @@ impl SourceMap {
         self.table.push(SourceFile::new(path, text))
     }
 
+    /// Adds a source that is already built and returns its id.
     pub fn add_file(&mut self, file: SourceFile) -> FileId {
         note_typechecked_name(&self.typechecked_use, &file.path, &file.text);
         self.table.push(file)
@@ -745,6 +758,7 @@ impl SourceMap {
         self.table.get(id)
     }
 
+    /// How many sources there are.
     pub fn len(&self) -> usize {
         self.table.len()
     }
@@ -756,6 +770,7 @@ impl SourceMap {
             .filter_map(|file| file.path.as_file())
     }
 
+    /// Whether there are no sources.
     pub fn is_empty(&self) -> bool {
         self.table.len() == 0
     }

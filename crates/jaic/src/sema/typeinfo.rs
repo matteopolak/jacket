@@ -85,6 +85,7 @@ impl Compiler {
         self.preload_type(name, span)
     }
 
+    /// Returns the global holding the `Type_Info` descriptor of `ty`, building it on first use. The global is registered before its contents are built, so descriptors can refer to themselves.
     pub fn type_info_global(&mut self, ty: TypeId, span: Span) -> Result<ir::GlobalId> {
         let found = self.ty.infos.get(&ty).copied();
 

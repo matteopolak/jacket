@@ -4,8 +4,10 @@ use super::body_probe::{Probed, W};
 use crate::diagnostics::Diagnostic;
 use crate::sema::dependencies;
 
+/// What the compile has to report besides its first error.
 #[derive(Default)]
 pub struct Diagnostics {
+    /// Warnings found so far.
     pub warnings: Probed<Vec<Diagnostic>, { W::DiagWarnings as usize }>,
     /// Why each deferred item failed; shown with a later error if it is never retried.
     pub deferred_errors: Probed<Vec<Box<Diagnostic>>, { W::DiagDeferredErrors as usize }>,

@@ -12,6 +12,7 @@ use crate::sema::{
 use crate::types::TypeId;
 
 impl Compiler {
+    /// Adds an empty scope inside `parent` and returns its id. A procedure scope is one level deeper than its parent's `proc_depth`.
     pub fn new_scope(
         &mut self,
         kind: ScopeKind,
@@ -107,10 +108,12 @@ impl Compiler {
             && s.imports.iter().all(|i| i.module.is_some() || i.loading)
     }
 
+    /// Returns the scope `id`.
     pub fn scope(&self, id: ScopeId) -> &Scope {
         &self.ns.scopes[id.0 as usize]
     }
 
+    /// Returns the scope `id` for change, counting the write for `-dev_body_probe`.
     pub fn scope_mut(&mut self, id: ScopeId) -> &mut Scope {
         if crate::sema::body_probe::COUNTING && crate::sema::body_probe::enabled() {
             crate::sema::body_probe::scope_written(self.ns.scopes[id.0 as usize].kind);
@@ -128,14 +131,17 @@ impl Compiler {
         scope
     }
 
+    /// Returns the entity `id`.
     pub fn entity(&self, id: EntityId) -> &Entity {
         &self.ns.entities[id.0 as usize]
     }
 
+    /// Returns the entity `id` for change.
     pub fn entity_mut(&mut self, id: EntityId) -> &mut Entity {
         &mut self.ns.entities[id.0 as usize]
     }
 
+    /// Declares `name` in `scope` as a new, unresolved entity and returns its id. Tells the editor, when one is attached, where the name is written.
     pub fn add_entity(
         &mut self,
         scope: ScopeId,

@@ -20,6 +20,7 @@ pub struct StringAt {
     pub span: Span,
     /// Where the text inside the quotes starts: just past the opening quote.
     pub start: u32,
+    /// Whether the closing quote is there.
     pub closed: bool,
     /// The `#import` / `#load` the literal names a path for.
     pub directive: Option<PathDirective>,

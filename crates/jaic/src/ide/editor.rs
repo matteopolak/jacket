@@ -29,6 +29,8 @@ pub(crate) enum StmtRecovery {
     Salvage,
 }
 
+/// What the analysis records while a compile runs, plus the lookup tables built over it.
+/// Recording is off until `record` is called.
 #[derive(Default)]
 pub struct Editor {
     /// What the analysis has recorded so far; `None` outside the language server and linter.
@@ -63,6 +65,7 @@ impl Editor {
         *self.index.get_mut() = super::span_index::SpanIndex::default();
     }
 
+    /// Whether the editor is recording.
     #[inline]
     pub fn is_live(&self) -> bool {
         self.facts.is_some()
@@ -74,11 +77,13 @@ impl Editor {
         self.selected_entry.as_deref()
     }
 
+    /// The recorded facts, or `None` when not recording.
     #[inline]
     pub fn facts(&self) -> Option<&IdeFacts> {
         self.facts.as_deref()
     }
 
+    /// The recorded facts for modification, or `None` when not recording.
     #[inline]
     pub fn facts_mut(&mut self) -> Option<&mut IdeFacts> {
         self.facts.as_deref_mut()

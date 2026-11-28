@@ -24,6 +24,8 @@ pub enum CallSnippets {
 }
 
 impl CallSnippets {
+    /// The setting for a `jai.completion.callSnippets` value (`none`, `addParentheses` or
+    /// `fillArguments`), or `None` for any other text.
     pub fn parse(text: &str) -> Option<Self> {
         match text {
             "none" => Some(Self::None),

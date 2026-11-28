@@ -27,6 +27,8 @@ use std::sync::{Mutex, PoisonError};
 use crate::fxhash::FxHasher;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+/// A handle to an interned spelling. Two symbols are equal exactly when their text is, and copying
+/// or comparing one is a `u32` operation.
 pub struct Sym(u32);
 
 /// Slots per segment, and the most segments: room for 16M distinct spellings.
@@ -147,6 +149,8 @@ thread_local! {
 }
 
 impl Sym {
+    /// The symbol for `text`, adding the spelling to the table the first time it is seen. A new
+    /// spelling is leaked, so it lives for the rest of the process.
     pub fn intern(text: &str) -> Sym {
         Sym::lookup(text, || Box::leak(text.to_owned().into_boxed_str()))
     }
@@ -170,6 +174,7 @@ impl Sym {
         })
     }
 
+    /// The spelling. Takes no lock.
     pub fn as_str(self) -> &'static str {
         let i = self.0 as usize;
         let segment = TABLE[i / SEGMENT].load(Ordering::Acquire);
@@ -189,6 +194,8 @@ impl Sym {
         }
     }
 
+    /// The symbol's number. Numbers are unique but their order depends on thread timing, so nothing
+    /// may rely on it.
     pub fn index(self) -> u32 {
         self.0
     }

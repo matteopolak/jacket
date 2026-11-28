@@ -21,6 +21,7 @@ impl<'a> Node<'a> {
         }
     }
 
+    /// The expression, or `None` for a statement.
     pub fn expr(self) -> Option<&'a Expr> {
         match self {
             Node::Expr(e) => Some(e),
@@ -28,6 +29,7 @@ impl<'a> Node<'a> {
         }
     }
 
+    /// The statement, or `None` for an expression.
     pub fn stmt(self) -> Option<&'a Stmt> {
         match self {
             Node::Stmt(s) => Some(s),
@@ -110,6 +112,8 @@ pub fn walk<'a>(stmts: &'a [Stmt], visit: &mut dyn FnMut(Node<'a>, &[Node<'a>]) 
     }
 }
 
+/// Visits `node` and, while `visit` returns true, its children in turn. `stack` holds the
+/// ancestors of `node`, outermost first, and is restored before the call returns.
 pub fn walk_node<'a>(
     node: Node<'a>,
     stack: &mut Vec<Node<'a>>,

@@ -33,6 +33,7 @@ const MAX_VARIANTS: usize = 4;
 /// Longest expansion text kept.
 const MAX_TEXT: usize = 64 * 1024;
 
+/// What kind of metaprogramming site an `IdeExpansion` records.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum IdeExpansionKind {
     /// `#insert`: the code inserted.
@@ -45,6 +46,7 @@ pub enum IdeExpansionKind {
     Macro,
 }
 
+/// What one `#insert`, `#run`, `#if` or macro call produced.
 #[derive(Clone, Debug)]
 pub struct IdeExpansion {
     /// From the directive (or the macro call's callee) to the end of its operand.
@@ -71,6 +73,7 @@ pub struct IdeInterpolation {
     pub mode: crate::interpolate::Mode,
 }
 
+/// One call and how it resolved.
 #[derive(Clone, Debug)]
 pub struct IdeCall {
     pub span: Span,
@@ -83,6 +86,7 @@ pub struct IdeCall {
     pub args: Vec<IdeArg>,
 }
 
+/// One argument of a recorded call.
 #[derive(Clone, Debug)]
 pub struct IdeArg {
     pub span: Span,
@@ -109,6 +113,7 @@ pub struct IdeCallInfo {
     pub format_param: Option<usize>,
 }
 
+/// One candidate procedure of a call, as a signature-help row.
 #[derive(Clone, Debug)]
 pub struct IdeSignature {
     pub label: String,
@@ -117,6 +122,7 @@ pub struct IdeSignature {
     pub span: Span,
 }
 
+/// One argument of a call, with the parameter it binds to.
 #[derive(Clone, Debug)]
 pub struct IdeArgInfo {
     pub span: Span,

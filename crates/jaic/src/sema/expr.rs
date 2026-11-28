@@ -71,6 +71,9 @@ fn implicit_then_expr(cond: &ast::Expr) -> Option<&ast::Expr> {
 const EXPR_POLL_INTERVAL: u8 = 63;
 
 impl Compiler {
+    /// Checks `expr` in `scope`, emits its code into `f` and returns what it denotes: a value, place, constant, type, procedure set, module and so on. `expected` is the type the context wants, if known; it guides literals and inference.
+    ///
+    /// Every so often it asks whether the check should stop (see [`Compiler::check_not_stopped`]).
     pub fn check_expr(
         &mut self,
         f: &mut FnCtx,

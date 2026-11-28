@@ -5,6 +5,7 @@
 //! `>=1.0, <2.0`, `=1.4.0`, `*`); calendar and integer versions take only comparisons.
 use std::cmp::Ordering;
 
+/// How a package's tags are read and ordered.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Scheme {
     /// `1.2.3`, `v1.2.3`, `1.2.3-rc.1`; two-part tags read as `x.y.0`.
@@ -26,6 +27,7 @@ impl Scheme {
         }
     }
 
+    /// The scheme [`Scheme::name`] spells `text` as, or an error listing the three names.
     pub fn parse(text: &str) -> Result<Self, String> {
         match text {
             "semver" => Ok(Self::Semver),
@@ -38,8 +40,11 @@ impl Scheme {
     }
 }
 
+/// A version read from a tag. Every semver version orders before every calendar or integer one,
+/// so mixed lists have a total order; a real package uses one scheme.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Version {
+    /// Under [`Scheme::Semver`].
     Semver(semver::Version),
     /// Calendar fields, or the one integer.
     Parts(Vec<u64>),
@@ -91,6 +96,7 @@ impl Version {
         }
     }
 
+    /// Whether it is a semver version with a pre-release part (`1.0.0-rc.1`).
     pub fn is_prerelease(&self) -> bool {
         matches!(self, Self::Semver(v) if !v.pre.is_empty())
     }
@@ -162,22 +168,42 @@ pub fn parse_tag(scheme: Scheme, prefix: Option<&str>, tag: &str) -> Option<Vers
     }
 }
 
+/// A comparison in a calendar or integer range.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Op {
+    /// `=`
     Eq,
+    /// `>`
     Gt,
+    /// `>=`
     Ge,
+    /// `<`
     Lt,
+    /// `<=`
     Le,
 }
 
+/// A parsed version range; [`Range::matches`] tests a version against it.
 #[derive(Clone, Debug)]
 pub enum Range {
+    /// A Cargo-style requirement, for [`Scheme::Semver`].
     Semver(semver::VersionReq),
     /// Comparisons that must all hold; empty is `*`.
     Compare(Vec<(Op, Vec<u64>)>),
 }
 
+/// Reads `text` as a range under `scheme`: Cargo's spelling for semver, otherwise comma-separated
+/// comparisons (`>=2024.1, <2025.1`) or `*`. Fails on text the scheme does not accept, such as
+/// `^2024.1` for calendar versions.
+///
+/// ```
+/// use jacket_config::version::{Scheme, Version, parse_range};
+///
+/// let range = parse_range(Scheme::Integer, ">=3, <10").unwrap();
+/// assert!(range.matches(&Version::Parts(vec![9])));
+/// assert!(!range.matches(&Version::Parts(vec![10])));
+/// assert!(parse_range(Scheme::Integer, "^3").is_err());
+/// ```
 pub fn parse_range(scheme: Scheme, text: &str) -> Result<Range, String> {
     let text = text.trim();
 
@@ -220,6 +246,8 @@ pub fn parse_range(scheme: Scheme, text: &str) -> Result<Range, String> {
 }
 
 impl Range {
+    /// Whether `version` satisfies the range; a version of another scheme than the range's never
+    /// does.
     pub fn matches(&self, version: &Version) -> bool {
         match (self, version) {
             (Self::Semver(req), Version::Semver(v)) => req.matches(v),
@@ -247,6 +275,7 @@ pub struct Requirement {
 }
 
 impl Requirement {
+    /// [`parse_range`], keeping the trimmed text.
     pub fn parse(scheme: Scheme, text: &str) -> Result<Self, String> {
         Ok(Self {
             range: parse_range(scheme, text)?,
@@ -259,6 +288,7 @@ impl Requirement {
         &self.text
     }
 
+    /// The parsed range.
     pub fn range(&self) -> &Range {
         &self.range
     }

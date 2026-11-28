@@ -7,13 +7,17 @@ use jacket_config::env::Var;
 /// The operating systems jacket runs on.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Os {
+    /// macOS.
     MacOs,
+    /// Linux.
     Linux,
+    /// Windows.
     Windows,
 }
 
 /// What a lookup asks of the machine.
 pub trait Host {
+    /// The operating system.
     fn os(&self) -> Os;
 
     /// The CPU the machine's programs run on.
@@ -28,8 +32,10 @@ pub trait Host {
     /// The user cache folder jacket keeps `toolchains/` in.
     fn cache_root(&self) -> Option<PathBuf>;
 
+    /// Whether `path` is a file, following links.
     fn is_file(&self, path: &Path) -> bool;
 
+    /// Whether `path` is a folder, following links.
     fn is_dir(&self, path: &Path) -> bool;
 
     /// The entries of a folder, sorted; empty when it cannot be read.

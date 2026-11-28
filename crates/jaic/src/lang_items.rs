@@ -59,6 +59,7 @@ pub enum PreludeType {
 }
 
 impl PreludeType {
+    /// Every prelude type.
     pub const ALL: &'static [PreludeType] = &[
         PreludeType::Allocator,
         PreludeType::ForFlags,

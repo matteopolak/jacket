@@ -50,15 +50,20 @@ pub const fn offsets(pointer_size: u8) -> FieldOffsets {
 /// Where `Fiber_Context` keeps each field.
 #[derive(Clone, Copy, Debug)]
 pub struct FieldOffsets {
+    /// Offset of `Context::sp`.
     pub sp: u64,
+    /// Offset of `Context::stack_low`.
     pub stack_low: u64,
+    /// Offset of `Context::stack_high`.
     pub stack_high: u64,
+    /// Offset of `Context::stack_dealloc`.
     pub stack_dealloc: u64,
 }
 
 /// The symbols the assembly defines (without the Mach-O underscore).
 pub const SWITCH: &str = "jaic_fiber_switch";
 
+/// Name of the assembly routine that prepares a new fiber's context to start running a procedure.
 pub const PREPARE: &str = "jaic_fiber_prepare";
 
 /// The ELF note that keeps the linker from making the stack executable.

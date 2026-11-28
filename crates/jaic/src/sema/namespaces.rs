@@ -12,20 +12,29 @@ use crate::diagnostics::Diagnostic;
 use crate::fxhash::{HashMap, HashSet};
 use crate::intern::Sym;
 
+/// Modules, scopes and entities: what names resolve against, and the work of filling them.
 pub struct Namespaces {
+    /// Module instances, indexed by `ModuleId`.
     pub modules: Probed<Vec<Module>, { W::NsModules as usize }>,
     pub(in crate::sema) module_cache:
         Probed<HashMap<(PathBuf, Vec<ConstArg>), ModuleId>, { W::NsModuleCache as usize }>,
     pub(in crate::sema) module_failures:
         Probed<HashMap<ModuleId, Box<Diagnostic>>, { W::NsModuleFailures as usize }>,
+    /// Scopes, indexed by `ScopeId`.
     pub scopes: Probed<Vec<scope::Scope>, { W::NsScopes as usize }>,
+    /// Entities, indexed by `EntityId`.
     pub entities: Probed<Vec<scope::Entity>, { W::NsEntities as usize }>,
+    /// Libraries declared with `#library` and `#system_library`, indexed by `LibraryId`.
     pub libraries: Probed<Vec<decls::LibraryInfo>, { W::NsLibraries as usize }>,
+    /// The outermost scope, which every other scope ends in.
     pub root_scope: ScopeId,
+    /// The `Preload` module, once it is loaded.
     pub preload: Option<ModuleId>,
+    /// The `Runtime_Support` module, once it is loaded.
     pub runtime_support: Option<ModuleId>,
     /// `__jaic_check_failed` was looked up (`note_check_handler`).
     pub check_handler_resolved: bool,
+    /// The module named `main`, which holds the program's own sources.
     pub main_module: Option<ModuleId>,
     /// `#add_context` declarations with their declaring scope, in load order.
     pub add_contexts: Probed<Vec<(Arc<ast::Decl>, ScopeId)>, { W::NsAddContexts as usize }>,
@@ -42,6 +51,7 @@ pub struct Namespaces {
     pub failed_imports: Probed<Vec<(String, String)>, { W::NsFailedImports as usize }>,
     /// Modules whose re-exports a `module_declarations` call is searching.
     pub reexport_visiting: Probed<Vec<ModuleId>, { W::NsReexportVisiting as usize }>,
+    /// The procedure-level scope made over each scope for compile-time code, so that it cannot see runtime locals, by the scope it was made over.
     pub thunk_scopes: Probed<HashMap<ScopeId, ScopeId>, { W::NsThunkScopes as usize }>,
     /// Declarations the driver resolves even when unreferenced: `#program_export`
     /// procedures and `link_always` libraries.

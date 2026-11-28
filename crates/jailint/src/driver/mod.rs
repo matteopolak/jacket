@@ -23,8 +23,6 @@
 //! (one root, through the compile the language server also uses), [`lint_root`] (check and lint
 //! what it built), [`claims`] (which root reports a shared file), [`leak`] (the per-system
 //! pass), with [`asserts`] and [`rooted_fs`] as their shared parts.
-/// Most roots compiled at once when the number is left to `jailint`: each holds a whole
-/// compiler, so memory grows with it long before the CPUs run out.
 mod asserts;
 mod claims;
 mod compile;
@@ -48,18 +46,24 @@ pub use plan::root_import_paths;
 use crate::Lint;
 use crate::config::{Config, Configs};
 
+/// Most roots compiled at once when the number is left to `jailint`: each holds a whole
+/// compiler, so memory grows with it long before the CPUs run out.
 pub const MAX_AUTO_JOBS: usize = 8;
 
+/// What a lint run is given: the paths to lint, the settings, and how to compile them.
 pub struct Options {
     /// Compiler source/target/runtime settings, cloned for each root and workspace.
     pub compiler_options: CompilerOptions,
     /// Optional actual enclosing program supplying imports, module arguments and source origin.
     /// `paths` still determines which files receive lint reports.
     pub source: Option<PathBuf>,
+    /// Files and directories to lint; a directory stands for the Jai files under it.
     pub paths: Vec<PathBuf>,
     /// Extra import directories, searched after the root's `modules/` folder.
     pub import_dirs: Vec<PathBuf>,
+    /// The standard library folder the compiler imports from.
     pub stdlib: PathBuf,
+    /// The settings of the first root; files with a nearer `jacket.toml` use that one.
     pub config: Config,
     /// Compile this many roots at once; 0 picks one per CPU, at most [`MAX_AUTO_JOBS`].
     pub jobs: usize,
@@ -75,7 +79,9 @@ pub struct Options {
     pub overlay: BTreeMap<PathBuf, Arc<[u8]>>,
 }
 
+/// What a lint run found, and what it could not check.
 pub struct Outcome {
+    /// Everything the rules reported.
     pub lints: Vec<Lint>,
     /// Compile errors in the reported files, each reported once, from the root that owns the file.
     pub errors: Vec<CompileError>,
@@ -85,6 +91,7 @@ pub struct Outcome {
     pub texts: BTreeMap<String, Arc<str>>,
     /// Roots the compiler could not finish, with its first error (their lints may be fewer).
     pub incomplete: Vec<(PathBuf, String)>,
+    /// How many roots were compiled.
     pub roots: usize,
     /// Actual compiler contexts, including child workspaces and failed body checks.
     pub contexts: Vec<CheckedContext>,
@@ -110,14 +117,18 @@ pub struct CompileError {
     pub end: usize,
     /// The diagnostic code (`unknown-identifier`).
     pub code: &'static str,
+    /// The compiler's text.
     pub message: String,
 }
 
+/// One compile of a root, for one operating system and CPU.
 #[derive(Clone, Debug)]
 pub struct CheckedContext {
+    /// The file the compile started from.
     pub root: PathBuf,
     pub os: jaic::target::TargetOs,
     pub cpu: jaic::target::TargetCpu,
+    /// The compile and its body checks finished with no diagnostics.
     pub complete: bool,
     /// Source files visited by linting; complete=false never establishes full body coverage.
     pub visited_files: Vec<PathBuf>,

@@ -11,6 +11,7 @@ fn expected_tokens(text: &str) -> usize {
     text.len() / 3 + 16
 }
 
+/// Splits `text` into tokens, ending with [`Tok::Eof`]. Stops at the first lexical error.
 pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
     let mut lx = Lexer::new(file, text, expected_tokens(text));
 
@@ -39,7 +40,9 @@ pub fn lex_stoppable(
 /// sees an empty branch.
 #[derive(Clone, Copy, Debug)]
 pub struct PlatformTarget {
+    /// A member name of [`OS_TAGS`].
     pub os: &'static str,
+    /// A member name of [`CPU_TAGS`].
     pub cpu: &'static str,
 }
 
@@ -111,6 +114,7 @@ pub struct Comment {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// Whether a comment is a `//` line comment or a `/* */` block comment.
 pub enum CommentKind {
     Line,
     Block,
@@ -150,6 +154,7 @@ pub struct Lexed {
 }
 
 impl Lexed {
+    /// Lexes `text` with the editor's error recovery, dropping the end marker.
     pub fn new(file: FileId, text: &str) -> Self {
         let (mut tokens, comments, errors) = lex_with_trivia(file, text);
 

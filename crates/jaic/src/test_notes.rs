@@ -116,8 +116,11 @@ pub struct Target {
     pub mode: RunMode,
 }
 
+/// Target OS names a test note may name.
 pub const OS_NAMES: [&str; 5] = ["linux", "macos", "windows", "wasm", "android"];
+/// Target CPU names a test note may name.
 pub const CPU_NAMES: [&str; 2] = ["x64", "arm64"];
+/// Run modes a test note may name.
 pub const MODE_NAMES: [&str; 3] = ["interp", "native", "check"];
 
 /// The arguments of one `only(...)` or `skip_on(...)` call: target names (an OS, a CPU or a
@@ -201,12 +204,14 @@ impl TargetFilter {
         Ok(filter)
     }
 
+    /// `: ` and the reason when one was given, else an empty string.
     pub fn reason_suffix(&self) -> String {
         self.reason
             .as_ref()
             .map_or_else(String::new, |r| format!(": {r}"))
     }
 
+    /// Whether `name` is the OS or CPU of `target`, or is `mode`.
     pub fn named(target: &Target, mode: &str, name: &str) -> bool {
         name == target.os || name == target.cpu || name == mode
     }

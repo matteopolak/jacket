@@ -24,7 +24,9 @@ mod local_scopes;
 pub(crate) use lifetime_summary::retain_compile_time_reach;
 pub(crate) use unused_parameter::RunState;
 
+/// A lint rule's name, group and summary.
 pub struct RuleInfo {
+    /// The name used in settings, flags and `allow(...)` comments.
     pub name: &'static str,
     /// The rule's group; its level is the rule's default.
     pub category: Category,

@@ -16,6 +16,7 @@ mod controls;
 pub use addresses::LifetimeAddressCast;
 pub use controls::LifetimeControls;
 
+/// How lowering described an operand: the address of a place, a value, or neither.
 #[derive(Clone, Copy, Debug)]
 pub enum LifetimeOperand {
     Place(Val),
@@ -76,6 +77,7 @@ pub struct LifetimeMemoryEffects {
     pub count: Option<u8>,
 }
 
+/// One effect on ownership that a procedure's body has, in execution order within its `LifetimeBlock`.
 #[derive(Clone, Debug)]
 pub enum LifetimeEvent {
     /// Actual lexical interface of an indirect call; never a structurally equal header.
@@ -333,6 +335,7 @@ impl LifetimeEvent {
     }
 }
 
+/// The ownership events of one basic block and the blocks it can continue to.
 #[derive(Clone, Debug, Default)]
 pub struct LifetimeBlock {
     pub events: Vec<LifetimeEvent>,

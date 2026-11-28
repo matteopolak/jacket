@@ -24,6 +24,7 @@ use crate::diagnostics::{Code, Severity};
 use crate::source::{LineIndex, SourcePath};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+/// How a diagnostic is laid out as text; see the module docs.
 pub enum Layout {
     Plain,
     Ascii,
@@ -32,12 +33,14 @@ pub enum Layout {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+/// A layout and whether to colour it.
 pub struct Style {
     pub layout: Layout,
     pub color: bool,
 }
 
 impl Style {
+    /// The style when no tool has chosen another: [`Layout::Plain`], uncoloured.
     pub const PLAIN: Style = Style {
         layout: Layout::Plain,
         color: false,
@@ -111,6 +114,7 @@ pub enum ColorChoice {
 }
 
 impl ColorChoice {
+    /// The choice spelled `auto`, `always` or `never`; `None` for any other text.
     pub fn parse(value: &str) -> Option<ColorChoice> {
         match value {
             "auto" => Some(ColorChoice::Auto),
@@ -310,12 +314,15 @@ pub struct Fix<'a> {
 }
 
 #[derive(Clone, Debug)]
+/// A help line with an optional fix to preview under it.
 pub struct Help<'a> {
     pub message: String,
     pub fix: Option<Fix<'a>>,
 }
 
 #[derive(Clone, Debug)]
+/// Everything one diagnostic shows: severity, code, message, places, notes and help. Build it
+/// with [`Report::new`] and the chained methods, then call [`Report::render`].
 pub struct Report<'a> {
     pub severity: Severity,
     /// `[name]` after the severity.
@@ -340,6 +347,7 @@ impl<'a> Report<'a> {
         self.name.unwrap_or_else(|| self.code.name())
     }
 
+    /// A report of `code` with `message` and no place, notes or help. Its severity is the code's.
     pub fn new(code: Code, message: impl Into<String>) -> Self {
         Report {
             severity: code.severity(),
@@ -379,6 +387,7 @@ impl<'a> Report<'a> {
     }
 
     #[must_use]
+    /// Adds a help line with no fix.
     pub fn help(mut self, message: impl Into<String>) -> Self {
         self.help.push(Help {
             message: message.into(),
@@ -388,6 +397,7 @@ impl<'a> Report<'a> {
     }
 
     #[must_use]
+    /// Adds a note with no place.
     pub fn note(mut self, message: impl Into<String>) -> Self {
         self.notes.push(message.into());
         self
@@ -407,6 +417,7 @@ impl<'a> Report<'a> {
         self.render_with(style())
     }
 
+    /// The report as text in `style`, whatever [`style`] says.
     pub fn render_with(&self, style: Style) -> String {
         let mut r = Renderer {
             paint: Paint(style.color && style.layout != Layout::Msvc),

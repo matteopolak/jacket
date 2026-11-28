@@ -35,6 +35,8 @@ pub struct NoteRead {
 /// How many callers of the reading code a read keeps: enough to get out of library helpers.
 const STACK: usize = 8;
 
+/// Records reads of the text of notes handed to compile-time code, by the address range each note
+/// occupies, once per note and location.
 #[derive(Default)]
 pub struct NoteWatch {
     /// Text bytes of each note handed to the program, `(start, end, index into places)`,

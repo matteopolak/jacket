@@ -37,31 +37,41 @@ pub const STDLIB_ROOT: &str = "/stdlib";
 /// One compiler or runtime message with a position inside a workspace file.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlayDiagnostic {
+    /// `error`, `warning` or `note`.
     pub severity: &'static str,
+    /// The workspace file's name without the `/workspace/` prefix; empty with `line` and
+    /// `column` 0 when the message has no source position.
     pub file: String,
     pub line: u32,
+    /// Counted in characters, as the command line counts them.
     pub column: u32,
     pub message: String,
     /// What it reports, for tools: the diagnostic's code name.
     pub code: &'static str,
 }
 
+/// What one playground run produced.
 #[derive(Debug, Clone, Default)]
 pub struct PlayResult {
     /// `None` when no program exit is available (input/compile error, runtime trap, or compile-only).
     pub exit_code: Option<i32>,
-    /// Where a diagnosed failure occurred: input validation, compilation or program runtime.
+    /// Where a diagnosed failure occurred: `input` (validation), `compile` or `runtime`.
     pub failure_phase: Option<&'static str>,
+    /// Everything the program wrote to standard output.
     pub stdout: String,
+    /// Everything the program wrote to standard error.
     pub stderr: String,
     /// Everything the program wrote, in order: `("stdout" | "stderr", text)` runs.
     pub output: Vec<(&'static str, String)>,
+    /// Errors first, then the compiler's warnings.
     pub diagnostics: Vec<PlayDiagnostic>,
     /// Compiler errors rendered with source snippets.
     pub rendered: String,
 }
 
 impl PlayResult {
+    /// The result as a JSON object with the keys `exitCode`, `failurePhase`, `stdout`, `stderr`,
+    /// `output` (`{stream, text}` entries), `rendered` and `diagnostics`.
     pub fn to_json(&self) -> String {
         let output: Vec<_> = self
             .output

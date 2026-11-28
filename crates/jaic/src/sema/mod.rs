@@ -146,11 +146,13 @@ use crate::source::{FileId, SourcePath, Span};
 use crate::target::{TargetCpu, TargetOs};
 use crate::types::{TypeId, Types};
 
+/// The result of a check: the error is a boxed diagnostic.
 pub type Result<T> = std::result::Result<T, Box<Diagnostic>>;
 
 /// A named compile-time argument: a module parameter or a baked procedure argument.
 pub type ConstArg = (Sym, Value, TypeId);
 
+/// Returns `Err` with a new diagnostic of `code` at `span`.
 pub fn err<T>(code: Code, span: Span, message: impl Into<String>) -> Result<T> {
     Err(Box::new(Diagnostic::new(code, span, message)))
 }
@@ -249,6 +251,7 @@ pub enum DeadCode {
     ModulesOnly,
 }
 
+/// Bytes of temporary storage a program gets unless `Options::temporary_storage_size` says otherwise.
 pub const DEFAULT_TEMPORARY_STORAGE_SIZE: i64 = 32768;
 
 /// Byte capacity reserved by `Build_Options` for target-specific machine settings.
@@ -286,6 +289,9 @@ impl HostPlatform {
     }
 }
 
+/// How one compile is configured: the target, where compile-time code runs, the import folders and the run-time checks to emit.
+///
+/// [`Options::host`] gives the defaults for the machine the compiler runs on.
 #[derive(Clone)]
 pub struct Options {
     pub os: TargetOs,
@@ -306,6 +312,7 @@ pub struct Options {
     pub preload_stdlib: Option<PathBuf>,
     /// Load `Runtime_Support` (entry point, context initialization) for programs.
     pub runtime_support: bool,
+    /// Bytes of temporary storage the program gets.
     pub temporary_storage_size: i64,
     /// Emit array bounds checks (`Build_Options.array_bounds_check != .OFF`).
     pub array_bounds_check: bool,
@@ -334,6 +341,7 @@ pub struct Options {
     /// `Build_Options.runtime_support_definitions`: whether `Runtime_Support` defines the
     /// system entry point and the runtime initialization.
     pub runtime_entry_point: bool,
+    /// Whether `Runtime_Support` runs the runtime initialization. It takes effect only with `runtime_support`.
     pub runtime_initialization: bool,
     /// `Build_Options.backtrace_on_crash`: `Runtime_Support` installs its crash handler.
     pub backtrace_on_crash: bool,
@@ -468,6 +476,7 @@ impl Options {
         (self.os, self.cpu) != (self.host.os, self.host.cpu)
     }
 
+    /// Returns the defaults for building for the machine the compiler runs on, with no import folders and no prelude chosen.
     pub fn host() -> Self {
         let host = HostPlatform::native();
         let (os, cpu) = (host.os, host.cpu);
@@ -514,11 +523,14 @@ pub struct FileInfo {
 /// See `Module::using_modules`.
 #[derive(Clone)]
 pub struct ModuleUsing {
+    /// The `using` filter as written, if any.
     pub module: ModuleId,
     pub filter: Option<Arc<ast::UsingFilter>>,
+    /// Whether the `using` is at export scope, so importers of the module see it too.
     pub exported: bool,
 }
 
+/// A loaded instance of a module: its scope, files and `#module_parameters`.
 pub struct Module {
     /// Entry declarations are still being registered (recursive imports may see this instance).
     pub loading: bool,
@@ -530,6 +542,7 @@ pub struct Module {
     pub path: Option<PathBuf>,
     /// Names visible module-wide (`#scope_export` and `#scope_module`).
     pub scope: ScopeId,
+    /// The `#module_parameters` this instance was imported with, by name.
     pub params: Vec<(Sym, Value, TypeId)>,
     /// Entities of `#module_parameters` (readable as `Module.NAME`).
     pub param_entities: Vec<scope::EntityId>,
@@ -549,6 +562,7 @@ pub struct Module {
     /// members of this module (`This.name`), filtered as written. Exported ones (at export
     /// scope) also reach importers of this module; `#scope_module` ones only `This.name`.
     pub using_modules: Vec<ModuleUsing>,
+    /// The module's source files.
     pub files: Vec<FileId>,
 }
 
@@ -624,8 +638,11 @@ fn too_many_instances(name: Sym) -> String {
 pub struct ProvidedImport {
     /// The importing module and the wanted name, as in the `FAILED_IMPORT` message.
     pub host: String,
+    /// The name the importer asked for.
     pub target: String,
+    /// How to read `value`.
     pub kind: ProvidedKind,
+    /// The module name, path or source text the metaprogram supplied, as `kind` says.
     pub value: String,
 }
 
@@ -639,21 +656,33 @@ pub enum ProvidedKind {
     FullText,
 }
 
+/// The state of one compile, split by concern. Checking is demand-driven (see the module docs); each field holds one part of the work.
 pub struct Compiler {
+    /// What compile-time code has done: the interpreter and the top-level `#run`s and `#assert`s.
     pub ct: CompileTime,
+    /// How this compile is configured.
     pub options: Options,
+    /// The source files: the file system, loaded texts and parse-ahead workers.
     pub src: SourceState,
+    /// Types and what is kept per type: struct declarations, `Type_Info` globals, default values and initializers.
     pub ty: TypeState,
+    /// What the compile produces: the IR program, pooled constant data and the output compile-time code printed.
     pub out: Output,
+    /// Modules, scopes and entities: what names resolve against.
     pub ns: Namespaces,
+    /// Procedures and code bodies, and the queue of bodies waiting to be checked and lowered.
     pub pr: ProcState,
+    /// The metaprogram's view of the compile: its workspace and the records already handed to it.
     pub meta: MetaState,
+    /// Counters and flags that say how far checking has got.
     pub epochs: Epochs,
+    /// Memoised name lookups.
     pub caches: NameCaches,
     /// Debug builds check `namespace_generation` against a full count of scope contents:
     /// the count, the generation and the number of calls at the last check.
     #[cfg(debug_assertions)]
     namespace_check: std::cell::Cell<(usize, u64, u32)>,
+    /// Warnings, deferred failures and declaration dependencies.
     pub diag: Diagnostics,
     /// The editor analysis this compile records for, if any (`crate::ide`).
     pub ed: Probed<crate::ide::Editor, { W::Ed as usize }>,
@@ -703,6 +732,7 @@ impl Compiler {
         self.ct.interp.release_code();
     }
 
+    /// Creates a compiler that reads sources through `fs`, with the root scope and the built-in declarations set up. The interpreter's step budget is `options.eval_step_limit`.
     pub fn new(options: Options, fs: Rc<dyn FileSystem>) -> Self {
         body_probe::init();
         speculative::init();

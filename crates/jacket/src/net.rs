@@ -77,18 +77,22 @@ impl<'a> Curl<'a> {
         self
     }
 
+    /// Retries a transient failure up to `times` times (curl's `--retry`).
     #[must_use]
     pub fn retry(mut self, times: u32) -> Self {
         self.retries = times;
         self
     }
 
+    /// Gives up on the whole transfer after `seconds`.
     #[must_use]
     pub fn max_time(mut self, seconds: u32) -> Self {
         self.max_time = Some(seconds);
         self
     }
 
+    /// Sends `header` (`Name: value`); it shows in the process list, so a secret goes through
+    /// [`Curl::secret_header`].
     #[must_use]
     pub fn header(mut self, header: impl Into<String>) -> Self {
         self.headers.push(header.into());

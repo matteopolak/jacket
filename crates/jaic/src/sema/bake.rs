@@ -12,6 +12,7 @@ use super::{
 use crate::diagnostics::Code;
 
 impl Compiler {
+    /// Checks a `#bake_arguments` expression: returns the procedure or polymorphic struct that `callee` names with the parameters in `args` fixed to compile-time values.
     pub fn check_bake(
         &mut self,
         scope: ScopeId,

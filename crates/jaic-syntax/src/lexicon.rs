@@ -27,6 +27,7 @@ pub enum WordClass {
 }
 
 impl WordClass {
+    /// Every class.
     pub const ALL: [WordClass; 9] = [
         WordClass::Conditional,
         WordClass::Repeat,
@@ -39,6 +40,7 @@ impl WordClass {
         WordClass::Intrinsic,
     ];
 
+    /// The class's name in the generated lexicon.
     pub fn name(self) -> &'static str {
         match self {
             WordClass::Conditional => "conditional",
@@ -55,6 +57,7 @@ impl WordClass {
 }
 
 #[derive(Clone, Copy, Debug)]
+/// A keyword-like word and how editors treat it.
 pub struct Word {
     pub name: &'static str,
     pub class: WordClass,
@@ -400,6 +403,7 @@ pub enum DirectiveRole {
 }
 
 impl DirectiveRole {
+    /// Every role.
     pub const ALL: [DirectiveRole; 5] = [
         DirectiveRole::Import,
         DirectiveRole::Conditional,
@@ -408,6 +412,7 @@ impl DirectiveRole {
         DirectiveRole::Run,
     ];
 
+    /// The role's name in the generated lexicon.
     pub fn name(self) -> &'static str {
         match self {
             DirectiveRole::Import => "import",
@@ -420,9 +425,11 @@ impl DirectiveRole {
 }
 
 #[derive(Clone, Copy, Debug)]
+/// A directive the tools know about.
 pub struct Directive {
     /// The name without the `#`.
     pub name: &'static str,
+    /// How an editor groups the directive.
     pub role: Option<DirectiveRole>,
     /// One line for completion and hover; directives without one are not offered.
     pub about: Option<&'static str>,

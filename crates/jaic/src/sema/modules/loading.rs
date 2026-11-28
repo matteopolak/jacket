@@ -219,6 +219,7 @@ impl Compiler {
         })
     }
 
+    /// Returns the directory of the file that the source `file` came from, for relative paths. Empty when the path has no parent.
     pub fn file_dir(&self, file: FileId) -> PathBuf {
         let path = self
             .src

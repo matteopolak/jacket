@@ -29,11 +29,13 @@ impl Origin {
 /// A program to run, with what it needs in front of the caller's own arguments.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Found {
+    /// The program's path.
     pub program: PathBuf,
     /// Arguments that come first (`--target=...`, `--sysroot=...`).
     pub args: Vec<OsString>,
     /// Variables to set for it (MSVC's `LIB`).
     pub env: Vec<(OsString, OsString)>,
+    /// How it was chosen.
     pub origin: Origin,
     /// What it is, when the path alone does not say (`compiler-rt 22.1.0`).
     pub detail: Option<String>,
@@ -42,6 +44,7 @@ pub struct Found {
 }
 
 impl Found {
+    /// A program with no arguments, variables, detail or sysroot.
     pub fn new(program: impl Into<PathBuf>, origin: Origin) -> Found {
         Found {
             program: program.into(),
@@ -53,18 +56,21 @@ impl Found {
         }
     }
 
+    /// Sets the sysroot a link against it uses.
     #[must_use]
     pub fn with_sysroot(mut self, sysroot: Found) -> Found {
         self.sysroot = Some(Box::new(sysroot));
         self
     }
 
+    /// Sets what it is, replacing the path and version in [`Found::describe`].
     #[must_use]
     pub fn with_detail(mut self, detail: impl Into<String>) -> Found {
         self.detail = Some(detail.into());
         self
     }
 
+    /// Appends `args` to the arguments that come before the caller's own.
     #[must_use]
     pub fn with_args<I, S>(mut self, args: I) -> Found
     where
@@ -129,11 +135,14 @@ pub fn tilde(path: &std::path::Path) -> String {
 /// A piece the machine lacks: what could not be done, and the notes that say how to fix it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Missing {
+    /// What could not be done.
     pub what: String,
+    /// Each a line of advice, printed after `what` as `note: ...`.
     pub notes: Vec<String>,
 }
 
 impl Missing {
+    /// A missing piece described by `what`, with `notes` on how to get it.
     pub fn new(what: impl Into<String>, notes: Vec<String>) -> Missing {
         Missing {
             what: what.into(),

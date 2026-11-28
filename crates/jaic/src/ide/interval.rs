@@ -9,6 +9,7 @@
 use crate::ast::{BinOp, UnOp};
 use crate::int_arith::{IntOp, int_binop};
 
+/// An inclusive range of integers, `lo <= hi`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Interval {
     pub lo: i128,
@@ -16,11 +17,13 @@ pub struct Interval {
 }
 
 impl Interval {
+    /// The values of a bool, `0..=1`.
     pub const BOOL: Interval = Interval {
         lo: 0,
         hi: 1,
     };
 
+    /// The range `lo..=hi`, or `None` when `lo > hi`.
     pub fn new(lo: i128, hi: i128) -> Option<Interval> {
         (lo <= hi).then_some(Interval {
             lo,
@@ -28,6 +31,7 @@ impl Interval {
         })
     }
 
+    /// The range holding only `v`.
     pub fn point(v: i128) -> Interval {
         Interval {
             lo: v,
@@ -55,10 +59,12 @@ impl Interval {
         })
     }
 
+    /// The one value in the range, or `None` when it holds several.
     pub fn singleton(self) -> Option<i128> {
         (self.lo == self.hi).then_some(self.lo)
     }
 
+    /// Whether every value of `self` lies in `outer`.
     pub fn within(self, outer: Interval) -> bool {
         outer.lo <= self.lo && self.hi <= outer.hi
     }
@@ -87,6 +93,7 @@ impl Interval {
     }
 }
 
+/// Whether `op` yields a bool from a comparison of its operands.
 pub fn is_comparison(op: BinOp) -> bool {
     matches!(
         op,

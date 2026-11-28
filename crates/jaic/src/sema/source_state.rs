@@ -17,13 +17,16 @@ pub(in crate::sema) struct StringRanges {
     pub ranges: Rc<[(usize, usize)]>,
 }
 
+/// The source files of one compile.
 pub struct SourceState {
+    /// The file system sources are read through.
     pub fs: Rc<dyn FileSystem>,
     /// Real paths already worked out (see [`SourceState::canon`]).
     pub(in crate::sema) canon_cache: Probed<CanonCache, { W::SrcCanonCache as usize }>,
     /// Worker threads lexing and parsing the files this compile will load (`parse_ahead`).
     pub(in crate::sema) ahead: Probed<Option<ParseAhead>, { W::SrcAhead as usize }>,
     pub sources: Probed<SourceMap, { W::SrcSources as usize }>,
+    /// The loaded files with their module and scope.
     pub files: Probed<Vec<FileInfo>, { W::SrcFiles as usize }>,
     /// Lexical provenance of scoped/generated sources, for relative source loads
     /// and the distribution boundary around library-owned internals.
@@ -65,6 +68,7 @@ pub struct SourceState {
 }
 
 impl SourceState {
+    /// Creates the state for a compile that reads through `fs`.
     pub fn new(fs: Rc<dyn FileSystem>) -> Self {
         Self {
             fs,

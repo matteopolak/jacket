@@ -20,7 +20,9 @@ use crate::types::TypeKind;
 /// One input of a program: a file on the import file system or source text.
 #[derive(Clone, Debug)]
 pub enum ProgramSource {
+    /// A file on the import file system.
     File(std::path::PathBuf),
+    /// Source text with no file behind it.
     String(String),
     /// Source text added to a module of the workspace (`add_build_string` with a message).
     ModuleString(String, u32),

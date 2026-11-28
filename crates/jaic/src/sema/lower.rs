@@ -609,6 +609,7 @@ impl Compiler {
         }
     }
 
+    /// Returns whether values of `ty` live in memory and travel by pointer: `ty` has no scalar IR class and is not `void`.
     pub fn is_memory_type(&self, ty: TypeId) -> bool {
         self.ir_ty(ty).is_none() && ty != TypeId::VOID
     }
@@ -619,6 +620,7 @@ impl Compiler {
         Ok(self.ty.types.size_of(ty))
     }
 
+    /// Returns the alignment of `ty` in bytes, laying out the structs it contains first.
     pub fn align_of(&mut self, ty: TypeId, span: Span) -> Result<u64> {
         self.ensure_complete(ty, span)?;
         Ok(self.ty.types.align_of(ty))

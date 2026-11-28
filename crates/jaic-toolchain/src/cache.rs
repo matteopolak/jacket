@@ -70,7 +70,9 @@ fn built_from(host: &dyn Host, dir: &Path) -> Option<(String, String)> {
 /// What the cache holds for one target.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Entry {
+    /// The target's folder name in the cache.
     pub target: String,
+    /// Whether a sysroot is cached for it.
     pub sysroot: bool,
     /// What the builtins were built from, when there are some.
     pub builtins: Option<String>,

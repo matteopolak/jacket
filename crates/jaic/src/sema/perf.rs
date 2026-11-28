@@ -14,11 +14,13 @@ use crate::sema::Output;
 /// One execution of compile-time code (a `#run`, or a constant that needed the interpreter).
 #[derive(Clone)]
 pub struct RunStat {
+    /// Where the run is written.
     pub span: Span,
     /// The first procedure the code calls directly, which is the one `#run f()` runs.
     pub callee: Option<ir::FuncId>,
     /// How many times the run stopped for something that was not compiled yet and started over.
     pub stalls: u64,
+    /// Wall time of the run, including any compile-time runs nested in it.
     pub elapsed: Duration,
     /// Steps of the execution budget the code used, when the interpreter counts them (it has a budget).
     pub steps: Option<u64>,
@@ -41,17 +43,21 @@ pub struct PolyStat {
     pub instances: Vec<(ProcId, Span)>,
 }
 
+/// The counts behind a workspace's `PERFORMANCE_REPORT` message.
 #[derive(Default)]
 pub struct PerfStats {
+    /// Every compile-time run so far.
     pub runs: Vec<RunStat>,
     /// Time the interpreter spent in compile-time code. Runs inside runs count once.
     pub run_time: Duration,
     run_depth: u32,
     /// Time spent lowering procedure bodies to IR, without the compile-time code they ran.
     pub lowering: Duration,
+    /// Requests for instances, by the polymorphic procedure asked.
     pub polys: HashMap<ProcId, PolyStat>,
     /// The polymorphic procedures in the order they were first asked for.
     pub poly_order: Vec<ProcId>,
+    /// How many instances were made in answer to requests.
     pub solves_used: u64,
 }
 

@@ -19,6 +19,7 @@ pub enum Mode {
 }
 
 impl Mode {
+    /// The mode named `name` (`plain` or `sql`), or `None` for any other name.
     pub fn from_name(name: &str) -> Option<Mode> {
         match name {
             "plain" => Some(Mode::Plain),

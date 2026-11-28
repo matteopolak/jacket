@@ -10,6 +10,9 @@ use crate::{
 };
 
 impl Session {
+    /// Where the name at `position` is declared: usually one place, several for a name that
+    /// stands for more than one declaration, none when nothing is found. Fails when the document
+    /// is not open.
     pub fn definition(
         &self,
         uri: &DocumentUri,

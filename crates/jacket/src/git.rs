@@ -13,10 +13,12 @@ use crate::dep::types::{CommitId, Revision, SubPath, Target};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GitError {
     pub message: String,
+    /// Printed as `note:` lines after the message.
     pub notes: Vec<String>,
 }
 
 impl GitError {
+    /// An error with no notes.
     pub fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
@@ -24,6 +26,7 @@ impl GitError {
         }
     }
 
+    /// Adds a note line.
     #[must_use]
     pub fn note(mut self, note: impl Into<String>) -> Self {
         self.notes.push(note.into());
@@ -48,6 +51,7 @@ pub enum Failure {
     Unusable(String),
     /// It ran and exited with an error; `said` is its stderr.
     Failed {
+        /// What git printed on stderr.
         said: String,
     },
 }
@@ -99,12 +103,14 @@ pub struct Repo<'a> {
 }
 
 impl<'a> Repo<'a> {
+    /// Git run inside `dir`.
     pub fn at(dir: &'a Path) -> Self {
         Self {
             dir: Some(dir),
         }
     }
 
+    /// Git run in the current folder, for commands that need no repository.
     pub fn anywhere() -> Self {
         Self {
             dir: None,
@@ -224,6 +230,7 @@ impl<'a> Repo<'a> {
             .map(|s| PathBuf::from(s.trim()))
     }
 
+    /// [`Repo::top`], with git's failure turned into an error to report.
     pub fn toplevel(&self) -> Result<PathBuf> {
         self.top().map_err(|f| failed(&f, &["rev-parse"]))
     }
@@ -245,6 +252,7 @@ impl<'a> Repo<'a> {
         })
     }
 
+    /// The commit checked out in this folder.
     pub fn head(&self) -> Result<CommitId> {
         let text = self.ask(&["rev-parse", "HEAD"])?;
         CommitId::parse(&text).map_err(GitError::new)
@@ -313,14 +321,18 @@ impl<'a> Repo<'a> {
         self.ask(&["config", "-z", "-f", ".gitmodules", "--list"])
     }
 
+    /// Stages `path` (`git add`).
     pub fn stage(&self, path: &SubPath) -> Result<()> {
         self.tell(&["add", "--", path.as_str()])
     }
 
+    /// Moves `from` to `to` in the work tree and the index (`git mv`).
     pub fn mv(&self, from: &SubPath, to: &SubPath) -> Result<()> {
         self.tell(&["mv", "--", from.as_str(), to.as_str()])
     }
 
+    /// Removes `path` from the index and the disk. A [`Removal::Tree`] is removed recursively
+    /// and fails when it has local changes; a submodule or file is removed regardless of them.
     pub fn rm(&self, path: &SubPath, what: Removal) -> Result<()> {
         match what {
             Removal::Tree => self.tell(&["rm", "-r", "-q", "--", path.as_str()]),
@@ -328,6 +340,7 @@ impl<'a> Repo<'a> {
         }
     }
 
+    /// Unregisters the submodule at `path` and empties its folder, even with local changes.
     pub fn deinit(&self, path: &SubPath) -> Result<()> {
         self.tell(&["submodule", "deinit", "-f", "--", path.as_str()])
     }
@@ -381,6 +394,7 @@ impl<'a> Repo<'a> {
             .map_err(|f| reach(&f, &self.origin()))
     }
 
+    /// Checks out `commit` without moving a branch.
     pub fn checkout_detached(&self, commit: &Target) -> Result<()> {
         self.tell(&["checkout", "--detach", commit.as_str()])
     }

@@ -2,12 +2,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::Error;
 
+/// A place in a document, as the protocol counts it.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Position {
+    /// Zero-based line.
     pub line: u32,
+    /// Zero-based column in UTF-16 code units.
     pub character: u32,
 }
 
+/// A span of a document from `start` up to, not including, `end`.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Range {
     pub start: Position,

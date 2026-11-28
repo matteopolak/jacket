@@ -13,6 +13,7 @@ pub const HAS_CLOCK: bool = cfg!(not(target_arch = "wasm32"));
 pub struct Stopwatch(#[cfg(not(target_arch = "wasm32"))] std::time::Instant);
 
 impl Stopwatch {
+    /// Starts timing from now.
     pub fn start() -> Self {
         #[cfg(not(target_arch = "wasm32"))]
         return Stopwatch(std::time::Instant::now());
@@ -20,6 +21,7 @@ impl Stopwatch {
         return Stopwatch();
     }
 
+    /// The time since `start`; always zero where there is no clock (`HAS_CLOCK`).
     pub fn elapsed(self) -> Duration {
         #[cfg(not(target_arch = "wasm32"))]
         return self.0.elapsed();

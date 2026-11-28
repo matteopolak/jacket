@@ -57,6 +57,7 @@ pub enum IdeRoot {
 }
 
 impl IdeRoot {
+    /// Names the file, or the folder and everything below it, at `path`.
     pub fn under(path: impl Into<PathBuf>) -> Self {
         IdeRoot::Under(path.into())
     }
@@ -70,6 +71,9 @@ pub struct CompileTimeReach {
     pub finals: HashSet<crate::ir::FuncId>,
 }
 
+/// Everything one analysis records about the sources it covers: references, scopes, expansions,
+/// calls and lifetime data. Created by `IdeFacts::new` and filled in by the compiler while `Editor`
+/// records.
 #[derive(Default)]
 pub struct IdeFacts {
     /// Per-analysis missing filesystem discovery; never a placeholder or failed module body.
@@ -434,6 +438,7 @@ impl IdeFacts {
         self.lifetime_files = HashMap::default();
     }
 
+    /// Creates empty facts that record the sources under `roots`.
     pub fn new(roots: Vec<IdeRoot>) -> Self {
         let mut facts = Self::default();
 
@@ -450,6 +455,7 @@ impl IdeFacts {
     }
 }
 
+/// One identifier in the source and what it names.
 #[derive(Clone, Debug)]
 pub struct IdeRef {
     pub span: Span,
@@ -459,6 +465,7 @@ pub struct IdeRef {
     pub decl: bool,
 }
 
+/// What an `IdeRef` names.
 #[derive(Clone, Debug)]
 pub enum IdeWhat {
     Entity(EntityId),
@@ -468,6 +475,7 @@ pub enum IdeWhat {
     Module(ModuleId),
 }
 
+/// What kind of thing an `IdeName` is, for completion.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum IdeKind {
     Variable,
@@ -479,6 +487,7 @@ pub enum IdeKind {
     EnumMember,
 }
 
+/// A name visible at a point, for completion.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IdeName {
     pub name: String,
@@ -524,6 +533,7 @@ impl IdeCall {
         }
     }
 
+    /// Describes a call of the procedure with `headers`; `required` is known only for a single header.
     pub fn of_headers<'a>(headers: impl IntoIterator<Item = &'a ast::ProcHeader>) -> Self {
         let headers: Vec<&ast::ProcHeader> = headers.into_iter().collect();
         let required = match headers.as_slice() {

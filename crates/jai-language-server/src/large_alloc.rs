@@ -40,6 +40,8 @@ const MAP_ANON: i32 = 0x20;
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 const MAP_ANON: i32 = 0x1000;
 
+/// The global allocator described above: blocks of 128 KiB or more are mapped and unmapped
+/// directly, all others go to [`System`].
 pub struct LargeBlocksToOs;
 
 #[cfg(target_os = "macos")]

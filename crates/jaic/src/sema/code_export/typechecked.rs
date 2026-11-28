@@ -15,6 +15,7 @@ pub enum Contents {
     /// `body_or_null` and the lists hold no body. A body is exported (and reported) in the
     /// next message once some source could read it.
     WithoutBodies,
+    /// The message lists hold procedure bodies as well.
     Everything,
 }
 

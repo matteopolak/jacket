@@ -97,7 +97,9 @@ pub fn libclang_dir(host: &dyn Host) -> Result<PathBuf, Missing> {
 /// The linker, SDK and runtime of the selected developer folder.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Xcode {
+    /// The developer folder's `usr/bin/ld`.
     pub ld: PathBuf,
+    /// The SDK folder: `SDKROOT` when set, else the developer folder's own.
     pub sdk: PathBuf,
     /// `usr/lib/clang`, one folder per compiler version.
     clang_lib: PathBuf,

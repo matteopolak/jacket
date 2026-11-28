@@ -9,10 +9,15 @@ use crate::host::{Host, Os};
 
 /// A host built from the files it has, the folders of its `PATH` and what its tools print.
 pub struct FakeHost {
+    /// The operating system it reports.
     pub os: Os,
+    /// The CPU it reports.
     pub cpu: jaic::target::TargetCpu,
+    /// The folders of its `PATH`.
     pub path: Vec<PathBuf>,
+    /// Its `Program Files` folders.
     pub program_files: Vec<PathBuf>,
+    /// Its user cache folder; `None` for a machine with none.
     pub cache: Option<PathBuf>,
     files: BTreeSet<PathBuf>,
     dirs: BTreeSet<PathBuf>,
@@ -42,6 +47,7 @@ impl FakeHost {
         }
     }
 
+    /// An Arm Mac with `/usr/bin` and `/opt/homebrew/bin` on `PATH` and `/usr/bin/cc`.
     pub fn mac() -> FakeHost {
         let mut host = FakeHost::new(Os::MacOs, "aarch64");
 
@@ -51,6 +57,7 @@ impl FakeHost {
         host
     }
 
+    /// An x86-64 Debian with `/usr/bin` on `PATH`, `/usr/bin/cc` and `/usr/bin/apt-get`.
     pub fn debian() -> FakeHost {
         let mut host = FakeHost::new(Os::Linux, "x86_64");
 
@@ -73,6 +80,7 @@ impl FakeHost {
         self
     }
 
+    /// Adds a folder, and the folders above it.
     pub fn dir(&mut self, path: &str) -> &mut Self {
         for ancestor in Path::new(path).ancestors() {
             self.dirs.insert(ancestor.to_path_buf());
@@ -127,6 +135,7 @@ impl FakeHost {
         self
     }
 
+    /// Removes the file `path`. Its text, and the folders above it, stay.
     pub fn without(&mut self, path: &str) -> &mut Self {
         self.files.remove(Path::new(path));
         self

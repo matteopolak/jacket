@@ -6,8 +6,15 @@ use super::{BinOp, BlockId, CmpOp, ConvOp, ForeignId, FuncId, GlobalId, SlotId, 
 
 // Builder
 
+/// Builds one function's IR: appends instructions to the current block and tracks which blocks are terminated.
+///
+/// Start with [`Builder::new`], emit code, and take the result with [`Builder::finish`].
+/// Block 0 is the entry block. An instruction pushed after a terminator goes into a fresh block no
+/// edge reaches, so lowering code after `return` or `break` needs no special case.
 pub struct Builder {
+    /// The function under construction.
     pub func: Func,
+    /// The block `push` appends to.
     pub current: BlockId,
     terminated: crate::fxhash::HashSet<BlockId>,
     /// The last `loc` marker, for `repeat_loc`.
@@ -28,6 +35,7 @@ struct ParamCopy {
 }
 
 impl Builder {
+    /// Starts a function whose entry block is empty and whose parameters are the first `sig.params.len()` values.
     pub fn new(name: String, sig: Sig) -> Self {
         let vals = sig.params.clone();
         let func = Func {
@@ -137,19 +145,23 @@ impl Builder {
         }
     }
 
+    /// Returns parameter `i`, which is value `i`; no instruction defines it. Does not check `i` against the signature.
     pub fn param(&self, i: usize) -> Val {
         Val(i as u32)
     }
 
+    /// Allocates a value of class `ty` that no instruction defines yet.
     pub fn new_val(&mut self, ty: Ty) -> Val {
         self.func.vals.push(ty);
         Val(self.func.vals.len() as u32 - 1)
     }
 
+    /// Returns the class of `v`. Panics if this builder did not allocate `v`.
     pub fn val_ty(&self, v: Val) -> Ty {
         self.func.vals[v.0 as usize]
     }
 
+    /// Appends an empty block and returns its id. The block ends in `Term::Unreachable` until it is terminated, and the current block does not change.
     pub fn new_block(&mut self) -> BlockId {
         self.func.blocks.push(Block {
             insts: Vec::new(),
@@ -158,6 +170,7 @@ impl Builder {
         BlockId(self.func.blocks.len() as u32 - 1)
     }
 
+    /// Makes `block` the block that instructions are appended to.
     pub fn switch_to(&mut self, block: BlockId) {
         self.current = block;
     }
@@ -167,6 +180,7 @@ impl Builder {
         self.terminated.contains(&self.current)
     }
 
+    /// Adds a stack slot of `size` bytes. An `align` of 0 becomes 1. Emits nothing; [`Builder::slot_addr`] takes its address.
     pub fn slot(&mut self, size: u64, align: u64) -> SlotId {
         self.func.slots.push(Slot {
             size,
@@ -206,6 +220,7 @@ impl Builder {
         addr
     }
 
+    /// Appends `inst` to the current block. If that block is already terminated, makes a new block current and appends there.
     pub fn push(&mut self, inst: Inst) {
         if self.is_terminated() {
             // Code after return/break is unreachable; emit into a fresh dead block.
@@ -217,6 +232,7 @@ impl Builder {
         self.func.blocks[self.current.0 as usize].insts.push(inst);
     }
 
+    /// Ends the current block with `term`. Does nothing if the block is already terminated, so the first terminator wins.
     pub fn terminate(&mut self, term: Term) {
         if self.is_terminated() {
             return;
@@ -226,6 +242,7 @@ impl Builder {
         self.terminated.insert(self.current);
     }
 
+    /// Defines an integer constant of class `ty` from the raw bits `value`.
     pub fn iconst(&mut self, ty: Ty, value: u64) -> Val {
         let dst = self.new_val(ty);
 
@@ -237,6 +254,7 @@ impl Builder {
         dst
     }
 
+    /// Defines a floating-point constant of class `ty`.
     pub fn fconst(&mut self, ty: Ty, value: f64) -> Val {
         let dst = self.new_val(ty);
 
@@ -248,6 +266,7 @@ impl Builder {
         dst
     }
 
+    /// Defines `a op b` in class `ty`.
     pub fn bin(&mut self, op: BinOp, ty: Ty, a: Val, b: Val) -> Val {
         let dst = self.new_val(ty);
 
@@ -261,6 +280,7 @@ impl Builder {
         dst
     }
 
+    /// Defines `op a` in class `ty`.
     pub fn un(&mut self, op: UnOp, ty: Ty, a: Val) -> Val {
         let dst = self.new_val(ty);
 
@@ -273,6 +293,7 @@ impl Builder {
         dst
     }
 
+    /// Defines the comparison `a op b` on operands of class `ty` as an `I8` holding 0 or 1.
     pub fn cmp(&mut self, op: CmpOp, ty: Ty, a: Val, b: Val) -> Val {
         let dst = self.new_val(Ty::I8);
 
@@ -286,6 +307,7 @@ impl Builder {
         dst
     }
 
+    /// Defines the conversion of `src` from class `from` to class `to`. A bitcast between identical classes returns `src` and emits nothing.
     pub fn conv(&mut self, op: ConvOp, from: Ty, to: Ty, src: Val) -> Val {
         if from == to && matches!(op, ConvOp::Bitcast) {
             return src;
@@ -303,6 +325,7 @@ impl Builder {
         dst
     }
 
+    /// Defines the address of `slot`. The slot's size is remembered, so a later [`Builder::ptr_offset`] inside it is marked in bounds.
     pub fn slot_addr(&mut self, slot: SlotId) -> Val {
         let dst = self.new_val(Ty::Ptr);
 
@@ -329,6 +352,7 @@ impl Builder {
         }
     }
 
+    /// Defines the address of `global`.
     pub fn global_addr(&mut self, global: GlobalId) -> Val {
         let dst = self.new_val(Ty::Ptr);
 
@@ -339,6 +363,7 @@ impl Builder {
         dst
     }
 
+    /// Defines the address of function `func`.
     pub fn func_addr(&mut self, func: FuncId) -> Val {
         let dst = self.new_val(Ty::Ptr);
 
@@ -349,6 +374,7 @@ impl Builder {
         dst
     }
 
+    /// Defines the address of the foreign symbol `foreign`.
     pub fn foreign_addr(&mut self, foreign: ForeignId) -> Val {
         let dst = self.new_val(Ty::Ptr);
 
@@ -359,6 +385,7 @@ impl Builder {
         dst
     }
 
+    /// Defines the `ty` value stored at `addr`.
     pub fn load(&mut self, ty: Ty, addr: Val) -> Val {
         let dst = self.new_val(ty);
 
@@ -370,6 +397,7 @@ impl Builder {
         dst
     }
 
+    /// Stores `value`, of class `ty`, at `addr`.
     pub fn store(&mut self, ty: Ty, addr: Val, value: Val) {
         self.push(Inst::Store {
             ty,
@@ -378,6 +406,7 @@ impl Builder {
         });
     }
 
+    /// Defines `base + offset` with `offset` in bytes, without claiming the result is in bounds. [`Builder::ptr_offset`] takes a constant offset and can make that claim.
     pub fn ptr_add(&mut self, base: Val, offset: Val) -> Val {
         self.ptr_add_with_proof(base, offset, None)
     }
@@ -399,6 +428,9 @@ impl Builder {
         dst
     }
 
+    /// Defines `base` advanced by `offset` bytes, or returns `base` unchanged for an offset of 0.
+    ///
+    /// The addition is marked in bounds only when `base` is a known stack allocation, or a pointer derived from one by this method, with at least `offset` bytes left. A load, a cast or a raw [`Builder::ptr_add`] loses that knowledge.
     pub fn ptr_offset(&mut self, base: Val, offset: u64) -> Val {
         if offset == 0 {
             return base;
@@ -430,6 +462,7 @@ impl Builder {
         self.ptr_add_with_proof(base, offset, remaining)
     }
 
+    /// Copies `size` bytes from `src` to `dst`; the ranges must not overlap. Emits nothing when `size` is 0.
     pub fn copy(&mut self, dst: Val, src: Val, size: u64) {
         if size > 0 {
             self.push(Inst::Copy {
@@ -440,6 +473,7 @@ impl Builder {
         }
     }
 
+    /// Zeroes `size` bytes at `dst`. Emits nothing when `size` is 0.
     pub fn zero(&mut self, dst: Val, size: u64) {
         if size > 0 {
             self.push(Inst::Zero {
@@ -449,6 +483,7 @@ impl Builder {
         }
     }
 
+    /// Emits a call and returns one new value per class in `returns`, in order.
     pub fn call(&mut self, callee: Callee, args: Vec<Val>, returns: &[Ty]) -> Vec<Val> {
         let results: Vec<Val> = returns.iter().map(|&t| self.new_val(t)).collect();
 
@@ -460,6 +495,7 @@ impl Builder {
         results
     }
 
+    /// Emits an intrinsic and returns one new value per class in `returns`, in order.
     pub fn intrinsic(&mut self, op: Intrinsic, args: Vec<Val>, returns: &[Ty]) -> Vec<Val> {
         let results: Vec<Val> = returns.iter().map(|&t| self.new_val(t)).collect();
 
@@ -471,10 +507,12 @@ impl Builder {
         results
     }
 
+    /// Ends the current block with a jump to `target`.
     pub fn jump(&mut self, target: BlockId) {
         self.terminate(Term::Jump(target));
     }
 
+    /// Ends the current block with a branch to `then_block` when `cond` is true, otherwise to `else_block`.
     pub fn branch(&mut self, cond: Val, then_block: BlockId, else_block: BlockId) {
         self.terminate(Term::Branch {
             cond,
@@ -483,10 +521,12 @@ impl Builder {
         });
     }
 
+    /// Ends the current block by returning `values`.
     pub fn ret(&mut self, values: Vec<Val>) {
         self.terminate(Term::Ret(values));
     }
 
+    /// Records a source position. Emits an `Inst::Loc` marker unless the current block is terminated; [`Builder::repeat_loc`] reuses the position either way.
     pub fn loc(&mut self, file: u32, line: u32, col: u32, scope: u32) {
         self.last_loc = Some((file, line, col, scope));
 
@@ -508,6 +548,9 @@ impl Builder {
         }
     }
 
+    /// Returns the finished function.
+    ///
+    /// Drops the copy of each aggregate parameter whose address the body never took. A block that was never terminated gets a void return if the signature has no results, and otherwise keeps `Term::Unreachable`.
     pub fn finish(mut self) -> Func {
         self.elide_param_copies();
 

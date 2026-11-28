@@ -82,6 +82,7 @@ enum AnchorNote {
 }
 
 impl Compiler {
+    /// Lays out struct `s`: its member types, sizes and offsets. Does nothing if it is already laid out. Fails with `StructContainsItselfUse` if the layout needs itself; on any error the layout stays pending.
     pub fn layout_struct(&mut self, s: StructId, span: Span) -> Result<()> {
         self.out.begin_runtime_storage_dependencies();
         let result = self.layout_struct_with_runtime_dependencies(s, span);

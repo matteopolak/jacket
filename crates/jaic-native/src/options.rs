@@ -6,10 +6,14 @@ use jaic::target::Target as BuildTarget;
 /// Optimization pipeline selection.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum OptLevel {
+    /// No optimization.
     #[default]
     O0,
+    /// `default<O1>`.
     O1,
+    /// `default<O2>`.
     O2,
+    /// `default<O3>`.
     O3,
     /// `default<O2>` tuned for size (`.OS`).
     Os,
@@ -41,8 +45,10 @@ impl OptLevel {
     }
 }
 
+/// What code generation is asked to build.
 #[derive(Clone, Debug, Default)]
 pub struct Options {
+    /// The optimization pipeline for the IR.
     pub opt_level: OptLevel,
     /// What to build for; `None` selects the host.
     pub target: Option<BuildTarget>,
@@ -71,8 +77,11 @@ pub struct Codegen {
     /// `enable_loop_unrolling`, `enable_loop_vectorization`, `enable_slp_vectorization`,
     /// `merge_functions`: the optimization pipeline's switches.
     pub loop_unrolling: Option<bool>,
+    /// `enable_loop_vectorization`.
     pub loop_vectorization: Option<bool>,
+    /// `enable_slp_vectorization`.
     pub slp_vectorization: Option<bool>,
+    /// `merge_functions`.
     pub merge_functions: Option<bool>,
     /// `function_sections`: every function in its own `.text.<name>` section, on ELF targets
     /// (other object formats ignore it).
@@ -104,7 +113,9 @@ pub struct Codegen {
     /// `output_llvm_ir`, `output_bitcode` (after optimization) and the `_before_optimizations`
     /// variants: where to write them.
     pub ir_after: Option<PathBuf>,
+    /// Where to write the bitcode after optimization (`output_bitcode`).
     pub bitcode_after: Option<PathBuf>,
+    /// Where to write the bitcode before optimization (`output_bitcode_before_optimizations`).
     pub bitcode_before: Option<PathBuf>,
     /// `minimum_os_version` for a macOS target, as `major.minor` (the triple's version).
     pub macos_version: Option<String>,
@@ -129,6 +140,7 @@ pub struct Sanitize {
 }
 
 impl Sanitize {
+    /// Whether any sanitizer is on.
     pub fn any(self) -> bool {
         self.address || self.undefined || self.coverage || self.fuzzer
     }

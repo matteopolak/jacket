@@ -91,6 +91,7 @@ impl Compiler {
         }
     }
 
+    /// Returns whether entity `id` can take part in an overload set: a procedure declaration, or a constant holding a procedure.
     pub fn entity_is_overloadable(&self, id: EntityId) -> bool {
         match &self.entity(id).kind {
             EntityKind::Decl {

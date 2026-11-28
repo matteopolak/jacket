@@ -11,7 +11,9 @@ use jacket_config::{Dependency, FILE_NAME, Package};
 /// What a dependency says about itself.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Manifest {
+    /// The `[package]` table; empty when absent or invalid.
     pub package: Package,
+    /// The `[dependencies]` table; empty when absent or invalid.
     pub dependencies: BTreeMap<String, Dependency>,
 }
 

@@ -139,6 +139,7 @@ pub struct Program {
 }
 
 impl Program {
+    /// The main file of the program.
     pub fn path(&self) -> &Path {
         self.root.path()
     }
@@ -353,8 +354,13 @@ pub trait ProjectFs {
         path.to_path_buf()
     }
 
+    /// The text of the file at `path`, or `None` when it cannot be read.
     fn read(&self, path: &Path) -> Option<String>;
+
+    /// Whether `path` is a file.
     fn is_file(&self, path: &Path) -> bool;
+
+    /// Whether `path` is a folder.
     fn is_dir(&self, path: &Path) -> bool;
 
     /// Names directly inside `dir`, and whether each is a folder.
@@ -427,6 +433,7 @@ pub type LoaderGraph = Rc<BTreeMap<PathBuf, Vec<PathBuf>>>;
 /// The most `.jai` files a [`ProjectFs::project_files`] walk collects, and how deep it goes.
 pub const MAX_TREE_FILES: usize = 4000;
 
+/// The deepest folder level a project walk descends to.
 pub const MAX_TREE_DEPTH: usize = 8;
 
 /// Folders a project walk skips besides hidden ones (module folders are indexed as modules).
@@ -543,6 +550,7 @@ impl Root {
         }
     }
 
+    /// The main file, or the entry file of a module.
     pub fn path(&self) -> &Path {
         match self {
             Root::Module {

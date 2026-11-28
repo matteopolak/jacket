@@ -477,6 +477,7 @@ impl Compiler {
         Ok(addr)
     }
 
+    /// Ends a body whose control can reach its end: runs the pending `defer`s, then returns nothing if there are no results, returns the named results if every result is named, and otherwise traps with `CheckReason::MissingReturn`.
     pub fn emit_fallthrough_return(&mut self, f: &mut FnCtx, span: Span) -> Result<()> {
         self.emit_defers(f, 0, span)?;
 

@@ -8,6 +8,7 @@
 use crate::ir::{AggLayout, Ty};
 use crate::layout::DataLayout;
 
+/// A target CPU family whose C calling convention the compiler classifies aggregates for.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Arch {
     Aarch64,
@@ -102,6 +103,7 @@ pub enum PieceTy {
     Int(u8),
 }
 
+/// A register-class chunk of an aggregate, at its byte offset.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Piece {
     /// Byte offset of the chunk inside the aggregate.

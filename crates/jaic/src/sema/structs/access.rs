@@ -8,6 +8,7 @@ use crate::sema::{Arc, Compiler, Result, ScopeId, Span, Sym, TypeId, Value, ast,
 use crate::types::{ArrayKind, LayoutState, TypeKind};
 
 impl Compiler {
+    /// Checks the member access `base.name`, looking through a pointer to its target, and returns the place, value or constant it names.
     pub fn member_access(
         &mut self,
         f: &mut FnCtx,

@@ -41,6 +41,7 @@ impl Compiler {
         Ok(op)
     }
 
+    /// Turns an evaluated `#insert` operand into statements: a `Code` value's statements, a string parsed as source, or nothing for `void`. Anything else fails with `InsertNeedsString`.
     pub fn insert_stmts_from(&mut self, op: Operand, span: Span) -> Result<Vec<ast::Stmt>> {
         match op {
             Operand::Const {
@@ -74,6 +75,7 @@ impl Compiler {
         }
     }
 
+    /// Evaluates the operand of `#insert` and returns the statements it produces.
     pub fn eval_insert_stmts(
         &mut self,
         scope: ScopeId,

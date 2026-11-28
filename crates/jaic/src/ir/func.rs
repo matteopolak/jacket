@@ -2,18 +2,22 @@
 use super::insts::{Callee, Inst, Sig, Term};
 use super::{FuncId, GlobalId, Ty, Val};
 
+/// A run of instructions that ends in one terminator.
 #[derive(Clone, Debug)]
 pub struct Block {
     pub insts: Vec<Inst>,
+    /// How control leaves the block. `Term::Unreachable` until a terminator is set.
     pub term: Term,
 }
 
+/// A stack allocation of `size` bytes, aligned to `align`, whose address `Inst::SlotAddr` takes.
 #[derive(Clone, Copy, Debug)]
 pub struct Slot {
     pub size: u64,
     pub align: u64,
 }
 
+/// Whether a function is visible outside the program.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Linkage {
     Internal,
@@ -21,19 +25,24 @@ pub enum Linkage {
     Export(String),
 }
 
+/// A lowered procedure: its signature, stack slots and control-flow graph.
 #[derive(Clone, Debug)]
 pub struct Func {
+    /// The procedure's name. May be empty, in which case [`Func::listing`] names the function by its `origin`.
     pub name: String,
     /// What the function was made for: a procedure, or compile-time code the compiler wraps
     /// in one.
     pub origin: FuncOrigin,
     pub sig: Sig,
     pub linkage: Linkage,
+    /// Stack slots, indexed by `SlotId`.
     pub slots: Vec<Slot>,
+    /// Blocks, indexed by `BlockId`. Block 0 is the entry.
     pub blocks: Vec<Block>,
-    /// Register class of each `Val`.
+    /// Register class of each `Val`. The first `sig.params.len()` vals are the parameters, in
+    /// order.
     pub vals: Vec<Ty>,
-    /// The first `sig.params.len()` vals are the parameters, in order.
+    /// Index into `Program::file_paths` of the file that declares the function.
     pub source_file: u32,
     /// Present for procedures that take a context: what a stack trace node says about it.
     pub trace: Option<TraceInfo>,
@@ -160,6 +169,7 @@ pub struct FuncDebug {
     pub vars: Vec<DebugVar>,
 }
 
+/// A lexical scope of a procedure.
 #[derive(Clone, Copy, Debug)]
 pub struct DebugScope {
     /// Enclosing scope (entry 0 is its own parent).
@@ -179,6 +189,7 @@ pub struct DebugVar {
     pub addr: Val,
     /// 1-based parameter position; 0 for a local.
     pub arg: u32,
+    /// Index into `FuncDebug::scopes`.
     pub scope: u32,
     pub line: u32,
     pub col: u32,
@@ -189,6 +200,7 @@ pub struct DebugVar {
 pub struct DebugGlobal {
     pub global: GlobalId,
     pub name: String,
+    /// Key into `Program::debug_types`.
     pub ty: u32,
     pub file: u32,
     pub line: u32,
@@ -207,8 +219,10 @@ pub struct DebugType {
 /// `u8` shown as a character: the pointee of `string.data`, so debuggers print text.
 pub const DEBUG_CHAR: u32 = u32::MAX - 1;
 
+/// A pointer to [`DEBUG_CHAR`].
 pub const DEBUG_CHAR_PTR: u32 = u32::MAX - 2;
 
+/// The shape of a [`DebugType`]. Types it refers to are `Program::debug_types` keys.
 #[derive(Clone, Debug)]
 pub enum DebugTypeKind {
     Void,
@@ -237,6 +251,7 @@ pub enum DebugTypeKind {
     Typedef(u32),
 }
 
+/// A member of a `DebugTypeKind::Struct`, at `offset` bytes.
 #[derive(Clone, Debug)]
 pub struct DebugField {
     pub name: String,
@@ -255,6 +270,7 @@ pub struct TraceInfo {
 }
 
 impl Func {
+    /// Returns parameter `i`, which is value `i`.
     pub fn param(&self, i: usize) -> Val {
         Val(i as u32)
     }

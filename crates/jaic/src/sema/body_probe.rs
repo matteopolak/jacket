@@ -167,10 +167,12 @@ pub fn write_name(i: usize) -> &'static str {
 pub struct Probed<T, const I: usize>(T);
 
 impl<T, const I: usize> Probed<T, I> {
+    /// Wraps `value` as a table with no writes counted yet.
     pub fn new(value: T) -> Self {
         Probed(value)
     }
 
+    /// Returns the table.
     pub fn into_inner(self) -> T {
         self.0
     }
@@ -179,6 +181,7 @@ impl<T, const I: usize> Probed<T, I> {
 /// Interning looks the type up first, so only a type that is new counts as a write (and makes a
 /// speculative body give up).
 impl<const I: usize> Probed<crate::types::Types, I> {
+    /// Interns `kind`, counting a write only when the type is new.
     pub fn intern(&mut self, kind: crate::types::TypeKind) -> crate::types::TypeId {
         if let Some(id) = self.0.find(&kind) {
             lookup(Lookup::Types, true);
@@ -190,10 +193,12 @@ impl<const I: usize> Probed<crate::types::Types, I> {
         self.0.intern(kind)
     }
 
+    /// Interns the pointer type to `to`.
     pub fn pointer(&mut self, to: crate::types::TypeId) -> crate::types::TypeId {
         self.intern(crate::types::TypeKind::Pointer(to))
     }
 
+    /// Interns the array type of `elem`.
     pub fn array(
         &mut self,
         elem: crate::types::TypeId,
@@ -340,6 +345,7 @@ impl<T, P: std::slice::SliceIndex<[T]> + First, const I: usize> std::ops::IndexM
 
 /// The first element an index reaches.
 pub trait First {
+    /// Returns the first element the index reaches.
     fn first(&self) -> usize;
 }
 
@@ -639,6 +645,7 @@ thread_local! {
     static WRITES: RefCell<[u64; WN]> = const { RefCell::new([0; WN]) };
 }
 
+/// Returns whether `-dev_body_probe` is on.
 #[inline(always)]
 pub fn enabled() -> bool {
     ON.load(std::sync::atomic::Ordering::Relaxed)
@@ -693,6 +700,7 @@ pub fn enqueued(id: u32) {
     }
 }
 
+/// Starts charging table growth to body `id`; [`end`] closes it.
 pub fn begin(c: &Compiler, id: u32) {
     STATE.with(|s| {
         let mut s = s.borrow_mut();
@@ -720,6 +728,7 @@ pub fn begin(c: &Compiler, id: u32) {
     });
 }
 
+/// Ends the innermost body started by [`begin`]. What the tables grew by, less what bodies lowered inside it caused, is charged to it.
 pub fn end(c: &Compiler) {
     STATE.with(|s| {
         let mut s = s.borrow_mut();
@@ -782,6 +791,7 @@ pub fn end(c: &Compiler) {
     });
 }
 
+/// Prints the histogram to stderr. Does nothing when the probe is off.
 pub fn report() {
     if !enabled() {
         return;

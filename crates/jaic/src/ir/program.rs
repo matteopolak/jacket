@@ -21,6 +21,7 @@ pub struct Reloc {
     pub addend: i64,
 }
 
+/// What a relocation points at.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum RelocTarget {
     Global(GlobalId),
@@ -28,6 +29,7 @@ pub enum RelocTarget {
     Foreign(ForeignId),
 }
 
+/// A global variable's storage and initial contents.
 #[derive(Clone, Debug)]
 pub struct Global {
     pub name: String,
@@ -35,6 +37,7 @@ pub struct Global {
     pub align: u64,
     /// Initial bytes (empty = zero-initialized).
     pub init: Vec<u8>,
+    /// Pointer fixups applied to `init`.
     pub relocs: Vec<Reloc>,
     pub read_only: bool,
     /// `#program_export` name, if any.
@@ -43,6 +46,7 @@ pub struct Global {
     pub section: Option<String>,
 }
 
+/// A symbol imported from a library: a function, or a variable when `is_data` is set.
 #[derive(Clone, Debug)]
 pub struct Foreign {
     /// Symbol name in the library.
@@ -54,10 +58,12 @@ pub struct Foreign {
     pub is_data: bool,
 }
 
+/// A library that foreign symbols resolve against.
 #[derive(Clone, Debug)]
 pub struct Library {
     /// Name as written (`"libc"`, `"SDL2"`, path...).
     pub name: String,
+    /// Declared with `#system_library` rather than `#library`.
     pub system: bool,
     /// Linked even when no foreign procedure names it (`#library,link_always`).
     pub link_always: bool,
@@ -116,11 +122,14 @@ pub struct Program {
     /// The CPU it is built for, whose C library records and system call numbers compile-time
     /// code of another OS than the host's is answered with (`None` outside a compiler).
     pub target_cpu: Option<crate::target::TargetCpu>,
+    /// Functions, indexed by `FuncId`. `None` until the body is lowered.
     pub funcs: Vec<Option<Func>>,
+    /// The name each function was reserved with, indexed by `FuncId`. Set before the body exists.
     pub func_names: Vec<String>,
     /// Each function's signature as soon as it is reserved for a procedure, before its body
     /// is lowered (`reserve_func_with_sig`); `None` for functions reserved without one.
     pub reserved_sigs: Vec<Option<Sig>>,
+    /// Globals, indexed by `GlobalId`.
     pub globals: Vec<Global>,
     /// Globals holding the text of one note each, with where the note is written: an editor
     /// compile watches what compile-time code reads them (`interp::note_watch`).
@@ -128,7 +137,9 @@ pub struct Program {
     /// Assembly for the whole module (`@Module_Asm` on a string constant), in source order:
     /// reset code and the like, which the program's own symbols name.
     pub module_asm: Vec<String>,
+    /// Foreign symbols, indexed by `ForeignId`.
     pub foreigns: Vec<Foreign>,
+    /// Libraries, indexed by `Foreign::library`.
     pub libraries: Vec<Library>,
     /// Variables whose compile-time state is discarded when the program runs
     /// (every user global except those declared `#no_reset`).
@@ -148,6 +159,7 @@ pub struct Program {
 }
 
 impl Program {
+    /// Reserves an id and a name for a function whose body is lowered later, with no signature recorded.
     pub fn reserve_func(&mut self, name: String) -> FuncId {
         self.funcs.push(None);
         self.func_names.push(name);
@@ -173,15 +185,18 @@ impl Program {
         }
     }
 
+    /// Returns the lowered body of `id`, or `None` while it is only reserved. Panics if `id` was never reserved.
     pub fn func(&self, id: FuncId) -> Option<&Func> {
         self.funcs[id.0 as usize].as_ref()
     }
 
+    /// Appends `global` and returns its id.
     pub fn add_global(&mut self, global: Global) -> GlobalId {
         self.globals.push(global);
         GlobalId(self.globals.len() as u32 - 1)
     }
 
+    /// Appends `foreign` and returns its id.
     pub fn add_foreign(&mut self, foreign: Foreign) -> ForeignId {
         self.foreigns.push(foreign);
         ForeignId(self.foreigns.len() as u32 - 1)

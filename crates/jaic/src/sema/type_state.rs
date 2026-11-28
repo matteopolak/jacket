@@ -11,13 +11,16 @@ use crate::intern::Sym;
 use crate::ir;
 use crate::types::{StructId, TypeId, Types};
 
+/// Types and what the compile keeps per type.
 pub struct TypeState {
+    /// The type table.
     pub types: Probed<Types, { W::TyTypes as usize }>,
     /// Source and lexical context of nominal enums and distinct types.
     pub nominal_origins: Probed<
         HashMap<TypeId, (crate::source::Span, super::ScopeId)>,
         { W::TyNominalOrigins as usize },
     >,
+    /// Polymorphic struct declarations, indexed by `PolyStructId`.
     pub poly_structs: Probed<Vec<structs::PolyStruct>, { W::TyPolyStructs as usize }>,
     /// Struct declaration AST per struct (for layout).
     pub struct_asts: Probed<HashMap<StructId, structs::StructSource>, { W::TyStructAsts as usize }>,
@@ -35,6 +38,7 @@ pub struct TypeState {
         Probed<HashSet<(ScopeId, ast::AstId)>, { W::TyFieldFilterPending as usize }>,
     pub(in crate::sema) field_using_order:
         Probed<HashMap<ScopeId, Vec<structs::FieldUsing>>, { W::TyFieldUsingOrder as usize }>,
+    /// The `#Context` type, once it is known.
     pub context_type: Option<TypeId>,
     /// `Type_Info` globals per type.
     pub infos: Probed<HashMap<TypeId, ir::GlobalId>, { W::TyInfos as usize }>,
@@ -63,6 +67,7 @@ pub struct TypeState {
     pub(in crate::sema) table_funcs: Probed<HashSet<ir::FuncId>, { W::TyTableFuncs as usize }>,
     /// `compiler_set_type_info_flags` bits per struct (`Type_Info_Flags`).
     pub info_flags: Probed<HashMap<TypeId, u32>, { W::TyInfoFlags as usize }>,
+    /// Types of anonymous declarations, by the declaration and the scope it is in.
     pub anonymous: Probed<HashMap<(ast::AstId, ScopeId), TypeId>, { W::TyAnonymous as usize }>,
     /// The shapes `#type (value: *$T)` aliases name: patterns that match types, not values.
     pub(in crate::sema) poly_aliases: Probed<HashSet<TypeId>, { W::TyPolyAliases as usize }>,
@@ -99,9 +104,12 @@ pub struct TypeState {
     /// Structs whose members are being collected for a member query, outside a layout.
     pub(in crate::sema) members_collecting:
         Probed<HashSet<StructId>, { W::TyMembersCollecting as usize }>,
+    /// Constant image of each type's default value; `None` means all zero.
     pub default_images:
         Probed<HashMap<TypeId, Option<Arc<value::Aggregate>>>, { W::TyDefaultImages as usize }>,
+    /// Globals that hold default images of types whose default is not all zero, by type.
     pub default_globals: Probed<HashMap<TypeId, ir::GlobalId>, { W::TyDefaultGlobals as usize }>,
+    /// The function that initializes a value of each type, by type.
     pub initializers: Probed<HashMap<TypeId, ir::FuncId>, { W::TyInitializers as usize }>,
     /// The stand-in `Type_Info_Struct` of each polymorphic struct, by its literal.
     pub generic_struct_infos:

@@ -104,21 +104,31 @@ impl Workspace {
 #[derive(Clone, Debug, Default)]
 pub struct Event {
     pub kind: i64,
+    /// Integer payload; its meaning depends on `kind`.
     pub ints: Vec<i64>,
+    /// Byte-string payload; its meaning depends on `kind`.
     pub strings: Vec<Vec<u8>>,
 }
 
+/// `Event::kind` of a message about a loaded source file.
 pub const EVENT_FILE: i64 = 1;
+/// `Event::kind` of a message that the build reached a phase.
 pub const EVENT_PHASE: i64 = 2;
+/// `Event::kind` of the message that ends a workspace's messages.
 pub const EVENT_COMPLETE: i64 = 3;
+/// `Event::kind` of a message about an imported module.
 pub const EVENT_IMPORT: i64 = 4;
+/// `Event::kind` of a message that a code unit was type-checked.
 pub const EVENT_TYPECHECKED: i64 = 5;
+/// `Event::kind` of a message that an import could not be loaded.
 pub const EVENT_FAILED_IMPORT: i64 = 6;
+/// `Event::kind` of a compile error message.
 pub const EVENT_ERROR: i64 = 7;
 
 /// The text of a `DEBUG_DUMP` message is string 0.
 pub const EVENT_DEBUG_DUMP: i64 = 8;
 
+/// `Event::kind` of a performance report message.
 pub const EVENT_PERFORMANCE_REPORT: i64 = 9;
 
 /// `Intercept_Flags.DO_PERFORMANCE_REPORT_POLYMORPHS` and `_RUNS` (`stdlib/Compiler/workspace.jai`).
@@ -175,4 +185,5 @@ pub(super) struct DataSegment {
     pub(super) alignment: u64,
 }
 
+/// A workspace registry shared by the compiler and the metaprogram that drives it.
 pub type SharedWorkspaces = Rc<RefCell<Workspaces>>;

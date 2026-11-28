@@ -694,8 +694,13 @@ pub(crate) fn is_path(e: &Expr) -> bool {
 
 /// Lookups on the compiler's records.
 pub trait Recorded {
+    /// What the compiler recorded for the expression at `span`, or `None` when it did not check it.
     fn expr_fact(&self, span: Span) -> Option<IdeExprFact>;
+
+    /// What the compiler recorded for the cast at `span`, or `None` when it did not check it.
     fn cast_fact(&self, span: Span) -> Option<IdeCast>;
+
+    /// Whether the compiler saw `e` referred to. `false` without lint facts.
     fn is_used(&self, e: EntityId) -> bool;
 
     /// The type of the expression at `span`, when every check of it agreed.

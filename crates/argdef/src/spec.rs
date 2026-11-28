@@ -36,7 +36,9 @@ pub struct Opt {
     pub needs: &'static str,
     /// The help label, when it is not the spellings.
     pub synopsis: &'static str,
+    /// The help text; an option with none is not listed.
     pub help: &'static str,
+    /// The help section that lists it; empty means `Options`.
     pub section: &'static str,
     /// What completes the value: `file`, `dir` or nothing.
     pub hint: &'static str,
@@ -55,7 +57,8 @@ pub struct Opt {
 }
 
 impl Opt {
-    /// The fields a derive leaves at their defaults.
+    /// An option of kind `Flag` with every other field empty or false, for a derive to override
+    /// with struct-update syntax.
     pub const BLANK: Opt = Opt {
         id: 0,
         kind: Kind::Flag,
@@ -105,8 +108,10 @@ impl Opt {
 /// What a struct says about the tool as a whole.
 #[derive(Clone, Copy, Debug)]
 pub struct Meta {
+    /// The command name; completion scripts are written for it.
     pub name: &'static str,
     pub version: &'static str,
+    /// The line after `Usage:` in help.
     pub usage: &'static str,
     /// The struct's first doc line.
     pub about: &'static str,
@@ -119,7 +124,9 @@ pub struct Meta {
 /// What the parser hands a struct to store.
 #[derive(Clone, Copy, Debug)]
 pub enum Input<'a> {
+    /// A switch was given.
     Flag,
+    /// The text of a value option.
     Value(&'a str),
     /// A value of an `os` option.
     Os(&'a OsStr),
@@ -136,9 +143,10 @@ pub trait Args: Default + Sized {
     /// How many options it declares, the flattened ones' included.
     const COUNT: usize;
 
+    /// The tool's name, usage and description.
     const META: Meta;
 
-    /// Append its options, numbered from `offset`.
+    /// Appends its options, numbered from `offset`.
     fn options(offset: usize, out: &mut Vec<Opt>);
 
     /// Store `input` for the option `id`, spelt `name`.
@@ -218,6 +226,7 @@ numbers!(usize, u8, u16, u32, u64, i32, i64);
 /// A value's type when the option keeps what the OS gave (`os`): a path, or an argument for
 /// another program.
 pub trait FromOsArg: Sized {
+    /// `name` is how the option was spelt, for the message.
     fn from_os_arg(name: &str, value: &OsStr) -> Result<Self, Error>;
 }
 
@@ -235,7 +244,10 @@ impl FromOsArg for PathBuf {
 
 /// A `+Name` and the arguments after it, in a struct.
 pub trait Group {
+    /// Begins a group from the text after the `+`.
     fn start(name: &str) -> Self;
+
+    /// Adds an argument that follows the group's name.
     fn push(&mut self, arg: &str);
 }
 
@@ -243,6 +255,7 @@ pub trait Group {
 #[derive(Clone, Debug)]
 pub struct Spec {
     pub meta: Meta,
+    /// Every option, flattened ones last; an option's `id` is its index here.
     pub opts: Vec<Opt>,
 }
 
@@ -253,6 +266,7 @@ pub struct Token<'a> {
     pub index: usize,
     /// The option as spelt, without an inline value.
     pub name: &'a str,
+    /// The option it spells; `None` for an operand, an unknown option or a non-UTF-8 argument.
     pub opt: Option<Opt>,
     /// A value option's value, when it is UTF-8.
     pub value: Option<String>,
@@ -265,6 +279,7 @@ pub struct Token<'a> {
 /// The options among some arguments, up to the first marker.
 #[derive(Clone, Debug)]
 pub struct Scan<'a> {
+    /// The arguments before the boundary or error, in order.
     pub tokens: Vec<Token<'a>>,
     /// Where a group or rest marker ended the options.
     pub boundary: Option<usize>,
@@ -273,14 +288,17 @@ pub struct Scan<'a> {
 }
 
 impl Spec {
-    /// The option spelt `name` (not a marker or a positional).
+    /// The switch or value option spelt `name`, by any of its names or aliases.
     pub fn find(&self, name: &str) -> Option<&Opt> {
         self.opts
             .iter()
             .find(|o| matches!(o.kind, Kind::Flag | Kind::Value) && o.spelled(name))
     }
 
-    /// Split `arg` into the option it spells and its inline value.
+    /// Splits `arg` into the option it spells and its inline value.
+    ///
+    /// Tries an exact spelling, then `name=value`, then an `attached` option's name followed by
+    /// its value. The name is `arg` itself when nothing matches.
     pub fn split<'a>(&self, arg: &'a str) -> (&'a str, Option<String>, Option<&Opt>) {
         if let Some(opt) = self.find(arg) {
             return (arg, None, Some(opt));

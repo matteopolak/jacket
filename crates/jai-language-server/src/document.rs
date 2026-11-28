@@ -5,6 +5,10 @@ use serde::Deserialize;
 
 use crate::{Error, Range};
 
+/// The `file:` URI of a document, in one canonical spelling: the same file reached through
+/// `localhost`, `.`/`..` segments or different escapes compares equal.
+///
+/// Only absolute local paths are accepted, and none longer than 4096 bytes.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DocumentUri {
     uri: String,
@@ -12,6 +16,17 @@ pub struct DocumentUri {
 }
 
 impl DocumentUri {
+    /// Reads a `file:` URI. Fails when it has another scheme, a remote authority, a query or a
+    /// fragment, a bad `%` escape, a path that is not UTF-8, or a `..` above the root.
+    ///
+    /// ```
+    /// use jai_language_server::DocumentUri;
+    ///
+    /// let uri = DocumentUri::parse("file://localhost/src/a/../main.jai").unwrap();
+    ///
+    /// assert_eq!(uri.as_str(), "file:///src/main.jai");
+    /// assert!(DocumentUri::parse("https://example.com/main.jai").is_err());
+    /// ```
     pub fn parse(uri: &str) -> Result<Self, Error> {
         Self::parse_platform(uri, cfg!(windows))
     }
@@ -123,10 +138,12 @@ impl DocumentUri {
         })
     }
 
+    /// The canonical URI.
     pub fn as_str(&self) -> &str {
         &self.uri
     }
 
+    /// The decoded path.
     pub fn path(&self) -> &str {
         &self.path
     }
@@ -222,10 +239,13 @@ fn normalize(path: &str, windows: bool) -> Result<String, Error> {
     Ok(result)
 }
 
+/// One change of a `didChange`: `text` replaces `range`, or the whole document when `range` is
+/// `None`.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TextChange {
     pub range: Option<Range>,
+    /// Deprecated in the protocol; the session ignores it and uses `range`.
     pub range_length: Option<u32>,
     pub text: String,
 }

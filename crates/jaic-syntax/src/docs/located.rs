@@ -5,7 +5,9 @@ use super::{Comment, CommentKind, DocText, Trivia, decoration, line_start, trivi
 /// is the next line of the file.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Located {
+    /// The line of the file the first line of `text` is on, counting from 1.
     pub line: usize,
+    /// The comment's lines without their markers, with leading and trailing blank lines removed.
     pub text: String,
 }
 

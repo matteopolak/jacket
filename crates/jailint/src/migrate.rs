@@ -142,8 +142,11 @@ pub struct Applied {
 #[derive(Clone, Debug)]
 pub struct Migrated {
     pub path: PathBuf,
+    /// The text on disk.
     pub before: Arc<str>,
+    /// The text with every accepted rewrite applied.
     pub after: String,
+    /// The rewrites made, for reporting.
     pub applied: Vec<Applied>,
 }
 
@@ -181,7 +184,9 @@ pub struct RejectedError {
 /// What migrating would do.
 #[derive(Debug, Default)]
 pub struct Plan {
+    /// The files whose text would change.
     pub files: Vec<Migrated>,
+    /// Places the migrations found but left for the author to rewrite.
     pub manual: Vec<Manual>,
     /// Migrations that were wrong for this code. Their rewrites are not in `files`; the
     /// rewrites of the others are.

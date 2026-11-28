@@ -31,6 +31,7 @@ fn may_declare_members(items: &[ast::EnumItem]) -> bool {
 }
 
 impl Compiler {
+    /// Declares the enum type for `lit`, named `name` and written in `scope`, and resolves its members. The base type is `lit.base`, else `u32` for a flags enum and `s64` otherwise.
     pub fn new_enum_type(
         &mut self,
         name: Sym,

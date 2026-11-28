@@ -575,6 +575,9 @@ impl Compiler {
         self.emit_call(f, scope, chosen, args, span)
     }
 
+    /// Calls the overload of the unary operator `op` for a struct `operand`. Returns `Ok(None)` when `operand` is not a struct, when `op` is not `-`, `!` or `~`, or when `!` has no overload.
+    ///
+    /// Without an overload, `-` and `~` on a struct fail with `UnsupportedOperation`.
     pub fn try_unary_operator_overload(
         &mut self,
         f: &mut FnCtx,
@@ -652,6 +655,7 @@ impl Compiler {
             .map(Some)
     }
 
+    /// Calls the `text` operator overload of the struct `base`, or of the struct it points to, with `index`. Returns `Ok(None)` when `base` is not a struct or no overload takes it as its first parameter, so that built-in indexing applies.
     pub fn try_index_operator_overload(
         &mut self,
         f: &mut FnCtx,

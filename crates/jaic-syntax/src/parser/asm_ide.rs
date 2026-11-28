@@ -61,6 +61,7 @@ impl AsmBlockSyntax {
         }
     }
 
+    /// Where `byte` is relative to the block: in the feature list, in the body, or outside (`None`).
     pub fn place(&self, byte: usize) -> Option<AsmPlace> {
         let byte = byte as u32;
 
@@ -131,6 +132,7 @@ pub enum AsmStmtKind {
 }
 
 #[derive(Clone, Debug)]
+/// An instruction statement: `mnemonic.suffix operand, operand`.
 pub struct AsmInstSyntax {
     pub mnemonic: Span,
     /// After `.`: the size suffix, empty when only the dot is written.
@@ -143,6 +145,7 @@ pub struct AsmInstSyntax {
 }
 
 #[derive(Clone, Debug)]
+/// One comma-separated operand of an instruction.
 pub struct AsmOperandSyntax {
     /// From the previous comma (or the operand list's start) to the next comma (or the end of
     /// the statement); not trimmed.

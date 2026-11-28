@@ -361,6 +361,11 @@ impl Interp {
         (addr < end).then_some((g, addr - start))
     }
 
+    /// Allocates zeroed storage for compiler-managed global data, copies `bytes` into it and
+    /// returns its address.
+    /// The global stays pending in `pending_data_globals` until `adopt_data_global` binds it.
+    ///
+    /// Fails when the storage cannot be allocated or written.
     pub fn register_data_global(
         &mut self,
         bytes: &[u8],
@@ -387,6 +392,8 @@ impl Interp {
         Ok(address)
     }
 
+    /// Binds the storage of `data` (from `register_data_global`) to `global`, so addresses inside
+    /// it resolve to that global.
     pub fn adopt_data_global(&mut self, global: GlobalId, data: PendingDataGlobal) {
         let address = data.storage.addr();
 

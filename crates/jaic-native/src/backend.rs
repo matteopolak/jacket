@@ -24,6 +24,8 @@ use crate::options::Options;
 /// What the library exports. The stamp is read first; only a matching library is asked to emit.
 pub const STAMP_SYMBOL: &str = "jaic_backend_stamp";
 
+/// The exported function that writes the objects: it takes a pointer to an [`EmitRequest`] and
+/// returns whether it wrote them.
 pub const EMIT_SYMBOL: &str = "jaic_backend_emit";
 
 /// The version of the LLVM the library links, read like the stamp.
@@ -51,19 +53,26 @@ pub fn stamp() -> &'static str {
 
 /// One request for object files.
 pub struct EmitRequest<'a> {
+    /// The program to translate.
     pub program: &'a Program,
+    /// How to generate code.
     pub options: &'a Options,
+    /// Where the object goes; with `single` unset, the first of the objects goes here and the
+    /// others get paths derived from it.
     pub path: &'a Path,
     /// One object (`emit_object`) or as many as the program splits into (`emit_objects`).
     pub single: bool,
     /// The driver's thread pool size, for the library's own copy of the pool.
     pub threads: usize,
+    /// Called with each object written, or once with the failure.
     pub reply: &'a mut dyn FnMut(Reply<'_>),
 }
 
 /// What the library tells the driver.
 pub enum Reply<'a> {
+    /// An object file was written here.
     Object(&'a Path),
+    /// Code generation failed, for this reason.
     Failed(&'a str),
 }
 

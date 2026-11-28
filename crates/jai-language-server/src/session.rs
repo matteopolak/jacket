@@ -65,6 +65,9 @@ pub(crate) fn tokens_at(tokens: &[Token], byte: usize) -> impl Iterator<Item = (
 /// Byte ranges each other target skipped, by file and target.
 type Unreached = BTreeMap<(PathBuf, u8), Vec<(usize, usize)>>;
 
+/// The open documents and everything answered from them: diagnostics, completion, navigation,
+/// hover and the rest. It does no I/O of its own; files come from the [`Environment`], and
+/// [`JsonSession`](crate::JsonSession) puts the protocol on top.
 pub struct Session {
     pub(crate) limits: Limits,
     pub(crate) documents: BTreeMap<DocumentUri, Document>,
@@ -158,6 +161,7 @@ type InputsMemo = (u64, DocumentUri, Option<String>, CompileInputs);
 type Completions = (String, Vec<IdeName>, BTreeMap<u32, String>);
 
 impl Session {
+    /// A session that answers from syntax alone, with no type checking.
     pub fn new(limits: Limits) -> Self {
         Self {
             limits,

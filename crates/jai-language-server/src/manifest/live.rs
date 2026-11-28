@@ -29,6 +29,10 @@ struct Entry {
     running: bool,
 }
 
+/// A [`Source`] that looks standings up on background threads and answers from the last result.
+///
+/// `lookup` returns `None` for a dependency not yet looked up; the client is expected to ask
+/// again once [`Source::take_arrivals`] reports a lookup finished.
 #[derive(Default)]
 pub struct Live {
     shared: Arc<Mutex<Shared>>,

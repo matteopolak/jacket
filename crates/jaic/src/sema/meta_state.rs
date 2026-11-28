@@ -3,6 +3,7 @@
 use crate::sema::body_probe::{Probed, W};
 use crate::sema::{code_export, perf};
 
+/// What a metaprogram's view of the compile needs.
 pub struct MetaState {
     /// Id of the workspace this compiler builds (1: the top-level program).
     pub workspace: i64,

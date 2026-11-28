@@ -8,9 +8,11 @@ use crate::intern::Sym;
 use crate::layout::{BuiltinLayouts, DataLayout};
 use crate::source::Span;
 
+/// Identifies an interned type in `Types`; equal types have equal ids.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct TypeId(pub u32);
 
+/// How an array's length is held.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ArrayKind {
     Fixed(u64),
@@ -18,6 +20,7 @@ pub enum ArrayKind {
     Resizable,
 }
 
+/// The signature of a procedure type, as far as type identity goes.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct ProcType {
     pub params: Vec<TypeId>,
@@ -36,6 +39,7 @@ pub struct ProcType {
     pub cpp_method: bool,
 }
 
+/// The shape of a type, which `Types` interns to a `TypeId`.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum TypeKind {
     Void,
@@ -80,15 +84,19 @@ pub enum TypeKind {
     },
 }
 
+/// Index into `Types::structs`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct StructId(pub u32);
 
+/// Index into `Types::enums`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct EnumId(pub u32);
 
+/// Index into `Types::distincts`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct DistinctId(pub u32);
 
+/// A member of a struct, laid out.
 #[derive(Clone, Debug)]
 pub struct Field {
     pub name: Option<Sym>,
@@ -107,6 +115,7 @@ pub struct Field {
     pub span: Span,
 }
 
+/// How far laying out a struct has got.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LayoutState {
     Pending,
@@ -114,6 +123,7 @@ pub enum LayoutState {
     Done,
 }
 
+/// A struct or union, its members and its layout.
 #[derive(Clone, Debug)]
 pub struct StructInfo {
     pub name: Sym,
@@ -130,6 +140,7 @@ pub struct StructInfo {
     pub span: Span,
 }
 
+/// An enum, its members and how it converts.
 #[derive(Clone, Debug)]
 pub struct EnumInfo {
     pub name: Sym,
@@ -153,6 +164,7 @@ impl EnumInfo {
     }
 }
 
+/// A `#type,distinct` type over `base`.
 #[derive(Clone, Debug)]
 pub struct DistinctInfo {
     pub name: Sym,
@@ -161,6 +173,7 @@ pub struct DistinctInfo {
     pub isa: bool,
 }
 
+/// The interned types of one compilation and the structs, enums and distinct types they refer to.
 pub struct Types {
     kinds: Vec<TypeKind>,
     intern: HashMap<TypeKind, TypeId>,
@@ -208,6 +221,7 @@ builtin! {
 pub const MAX_SIZE: u64 = 1 << 48;
 
 impl Types {
+    /// An empty table holding only the builtin types, laid out for `layout`.
     pub fn new(layout: DataLayout) -> Self {
         let kinds = builtin_kinds();
         let intern = kinds
@@ -237,6 +251,7 @@ impl Types {
         &self.builtins
     }
 
+    /// The id of `kind`, adding it when no equal type is interned yet.
     pub fn intern(&mut self, kind: TypeKind) -> TypeId {
         if let Some(&id) = self.intern.get(&kind) {
             return id;
@@ -259,14 +274,17 @@ impl Types {
         self.kinds.len()
     }
 
+    /// The shape of `ty`.
     pub fn kind(&self, ty: TypeId) -> &TypeKind {
         &self.kinds[ty.0 as usize]
     }
 
+    /// The type of a pointer to `to`.
     pub fn pointer(&mut self, to: TypeId) -> TypeId {
         self.intern(TypeKind::Pointer(to))
     }
 
+    /// The type of an array of `elem` of the given `kind`.
     pub fn array(&mut self, elem: TypeId, kind: ArrayKind) -> TypeId {
         self.intern(TypeKind::Array {
             elem,
@@ -274,6 +292,7 @@ impl Types {
         })
     }
 
+    /// The builtin integer type of `bits` bits; any width but 8, 16 or 32 gives the 64-bit type.
     pub fn int(bits: u8, signed: bool) -> TypeId {
         match (bits, signed) {
             (8, true) => TypeId::S8,
@@ -287,6 +306,7 @@ impl Types {
         }
     }
 
+    /// Adds a struct and returns its type.
     pub fn new_struct(&mut self, info: StructInfo) -> TypeId {
         let id = StructId(self.structs.len() as u32);
 
@@ -294,6 +314,7 @@ impl Types {
         self.intern(TypeKind::Struct(id))
     }
 
+    /// Adds an enum and returns its type.
     pub fn new_enum(&mut self, info: EnumInfo) -> TypeId {
         let id = EnumId(self.enums.len() as u32);
 
@@ -322,10 +343,12 @@ impl Types {
         self.new_enum(info)
     }
 
+    /// Whether `ty` is an `E.loose` enum.
     pub fn is_loose_enum(&self, ty: TypeId) -> bool {
         matches!(self.kind(ty), TypeKind::Enum(e) if self.enums[e.0 as usize].loose_of.is_some())
     }
 
+    /// Adds a distinct type and returns it.
     pub fn new_distinct(&mut self, info: DistinctInfo) -> TypeId {
         let id = DistinctId(self.distincts.len() as u32);
 
@@ -333,18 +356,22 @@ impl Types {
         self.intern(TypeKind::Distinct(id))
     }
 
+    /// The struct `id`.
     pub fn struct_info(&self, id: StructId) -> &StructInfo {
         &self.structs[id.0 as usize]
     }
 
+    /// The struct `id`, for modification.
     pub fn struct_info_mut(&mut self, id: StructId) -> &mut StructInfo {
         &mut self.structs[id.0 as usize]
     }
 
+    /// The enum `id`.
     pub fn enum_info(&self, id: EnumId) -> &EnumInfo {
         &self.enums[id.0 as usize]
     }
 
+    /// The struct `ty` is, or `None` when it is another kind of type.
     pub fn as_struct(&self, ty: TypeId) -> Option<StructId> {
         match self.kind(ty) {
             TypeKind::Struct(s) => Some(*s),
@@ -369,10 +396,12 @@ impl Types {
         }
     }
 
+    /// Whether `ty` is an integer, through enums and distinct wrappers.
     pub fn is_integer(&self, ty: TypeId) -> bool {
         matches!(self.kind(self.repr(ty)), TypeKind::Int { .. })
     }
 
+    /// Whether `ty` is `f32` or `f64`, through enums and distinct wrappers.
     pub fn is_float(&self, ty: TypeId) -> bool {
         matches!(self.kind(self.repr(ty)), TypeKind::Float { .. })
     }
@@ -385,10 +414,13 @@ impl Types {
         }
     }
 
+    /// Whether `ty` is a pointer, through distinct wrappers.
     pub fn is_pointer(&self, ty: TypeId) -> bool {
         matches!(self.kind(self.repr(ty)), TypeKind::Pointer(_))
     }
 
+    /// The bit width and signedness of integer type `ty` (through enums and distinct wrappers), or
+    /// `None`.
     pub fn int_info(&self, ty: TypeId) -> Option<(u8, bool)> {
         match self.kind(self.repr(ty)) {
             TypeKind::Int {
@@ -399,6 +431,7 @@ impl Types {
         }
     }
 
+    /// The type a pointer `ty` points to (through distinct wrappers), or `None`.
     pub fn pointee(&self, ty: TypeId) -> Option<TypeId> {
         match self.kind(self.repr(ty)) {
             TypeKind::Pointer(t) => Some(*t),
@@ -449,6 +482,7 @@ impl Types {
         }
     }
 
+    /// Alignment in bytes. Structs must already be laid out.
     pub fn align_of(&self, ty: TypeId) -> u64 {
         match self.kind(ty) {
             TypeKind::Void
@@ -597,6 +631,7 @@ impl Types {
         }
     }
 
+    /// How many types are interned; the same as `type_count`.
     pub fn count(&self) -> usize {
         self.kinds.len()
     }

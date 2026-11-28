@@ -146,6 +146,8 @@ impl Compiler {
             && x.name == y.name
     }
 
+    /// Describes what is at byte `offset` of `file` for a hover, or `None` when there is nothing to
+    /// show.
     pub fn ide_hover(&mut self, file: FileId, offset: u32) -> Option<IdeHover> {
         self.ide_note_callee_at(file, offset);
 

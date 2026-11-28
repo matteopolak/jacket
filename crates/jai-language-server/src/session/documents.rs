@@ -29,6 +29,11 @@ pub enum Stage {
 }
 
 impl Session {
+    /// Starts tracking a document with the text the client opened it with.
+    ///
+    /// Fails when the document is already open, or opening it would pass a limit:
+    /// [`documents`](crate::Limits::documents), [`document_bytes`](crate::Limits::document_bytes)
+    /// or [`workspace_bytes`](crate::Limits::workspace_bytes).
     pub fn open(&mut self, uri: DocumentUri, version: i32, text: String) -> Result<(), Error> {
         if self.document_uri(&uri).is_some() {
             return Err(Error::AlreadyOpen);
@@ -80,6 +85,12 @@ impl Session {
         Ok(())
     }
 
+    /// Applies the client's changes to an open document, in order. A change with no range
+    /// replaces the whole text; `rangeLength` is ignored.
+    ///
+    /// Fails, leaving the document as it was, when it is not open, `version` is not newer than
+    /// the current one, there are more than [`Limits::edits`](crate::Limits::edits) changes, a
+    /// range is reversed, or a size limit would be passed.
     pub fn change(
         &mut self,
         uri: &DocumentUri,
@@ -214,6 +225,7 @@ impl Session {
         self.file_changed(path, created_or_deleted);
     }
 
+    /// Stops tracking a document. Fails when it is not open.
     pub fn close(&mut self, uri: &DocumentUri) -> Result<(), Error> {
         let key = self.document_uri(uri).ok_or(Error::MissingDocument)?;
         let uri = &key;

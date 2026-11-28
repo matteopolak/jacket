@@ -7,6 +7,7 @@ use crate::sema::{Compiler, ProcId, ScopeId, Value};
 use crate::source::Span;
 use crate::types::{TypeId, TypeKind};
 
+/// One instance of a polymorphic declaration.
 #[derive(Clone, Debug)]
 pub struct IdeSpecialization {
     /// Resolved bindings, including nominal declaration and module-instance identities.
@@ -16,6 +17,7 @@ pub struct IdeSpecialization {
     pub detail: String,
 }
 
+/// A polymorphic declaration and the instances the analysis made of it.
 #[derive(Clone, Debug)]
 pub struct IdePolymorph {
     pub span: Span,

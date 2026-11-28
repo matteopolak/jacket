@@ -16,6 +16,7 @@ pub const LENIENCY_NOTE: &str =
     "the official Jai compiler rejects this; Jacket accepts it but may stop in a future release";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// How serious a diagnostic is when it is reported.
 pub enum Severity {
     Error,
     Warning,
@@ -23,6 +24,7 @@ pub enum Severity {
 }
 
 impl Severity {
+    /// The word a renderer prints: `error`, `warning` or `note`.
     pub fn as_str(self) -> &'static str {
         match self {
             Severity::Error => "error",
@@ -54,11 +56,15 @@ pub struct DiagnosticDetails {
 }
 
 #[derive(Clone, Debug)]
+/// One problem the toolchain reports: its code, severity, place and message, with the notes, help
+/// and fixes that go with it. Built by [`Diagnostic::new`] and the `with_*` methods.
 pub struct Diagnostic {
+    /// What kind of problem it is.
     pub code: Code,
     pub severity: Severity,
     pub span: Span,
     pub message: String,
+    /// Code-specific detail for editor quick fixes.
     pub data: Data,
     /// Text under the primary span's carets in snippet layouts. Boxed, as `fixes`
     /// is, to keep `Result<_, Diagnostic>` small.
@@ -97,18 +103,21 @@ impl Diagnostic {
     }
 
     #[must_use]
+    /// Sets [`Diagnostic::data`].
     pub fn with_data(mut self, data: Data) -> Self {
         self.data = data;
         self
     }
 
     #[must_use]
+    /// Sets the text shown under the primary span's carets in snippet layouts.
     pub fn with_label(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into().into_boxed_str());
         self
     }
 
     #[must_use]
+    /// Adds a labelled location that renders as part of the snippet in every layout.
     pub fn with_secondary_label(mut self, span: Span, message: impl Into<String>) -> Self {
         self.details
             .get_or_insert_default()
@@ -117,6 +126,7 @@ impl Diagnostic {
         self
     }
 
+    /// The locations added by [`Diagnostic::with_secondary_label`].
     pub fn secondary_labels(&self) -> &[(Span, String)] {
         self.details
             .as_deref()
@@ -133,12 +143,14 @@ impl Diagnostic {
     }
 
     #[must_use]
+    /// Adds a note about `span`. A `Span::NONE` span makes it a plain text note.
     pub fn with_note(mut self, span: Span, message: impl Into<String>) -> Self {
         self.notes.push((span, message.into()));
         self
     }
 
     #[must_use]
+    /// Adds a `help:` line.
     pub fn with_help(mut self, message: impl Into<String>) -> Self {
         self.help.push(message.into());
         self

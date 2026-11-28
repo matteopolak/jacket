@@ -91,6 +91,7 @@ impl Compiler {
         id
     }
 
+    /// Returns the id of `file`'s record in `r`, making the record on first use. The id is remembered for later messages.
     pub fn file_record(&mut self, r: &mut Records, file: FileId) -> i64 {
         if let Some(&id) = self.meta.export.files.get(&file) {
             return id;
