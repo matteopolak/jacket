@@ -5,7 +5,7 @@
 use std::path::{Component, Path};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Managed {
+pub(super) enum Managed {
     Homebrew,
     Nix,
     VsCode,
@@ -13,7 +13,7 @@ pub enum Managed {
 
 impl Managed {
     /// What to run instead, as one line.
-    pub fn advice(self) -> &'static str {
+    pub(super) fn advice(self) -> &'static str {
         match self {
             Managed::Homebrew => "this install is managed by Homebrew; run `brew upgrade jacket`",
             Managed::Nix => {
@@ -27,7 +27,7 @@ impl Managed {
 }
 
 /// Which package manager owns the install `exe` (a canonical path) belongs to, if any.
-pub fn managed_by(exe: &Path) -> Option<Managed> {
+pub(super) fn managed_by(exe: &Path) -> Option<Managed> {
     if exe.starts_with("/nix/store") {
         return Some(Managed::Nix);
     }

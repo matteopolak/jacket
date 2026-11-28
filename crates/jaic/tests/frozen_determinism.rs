@@ -1,11 +1,11 @@
 //! Values frozen out of compile-time memory do not depend on where the interpreter put it.
-use std::{path::PathBuf, rc::Rc};
+use std::rc::Rc;
 
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 
 /// Every global of a build of `source`: name, initial bytes and relocation offsets.
 fn globals(source: &str) -> Vec<(String, Vec<u8>, Vec<u64>)> {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];

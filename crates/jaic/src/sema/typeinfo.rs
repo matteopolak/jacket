@@ -17,22 +17,22 @@ type StructConstant = (Span, Sym, TypeId, Option<Value>, Vec<crate::ast::Note>);
 
 /// Tag values of Preload's `Type_Info_Tag`.
 mod tag {
-    pub const INTEGER: i128 = 0;
-    pub const FLOAT: i128 = 1;
-    pub const BOOL: i128 = 2;
-    pub const STRING: i128 = 3;
-    pub const POINTER: i128 = 4;
-    pub const PROCEDURE: i128 = 5;
-    pub const VOID: i128 = 6;
-    pub const STRUCT: i128 = 7;
-    pub const ARRAY: i128 = 8;
-    pub const OVERLOAD_SET: i128 = 9;
-    pub const ANY: i128 = 10;
-    pub const ENUM: i128 = 11;
-    pub const TYPE: i128 = 13;
-    pub const POLYMORPHIC_VARIABLE: i128 = 12;
-    pub const CODE: i128 = 14;
-    pub const VARIANT: i128 = 18;
+    pub(super) const INTEGER: i128 = 0;
+    pub(super) const FLOAT: i128 = 1;
+    pub(super) const BOOL: i128 = 2;
+    pub(super) const STRING: i128 = 3;
+    pub(super) const POINTER: i128 = 4;
+    pub(super) const PROCEDURE: i128 = 5;
+    pub(super) const VOID: i128 = 6;
+    pub(super) const STRUCT: i128 = 7;
+    pub(super) const ARRAY: i128 = 8;
+    pub(super) const OVERLOAD_SET: i128 = 9;
+    pub(super) const ANY: i128 = 10;
+    pub(super) const ENUM: i128 = 11;
+    pub(super) const TYPE: i128 = 13;
+    pub(super) const POLYMORPHIC_VARIABLE: i128 = 12;
+    pub(super) const CODE: i128 = 14;
+    pub(super) const VARIANT: i128 = 18;
 }
 
 /// The descriptor of a kind of type: the Preload struct that describes it and the

@@ -20,7 +20,7 @@ use super::version::{Scheme, Tagged};
 use super::{Action, Ctx, DepError, Project, Result, manifest};
 
 /// The submodule folder of an entry, relative to the project.
-pub fn path_of(name: &str, entry: &Dependency) -> Result<SubPath> {
+pub(super) fn path_of(name: &str, entry: &Dependency) -> Result<SubPath> {
     let text = entry
         .path
         .clone()
@@ -61,14 +61,14 @@ pub(super) fn asked(entry: &Dependency) -> String {
 }
 
 /// A commit chosen for an entry, and how the entry records it.
-pub struct Pin {
+pub(super) struct Pin {
     pub commit: Target,
     pub tag: Option<String>,
     pub rev: Option<String>,
     pub version: Option<String>,
 }
 
-pub fn dispatch(action: Action, cwd: &Path, ctx: &mut Ctx) -> Result<bool> {
+pub(super) fn dispatch(action: Action, cwd: &Path, ctx: &mut Ctx) -> Result<bool> {
     let mut project = Project::open(cwd)?;
 
     ctx.git.preflight(&project.dir)?;

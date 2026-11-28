@@ -26,8 +26,8 @@ use jaic::abi::Arch;
 use jaic::fxhash::HashMap;
 use jaic::ir::Program;
 
-pub use self::error::Error;
-pub use self::plan::{LowerOptions, Plan, Shard, lower_program};
+pub(crate) use self::error::Error;
+pub(crate) use self::plan::{LowerOptions, Plan, Shard, lower_program};
 use crate::debuginfo::DebugInfo;
 
 type R<T> = Result<T, Error>;

@@ -19,7 +19,7 @@ use super::{Case, Kind, Outcome, Status};
 use crate::cli::OutputFormat;
 use crate::markup::escape;
 
-pub struct Reporter {
+pub(super) struct Reporter {
     format: OutputFormat,
     junit: Option<PathBuf>,
     cwd: PathBuf,
@@ -108,11 +108,11 @@ fn rerun_names(case: &Case, failed_subtests: &[&str]) -> String {
 
 impl Reporter {
     /// Whether results are text for people (so a coverage table can share standard output).
-    pub fn is_human(&self) -> bool {
+    pub(super) fn is_human(&self) -> bool {
         self.format == OutputFormat::Human
     }
 
-    pub fn new(
+    pub(super) fn new(
         format: OutputFormat,
         junit: Option<PathBuf>,
         cwd: &Path,
@@ -162,7 +162,7 @@ impl Reporter {
         }
     }
 
-    pub fn list(&self, cases: &[Case]) {
+    pub(super) fn list(&self, cases: &[Case]) {
         for case in cases {
             match self.format {
                 OutputFormat::Json => self.json(&json!({
@@ -192,7 +192,7 @@ impl Reporter {
         }
     }
 
-    pub fn run_started(&self, tests: usize) {
+    pub(super) fn run_started(&self, tests: usize) {
         match self.format {
             OutputFormat::Json => {
                 self.json(&json!({"type": "run", "event": "started", "tests": tests}));
@@ -212,13 +212,13 @@ impl Reporter {
         }
     }
 
-    pub fn started(&self, case: &Case) {
+    pub(super) fn started(&self, case: &Case) {
         if self.format == OutputFormat::Json {
             self.json(&json!({"type": "test", "event": "started", "name": case.name, "kind": case.kind.as_str()}));
         }
     }
 
-    pub fn slow(&self, case: &Case, elapsed: Duration) {
+    pub(super) fn slow(&self, case: &Case, elapsed: Duration) {
         match self.format {
             OutputFormat::Json => self.json(&json!({
                 "type": "test", "event": "slow", "name": case.name, "seconds": elapsed.as_secs_f64(),
@@ -231,7 +231,7 @@ impl Reporter {
         }
     }
 
-    pub fn finished(&self, case: &Case, outcome: &Outcome) {
+    pub(super) fn finished(&self, case: &Case, outcome: &Outcome) {
         match self.format {
             OutputFormat::Json => self.json(&self.outcome_json(case, outcome)),
             OutputFormat::Human => {
@@ -395,7 +395,7 @@ impl Reporter {
         out
     }
 
-    pub fn summary(
+    pub(super) fn summary(
         &mut self,
         cases: &[Case],
         outcomes: &[Outcome],

@@ -5,7 +5,7 @@ use super::site::Site;
 use super::view::{Content, NavCategory, PageHead, PageView, Sidebar};
 
 /// The playground page's file.
-pub const PATH: &str = "playground.html";
+pub(super) const PATH: &str = "playground.html";
 
 /// What a playground needs of a bundle, as `tools/browser/build_scripting_wasm.py` stages it.
 const REQUIRED: [&str; 4] = [
@@ -16,11 +16,11 @@ const REQUIRED: [&str; 4] = [
 ];
 
 /// How to get a bundle, for the page and for the error.
-pub const BUILD_HINT: &str = "python3 tools/browser/build_scripting_wasm.py --release --output target/doc-runtime\njacket doc --runtime target/doc-runtime";
+pub(super) const BUILD_HINT: &str = "python3 tools/browser/build_scripting_wasm.py --release --output target/doc-runtime\njacket doc --runtime target/doc-runtime";
 
 /// The files of `dir`, a bundle, as `(path below runtime/, bytes)`: the four it must have and
 /// every file `examples.json` lists.
-pub fn bundle(dir: &Path) -> Result<Vec<(String, Vec<u8>)>, String> {
+pub(super) fn bundle(dir: &Path) -> Result<Vec<(String, Vec<u8>)>, String> {
     let read = |name: &str| {
         std::fs::read(dir.join(name)).map_err(|e| {
             format!(
@@ -88,7 +88,7 @@ fn safe(path: &str) -> bool {
 }
 
 /// `runtime.json`: where the page finds the files of the bundle.
-pub fn runtime_json() -> String {
+pub(super) fn runtime_json() -> String {
     serde_json::json!({
         "engine": "runtime/engine.mjs",
         "wasm": "runtime/jai_wasm.wasm",
@@ -100,7 +100,7 @@ pub fn runtime_json() -> String {
 }
 
 /// The playground page, with the module list beside it.
-pub fn page(site: &Site, nav: &[NavCategory]) -> PageView {
+pub(super) fn page(site: &Site, nav: &[NavCategory]) -> PageView {
     let href = site.page_href(PATH);
     let mut nav = nav.to_vec();
 

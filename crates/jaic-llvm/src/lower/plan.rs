@@ -12,7 +12,7 @@ use super::Backend;
 use crate::debuginfo::{DebugFormat, DebugInfo};
 
 /// How the program is divided among modules when codegen is split (`partition.rs`).
-pub struct Plan {
+pub(crate) struct Plan {
     /// The module that defines each function.
     pub func_owner: Vec<u32>,
     /// The module that defines each global.
@@ -33,13 +33,13 @@ pub struct Plan {
 
 /// Which part of the program a module holds when codegen is split across modules.
 #[derive(Clone, Copy)]
-pub struct Shard<'p> {
+pub(crate) struct Shard<'p> {
     pub plan: &'p Plan,
     pub index: u32,
 }
 
 /// What `lower_program` needs to know about the target and the unit being lowered.
-pub struct LowerOptions<'a> {
+pub(crate) struct LowerOptions<'a> {
     pub arch: Arch,
     pub target: jaic::target::Target,
     /// The part of the program this module holds, `None` for the whole of it.
@@ -58,7 +58,7 @@ pub struct LowerOptions<'a> {
 /// Lower `program` into `module`. With a shard, the module defines only that shard's
 /// functions (and, in shard 0, the globals); everything else is declared, and internal
 /// symbols become hidden externals so the modules link together.
-pub fn lower_program<'ctx>(
+pub(crate) fn lower_program<'ctx>(
     context: &'ctx Context,
     module: &Module<'ctx>,
     program: &Program,

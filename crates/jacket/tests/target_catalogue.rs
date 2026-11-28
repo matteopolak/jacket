@@ -22,10 +22,7 @@ fn run(project: &Path, listing: Option<bool>) -> Vec<serde_json::Value> {
     let output = command
         .args(["--", "-os=wasm"])
         .current_dir(project)
-        .env(
-            "JAIC_STDLIB",
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"),
-        )
+        .env("JAIC_STDLIB", test_support::repo::stdlib())
         .output()
         .unwrap();
 
@@ -102,10 +99,7 @@ fn target_catalogue_matches_actual_wasm_execution_without_changing_host_listing(
         let output = command
             .args(["--", "-os=wasm"])
             .current_dir(&project)
-            .env(
-                "JAIC_STDLIB",
-                Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"),
-            )
+            .env("JAIC_STDLIB", test_support::repo::stdlib())
             .output()
             .unwrap();
 
@@ -138,10 +132,7 @@ fn changed_selection_uses_the_actual_mode_target_catalogue() {
         .args(["--", "--interp", "--", "-os=wasm"])
         .current_dir(&project)
         .env(jacket_config::env::TEST_CHANGED.name, changed)
-        .env(
-            "JAIC_STDLIB",
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"),
-        )
+        .env("JAIC_STDLIB", test_support::repo::stdlib())
         .output()
         .unwrap();
 
@@ -170,10 +161,7 @@ fn changed_selection_uses_the_actual_mode_target_catalogue() {
         .arg(project.join("target-only.jai"))
         .args(["--", "-os=wasm"])
         .current_dir(&project)
-        .env(
-            "JAIC_STDLIB",
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"),
-        )
+        .env("JAIC_STDLIB", test_support::repo::stdlib())
         .output()
         .unwrap();
 

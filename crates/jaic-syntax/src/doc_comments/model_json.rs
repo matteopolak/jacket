@@ -168,7 +168,7 @@ fn item_json(
 
 /// The model as JSON. `resolve` gives a URL for a link's names, as for [`docs::markdown`]; docs
 /// come out as Markdown with the links it knows rewritten.
-pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) -> String {
+pub(crate) fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) -> String {
     let known: Vec<&str> = model
         .items
         .iter()

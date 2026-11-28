@@ -11,7 +11,7 @@ pub(super) struct Controls<'a> {
 }
 
 impl<'a> Controls<'a> {
-    pub fn new(code: &'a LifetimeControls) -> Self {
+    pub(super) fn new(code: &'a LifetimeControls) -> Self {
         Self {
             code,
             slots: code
@@ -31,7 +31,7 @@ impl<'a> Controls<'a> {
         }
     }
 
-    pub fn initial(&self) -> Vec<Option<u64>> {
+    pub(super) fn initial(&self) -> Vec<Option<u64>> {
         let mut state = vec![None; self.slots.len() + self.values.len()];
 
         for &(v, n) in &self.code.constants {
@@ -41,11 +41,11 @@ impl<'a> Controls<'a> {
         state
     }
 
-    pub fn condition(&self, v: Val, state: &[Option<u64>]) -> Option<bool> {
+    pub(super) fn condition(&self, v: Val, state: &[Option<u64>]) -> Option<bool> {
         state.get(*self.values.get(&v)?)?.map(|n| n != 0)
     }
 
-    pub fn numeric_condition(&self, v: Val) -> bool {
+    pub(super) fn numeric_condition(&self, v: Val) -> bool {
         self.code
             .blocks
             .iter()
@@ -53,7 +53,7 @@ impl<'a> Controls<'a> {
             .any(|i| matches!(i, Inst::Cmp { dst, .. } if *dst == v))
     }
 
-    pub fn apply(&self, block: usize, state: &mut [Option<u64>]) {
+    pub(super) fn apply(&self, block: usize, state: &mut [Option<u64>]) {
         let get = |v: &Val, state: &[Option<u64>]| self.values.get(v).and_then(|&i| state[i]);
 
         for inst in &self.code.blocks[block] {

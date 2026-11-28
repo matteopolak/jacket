@@ -257,7 +257,7 @@ fn difference(a: &View, b: &View, layout: &Layout<'_>) -> Option<(Position, Stri
 /// `text` with a blank line before every third line that starts with a token and does not follow
 /// a comment or a `#program_export` line (a blank line there would detach a doc comment: an
 /// export line belongs to the declaration below it).
-pub fn with_blank_lines(text: &str) -> String {
+pub(crate) fn with_blank_lines(text: &str) -> String {
     let Ok(tokens) = jaic::lexer::lex(FileId(0), text) else {
         return text.to_owned();
     };
@@ -303,7 +303,7 @@ pub fn with_blank_lines(text: &str) -> String {
 }
 
 /// What `jaifmt --stdin` makes of `text`, when it formats it.
-pub fn formatted(jaifmt: &std::path::Path, text: &str) -> Option<String> {
+pub(crate) fn formatted(jaifmt: &std::path::Path, text: &str) -> Option<String> {
     use std::io::Write;
     let mut child = std::process::Command::new(jaifmt)
         .arg("--stdin")
@@ -356,7 +356,7 @@ fn gap_edits(from: &Layout<'_>, to: &Layout<'_>) -> Vec<(usize, usize, String)> 
     edits
 }
 
-pub struct Context<'a> {
+pub(crate) struct Context<'a> {
     pub uri: &'a DocumentUri,
     pub text: &'a str,
     pub fresh: &'a dyn Fn(&str) -> Option<Session>,
@@ -367,7 +367,7 @@ pub struct Context<'a> {
 /// edits `session` into `variant` and compares it with that fresh session exactly. Returns the
 /// session, now holding `variant`, and the version it is at.
 #[allow(clippy::too_many_arguments)]
-pub fn compare(
+pub(crate) fn compare(
     cx: &Context<'_>,
     check: &'static str,
     variant: &str,

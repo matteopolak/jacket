@@ -12,14 +12,14 @@
 use std::path::{Path, PathBuf};
 
 /// Suffix of the sibling folder a new tree is unpacked into.
-pub const NEW_SUFFIX: &str = ".jacket-new";
+pub(super) const NEW_SUFFIX: &str = ".jacket-new";
 
 /// Suffix of the sibling folder the old tree is moved to; also the name, inside the install, of
 /// the folder the old entries go to on Windows.
-pub const OLD_SUFFIX: &str = ".jacket-old";
+pub(super) const OLD_SUFFIX: &str = ".jacket-old";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Mode {
+pub(crate) enum Mode {
     /// Rename the whole folder.
     Folder,
     /// Move the entries one by one, for Windows.
@@ -27,7 +27,7 @@ pub enum Mode {
 }
 
 impl Mode {
-    pub const fn native() -> Mode {
+    pub(crate) const fn native() -> Mode {
         if cfg!(windows) {
             Mode::Entries
         } else {
@@ -37,7 +37,7 @@ impl Mode {
 }
 
 /// `<dir><suffix>` next to `dir`.
-pub fn sibling(dir: &Path, suffix: &str) -> PathBuf {
+pub(super) fn sibling(dir: &Path, suffix: &str) -> PathBuf {
     let mut name = dir.file_name().unwrap_or_default().to_os_string();
 
     name.push(suffix);
@@ -50,7 +50,7 @@ fn aside_dir(install: &Path) -> PathBuf {
 
 /// Removes what an earlier upgrade left behind. Best effort: a file that is still in use stays
 /// until the next run.
-pub fn clean_stale(install: &Path) {
+pub(super) fn clean_stale(install: &Path) {
     for path in [
         sibling(install, NEW_SUFFIX),
         sibling(install, OLD_SUFFIX),
@@ -77,7 +77,7 @@ fn roll_back(done: &[(PathBuf, PathBuf)]) {
 
 /// Makes `fresh` the contents of `install`. `fresh` is consumed (moved into place); on error the
 /// old install is as it was.
-pub fn swap(install: &Path, fresh: &Path, mode: Mode) -> Result<(), String> {
+pub(super) fn swap(install: &Path, fresh: &Path, mode: Mode) -> Result<(), String> {
     match mode {
         Mode::Folder => swap_folder(install, fresh),
         Mode::Entries => swap_entries(install, fresh),

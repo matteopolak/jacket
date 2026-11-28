@@ -7,9 +7,9 @@ use std::process::Command;
 
 use test_support::TempDir;
 
-pub mod forge;
+pub(crate) mod forge;
 
-pub fn git(dir: &Path, args: &[&str]) -> String {
+pub(crate) fn git(dir: &Path, args: &[&str]) -> String {
     let output = Command::new("git")
         .current_dir(dir)
         .args(["-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false"])
@@ -33,13 +33,13 @@ pub fn git(dir: &Path, args: &[&str]) -> String {
 }
 
 /// A repository with a bare copy to depend on. Commits go to the working copy and are pushed.
-pub struct Origin {
+pub(crate) struct Origin {
     pub bare: PathBuf,
     pub work: PathBuf,
 }
 
 impl Origin {
-    pub fn new(root: &Path, name: &str, files: &[(&str, &str)]) -> Self {
+    pub(crate) fn new(root: &Path, name: &str, files: &[(&str, &str)]) -> Self {
         let work = root.join("work").join(name);
         let bare = root.join("origins").join(format!("{name}.git"));
 
@@ -66,7 +66,7 @@ impl Origin {
         origin
     }
 
-    pub fn write(&self, files: &[(&str, &str)]) {
+    pub(crate) fn write(&self, files: &[(&str, &str)]) {
         for (path, text) in files {
             let full = self.work.join(path);
 
@@ -76,7 +76,7 @@ impl Origin {
     }
 
     /// Commits everything and pushes; returns the commit.
-    pub fn commit(&self, message: &str) -> String {
+    pub(crate) fn commit(&self, message: &str) -> String {
         git(&self.work, &["add", "-A"]);
         git(
             &self.work,
@@ -91,7 +91,7 @@ impl Origin {
     }
 
     /// Adds `files`, commits, and tags the commit.
-    pub fn release(&self, tag: &str, files: &[(&str, &str)]) -> String {
+    pub(crate) fn release(&self, tag: &str, files: &[(&str, &str)]) -> String {
         self.write(files);
         let commit = self.commit(tag);
 
@@ -99,7 +99,7 @@ impl Origin {
         commit
     }
 
-    pub fn tag(&self, tag: &str) {
+    pub(crate) fn tag(&self, tag: &str) {
         git(&self.work, &["tag", "-f", tag]);
         git(
             &self.work,
@@ -107,13 +107,13 @@ impl Origin {
         );
     }
 
-    pub fn url(&self) -> String {
+    pub(crate) fn url(&self) -> String {
         self.bare.to_string_lossy().into_owned()
     }
 
     /// Makes `inner` a submodule of this repository at `modules/<name>`, checked out at `at`
     /// (a tag or commit of `inner`). Commit afterwards.
-    pub fn nest(&self, inner: &Origin, name: &str, at: &str) {
+    pub(crate) fn nest(&self, inner: &Origin, name: &str, at: &str) {
         let path = format!("modules/{name}");
 
         if !self.work.join(&path).join(".git").exists() {
@@ -140,14 +140,14 @@ impl Origin {
 }
 
 /// A git repository with a `jacket.toml`, to run `jacket dep` in.
-pub struct Project {
+pub(crate) struct Project {
     pub root: TempDir,
     pub dir: PathBuf,
     /// `(url, local path)`: git is told to fetch `url` from the path.
     rewrites: RefCell<Vec<(String, String)>>,
 }
 
-pub struct Run {
+pub(crate) struct Run {
     pub code: i32,
     pub out: String,
     pub err: String,
@@ -157,7 +157,7 @@ impl Project {
     /// A project whose `[resolver]` waives the release-age policy (`min-release-age = "0"`), for
     /// tests of everything but the policy: their origins are local repositories with no
     /// release times.
-    pub fn waived(toml: &str) -> Self {
+    pub(crate) fn waived(toml: &str) -> Self {
         let waiver = "min-release-age = \"0\"\n";
         let toml = match toml.split_once("[resolver]\n") {
             Some((before, after)) => format!("{before}[resolver]\n{waiver}{after}"),
@@ -167,7 +167,7 @@ impl Project {
         Self::new(&toml)
     }
 
-    pub fn new(toml: &str) -> Self {
+    pub(crate) fn new(toml: &str) -> Self {
         let root = TempDir::new("dep");
         let dir = root.join("project");
 
@@ -183,16 +183,16 @@ impl Project {
         }
     }
 
-    pub fn jacket(&self, args: &[&str]) -> Run {
+    pub(crate) fn jacket(&self, args: &[&str]) -> Run {
         self.jacket_env(args, &[])
     }
 
     /// Makes git fetch `url` (as `https://github.com/someone/lib`) from a local repository.
-    pub fn rewrite(&self, url: &str, local: &str) {
+    pub(crate) fn rewrite(&self, url: &str, local: &str) {
         self.rewrites.borrow_mut().push((url.into(), local.into()));
     }
 
-    pub fn jacket_env(&self, args: &[&str], env: &[(&str, &str)]) -> Run {
+    pub(crate) fn jacket_env(&self, args: &[&str], env: &[(&str, &str)]) -> Run {
         let rewrites = self.rewrites.borrow();
         let mut all: Vec<(String, String)> =
             vec![("GIT_CONFIG_COUNT".into(), (1 + rewrites.len()).to_string())];
@@ -212,18 +212,18 @@ impl Project {
         run_in(&self.dir, &self.root, args, &pairs)
     }
 
-    pub fn toml(&self) -> String {
+    pub(crate) fn toml(&self) -> String {
         std::fs::read_to_string(self.dir.join("jacket.toml")).unwrap()
     }
 
-    pub fn commit_count(&self) -> usize {
+    pub(crate) fn commit_count(&self) -> usize {
         git(&self.dir, &["rev-list", "--count", "HEAD"])
             .parse()
             .unwrap()
     }
 }
 
-pub fn run_in(dir: &Path, root: &Path, args: &[&str], env: &[(&str, &str)]) -> Run {
+pub(crate) fn run_in(dir: &Path, root: &Path, args: &[&str], env: &[(&str, &str)]) -> Run {
     let mut command = Command::new(env!("CARGO_BIN_EXE_jacket"));
 
     command
@@ -262,7 +262,7 @@ pub fn run_in(dir: &Path, root: &Path, args: &[&str], env: &[(&str, &str)]) -> R
 /// A `git` that runs the real one after `before` (shell, with `$REAL` and the arguments), put
 /// first on `PATH`; returns that `PATH` for `jacket_env`.
 #[cfg(unix)]
-pub fn git_shim(root: &Path, before: &str) -> String {
+pub(crate) fn git_shim(root: &Path, before: &str) -> String {
     use std::os::unix::fs::PermissionsExt;
     let real = Command::new("sh")
         .args(["-c", "command -v git"])

@@ -37,7 +37,7 @@ fn main() {
 
     collect(&root, &root, &mut files);
     files.sort();
-    let mut table = String::from("pub const FILES: &[(&str, &[u8])] = &[\n");
+    let mut table = String::from("pub(crate) const FILES: &[(&str, &[u8])] = &[\n");
 
     for file in files {
         table.push_str(&format!(

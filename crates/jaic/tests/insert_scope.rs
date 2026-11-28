@@ -2,24 +2,14 @@
 use std::{path::PathBuf, rc::Rc};
 
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource, VirtualFs};
+use test_support::compiler::compile_rendered;
 
-fn compile(source: &str) -> Result<(), String> {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
-
-    compiler
-        .compile_sources(&[ProgramSource::String(source.into())])
-        .map_err(|error| error.render(&compiler.src.sources))
-}
 
 #[test]
 fn exact_human_declaration_insertion_is_visible_to_the_following_statement() {
-    let root = jacket_config::env::STDLIB.os().map_or_else(
-        || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"),
-        PathBuf::from,
-    );
+    let root = jacket_config::env::STDLIB
+        .os()
+        .map_or_else(test_support::repo::stdlib, PathBuf::from);
     let mut options = Options::host();
 
     options.import_paths = vec![root.clone()];
@@ -36,7 +26,7 @@ fn exact_human_declaration_insertion_is_visible_to_the_following_statement() {
 
 #[test]
 fn unbraced_declarations_publish_but_explicit_blocks_do_not() {
-    compile(
+    compile_rendered(
         "verify::()->int {code::#code value:=2; #insert code; return value;} #assert verify()==2;",
     )
     .unwrap();
@@ -46,8 +36,8 @@ fn unbraced_declarations_publish_but_explicit_blocks_do_not() {
         "a::#code {{b:=2;}}; #insert a; x:=b;",
         "a::#code N::2; x:=N; #insert a;",
     ] {
-        let error =
-            compile(&format!("main::(){{{body}}}")).expect_err("official lexical scope negative");
+        let error = compile_rendered(&format!("main::(){{{body}}}"))
+            .expect_err("official lexical scope negative");
 
         assert!(error.contains("unknown identifier"), "{body}: {error}");
     }
@@ -55,7 +45,7 @@ fn unbraced_declarations_publish_but_explicit_blocks_do_not() {
 
 #[test]
 fn explicit_blocks_keep_locals_and_defers_inside_the_block() {
-    compile(
+    compile_rendered(
         r"
         verify::()->int {
             result:=0;
@@ -67,7 +57,7 @@ fn explicit_blocks_keep_locals_and_defers_inside_the_block() {
     ",
     )
     .unwrap();
-    let error = compile("main::(){code::#code {local:=2;} #insert code; out:=local;}")
+    let error = compile_rendered("main::(){code::#code {local:=2;} #insert code; out:=local;}")
         .expect_err("explicit Code block locals stay private");
 
     assert!(error.contains("unknown identifier"), "{error}");
@@ -76,7 +66,7 @@ fn explicit_blocks_keep_locals_and_defers_inside_the_block() {
 #[test]
 fn capture_and_explicit_scope_override_remain_distinct() {
     for (modifier, expected) in [("", 7), (",scope()", 11)] {
-        compile(&format!(
+        compile_rendered(&format!(
             r"
             verify :: ()->int {{
                 source:=7;
@@ -105,7 +95,7 @@ fn duplicate_inserted_and_receiving_declarations_are_rejected() {
         "code::#code value::2; #insert code; #insert code;",
         "source:=1; code::#code value:=2; {value:=3; #insert code;}",
     ] {
-        let error = compile(&format!("main :: () {{ {body} }}"))
+        let error = compile_rendered(&format!("main :: () {{ {body} }}"))
             .expect_err("same-block declaration insertion must not silently shadow");
 
         assert!(error.contains("already declared"), "{body}: {error}");
@@ -114,7 +104,7 @@ fn duplicate_inserted_and_receiving_declarations_are_rejected() {
 
 #[test]
 fn forward_constants_overloads_and_aliases_survive_insertion() {
-    compile(
+    compile_rendered(
         r"
         verify :: ()->int {
             result:=0;
@@ -140,7 +130,7 @@ fn forward_constants_overloads_and_aliases_survive_insertion() {
 
 #[test]
 fn inserted_using_declaration_exposes_only_its_receiving_block() {
-    compile(
+    compile_rendered(
         r"
         Record :: struct {value:int;}
         verify :: ()->int {
@@ -152,7 +142,7 @@ fn inserted_using_declaration_exposes_only_its_receiving_block() {
     ",
     )
     .unwrap();
-    let error = compile(
+    let error = compile_rendered(
         r"
         Record :: struct {value:int;}
         main :: () {
@@ -169,7 +159,7 @@ fn inserted_using_declaration_exposes_only_its_receiving_block() {
 
 #[test]
 fn inserted_constants_remain_immutable() {
-    let error = compile("main :: () { code::#code value::2; #insert code; value=3; }")
+    let error = compile_rendered("main :: () { code::#code value::2; #insert code; value=3; }")
         .expect_err("insertion does not change :: storage semantics");
 
     assert!(
@@ -180,7 +170,7 @@ fn inserted_constants_remain_immutable() {
 
 #[test]
 fn inserting_inside_a_nested_receiving_block_does_not_leak_out() {
-    let error = compile(
+    let error = compile_rendered(
         r"
         main :: () {
             code::#code value:=2;
@@ -196,7 +186,7 @@ fn inserting_inside_a_nested_receiving_block_does_not_leak_out() {
 
 #[test]
 fn a_use_before_an_inserted_mutable_declaration_is_not_a_forward_local() {
-    let error = compile("main :: () { code::#code value:=2; out:=value; #insert code; }")
+    let error = compile_rendered("main :: () { code::#code value:=2; out:=value; #insert code; }")
         .expect_err("ordinary runtime locals are not forward declarations");
 
     assert!(error.contains("unknown identifier"), "{error}");
@@ -204,7 +194,7 @@ fn a_use_before_an_inserted_mutable_declaration_is_not_a_forward_local() {
 
 #[test]
 fn insertion_does_not_create_a_new_overload_declaration_scope() {
-    compile(
+    compile_rendered(
         r"
         verify :: ()->int {
             select :: (value:int)->int {return value+1;}
@@ -216,7 +206,7 @@ fn insertion_does_not_create_a_new_overload_declaration_scope() {
     ",
     )
     .unwrap();
-    let error = compile(
+    let error = compile_rendered(
         r"
         main :: () {
             select :: (value:int)->int {return value+1;}
@@ -232,7 +222,7 @@ fn insertion_does_not_create_a_new_overload_declaration_scope() {
 
 #[test]
 fn forward_code_value_and_sibling_receiving_blocks_are_supported() {
-    compile(
+    compile_rendered(
         r"
         verify :: ()->int {
             #insert code;
@@ -295,7 +285,7 @@ fn captured_private_module_names_do_not_escape_with_new_bindings() {
 
 #[test]
 fn callable_aliases_keep_their_selected_header_after_publication() {
-    compile(
+    compile_rendered(
         r"
         verify :: ()->int {
             operation :: (amount:int=3)->int {return amount*2;}
@@ -313,7 +303,7 @@ fn callable_aliases_keep_their_selected_header_after_publication() {
 
 #[test]
 fn macro_private_declarations_do_not_leak_and_backtick_bindings_still_work() {
-    compile(
+    compile_rendered(
         r"
         introduce :: () #expand { `value:=7; }
         verify :: ()->int {
@@ -325,7 +315,7 @@ fn macro_private_declarations_do_not_leak_and_backtick_bindings_still_work() {
     ",
     )
     .unwrap();
-    let error = compile(
+    let error = compile_rendered(
         r"
         hidden :: () #expand {private_value:=7;}
         main :: () {
@@ -342,7 +332,7 @@ fn macro_private_declarations_do_not_leak_and_backtick_bindings_still_work() {
 
 #[test]
 fn inserted_local_storage_and_defers_live_until_the_receiving_block_exits() {
-    compile(
+    compile_rendered(
         r"
         verify :: ()->int {
             result:=1;
@@ -407,7 +397,7 @@ fn every_insertion_form_splices_its_declarations_into_the_receiving_scope() {
             "a :: #code b := 2; { #insert a; x := b; }",
         ),
     ] {
-        compile(&format!("main :: () {{ {body} }}"))
+        compile_rendered(&format!("main :: () {{ {body} }}"))
             .unwrap_or_else(|error| panic!("{name}: {error}"));
     }
 }
@@ -420,7 +410,7 @@ fn insertion_declarations_do_not_escape_the_receiving_block() {
         "{ #insert,scope() \"b := 2;\"; } x := b;",
         "a :: #code b := 2; x := b; #insert a;",
     ] {
-        let error = compile(&format!("main :: () {{ {body} }}"))
+        let error = compile_rendered(&format!("main :: () {{ {body} }}"))
             .expect_err("declarations stay in the receiving block, after the insertion");
 
         assert!(error.contains("unknown identifier"), "{body}: {error}");

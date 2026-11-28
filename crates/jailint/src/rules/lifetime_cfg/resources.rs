@@ -184,7 +184,7 @@ pub(super) struct Builder<'a> {
 }
 
 impl<'a> Builder<'a> {
-    pub fn new(
+    pub(super) fn new(
         cx: &'a Cx<'a>,
         body: &LifetimeBody,
         summaries: &'a Summaries,
@@ -313,15 +313,15 @@ impl<'a> Builder<'a> {
         }
     }
 
-    pub fn member_read_span(&self, span: Span) -> Span {
+    pub(super) fn member_read_span(&self, span: Span) -> Span {
         self.member_spans.get(&span).copied().unwrap_or(span)
     }
 
-    pub fn result_place(&self, value: Val) -> bool {
+    pub(super) fn result_place(&self, value: Val) -> bool {
         self.returns.contains(&value)
     }
 
-    pub fn resource_load(&self, value: Val) -> bool {
+    pub(super) fn resource_load(&self, value: Val) -> bool {
         self.released_values.contains(&value)
     }
 
@@ -330,7 +330,7 @@ impl<'a> Builder<'a> {
             && (places.unresolved(p) || !self.stack.contains(&places.paths[p].0.0))
     }
 
-    pub fn operations(
+    pub(super) fn operations(
         &self,
         event: &Event,
         places: &mut Places,

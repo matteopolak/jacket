@@ -29,7 +29,7 @@ const COMMAND_LINE_BUDGET: usize = if cfg!(windows) {
 
 /// What `jacket fmt` does.
 #[derive(Debug, Default, PartialEq, Eq)]
-pub struct Plan {
+pub(crate) struct Plan {
     /// The `jaifmt` command lines to run, in order.
     pub runs: Vec<Vec<OsString>>,
     /// Exit with this status without running anything (an answered `--is-ignored`).
@@ -237,7 +237,7 @@ fn parse(args: &[OsString]) -> Arguments {
 }
 
 /// What to run for `jacket fmt <args>`.
-pub fn plan(args: &[OsString], ctx: &Context) -> Plan {
+pub(crate) fn plan(args: &[OsString], ctx: &Context) -> Plan {
     plan_within(args, ctx, COMMAND_LINE_BUDGET)
 }
 
@@ -450,7 +450,7 @@ fn command(settings: &Resolved, pass: &[OsString], files: &[OsString]) -> Vec<Os
 }
 
 /// Runs the plan with `jaifmt` and returns the exit status.
-pub fn run(plan: &Plan) -> std::process::ExitCode {
+pub(crate) fn run(plan: &Plan) -> std::process::ExitCode {
     use std::process::{Command, ExitCode};
 
     if let Some(code) = plan.answer {

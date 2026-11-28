@@ -63,7 +63,7 @@ pub(in crate::rules) struct Facts<'a> {
 }
 
 impl<'a> Facts<'a> {
-    pub fn new(compiler: &'a Compiler, body: &'a LifetimeBody) -> Self {
+    pub(crate) fn new(compiler: &'a Compiler, body: &'a LifetimeBody) -> Self {
         let places = Places::new(compiler, body);
         let mut this = Self {
             places,
@@ -338,7 +338,7 @@ impl<'a> Facts<'a> {
         result
     }
 
-    pub fn selector(&self, value: Val, region: Option<usize>, at: Site) -> Selector {
+    pub(crate) fn selector(&self, value: Val, region: Option<usize>, at: Site) -> Selector {
         match self.number(value, at, &mut HashSet::default()) {
             Number::Constant(n) => Selector::Constant(n),
             Number::Formal(n) => Selector::Formal(n),
@@ -367,7 +367,7 @@ impl<'a> Facts<'a> {
         }
     }
 
-    pub fn position(&self, value: Val, _at: Site) -> Option<Position> {
+    pub(crate) fn position(&self, value: Val, _at: Site) -> Option<Position> {
         self.position_inner(value, &mut HashSet::default())
     }
 
@@ -418,7 +418,7 @@ impl<'a> Facts<'a> {
         result
     }
 
-    pub fn fixed_length(&self, region: usize) -> Option<i128> {
+    pub(crate) fn fixed_length(&self, region: usize) -> Option<i128> {
         match self
             .compiler
             .ty
@@ -433,15 +433,15 @@ impl<'a> Facts<'a> {
         }
     }
 
-    pub fn place_of(&mut self, value: Val, ty: TypeId) -> usize {
+    pub(crate) fn place_of(&mut self, value: Val, ty: TypeId) -> usize {
         self.places.place(value, ty)
     }
 
-    pub fn count_parent(&self, place: usize) -> Option<usize> {
+    pub(crate) fn count_parent(&self, place: usize) -> Option<usize> {
         self.counts.get(&place).copied()
     }
 
-    pub fn is_count(&self, place: usize) -> bool {
+    pub(crate) fn is_count(&self, place: usize) -> bool {
         matches!(self.places.paths[place].1.last(),Some(Projection::Field(name)) if name.as_str()=="count")
             && self.counts.contains_key(&place)
     }

@@ -51,7 +51,7 @@ struct Sections {
 type Map<K, V> = HashMap<K, Rc<[V]>>;
 
 #[derive(Default)]
-pub struct SpanIndex {
+pub(super) struct SpanIndex {
     key: Option<Key>,
     sections: Rc<Sections>,
 }

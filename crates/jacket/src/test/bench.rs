@@ -27,7 +27,7 @@ const SCHEMA: u32 = 2;
 const SEED: u64 = 0x6a61_636b_6574;
 
 /// What a run needs from the planning in `test/mod.rs`.
-pub struct Run<'a> {
+pub(super) struct Run<'a> {
     pub cases: &'a [Case],
     pub roots: &'a [Root],
     pub built: &'a [Option<build::Built>],
@@ -42,7 +42,7 @@ pub struct Run<'a> {
 /// What the program measured for one benchmark, and what the statistics make of it; times are
 /// nanoseconds per iteration.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Measure {
+pub(super) struct Measure {
     pub name: String,
     pub file: String,
     pub line: u32,
@@ -130,13 +130,13 @@ impl Measure {
     }
 
     /// Megabytes (10^6 bytes) per second, when the benchmark set its bytes.
-    pub fn mb_per_s(&self) -> Option<f64> {
+    pub(super) fn mb_per_s(&self) -> Option<f64> {
         let time = self.analysis.time.estimate;
         (self.bytes > 0 && time > 0.0).then_some(self.bytes as f64 / time * 1000.0)
     }
 
     /// Items per second, when the benchmark set its items.
-    pub fn items_per_s(&self) -> Option<f64> {
+    pub(super) fn items_per_s(&self) -> Option<f64> {
         let time = self.analysis.time.estimate;
         (self.items > 0 && time > 0.0).then_some(self.items as f64 * 1e9 / time)
     }
@@ -185,7 +185,7 @@ fn interval_json(i: Interval) -> Value {
 
 /// How a benchmark compares with the same one in a baseline.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Change {
+pub(super) struct Change {
     pub baseline_time: f64,
     pub comparison: Comparison,
 }
@@ -193,7 +193,7 @@ pub struct Change {
 impl Change {
     /// Whether this is a regression past `limit` percent: slower by that much, and a change the
     /// statistics stand behind.
-    pub fn regressed(&self, limit: f64) -> bool {
+    pub(super) fn regressed(&self, limit: f64) -> bool {
         self.comparison.verdict == Verdict::Regressed
             && self.comparison.change.estimate * 100.0 > limit
     }
@@ -230,7 +230,7 @@ fn read_baseline(path: &Path) -> Result<Vec<(String, Samples)>, String> {
         .collect()
 }
 
-pub fn baseline_path(project_dir: &Path, name: &str) -> PathBuf {
+pub(super) fn baseline_path(project_dir: &Path, name: &str) -> PathBuf {
     project_dir
         .join("target")
         .join("bench-baselines")
@@ -238,7 +238,7 @@ pub fn baseline_path(project_dir: &Path, name: &str) -> PathBuf {
 }
 
 /// Runs the benchmarks of the plan and reports them.
-pub fn run(run: &Run) -> ExitCode {
+pub(super) fn run(run: &Run) -> ExitCode {
     let args = run.args;
     let baseline = match &args.baseline {
         Some(name) => match read_baseline(&baseline_path(run.project_dir, name)) {
@@ -469,7 +469,7 @@ fn digits(value: f64) -> String {
 
 /// `[low estimate high]` of a time, in the unit of the estimate. Negative times (a fit through
 /// noise around zero) show as zero.
-pub fn time_triplet(i: Interval) -> String {
+pub(super) fn time_triplet(i: Interval) -> String {
     let (divisor, unit) = unit_of(i.estimate.max(0.0));
     let at = |v: f64| digits(v.max(0.0) / divisor);
 
@@ -523,7 +523,7 @@ fn rate_triplet(measure: &Measure) -> Option<String> {
 
 /// The text for people, in the manner of criterion: the time with its interval, the change
 /// against the baseline, then the outliers.
-pub fn report(
+pub(super) fn report(
     measure: &Measure,
     change: Option<&Change>,
     compared: bool,

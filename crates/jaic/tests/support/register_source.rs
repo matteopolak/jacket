@@ -1,1 +1,2 @@
-pub const SOURCE: &str = include_str!("../../../../tests/compiler/semantics/register-operands.jai");
+pub(crate) const SOURCE: &str =
+    include_str!("../../../../tests/compiler/semantics/register-operands.jai");

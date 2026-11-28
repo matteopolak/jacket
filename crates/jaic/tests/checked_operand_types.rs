@@ -162,7 +162,7 @@ fn mixed_numeric_comparisons_export_the_arithmetic_operand_type() {
 
 #[test]
 fn arguments_boxed_for_any_keep_their_own_types() {
-    let stdlib = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];

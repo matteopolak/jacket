@@ -16,7 +16,7 @@ pub(in crate::rules) struct Observable {
 impl Observable {
     /// Adds a callee's output and exit; its `output_through` names the callee's formals, so a
     /// caller reads it per call instead.
-    pub fn include(&mut self, other: Self) {
+    pub(crate) fn include(&mut self, other: Self) {
         self.output |= other.output;
         self.exit |= other.exit;
     }
@@ -47,7 +47,11 @@ pub(super) struct Calls<'a> {
 }
 
 impl<'a> Calls<'a> {
-    pub fn build(c: &'a Compiler, body: &'a LifetimeBody, all: &HashMap<ProcId, Summary>) -> Self {
+    pub(super) fn build(
+        c: &'a Compiler,
+        body: &'a LifetimeBody,
+        all: &HashMap<ProcId, Summary>,
+    ) -> Self {
         let mut out = Self {
             compiler: c,
             body,
@@ -159,7 +163,7 @@ impl<'a> Calls<'a> {
         proved.first().copied().unwrap_or(false)
     }
 
-    pub fn infer(&self, all: &HashMap<ProcId, Summary>) -> Observable {
+    pub(super) fn infer(&self, all: &HashMap<ProcId, Summary>) -> Observable {
         let mut out = Observable::default();
 
         for &(callee, args) in &self.sites {

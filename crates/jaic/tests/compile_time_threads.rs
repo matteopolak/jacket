@@ -1,7 +1,7 @@
 //! Compiler hooks called from a thread a compile-time run started see the same symbols and record
 //! names as the compiling thread.
 #![cfg(unix)]
-use std::{path::Path, rc::Rc};
+use std::rc::Rc;
 
 use jaic::build::{BuildEnv, Workspaces};
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
@@ -52,10 +52,7 @@ main :: () {}
 
 #[test]
 fn code_parsed_on_a_started_thread_keeps_its_names() {
-    let library = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../stdlib")
-        .canonicalize()
-        .unwrap();
+    let library = test_support::repo::stdlib().canonicalize().unwrap();
     let mut options = Options::host();
 
     options.set_stdlib(&jaic::sema::NativeFs, &library);

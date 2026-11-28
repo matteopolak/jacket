@@ -1,14 +1,11 @@
 //! Startup options checked against the actual runtime library.
-use std::{path::Path, rc::Rc};
+use std::rc::Rc;
 
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 use jaic::target::{TargetCpu, TargetOs};
 
 fn compile(entry: bool, backtrace: bool) -> (Compiler, jaic::sema::Result<()>) {
-    let library = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../stdlib")
-        .canonicalize()
-        .unwrap();
+    let library = test_support::repo::stdlib().canonicalize().unwrap();
     let mut options = Options::host();
 
     options.os = TargetOs::Windows;
@@ -71,10 +68,7 @@ fn disabled_backtrace_or_embedding_does_not_import_a_native_handler() {
 
 #[test]
 fn early_host_query_does_not_poison_later_compile_time_context() {
-    let library = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../stdlib")
-        .canonicalize()
-        .unwrap();
+    let library = test_support::repo::stdlib().canonicalize().unwrap();
     let mut options = Options::host();
 
     options.set_stdlib(&NativeFs, &library);

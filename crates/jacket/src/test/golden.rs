@@ -17,7 +17,7 @@ use super::options::TestOptions;
 
 /// How a golden or compile-fail test went.
 #[derive(Debug, Default)]
-pub struct Checked {
+pub(crate) struct Checked {
     pub passed: bool,
     /// Why it failed: a diff, a status, compile errors.
     pub problems: Vec<String>,
@@ -366,7 +366,7 @@ fn expand_args(
 /// Builds and runs the golden test `source`; `options` set its arguments and the warning it
 /// must produce.
 #[allow(clippy::too_many_arguments)]
-pub fn golden(
+pub(super) fn golden(
     source: &Path,
     options: &TestOptions,
     root_flags: &[String],
@@ -520,7 +520,7 @@ pub fn golden(
 /// `text` with `dir` written `$DIR`, `stdlib` `$STDLIB`, `project` (the folder with
 /// `jacket.toml`) `$ROOT` and the `imports` folders `$IMPORT1`, `$IMPORT2`, ... in the order given,
 /// separators as `/`. Paths outside all of them stay as printed.
-pub fn normalize_paths(
+pub(super) fn normalize_paths(
     text: &str,
     dir: &Path,
     stdlib: &Path,
@@ -621,7 +621,7 @@ fn location_end(line: &str) -> Option<usize> {
 }
 
 /// The folders compile-fail output names as `$STDLIB` and `$ROOT`.
-pub struct Folders<'a> {
+pub(super) struct Folders<'a> {
     pub stdlib: &'a Path,
     pub project: &'a Path,
 }
@@ -629,7 +629,7 @@ pub struct Folders<'a> {
 /// Type-checks the compile-fail test `source`: it must fail, printing its `.stderr` (or, with
 /// `compile_fail(text)`, diagnostics that contain the text). A missing `.stderr` is written from
 /// what the compiler printed when `create_missing` (`--create-missing`), else it fails.
-pub fn compile_fail(
+pub(super) fn compile_fail(
     source: &Path,
     options: &TestOptions,
     root_flags: &[String],

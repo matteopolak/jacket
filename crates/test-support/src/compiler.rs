@@ -40,6 +40,17 @@ pub fn compile_for_cpu(cpu: TargetCpu, source: &str) -> (Compiler, jaic::sema::R
     (c, result)
 }
 
+/// Compile `source` as one string program with the runtime support module off, and render any
+/// error against the sources.
+///
+/// # Errors
+/// The rendered diagnostic when the program does not compile.
+pub fn compile_rendered(source: &str) -> Result<(), String> {
+    let (compiler, result) = compile_source(source);
+
+    result.map_err(|error| error.render(&compiler.src.sources))
+}
+
 /// Compile `source` as `/main.jai`, with any error rendered against the sources.
 ///
 /// # Errors

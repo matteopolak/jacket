@@ -1,7 +1,7 @@
 //! Atomic intrinsic regressions; no module-specific implementation.
-use std::rc::Rc;
 
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+use jaic::sema::{Compiler, ProgramSource};
+use test_support::compiler::bare_compiler;
 
 const DECLS: &str = r"
 atomic_load :: (pointer: *$T) -> T #intrinsic;
@@ -11,10 +11,7 @@ compare_and_swap :: (pointer: *$T, old: T, new: T) -> (bool, T) #intrinsic;
 ";
 
 fn compile(source: &str) -> (Compiler, jaic::sema::Result<()>) {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let mut c = bare_compiler();
     let result = c.compile_sources(&[ProgramSource::String(format!("{DECLS}\n{source}"))]);
 
     (c, result)
@@ -110,10 +107,7 @@ fn atomic_misalignment_is_an_explicit_runtime_error() {
 #[test]
 fn intrinsic_signatures_cannot_change_the_accessed_scalar_type() {
     let declarations = DECLS.replace("(pointer: *$T) -> T", "(pointer: *$T) -> u32");
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let mut c = bare_compiler();
     let source =
         format!("{declarations} check :: () {{ value: u64; atomic_load(*value); }} #run check();");
     let error = c

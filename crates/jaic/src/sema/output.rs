@@ -9,7 +9,7 @@ use crate::sema::{PackKey, driver, runtime_config};
 use crate::types::TypeId;
 
 /// A constant's type, bytes and relocations: what a constant global is interned by.
-pub type ConstAddrKey = (TypeId, Vec<u8>, Vec<ir::Reloc>);
+pub(super) type ConstAddrKey = (TypeId, Vec<u8>, Vec<ir::Reloc>);
 
 #[derive(Default)]
 

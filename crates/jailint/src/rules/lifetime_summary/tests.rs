@@ -16,7 +16,7 @@ use super::*;
 
 #[test]
 fn allocator_mode_guards_distinguish_allocate_resize_and_free() {
-    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];
@@ -148,7 +148,7 @@ fn prefix_compaction_preserves_independent_allocation_effects() {
 
 #[test]
 fn intrinsic_memory_and_vector_search_have_no_release_effects() {
-    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];
@@ -194,7 +194,7 @@ fn intrinsic_memory_and_vector_search_have_no_release_effects() {
 
 #[test]
 fn pointee_resources_preserve_distinct_header_ownership() {
-    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];
@@ -286,7 +286,7 @@ context_owned :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *v
 
 #[test]
 fn empty_error_results_preserve_body_inferred_storage_without_notes() {
-    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];
@@ -436,7 +436,7 @@ fn without_body_notes(c: &mut Compiler) {
 #[test]
 fn output_and_exit_effects_follow_bodies_and_standard_handle_values() {
     for windows in [false, true] {
-        let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+        let stdlib = test_support::repo::stdlib();
         let mut options = Options::host();
 
         options.import_paths = vec![stdlib.clone()];
@@ -543,7 +543,7 @@ fn output_and_exit_effects_follow_bodies_and_standard_handle_values() {
 
 #[test]
 fn release_may_provenance_follows_cursor_and_ambiguous_copies_without_guarantees() {
-    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];
@@ -608,7 +608,7 @@ fn release_may_provenance_follows_cursor_and_ambiguous_copies_without_guarantees
 
 #[test]
 fn foreign_release_protocols_propagate_without_wrapper_notes() {
-    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];
@@ -686,7 +686,7 @@ fn foreign_release_protocols_propagate_without_wrapper_notes() {
 #[test]
 fn bodyless_pointer_contracts_follow_the_lexical_interface_not_abi_identity() {
     for known_body in [false, true] {
-        let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+        let stdlib = test_support::repo::stdlib();
         let mut options = Options::host();
 
         options.import_paths = vec![stdlib.clone()];
@@ -763,7 +763,7 @@ fn bodyless_pointer_contracts_follow_the_lexical_interface_not_abi_identity() {
 
 #[test]
 fn null_cleanup_paths_are_vacuous_but_unrelated_conditions_remain_possible() {
-    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];
@@ -818,7 +818,7 @@ fn null_cleanup_paths_are_vacuous_but_unrelated_conditions_remain_possible() {
 
 #[test]
 fn minimum_and_maximum_effects_come_from_comparisons_and_component_choices() {
-    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];
@@ -871,7 +871,7 @@ fn minimum_and_maximum_effects_come_from_comparisons_and_component_choices() {
 
 #[test]
 fn destroy_heap_releases_allocator_data_without_treating_it_as_an_allocation() {
-    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];
@@ -917,7 +917,7 @@ fn destroy_heap_releases_allocator_data_without_treating_it_as_an_allocation() {
 
 #[test]
 fn descriptor_fields_are_defined_before_their_uses_not_unrelated_error_returns() {
-    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];
@@ -987,7 +987,7 @@ fn descriptor_fields_are_defined_before_their_uses_not_unrelated_error_returns()
 
 #[test]
 fn direct_temporary_provider_calls_preserve_allocate_mode_without_tainting_caps_or_free() {
-    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];
@@ -1058,7 +1058,7 @@ fn direct_temporary_provider_calls_preserve_allocate_mode_without_tainting_caps_
 
 #[test]
 fn aligned_allocations_keep_their_origin_after_integer_round_up_and_ir_release() {
-    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];
@@ -1157,7 +1157,7 @@ fn aligned_allocations_keep_their_origin_after_integer_round_up_and_ir_release()
 
 #[test]
 fn temporary_descriptor_contents_do_not_replace_their_storage_origin() {
-    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];

@@ -3,7 +3,7 @@ use super::*;
 
 #[test]
 fn fallible_windows_release_symbols_export_only_possible_frees() {
-    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];
@@ -70,7 +70,7 @@ fn fallible_windows_release_symbols_export_only_possible_frees() {
 
 #[test]
 fn foreign_declarations_release_only_through_their_notes() {
-    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];
@@ -136,7 +136,7 @@ fn foreign_declarations_release_only_through_their_notes() {
 
 #[test]
 fn narrowing_a_handle_keeps_it_the_released_argument() {
-    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];

@@ -20,7 +20,7 @@ pub(in crate::rules) struct Allocators {
 }
 
 impl Allocators {
-    pub fn build(c: &Compiler, valid: &HashMap<ProcId, &LifetimeBody>) -> Self {
+    pub(crate) fn build(c: &Compiler, valid: &HashMap<ProcId, &LifetimeBody>) -> Self {
         let Some((ty, signature)) = allocator_types(c) else {
             return Self::default();
         };

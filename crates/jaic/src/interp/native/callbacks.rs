@@ -20,7 +20,7 @@ use crate::ir::{FuncId, Sig};
 mod win64;
 
 /// Runs an interpreted procedure on behalf of a thunk.
-pub type Reenter<'a> = dyn FnMut(FuncId, &[u64]) -> Result<Vec<u64>, Trap> + 'a;
+pub(crate) type Reenter<'a> = dyn FnMut(FuncId, &[u64]) -> Result<Vec<u64>, Trap> + 'a;
 
 thread_local! {
     /// The interpreter (its scheduler's `key`) and scheduler thread whose native call is in
@@ -31,7 +31,7 @@ thread_local! {
 
 /// Run `f`, a native call that scheduler thread `caller.1` of interpreter `caller.0` makes, on
 /// this OS thread.
-pub fn calling_out<T>(caller: (usize, usize), f: impl FnOnce() -> T) -> T {
+pub(crate) fn calling_out<T>(caller: (usize, usize), f: impl FnOnce() -> T) -> T {
     let outer = CALLER.with(|c| c.replace(caller));
     let out = f();
 
@@ -40,13 +40,13 @@ pub fn calling_out<T>(caller: (usize, usize), f: impl FnOnce() -> T) -> T {
 }
 
 /// The native call in progress on this OS thread (see `CALLER`).
-pub fn caller() -> (usize, usize) {
+pub(crate) fn caller() -> (usize, usize) {
     CALLER.with(Cell::get)
 }
 
 /// What a thunk enters: the interpreter's thread scheduler (`interp/threads.rs`). Only the
 /// thread holding its baton runs interpreted code, whichever thread C calls the thunk on.
-pub trait Gate: Send + Sync {
+pub(crate) trait Gate: Send + Sync {
     /// Take the baton on this thread, call `f` with a way to run procedures of `program`, and
     /// give the baton back.
     fn run(&self, program: u64, f: &mut dyn FnMut(&mut Reenter<'_>)) -> Result<(), String>;
@@ -86,7 +86,7 @@ fn same_gate(a: &Arc<dyn Gate>, b: &Arc<dyn Gate>) -> bool {
 }
 
 /// Free every thunk made for `gate`'s interpreter.
-pub fn release(gate: &Arc<dyn Gate>) {
+pub(crate) fn release(gate: &Arc<dyn Gate>) {
     let mut table = TABLE
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -166,7 +166,7 @@ static TABLE: Mutex<[Vec<Option<Slot>>; SHAPES]> = Mutex::new([const { Vec::new(
 /// The C-callable address for interpreted procedure `func` of `program` (an identity for the
 /// program whose function ids these are), run by the interpreter behind `gate`. The same
 /// procedure always gets the same address while that interpreter lives.
-pub fn callback_addr(
+pub(crate) fn callback_addr(
     gate: &Arc<dyn Gate>,
     program: u64,
     func: FuncId,

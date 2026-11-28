@@ -1,11 +1,9 @@
 //! `jaic -doc_comments` and `-doc_gaps` find imported modules through `-import_dir`.
-use std::{path::PathBuf, process::Command};
+use std::process::Command;
 
 use test_support::TempDir;
+use test_support::repo::stdlib;
 
-fn stdlib() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib")
-}
 
 /// A library whose `make` forwards to `Shapes`, a module that lives in another folder.
 fn library(tag: &str) -> TempDir {

@@ -47,6 +47,8 @@ llvm-sys = { version = "231.0.2", default-features = false }
 # Raw pointer and FFI code is confined to a few modules, each opting in with a scoped
 # `#[allow(unsafe_code)]`; `jaic-cli` and `jailint` carry `#![forbid(unsafe_code)]`.
 unsafe_code = "deny"
+# A `pub` item no other crate can reach is `pub(crate)`; the narrower form makes `dead_code` see it unused.
+unreachable_pub = "warn"
 
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }

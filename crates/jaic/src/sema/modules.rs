@@ -16,7 +16,7 @@ pub use self::filesystem::{
 };
 pub(super) use self::loading::FileLoadState;
 pub(super) use self::parameters::INFERRED_PARAM;
-pub use self::parameters::ParameterContract;
+pub(super) use self::parameters::ParameterContract;
 use super::scope::{EntityKind, EntityState, ScopeKind};
 use super::{Compiler, EntityId, ModuleId, PathBuf, Result, ScopeId, Span, ast};
 use crate::paths::normalize;

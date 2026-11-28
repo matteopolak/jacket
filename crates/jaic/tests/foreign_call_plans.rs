@@ -1,14 +1,11 @@
 //! A foreign procedure is classified once and called many times: every kind of argument and
 //! result must still come out right on the second call and the thousandth.
-use std::rc::Rc;
 
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+use jaic::sema::ProgramSource;
+use test_support::compiler::bare_compiler;
 
 fn check(source: &str) {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let mut c = bare_compiler();
 
     if let Err(e) = c.compile_sources(&[ProgramSource::String(source.into())]) {
         panic!("{}", e.render(&c.src.sources));

@@ -89,7 +89,7 @@ fn valid_name(name: &str) -> bool {
         && !name.starts_with('-')
 }
 
-pub fn new(name: &str, lib: bool) -> ExitCode {
+pub(crate) fn new(name: &str, lib: bool) -> ExitCode {
     let dir = PathBuf::from(name);
     let name = dir
         .file_name()
@@ -108,7 +108,7 @@ pub fn new(name: &str, lib: bool) -> ExitCode {
     finish_scaffold(&dir, &name, lib)
 }
 
-pub fn init(lib: bool) -> ExitCode {
+pub(crate) fn init(lib: bool) -> ExitCode {
     let Ok(dir) = std::env::current_dir() else {
         return fail("cannot read the current directory");
     };
@@ -156,7 +156,7 @@ fn finish_scaffold(dir: &Path, name: &str, lib: bool) -> ExitCode {
 
 /// `jacket toolchain`: the targets `--target` accepts, and what this machine has for each.
 /// `jacket toolchain check [--tool NAME]... [TARGET]...` fails when something is missing.
-pub fn toolchain(action: Option<ToolchainAction>, cwd: &Path) -> ExitCode {
+pub(crate) fn toolchain(action: Option<ToolchainAction>, cwd: &Path) -> ExitCode {
     let loaded = match project::load(cwd) {
         Ok(loaded) => loaded,
         Err(error) => return fail(error),
@@ -211,7 +211,7 @@ pub fn toolchain(action: Option<ToolchainAction>, cwd: &Path) -> ExitCode {
     }
 }
 
-pub fn config(action: ConfigAction, cwd: &Path) -> ExitCode {
+pub(crate) fn config(action: ConfigAction, cwd: &Path) -> ExitCode {
     match action {
         ConfigAction::Show => config_show(cwd),
     }
@@ -244,7 +244,7 @@ fn config_show(cwd: &Path) -> ExitCode {
 
 // ---- clean -----------------------------------------------------------------------------------
 
-pub fn clean(cwd: &Path) -> ExitCode {
+pub(crate) fn clean(cwd: &Path) -> ExitCode {
     let loaded = match project::load(cwd) {
         Ok(loaded) => loaded,
         Err(error) => return fail(error),
@@ -305,7 +305,7 @@ fn tool_version(tool: &str) -> String {
 // ---- explain ---------------------------------------------------------------------------------
 
 /// `jacket explain [code]`: what a diagnostic code means, or the list of all of them.
-pub fn explain(code: Option<&str>) -> ExitCode {
+pub(crate) fn explain(code: Option<&str>) -> ExitCode {
     use jaic::diagnostics::Code;
     let Some(name) = code else {
         print!("{}", explain_list());
@@ -451,7 +451,7 @@ fn wrap(text: &str) -> String {
 }
 
 /// `jacket completions`: the script for `tool` in `shell` on standard output.
-pub fn completions(shell: argdef::Shell, tool: CompletionTool) -> ExitCode {
+pub(crate) fn completions(shell: argdef::Shell, tool: CompletionTool) -> ExitCode {
     use clap::CommandFactory;
 
     match tool {
@@ -476,7 +476,7 @@ pub fn completions(shell: argdef::Shell, tool: CompletionTool) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-pub fn version() -> ExitCode {
+pub(crate) fn version() -> ExitCode {
     println!("jacket {}", env!("CARGO_PKG_VERSION"));
 
     for tool in tools::ALL {

@@ -7,7 +7,7 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 /// The default thread count: the number of cores, 1 where the platform cannot say.
-pub fn threads() -> usize {
+pub(crate) fn threads() -> usize {
     std::thread::available_parallelism().map_or(1, std::num::NonZero::get)
 }
 
@@ -17,7 +17,7 @@ pub fn threads() -> usize {
 /// let lengths = parallel::map(&["a", "bcd"], parallel::threads(), |_, word| word.len());
 /// assert_eq!(lengths, [1, 3]);
 /// ```
-pub fn map<T: Sync, R: Send>(
+pub(crate) fn map<T: Sync, R: Send>(
     items: &[T],
     threads: usize,
     task: impl Fn(usize, &T) -> R + Sync,
@@ -59,7 +59,7 @@ pub fn map<T: Sync, R: Send>(
 /// let parsed = parallel::try_map(&["1", "x"], 2, |_, text| text.parse::<u8>());
 /// assert!(parsed.is_err());
 /// ```
-pub fn try_map<T: Sync, R: Send, E: Send>(
+pub(crate) fn try_map<T: Sync, R: Send, E: Send>(
     items: &[T],
     threads: usize,
     task: impl Fn(usize, &T) -> Result<R, E> + Sync,

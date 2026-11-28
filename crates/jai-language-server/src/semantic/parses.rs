@@ -25,7 +25,7 @@ pub(crate) fn text_key(text: &str) -> (u64, usize) {
 }
 
 /// Remember that `text` parses (`None`) or fails at a byte offset, for `parse_error`.
-pub fn note_parse(text: &str, error: Option<usize>) {
+pub(crate) fn note_parse(text: &str, error: Option<usize>) {
     let (hash, len) = text_key(text);
 
     PARSES.with(|p| {
@@ -42,7 +42,7 @@ pub fn note_parse(text: &str, error: Option<usize>) {
 }
 
 /// Where `text` fails to lex or parse (a byte offset), if it does.
-pub fn parse_error(text: &str) -> Option<usize> {
+pub(crate) fn parse_error(text: &str) -> Option<usize> {
     if let Some(found) = LAST_PARSE.with(|last| {
         let last = last.borrow();
         (last.0 == text).then_some(last.1)

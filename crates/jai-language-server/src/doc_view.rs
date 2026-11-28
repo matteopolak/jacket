@@ -306,6 +306,7 @@ impl Session {
     /// follows are functions, capitalized names types (nothing is resolved).
     pub(crate) fn fence_tokens(text: &str) -> Vec<(Span, SemanticTokenKind)> {
         use jaic::lexer::{P, Tok};
+        use jaic::lexicon::{Lexeme, classify};
         let mut out = Vec::new();
 
         for (start, end) in docs::fenced_code(text) {
@@ -315,8 +316,11 @@ impl Session {
 
             for (i, token) in tokens.iter().enumerate() {
                 let kind = match &token.tok {
-                    Tok::Ident(name) if jaic::lexicon::is_reserved(name.as_str()) => {
+                    Tok::Ident(name) if classify(name.as_str()) == Lexeme::Keyword => {
                         SemanticTokenKind::Keyword
+                    }
+                    Tok::Ident(name) if classify(name.as_str()) == Lexeme::Type => {
+                        SemanticTokenKind::Type
                     }
                     Tok::Ident(_)
                         if tokens

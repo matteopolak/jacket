@@ -76,7 +76,7 @@ fn postgres_generated_row_shapes_use_temporary_results() {
 
 #[test]
 fn stdlib_swap_contract_matches_every_checked_instance_without_notes() {
-    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];
@@ -121,7 +121,7 @@ fn checked_without_contracts(source: &str) -> (Compiler, Summaries) {
 }
 
 fn checked_without_contracts_target(source: &str, windows: bool) -> (Compiler, Summaries) {
-    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];
@@ -277,10 +277,7 @@ fn debug_backtrace_cleanup_contract_follows_the_native_release_abi() {
 #[test]
 fn visualization_descriptor_reset_contract_preserves_the_header() {
     for windows in [false, true] {
-        let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../stdlib")
-            .canonicalize()
-            .unwrap();
+        let stdlib = test_support::repo::stdlib().canonicalize().unwrap();
         let mut options = Options::host();
 
         options.import_paths = vec![stdlib.clone()];

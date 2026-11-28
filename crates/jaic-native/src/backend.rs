@@ -304,7 +304,7 @@ mod sys {
     const RTLD_NOW: c_int = 2;
 
     #[derive(Clone, Copy)]
-    pub struct Library(*mut c_void);
+    pub(super) struct Library(*mut c_void);
 
     fn last_error() -> String {
         // SAFETY: `dlerror` returns null or a C string valid until the next dl call.
@@ -320,7 +320,7 @@ mod sys {
         }
     }
 
-    pub fn open(path: &Path) -> Result<Library, String> {
+    pub(super) fn open(path: &Path) -> Result<Library, String> {
         let name = CString::new(path.as_os_str().as_encoded_bytes()).map_err(|e| e.to_string())?;
         // SAFETY: `name` is a NUL-terminated path.
         let handle = unsafe { dlopen(name.as_ptr(), RTLD_NOW) };
@@ -332,7 +332,7 @@ mod sys {
         }
     }
 
-    pub fn symbol(library: Library, name: &str) -> Result<*mut c_void, String> {
+    pub(super) fn symbol(library: Library, name: &str) -> Result<*mut c_void, String> {
         let name = CString::new(name).map_err(|e| e.to_string())?;
         // SAFETY: a live handle and a NUL-terminated name.
         let address = unsafe { dlsym(library.0, name.as_ptr()) };

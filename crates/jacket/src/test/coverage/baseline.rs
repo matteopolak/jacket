@@ -11,14 +11,14 @@ use serde_json::{Value, json};
 use super::report::{Row, Tally, total};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Baseline {
+pub(super) struct Baseline {
     pub lines: Tally,
     pub modules: BTreeMap<String, Tally>,
 }
 
 /// A module (or `Total`) that covers less than it did.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Drop {
+pub(super) struct Drop {
     pub name: String,
     pub before: f64,
     pub after: f64,
@@ -30,7 +30,7 @@ const NOISE_LINES: f64 = 5.0;
 
 impl Baseline {
     /// What `modules` (rows of modules) cover.
-    pub fn of(modules: &[Row]) -> Baseline {
+    pub(super) fn of(modules: &[Row]) -> Baseline {
         Baseline {
             lines: total(modules).0,
             modules: modules.iter().map(|r| (r.name.clone(), r.lines)).collect(),
@@ -38,7 +38,7 @@ impl Baseline {
     }
 
     /// The file's text: one module per line, sorted, so a change shows in a diff.
-    pub fn render(&self) -> String {
+    pub(super) fn render(&self) -> String {
         let tally = |t: Tally| json!({"hit": t.hit, "total": t.total}).to_string();
         let mut text = format!(
             "{{\n  \"lines\": {},\n  \"modules\": {{\n",
@@ -59,7 +59,7 @@ impl Baseline {
         text
     }
 
-    pub fn parse(text: &str) -> Result<Baseline, String> {
+    pub(super) fn parse(text: &str) -> Result<Baseline, String> {
         let value: Value = serde_json::from_str(text).map_err(|e| e.to_string())?;
         let tally = |v: &Value| -> Result<Tally, String> {
             let count = |key: &str| {
@@ -92,7 +92,7 @@ impl Baseline {
     /// The modules of `self` (the baseline) that `now` covers less of by more than `margin`
     /// points and by more than [`NOISE_LINES`] lines, then the total if it does. A module `now`
     /// lacks or a baseline lacks is not compared.
-    pub fn drops(&self, now: &Baseline, margin: f64) -> Vec<Drop> {
+    pub(super) fn drops(&self, now: &Baseline, margin: f64) -> Vec<Drop> {
         let mut found = Vec::new();
         let mut check = |name: &str, before: Tally, after: Tally| {
             // The lines `now` runs fewer of than it would at the baseline's share.
@@ -119,7 +119,7 @@ impl Baseline {
 }
 
 /// A markdown table of the modules, least covered first, with the change from the baseline.
-pub fn markdown(
+pub(super) fn markdown(
     modules: &[Row],
     baseline: Option<&Baseline>,
     drops: &[Drop],

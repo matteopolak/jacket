@@ -3,7 +3,7 @@
 use std::ffi::OsString;
 
 /// Whether status lines are printed for a jaic command line, and in colour: `None` for none.
-pub fn lines(argv: &[OsString]) -> Option<bool> {
+pub(crate) fn lines(argv: &[OsString]) -> Option<bool> {
     use std::io::IsTerminal;
     lines_with(
         argv,
@@ -31,7 +31,7 @@ fn lines_with(
 }
 
 /// Prints `verb` right-aligned in 12 columns, then `text`, like jaic's status lines.
-pub fn print(verb: &str, text: &str, color: bool) {
+pub(crate) fn print(verb: &str, text: &str, color: bool) {
     if color {
         eprintln!("\x1b[1;32m{verb:>12}\x1b[0m {text}");
     } else {

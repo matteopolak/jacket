@@ -28,10 +28,10 @@ macro_rules! raw_enum {
 
         #[allow(dead_code, reason = "each generated enum uses only some of these helpers")]
         impl $name {
-            pub const ALL: &'static [$name] = &[$($name::$variant),+];
+            $vis const ALL: &'static [$name] = &[$($name::$variant),+];
 
             /// The member spelled `name`.
-            pub fn from_name(name: &str) -> Option<Self> {
+            $vis fn from_name(name: &str) -> Option<Self> {
                 match name {
                     $($text $(| $alias)* => Some($name::$variant),)+
                     _ => None,
@@ -39,7 +39,7 @@ macro_rules! raw_enum {
             }
 
             /// How the member is spelled.
-            pub fn name(self) -> &'static str {
+            $vis fn name(self) -> &'static str {
                 match self {
                     $($name::$variant => $text),+
                 }

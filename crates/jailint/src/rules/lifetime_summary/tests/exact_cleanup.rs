@@ -23,10 +23,7 @@ const CARRIERS: &[(&str, &str)] = &[
 #[test]
 fn whole_pointer_cleanup_contracts_match_checked_bodies_on_host_and_windows() {
     for windows in [false, true] {
-        let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../stdlib")
-            .canonicalize()
-            .unwrap();
+        let stdlib = test_support::repo::stdlib().canonicalize().unwrap();
         let mut options = Options::host();
 
         options.import_paths = vec![stdlib.clone()];

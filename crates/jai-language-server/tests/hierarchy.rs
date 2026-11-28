@@ -130,8 +130,7 @@ main :: () { helper(); }
     // A replaced library's private file layout is not the navigation contract.
     // Require an actual readable production-library destination and exact name range.
     let destination = DocumentUri::parse(&helper[0].item.uri).unwrap();
-    let stdlib =
-        jaic::canonicalize(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib")).unwrap();
+    let stdlib = jaic::canonicalize(test_support::repo::stdlib()).unwrap();
 
     assert!(
         jaic::canonicalize(destination.path())

@@ -1,7 +1,7 @@
 //! Native thread entry signatures are checked before allocating an OS thread.
-use std::rc::Rc;
 
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+use jaic::sema::ProgramSource;
+use test_support::compiler::bare_compiler;
 
 #[test]
 fn posix_start_routines_require_one_pointer_argument_and_result_with_c_abi() {
@@ -11,10 +11,7 @@ fn posix_start_routines_require_one_pointer_argument_and_result_with_c_abi() {
         "worker :: (argument:u32)->*void #c_call {return null;}",
         "worker :: (argument:*void)->*void {return null;}",
     ] {
-        let mut options = Options::host();
-
-        options.runtime_support = false;
-        let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+        let mut compiler = bare_compiler();
         let source = format!(
             r"
 pthread_create :: (thread:*u64,attributes:*void,entry:*void,data:*void)->s32 #foreign;
@@ -37,10 +34,7 @@ pthread_create :: (thread:*u64,attributes:*void,entry:*void,data:*void)->s32 #fo
 
 #[test]
 fn typed_pointer_callbacks_return_the_actual_pointer_and_mutation_to_joiners() {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let mut compiler = bare_compiler();
     let source = r"
 pthread_create :: (thread:*u64,attributes:*void,entry:*void,data:*void)->s32 #foreign;
 pthread_join :: (thread:u64,result:**void)->s32 #foreign;

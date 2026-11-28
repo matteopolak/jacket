@@ -39,7 +39,7 @@ struct Entry {
 }
 
 /// What the manifest declares for one OS.
-pub struct Manifest {
+pub(crate) struct Manifest {
     c_prelude: Vec<String>,
     jai_prelude: Vec<String>,
     entries: Vec<Entry>,
@@ -61,7 +61,7 @@ fn split_rename(item: &str) -> (String, String) {
 
 /// The entries of `text` that apply to `target` (`linux-x64`, `macos-arm64`...): sections
 /// naming its OS or the whole target.
-pub fn parse(text: &str, target: &str) -> Result<Manifest, String> {
+pub(crate) fn parse(text: &str, target: &str) -> Result<Manifest, String> {
     let os = target.split('-').next().unwrap_or(target);
     let mut manifest = Manifest {
         c_prelude: Vec::new(),
@@ -432,7 +432,7 @@ fn run(command: &mut Command, what: &str) -> Result<String, String> {
 }
 
 /// Build and run both programs for the host in `dir`; returns the mismatches.
-pub fn check_host(
+pub(crate) fn check_host(
     jaic: &str,
     manifest: &Manifest,
     target: &str,
@@ -465,14 +465,14 @@ pub fn check_host(
 }
 
 /// One cross target: its name (`macos-x64`), `jaic -target` triple and clang arguments.
-pub struct CrossTarget {
+pub(crate) struct CrossTarget {
     pub name: String,
     pub jaic_triple: String,
     pub clang_args: Vec<String>,
 }
 
 /// `os-cpu[:clang args]`, e.g. `macos-x64`, `windows-arm64:-isystem /path/include`.
-pub fn cross_target(spec: &str) -> Result<CrossTarget, String> {
+pub(crate) fn cross_target(spec: &str) -> Result<CrossTarget, String> {
     let (name, extra) = spec.split_once(':').unwrap_or((spec, ""));
     let (os, cpu) = name
         .split_once('-')
@@ -536,7 +536,7 @@ fn values_from_ir(ir: &str) -> Result<Vec<i64>, String> {
 }
 
 /// Check one cross target without running anything on it; returns the mismatches.
-pub fn check_cross(
+pub(crate) fn check_cross(
     jaic: &str,
     clang: &str,
     manifest: &Manifest,

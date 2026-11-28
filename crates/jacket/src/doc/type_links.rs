@@ -5,13 +5,14 @@ use std::path::Path;
 
 use jaic::ast::walk::{self, Node};
 use jaic::ast::{Expr, ExprKind, StmtKind};
+use jaic::lexicon::TYPES;
 use jaic::source::FileId;
 
 use super::model::{Kind, TypeRef};
-use super::site::{BUILTIN_TYPES, Site};
+use super::site::Site;
 
 impl Site {
-    pub fn unlinked_types(&self) -> Vec<String> {
+    pub(super) fn unlinked_types(&self) -> Vec<String> {
         let mut reports = BTreeSet::new();
 
         for (mi, module) in self.modules.iter().enumerate() {
@@ -223,7 +224,7 @@ fn collect(
 
             // Language-provided types have no declaration; polymorphic and struct/module
             // parameters are local bindings with no page. Never exempt an unknown name.
-            if !BUILTIN_TYPES.contains(&name) && !scope.iter().any(|n| n == root) {
+            if !TYPES.contains(&name) && !scope.iter().any(|n| n == root) {
                 out.insert(name.to_owned());
             }
         }

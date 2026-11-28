@@ -32,10 +32,7 @@ fn golden_killed_by_a_signal_shows_output_and_native_stack() {
     let out = Command::new(env!("CARGO_BIN_EXE_jacket"))
         .arg("test")
         .current_dir(&project)
-        .env(
-            "JAIC_STDLIB",
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"),
-        )
+        .env("JAIC_STDLIB", test_support::repo::stdlib())
         .output()
         .expect("start jacket");
     let text = format!(

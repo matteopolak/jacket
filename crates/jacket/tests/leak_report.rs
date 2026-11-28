@@ -42,10 +42,7 @@ fn golden_a_leak_is_reported_where_the_test_allocated() {
     let out = Command::new(env!("CARGO_BIN_EXE_jacket"))
         .args(["test", "-q"])
         .current_dir(&project)
-        .env(
-            "JAIC_STDLIB",
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"),
-        )
+        .env("JAIC_STDLIB", test_support::repo::stdlib())
         .output()
         .expect("start jacket");
     let text = format!(

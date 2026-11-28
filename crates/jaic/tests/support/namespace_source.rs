@@ -1,7 +1,7 @@
-pub const SOURCE: &str =
+pub(super) const SOURCE: &str =
     include_str!("../../../../tests/compiler/semantics/constructor-namespace/main.jai");
 
-pub const FILES: &[(&str, &str)] = &[
+pub(super) const FILES: &[(&str, &str)] = &[
     (
         "/lib/Mutation/module.jai",
         include_str!(

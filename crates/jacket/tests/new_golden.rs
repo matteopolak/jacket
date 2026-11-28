@@ -21,10 +21,7 @@ fn run(project: &Path, create_missing: bool) -> Output {
     command
         .args(["test", "--no-doc"])
         .current_dir(project)
-        .env(
-            "JAIC_STDLIB",
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"),
-        )
+        .env("JAIC_STDLIB", test_support::repo::stdlib())
         .env_remove("CI");
 
     if create_missing {

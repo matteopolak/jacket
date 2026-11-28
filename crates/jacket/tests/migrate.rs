@@ -1,14 +1,13 @@
 //! `jacket migrate`: a dry run prints the diff and writes nothing; `--apply` writes only what
 //! git could give back.
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Command, Output};
+
+use test_support::repo::stdlib;
 
 const OLD: &str = "#import \"Basic\";\nmain :: () {\n    c: Context;\n    print(\"%\\n\", size_of(Context));\n}\n";
 const NEW: &str = "#import \"Basic\";\nmain :: () {\n    c: #Context;\n    print(\"%\\n\", size_of(#Context));\n}\n";
 
-fn stdlib() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib")
-}
 
 /// A scratch directory of its own, so tests do not share files.
 fn scratch(name: &str) -> test_support::TempDir {

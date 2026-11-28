@@ -2,21 +2,13 @@
 use std::rc::Rc;
 
 use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+use test_support::compiler::compile_rendered;
 
-fn compile(source: &str) -> Result<(), String> {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
-
-    compiler
-        .compile_sources(&[ProgramSource::String(source.into())])
-        .map_err(|error| error.render(&compiler.src.sources))
-}
 
 #[test]
 fn identical_overloads_are_rejected_even_when_a_call_names_them() {
-    let error = compile("f :: (a: int) {}\nf :: (a: int) {}\nmain :: () { f(1); }\n").unwrap_err();
+    let error =
+        compile_rendered("f :: (a: int) {}\nf :: (a: int) {}\nmain :: () { f(1); }\n").unwrap_err();
 
     assert!(error.contains("identical parameter types"), "{error}");
 }
@@ -28,7 +20,7 @@ fn aliases_of_one_procedure_are_a_single_overload() {
                   #if true { read_it :: Impl.read_it; }\n\
                   main :: () { read_it(); }\n";
 
-    compile(source).unwrap();
+    compile_rendered(source).unwrap();
 }
 
 #[test]
@@ -38,7 +30,7 @@ fn different_procedures_with_identical_parameters_are_still_rejected() {
                   f :: A.f;\n\
                   f :: B.f;\n\
                   main :: () { f(1); }\n";
-    let error = compile(source).unwrap_err();
+    let error = compile_rendered(source).unwrap_err();
 
     assert!(error.contains("identical parameter types"), "{error}");
 }
@@ -64,7 +56,7 @@ fn module_parameters_are_rejected_in_a_loaded_program_file() {
 
 #[test]
 fn module_parameters_are_rejected_in_the_main_program_file() {
-    let error = compile("#module_parameters(N := 3);\nmain :: () {}\n").unwrap_err();
+    let error = compile_rendered("#module_parameters(N := 3);\nmain :: () {}\n").unwrap_err();
 
     assert!(error.contains("top level of an imported module"), "{error}");
 }

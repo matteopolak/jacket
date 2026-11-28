@@ -35,7 +35,7 @@ use self::helpers::{
     bin, bit_intrinsic, bits, cmp, flag_not, flag_or, flag_xor, is_neg, is_zero, konst, ptr_of,
     resize, select, wide_mul,
 };
-pub use self::model::AsmReg;
+pub(super) use self::model::AsmReg;
 use self::model::{
     Alu, AsmArgs, AsmCtx, BitTest, Cond, Flags, Imm, Op, Opd, REG_CLASSES, ShiftKind, Site,
     lookup_op,

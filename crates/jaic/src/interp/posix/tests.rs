@@ -162,7 +162,7 @@ fn assertions(abi: PosixAbi) -> String {
 
 #[test]
 fn the_tables_agree_with_the_stdlib_declarations() {
-    let stdlib = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
 
     for (os, cpu) in targets() {
         let abi = PosixAbi::new(os == TargetOs::MacOS, Some(cpu));

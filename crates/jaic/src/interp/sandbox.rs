@@ -52,7 +52,7 @@ const FIRST_FD: i64 = 3;
 
 /// Files the program wrote, laid over a read-only base.
 #[derive(Default)]
-pub struct SandboxFs {
+pub(super) struct SandboxFs {
     base: Option<Rc<dyn FileSystem>>,
     /// Contents of every file that was created, written, or opened (base files are copied on open).
     files: BTreeMap<String, Vec<u8>>,

@@ -5,7 +5,7 @@ use jai_language_server::{Position, Range, TextChange};
 use test_support::lsp::{file_uri, session};
 
 fn probe() {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let root = test_support::repo::stdlib();
     let main = root.join("Input/tests/windows-device-decoding.jai");
     let module = root.join("internal/input/windows-devices/module.jai");
     let (main, module) = (main.canonicalize().unwrap(), module.canonicalize().unwrap());

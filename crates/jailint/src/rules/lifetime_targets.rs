@@ -30,13 +30,13 @@ impl Set {
         before != (self.procedures.len(), self.formals.len(), self.unknown)
     }
 
-    pub fn open(mut self) -> Self {
+    pub(super) fn open(mut self) -> Self {
         self.unknown |= !self.formals.is_empty() || self.procedures.is_empty();
         self.formals.clear();
         self
     }
 
-    pub fn ordered(&self) -> Vec<ProcId> {
+    pub(super) fn ordered(&self) -> Vec<ProcId> {
         let mut ids: Vec<_> = self.procedures.iter().copied().collect();
 
         ids.sort_unstable_by_key(|p| p.0);
@@ -59,7 +59,7 @@ struct Local {
 }
 
 impl Universe {
-    pub fn build(
+    pub(super) fn build(
         compiler: &Compiler,
         valid: &HashMap<ProcId, &LifetimeBody>,
         entry_module: Option<jaic::sema::ModuleId>,
@@ -109,7 +109,7 @@ impl Universe {
         this
     }
 
-    pub fn get(&self, body: ProcId, value: Val) -> Set {
+    pub(super) fn get(&self, body: ProcId, value: Val) -> Set {
         self.bodies
             .get(&body)
             .and_then(|b| b.values.get(&value))

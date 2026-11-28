@@ -17,7 +17,7 @@ use jaic::abi::Arch;
 /// One vector instruction set extension, named as LLVM names it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
-pub enum Feature {
+pub(crate) enum Feature {
     Sse2,
     Ssse3,
     Sse41,
@@ -36,7 +36,7 @@ pub enum Feature {
 
 /// The architecture families with their own vector features.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Family {
+pub(crate) enum Family {
     X86,
     Aarch64,
     Wasm,
@@ -45,7 +45,7 @@ pub enum Family {
 }
 
 impl Family {
-    pub fn of(arch: Arch) -> Family {
+    pub(crate) fn of(arch: Arch) -> Family {
         match arch {
             Arch::X86_64 | Arch::Win64 | Arch::X86 => Family::X86,
             Arch::Aarch64 | Arch::Win64Arm => Family::Aarch64,
@@ -74,7 +74,7 @@ impl Feature {
     ];
 
     /// The name in an LLVM feature string (`+avx2`).
-    pub fn name(self) -> &'static str {
+    pub(crate) fn name(self) -> &'static str {
         match self {
             Feature::Sse2 => "sse2",
             Feature::Ssse3 => "ssse3",
@@ -93,7 +93,7 @@ impl Feature {
         }
     }
 
-    pub fn family(self) -> Family {
+    pub(crate) fn family(self) -> Family {
         match self {
             Feature::Sse2
             | Feature::Ssse3
@@ -133,10 +133,10 @@ impl Feature {
 
 /// A set of features of one family.
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
-pub struct FeatureSet(u32);
+pub(crate) struct FeatureSet(u32);
 
 impl FeatureSet {
-    pub fn has(self, f: Feature) -> bool {
+    pub(crate) fn has(self, f: Feature) -> bool {
         self.0 & (1 << f as u8) != 0
     }
 
@@ -164,7 +164,7 @@ impl FeatureSet {
 
 /// What the target machine has: its architecture family and vector features.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Target {
+pub(crate) struct Target {
     pub family: Family,
     pub features: FeatureSet,
 }
@@ -172,7 +172,7 @@ pub struct Target {
 impl Target {
     /// The features of `arch` with `cpu` (LLVM's `-mcpu` name, empty for the default) and the
     /// LLVM feature string `features` (`+avx2,-sse4.1`).
-    pub fn resolve(arch: Arch, cpu: &str, features: &str) -> Target {
+    pub(crate) fn resolve(arch: Arch, cpu: &str, features: &str) -> Target {
         let family = Family::of(arch);
         let mut set = FeatureSet::default();
 
@@ -201,7 +201,7 @@ impl Target {
         }
     }
 
-    pub fn has(self, f: Feature) -> bool {
+    pub(crate) fn has(self, f: Feature) -> bool {
         self.features.has(f)
     }
 }
@@ -254,7 +254,7 @@ fn known_extra(family: Family, name: &str) -> bool {
 /// target machine has `base`: `base` followed by `+x` for each name of `extra` this
 /// architecture has (a leading `+` or `-` is kept). `None` when nothing applies, so the
 /// function keeps the machine's features.
-pub fn function_features(arch: Arch, base: &str, extra: &str) -> Option<String> {
+pub(crate) fn function_features(arch: Arch, base: &str, extra: &str) -> Option<String> {
     let family = Family::of(arch);
     let mut all = base.to_string();
     let mut any = false;

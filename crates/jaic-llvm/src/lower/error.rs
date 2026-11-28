@@ -2,7 +2,7 @@
 use inkwell::builder::BuilderError;
 
 /// Backend error; converted to a `String` at the crate boundary.
-pub struct Error(pub(super) String);
+pub(crate) struct Error(pub(super) String);
 
 impl From<BuilderError> for Error {
     fn from(e: BuilderError) -> Self {

@@ -1,6 +1,6 @@
 //! `jacket toolchain`: what each target needs from this machine, found by the same lookup a build
 //! runs, so the listing and a build always agree. See `docs/native/toolchain-discovery.md`.
-pub mod add;
+pub(crate) mod add;
 mod fetch;
 mod runtime;
 mod sysroot;
@@ -16,7 +16,7 @@ use crate::target::Target;
 static SYSTEM: System = System;
 
 /// The lookup over this machine, with the LLVM installs searched only when an LLVM program is.
-pub fn lookup() -> Lookup<'static> {
+pub(crate) fn lookup() -> Lookup<'static> {
     Lookup::new(&SYSTEM)
         .with_llvm_bins(|| jacket_config::llvm::bin_dirs(None))
         .with_llvm_prefixes(|| jacket_config::llvm::prefixes(None))
@@ -30,7 +30,7 @@ pub fn lookup() -> Lookup<'static> {
 /// ```text
 /// runner = "qemu-arm -L {sysroot} {exe}"
 /// ```
-pub fn fill_sysroot(runner: &str, target: &Target) -> Result<String, String> {
+pub(crate) fn fill_sysroot(runner: &str, target: &Target) -> Result<String, String> {
     if !runner.contains("{sysroot}") {
         return Ok(runner.to_string());
     }
@@ -62,7 +62,7 @@ pub fn fill_sysroot(runner: &str, target: &Target) -> Result<String, String> {
 
 /// One piece a target needs: found, missing with the notes that say how to get it, or not needed.
 #[derive(Debug)]
-pub enum Piece {
+pub(crate) enum Piece {
     Found(Found),
     Missing(Missing),
     NotNeeded,
@@ -70,7 +70,7 @@ pub enum Piece {
 
 /// A target and what this machine has for it.
 #[derive(Debug)]
-pub struct Row {
+pub(crate) struct Row {
     pub name: String,
     pub from: &'static str,
     pub triple: String,
@@ -90,7 +90,7 @@ impl Row {
     }
 
     /// Whether everything the target needs is here.
-    pub fn complete(&self) -> bool {
+    pub(crate) fn complete(&self) -> bool {
         self.pieces()
             .iter()
             .all(|(_, piece)| !matches!(piece, Piece::Missing(_)))
@@ -98,7 +98,7 @@ impl Row {
 }
 
 /// The row for the machine's own target.
-pub fn host_row(lookup: &Lookup, overrides: &Overrides) -> Row {
+pub(crate) fn host_row(lookup: &Lookup, overrides: &Overrides) -> Row {
     let triple = host_target(lookup.host);
     let mut row = triple_row(&triple.to_string(), triple, lookup, overrides);
 
@@ -108,7 +108,7 @@ pub fn host_row(lookup: &Lookup, overrides: &Overrides) -> Row {
 }
 
 /// The row for a `--target` name.
-pub fn target_row(target: &Target, lookup: &Lookup, overrides: &Overrides) -> Row {
+pub(crate) fn target_row(target: &Target, lookup: &Lookup, overrides: &Overrides) -> Row {
     let mut row = match target.effective_triple().map(Triple::parse) {
         Some(Ok(triple)) => triple_row(&target.name, triple, lookup, overrides),
         // A triple jaic cannot build for is the target's problem, not the command's.
@@ -168,12 +168,12 @@ fn triple_row(name: &str, triple: Triple, lookup: &Lookup, overrides: &Overrides
 }
 
 /// A runner's program: found on this machine, or missing with the note for its package.
-pub fn runner_piece(program: &str, lookup: &Lookup) -> Piece {
+pub(crate) fn runner_piece(program: &str, lookup: &Lookup) -> Piece {
     program_piece(program, lookup)
 }
 
 /// The program `name` as the lookup finds it, or the note that says how to get it.
-pub fn program_piece(name: &str, lookup: &Lookup) -> Piece {
+pub(crate) fn program_piece(name: &str, lookup: &Lookup) -> Piece {
     if let Some(path) = lookup.which(name) {
         return Piece::Found(Found::new(path, jaic_toolchain::Origin::System));
     }
@@ -191,7 +191,7 @@ fn cell(piece: &Piece, lookup: &Lookup) -> String {
 }
 
 /// The table `jacket toolchain` prints, then what each missing piece needs.
-pub fn listing(rows: &[Row], lookup: &Lookup) -> String {
+pub(crate) fn listing(rows: &[Row], lookup: &Lookup) -> String {
     let header = ["TARGET", "FROM", "TRIPLE", "LINKER", "LIBRARIES", "RUNNER"].map(String::from);
     let cells: Vec<[String; 6]> = rows
         .iter()
@@ -233,13 +233,13 @@ pub fn listing(rows: &[Row], lookup: &Lookup) -> String {
 }
 
 /// What `jacket toolchain` printed, and whether everything it looked for was found.
-pub struct Report {
+pub(crate) struct Report {
     pub text: String,
     pub complete: bool,
 }
 
 /// The machine's own target, then every target `--target` accepts.
-pub fn list(
+pub(crate) fn list(
     config: Option<&jacket_config::Config>,
     lookup: &Lookup,
     overrides: &Overrides,
@@ -264,7 +264,7 @@ pub fn list(
 /// ```text
 /// jacket toolchain check Mps2_An386 --tool qemu-system-arm
 /// ```
-pub fn check(
+pub(crate) fn check(
     names: &[String],
     tools: &[String],
     config: Option<&jacket_config::Config>,
@@ -313,7 +313,7 @@ pub fn check(
 }
 
 /// What each missing piece of `rows` needs, one block per target.
-pub fn problems(rows: &[Row]) -> String {
+pub(crate) fn problems(rows: &[Row]) -> String {
     let mut text = String::new();
 
     for row in rows {

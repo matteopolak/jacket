@@ -195,12 +195,12 @@ mod bindings {
 
 mod conversion {
     //! Generic struct arguments obey their declared type before binding and reflection.
-    use std::{path::PathBuf, rc::Rc};
+    use std::rc::Rc;
 
     use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 
     fn compile(source: &str) -> Result<(), String> {
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+        let root = test_support::repo::stdlib();
         let mut options = Options::host();
 
         options.import_paths = vec![root.clone()];

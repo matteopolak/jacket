@@ -10,13 +10,13 @@ use crate::doc::{
     view::{self, SiteView},
 };
 
-pub struct Publication {
+pub(crate) struct Publication {
     pub metadata: Metadata,
     pub urls: Vec<String>,
     pub image_file: Option<(String, Vec<u8>)>,
 }
 
-pub fn prepare(
+pub(crate) fn prepare(
     args: &DocArgs,
     doc: &Doc,
     config_dir: &Path,

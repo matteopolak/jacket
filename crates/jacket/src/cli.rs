@@ -7,7 +7,7 @@ use std::ffi::OsString;
 use clap::{Parser, Subcommand};
 
 /// The commands whose arguments belong to a tool.
-pub const TOOL_COMMANDS: [&str; 10] = [
+pub(crate) const TOOL_COMMANDS: [&str; 10] = [
     "build", "check", "run", "lint", "fmt", "lsp", "jaic", "jailint", "jailsp", "jaifmt",
 ];
 
@@ -28,13 +28,13 @@ Configuration is the nearest jacket.toml (docs/tools/jacket.md).";
 
 #[derive(Parser, Debug)]
 #[command(name = "jacket", version, about = ABOUT, after_help = AFTER_HELP, disable_help_subcommand = true)]
-pub struct Cli {
+pub(crate) struct Cli {
     #[command(subcommand)]
     pub command: Command,
 }
 
 #[derive(Subcommand, Debug)]
-pub enum Command {
+pub(crate) enum Command {
     /// Compile a program: `jaic <args>`, flags untouched
     #[command(disable_help_flag = true, trailing_var_arg = true)]
     Build(Passthrough),
@@ -143,7 +143,7 @@ pub enum Command {
 
 /// `jacket migrate`'s options.
 #[derive(clap::Args, Debug)]
-pub struct MigrateArgs {
+pub(crate) struct MigrateArgs {
     /// Files or folders to migrate (default: the project, else the current directory)
     pub paths: Vec<std::path::PathBuf>,
     /// Write the changes; without it nothing is written
@@ -172,13 +172,13 @@ fn shell_arg(text: &str) -> Result<argdef::Shell, String> {
 
 /// Which tool's flags `jacket completions` completes.
 #[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CompletionTool {
+pub(crate) enum CompletionTool {
     Jacket,
     Jaic,
 }
 
 #[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum OutputFormat {
+pub(crate) enum OutputFormat {
     Human,
     /// One JSON object per event on standard output
     Json,
@@ -186,7 +186,7 @@ pub enum OutputFormat {
 
 /// What `--coverage` writes to `--coverage-out`.
 #[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CoverageFormat {
+pub(crate) enum CoverageFormat {
     /// lcov's text format, with line counts and procedures
     Lcov,
     /// One self-contained page: modules, files and the source with the count of each line
@@ -195,14 +195,14 @@ pub enum CoverageFormat {
 
 /// What a row of the coverage table is.
 #[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CoverageBy {
+pub(crate) enum CoverageBy {
     File,
     /// The nearest folder with a `module.jai`
     Module,
 }
 
 #[derive(clap::Args, Clone, Debug)]
-pub struct TestArgs {
+pub(crate) struct TestArgs {
     /// Run the tests whose name contains one of these; `test/subtest` runs one subtest
     #[arg(value_name = "FILTER")]
     pub filters: Vec<String>,
@@ -370,7 +370,7 @@ pub struct TestArgs {
 
 /// `jacket doc`: what to document, how the site names itself, and where it will be served from.
 #[derive(clap::Args, Clone, Debug)]
-pub struct DocArgs {
+pub(crate) struct DocArgs {
     /// Canonical site origin, over `[doc] url`
     #[arg(long, value_name = "URL")]
     pub site_url: Option<String>,
@@ -453,7 +453,7 @@ pub struct DocArgs {
 
 /// `jacket bench`: the selection and build options of `jacket test`, and how to measure.
 #[derive(clap::Args, Clone, Debug)]
-pub struct BenchArgs {
+pub(crate) struct BenchArgs {
     #[command(flatten)]
     pub test: TestArgs,
     /// Samples per benchmark, over `@samples` [default: 50]
@@ -498,7 +498,7 @@ fn parse_cpu(name: &str) -> Result<String, String> {
 
 /// jaic's single-dash `-os` and `-cpu` (before `--`, also as `-os=linux`) as the `--os` and
 /// `--cpu` clap knows.
-pub fn test_args(args: Vec<OsString>) -> Vec<OsString> {
+pub(crate) fn test_args(args: Vec<OsString>) -> Vec<OsString> {
     let mut seen_end = false;
 
     args.into_iter()
@@ -525,13 +525,13 @@ pub fn test_args(args: Vec<OsString>) -> Vec<OsString> {
 
 /// Arguments for a tool; clap never reads them.
 #[derive(clap::Args, Debug)]
-pub struct Passthrough {
+pub(crate) struct Passthrough {
     #[arg(allow_hyphen_values = true, num_args = 0.., value_name = "ARGS")]
     pub args: Vec<OsString>,
 }
 
 #[derive(Subcommand, Debug)]
-pub enum ToolchainAction {
+pub(crate) enum ToolchainAction {
     /// Exit with a failure when something a target needs is missing, saying how to get it
     Check {
         /// Also require this program (a runner such as `qemu-system-arm`, or `node`)
@@ -561,7 +561,7 @@ pub enum ToolchainAction {
 }
 
 #[derive(Subcommand, Debug)]
-pub enum ConfigAction {
+pub(crate) enum ConfigAction {
     /// Print the effective configuration
     Show,
 }

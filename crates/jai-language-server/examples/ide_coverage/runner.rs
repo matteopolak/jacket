@@ -795,7 +795,7 @@ fn run() -> Result<(Report, bool, bool), String> {
     Ok((audit.report, audit.args.json, audit.args.strict))
 }
 
-pub fn main() {
+pub(crate) fn main() {
     match run() {
         Ok((report, json, strict)) => {
             if json {

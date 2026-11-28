@@ -16,7 +16,7 @@ use std::time::{Duration, Instant};
 
 /// A program to start.
 #[derive(Clone, Debug, Default)]
-pub struct Invocation {
+pub(crate) struct Invocation {
     pub program: PathBuf,
     pub args: Vec<String>,
     pub cwd: PathBuf,
@@ -28,7 +28,7 @@ pub struct Invocation {
 
 /// One failed check, as the test program reported it.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Failure {
+pub(crate) struct Failure {
     /// The test or subtest it failed in (`table/two`).
     pub test: String,
     pub file: String,
@@ -38,7 +38,7 @@ pub struct Failure {
 
 /// A subtest's result.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Subtest {
+pub(crate) struct Subtest {
     pub name: String,
     pub status: String,
     pub duration: Duration,
@@ -46,7 +46,7 @@ pub struct Subtest {
 
 /// What one test did in a process.
 #[derive(Clone, Debug, Default)]
-pub struct Raw {
+pub(crate) struct Raw {
     pub name: String,
     /// `pass`, `fail` or `skip` from its `end` record; `None` when the process stopped first.
     pub end: Option<String>,
@@ -60,7 +60,7 @@ pub struct Raw {
 
 /// How the process ended.
 #[derive(Clone, Debug, PartialEq)]
-pub enum Ending {
+pub(crate) enum Ending {
     Exited(i32),
     /// Only a Unix process is ended by a signal.
     #[cfg_attr(not(unix), allow(dead_code))]
@@ -74,7 +74,7 @@ pub enum Ending {
 /// A process's run: the tests it started, in order, and how it ended. The last test may have no
 /// `end` record: it is the one the process stopped in.
 #[derive(Debug)]
-pub struct Outcome {
+pub(crate) struct Outcome {
     pub tests: Vec<Raw>,
     pub ending: Ending,
     /// Names asked for that the program does not have.
@@ -85,7 +85,7 @@ pub struct Outcome {
 }
 
 /// What a running process tells the scheduler as it happens.
-pub enum Live<'a> {
+pub(crate) enum Live<'a> {
     Started(&'a str),
     Slow(&'a str, Duration),
     /// Output to show as it comes (`--no-capture`).
@@ -93,7 +93,7 @@ pub enum Live<'a> {
 }
 
 /// Limits of one process: the running test's timeout and when it counts as slow.
-pub struct Limits<'a> {
+pub(crate) struct Limits<'a> {
     /// Total run limit for a plain program, measured from process launch.
     pub process_timeout: Option<Duration>,
     pub timeout: &'a dyn Fn(&str) -> Option<Duration>,
@@ -103,14 +103,14 @@ pub struct Limits<'a> {
 
 /// One piece of a stream: text, or a record's fields (the kind first).
 #[derive(Debug, PartialEq)]
-pub enum Piece {
+pub(crate) enum Piece {
     Text(Vec<u8>),
     Record(Vec<String>),
 }
 
 /// Splits a stream into text and records, across reads.
 #[derive(Default, Debug)]
-pub struct Demux {
+pub(crate) struct Demux {
     pending: Vec<u8>,
     in_record: bool,
 }
@@ -119,7 +119,7 @@ pub struct Demux {
 const MAX_RECORD: usize = 1 << 20;
 
 impl Demux {
-    pub fn feed(&mut self, bytes: &[u8]) -> Vec<Piece> {
+    pub(crate) fn feed(&mut self, bytes: &[u8]) -> Vec<Piece> {
         let mut pieces = Vec::new();
         let mut text = Vec::new();
 
@@ -165,7 +165,7 @@ impl Demux {
     }
 
     /// What is left at the end of the stream.
-    pub fn finish(&mut self) -> Vec<u8> {
+    pub(crate) fn finish(&mut self) -> Vec<u8> {
         if !self.in_record {
             return Vec::new();
         }
@@ -212,7 +212,7 @@ fn reader(mut stream: impl Read + Send + 'static, out: bool, tx: mpsc::Sender<Ch
 }
 
 /// Stops `child` and whatever it started.
-pub fn kill_tree(child: &mut Child) {
+pub(crate) fn kill_tree(child: &mut Child) {
     let pid = child.id();
 
     #[cfg(unix)]
@@ -270,7 +270,7 @@ pub(super) fn spawn(invocation: &Invocation) -> std::io::Result<Child> {
 /// What a program run by [`run_bounded`] printed, and its exit status; `None` when it ran past
 /// the limit and was killed.
 #[derive(Debug)]
-pub struct Bounded {
+pub(crate) struct Bounded {
     pub stdout: Vec<u8>,
     pub stderr: Vec<u8>,
     pub status: Option<std::process::ExitStatus>,
@@ -284,7 +284,10 @@ pub struct Bounded {
 /// let ran = run_bounded(&invocation, Some(Duration::from_secs(60)))?;
 /// if ran.status.is_none() { /* timed out */ }
 /// ```
-pub fn run_bounded(invocation: &Invocation, limit: Option<Duration>) -> std::io::Result<Bounded> {
+pub(crate) fn run_bounded(
+    invocation: &Invocation,
+    limit: Option<Duration>,
+) -> std::io::Result<Bounded> {
     let mut child = spawn(invocation)?;
     let drain = |mut stream: Box<dyn Read + Send>| {
         std::thread::spawn(move || {
@@ -320,14 +323,14 @@ pub fn run_bounded(invocation: &Invocation, limit: Option<Duration>) -> std::io:
 }
 
 /// The name of the top-level test a (sub)test name belongs to.
-pub fn top_name(name: &str) -> &str {
+pub(crate) fn top_name(name: &str) -> &str {
     name.split('/').next().unwrap_or(name)
 }
 
 /// A started process whose output is being read. Its first records can be taken before the rest
 /// goes to [`run_child`].
 #[derive(Debug)]
-pub struct Started {
+pub(crate) struct Started {
     child: Child,
     input: Option<ChildStdin>,
     launched: Instant,
@@ -339,7 +342,7 @@ pub struct Started {
 }
 
 /// Starts `invocation` and begins reading its output.
-pub fn start(invocation: &Invocation) -> std::io::Result<Started> {
+pub(crate) fn start(invocation: &Invocation) -> std::io::Result<Started> {
     let launched = Instant::now();
     let mut child = spawn(invocation)?;
     let input = child.stdin.take();
@@ -361,7 +364,7 @@ pub fn start(invocation: &Invocation) -> std::io::Result<Started> {
 impl Started {
     /// Reads standard output's records until one of kind `until`, or to the end of the process's
     /// output without one. Everything else it prints is kept for `run_child`.
-    pub fn records(&mut self, until: Option<&str>) -> Vec<Vec<String>> {
+    pub(crate) fn records(&mut self, until: Option<&str>) -> Vec<Vec<String>> {
         let mut records = Vec::new();
         let mut done = false;
 
@@ -394,7 +397,7 @@ impl Started {
     }
 
     /// What the process printed besides records, once it has ended: its errors, then the rest.
-    pub fn failure(mut self) -> String {
+    pub(crate) fn failure(mut self) -> String {
         let _ = self.child.wait();
         let mut text = Vec::new();
 
@@ -412,7 +415,7 @@ impl Started {
     }
 
     /// Waits for the process to end: `Err` with what it printed besides records if it failed.
-    pub fn finish(mut self) -> Result<(), String> {
+    pub(crate) fn finish(mut self) -> Result<(), String> {
         match self.child.wait() {
             Ok(status) if status.success() => Ok(()),
             _ => Err(self.failure()),
@@ -421,7 +424,7 @@ impl Started {
 
     /// Writes `text` to its standard input and closes it, which is what a process blocked
     /// reading its arguments waits for.
-    pub fn hand_over(&mut self, text: &str) -> std::io::Result<()> {
+    pub(crate) fn hand_over(&mut self, text: &str) -> std::io::Result<()> {
         let mut input = self.input.take().ok_or_else(|| {
             std::io::Error::new(std::io::ErrorKind::BrokenPipe, "no standard input to write")
         })?;
@@ -429,19 +432,19 @@ impl Started {
     }
 
     /// Stops it and what it started.
-    pub fn kill(&mut self) {
+    pub(crate) fn kill(&mut self) {
         kill_tree(&mut self.child);
         let _ = self.child.wait();
     }
 }
 
 /// Runs `invocation` to its end, reading its records.
-pub fn run(invocation: &Invocation, limits: &Limits, live: &mut dyn FnMut(Live)) -> Outcome {
+pub(crate) fn run(invocation: &Invocation, limits: &Limits, live: &mut dyn FnMut(Live)) -> Outcome {
     run_child(start(invocation), invocation, limits, live)
 }
 
 /// Reads the records of a process started for `invocation` (or that failed to start).
-pub fn run_child(
+pub(crate) fn run_child(
     process: std::io::Result<Started>,
     invocation: &Invocation,
     limits: &Limits,
@@ -601,7 +604,7 @@ pub fn run_child(
 impl Ending {
     /// Whether the process died of a fault: a signal, or on Windows an exception status such as
     /// `0xC0000005`.
-    pub fn crashed(&self) -> bool {
+    pub(crate) fn crashed(&self) -> bool {
         match self {
             Ending::Signal(_) => true,
             Ending::Exited(code) => cfg!(windows) && (*code as u32) >> 28 == 0xC,

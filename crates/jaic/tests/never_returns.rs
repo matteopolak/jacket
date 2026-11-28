@@ -1,16 +1,13 @@
 //! Procedures that never return end their callers' blocks: the code after a call to one is
 //! recorded as dead for the editor and the linter.
-use std::rc::Rc;
 
 use jaic::ide::{IdeFacts, IdeRoot};
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+use jaic::sema::ProgramSource;
+use test_support::compiler::bare_compiler;
 
 /// The text of every dead run of `source` (as the editor would fade it), in source order.
 fn dead_runs(source: &str) -> Vec<String> {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let mut compiler = bare_compiler();
 
     compiler.ed.record(IdeFacts::new(vec![IdeRoot::Virtual]));
     compiler

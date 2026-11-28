@@ -1,7 +1,7 @@
 //! Warnings carry the fix when it is clear: a format string and its arguments that disagree, code
 //! after a `return`, a procedure that can end without one. Each test applies the edit and
 //! compiles the result to show the warning is gone and the program still builds.
-use std::{path::PathBuf, rc::Rc};
+use std::rc::Rc;
 
 use jaic::diagnostics::Diagnostic;
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
@@ -10,7 +10,7 @@ use jaic::source::Applicability;
 const PRELUDE: &str = "emit :: (format: string, args: ..Any) {} @PrintLike\n";
 
 fn compile(source: &str) -> Vec<Diagnostic> {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];

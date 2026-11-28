@@ -11,7 +11,7 @@ use jailint::migrate::{self, MIGRATIONS, Plan, Selection};
 
 use crate::cli::MigrateArgs;
 
-pub fn run(args: &MigrateArgs, cwd: &Path) -> ExitCode {
+pub(crate) fn run(args: &MigrateArgs, cwd: &Path) -> ExitCode {
     if args.list {
         list();
         return ExitCode::SUCCESS;

@@ -71,14 +71,14 @@ pub(crate) struct Binding {
 }
 
 impl Schema {
-    pub fn get(&self, ty: TypeId) -> Result<&Layout, Trap> {
+    pub(crate) fn get(&self, ty: TypeId) -> Result<&Layout, Trap> {
         self.types
             .get(&ty)
             .ok_or_else(|| Trap::new("compiler API has no layout for this type"))
     }
 
     /// Check that `ty` has a field at `path` holding a `need`.
-    pub fn require(&self, ty: TypeId, path: &str, need: Need) -> Result<(), Trap> {
+    pub(crate) fn require(&self, ty: TypeId, path: &str, need: Need) -> Result<(), Trap> {
         let mut field = ty;
 
         for name in path.split('.') {
@@ -125,7 +125,7 @@ impl Schema {
         )))
     }
 
-    pub fn field(&self, ty: TypeId, name: &str) -> Result<(u64, TypeId), Trap> {
+    pub(crate) fn field(&self, ty: TypeId, name: &str) -> Result<(u64, TypeId), Trap> {
         let layout = self.get(ty)?;
         let Kind::Record(fields) = &layout.kind else {
             return Err(Trap::new(format!(
@@ -150,21 +150,26 @@ impl Schema {
         )))
     }
 
-    pub fn named(&self, name: &str) -> Result<TypeId, Trap> {
+    pub(crate) fn named(&self, name: &str) -> Result<TypeId, Trap> {
         self.names
             .get(name)
             .copied()
             .ok_or_else(|| Trap::new(format!("compiler API needs the {name} record")))
     }
 
-    pub fn pointed(&self, ty: TypeId) -> Result<TypeId, Trap> {
+    pub(crate) fn pointed(&self, ty: TypeId) -> Result<TypeId, Trap> {
         match self.get(ty)?.kind {
             Kind::Pointer(inner) => Ok(inner),
             _ => Err(Trap::new("compiler API expected a pointer")),
         }
     }
 
-    pub fn read_number(&self, interp: &Interp, ty: TypeId, address: u64) -> Result<u64, Trap> {
+    pub(crate) fn read_number(
+        &self,
+        interp: &Interp,
+        ty: TypeId,
+        address: u64,
+    ) -> Result<u64, Trap> {
         let size = self.get(ty)?.size as usize;
 
         if size > 8 {
@@ -177,7 +182,7 @@ impl Schema {
         Ok(interp.data_layout().read_uint(&bytes))
     }
 
-    pub fn write_number(
+    pub(crate) fn write_number(
         &self,
         interp: &mut Interp,
         ty: TypeId,

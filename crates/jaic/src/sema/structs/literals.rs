@@ -587,7 +587,7 @@ pub(super) fn image_of(
 }
 
 /// Copy a nested aggregate image into `agg` at `offset`.
-pub fn write_agg(agg: &mut Aggregate, offset: u64, inner: &Aggregate) {
+pub(crate) fn write_agg(agg: &mut Aggregate, offset: u64, inner: &Aggregate) {
     let o = offset as usize;
 
     agg.bytes[o..o + inner.bytes.len()].copy_from_slice(&inner.bytes);

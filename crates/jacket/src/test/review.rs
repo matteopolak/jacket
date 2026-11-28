@@ -10,7 +10,7 @@ const PENDING: &str = ".snap.new";
 
 /// A snapshot waiting for a decision.
 #[derive(Debug, PartialEq)]
-pub struct Pending {
+pub(super) struct Pending {
     /// `NAME.snap.new`.
     pub new: PathBuf,
     /// `NAME.snap`, which may not exist yet.
@@ -18,7 +18,7 @@ pub struct Pending {
 }
 
 /// The `.snap.new` files below each root's `tests/` folder, in path order.
-pub fn pending(roots: &[PathBuf]) -> Vec<Pending> {
+pub(super) fn pending(roots: &[PathBuf]) -> Vec<Pending> {
     let mut found = Vec::new();
 
     for root in roots {
@@ -82,7 +82,7 @@ fn accept(pending: &Pending) -> std::io::Result<()> {
 
 /// Lists the pending snapshots of `roots`; in a terminal, asks about each.
 /// Exits 0 when none are left, 1 when some are (always the case when only listing).
-pub fn run(
+pub(super) fn run(
     roots: &[PathBuf],
     cwd: &Path,
     interactive: bool,

@@ -20,7 +20,7 @@ fn pshufb(cx: &Cx<'_, '_>, width: u8) -> Option<(u32, &'static str)> {
     }
 }
 
-pub fn byte_lookup<'ctx>(
+pub(super) fn byte_lookup<'ctx>(
     cx: &Cx<'_, 'ctx>,
     width: u8,
     dst: PointerValue<'ctx>,

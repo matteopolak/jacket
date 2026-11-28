@@ -46,7 +46,7 @@ fn summary(site: &Site, md: &str, from: &str) -> String {
         .unwrap_or_default()
 }
 
-pub fn index(site: &Site) -> String {
+pub(super) fn index(site: &Site) -> String {
     let modules: Vec<Value> = site.modules.iter().map(|m| json!(m.id)).collect();
     let mut items: Vec<Value> = Vec::new();
 

@@ -12,7 +12,7 @@ use jaic::sema::FileSystem;
 /// is here too. A buffer that is none of these, and lies in none of these folders, cannot
 /// change the compile.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Reads {
+pub(crate) struct Reads {
     files: BTreeMap<PathBuf, FileRead>,
     dirs: BTreeSet<PathBuf>,
 }
@@ -25,14 +25,14 @@ struct FileRead {
 
 impl Reads {
     /// The compile checked only this file's existence, and every check found it present.
-    pub fn only_checked_present(&self, path: &Path) -> bool {
+    pub(crate) fn only_checked_present(&self, path: &Path) -> bool {
         self.files
             .get(path)
             .is_some_and(|read| !read.content && read.exists == Some(true))
     }
 
     /// Whether a file appearing, going away or changing at `path` could change the compile.
-    pub fn concerns(&self, path: &Path) -> bool {
+    pub(crate) fn concerns(&self, path: &Path) -> bool {
         self.files.contains_key(path) || path.ancestors().any(|dir| self.dirs.contains(dir))
     }
 }

@@ -5,7 +5,7 @@ use jacket_config::schema::{DocCategory, DocGroup};
 
 /// A heading modules are listed under, with the badge they and their items carry.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct Category {
+pub(super) struct Category {
     pub name: String,
     /// Badge text; empty for none.
     pub badge: String,
@@ -15,7 +15,7 @@ pub struct Category {
 }
 
 /// Where each module goes, in the order of the ids given.
-pub struct Layout {
+pub(super) struct Layout {
     pub categories: Vec<Category>,
     /// Group names, in display order.
     pub groups: Vec<String>,
@@ -161,7 +161,7 @@ fn last_match<'a>(entries: impl Iterator<Item = &'a [PathPattern]>, folder: &str
 
 /// Lays out the modules whose folders (relative to the `jacket.toml`, `/`-separated) are
 /// `folders`, named `ids` in messages.
-pub fn layout(
+pub(super) fn layout(
     categories: &[DocCategory],
     groups: &[DocGroup],
     ids: &[String],

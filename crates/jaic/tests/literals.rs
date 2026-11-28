@@ -1,13 +1,10 @@
 //! Numeric literal contracts from the language and `Jai_Lexer` specifications.
-use std::rc::Rc;
 
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+use jaic::sema::ProgramSource;
+use test_support::compiler::bare_compiler;
 
 fn check(source: &str) {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let mut c = bare_compiler();
 
     if let Err(error) = c.compile_sources(&[ProgramSource::String(source.into())]) {
         panic!("{}", error.render(&c.src.sources));
@@ -16,10 +13,7 @@ fn check(source: &str) {
 
 /// The rendered error `source` fails with.
 fn failure(source: &str) -> String {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let mut c = bare_compiler();
 
     match c.compile_sources(&[ProgramSource::String(source.into())]) {
         Ok(()) => panic!("compiled: {source}"),
@@ -106,10 +100,7 @@ fn scalar_float_intrinsics_reject_inconsistent_signatures() {
         "sqrt :: (x: float32) -> float64 #intrinsic; #run sqrt(cast(float32) 9);",
         "sqrt :: (x: float32, y: float32) -> float32 #intrinsic; #run sqrt(cast(float32) 9, cast(float32) 1);",
     ] {
-        let mut options = Options::host();
-
-        options.runtime_support = false;
-        let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+        let mut c = bare_compiler();
         let error = c
             .compile_sources(&[ProgramSource::String(source.into())])
             .expect_err("invalid floating intrinsic signature accepted");
@@ -125,10 +116,7 @@ fn scalar_float_intrinsics_reject_inconsistent_signatures() {
 #[test]
 fn hex_float_spellings_require_four_eight_or_sixteen_digits() {
     for literal in ["0h0", "0h123", "0h12345", "0h123456789", "0h123456789abcde"] {
-        let mut options = Options::host();
-
-        options.runtime_support = false;
-        let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+        let mut c = bare_compiler();
         let result = c.compile_sources(&[ProgramSource::String(format!("value :: {literal};"))]);
 
         assert!(
@@ -151,10 +139,7 @@ fn required_float_precision_survives_aliases_and_constant_arithmetic() {
         "precise :: 0.123456789; value: float32 = precise + 0.0;",
         "consume :: (x: float32) {} main :: () { consume(0.123456789); }",
     ] {
-        let mut options = Options::host();
-
-        options.runtime_support = false;
-        let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+        let mut c = bare_compiler();
 
         assert!(
             c.compile_sources(&[ProgramSource::String(source.into())])
@@ -173,10 +158,7 @@ fn required_float_precision_survives_aliases_and_constant_arithmetic() {
 
 fn literal_record_flags(literal: &str) -> i64 {
     use jaic::records::{FieldRef, Item, RecordTag, Records};
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let mut c = bare_compiler();
 
     c.compile_sources(&[ProgramSource::String(format!("value :: {literal};"))])
         .unwrap();

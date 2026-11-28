@@ -51,7 +51,7 @@ mod text;
 use clock::Clock;
 use open::open_session;
 use rig::{Rig, here_strings};
-pub use snapshot::Query;
+pub(crate) use snapshot::Query;
 use snapshot::{
     Probe, Snapshot, answer, any_omits_literal, omits_literal, probe_at, sanity,
     snapshot_difference, sorted_debug, stale_damage, usage_lint,
@@ -59,7 +59,7 @@ use snapshot::{
 use text::{balanced, byte_of, identifier_starts, pos_of};
 
 /// Where a session's decisions come from: a seeded generator, or a fuzzer's bytes.
-pub trait Choices {
+pub(crate) trait Choices {
     /// A number below `n` (`n` is at least 1).
     fn below(&mut self, n: usize) -> usize;
 
@@ -74,7 +74,7 @@ pub trait Choices {
 }
 
 /// splitmix64, so a seed reproduces a session on every platform.
-pub struct Seeded(pub u64);
+pub(crate) struct Seeded(pub u64);
 
 impl Choices for Seeded {
     fn below(&mut self, n: usize) -> usize {
@@ -88,7 +88,7 @@ impl Choices for Seeded {
 }
 
 #[derive(Clone, Debug)]
-pub struct Config {
+pub(crate) struct Config {
     /// Scenarios per session (a scenario is one typed statement, retyped line, paste, ...).
     pub scenarios: usize,
     /// Every this many versions, compare with a fresh session (oracle d). 0 turns it off.
@@ -129,14 +129,14 @@ impl Default for Config {
 
 /// What to open: configuration documents first (never edited), then the documents to edit; the
 /// first of those is the one whose imports and loads the others normally are.
-pub struct Input<'a> {
+pub(crate) struct Input<'a> {
     pub setup: Vec<(DocumentUri, String)>,
     pub docs: Vec<(DocumentUri, String)>,
     pub environment: &'a dyn Fn() -> Environment,
 }
 
 #[derive(Default, Debug)]
-pub struct Report {
+pub(crate) struct Report {
     pub versions: usize,
     pub fresh_comparisons: usize,
     pub baseline_comparisons: usize,
@@ -148,13 +148,13 @@ pub struct Report {
 
 /// One text sent to the server, and the requests made while it was current.
 #[derive(Clone, Debug)]
-pub struct Step {
+pub(crate) struct Step {
     pub text: String,
     pub queries: Vec<Query>,
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct History {
+pub(crate) struct History {
     /// Requests made on the original text.
     pub initial: Vec<Query>,
     pub steps: Vec<Step>,
@@ -162,7 +162,7 @@ pub struct History {
 
 
 /// Run one typing session over `input`, deciding with `choices`.
-pub fn run(input: &Input<'_>, config: Config, choices: impl Choices) -> Report {
+pub(crate) fn run(input: &Input<'_>, config: Config, choices: impl Choices) -> Report {
     // The baseline must be reproducible, or every later comparison is meaningless.
     let rig = match Rig::new(input, config, choices) {
         Ok(rig) => rig,
@@ -201,7 +201,7 @@ pub fn run(input: &Input<'_>, config: Config, choices: impl Choices) -> Report {
 /// Send the steps of `history` to document `doc` one after another, each as the smallest
 /// incremental change from the text before it, making the requests that were made in between, and
 /// compare with a fresh session. Returns the difference, if there is one.
-pub fn replay_difference(
+pub(crate) fn replay_difference(
     input: &Input<'_>,
     doc: usize,
     history: &History,
@@ -280,7 +280,7 @@ pub fn replay_difference(
 /// A shorter history (the last step always stays) that still makes [`replay_difference`] find a
 /// difference: delta debugging over the steps. `None` when replaying the whole history does not
 /// show the difference.
-pub fn minimise_history(
+pub(crate) fn minimise_history(
     input: &Input<'_>,
     doc: usize,
     history: &History,

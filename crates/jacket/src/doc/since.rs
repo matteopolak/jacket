@@ -58,7 +58,7 @@ fn read(text: &str) -> Data {
 /// data has no row for is new in it, unless it is a release the data already covers (then the
 /// source is a development version and shows nothing). Items first seen in the oldest covered
 /// release show nothing either.
-pub fn assign(text: &str, modules: &mut [Module], built: &str) {
+pub(super) fn assign(text: &str, modules: &mut [Module], built: &str) {
     apply(&read(text), modules, built);
 }
 

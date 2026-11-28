@@ -11,13 +11,13 @@
 //! every sample has no line; its estimate is the mean.
 
 /// The share of the bootstrap distribution inside an interval.
-pub const CONFIDENCE: f64 = 0.95;
+pub(super) const CONFIDENCE: f64 = 0.95;
 
 /// A small, fast, seeded generator (splitmix64): the same samples always give the same report.
-pub struct Rng(u64);
+pub(super) struct Rng(u64);
 
 impl Rng {
-    pub fn new(seed: u64) -> Rng {
+    pub(super) fn new(seed: u64) -> Rng {
         Rng(seed)
     }
 
@@ -38,7 +38,7 @@ impl Rng {
 
 /// An estimate and the interval around it.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Interval {
+pub(super) struct Interval {
     pub low: f64,
     pub estimate: f64,
     pub high: f64,
@@ -46,18 +46,18 @@ pub struct Interval {
 
 /// The raw measurements of one benchmark.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Samples {
+pub(super) struct Samples {
     pub iterations: Vec<f64>,
     pub nanoseconds: Vec<f64>,
 }
 
 impl Samples {
-    pub fn len(&self) -> usize {
+    pub(super) fn len(&self) -> usize {
         self.iterations.len()
     }
 
     /// Nanoseconds per iteration of every sample.
-    pub fn per_iteration(&self) -> Vec<f64> {
+    pub(super) fn per_iteration(&self) -> Vec<f64> {
         self.iterations
             .iter()
             .zip(&self.nanoseconds)
@@ -66,7 +66,7 @@ impl Samples {
     }
 
     /// Whether the samples have different iteration counts, so a line can be fitted.
-    pub fn is_linear(&self) -> bool {
+    pub(super) fn is_linear(&self) -> bool {
         self.iterations
             .iter()
             .any(|&i| (i - self.iterations[0]).abs() > 0.5)
@@ -74,7 +74,7 @@ impl Samples {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Estimator {
+pub(super) enum Estimator {
     /// The slope of the least-squares line through (iterations, nanoseconds).
     Slope,
     /// Total nanoseconds over total iterations.
@@ -82,7 +82,7 @@ pub enum Estimator {
 }
 
 impl Estimator {
-    pub fn name(self) -> &'static str {
+    pub(super) fn name(self) -> &'static str {
         match self {
             Estimator::Slope => "slope",
             Estimator::Mean => "mean",
@@ -92,14 +92,14 @@ impl Estimator {
 
 /// A line fitted through the samples.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Fit {
+pub(super) struct Fit {
     pub slope: f64,
     pub intercept: f64,
     pub r_squared: f64,
 }
 
 /// Least squares of `y = slope * x`, with the R-squared against the mean of `y`.
-pub fn fit_through_origin(x: &[f64], y: &[f64]) -> Option<Fit> {
+pub(super) fn fit_through_origin(x: &[f64], y: &[f64]) -> Option<Fit> {
     let sxx: f64 = x.iter().map(|a| a * a).sum();
 
     if x.len() < 2 || sxx <= 0.0 {
@@ -123,7 +123,7 @@ pub fn fit_through_origin(x: &[f64], y: &[f64]) -> Option<Fit> {
 }
 
 /// Ordinary least squares of `y` on `x`. `None` when all `x` are equal.
-pub fn fit(x: &[f64], y: &[f64]) -> Option<Fit> {
+pub(super) fn fit(x: &[f64], y: &[f64]) -> Option<Fit> {
     let n = x.len() as f64;
 
     if x.len() < 2 {
@@ -157,7 +157,7 @@ pub fn fit(x: &[f64], y: &[f64]) -> Option<Fit> {
     })
 }
 
-pub fn mean(values: &[f64]) -> f64 {
+pub(super) fn mean(values: &[f64]) -> f64 {
     values.iter().sum::<f64>() / values.len() as f64
 }
 
@@ -172,7 +172,7 @@ fn variance(values: &[f64]) -> f64 {
 }
 
 /// The median of values that are already sorted.
-pub fn median_sorted(sorted: &[f64]) -> f64 {
+pub(super) fn median_sorted(sorted: &[f64]) -> f64 {
     let n = sorted.len();
 
     if n == 0 {
@@ -184,11 +184,11 @@ pub fn median_sorted(sorted: &[f64]) -> f64 {
     }
 }
 
-pub fn median(values: &[f64]) -> f64 {
+pub(super) fn median(values: &[f64]) -> f64 {
     median_sorted(&sorted(values))
 }
 
-pub fn sorted(values: &[f64]) -> Vec<f64> {
+pub(super) fn sorted(values: &[f64]) -> Vec<f64> {
     let mut v = values.to_vec();
 
     v.sort_by(f64::total_cmp);
@@ -196,7 +196,7 @@ pub fn sorted(values: &[f64]) -> Vec<f64> {
 }
 
 /// The value `percent` percent of the way through sorted values, between neighbours.
-pub fn percentile(sorted: &[f64], percent: f64) -> f64 {
+pub(super) fn percentile(sorted: &[f64], percent: f64) -> f64 {
     if sorted.is_empty() {
         return 0.0;
     }
@@ -209,7 +209,7 @@ pub fn percentile(sorted: &[f64], percent: f64) -> f64 {
 }
 
 /// The median absolute deviation.
-pub fn mad(values: &[f64]) -> f64 {
+pub(super) fn mad(values: &[f64]) -> f64 {
     let m = median(values);
     median(&values.iter().map(|v| (v - m).abs()).collect::<Vec<_>>())
 }
@@ -284,7 +284,7 @@ fn bootstrap(
 
 /// How many measurements fall outside Tukey's fences (1.5 and 3 times the interquartile range).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct Outliers {
+pub(super) struct Outliers {
     pub low_severe: usize,
     pub low_mild: usize,
     pub high_mild: usize,
@@ -292,7 +292,7 @@ pub struct Outliers {
 }
 
 impl Outliers {
-    pub fn classify(per_iteration: &[f64]) -> Outliers {
+    pub(super) fn classify(per_iteration: &[f64]) -> Outliers {
         let sorted = sorted(per_iteration);
         let (q1, q3) = (percentile(&sorted, 25.0), percentile(&sorted, 75.0));
         let iqr = q3 - q1;
@@ -313,14 +313,14 @@ impl Outliers {
         found
     }
 
-    pub fn total(&self) -> usize {
+    pub(super) fn total(&self) -> usize {
         self.low_severe + self.low_mild + self.high_mild + self.high_severe
     }
 }
 
 /// What a run says about one benchmark.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Analysis {
+pub(super) struct Analysis {
     pub estimator: Estimator,
     /// The time of one iteration by `estimator`, with its bootstrap interval.
     pub time: Interval,
@@ -335,7 +335,7 @@ pub struct Analysis {
     pub outliers: Outliers,
 }
 
-pub fn analyze(samples: &Samples, resamples: usize, rng: &mut Rng) -> Analysis {
+pub(super) fn analyze(samples: &Samples, resamples: usize, rng: &mut Rng) -> Analysis {
     let n = samples.len();
     let per_iteration = samples.per_iteration();
     let estimator = estimator_of(samples);
@@ -384,7 +384,7 @@ pub fn analyze(samples: &Samples, resamples: usize, rng: &mut Rng) -> Analysis {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Verdict {
+pub(super) enum Verdict {
     Improved,
     Regressed,
     WithinNoise,
@@ -392,7 +392,7 @@ pub enum Verdict {
 }
 
 impl Verdict {
-    pub fn name(self) -> &'static str {
+    pub(super) fn name(self) -> &'static str {
         match self {
             Verdict::Improved => "improved",
             Verdict::Regressed => "regressed",
@@ -401,7 +401,7 @@ impl Verdict {
         }
     }
 
-    pub fn sentence(self) -> &'static str {
+    pub(super) fn sentence(self) -> &'static str {
         match self {
             Verdict::Improved => "Performance has improved.",
             Verdict::Regressed => "Performance has regressed.",
@@ -413,7 +413,7 @@ impl Verdict {
 
 /// How a run compares with an earlier one.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Comparison {
+pub(super) struct Comparison {
     /// The relative change of the time per iteration (0.05 is 5% slower) and its interval.
     pub change: Interval,
     pub p_value: f64,
@@ -441,7 +441,7 @@ fn t_statistic(a: &[f64], b: &[f64]) -> f64 {
 /// both runs pooled (so there is no difference), at least as extreme as the one observed. A
 /// change counts when p is below `significance` and the whole interval lies beyond
 /// `noise_threshold` (a fraction) on one side.
-pub fn compare(
+pub(super) fn compare(
     now: &Samples,
     before: &Samples,
     resamples: usize,

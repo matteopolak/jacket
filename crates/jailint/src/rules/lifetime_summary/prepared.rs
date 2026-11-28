@@ -34,7 +34,7 @@ pub(in crate::rules) struct Prepared<'a> {
 }
 
 impl<'a> Prepared<'a> {
-    pub fn build(
+    pub(crate) fn build(
         compiler: &'a Compiler,
         body: &'a LifetimeBody,
         all: &HashMap<ProcId, Summary>,
@@ -287,7 +287,7 @@ impl Prepared<'_> {
 }
 
 impl<'a> Prepared<'a> {
-    pub fn for_body(
+    pub(crate) fn for_body(
         compiler: &'a Compiler,
         body: &'a LifetimeBody,
         summaries: &super::Summaries,
@@ -297,7 +297,7 @@ impl<'a> Prepared<'a> {
 }
 
 impl<'a> Resolver<'a> {
-    pub fn for_prepared(
+    pub(crate) fn for_prepared(
         compiler: &'a Compiler,
         body: &'a LifetimeBody,
         prepared: &Prepared<'a>,
@@ -314,7 +314,7 @@ impl<'a> Resolver<'a> {
     }
 
     /// A resolver for `id`, preparing its body the first time any pass asks.
-    pub fn cached<'c: 'a>(
+    pub(crate) fn cached<'c: 'a>(
         cache: &mut Cache<'c>,
         compiler: &'c Compiler,
         id: ProcId,
@@ -330,7 +330,7 @@ impl<'a> Resolver<'a> {
     }
 
     /// A resolver over `prepared`, with the context that depends on `all` built fresh.
-    pub fn from_prepared(
+    pub(crate) fn from_prepared(
         compiler: &'a Compiler,
         body: &'a LifetimeBody,
         prepared: &Prepared<'a>,

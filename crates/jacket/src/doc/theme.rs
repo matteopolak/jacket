@@ -20,13 +20,13 @@ fn nonce() -> String {
     )
 }
 
-pub struct Input {
+pub(super) struct Input {
     pub path: PathBuf,
     temporary: bool,
 }
 
 impl Input {
-    pub fn new(keep: Option<&Path>) -> Result<Self, String> {
+    pub(super) fn new(keep: Option<&Path>) -> Result<Self, String> {
         let path = keep.map_or_else(
             || std::env::temp_dir().join(format!("jacket-doc-input-{}", nonce())),
             Path::to_path_buf,
@@ -47,7 +47,7 @@ impl Drop for Input {
     }
 }
 
-pub struct Theme {
+pub(super) struct Theme {
     files: BTreeMap<String, Vec<u8>>,
     overrides: BTreeMap<String, Vec<u8>>,
 }
@@ -101,12 +101,12 @@ fn hash_part(hash: &mut Sha256, name: &str, bytes: &[u8]) {
     hash.update(bytes);
 }
 
-pub struct Prepared {
+pub(super) struct Prepared {
     binary: PathBuf,
 }
 
 impl Theme {
-    pub fn new(overrides: Option<&Path>) -> Result<Self, String> {
+    pub(super) fn new(overrides: Option<&Path>) -> Result<Self, String> {
         let mut files: BTreeMap<String, Vec<u8>> = FILES
             .iter()
             .map(|(p, b)| ((*p).to_owned(), b.to_vec()))
@@ -124,7 +124,7 @@ impl Theme {
         })
     }
 
-    pub fn assets(&self) -> Vec<String> {
+    pub(super) fn assets(&self) -> Vec<String> {
         self.files
             .keys()
             .filter(|p| p.starts_with("assets/"))
@@ -159,7 +159,12 @@ impl Theme {
         crate::upgrade::checksum::hex(hash.finalize().as_slice())
     }
 
-    pub fn prepare(&self, jaic: &Path, stdlib: &Path, timings: bool) -> Result<Prepared, String> {
+    pub(super) fn prepare(
+        &self,
+        jaic: &Path,
+        stdlib: &Path,
+        timings: bool,
+    ) -> Result<Prepared, String> {
         self.prepare_at(jaic, stdlib, timings, &jacket_config::user_cache_dir()?)
     }
 
@@ -291,7 +296,7 @@ impl Theme {
 }
 
 impl Prepared {
-    pub fn run(
+    pub(super) fn run(
         &self,
         stdlib: &Path,
         input: &Path,

@@ -5,9 +5,9 @@ use super::markdown::plain;
 use super::view::{Content, ModuleView, PageView};
 use crate::markup::escape;
 mod config;
-pub use config::{Publication, prepare};
+pub(super) use config::{Publication, prepare};
 
-pub struct Metadata {
+pub(super) struct Metadata {
     pub origin: String,
     pub base: String,
     pub name: String,
@@ -17,7 +17,7 @@ pub struct Metadata {
 }
 
 /// `url` is an origin, not a deployment path (that belongs in --base-url).
-pub fn valid_origin(origin: &str) -> bool {
+pub(super) fn valid_origin(origin: &str) -> bool {
     let Some(host) = origin
         .strip_prefix("https://")
         .or_else(|| origin.strip_prefix("http://"))
@@ -32,7 +32,7 @@ pub fn valid_origin(origin: &str) -> bool {
 }
 
 /// Collapse plain text and reserve one character for the ellipsis, cutting at a word boundary.
-pub fn description(text: &str) -> String {
+pub(super) fn description(text: &str) -> String {
     let text = plain(text).split_whitespace().collect::<Vec<_>>().join(" ");
 
     if text.chars().count() <= 155 {
@@ -44,7 +44,7 @@ pub fn description(text: &str) -> String {
 }
 
 impl Metadata {
-    pub fn files(
+    pub(super) fn files(
         &self,
         urls: &[String],
         image: Option<(String, Vec<u8>)>,
@@ -64,7 +64,7 @@ impl Metadata {
         files
     }
 
-    pub fn url(&self, path: &str, canonical: bool) -> String {
+    pub(super) fn url(&self, path: &str, canonical: bool) -> String {
         if self.origin.is_empty() {
             return String::new();
         }
@@ -98,7 +98,12 @@ impl Metadata {
 
     /// [`Self::apply`] to a module's pages. The first `exported` item pages are listed in
     /// `urls`; the rest are pages of types the module does not export, which only links lead to.
-    pub fn apply_module(&self, module: &mut ModuleView, exported: usize, urls: &mut Vec<String>) {
+    pub(super) fn apply_module(
+        &self,
+        module: &mut ModuleView,
+        exported: usize,
+        urls: &mut Vec<String>,
+    ) {
         self.apply(&mut module.page);
         urls.push(self.url(&module.page.path, false));
 
@@ -113,7 +118,7 @@ impl Metadata {
         }
     }
 
-    pub fn apply(&self, page: &mut PageView) {
+    pub(super) fn apply(&self, page: &mut PageView) {
         page.description = description(&page.description);
         page.head.url = if page.not_found {
             String::new()
@@ -200,7 +205,7 @@ impl Metadata {
 }
 
 /// Limits include XML markup and escaped URLs; no shard exceeds either sitemap protocol limit.
-pub fn sitemaps(
+pub(super) fn sitemaps(
     urls: &[String],
     root: &str,
     count_limit: usize,

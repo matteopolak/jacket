@@ -412,7 +412,7 @@ pub(crate) struct LifetimeCallRecording {
 }
 
 impl LifetimeRecording {
-    pub fn push(&mut self, block: ir::BlockId, event: LifetimeEvent) {
+    pub(crate) fn push(&mut self, block: ir::BlockId, event: LifetimeEvent) {
         if let LifetimeEvent::Local {
             place,
             ty: TypeId::BOOL,

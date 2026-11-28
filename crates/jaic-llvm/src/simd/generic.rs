@@ -12,7 +12,7 @@ use inkwell::{AddressSpace, IntPredicate};
 use super::{Cx, R};
 
 /// `ByteLookup` one lane at a time (`extractelement`/`select`/`insertelement`).
-pub fn byte_lookup<'ctx>(
+pub(super) fn byte_lookup<'ctx>(
     cx: &Cx<'_, 'ctx>,
     width: u8,
     dst: PointerValue<'ctx>,
@@ -46,7 +46,11 @@ pub fn byte_lookup<'ctx>(
 }
 
 /// `SignMask` as a vector compare and a bitcast of the `<N x i1>` to `iN`.
-pub fn sign_mask<'ctx>(cx: &Cx<'_, 'ctx>, width: u8, src: PointerValue<'ctx>) -> R<IntValue<'ctx>> {
+pub(super) fn sign_mask<'ctx>(
+    cx: &Cx<'_, 'ctx>,
+    width: u8,
+    src: PointerValue<'ctx>,
+) -> R<IntValue<'ctx>> {
     let b = cx.builder;
     let v = cx.load_bytes(src, u32::from(width))?;
     let zero = cx.ctx.i8_type().vec_type(u32::from(width)).const_zero();
@@ -64,7 +68,7 @@ pub fn sign_mask<'ctx>(cx: &Cx<'_, 'ctx>, width: u8, src: PointerValue<'ctx>) ->
 /// every use, the element compares made blocks long enough for LLVM's machine passes (which
 /// grow with the square of a block's length) to take minutes. Returns `(result, b_ends, a_ends)`
 /// as `ir::string_compare` defines them.
-pub fn string_compare<'ctx>(
+pub(super) fn string_compare<'ctx>(
     cx: &Cx<'_, 'ctx>,
     (ctl, explicit): (u8, bool),
     (a, b): (PointerValue<'ctx>, PointerValue<'ctx>),

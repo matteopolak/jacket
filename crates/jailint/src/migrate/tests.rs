@@ -130,7 +130,7 @@ fn options_for(path: &Path) -> Options {
         source: None,
         paths: vec![path.to_path_buf()],
         import_dirs: Vec::new(),
-        stdlib: Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"),
+        stdlib: test_support::repo::stdlib(),
         config: crate::Config::default(),
         jobs: 1,
         verbose: false,

@@ -17,7 +17,7 @@ pub(in crate::rules) enum Selection {
 }
 
 impl Selection {
-    pub fn root(self) -> Option<Root> {
+    pub(crate) fn root(self) -> Option<Root> {
         Some(match self {
             Self::Caller => Root::CallerAllocator,
             Self::Parameter(n) => Root::AllocatorParameter(n),
@@ -65,7 +65,7 @@ impl State {
 }
 
 impl Context {
-    pub fn build(
+    pub(super) fn build(
         c: &Compiler,
         body: &LifetimeBody,
         places: &mut Places,

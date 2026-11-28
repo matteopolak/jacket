@@ -6,7 +6,7 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Debug)]
-pub struct Request {
+pub(crate) struct Request {
     pub method: String,
     pub path: String,
     pub conditional: bool,
@@ -23,12 +23,12 @@ struct State {
     limited: bool,
 }
 
-pub struct Forge {
+pub(crate) struct Forge {
     pub base: String,
     state: Arc<Mutex<State>>,
 }
 
-pub fn now() -> i64 {
+pub(crate) fn now() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
@@ -36,7 +36,7 @@ pub fn now() -> i64 {
 }
 
 /// `2024-05-01T12:00:00Z` for Unix seconds.
-pub fn rfc3339(secs: i64) -> String {
+pub(crate) fn rfc3339(secs: i64) -> String {
     let days = secs.div_euclid(86_400);
     let rest = secs.rem_euclid(86_400);
     let z = days + 719_468;
@@ -62,7 +62,7 @@ pub fn rfc3339(secs: i64) -> String {
 }
 
 impl Forge {
-    pub fn start() -> Self {
+    pub(crate) fn start() -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let base = format!("http://{}", listener.local_addr().unwrap());
         let state = Arc::new(Mutex::new(State::default()));
@@ -82,7 +82,7 @@ impl Forge {
     }
 
     /// Publishes `tag` of `repo` (`owner/name`) `secs_ago` seconds ago.
-    pub fn release(&self, repo: &str, tag: &str, secs_ago: i64) {
+    pub(crate) fn release(&self, repo: &str, tag: &str, secs_ago: i64) {
         let mut state = self.state.lock().unwrap();
         let entry = state.releases.entry(repo.to_string()).or_default();
 
@@ -91,15 +91,15 @@ impl Forge {
         entry.1 += 1;
     }
 
-    pub fn limit(&self, on: bool) {
+    pub(crate) fn limit(&self, on: bool) {
         self.state.lock().unwrap().limited = on;
     }
 
-    pub fn log(&self) -> Vec<Request> {
+    pub(crate) fn log(&self) -> Vec<Request> {
         self.state.lock().unwrap().log.clone()
     }
 
-    pub fn clear(&self) {
+    pub(crate) fn clear(&self) {
         self.state.lock().unwrap().log.clear();
     }
 }

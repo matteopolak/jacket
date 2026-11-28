@@ -35,7 +35,7 @@ use crate::{test::stdlib::stdlib_dir, tools};
 /// Present in a folder `jacket doc` wrote, so the next run may replace it.
 const MARKER: &str = ".jacket-doc";
 
-pub fn run(args: &DocArgs, cwd: &Path) -> ExitCode {
+pub(crate) fn run(args: &DocArgs, cwd: &Path) -> ExitCode {
     match build(args, cwd) {
         Ok(code) => code,
         Err(message) => {

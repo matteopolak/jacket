@@ -18,10 +18,7 @@ use std::path::{Path, PathBuf};
 use test_support::TempDir;
 
 fn stdlib() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../stdlib")
-        .canonicalize()
-        .unwrap()
+    test_support::repo::stdlib().canonicalize().unwrap()
 }
 
 fn jai_files(dir: &Path, out: &mut Vec<PathBuf>) {

@@ -48,7 +48,7 @@ pub(crate) struct TestProcedure {
 
 impl TestProcedure {
     /// `procedure` as a test, when it has the `@test` note (a `@bench` is not run by `jacket test`).
-    pub fn of(procedure: &Procedure<'_>) -> Option<Self> {
+    pub(crate) fn of(procedure: &Procedure<'_>) -> Option<Self> {
         let notes = || {
             procedure
                 .header

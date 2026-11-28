@@ -4,13 +4,13 @@ use std::path::{Path, PathBuf};
 
 use jai_language_server::{DocumentUri, Environment};
 
-pub struct FileInput {
+pub(crate) struct FileInput {
     pub setup: Vec<(DocumentUri, String)>,
     pub docs: Vec<(DocumentUri, String)>,
 }
 
 /// The environment `jailsp` itself runs with: modules next to the main file, then `stdlib`.
-pub fn native_environment(stdlib: PathBuf) -> Environment {
+pub(crate) fn native_environment(stdlib: PathBuf) -> Environment {
     Environment {
         services: None,
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
@@ -60,7 +60,7 @@ fn sibling_files(path: &Path, text: &str) -> Vec<PathBuf> {
 }
 
 /// `None` when the file cannot be read as UTF-8.
-pub fn read_file_input(path: &Path) -> Option<FileInput> {
+pub(crate) fn read_file_input(path: &Path) -> Option<FileInput> {
     let path = path.canonicalize().ok()?;
     let text = std::fs::read_to_string(&path).ok()?;
     let uri = |p: &Path| DocumentUri::from_path(p).ok();

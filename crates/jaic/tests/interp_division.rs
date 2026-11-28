@@ -1,11 +1,11 @@
 //! Integer division and remainder as the interpreter runs them: signed and unsigned at every
 //! width, `MIN / -1`, truncation toward zero, and division by zero.
-use std::{path::PathBuf, rc::Rc};
+use std::rc::Rc;
 
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 
 fn compile(source: &str) -> Result<(), String> {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];

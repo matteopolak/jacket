@@ -8,7 +8,7 @@ use jacket_config::Config;
 use jacket_config::schema::Target as Table;
 
 /// Where the boards live in the standard library.
-pub const BOARDS: &str = "Extensions/Embedded/Boards";
+pub(crate) const BOARDS: &str = "Extensions/Embedded/Boards";
 
 /// The source of each board module of the standard library, which says the triple it builds for
 /// (`triple`) and the command that runs its programs (`runner`) as string constants. A test
@@ -61,7 +61,7 @@ fn string_constant<'a>(source: &'a str, name: &str) -> Option<&'a str> {
 
 /// A target `--target` can name.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Target {
+pub(crate) struct Target {
     pub name: String,
     /// Written in the project's `jacket.toml` rather than built in.
     pub project: bool,
@@ -89,7 +89,7 @@ impl Target {
     }
 
     /// The triple this target builds for: its own, else its board's.
-    pub fn effective_triple(&self) -> Option<&str> {
+    pub(crate) fn effective_triple(&self) -> Option<&str> {
         self.triple.as_deref().or_else(|| {
             let board = self.board.as_deref()?;
 
@@ -139,7 +139,7 @@ impl Target {
 
     /// This target with `{sysroot}` in its runner filled in. Only running needs the sysroot, so
     /// a build never looks for one.
-    pub fn with_sysroot(mut self) -> Result<Self, String> {
+    pub(crate) fn with_sysroot(mut self) -> Result<Self, String> {
         if let Some(runner) = self.runner.take() {
             self.runner = Some(crate::toolchain::fill_sysroot(&runner, &self)?);
         }
@@ -150,7 +150,7 @@ impl Target {
     /// The command that runs `exe`: the runner's words with `{exe}` filled in, or `exe` added
     /// last when the runner does not say where it goes, and `{args}` (arguments for the tests)
     /// empty.
-    pub fn command(&self, exe: &Path) -> Option<Vec<OsString>> {
+    pub(crate) fn command(&self, exe: &Path) -> Option<Vec<OsString>> {
         let runner = self.runner.as_deref()?;
         let exe = exe.to_string_lossy();
         let mut words: Vec<OsString> = runner
@@ -174,7 +174,7 @@ impl Target {
 }
 
 /// Every target: the project's tables, then the built-in boards they do not replace.
-pub fn all(config: Option<&Config>) -> Vec<Target> {
+pub(crate) fn all(config: Option<&Config>) -> Vec<Target> {
     let mut targets: Vec<Target> = config
         .into_iter()
         .flat_map(|config| &config.target)
@@ -199,14 +199,14 @@ pub fn all(config: Option<&Config>) -> Vec<Target> {
 
 /// `args` with `--target NAME` replaced by what the target stands for, and the target.
 #[derive(Debug)]
-pub struct Expansion {
+pub(crate) struct Expansion {
     pub args: Vec<OsString>,
     pub target: Option<Target>,
 }
 
 /// Resolves the `--target`/`-target` of jaic's `args`. A name `jacket toolchain` lists is
 /// expanded; a triple is left for jaic; anything else is an error naming the nearest target.
-pub fn expand(args: &[OsString], config: Option<&Config>) -> Result<Expansion, String> {
+pub(crate) fn expand(args: &[OsString], config: Option<&Config>) -> Result<Expansion, String> {
     let region_end = args
         .iter()
         .position(|a| a == "-" || a == "--")
@@ -294,7 +294,7 @@ pub fn expand(args: &[OsString], config: Option<&Config>) -> Result<Expansion, S
 /// (`{exe}` and `{args}` stand for the program and the test arguments, see
 /// `test::build::program_and_args`). A board's plugin gets the option `tests`, which exports the
 /// reset function that runs the tests.
-pub fn for_tests(
+pub(crate) fn for_tests(
     name: &str,
     config: Option<&Config>,
 ) -> Result<(Vec<String>, Option<String>), String> {
@@ -322,7 +322,7 @@ fn os_args<const N: usize>(words: [&str; N]) -> Vec<OsString> {
 
 /// The target `name` names: a `[target.NAME]` table, a built-in board, or an LLVM triple jaic
 /// can build for. Anything else is an error listing the known targets.
-pub fn named(name: &str, config: Option<&Config>) -> Result<Target, String> {
+pub(crate) fn named(name: &str, config: Option<&Config>) -> Result<Target, String> {
     let targets = all(config);
 
     if let Some(target) = targets.iter().find(|t| t.name == name) {
@@ -580,9 +580,7 @@ mod tests {
 
     #[test]
     fn the_built_in_boards_are_the_ones_in_the_library() {
-        let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../stdlib")
-            .join(BOARDS);
+        let dir = test_support::repo::stdlib().join(BOARDS);
         let mut library: Vec<String> = std::fs::read_dir(dir)
             .unwrap()
             .filter_map(Result::ok)

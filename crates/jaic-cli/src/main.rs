@@ -60,7 +60,7 @@ mod timings {
         allocated: Tally,
     }
 
-    pub fn enable() {
+    pub(crate) fn enable() {
         ENABLED.store(true, Ordering::Relaxed);
         jaic::memory_limit::count_allocations(true);
     }
@@ -79,7 +79,7 @@ mod timings {
     }
 
     /// Run `f`, adding its wall time to `phase`, and show `phase` on the build status line.
-    pub fn time<T>(phase: &'static str, f: impl FnOnce() -> T) -> T {
+    pub(crate) fn time<T>(phase: &'static str, f: impl FnOnce() -> T) -> T {
         let _shown = progress_phase(phase).map(jaic::progress::enter);
 
         if !ENABLED.load(Ordering::Relaxed) {
@@ -113,7 +113,7 @@ mod timings {
     /// then `interp`: the time compile-time code ran, which overlaps `front end`. Then one
     /// `jaic-alloc: <phase> <allocations> <bytes>` line per phase: the blocks Rust code
     /// requested during it (phases nest, so `total` holds the others).
-    pub fn report() {
+    pub(crate) fn report() {
         if !ENABLED.load(Ordering::Relaxed) {
             return;
         }
@@ -508,7 +508,7 @@ mod tests {
 
     #[test]
     fn no_check_bindings_reaches_only_the_standard_librarys_check() {
-        let stdlib = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+        let stdlib = test_support::repo::stdlib();
         let own = std::env::temp_dir().join(format!("jaic-check-{}", std::process::id()));
 
         std::fs::create_dir_all(own.join("modules/Check")).unwrap();

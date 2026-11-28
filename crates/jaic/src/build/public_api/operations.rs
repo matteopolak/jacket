@@ -31,15 +31,15 @@ pub(super) struct Call<'a> {
 }
 
 impl Call<'_> {
-    pub fn arg(&self, index: usize) -> u64 {
+    pub(super) fn arg(&self, index: usize) -> u64 {
         self.args[index + usize::from(self.binding.context)]
     }
 
-    pub fn schema(&self) -> &Schema {
+    pub(super) fn schema(&self) -> &Schema {
         &self.binding.schema
     }
 
-    pub fn result(&self, index: usize) -> Result<(u64, TypeId), Trap> {
+    pub(super) fn result(&self, index: usize) -> Result<(u64, TypeId), Trap> {
         let Some(&(ty, memory)) = self.binding.returns.get(index) else {
             return Err(Trap::new("compiler operation result signature mismatch"));
         };
@@ -57,7 +57,7 @@ impl Call<'_> {
         Ok((self.args[offset], ty))
     }
 
-    pub fn workspace(&self, index: usize) -> Result<i64, Trap> {
+    pub(super) fn workspace(&self, index: usize) -> Result<i64, Trap> {
         let id = self.arg(index) as i64;
         let id = if id == -1 || id == 0 {
             self.shared.borrow().current_id()
@@ -70,16 +70,21 @@ impl Call<'_> {
     }
 
     /// The engine's registry.
-    pub fn registry(&self) -> std::cell::RefMut<'_, Workspaces> {
+    pub(super) fn registry(&self) -> std::cell::RefMut<'_, Workspaces> {
         self.shared.borrow_mut()
     }
 
     /// The `string` argument `index`.
-    pub fn string(&self, interp: &Interp, index: usize) -> Result<String, Trap> {
+    pub(super) fn string(&self, interp: &Interp, index: usize) -> Result<String, Trap> {
         string(interp, self.arg(index))
     }
 
-    pub fn field(&self, record: TypeId, address: u64, path: &str) -> Result<(u64, TypeId), Trap> {
+    pub(super) fn field(
+        &self,
+        record: TypeId,
+        address: u64,
+        path: &str,
+    ) -> Result<(u64, TypeId), Trap> {
         let mut at = address;
         let mut ty = record;
 
@@ -93,7 +98,7 @@ impl Call<'_> {
         Ok((at, ty))
     }
 
-    pub fn number(
+    pub(super) fn number(
         &self,
         interp: &Interp,
         record: TypeId,
@@ -104,7 +109,7 @@ impl Call<'_> {
         self.schema().read_number(interp, ty, at)
     }
 
-    pub fn set_number(
+    pub(super) fn set_number(
         &self,
         interp: &mut Interp,
         record: TypeId,
@@ -116,7 +121,7 @@ impl Call<'_> {
         self.schema().write_number(interp, ty, at, value)
     }
 
-    pub fn text(
+    pub(super) fn text(
         &self,
         interp: &Interp,
         record: TypeId,
@@ -126,7 +131,7 @@ impl Call<'_> {
         string(interp, self.field(record, address, path)?.0)
     }
 
-    pub fn location_path(
+    pub(super) fn location_path(
         &self,
         interp: &Interp,
         index: usize,

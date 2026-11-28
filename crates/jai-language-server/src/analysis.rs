@@ -25,7 +25,7 @@ pub(crate) struct Span {
 }
 
 impl Span {
-    pub fn new(start: usize, end: usize) -> Self {
+    pub(crate) fn new(start: usize, end: usize) -> Self {
         Self {
             start,
             end,
@@ -52,7 +52,7 @@ pub(crate) struct Token {
 }
 
 impl Token {
-    pub fn spelling<'a>(&self, text: &'a str) -> &'a str {
+    pub(crate) fn spelling<'a>(&self, text: &'a str) -> &'a str {
         &text[self.span.start..self.span.end]
     }
 }
@@ -165,7 +165,7 @@ pub(crate) fn editor_tokens(tokens: &[jaic::lexer::Token]) -> Vec<Token> {
 }
 
 impl Analysis {
-    pub fn build(text: &str, uri: &DocumentUri, limits: Limits) -> Self {
+    pub(crate) fn build(text: &str, uri: &DocumentUri, limits: Limits) -> Self {
         let index = LineIndex::new(text);
         let mut result = Self {
             tokens: vec![],
@@ -330,7 +330,7 @@ impl Analysis {
         }
     }
 
-    pub fn diagnostic(
+    pub(crate) fn diagnostic(
         &mut self,
         index: &LineIndex,
         text: &str,

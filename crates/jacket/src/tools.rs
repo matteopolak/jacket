@@ -5,27 +5,27 @@ use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
-pub const JAIC: &str = "jaic";
-pub const JAILINT: &str = "jailint";
-pub const JAILSP: &str = "jailsp";
-pub const JAIFMT: &str = "jaifmt";
-pub const ALL: [&str; 4] = [JAIC, JAILINT, JAILSP, JAIFMT];
+pub(crate) const JAIC: &str = "jaic";
+pub(crate) const JAILINT: &str = "jailint";
+pub(crate) const JAILSP: &str = "jailsp";
+pub(crate) const JAIFMT: &str = "jaifmt";
+pub(crate) const ALL: [&str; 4] = [JAIC, JAILINT, JAILSP, JAIFMT];
 
 /// The file to start for `tool`: next to this executable, else the first match on `PATH`. When
 /// there is none, the error says that `command` needs it.
-pub fn locate(tool: &str, command: &str) -> Result<PathBuf, String> {
+pub(crate) fn locate(tool: &str, command: &str) -> Result<PathBuf, String> {
     jacket_config::tools::locate(tool).ok_or_else(|| not_installed(tool, command))
 }
 
 /// The error for `tool` missing when `command` needs it.
-pub fn not_installed(tool: &str, command: &str) -> String {
+pub(crate) fn not_installed(tool: &str, command: &str) -> String {
     format!(
         "`{tool}` is not installed, and `{command}` needs it\nnote: jacket looks next to its own executable, then on PATH; install a release with install.sh or install.ps1 (docs/tools/releases.md), or put `{tool}` on PATH"
     )
 }
 
 /// [`locate`], printing why it failed.
-pub fn require(tool: &str, command: &str) -> Option<PathBuf> {
+pub(crate) fn require(tool: &str, command: &str) -> Option<PathBuf> {
     match locate(tool, command) {
         Ok(path) => Some(path),
         Err(message) => {
@@ -46,12 +46,16 @@ fn missing(program: &OsStr, error: &std::io::Error) -> ExitCode {
 
 /// Replaces this process with `program` (on Windows: starts it and waits), passing its exit
 /// code on.
-pub fn exec(program: &OsStr, args: &[OsString]) -> ExitCode {
+pub(crate) fn exec(program: &OsStr, args: &[OsString]) -> ExitCode {
     exec_with_env(program, args, &[])
 }
 
 /// `exec` with `env` added to the environment.
-pub fn exec_with_env(program: &OsStr, args: &[OsString], env: &[(&str, OsString)]) -> ExitCode {
+pub(crate) fn exec_with_env(
+    program: &OsStr,
+    args: &[OsString],
+    env: &[(&str, OsString)],
+) -> ExitCode {
     let mut command = Command::new(program);
 
     command.args(args).envs(env.iter().map(|(k, v)| (k, v)));
@@ -77,7 +81,11 @@ fn run(program: &OsStr, args: &[OsString], env: &[(&str, OsString)]) -> ExitCode
 }
 
 /// Runs `program` to the end with `env` added to its environment; its exit status, clamped to a byte.
-pub fn status(program: &OsStr, args: &[OsString], env: &[(&str, OsString)]) -> std::io::Result<u8> {
+pub(crate) fn status(
+    program: &OsStr,
+    args: &[OsString],
+    env: &[(&str, OsString)],
+) -> std::io::Result<u8> {
     let status = Command::new(program)
         .args(args)
         .envs(env.iter().map(|(k, v)| (k, v)))
@@ -86,7 +94,7 @@ pub fn status(program: &OsStr, args: &[OsString], env: &[(&str, OsString)]) -> s
 }
 
 /// Starts `jacket-<name>` from `PATH`, like `cargo foo` starts `cargo-foo`.
-pub fn external(name: &OsStr, args: &[OsString]) -> ExitCode {
+pub(crate) fn external(name: &OsStr, args: &[OsString]) -> ExitCode {
     let mut program = OsString::from("jacket-");
 
     program.push(name);

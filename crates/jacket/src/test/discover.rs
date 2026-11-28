@@ -17,7 +17,7 @@ use jacket_config::test_roots::{ignored, names_root};
 use jacket_config::{PathPattern, relative_text};
 
 #[derive(Debug)]
-pub struct Root {
+pub(super) struct Root {
     pub dir: PathBuf,
     /// The name tests of this root are prefixed with when several roots run (`Bit_Array`).
     pub label: String,
@@ -38,7 +38,7 @@ pub struct Root {
 
 /// The folders among jaic `flags` that `-import_dir` and `-I` name, as they are on disk. What
 /// counts as an option is the compiler's: see `jaic_cli_args::arguments::import_dirs`.
-pub fn import_folders(flags: &[String]) -> Vec<PathBuf> {
+pub(super) fn import_folders(flags: &[String]) -> Vec<PathBuf> {
     jaic_cli_args::arguments::import_dirs(flags)
         .iter()
         .map(|dir| super::watch::canonical(dir))
@@ -114,7 +114,7 @@ fn holds_bench(source: &Path) -> bool {
 
 /// Whether `source` has an expected-output file beside it, or says in its header what the
 /// diagnostics contain (`compile_fail("text")`), which needs none.
-pub fn is_golden(source: &Path) -> bool {
+pub(super) fn is_golden(source: &Path) -> bool {
     jaic::test_notes::EXPECTED_OUTPUT
         .iter()
         .any(|e| source.with_extension(e).is_file())
@@ -141,7 +141,7 @@ fn apply_module_notes(dir: &Path, docs: &mut [super::doctest::Block]) {
 
 impl Root {
     /// `seen` holds the files earlier roots read doc tests from; a file is read for one root.
-    pub fn read(
+    pub(super) fn read(
         dir: PathBuf,
         stdlib: &Path,
         jaic: &Path,
@@ -198,7 +198,7 @@ impl Root {
         })
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub(super) fn is_empty(&self) -> bool {
         self.unit.is_empty()
             && self.golden.is_empty()
             && self.compile_fail.is_empty()
@@ -217,7 +217,7 @@ fn is_test_root(dir: &Path) -> bool {
 /// A plain path is that folder. A pattern is every test root it matches exactly, found below
 /// its plain leading folders. The walk skips hidden entries, `tests/` folders, and folders
 /// `ignore` matches (paths relative to `project`).
-pub fn expand(
+pub(super) fn expand(
     patterns: &[String],
     project: &Path,
     ignore: &[PathPattern],
@@ -273,7 +273,7 @@ fn enclosing_root(cwd: &Path, project: &Path) -> Option<PathBuf> {
 /// The roots to test: `explicit` folders if any, else `[test] paths` (narrowed to those `cwd` is
 /// in, when it is in some), else the folder below `project` that `cwd` is in and that has tests
 /// of its own, else all of `[test] paths`, else `project`.
-pub fn roots(
+pub(super) fn roots(
     explicit: &[PathBuf],
     configured: &[PathBuf],
     project: &Path,

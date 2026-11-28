@@ -18,7 +18,7 @@ const MAX_AGE: Duration = Duration::from_hours(30 * 24);
 
 /// The program a list is for.
 #[derive(Clone, Copy, Debug)]
-pub enum Program<'a> {
+pub(crate) enum Program<'a> {
     /// A file of the project, named by its absolute path.
     File(&'a Path),
     /// A program jacket generated into a folder that changes from run to run (a root's unit
@@ -28,7 +28,7 @@ pub enum Program<'a> {
 
 /// Where the lists are kept.
 #[derive(Debug)]
-pub struct Store {
+pub(crate) struct Store {
     dir: PathBuf,
     /// The compiler's identity: its bytes, hashed.
     compiler: String,
@@ -47,7 +47,7 @@ impl Store {
     /// The store `jacket test` uses: `JACKET_TEST_DEPS_DIR`, else `jacket/test-deps` in the user
     /// cache folder. With neither it is an error: every run records what its programs read, so
     /// a later `--changed` can use it.
-    pub fn open(jaic: &Path) -> Result<Self, String> {
+    pub(crate) fn open(jaic: &Path) -> Result<Self, String> {
         let variable = jacket_config::env::TEST_DEPS_DIR.name;
         let dir = match jacket_config::env::TEST_DEPS_DIR
             .os()
@@ -68,13 +68,13 @@ impl Store {
     }
 
     /// [`Store::open`], shared between the threads that run tests.
-    pub fn open_shared(jaic: &Path) -> Result<std::sync::Arc<Self>, String> {
+    pub(crate) fn open_shared(jaic: &Path) -> Result<std::sync::Arc<Self>, String> {
         Self::open(jaic).map(std::sync::Arc::new)
     }
 
     /// The store in `dir`, which must be a folder `jacket test` can write: the compiler writes
     /// its lists there, and a failure would otherwise surface as a failed compile of a test.
-    pub fn open_in(dir: PathBuf, jaic: &Path) -> Result<Self, String> {
+    pub(crate) fn open_in(dir: PathBuf, jaic: &Path) -> Result<Self, String> {
         crate::prerequisite::writable_dir(
             &dir,
             "the folder of recorded test inputs",
@@ -124,7 +124,7 @@ impl Store {
 
     /// The store in `dir`, for the lists `jaic` writes. The compiler is read once, here: one that
     /// cannot be read has no identity to name entries by.
-    pub fn at(dir: PathBuf, jaic: &Path) -> Result<Self, String> {
+    pub(crate) fn at(dir: PathBuf, jaic: &Path) -> Result<Self, String> {
         // A compiler that changes may read other files, and a rebuild that changes nothing
         // keeps its entries (a cached folder stays useful in CI).
         let compiler = checksum::sha256_file(jaic).map_err(|error| {
@@ -144,7 +144,7 @@ impl Store {
     /// the flags that decide what is read, the root's flags, and whether the Discovery plugin runs.
     /// The mode (build, `-interp`, `-check`) is not an input: it does not change what is read, so
     /// a list recorded by any of them answers a query.
-    pub fn entry(
+    pub(crate) fn entry(
         &self,
         program: Program,
         stdlib: &Path,
@@ -188,7 +188,7 @@ impl Store {
 
     /// Makes `entry` ready for a compile that writes it: the folder exists and no list from an
     /// earlier compile is left, so a compile that fails leaves none.
-    pub fn prepare(&self, entry: &Path) -> Result<(), String> {
+    pub(crate) fn prepare(&self, entry: &Path) -> Result<(), String> {
         std::fs::create_dir_all(&self.dir).map_err(|error| store_error(&self.dir, &error))?;
         remove(entry)
     }
@@ -197,7 +197,7 @@ impl Store {
 #[cfg(test)]
 impl Store {
     /// A store of its own in a scratch folder, for a test's toolchain.
-    pub fn scratch() -> std::sync::Arc<Self> {
+    pub(crate) fn scratch() -> std::sync::Arc<Self> {
         static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let dir =
@@ -224,7 +224,7 @@ fn remove(path: &Path) -> Result<(), String> {
 /// The files listed in `entry`, or `None` when there is no such list. Reading counts as use: the
 /// entry's time moves to now, so pruning keeps the lists a run still asks for. An entry that
 /// cannot be opened for writing is read without that, and is never pruned ([`Store::prune`]).
-pub fn read(entry: &Path) -> Result<Option<Vec<String>>, String> {
+pub(super) fn read(entry: &Path) -> Result<Option<Vec<String>>, String> {
     let text = match std::fs::read_to_string(entry) {
         Ok(text) => text,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),

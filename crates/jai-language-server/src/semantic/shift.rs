@@ -9,7 +9,7 @@
 /// new: aaaX\nbbb\ncc!c\n   still has a place in `new`: to_new(4) == Some(5)
 /// ```
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Shift {
+pub(crate) struct Shift {
     hunks: Vec<Hunk>,
 }
 
@@ -41,7 +41,7 @@ const MAX_LINE_EDITS: usize = 64;
 
 impl Shift {
     /// The text is as it was.
-    pub const fn none() -> Self {
+    pub(crate) const fn none() -> Self {
         Self {
             hunks: Vec::new(),
         }
@@ -50,7 +50,7 @@ impl Shift {
     /// The edited stretches between `old` and `new`: the common prefix and suffix, and between
     /// them the lines both share (so two separate edits keep what lies between them), each
     /// remaining stretch narrowed to the bytes that differ.
-    pub fn between(old: &[u8], new: &[u8]) -> Self {
+    pub(crate) fn between(old: &[u8], new: &[u8]) -> Self {
         if old == new {
             return Self::none();
         }
@@ -72,17 +72,17 @@ impl Shift {
         }
     }
 
-    pub fn is_none(&self) -> bool {
+    pub(crate) fn is_none(&self) -> bool {
         self.hunks.is_empty()
     }
 
     /// Where `new` (an offset in the current text) was in the old one, `None` inside an edit.
-    pub fn to_old(&self, new: usize) -> Option<usize> {
+    pub(crate) fn to_old(&self, new: usize) -> Option<usize> {
         self.locate_old(new).ok()
     }
 
     /// Like `to_old`, an offset inside an edit becoming the start of it.
-    pub fn to_old_or_edit(&self, new: usize) -> usize {
+    pub(crate) fn to_old_or_edit(&self, new: usize) -> usize {
         self.locate_old(new).unwrap_or_else(|edit| edit)
     }
 
@@ -108,7 +108,7 @@ impl Shift {
 
     /// Where `old` (an offset in the old text) is now, `None` inside what was edited away.
     /// What starts where text was inserted moves with it.
-    pub fn to_new(&self, old: usize) -> Option<usize> {
+    pub(crate) fn to_new(&self, old: usize) -> Option<usize> {
         let mut growth = 0isize;
 
         for h in &self.hunks {
@@ -128,17 +128,17 @@ impl Shift {
 
     /// Move a complete unchanged span. Its end stays before an insertion at that boundary;
     /// its start follows an insertion before the span. Spans crossing an edit are omitted.
-    pub fn to_new_range(&self, start: usize, end: usize) -> Option<(usize, usize)> {
+    pub(crate) fn to_new_range(&self, start: usize, end: usize) -> Option<(usize, usize)> {
         move_range(self.hunks.iter().copied(), start, end)
     }
 
     /// The unchanged current span's coordinates in the checked text.
-    pub fn to_old_range(&self, start: usize, end: usize) -> Option<(usize, usize)> {
+    pub(crate) fn to_old_range(&self, start: usize, end: usize) -> Option<(usize, usize)> {
         move_range(self.hunks.iter().map(|h| h.flipped()), start, end)
     }
 
     /// Like `to_new`, an offset inside an edit staying where it is.
-    pub fn to_new_or_same(&self, old: usize) -> usize {
+    pub(crate) fn to_new_or_same(&self, old: usize) -> usize {
         self.to_new(old).unwrap_or(old)
     }
 }

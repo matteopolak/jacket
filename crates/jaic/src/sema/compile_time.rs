@@ -9,10 +9,10 @@ use crate::sema::{Compiler, ScopeId};
 
 /// The bytes a build's `#Context` may grow to (`context_size_max`'s default). The compile-time
 /// context is allocated this large, so an `#add_context` met while it is in use fits in place.
-pub const CONTEXT_CAPACITY: u64 = 4096;
+pub(super) const CONTEXT_CAPACITY: u64 = 4096;
 
 /// A top-level `#assert`: condition, message, extra arguments, and the scope it is checked in.
-pub type TopLevelAssert = (ast::Expr, Option<ast::Expr>, Vec<ast::Expr>, ScopeId);
+pub(super) type TopLevelAssert = (ast::Expr, Option<ast::Expr>, Vec<ast::Expr>, ScopeId);
 
 pub struct CompileTime {
     pub interp: Probed<Interp, { W::CtInterp as usize }>,

@@ -22,19 +22,6 @@ use crate::ast::ImportSource;
 use crate::lexer::{P, Tok, Token};
 use crate::paths::normalize;
 
-/// The nearest folder at or above `start` (a folder) holding a file called `name`, by
-/// `is_file`. An editor passes a test that counts unsaved buffers.
-pub fn find_config_dir(
-    start: &Path,
-    name: &str,
-    is_file: impl Fn(&Path) -> bool,
-) -> Option<PathBuf> {
-    start
-        .ancestors()
-        .find(|dir| is_file(&dir.join(name)))
-        .map(Path::to_path_buf)
-}
-
 /// The base folder of the project holding `file`: where the nearest `jacket.toml` is, else the
 /// innermost of the workspace `folders` that holds `file`.
 pub fn project_base(
@@ -941,21 +928,6 @@ fn climb(loaders: &BTreeMap<PathBuf, Vec<PathBuf>>, file: &Path) -> PathBuf {
     }
 
     root
-}
-
-/// The file a fragment is analysed from: `file`, then whoever `#load`s it, and whoever loads
-/// that, until a file nothing loads. Loaders are looked for among the files under `folder`.
-/// Where several files load one, the `module.jai` goes first, then the shallowest path, then
-/// the first by name, so the same file always gets the same owner.
-pub fn climb_loaders(fs: &dyn ProjectFs, file: &Path, folder: Option<&Path>) -> PathBuf {
-    let loaders = gather_loaders(
-        fs,
-        file,
-        &LoaderSearch::Tree {
-            folder: folder.map(Path::to_path_buf),
-        },
-    );
-    climb(&loaders, file)
 }
 
 // Tests

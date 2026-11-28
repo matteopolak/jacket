@@ -32,7 +32,7 @@ pub enum ProgramSource {
 
 /// How many functions, globals and foreign symbols the program had at one point.
 #[derive(Clone, Copy, Debug)]
-pub struct ProgramMark {
+pub(super) struct ProgramMark {
     funcs: usize,
     globals: usize,
     foreigns: usize,

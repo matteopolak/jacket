@@ -5,14 +5,14 @@
 use jaic::ast::ImportSource;
 use jaic::ide::IdeCall;
 use jaic::lexer::{P, Tok, Token};
-pub use jaic::parser::ide_facts::Visibility;
+pub(crate) use jaic::parser::ide_facts::Visibility;
 use jaic::parser::ide_facts::{self, DeclClass, TopLevel, TopLevelKind};
 use jaic::source::FileId;
 
 use crate::model::CompletionKind;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Decl {
+pub(crate) struct Decl {
     pub name: String,
     /// `name` in lower case, for case-insensitive prefix matching.
     pub lower: String,
@@ -30,7 +30,7 @@ pub struct Decl {
 
 /// A top-level `#import "Name"` (bound to `name` for `Name :: #import`), or `#load`.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Directive {
+pub(crate) struct Directive {
     pub path: String,
     pub name: Option<String>,
     /// Byte offset just past the statement (its `;`, else its string).
@@ -45,14 +45,14 @@ pub struct Directive {
 
 /// Which of an imported module's names a `using` import passes on.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Reexport {
+pub(crate) enum Reexport {
     All,
     Only(Vec<String>),
     Except(Vec<String>),
 }
 
 impl Reexport {
-    pub fn allows(&self, name: &str) -> bool {
+    pub(crate) fn allows(&self, name: &str) -> bool {
         match self {
             Reexport::All => true,
             Reexport::Only(names) => names.iter().any(|n| n == name),
@@ -80,7 +80,7 @@ impl Reexport {
 
 /// A top-level name and where it is declared, whatever its visibility (workspace symbols).
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Symbol {
+pub(crate) struct Symbol {
     pub name: String,
     pub kind: CompletionKind,
     /// Byte offset of the name.
@@ -88,7 +88,7 @@ pub struct Symbol {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct FileScan {
+pub(crate) struct FileScan {
     /// A hash of the scanned text (`auto_import::hash`): offsets below apply to text with this hash.
     pub text_hash: u64,
     /// Every top-level declaration, `#scope_file` ones included.
@@ -127,7 +127,7 @@ const SIGNATURE_BYTES: usize = 200;
 /// The most comment lines kept as a declaration's documentation.
 const DOC_LINES: usize = 40;
 
-pub fn scan(text: &str) -> FileScan {
+pub(crate) fn scan(text: &str) -> FileScan {
     let parsed = jaic::parser::parse_file_ide(FileId(0), text);
     let tokens = &parsed.tokens;
     let docs = crate::docs::Docs::new(text);

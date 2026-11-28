@@ -723,7 +723,7 @@ impl Compiler {
     }
 }
 
-pub fn binop_text(op: ast::BinOp) -> &'static str {
+pub(crate) fn binop_text(op: ast::BinOp) -> &'static str {
     use ast::BinOp::{
         Add, And, BitAnd, BitOr, BitXor, Div, Eq, Ge, Gt, Le, Lt, Mul, Ne, Or, Rem, Rotl, Rotr,
         Shl, Shr, Sub,

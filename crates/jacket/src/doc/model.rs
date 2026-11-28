@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 
 #[derive(Clone, Debug, Default)]
-pub struct Param {
+pub(super) struct Param {
     pub name: String,
     pub ty: String,
     pub default: String,
@@ -16,7 +16,7 @@ pub struct Param {
 /// A name written in a type, and where the compiler found its declaration: the file below
 /// `stdlib` and the line, as an item records them.
 #[derive(Clone, Debug, Default)]
-pub struct TypeRef {
+pub(super) struct TypeRef {
     /// `Table` or `Hash.Table`, as written.
     pub path: String,
     pub file: String,
@@ -25,7 +25,7 @@ pub struct TypeRef {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct Overload {
+pub(super) struct Overload {
     /// Below the standard library folder: `internal/string/bytes.jai`.
     pub file: String,
     pub line: usize,
@@ -38,7 +38,7 @@ pub struct Overload {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct Member {
+pub(super) struct Member {
     pub name: String,
     pub ty: String,
     pub doc: String,
@@ -50,13 +50,13 @@ pub struct Member {
 impl Item {
     /// For each member, the line of `declaration` that declares it, as `jaic -doc_model` counted
     /// it (`None` when it has no line there). Members on one line (`a, b: int;`) share it.
-    pub fn member_lines(&self) -> Vec<Option<usize>> {
+    pub(super) fn member_lines(&self) -> Vec<Option<usize>> {
         self.members.iter().map(|m| m.line).collect()
     }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum Kind {
+pub(super) enum Kind {
     #[default]
     Procedure,
     Struct,
@@ -80,7 +80,7 @@ impl Kind {
         }
     }
 
-    pub fn label(self) -> &'static str {
+    pub(super) fn label(self) -> &'static str {
         match self {
             Kind::Procedure => "procedure",
             Kind::Struct => "struct",
@@ -93,7 +93,7 @@ impl Kind {
     }
 
     /// Whether other signatures can link to it as a type.
-    pub fn is_type(self) -> bool {
+    pub(super) fn is_type(self) -> bool {
         matches!(
             self,
             Kind::Struct | Kind::Union | Kind::Enum | Kind::EnumFlags | Kind::Type
@@ -102,7 +102,7 @@ impl Kind {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct Item {
+pub(super) struct Item {
     pub name: String,
     pub kind: Kind,
     pub file: String,
@@ -142,7 +142,7 @@ pub struct Item {
 
 /// A parameter of a module (`#module_parameters`).
 #[derive(Clone, Debug, Default)]
-pub struct Parameter {
+pub(super) struct Parameter {
     pub name: String,
     pub ty: String,
     pub default: String,
@@ -152,7 +152,7 @@ pub struct Parameter {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct Module {
+pub(super) struct Module {
     /// `String`, `Extensions/Http`: the page's place below the documented folder. Documenting
     /// `stdlib/Extensions/Http` alone makes it `Http`.
     pub id: String,
@@ -196,7 +196,7 @@ pub struct Module {
 
 impl Module {
     /// What `jaidoc:` links call the module.
-    pub fn key(&self) -> &str {
+    pub(super) fn key(&self) -> &str {
         if self.doc_key.is_empty() {
             &self.id
         } else {
@@ -206,7 +206,7 @@ impl Module {
 
     /// The path an example's `#import` names: `Extensions/Http`, also when only that folder is
     /// documented.
-    pub fn import_name(&self) -> &str {
+    pub(super) fn import_name(&self) -> &str {
         if self.import_path.is_empty() {
             &self.id
         } else {
@@ -215,13 +215,13 @@ impl Module {
     }
 
     /// `Http` for `Extensions/Http`.
-    pub fn title(&self) -> &str {
+    pub(super) fn title(&self) -> &str {
         self.id.rsplit('/').next().unwrap_or(&self.id)
     }
 
     /// The systems it is for, in the order the badges show them: the targets it asserts, else
     /// the three desktop ones, and `wasm` when it builds there.
-    pub fn systems(&self) -> Vec<&'static str> {
+    pub(super) fn systems(&self) -> Vec<&'static str> {
         let mut out: Vec<&'static str> = if self.platforms.is_empty() {
             vec!["macOS", "Linux", "Windows"]
         } else {
@@ -245,7 +245,7 @@ impl Module {
     /// Every system a module page lists, with how well this module runs there: the desktop
     /// systems and Wasm always, Android and iOS when the module names them. A system is partial
     /// when some items are missing on it; the count is how many.
-    pub fn support(&self) -> Vec<(&'static str, Support)> {
+    pub(super) fn support(&self) -> Vec<(&'static str, Support)> {
         let ours = self.systems();
 
         SYSTEMS
@@ -277,7 +277,7 @@ impl Module {
 
     /// The systems its module runs on that `item` does not, in badge order. Empty when it runs
     /// everywhere its module does.
-    pub fn item_missing(&self, item: &Item) -> Vec<&'static str> {
+    pub(super) fn item_missing(&self, item: &Item) -> Vec<&'static str> {
         if item.platforms.is_empty() {
             return Vec::new();
         }
@@ -295,7 +295,7 @@ impl Module {
     }
 
     /// The systems an item page lists, the same ones as its module's page, each full or none.
-    pub fn item_support(&self, item: &Item) -> Vec<(&'static str, Support)> {
+    pub(super) fn item_support(&self, item: &Item) -> Vec<(&'static str, Support)> {
         let missing = self.item_missing(item);
 
         self.support()
@@ -308,7 +308,7 @@ impl Module {
             .collect()
     }
 
-    pub fn item(&self, name: &str) -> Option<&Item> {
+    pub(super) fn item(&self, name: &str) -> Option<&Item> {
         self.items.iter().find(|i| i.name == name)
     }
 }
@@ -375,7 +375,7 @@ fn below(stdlib: &Path, file: &str) -> String {
 
 /// The file and line a source link leads to for a declaration at `line` of `file`: the
 /// `#insert` that generated it when `file` names generated text, else the place itself.
-pub fn source_place(file: &str, line: usize) -> (&str, usize) {
+pub(super) fn source_place(file: &str, line: usize) -> (&str, usize) {
     jaic::doc_comments::generated_origin(file).unwrap_or((file, line))
 }
 
@@ -478,7 +478,7 @@ fn item_of(i: &Value, stdlib: &Path) -> Item {
 
 /// The module `id` (a folder below `root`) from what `jaic -doc_model` printed. `stdlib` is the
 /// standard library folder, which names a module for links and imports whatever `root` is.
-pub fn parse(id: &str, json: &str, root: &Path, stdlib: &Path) -> Result<Module, String> {
+pub(super) fn parse(id: &str, json: &str, root: &Path, stdlib: &Path) -> Result<Module, String> {
     let (doc_key, import_path) = identity(id, root, stdlib);
     let v: Value = serde_json::from_str(json).map_err(|e| format!("{id}: {e}"))?;
     let (private, items): (Vec<Flagged>, Vec<Flagged>) = list(&v, "items")
@@ -557,7 +557,7 @@ pub fn parse(id: &str, json: &str, root: &Path, stdlib: &Path) -> Result<Module,
 /// The systems a badge can name, in the order they are shown.
 /// How well a module runs on one system.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Support {
+pub(super) enum Support {
     Full,
     /// Available, but this many items are not.
     Partial(usize),
@@ -567,7 +567,7 @@ pub enum Support {
 const SYSTEMS: [&str; 6] = ["macOS", "Linux", "Windows", "Android", "iOS", "Wasm"];
 
 /// The badge for the compiler's name of a system (`MACOS`).
-pub fn system_name(os: &str) -> Option<&'static str> {
+pub(super) fn system_name(os: &str) -> Option<&'static str> {
     Some(match os {
         "MACOS" => "macOS",
         "LINUX" => "Linux",

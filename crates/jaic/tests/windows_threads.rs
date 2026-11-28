@@ -1,8 +1,7 @@
 mod win32_threads {
     //! Host-independent execution of the interpreter's Win32 scheduler API.
-    use std::rc::Rc;
-
-    use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+    use jaic::sema::ProgramSource;
+    use test_support::compiler::bare_compiler;
 
     #[test]
     fn win32_and_crt_threads_start_gated_resume_and_keep_their_exit_code() {
@@ -37,10 +36,7 @@ mod win32_threads {
                 #assert(check()==0);
             "#
             );
-            let mut options = Options::host();
-
-            options.runtime_support = false;
-            let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+            let mut c = bare_compiler();
 
             if let Err(error) = c.compile_sources(&[ProgramSource::String(source)]) {
                 panic!("{create}: {}", error.render(&c.src.sources));
@@ -69,10 +65,7 @@ mod win32_threads {
             }
             #assert(check()==0);
         "#;
-        let mut options = Options::host();
-
-        options.runtime_support = false;
-        let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+        let mut c = bare_compiler();
 
         if let Err(error) = c.compile_sources(&[ProgramSource::String(source.into())]) {
             panic!("{}", error.render(&c.src.sources));
@@ -81,10 +74,7 @@ mod win32_threads {
 
     #[test]
     fn managed_windows_thread_entry_requires_the_real_callback_abi() {
-        let mut options = Options::host();
-
-        options.runtime_support = false;
-        let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+        let mut c = bare_compiler();
         let source = r"
             CreateThread :: (security:*void, stack_size:u64, entry:*void, data:*void, flags:u32, id:*u32) -> u64 #foreign;
             WaitForSingleObject :: (handle:u64, timeout:u32) -> u32 #foreign;
@@ -112,10 +102,7 @@ mod win32_threads {
             ("null", 65536, 0, "stack sizes"),
             ("null", 0, 0x10, "creation flags"),
         ] {
-            let mut options = Options::host();
-
-            options.runtime_support = false;
-            let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+            let mut compiler = bare_compiler();
             let source = format!(
                 r"
     CreateThread :: (security:*void,stack:u64,entry:*void,argument:*void,flags:u32,id:*u32)->u64 #foreign;

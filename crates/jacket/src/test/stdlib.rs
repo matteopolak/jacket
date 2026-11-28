@@ -114,7 +114,7 @@ mod tests {
             )),
             "{error}"
         );
-        let stdlib = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+        let stdlib = test_support::repo::stdlib();
 
         assert_eq!(
             checked(stdlib.clone(), "-").unwrap(),

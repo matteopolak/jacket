@@ -2,6 +2,7 @@
 use std::rc::Rc;
 
 use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+use test_support::compiler::bare_compiler;
 
 const SOURCE: &str = r#"
     __jaic_runtime_temporary_storage_size :: () -> s64 #intrinsic #no_context;
@@ -50,10 +51,7 @@ fn private_runtime_size_is_real_target_data_with_workspace_isolation() {
 
 #[test]
 fn final_runtime_size_replaces_previously_interpreted_configuration_data() {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let mut c = bare_compiler();
     let source = format!("{SOURCE}\n#assert(configured_size()==32768);");
 
     if let Err(error) = c.begin_sources(&[ProgramSource::String(source)]) {
@@ -93,10 +91,7 @@ fn private_runtime_configuration_preserves_invalid_signature_and_size_diagnostic
         "__jaic_runtime_temporary_storage_size :: () -> u32 #intrinsic; main :: () { __jaic_runtime_temporary_storage_size(); }",
         "__jaic_runtime_temporary_storage_size :: (ignored:int) -> s64 #intrinsic; main :: () { __jaic_runtime_temporary_storage_size(1); }",
     ] {
-        let mut options = Options::host();
-
-        options.runtime_support = false;
-        let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+        let mut c = bare_compiler();
         let error = c
             .compile_sources(&[ProgramSource::String(declaration.into())])
             .expect_err("incorrect private ABI must reject");

@@ -325,11 +325,6 @@ impl Compiler {
         self.lower_reachable_roots(vec![root], Vec::new())
     }
 
-    /// `lower_reachable_from` for what a global's initializer points at.
-    pub fn lower_reachable_from_global(&mut self, root: ir::GlobalId) -> Option<Box<Diagnostic>> {
-        self.lower_reachable_roots(Vec::new(), vec![root.0])
-    }
-
     fn lower_reachable_roots(
         &mut self,
         mut work: Vec<ir::FuncId>,

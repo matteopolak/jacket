@@ -64,7 +64,7 @@ pub(crate) struct Archive {
 
 impl Archive {
     /// Linker symbols are case-sensitive; DLL identities are case-insensitive.
-    pub fn select(&self, symbol: &str) -> Result<Option<&Import>, String> {
+    pub(super) fn select(&self, symbol: &str) -> Result<Option<&Import>, String> {
         let mut selected: Option<&Import> = None;
 
         for import in self.imports.iter().filter(|import| import.symbol == symbol) {

@@ -22,13 +22,13 @@ use std::sync::{Arc, Mutex};
 use super::deps_store::{Program, Store};
 use super::exec::{self, Demux, Invocation, Piece, Started};
 
-pub const PLUGIN: &str = "+Extensions/Testing/Discovery";
+pub(super) const PLUGIN: &str = "+Extensions/Testing/Discovery";
 
 const ENTRY_POINT: &str = "__jacket_test_main";
 
 /// How to compile: the compiler, the flags every compile gets, and how tests run.
 #[derive(Clone, Debug)]
-pub struct Toolchain {
+pub(crate) struct Toolchain {
     pub jaic: PathBuf,
     /// The standard library every jaic run uses (`JAIC_STDLIB`).
     pub stdlib: PathBuf,
@@ -55,7 +55,7 @@ pub struct Toolchain {
 
 impl Toolchain {
     /// A catalogue's compiler view, also used for that catalogue's dependency queries.
-    pub fn for_discovery(&self, listing: Option<Listing>) -> Self {
+    pub(crate) fn for_discovery(&self, listing: Option<Listing>) -> Self {
         let mut toolchain = self.clone();
 
         if listing == Some(Listing::Host) {
@@ -67,7 +67,7 @@ impl Toolchain {
     }
 
     /// What a jaic run is told of its standard library.
-    pub fn jaic_env(&self) -> Vec<(String, String)> {
+    pub(crate) fn jaic_env(&self) -> Vec<(String, String)> {
         vec![(
             jacket_config::env::STDLIB.name.into(),
             self.stdlib.to_string_lossy().into_owned(),
@@ -75,12 +75,17 @@ impl Toolchain {
     }
 
     /// The flags that decide which files a compile reads.
-    pub fn program_flags(&self) -> &[String] {
+    pub(crate) fn program_flags(&self) -> &[String] {
         &self.flags[..self.flags.len() - self.environment_flags]
     }
 
     /// Where the list of files a compile of `program` reads is kept.
-    pub fn deps_entry(&self, program: Program, root_flags: &[String], plugin: bool) -> PathBuf {
+    pub(crate) fn deps_entry(
+        &self,
+        program: Program,
+        root_flags: &[String],
+        plugin: bool,
+    ) -> PathBuf {
         self.deps.entry(
             program,
             &self.stdlib,
@@ -93,7 +98,7 @@ impl Toolchain {
     /// The arguments that make a compile of `program` record the files it reads in the store.
     /// Any list left by an earlier compile goes, so a compile that fails leaves none. Put them
     /// before the plugins, which take the arguments that follow them.
-    pub fn deps_args(
+    pub(crate) fn deps_args(
         &self,
         program: Program,
         root_flags: &[String],
@@ -106,7 +111,7 @@ impl Toolchain {
     }
 
     /// A command that runs this toolchain's jaic with its standard library.
-    pub fn jaic_command(&self) -> Command {
+    pub(crate) fn jaic_command(&self) -> Command {
         let mut command = Command::new(&self.jaic);
 
         command.env(jacket_config::env::STDLIB.name, &self.stdlib);
@@ -121,7 +126,7 @@ impl Toolchain {
 
 /// One `@test` or `@bench` the plugin found.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Entry {
+pub(super) struct Entry {
     pub kind: String,
     pub name: String,
     pub file: PathBuf,
@@ -131,7 +136,7 @@ pub struct Entry {
 
 /// A built unit-test program.
 #[derive(Debug)]
-pub struct Built {
+pub(super) struct Built {
     pub entries: Vec<Entry>,
     /// The executable, or (with `--interp`) the root file `jaic -interp` runs.
     pub program: PathBuf,
@@ -144,7 +149,7 @@ pub struct Built {
 
 /// A test program that is already compiling and waits for its arguments.
 #[derive(Debug)]
-pub struct Warm {
+pub(super) struct Warm {
     process: Option<Started>,
 }
 
@@ -158,7 +163,7 @@ impl Drop for Warm {
 }
 
 /// Flags of a root: its import folder when it is a library.
-pub fn root_flags(dir: &Path, library: bool) -> Vec<String> {
+pub(super) fn root_flags(dir: &Path, library: bool) -> Vec<String> {
     match dir.parent() {
         Some(parent) if library => vec!["-import_dir".into(), path_text(parent)],
         _ => Vec::new(),
@@ -176,7 +181,7 @@ fn literal(path: &Path) -> String {
 }
 
 /// What the plugin printed: the records of standard output, the fields of each (the kind first).
-pub fn records(output: &[u8]) -> Vec<Vec<String>> {
+pub(super) fn records(output: &[u8]) -> Vec<Vec<String>> {
     Demux::default()
         .feed(output)
         .into_iter()
@@ -231,7 +236,7 @@ fn discovered(records: &[Vec<String>]) -> bool {
 }
 
 /// The output of a compile that failed, for the user.
-pub fn compile_output(output: &std::process::Output) -> String {
+pub(super) fn compile_output(output: &std::process::Output) -> String {
     let mut text = String::from_utf8_lossy(&output.stderr).into_owned();
 
     text.push_str(&String::from_utf8_lossy(&output.stdout));
@@ -240,7 +245,7 @@ pub fn compile_output(output: &std::process::Output) -> String {
 
 /// Which compile-time target to use while listing test and subtest declarations.
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum Listing {
+pub(crate) enum Listing {
     Host,
     Target,
 }
@@ -251,7 +256,7 @@ pub enum Listing {
 /// With `--interp`, `warm` leaves the compiling process waiting for the first run of the root;
 /// without it the process ends once it has found the tests, and the run compiles again. Each
 /// waiting process is a compiler held in memory, so the caller bounds how many there are.
-pub fn unit(
+pub(super) fn unit(
     files: &[PathBuf],
     root_flags: &[String],
     work: &Path,
@@ -319,7 +324,7 @@ pub fn unit(
 
 /// Type-checks every unit test file of a root for the target of `toolchain` (`--check-only`),
 /// including the procedures nothing calls, without building or running anything.
-pub fn check_unit(
+pub(super) fn check_unit(
     files: &[PathBuf],
     root_flags: &[String],
     work: &Path,
@@ -507,7 +512,7 @@ const DLL_FOLDERS: &str = jacket_config::env::TEST_DLLS.name;
 /// finds a library that way (SDL3) and gets a driver in place of the system's (Mesa's
 /// `opengl32.dll` for the software OpenGL). Hard links where the folders share a volume, copies
 /// otherwise; a file that is already there stays, so the folder listed first wins.
-pub fn stage_dlls(exe: &Path) -> Result<(), String> {
+pub(super) fn stage_dlls(exe: &Path) -> Result<(), String> {
     match jacket_config::env::TEST_DLLS.os() {
         Some(folders) => stage_dlls_from(exe, &folders),
         None => Ok(()),
@@ -568,7 +573,7 @@ fn write(path: &Path, text: &str) -> Result<(), String> {
 
 /// What every run of a test program is told besides the tests to run.
 #[derive(Clone, Copy, Debug)]
-pub struct RunFlags {
+pub(super) struct RunFlags {
     /// The seed property tests start from.
     pub seed: u64,
     /// Snapshots that differ or are new replace the stored ones.
@@ -596,7 +601,7 @@ fn run_arguments(names: &[String], temp: &Path, run: &RunFlags) -> Vec<String> {
 }
 
 /// The command that runs `names` of a built program.
-pub fn invocation(
+pub(super) fn invocation(
     built: &Built,
     root_flags: &[String],
     toolchain: &Toolchain,
@@ -638,7 +643,12 @@ pub fn invocation(
 
 /// With `--interp`, the process that compiled the root while jacket planned, told to run `names`
 /// (once; later runs compile by themselves). `None` when there is no such process.
-pub fn warm_start(built: &Built, names: &[String], temp: &Path, run: &RunFlags) -> Option<Started> {
+pub(super) fn warm_start(
+    built: &Built,
+    names: &[String],
+    temp: &Path,
+    run: &RunFlags,
+) -> Option<Started> {
     let mut warm = built.warm.lock().ok()?.take()?;
     let mut process = warm.process.take()?;
     // One argument per line; the process reads to the end of its input.
@@ -658,7 +668,11 @@ pub fn warm_start(built: &Built, names: &[String], temp: &Path, run: &RunFlags) 
 /// hold `{exe}`, where the program goes, and be exactly `{args}`, where the arguments go as one
 /// word, for an emulator that passes them through an option (`-append {args}`). Without `{exe}`
 /// the program follows the runner's words, and without `{args}` the arguments follow it.
-pub fn program_and_args(exe: &Path, runner: &[String], extra: &[String]) -> (PathBuf, Vec<String>) {
+pub(super) fn program_and_args(
+    exe: &Path,
+    runner: &[String],
+    extra: &[String],
+) -> (PathBuf, Vec<String>) {
     let Some((first, rest)) = runner.split_first() else {
         return (exe.to_path_buf(), extra.to_vec());
     };

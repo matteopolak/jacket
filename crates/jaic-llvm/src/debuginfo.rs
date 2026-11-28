@@ -30,7 +30,7 @@ type Md = LLVMMetadataRef;
 
 /// Which debug format the target's tools read.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum DebugFormat {
+pub(crate) enum DebugFormat {
     /// DWARF version 4 (Apple) or 5.
     Dwarf(u32),
     /// Windows PDB-style `CodeView` (`-windows-msvc` targets).
@@ -38,7 +38,7 @@ pub enum DebugFormat {
 }
 
 impl DebugFormat {
-    pub fn for_target(target: jaic::target::Target) -> Self {
+    pub(crate) fn for_target(target: jaic::target::Target) -> Self {
         if target.is_windows() && target.abi == jaic::target::TargetAbi::Msvc {
             DebugFormat::CodeView
         } else if target.is_apple() {
@@ -73,7 +73,7 @@ mod raw {
         (text.as_ptr().cast::<c_char>(), text.len())
     }
 
-    pub fn file(b: LLVMDIBuilderRef, name: &str, dir: &str) -> Md {
+    pub(super) fn file(b: LLVMDIBuilderRef, name: &str, dir: &str) -> Md {
         let (n, nl) = s(name);
         let (d, dl) = s(dir);
 
@@ -82,7 +82,7 @@ mod raw {
         unsafe { di::LLVMDIBuilderCreateFile(b, n, nl, d, dl) }
     }
 
-    pub fn compile_unit(b: LLVMDIBuilderRef, file: Md, optimized: bool) -> Md {
+    pub(super) fn compile_unit(b: LLVMDIBuilderRef, file: Md, optimized: bool) -> Md {
         let (p, pl) = s("jaic");
         let empty = s("");
 
@@ -115,7 +115,7 @@ mod raw {
 
     /// What `function` describes.
     #[derive(Clone, Copy)]
-    pub struct FunctionDesc<'a> {
+    pub(super) struct FunctionDesc<'a> {
         pub file: Md,
         pub name: &'a str,
         pub linkage: &'a str,
@@ -125,7 +125,7 @@ mod raw {
         pub optimized: bool,
     }
 
-    pub fn function(b: LLVMDIBuilderRef, desc: &FunctionDesc) -> Md {
+    pub(super) fn function(b: LLVMDIBuilderRef, desc: &FunctionDesc) -> Md {
         let FunctionDesc {
             file,
             name,
@@ -160,19 +160,25 @@ mod raw {
         }
     }
 
-    pub fn subroutine_type(b: LLVMDIBuilderRef, file: Md) -> Md {
+    pub(super) fn subroutine_type(b: LLVMDIBuilderRef, file: Md) -> Md {
         let mut params: [Md; 1] = [std::ptr::null_mut()];
         // SAFETY: `b` and `file` are live; `params` is one null entry (an unspecified return type)
         // that outlives the call.
         unsafe { di::LLVMDIBuilderCreateSubroutineType(b, file, params.as_mut_ptr(), 1, 0) }
     }
 
-    pub fn lexical_block(b: LLVMDIBuilderRef, scope: Md, file: Md, line: u32, col: u32) -> Md {
+    pub(super) fn lexical_block(
+        b: LLVMDIBuilderRef,
+        scope: Md,
+        file: Md,
+        line: u32,
+        col: u32,
+    ) -> Md {
         // SAFETY: `b`, `scope` and `file` are live metadata of one builder.
         unsafe { di::LLVMDIBuilderCreateLexicalBlock(b, scope, file, line, col) }
     }
 
-    pub fn location(ctx: &Context, line: u32, col: u32, scope: Md) -> Md {
+    pub(super) fn location(ctx: &Context, line: u32, col: u32, scope: Md) -> Md {
         // SAFETY: `ctx` is the context the module was created in and `scope` is live metadata of
         // it; the inlined-at location is null (none).
         unsafe {
@@ -186,31 +192,31 @@ mod raw {
         }
     }
 
-    pub fn set_location(builder: &Builder, loc: Md) {
+    pub(super) fn set_location(builder: &Builder, loc: Md) {
         // SAFETY: `builder` is a live builder and `loc` is debug-location metadata of its context.
         unsafe { inkwell::llvm_sys::core::LLVMSetCurrentDebugLocation2(builder.as_mut_ptr(), loc) }
     }
 
-    pub fn set_subprogram(function: FunctionValue, sp: Md) {
+    pub(super) fn set_subprogram(function: FunctionValue, sp: Md) {
         // SAFETY: `function` is a live function and `sp` the subprogram metadata of the module's
         // builder.
         unsafe { di::LLVMSetSubprogram(function.as_value_ref(), sp) }
     }
 
-    pub fn basic(b: LLVMDIBuilderRef, name: &str, bits: u64, encoding: u32) -> Md {
+    pub(super) fn basic(b: LLVMDIBuilderRef, name: &str, bits: u64, encoding: u32) -> Md {
         let (n, nl) = s(name);
         // SAFETY: `b` is a live DIBuilder; the name is a (pointer, length) pair that LLVM copies.
         unsafe { di::LLVMDIBuilderCreateBasicType(b, n, nl, bits, encoding, 0) }
     }
 
-    pub fn pointer(b: LLVMDIBuilderRef, pointee: Md, name: &str) -> Md {
+    pub(super) fn pointer(b: LLVMDIBuilderRef, pointee: Md, name: &str) -> Md {
         let (n, nl) = s(name);
         // SAFETY: `b` is a live DIBuilder and `pointee` its metadata; the name is a (pointer,
         // length) pair that LLVM copies.
         unsafe { di::LLVMDIBuilderCreatePointerType(b, pointee, 64, 0, 0, n, nl) }
     }
 
-    pub fn typedef(b: LLVMDIBuilderRef, ty: Md, name: &str, file: Md, scope: Md) -> Md {
+    pub(super) fn typedef(b: LLVMDIBuilderRef, ty: Md, name: &str, file: Md, scope: Md) -> Md {
         let (n, nl) = s(name);
         // SAFETY: `b`, `ty`, `file` and `scope` are live metadata of one builder; the name is a
         // (pointer, length) pair that LLVM copies.
@@ -219,21 +225,21 @@ mod raw {
 
     /// The scope a piece of metadata belongs to and the file it is declared in.
     #[derive(Clone, Copy)]
-    pub struct Place {
+    pub(super) struct Place {
         pub scope: Md,
         pub file: Md,
     }
 
     /// A type's size and alignment, in bits.
     #[derive(Clone, Copy)]
-    pub struct Layout {
+    pub(super) struct Layout {
         pub bits: u64,
         pub align_bits: u32,
     }
 
     /// What `global_variable` describes.
     #[derive(Clone, Copy)]
-    pub struct GlobalVar<'a> {
+    pub(super) struct GlobalVar<'a> {
         pub place: Place,
         pub name: &'a str,
         pub linkage: &'a str,
@@ -243,7 +249,7 @@ mod raw {
         pub expr: Md,
     }
 
-    pub fn forward_struct(
+    pub(super) fn forward_struct(
         b: LLVMDIBuilderRef,
         tag: u32,
         name: &str,
@@ -264,7 +270,7 @@ mod raw {
         }
     }
 
-    pub fn member(
+    pub(super) fn member(
         b: LLVMDIBuilderRef,
         place: Place,
         name: &str,
@@ -301,7 +307,7 @@ mod raw {
         }
     }
 
-    pub fn composite(
+    pub(super) fn composite(
         b: LLVMDIBuilderRef,
         union: bool,
         place: Place,
@@ -365,13 +371,19 @@ mod raw {
         }
     }
 
-    pub fn replace(temp: Md, real: Md) {
+    pub(super) fn replace(temp: Md, real: Md) {
         // SAFETY: `temp` is a replaceable forward declaration from `forward_struct` and `real` the
         // finished type of the same builder.
         unsafe { di::LLVMMetadataReplaceAllUsesWith(temp, real) }
     }
 
-    pub fn array(b: LLVMDIBuilderRef, elem: Md, count: u64, bits: u64, align_bits: u32) -> Md {
+    pub(super) fn array(
+        b: LLVMDIBuilderRef,
+        elem: Md,
+        count: u64,
+        bits: u64,
+        align_bits: u32,
+    ) -> Md {
         // SAFETY: `b` and `elem` are live; the subrange and the one-element array of it outlive the
         // call.
         unsafe {
@@ -380,7 +392,7 @@ mod raw {
         }
     }
 
-    pub fn enumeration(
+    pub(super) fn enumeration(
         b: LLVMDIBuilderRef,
         place: Place,
         name: &str,
@@ -428,13 +440,13 @@ mod raw {
         }
     }
 
-    pub fn expression(b: LLVMDIBuilderRef, ops: &mut [u64]) -> Md {
+    pub(super) fn expression(b: LLVMDIBuilderRef, ops: &mut [u64]) -> Md {
         // SAFETY: `b` is a live DIBuilder and `ops` a live slice whose length is passed as the
         // count.
         unsafe { di::LLVMDIBuilderCreateExpression(b, ops.as_mut_ptr(), ops.len()) }
     }
 
-    pub fn variable(
+    pub(super) fn variable(
         b: LLVMDIBuilderRef,
         scope: Md,
         name: &str,
@@ -456,7 +468,7 @@ mod raw {
         }
     }
 
-    pub fn declare(
+    pub(super) fn declare(
         b: LLVMDIBuilderRef,
         storage: PointerValue,
         var: Md,
@@ -478,7 +490,7 @@ mod raw {
         }
     }
 
-    pub fn global_variable(b: LLVMDIBuilderRef, var: &GlobalVar) -> Md {
+    pub(super) fn global_variable(b: LLVMDIBuilderRef, var: &GlobalVar) -> Md {
         let GlobalVar {
             place: Place {
                 scope,
@@ -515,30 +527,30 @@ mod raw {
         }
     }
 
-    pub fn attach_global(global: GlobalValue, kind: u32, gve: Md) {
+    pub(super) fn attach_global(global: GlobalValue, kind: u32, gve: Md) {
         // SAFETY: `global` is a live global of the module and `gve` its global-variable-expression
         // metadata.
         unsafe { inkwell::llvm_sys::core::LLVMGlobalSetMetadata(global.as_value_ref(), kind, gve) }
     }
 
-    pub fn create(module: &Module) -> LLVMDIBuilderRef {
+    pub(super) fn create(module: &Module) -> LLVMDIBuilderRef {
         // SAFETY: `module` is a live module; the builder lives until `dispose`.
         unsafe { di::LLVMCreateDIBuilder(module.as_mut_ptr()) }
     }
 
-    pub fn finalize(b: LLVMDIBuilderRef) {
+    pub(super) fn finalize(b: LLVMDIBuilderRef) {
         // SAFETY: `b` is a live DIBuilder that has not been disposed.
         unsafe { di::LLVMDIBuilderFinalize(b) }
     }
 
-    pub fn dispose(b: LLVMDIBuilderRef) {
+    pub(super) fn dispose(b: LLVMDIBuilderRef) {
         // SAFETY: `b` is a live DIBuilder, and no metadata it made is used afterwards.
         unsafe { di::LLVMDisposeDIBuilder(b) }
     }
 }
 
 /// Module-wide debug info state: the `DIBuilder`, compile unit, files and types.
-pub struct DebugInfo<'ctx, 'p> {
+pub(crate) struct DebugInfo<'ctx, 'p> {
     ctx: &'ctx Context,
     builder: LLVMDIBuilderRef,
     program: &'p Program,
@@ -558,7 +570,7 @@ impl Drop for DebugInfo<'_, '_> {
 }
 
 impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
-    pub fn new(
+    pub(crate) fn new(
         ctx: &'ctx Context,
         module: &Module<'ctx>,
         program: &'p Program,
@@ -611,7 +623,7 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
     }
 
     /// Resolve forward references; must run before the module is verified or emitted.
-    pub fn finalize(&self) {
+    pub(crate) fn finalize(&self) {
         raw::finalize(self.builder);
     }
 
@@ -806,7 +818,13 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
     }
 
     /// Describe a program global (call where the global is defined).
-    pub fn global(&self, gv: GlobalValue<'ctx>, linkage_name: &str, local: bool, g: &DebugGlobal) {
+    pub(crate) fn global(
+        &self,
+        gv: GlobalValue<'ctx>,
+        linkage_name: &str,
+        local: bool,
+        g: &DebugGlobal,
+    ) {
         let Some(ty) = self.ty(g.ty) else {
             return;
         };
@@ -833,7 +851,7 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
 
     /// Attach a subprogram to `function` and position both builders' debug locations at
     /// its first line.
-    pub fn begin_function(
+    pub(crate) fn begin_function(
         &self,
         func: &Func,
         function: FunctionValue<'ctx>,
@@ -910,7 +928,7 @@ fn first_line(func: &Func) -> Option<u32> {
 }
 
 /// Per-function debug state while its body is lowered.
-pub struct FnDebug<'ctx> {
+pub(crate) struct FnDebug<'ctx> {
     file: Md,
     /// Location of the entry block's branch into the body (the end of the prologue).
     entry: Md,
@@ -960,7 +978,7 @@ impl<'ctx> FnDebug<'ctx> {
     }
 
     /// An `Inst::Loc` marker.
-    pub fn loc(
+    pub(crate) fn loc(
         &mut self,
         di: &DebugInfo<'ctx, '_>,
         func: &Func,
@@ -976,7 +994,7 @@ impl<'ctx> FnDebug<'ctx> {
     }
 
     /// Before lowering IR block `b`: continue from the location its predecessor ended at.
-    pub fn enter_block(
+    pub(crate) fn enter_block(
         &mut self,
         di: &DebugInfo<'ctx, '_>,
         func: &Func,
@@ -988,7 +1006,7 @@ impl<'ctx> FnDebug<'ctx> {
     }
 
     /// After lowering a block: its successors start where it ended.
-    pub fn leave_block(&mut self, term: &Term) {
+    pub(crate) fn leave_block(&mut self, term: &Term) {
         let mut mark = |b: jaic::ir::BlockId| {
             let entry = &mut self.block_entry[b.0 as usize];
 
@@ -1025,7 +1043,7 @@ impl<'ctx> FnDebug<'ctx> {
     /// Describe the function's variables. `slots` are the slot allocas, `vals` the values
     /// bound so far (the parameters); variables at other addresses are copied to a pointer
     /// slot when their address is computed (`watch`).
-    pub fn declare_vars(
+    pub(crate) fn declare_vars(
         &mut self,
         di: &DebugInfo<'ctx, '_>,
         func: &Func,
@@ -1126,12 +1144,12 @@ impl<'ctx> FnDebug<'ctx> {
     }
 
     /// Before the entry block's branch into the body is built.
-    pub fn finish_entry(&self, allocas: &Builder<'ctx>) {
+    pub(crate) fn finish_entry(&self, allocas: &Builder<'ctx>) {
         raw::set_location(allocas, self.entry);
     }
 
     /// The pointer slot a watched variable address is copied to.
-    pub fn watched(&self, v: Val) -> Option<PointerValue<'ctx>> {
+    pub(crate) fn watched(&self, v: Val) -> Option<PointerValue<'ctx>> {
         self.watch.iter().find(|(w, _)| *w == v).map(|&(_, p)| p)
     }
 }

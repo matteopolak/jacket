@@ -1,6 +1,6 @@
 //! `[doc] files`: arbitrary files published at the site root. These tests share the integration
 //! suite's gate: jaic must be built beside jacket.
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::{Command, Output};
 
 use test_support::{TempDir, toolchain};
@@ -29,7 +29,7 @@ fn document(temp: &TempDir, files: &str) -> Option<Output> {
         format!("[doc]\npath = \"lib\"\nfiles = {files}\n"),
     )
     .unwrap();
-    let stdlib = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
 
     Some(
         Command::new(jacket)

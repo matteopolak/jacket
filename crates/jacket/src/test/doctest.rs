@@ -22,7 +22,7 @@ use super::options::TestOptions;
 
 /// How a doc block is checked.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Mode {
+pub(crate) enum Mode {
     /// Built and run; it must exit cleanly.
     Run,
     /// Type-checked only.
@@ -35,7 +35,7 @@ pub enum Mode {
 
 /// One example from a doc comment.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Block {
+pub(crate) struct Block {
     /// `Module.symbol#n`, or `Module#n` for the module's own docs.
     pub name: String,
     pub file: PathBuf,
@@ -125,7 +125,7 @@ fn doc_comments_args(dir: &Path, import_dirs: &[PathBuf]) -> Vec<OsString> {
 ///
 /// Fails when `jaic` cannot be started or cannot read the docs: a library whose examples were
 /// not read has not been tested.
-pub fn blocks(
+pub(crate) fn blocks(
     dir: &Path,
     module: &str,
     (jaic, stdlib): (&Path, &Path),
@@ -612,7 +612,7 @@ fn relabel(text: &str, lines: &[u32], file: &Path) -> String {
 /// Builds `block` in `work` and checks it as its mode says. Diagnostics and stack traces name
 /// the doc comment's lines, not the generated program's.
 #[allow(clippy::too_many_arguments)]
-pub fn check(
+pub(crate) fn check(
     block: &Block,
     module: &str,
     root_flags: &[String],

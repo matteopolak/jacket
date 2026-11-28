@@ -18,7 +18,7 @@ use crate::ir::{Sig, Ty};
 
 mod callbacks;
 pub(super) mod waits;
-pub use callbacks::{
+pub(super) use callbacks::{
     Gate, Reenter, callback_addr, caller, calling_out, release as release_callbacks,
 };
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
@@ -32,12 +32,12 @@ mod plan;
 #[cfg(windows)]
 mod windows_imports;
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-pub use plan::Plan;
+pub(super) use plan::Plan;
 mod words;
 use words::{read_bytes, write_bytes};
 
 #[derive(Clone)]
-pub struct Library {
+pub(super) struct Library {
     #[cfg(not(all(windows, any(target_arch = "x86_64", target_arch = "aarch64"))))]
     handle: usize,
     #[cfg(all(windows, any(target_arch = "x86_64", target_arch = "aarch64")))]
@@ -151,14 +151,14 @@ mod sys {
     use std::ffi::{c_char, c_int, c_void};
 
     unsafe extern "C" {
-        pub fn dlopen(filename: *const c_char, flags: c_int) -> *mut c_void;
-        pub fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
+        pub(super) fn dlopen(filename: *const c_char, flags: c_int) -> *mut c_void;
+        pub(super) fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
     }
 
-    pub const RTLD_NOW: c_int = 2;
+    pub(super) const RTLD_NOW: c_int = 2;
 
     #[cfg(target_os = "macos")]
-    pub const RTLD_DEFAULT: *mut c_void = -2isize as *mut c_void;
+    pub(super) const RTLD_DEFAULT: *mut c_void = -2isize as *mut c_void;
 
     #[cfg(not(target_os = "macos"))]
     pub const RTLD_DEFAULT: *mut c_void = std::ptr::null_mut();
@@ -233,7 +233,7 @@ pub fn syscall(args: &[u64]) -> Option<i64> {
     all(target_os = "linux", target_arch = "x86_64"),
     all(target_os = "macos", target_arch = "x86_64")
 )))]
-pub fn syscall(_args: &[u64]) -> Option<i64> {
+pub(super) fn syscall(_args: &[u64]) -> Option<i64> {
     None
 }
 
@@ -271,7 +271,7 @@ mod syscall_tests {
 /// Whether the Linux x86-64 system call in `args` only maps or releases memory, so a sandbox
 /// may make it: anonymous `mmap` (not `MAP_FIXED`), `munmap`, `mremap` (not `MREMAP_FIXED`)
 /// and `madvise`. Allocators built on raw system calls need these to run at all.
-pub fn memory_only_syscall(args: &[u64]) -> bool {
+pub(super) fn memory_only_syscall(args: &[u64]) -> bool {
     const MMAP: u64 = 9;
     const MUNMAP: u64 = 11;
     const MREMAP: u64 = 25;
@@ -298,7 +298,7 @@ pub(super) fn is_c_library(name: &str, system: bool) -> bool {
 impl Library {
     /// Open a library by Jai name (`"c"`, `"SDL2"`, `"libs/foo"`...).
     #[cfg(unix)]
-    pub fn open(name: &str, system: bool, base_dir: &str) -> Option<Library> {
+    pub(super) fn open(name: &str, system: bool, base_dir: &str) -> Option<Library> {
         use std::ffi::CString;
 
         if is_c_library(name, system) {
@@ -427,7 +427,11 @@ impl Library {
     }
 
     /// Preserve concrete Windows import-provider errors for required-library diagnostics.
-    pub fn open_checked(name: &str, system: bool, base_dir: &str) -> Result<Library, String> {
+    pub(super) fn open_checked(
+        name: &str,
+        system: bool,
+        base_dir: &str,
+    ) -> Result<Library, String> {
         #[cfg(all(windows, any(target_arch = "x86_64", target_arch = "aarch64")))]
         {
             windows::open(name, system, base_dir).map(|windows| Library {
@@ -454,7 +458,7 @@ impl Library {
 
 /// Resolve a symbol in `lib`, or anywhere in the process.
 #[cfg(unix)]
-pub fn lookup(lib: Option<&Library>, symbol: &str) -> Option<u64> {
+pub(super) fn lookup(lib: Option<&Library>, symbol: &str) -> Option<u64> {
     let name = std::ffi::CString::new(symbol).ok()?;
     let handle = lib.map_or(sys::RTLD_DEFAULT, |l| l.handle as *mut std::ffi::c_void);
     // SAFETY: `handle` is `RTLD_DEFAULT` or the live handle of a library this module opened and
@@ -475,7 +479,7 @@ pub fn lookup(lib: Option<&Library>, symbol: &str) -> Option<u64> {
 }
 
 /// Preserve structured import-library ambiguity/CPU errors at the interpreter boundary.
-pub fn lookup_checked(lib: Option<&Library>, symbol: &str) -> Result<Option<u64>, String> {
+pub(super) fn lookup_checked(lib: Option<&Library>, symbol: &str) -> Result<Option<u64>, String> {
     #[cfg(all(windows, any(target_arch = "x86_64", target_arch = "aarch64")))]
     {
         windows::lookup_library(lib.map(|library| &library.windows), symbol)
@@ -777,13 +781,18 @@ fn call_as<R>(addr: u64, regs: &Regs) -> R {
 /// back (see `callback_addr`) run through the interpreter's `Gate`; the caller marks the call
 /// with `calling_out` so that those on this thread run as its own.
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
+pub(super) fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
     call_planned(addr, args, sig, &Plan::new(sig))
 }
 
 /// [`call`] with the signature's `Plan`, which a caller that makes the same call again keeps.
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-pub fn call_planned(addr: u64, args: &[u64], sig: &Sig, plan: &Plan) -> Result<Rets, String> {
+pub(super) fn call_planned(
+    addr: u64,
+    args: &[u64],
+    sig: &Sig,
+    plan: &Plan,
+) -> Result<Rets, String> {
     #[cfg(target_os = "macos")]
     if let Some(result) = main_thread::forward(addr, args, sig, plan) {
         return result;

@@ -20,7 +20,7 @@ mod tests;
 
 /// An example's program, as the Run button would send it.
 #[derive(Clone, Debug)]
-pub struct Program {
+pub(super) struct Program {
     /// `stdlib/String/module.jai:12`, where its doc comment is.
     pub label: String,
     pub text: String,
@@ -29,7 +29,7 @@ pub struct Program {
 }
 
 /// How the programs are run.
-pub enum Engine<'a> {
+pub(super) enum Engine<'a> {
     /// `jaic -interp -os wasm`: no browser bundle or Node needed.
     Interpreter {
         jaic: &'a Path,
@@ -43,7 +43,7 @@ pub enum Engine<'a> {
     },
 }
 
-pub struct Failure {
+pub(super) struct Failure {
     pub label: String,
     pub message: String,
 }
@@ -62,7 +62,7 @@ fn scratch() -> Result<PathBuf, String> {
 }
 
 /// Runs `programs` and returns the ones that fail, in order.
-pub fn run(engine: &Engine, programs: &[Program]) -> Result<Vec<Failure>, String> {
+pub(super) fn run(engine: &Engine, programs: &[Program]) -> Result<Vec<Failure>, String> {
     let dir = scratch()?;
     let result = match engine {
         Engine::Interpreter {
@@ -265,7 +265,7 @@ fn browser(
 }
 
 /// The failures as a report, each with where its example is and what it printed (cut to 15 lines).
-pub fn report(failures: &[Failure]) -> String {
+pub(super) fn report(failures: &[Failure]) -> String {
     let mut out = String::new();
 
     for f in failures {
@@ -285,7 +285,7 @@ pub fn report(failures: &[Failure]) -> String {
 }
 
 /// The error for `--runtime` with no `node` to run the examples.
-pub fn node_missing() -> String {
+pub(super) fn node_missing() -> String {
     format!(
         "{}\nnote: or drop --runtime to test the examples in jaic's interpreter",
         crate::prerequisite::missing(
@@ -298,7 +298,7 @@ pub fn node_missing() -> String {
 
 /// `--runtime` runs the examples under Node after the site is built: find out before any of that
 /// work that `node` is there.
-pub fn require_node(args: &super::DocArgs) -> Result<(), String> {
+pub(super) fn require_node(args: &super::DocArgs) -> Result<(), String> {
     if args.runtime.is_some() && !args.check && !args.no_test_examples {
         crate::prerequisite::require(
             &jaic_toolchain::package::Need::Node,

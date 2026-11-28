@@ -2,6 +2,7 @@
 use std::rc::Rc;
 
 use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+use test_support::compiler::bare_compiler;
 use test_support::compiler::compile_main_file as compile;
 
 
@@ -41,10 +42,7 @@ fn undeclared_names_and_unfulfilled_placeholders_keep_diagnostics() {
 
 #[test]
 fn typed_procedure_value_is_available_while_its_body_waits() {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let mut compiler = bare_compiler();
     let source = "#placeholder Body; Callback :: #type () -> int; delayed :: () -> int { #insert Body; } available :: #run () -> bool { callback: Callback = delayed; return callback != null; }(); #assert available; main :: () {}";
 
     if let Err(error) = compiler.begin_sources(&[ProgramSource::String(source.into())]) {
@@ -64,10 +62,7 @@ fn typed_procedure_value_is_available_while_its_body_waits() {
 
 #[test]
 fn editor_diagnostics_from_deferred_attempts_do_not_survive_successful_binding() {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let mut compiler = bare_compiler();
 
     compiler
         .ed
@@ -151,10 +146,7 @@ fn scoped_placeholder_definitions_preserve_overload_sets_for_other_files() {
 
 #[test]
 fn an_unstarted_insertion_generator_waits_for_later_source_without_execution() {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let mut compiler = bare_compiler();
     let source =
         "#placeholder Body; #insert -> string { return Body; } main :: () { #assert Ready; }";
 
@@ -219,10 +211,7 @@ fn module_insertion_generator_waits_in_its_canonical_module_scope() {
 
 #[test]
 fn a_parameter_naming_an_undefined_placeholder_is_decided_again_once_it_is_defined() {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let mut compiler = bare_compiler();
 
     compiler
         .begin_sources(&[ProgramSource::String(
@@ -266,10 +255,7 @@ fn a_parameter_naming_an_undefined_placeholder_is_decided_again_once_it_is_defin
 
 #[test]
 fn an_overload_set_with_an_unresolved_member_is_compared_again_once_it_resolves() {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let mut compiler = bare_compiler();
 
     compiler
         .begin_sources(&[ProgramSource::String(

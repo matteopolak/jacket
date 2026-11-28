@@ -1,9 +1,5 @@
 //! A check-only child must retain checked IR for subsequent semantic analysis.
-use std::{
-    cell::RefCell,
-    path::{Path, PathBuf},
-    rc::Rc,
-};
+use std::{cell::RefCell, path::Path, rc::Rc};
 
 use jaic::build::{BuildEnv, BuildSettings, OutputBackend, WorkspaceObserver, Workspaces};
 use jaic::sema::procs::ProcTarget;
@@ -22,7 +18,7 @@ impl WorkspaceObserver for Retain {
 }
 
 fn checked_child(backend: Option<Box<dyn OutputBackend>>) -> Rc<RefCell<Vec<Compiler>>> {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];

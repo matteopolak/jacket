@@ -1,5 +1,5 @@
 //! Target-side metaprograms must use real host files through the target Windows API.
-use std::{path::PathBuf, rc::Rc};
+use std::rc::Rc;
 
 use jaic::build::{BuildEnv, Workspaces};
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
@@ -19,7 +19,7 @@ fn windows_target_run_reads_and_walks_real_host_files() {
     std::fs::write(temp.join("nested/child.txt"), "child").unwrap();
     #[cfg(unix)]
     std::os::unix::fs::symlink(&*temp, temp.join("nested/cycle")).unwrap();
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.os = TargetOs::Windows;

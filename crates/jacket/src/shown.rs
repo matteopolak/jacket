@@ -8,7 +8,7 @@ use std::path::Path;
 /// ```ignore
 /// assert_eq!(path(Path::new("/p/target/a.json"), Path::new("/p")), "target/a.json");
 /// ```
-pub fn path(path: &Path, base: &Path) -> String {
+pub(crate) fn path(path: &Path, base: &Path) -> String {
     let canonical = jaic::canonicalize(base).ok();
     let below = canonical
         .as_deref()

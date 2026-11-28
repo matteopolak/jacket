@@ -6,7 +6,7 @@ use jai_language_server::{DocumentUri, Position, Range, Session};
 use serde_json::{Value, json};
 
 /// Fisher–Yates with an explicit seed; zero retains canonical order for the baseline.
-pub fn shuffle<T>(values: &mut [T], mut seed: u64) {
+pub(crate) fn shuffle<T>(values: &mut [T], mut seed: u64) {
     if seed == 0 {
         return;
     }
@@ -28,7 +28,7 @@ fn answer<T: std::fmt::Debug>(value: Result<T, jai_language_server::Error>) -> V
 
 /// Record exact-response fingerprints, never source text, for all files in each open order.
 /// At most 64 identifier positions per file are compared; the normal audit still queries every identifier.
-pub fn checkpoint(
+pub(crate) fn checkpoint(
     path: Option<&Path>,
     details: Option<&Path>,
     phase: &str,

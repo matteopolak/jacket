@@ -21,7 +21,7 @@ fn compile(os: TargetOs, body: &str) -> Result<(), String> {
 /// Compile `body` as compile-time code for `os` (and `cpu`, or the host's), after the
 /// top-level declarations `head`.
 fn compile_for(os: TargetOs, cpu: Option<TargetCpu>, head: &str, body: &str) -> Result<(), String> {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
     let cpu = cpu.unwrap_or(options.cpu);
 

@@ -228,7 +228,7 @@ fn needed(files: &[PathBuf], stdlib: &Path, root: &Path, output: &Path) -> Vec<&
 /// Builds the outputs that tests among `files` read and a fresh checkout lacks, once, before
 /// anything runs. It costs a few file checks when they are there. A script that cannot run is an
 /// error that names the command to run by hand: the tests would only fail later, less clearly.
-pub fn prepare(files: &[PathBuf], stdlib: &Path) -> Result<(), String> {
+pub(super) fn prepare(files: &[PathBuf], stdlib: &Path) -> Result<(), String> {
     prepare_with("python3", files, stdlib)
 }
 
@@ -292,7 +292,7 @@ fn prepare_with(python: &str, files: &[PathBuf], stdlib: &Path) -> Result<(), St
 /// Why a test that declared `optional(NAME)` is skipped: one of its `args` uses `${NAME}` and
 /// the variable is not set. A test that does not declare it runs and fails, on every machine,
 /// the way [`super::golden`] fails an argument with an unset variable.
-pub fn optional_skip(
+pub(super) fn optional_skip(
     options: &TestOptions,
     env: &dyn Fn(&str) -> Option<String>,
 ) -> Option<String> {
@@ -310,7 +310,7 @@ pub fn optional_skip(
 /// With `--allow-missing-prerequisites` (`allow`), a test that failed only because a test-driver
 /// probe library is absent is skipped, with the command that builds it. Missing production
 /// libraries, assertions, crashes and timeouts stay failures, and without the flag so does this.
-pub fn skip_missing_probe(outcome: &mut Outcome, allow: bool) {
+pub(super) fn skip_missing_probe(outcome: &mut Outcome, allow: bool) {
     if !allow || outcome.status != Status::Fail || outcome.crashed || !outcome.failures.is_empty() {
         return;
     }
@@ -342,7 +342,7 @@ pub fn skip_missing_probe(outcome: &mut Outcome, allow: bool) {
 /// A probe that does not build is an error naming the command and what it printed. With `allow`
 /// (`--allow-missing-prerequisites`) it is a warning, and the tests that link the probe are
 /// skipped ([`skip_missing_probe`]).
-pub fn prepare_probes(
+pub(super) fn prepare_probes(
     files: &[PathBuf],
     stdlib: &Path,
     allow: bool,
@@ -565,7 +565,7 @@ fn library_hints(libraries: &BTreeSet<String>) -> Vec<String> {
 }
 
 /// One line for each build output the failed tests were missing, in a stable order.
-pub fn missing(outcomes: &[&Outcome]) -> Vec<String> {
+pub(super) fn missing(outcomes: &[&Outcome]) -> Vec<String> {
     let mut libraries = BTreeSet::new();
     let (mut debug_helper, mut fixtures) = (false, false);
 
@@ -856,7 +856,7 @@ mod tests {
     fn every_generated_directory_the_stdlib_tests_read_has_a_setup() {
         // The tests read what `build_portable.py data` writes, as `%/<directory>/...` below the
         // output directory or `target/<directory>/...` below the checkout.
-        let stdlib = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+        let stdlib = test_support::repo::stdlib();
         let mut unbuilt = BTreeSet::new();
         let mut folders = vec![stdlib.clone()];
 

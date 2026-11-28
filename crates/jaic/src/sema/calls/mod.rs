@@ -47,7 +47,7 @@ mod precheck;
 mod slots;
 mod type_lists;
 
-pub use operators::binop_text;
+pub(crate) use operators::binop_text;
 
 pub(super) use self::infer::own_instance_key;
 pub(super) use self::slots::header_poly_names;
@@ -55,7 +55,7 @@ use self::slots::{c_vararg_promote, is_poly_var_arg, poly_names};
 
 /// How a `$$` parameter is treated at one call.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum AutoBake {
+pub(crate) enum AutoBake {
     Runtime,
     Baked,
     /// Constant argument with no `Value` (`"str".data`): runtime, but `is_constant` is true.

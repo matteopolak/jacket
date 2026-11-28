@@ -1,11 +1,11 @@
 //! `context.stack_trace` as a program sees it while the interpreter runs it: the chain's names,
 //! call lines and depths, and its restoration when a call returns.
-use std::{path::PathBuf, rc::Rc};
+use std::rc::Rc;
 
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 
 fn check(source: &str) {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];

@@ -21,7 +21,7 @@ const HEAD: &str = "__lsp_edit_head :: () #no_context {\n    __head_local := 17;
 const TAIL: &str = "\n;\n__lsp_edit_tail :: () #no_context {\n    __tail_local := 23;\n    __tail_result := __tail_local + 1;\n    for __tail_index: 0..1 { __tail_loop := __tail_index; }\n}\n";
 
 #[derive(Default, Serialize, Debug)]
-pub struct Report {
+pub(super) struct Report {
     pub file: String,
     pub baseline_syntax_errors: usize,
     pub baseline_semantic_errors: usize,
@@ -34,7 +34,7 @@ pub struct Report {
 
 static PROGRESS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
-pub fn set_progress(enabled: bool) {
+pub(super) fn set_progress(enabled: bool) {
     PROGRESS.store(enabled, std::sync::atomic::Ordering::Relaxed);
 }
 
@@ -91,7 +91,7 @@ fn environment(stdlib: Option<PathBuf>) -> Environment {
 
 /// Cut points include byte-oriented fractions, scalar boundaries, and the closest
 /// valid boundary to the UTF-16 midpoint. No invalid UTF-8 or split surrogate is sent.
-pub fn cuts(line: &str) -> BTreeSet<usize> {
+pub(super) fn cuts(line: &str) -> BTreeSet<usize> {
     let mut cuts = BTreeSet::new();
 
     for byte in [line.len() / 3, line.len() / 2, line.len().saturating_sub(1)] {
@@ -248,7 +248,12 @@ fn anchors(s: &Session, uri: &DocumentUri, text: &str, report: &mut Report, cont
 
 /// Exercise each selected source line in a real Session, restoring between edits.
 /// Baseline errors are reported separately; no missing anchor is treated as success.
-pub fn check(path: &Path, source: &str, stdlib: Option<PathBuf>, max_lines: usize) -> Report {
+pub(super) fn check(
+    path: &Path,
+    source: &str,
+    stdlib: Option<PathBuf>,
+    max_lines: usize,
+) -> Report {
     progress("parse baseline");
     let uri = file_uri(path);
     let text = format!("{HEAD}{source}{TAIL}");

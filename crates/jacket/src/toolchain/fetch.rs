@@ -10,7 +10,7 @@ use crate::upgrade::checksum::sha256_file;
 
 /// Saves `url` as `dest`, unless `dest` already holds a file with the sha256 `sha256`. A
 /// download whose hash differs is deleted and is an error.
-pub fn pinned(url: &str, sha256: &str, dest: &Path) -> Result<(), String> {
+pub(super) fn pinned(url: &str, sha256: &str, dest: &Path) -> Result<(), String> {
     if dest.is_file() && sha256_file(dest).is_ok_and(|hash| hash == sha256) {
         return Ok(());
     }
@@ -43,13 +43,13 @@ pub fn pinned(url: &str, sha256: &str, dest: &Path) -> Result<(), String> {
 
 /// Unpacks the tar archive `archive` (`.tar`, `.tar.xz`, `.tar.gz`) into the existing folder
 /// `dest`.
-pub fn untar(archive: &Path, dest: &Path) -> Result<(), String> {
+pub(super) fn untar(archive: &Path, dest: &Path) -> Result<(), String> {
     crate::net::untar(archive, dest, "jacket toolchain add")
 }
 
 /// The contents of the member `data.tar.*` of a Debian package (an `ar` archive), with its
 /// file name (`data.tar.xz`). GNU `tar` cannot read `ar`, so the package is read here.
-pub fn deb_data(deb: &[u8]) -> Result<(String, &[u8]), String> {
+pub(super) fn deb_data(deb: &[u8]) -> Result<(String, &[u8]), String> {
     const MAGIC: &[u8] = b"!<arch>\n";
     let mut rest = deb
         .strip_prefix(MAGIC)
@@ -85,7 +85,7 @@ pub fn deb_data(deb: &[u8]) -> Result<(String, &[u8]), String> {
 }
 
 /// Unpacks the files of the Debian package `deb` into the existing folder `dest`.
-pub fn unpack_deb(deb: &Path, scratch: &Path, dest: &Path) -> Result<(), String> {
+pub(super) fn unpack_deb(deb: &Path, scratch: &Path, dest: &Path) -> Result<(), String> {
     let bytes = std::fs::read(deb).map_err(|e| format!("{}: {e}", deb.display()))?;
     let (name, data) = deb_data(&bytes).map_err(|e| format!("{}: {e}", deb.display()))?;
 

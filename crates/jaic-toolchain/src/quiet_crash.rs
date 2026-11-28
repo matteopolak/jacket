@@ -51,7 +51,7 @@ mod imp {
         ) -> i32;
     }
 
-    pub fn quiet(command: &mut Command) -> &mut Command {
+    pub(super) fn quiet(command: &mut Command) -> &mut Command {
         // SAFETY: runs in the forked child before `exec`, and only makes one Mach call that
         // allocates nothing. Exception ports survive `exec`.
         unsafe {

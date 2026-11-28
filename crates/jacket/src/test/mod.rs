@@ -21,7 +21,7 @@ mod golden;
 mod jobs;
 mod outcome;
 mod partition;
-pub use outcome::{Outcome, Status};
+pub(crate) use outcome::{Outcome, Status};
 pub(crate) mod options;
 mod prerequisites;
 mod report;
@@ -46,7 +46,7 @@ const DEFAULT_TIMEOUT: u64 = 120;
 const DEFAULT_SLOW: u64 = 30;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Kind {
+pub(crate) enum Kind {
     Test,
     Golden,
     CompileFail,
@@ -56,7 +56,7 @@ pub enum Kind {
 }
 
 impl Kind {
-    pub fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             Kind::Test => "test",
             Kind::Golden => "golden",
@@ -69,7 +69,7 @@ impl Kind {
 
 /// One test of the run.
 #[derive(Clone, Debug)]
-pub struct Case {
+pub(crate) struct Case {
     /// Its name in output and filters: `name`, `Root::name` when several roots run.
     pub name: String,
     /// Its name in its program (unit tests), or the file's stem.
@@ -153,7 +153,7 @@ struct Plan {
 }
 
 /// What workers tell the reporter.
-pub enum Message {
+pub(crate) enum Message {
     Started(usize),
     Slow(usize, Duration),
     Done(Outcome),
@@ -300,7 +300,7 @@ fn expr_selects(expr: &filter::FilterExpr, case: &Case, root: &discover::Root, c
     })
 }
 
-pub fn run(args: &TestArgs, cwd: &Path, bench: Option<&BenchArgs>) -> ExitCode {
+pub(crate) fn run(args: &TestArgs, cwd: &Path, bench: Option<&BenchArgs>) -> ExitCode {
     if !args.watch {
         return run_once(args, cwd, bench, &mut watch::Watched::default(), None);
     }

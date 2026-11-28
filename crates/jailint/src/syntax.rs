@@ -68,13 +68,13 @@ pub(crate) struct ProcSite<'a> {
 
 impl ProcSite<'_> {
     /// Type facts recorded for this body describe it fully and mean the same in every check.
-    pub fn typed(&self) -> bool {
+    pub(crate) fn typed(&self) -> bool {
         self.clean && !self.poly && !self.is_macro
     }
 }
 
 impl<'a> Cx<'a> {
-    pub fn new(
+    pub(crate) fn new(
         compiler: &'a Compiler,
         text: &'a str,
         ast: &'a File,
@@ -128,12 +128,12 @@ impl<'a> Cx<'a> {
 
     /// Whether source belongs to a #run/#code/#insert operand, including a nested
     /// procedure collected independently, e.g. `N :: #run -> int { return 1; };`.
-    pub fn in_code_operand(&self, span: Span) -> bool {
+    pub(crate) fn in_code_operand(&self, span: Span) -> bool {
         self.code_operands.covers(span)
     }
 
     /// Source text of `span` (empty when out of range).
-    pub fn src(&self, span: Span) -> &'a str {
+    pub(crate) fn src(&self, span: Span) -> &'a str {
         self.text
             .get(span.start as usize..span.end as usize)
             .unwrap_or("")
@@ -141,13 +141,13 @@ impl<'a> Cx<'a> {
 
     /// Byte range of the expression with the parentheses written around it and around its
     /// edge operands (`Expr::extent`).
-    pub fn whole<'n>(&self, node: impl Into<Node<'n>>) -> (usize, usize) {
+    pub(crate) fn whole<'n>(&self, node: impl Into<Node<'n>>) -> (usize, usize) {
         let extent = jaic::ast::walk::extent(node.into());
         (extent.start as usize, extent.end as usize)
     }
 
     /// The source text of [`Cx::whole`].
-    pub fn whole_src<'n>(&self, node: impl Into<Node<'n>>) -> &'a str {
+    pub(crate) fn whole_src<'n>(&self, node: impl Into<Node<'n>>) -> &'a str {
         let (start, end) = self.whole(node);
         self.text.get(start..end).unwrap_or("")
     }
@@ -166,13 +166,13 @@ impl<'a> Cx<'a> {
     }
 
     /// Two expressions are spelled with the same tokens (whitespace and comments aside).
-    pub fn same_tokens(&self, a: &Expr, b: &Expr) -> bool {
+    pub(crate) fn same_tokens(&self, a: &Expr, b: &Expr) -> bool {
         self.expression_tokens(a).eq(self.expression_tokens(b))
     }
 
     /// The two byte ranges hold the same tokens (whitespace and comments aside). Unlike
     /// [`Cx::same_tokens`] the ranges are taken as given: no parentheses are added around them.
-    pub fn same_token_ranges(&self, a: Span, b: Span) -> bool {
+    pub(crate) fn same_token_ranges(&self, a: Span, b: Span) -> bool {
         let tokens = |s: Span| {
             let first = self.tokens.partition_point(|t| t.span.start < s.start);
             let last = self.tokens.partition_point(|t| t.span.end <= s.end);
@@ -188,7 +188,7 @@ impl<'a> Cx<'a> {
     }
 
     /// The byte offset lies in the body of a macro (an `#expand` procedure, or one nested in it).
-    pub fn in_macro(&self, at: usize) -> bool {
+    pub(crate) fn in_macro(&self, at: usize) -> bool {
         self.procs.iter().any(|p| {
             p.is_macro && (p.body.span.start as usize) <= at && at < p.body.span.end as usize
         })
@@ -198,7 +198,7 @@ impl<'a> Cx<'a> {
     /// and no `tests` or `test` folder lies between that directory and the file (those hold
     /// programs that use the module). A library is used by programs that decide what is printed
     /// and when the process ends.
-    pub fn in_module(&self) -> bool {
+    pub(crate) fn in_module(&self) -> bool {
         let path = self.compiler.src.sources.get(self.file).path.to_string();
         let path = std::fs::canonicalize(&path).unwrap_or_else(|_| path.into());
         let Some(root) = path
@@ -217,7 +217,7 @@ impl<'a> Cx<'a> {
     }
 
     /// A comment overlaps the bytes `start..end`.
-    pub fn has_comment_between(&self, start: usize, end: usize) -> bool {
+    pub(crate) fn has_comment_between(&self, start: usize, end: usize) -> bool {
         let first = self
             .comments
             .partition_point(|c| (c.span.end as usize) <= start);
@@ -228,27 +228,27 @@ impl<'a> Cx<'a> {
     }
 
     /// The entities the identifier at `span` resolved to.
-    pub fn entities(&self, span: Span) -> Found<EntityId> {
+    pub(crate) fn entities(&self, span: Span) -> Found<EntityId> {
         self.compiler.ide_entities_at(span)
     }
 
     /// The variables declared at `span` (see `Compiler::ide_locals_declared_at`).
-    pub fn locals(&self, span: Span) -> Found<EntityId> {
+    pub(crate) fn locals(&self, span: Span) -> Found<EntityId> {
         self.compiler.ide_locals_declared_at(span)
     }
 
     /// The procedures made from the header at `span`.
-    pub fn procs_with_header(&self, header: Span) -> Found<ProcId> {
+    pub(crate) fn procs_with_header(&self, header: Span) -> Found<ProcId> {
         self.compiler.ide_procs_with_header(header)
     }
 
     /// The type recorded for an expression, if all its checks agreed.
-    pub fn ty(&self, e: &Expr) -> Option<jaic::types::TypeId> {
+    pub(crate) fn ty(&self, e: &Expr) -> Option<jaic::types::TypeId> {
         self.compiler.type_at(e.span)
     }
 
     /// The expression was a compile-time constant in every check.
-    pub fn constant(&self, e: &Expr) -> bool {
+    pub(crate) fn constant(&self, e: &Expr) -> bool {
         self.compiler
             .expr_fact(e.span)
             .is_some_and(|f| f.constant && !f.conflicting)
@@ -257,7 +257,7 @@ impl<'a> Cx<'a> {
     /// An `#insert` directive is written within `start..end`. The tokens are in source order, so
     /// only those in the range are looked at (a scan of the whole file per procedure or variable
     /// made large files quadratic).
-    pub fn has_insert(&self, start: u32, end: u32) -> bool {
+    pub(crate) fn has_insert(&self, start: u32, end: u32) -> bool {
         let first = self.tokens.partition_point(|t| t.span.start < start);
 
         self.tokens[first..]
@@ -267,7 +267,7 @@ impl<'a> Cx<'a> {
     }
 
     /// A `$` or `$$` token is written within `span` (a polymorphic declaration).
-    pub fn has_dollar(&self, span: Span) -> bool {
+    pub(crate) fn has_dollar(&self, span: Span) -> bool {
         let first = self.tokens.partition_point(|t| t.span.start < span.start);
 
         self.tokens[first..]
@@ -278,7 +278,12 @@ impl<'a> Cx<'a> {
 
     /// Token indices of identifiers spelled `name` within `start..end`, not counting member
     /// names (`x.name`).
-    pub fn name_tokens(&self, name: Sym, start: u32, end: u32) -> impl Iterator<Item = usize> {
+    pub(crate) fn name_tokens(
+        &self,
+        name: Sym,
+        start: u32,
+        end: u32,
+    ) -> impl Iterator<Item = usize> {
         let first = self.tokens.partition_point(|t| t.span.start < start);
 
         (first..self.tokens.len())
@@ -292,7 +297,7 @@ impl<'a> Cx<'a> {
     /// The file's first lines say a tool generated it (`Automatically generated`,
     /// `auto-generated`, `Generated by`, `from` or `with`, `Regenerate with`, `DO NOT EDIT`, in any case). Generators emit imports,
     /// parameters and locals whether or not the output uses them.
-    pub fn generated(&self) -> bool {
+    pub(crate) fn generated(&self) -> bool {
         let first = self
             .tokens
             .first()
@@ -326,7 +331,7 @@ impl<'a> Cx<'a> {
     }
 
     /// The name occurs as an identifier within `start..end` anywhere but `except`.
-    pub fn mentions(&self, name: Sym, start: u32, end: u32, except: Span) -> bool {
+    pub(crate) fn mentions(&self, name: Sym, start: u32, end: u32, except: Span) -> bool {
         self.name_tokens(name, start, end).any(|i| {
             let s = self.tokens[i].span;
             !(except.start <= s.start && s.end <= except.end)
@@ -334,7 +339,7 @@ impl<'a> Cx<'a> {
     }
 
     /// Start of the line holding `offset`, and the indentation written there.
-    pub fn line_start(&self, offset: usize) -> (usize, &'a str) {
+    pub(crate) fn line_start(&self, offset: usize) -> (usize, &'a str) {
         let start = jaic::source::line_start(self.text, offset);
         let rest = &self.text[start..];
         let indent = &rest[..rest.len() - rest.trim_start_matches([' ', '\t']).len()];
@@ -364,7 +369,7 @@ impl<'a> Cx<'a> {
 
     /// The statement at `span` is the whole body of a loop, an `if`, a `defer` or an `#if` arm,
     /// written without braces (`while poll() ;`, `#if debug log();`).
-    pub fn is_bare_body(&self, span: Span) -> bool {
+    pub(crate) fn is_bare_body(&self, span: Span) -> bool {
         self.bare_bodies
             .binary_search_by_key(&span.start, |s| s.start)
             .is_ok_and(|i| self.bare_bodies[i] == span)
@@ -377,7 +382,7 @@ impl<'a> Cx<'a> {
     /// A statement that is the whole body of a loop, an `if`, a `defer` or an `#if` arm, written
     /// without braces, keeps its `;`: `for 0..2 x: int;` becomes `for 0..2 ;`, an empty body,
     /// where removing the line would leave the loop without one.
-    pub fn statement_removal(&self, span: Span) -> (usize, usize) {
+    pub(crate) fn statement_removal(&self, span: Span) -> (usize, usize) {
         if self.is_bare_body(span) {
             let src = self.src(span);
             let end = span.start as usize + src.strip_suffix(';').unwrap_or(src).len();
@@ -434,7 +439,7 @@ impl Cx<'_> {
     /// [`Cx::statement_removal`], also taking the blank lines that follow when the statement
     /// stood alone on its lines right after a blank line or an opening `{`, so removing it
     /// leaves no hole.
-    pub fn tidy_removal(&self, span: Span) -> (usize, usize) {
+    pub(crate) fn tidy_removal(&self, span: Span) -> (usize, usize) {
         let (start, mut end) = self.statement_removal(span);
 
         if self.line_start(start).0 != start {

@@ -3,6 +3,7 @@ mod registers_source;
 
 mod cpuid {
     //! Architectural CPU data must never be substituted with fabricated zero features.
+
     use std::rc::Rc;
 
     use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
@@ -61,10 +62,7 @@ mod cpuid {
     #[cfg(target_arch = "x86_64")]
     #[test]
     fn cpuid_interpreter_matches_all_hardware_registers_and_subleaves() {
-        let mut options = Options::host();
-
-        options.runtime_support = false;
-        let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+        let mut compiler = bare_compiler();
         let mut source = SOURCE.to_owned();
 
         for (leaf, subleaf) in [(0u32, 0u32), (7, 0), (7, 1), (0x8000_0000, 0)] {
@@ -443,15 +441,13 @@ mod registers {
     use std::rc::Rc;
 
     use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+    use test_support::compiler::bare_compiler;
 
     use super::registers_source::SOURCE;
 
     #[test]
     fn registers_forward_through_expansion_and_extract_scalar_lanes() {
-        let mut options = Options::host();
-
-        options.runtime_support = false;
-        let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+        let mut c = bare_compiler();
 
         if let Err(e) = c.compile_sources(&[ProgramSource::String(format!(
             "{SOURCE}\n#assert(check()==0);"

@@ -2,11 +2,11 @@
 //! same options in a `// test: timeout(5) only(.LINUX)` comment at the top of a file, which sets
 //! them for every test the file holds.
 
-pub use jaic::test_notes::{RunMode, Target, TargetNotes, header_notes, text};
+pub(crate) use jaic::test_notes::{RunMode, Target, TargetNotes, header_notes, text};
 
 /// What a test asks for. `None` and empty lists leave the run-wide setting in charge.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct TestOptions {
+pub(crate) struct TestOptions {
     /// Seconds before the test is killed; 0 for no limit.
     pub timeout: Option<u64>,
     /// Known to take long: started first, never reported as slow.
@@ -45,7 +45,7 @@ pub struct TestOptions {
 impl TestOptions {
     /// Applies one note's text (`timeout(5)`). Unknown notes are an error to warn about; the
     /// note itself is ignored.
-    pub fn apply(&mut self, note: &str) -> Result<(), String> {
+    pub(crate) fn apply(&mut self, note: &str) -> Result<(), String> {
         let (name, args) = match note.split_once('(') {
             Some((name, rest)) => {
                 let Some(args) = rest.strip_suffix(')') else {
@@ -153,7 +153,7 @@ impl TestOptions {
 
     /// The options of a file's `// test:` comments, then `notes` over them. Problems come back
     /// as warnings.
-    pub fn with_notes(&self, notes: &[String]) -> (TestOptions, Vec<String>) {
+    pub(crate) fn with_notes(&self, notes: &[String]) -> (TestOptions, Vec<String>) {
         let mut options = self.clone();
         // The first `only` or `skip_on` among `notes` replaces what `self` had; later ones add
         // to it, so a file can carry several `skip_on(...)` calls.
@@ -177,7 +177,7 @@ impl TestOptions {
     }
 
     /// Why the test does not run on `target` with `have` capabilities, if it does not.
-    pub fn skip_reason(&self, target: &Target, have: &[String]) -> Option<String> {
+    pub(crate) fn skip_reason(&self, target: &Target, have: &[String]) -> Option<String> {
         if self.ignore {
             return Some("ignored (`jai,ignore`)".into());
         }

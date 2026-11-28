@@ -1,7 +1,8 @@
 //! Declaration metadata must not be selected by structural procedure `TypeId`.
-use std::{path::PathBuf, rc::Rc};
+use std::rc::Rc;
 
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
+use test_support::compiler::bare_compiler;
 
 /// The parameter names of a procedure value's header, without where they are declared.
 fn names(header: &jaic::sema::ProcTypeParams) -> Vec<Option<jaic::intern::Sym>> {
@@ -10,7 +11,7 @@ fn names(header: &jaic::sema::ProcTypeParams) -> Vec<Option<jaic::intern::Sym>> 
 
 fn compile(source: &str) -> Result<(), String> {
     let mut options = Options::host();
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let root = test_support::repo::stdlib();
 
     options.import_paths = vec![root.clone()];
     options.preload = Some(root.join("prelude/module.jai"));
@@ -252,14 +253,11 @@ fn filtered_module_alias_defaults_evaluate_in_the_declaring_private_scope() {
 fn ide_metadata_api_selects_fields_instead_of_equal_types_or_offsets() {
     use jaic::{
         intern::Sym,
-        sema::{VirtualFs, scope::Resolved, value::Value},
+        sema::{scope::Resolved, value::Value},
         source::Span,
     };
 
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let mut compiler = bare_compiler();
 
     compiler
         .compile_sources(&[ProgramSource::String(

@@ -18,7 +18,7 @@ fn options(dir: &Path, config: Config) -> Options {
         add_sources: Vec::new(),
         limits: jaic::ide::lint_compile::CheckLimits::default(),
         overlay: std::collections::BTreeMap::new(),
-        stdlib: Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"),
+        stdlib: test_support::repo::stdlib(),
         config,
         jobs: 1,
         verbose: false,

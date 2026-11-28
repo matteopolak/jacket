@@ -275,6 +275,41 @@ pub fn class_of(name: &str) -> Option<WordClass> {
     WORDS.iter().find(|w| w.name == name).map(|w| w.class)
 }
 
+/// What a word is to a reader of code: how an editor or a rendered page colours it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Lexeme {
+    /// A reserved word other than a compiler function: `for`, `struct`, `cast`, `true`.
+    Keyword,
+    /// One of [`TYPES`].
+    Type,
+    /// A compiler function written like a call: `size_of`, `type_of`.
+    Intrinsic,
+    /// Any other word.
+    Plain,
+}
+
+/// How `word` reads: a keyword, a built-in type, a compiler function or none of them.
+///
+/// ```
+/// use jaic_syntax::lexicon::{Lexeme, classify};
+///
+/// assert_eq!(classify("while"), Lexeme::Keyword);
+/// assert_eq!(classify("string"), Lexeme::Type);
+/// assert_eq!(classify("size_of"), Lexeme::Intrinsic);
+/// assert_eq!(classify("trim"), Lexeme::Plain);
+/// ```
+pub fn classify(word: &str) -> Lexeme {
+    if TYPES.contains(&word) {
+        return Lexeme::Type;
+    }
+
+    match WORDS.iter().find(|w| w.reserved && w.name == word) {
+        Some(w) if w.class == WordClass::Intrinsic => Lexeme::Intrinsic,
+        Some(_) => Lexeme::Keyword,
+        None => Lexeme::Plain,
+    }
+}
+
 /// Whether `name` is a reserved word.
 pub fn is_reserved(name: &str) -> bool {
     WORDS.iter().any(|w| w.reserved && w.name == name)

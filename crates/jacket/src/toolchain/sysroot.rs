@@ -10,7 +10,7 @@ use jaic_toolchain::{Host, cache, pins};
 ///
 /// The folder appears only when every package unpacked: the work is done in a sibling that is
 /// renamed at the end, so an interrupted run leaves no half sysroot for a build to find.
-pub fn add(target: Target, host: &dyn Host, say: &dyn Fn(&str)) -> Result<PathBuf, String> {
+pub(super) fn add(target: Target, host: &dyn Host, say: &dyn Fn(&str)) -> Result<PathBuf, String> {
     let pin = pins::sysroot(target)
         .ok_or_else(|| format!("there is no sysroot to fetch for {target}"))?;
     let entry = cache::entry_dir(host, target).ok_or("no cache folder: HOME is not set")?;

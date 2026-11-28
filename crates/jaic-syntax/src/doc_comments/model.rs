@@ -20,7 +20,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 
-pub use output::to_json;
+pub(super) use output::to_json;
 pub(in crate::doc_comments) use output::{json, path};
 
 use super::refs::{TypeRef, refs_json, refs_named};
@@ -268,7 +268,7 @@ fn os_names(mask: u8) -> Vec<String> {
 }
 
 #[derive(Debug, Default)]
-pub struct Param {
+pub(super) struct Param {
     pub name: String,
     pub ty: String,
     pub default: String,
@@ -278,7 +278,7 @@ pub struct Param {
 }
 
 #[derive(Debug, Default)]
-pub struct Overload {
+pub(super) struct Overload {
     pub file: PathBuf,
     pub line: usize,
     /// The header as written, on one line, from its `(`: `(s: string, byte: u8) -> (...)`.
@@ -296,7 +296,7 @@ pub struct Overload {
 
 /// A struct field or an enum member.
 #[derive(Debug, Default)]
-pub struct Member {
+pub(super) struct Member {
     pub name: String,
     /// The field's type, or the member's value.
     pub ty: String,
@@ -311,7 +311,7 @@ pub struct Member {
 }
 
 #[derive(Debug, Default)]
-pub struct Item {
+pub(super) struct Item {
     pub name: String,
     /// `procedure`, `struct`, `union`, `enum`, `enum_flags`, `type` or `constant`.
     pub kind: &'static str,
@@ -357,7 +357,7 @@ pub struct Item {
 
 /// A parameter of the module (`#module_parameters`).
 #[derive(Debug, Default)]
-pub struct Parameter {
+pub(super) struct Parameter {
     pub name: String,
     /// As written; empty when the type comes from the default.
     pub ty: String,
@@ -368,7 +368,7 @@ pub struct Parameter {
 }
 
 #[derive(Debug, Default)]
-pub struct Module {
+pub(super) struct Module {
     pub file: PathBuf,
     /// Every program gets it without importing it (the prelude).
     pub implicit: bool,
@@ -899,7 +899,7 @@ pub fn generated_origin(path: &str) -> Option<(&str, usize)> {
 /// [`module_expanding`] for a reader that cannot run code: every public top-level `#insert`
 /// is unexpanded.
 #[cfg(test)]
-pub fn module(dir: &Path, stdlib: &Path) -> Module {
+pub(super) fn module(dir: &Path, stdlib: &Path) -> Module {
     module_expanding(dir, stdlib, &[], &mut |_, _| {
         Err("the model reads source and does not run it".to_owned())
     })
@@ -910,7 +910,7 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
 /// `generated`, and its failures are in `unexpanded`.
 ///
 /// Imports are found in the library, then `import_dirs`, then `stdlib`.
-pub fn module_expanding(
+pub(super) fn module_expanding(
     dir: &Path,
     stdlib: &Path,
     import_dirs: &[PathBuf],

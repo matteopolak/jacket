@@ -5,7 +5,7 @@ use inkwell::values::{PointerValue, VectorValue};
 use super::features::{Family, Feature};
 use super::{Cx, R};
 
-pub fn byte_lookup<'ctx>(
+pub(super) fn byte_lookup<'ctx>(
     cx: &Cx<'_, 'ctx>,
     width: u8,
     dst: PointerValue<'ctx>,

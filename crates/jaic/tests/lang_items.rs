@@ -1,13 +1,12 @@
 //! The compiler's contract with the standard library, checked against the real prelude: every
 //! type it names resolves, and the layouts in `jaic::layout` agree with the prelude's structs.
-use std::path::Path;
 use std::rc::Rc;
 
 use jaic::sema::{Compiler, NativeFs, Options, PreludeType, ProgramSource};
 use jaic::source::Span;
 
 fn compiler_with_real_prelude() -> Compiler {
-    let stdlib = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.runtime_support = false;

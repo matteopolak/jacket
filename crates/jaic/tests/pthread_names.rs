@@ -1,15 +1,12 @@
 //! Naming reaches the real SDK only through validated scheduler identities.
 #![cfg(any(target_os = "linux", target_os = "macos"))]
-use std::rc::Rc;
 
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+use jaic::sema::ProgramSource;
+use test_support::compiler::bare_compiler;
 
 #[test]
 fn current_and_managed_worker_names_round_trip_through_the_sdk() {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let mut compiler = bare_compiler();
     let source = format!(
         "DARWIN :: {};\n{}\n#program_export \"probe\" probe::()->s64 #c_call {{return check();}}",
         cfg!(target_os = "macos"),

@@ -76,7 +76,7 @@ fn receiver(
 }
 
 impl Builder {
-    pub fn new(
+    pub(super) fn new(
         cx: &Cx,
         body: &LifetimeBody,
         summaries: &Summaries,
@@ -248,7 +248,7 @@ impl Builder {
         Some(self.aliases.get(&p).copied().unwrap_or(p))
     }
 
-    pub fn operations(
+    pub(super) fn operations(
         &self,
         cx: &Cx,
         event: &Event,
@@ -392,7 +392,7 @@ impl Builder {
         true
     }
 
-    pub fn completion(&self, value: Val, facts: &Facts, at: Site) -> Option<Token> {
+    pub(super) fn completion(&self, value: Val, facts: &Facts, at: Site) -> Option<Token> {
         let Selector::Local(value) = facts.selector(value, None, at) else {
             return None;
         };

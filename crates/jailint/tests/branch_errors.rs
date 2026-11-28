@@ -1,6 +1,5 @@
 //! A compile error is reported wherever it sits in an `ifx`, whichever branch the condition
 //! picks: `jacket migrate` plans from these errors.
-use std::path::Path;
 
 use jailint::{
     config::Config,
@@ -25,7 +24,7 @@ fn unknown_names(name: &str, source: &str) -> Vec<String> {
         add_sources: Vec::new(),
         limits: jaic::ide::lint_compile::CheckLimits::default(),
         overlay: std::collections::BTreeMap::new(),
-        stdlib: Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"),
+        stdlib: test_support::repo::stdlib(),
         config: Config::default(),
         jobs: 1,
         verbose: false,

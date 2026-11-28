@@ -393,7 +393,7 @@ fn keep_folder(plan: &Plan, status: Status, folder: &Path) -> bool {
     used && (plan.settings.keep_temp || status.fails(plan.settings.flaky_fails))
 }
 
-pub fn ending_text(ending: &Ending) -> String {
+pub(super) fn ending_text(ending: &Ending) -> String {
     match ending {
         Ending::Exited(code) if ending.crashed() => {
             format!("crashed with exception {:#010X}", *code as u32)

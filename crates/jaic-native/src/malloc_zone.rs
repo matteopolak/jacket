@@ -33,7 +33,7 @@ extern "C" fn no_reinit(_zone: *mut c_void) {
 }
 
 /// Fill `reinit_lock` of mimalloc's zone, when one is registered and lacks the hook.
-pub fn fix_fork() {
+pub(crate) fn fix_fork() {
     let mut zones: *const usize = std::ptr::null();
     let mut count = 0u32;
 

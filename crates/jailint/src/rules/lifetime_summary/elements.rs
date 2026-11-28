@@ -170,7 +170,11 @@ impl Resolver<'_> {
         }
     }
 
-    pub fn element(&self, value: Val, all: &HashMap<ProcId, Summary>) -> Option<(Path, Selector)> {
+    pub(crate) fn element(
+        &self,
+        value: Val,
+        all: &HashMap<ProcId, Summary>,
+    ) -> Option<(Path, Selector)> {
         self.element_inner(value, all, &mut HashSet::default())
     }
 

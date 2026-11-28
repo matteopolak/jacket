@@ -52,7 +52,7 @@ const MARKER: &str = "jailint:";
 pub(crate) const NOTE: &str = "jailint_allow";
 
 impl Suppressions {
-    pub fn new(text: &str, tokens: &[Token], comments: &[Comment], ast: &File) -> Self {
+    pub(crate) fn new(text: &str, tokens: &[Token], comments: &[Comment], ast: &File) -> Self {
         let mut s = Suppressions {
             entries: Vec::new(),
         };
@@ -74,7 +74,7 @@ impl Suppressions {
     }
 
     /// A comment or note silences `rule` (by its name, its category or `all`) at `offset`.
-    pub fn allows_rule(&self, rule: &crate::RuleInfo, offset: usize) -> bool {
+    pub(crate) fn allows_rule(&self, rule: &crate::RuleInfo, offset: usize) -> bool {
         let by_name = self.allows(rule.name, offset);
         let by_category = self.allows(rule.category.as_str(), offset);
 
@@ -83,7 +83,7 @@ impl Suppressions {
 
     /// A comment or note silences the rule or category `rule` (or `all`) at `offset`. Every
     /// name that does is marked used.
-    pub fn allows(&self, rule: &str, offset: usize) -> bool {
+    pub(crate) fn allows(&self, rule: &str, offset: usize) -> bool {
         let mut found = false;
 
         for entry in &self.entries {
@@ -111,7 +111,7 @@ impl Suppressions {
     /// The names that silenced nothing. `judge` says whether a name could have: it names rules
     /// that all ran (a rule that was off, or that stays quiet on an incomplete compile, proves
     /// nothing), and it is not misspelt (`unknown_allow` reports that).
-    pub fn unused(&self, judge: &dyn Fn(&str) -> bool) -> Vec<Unused> {
+    pub(crate) fn unused(&self, judge: &dyn Fn(&str) -> bool) -> Vec<Unused> {
         let mut out = Vec::new();
 
         for entry in self.entries.iter().filter(|e| !e.conditional) {

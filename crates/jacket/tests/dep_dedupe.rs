@@ -11,7 +11,7 @@ use crate::dep_support;
 /// What a version requires: the package, the range it asks for, and the tag its author checked
 /// the nested copy out at.
 #[derive(Clone)]
-pub struct Need {
+pub(crate) struct Need {
     pub dep: &'static str,
     pub range: &'static str,
     pub pinned: &'static str,
@@ -20,7 +20,7 @@ pub struct Need {
     pub vendored: bool,
 }
 
-pub fn need(dep: &'static str, range: &'static str, pinned: &'static str) -> Need {
+pub(crate) fn need(dep: &'static str, range: &'static str, pinned: &'static str) -> Need {
     Need {
         dep,
         range,
@@ -32,7 +32,7 @@ pub fn need(dep: &'static str, range: &'static str, pinned: &'static str) -> Nee
 
 /// One version of a generated package.
 #[derive(Clone)]
-pub struct Version {
+pub(crate) struct Version {
     pub tag: &'static str,
     pub needs: Vec<Need>,
     /// Text added to `module.jai` after the generated functions.
@@ -44,7 +44,7 @@ pub struct Version {
     pub files: Vec<(&'static str, &'static str)>,
 }
 
-pub fn version(tag: &'static str) -> Version {
+pub(crate) fn version(tag: &'static str) -> Version {
     Version {
         tag,
         needs: Vec::new(),
@@ -57,37 +57,37 @@ pub fn version(tag: &'static str) -> Version {
 
 impl Version {
     #[must_use]
-    pub fn needs(mut self, needs: &[Need]) -> Self {
+    pub(crate) fn needs(mut self, needs: &[Need]) -> Self {
         self.needs = needs.to_vec();
         self
     }
 
     #[must_use]
-    pub fn body(mut self, body: &'static str) -> Self {
+    pub(crate) fn body(mut self, body: &'static str) -> Self {
         self.body = body;
         self
     }
 
     #[must_use]
-    pub fn head(mut self, head: &'static str) -> Self {
+    pub(crate) fn head(mut self, head: &'static str) -> Self {
         self.head = head;
         self
     }
 
     #[must_use]
-    pub fn arguments(mut self, arguments: &'static str) -> Self {
+    pub(crate) fn arguments(mut self, arguments: &'static str) -> Self {
         self.arguments = arguments;
         self
     }
 
     #[must_use]
-    pub fn file(mut self, path: &'static str, text: &'static str) -> Self {
+    pub(crate) fn file(mut self, path: &'static str, text: &'static str) -> Self {
         self.files.push((path, text));
         self
     }
 }
 
-pub struct World {
+pub(crate) struct World {
     pub project: Project,
     pub libs: BTreeMap<String, Origin>,
 }
@@ -142,7 +142,7 @@ fn module_text(name: &str, version: &Version) -> String {
 }
 
 impl World {
-    pub fn new(dedupe: bool) -> Self {
+    pub(crate) fn new(dedupe: bool) -> Self {
         let resolver = if dedupe {
             "[resolver]\ndedupe = true\n"
         } else {
@@ -157,7 +157,7 @@ impl World {
 
     /// Publishes `versions` of `name` in order; each one's requirements are nested submodules
     /// at the tags its author chose.
-    pub fn package(&mut self, name: &str, versions: &[Version]) {
+    pub(crate) fn package(&mut self, name: &str, versions: &[Version]) {
         for version in versions {
             let mut files = vec![
                 ("module.jai".to_string(), module_text(name, version)),
@@ -222,20 +222,20 @@ impl World {
         text
     }
 
-    pub fn add(&self, name: &str, range: &str) -> Run {
+    pub(crate) fn add(&self, name: &str, range: &str) -> Run {
         self.project
             .jacket(&["dep", "add", &format!("{}@{range}", self.libs[name].url())])
     }
 
-    pub fn main(&self, text: &str) {
+    pub(crate) fn main(&self, text: &str) {
         std::fs::write(self.project.dir.join("main.jai"), text).unwrap();
     }
 
     /// `jacket check`, with the compiler of this build.
-    pub fn check(&self) -> Run {
+    pub(crate) fn check(&self) -> Run {
         let jacket = Path::new(env!("CARGO_BIN_EXE_jacket"));
         let _ = toolchain::paired_jaic(jacket);
-        let stdlib = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+        let stdlib = test_support::repo::stdlib();
 
         self.project.jacket_env(
             &["check", "main.jai"],
@@ -244,7 +244,7 @@ impl World {
     }
 
     /// The checked-out copies of `name` anywhere under the project.
-    pub fn copies(&self, name: &str) -> Vec<String> {
+    pub(crate) fn copies(&self, name: &str) -> Vec<String> {
         fn walk(dir: &Path, root: &Path, name: &str, out: &mut Vec<String>) {
             let Ok(entries) = std::fs::read_dir(dir) else {
                 return;
@@ -299,7 +299,7 @@ fn first_error(run: &Run) -> String {
 /// What a world came to: the first failing step, or the compile's verdict, and where the
 /// copies of `qlib` ended up.
 #[derive(Debug, PartialEq, Eq)]
-pub struct Observed {
+pub(crate) struct Observed {
     pub result: String,
     pub copies: Vec<String>,
 }

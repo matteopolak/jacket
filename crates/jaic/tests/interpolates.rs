@@ -1,6 +1,6 @@
 //! `@Interpolates("mode")`: holes in a literal become positional arguments, checked in the
 //! caller's scope with spans inside the string.
-use std::{path::PathBuf, rc::Rc};
+use std::rc::Rc;
 
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 
@@ -30,7 +30,7 @@ same :: (a: string, b: string) -> bool {
 
 fn run(body: &str) -> Result<(), String> {
     let source = format!("{PRELUDE}\n{body}");
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];
@@ -253,7 +253,7 @@ id := 9;
 #[test]
 fn the_language_fixture_checks_out() {
     let source = include_str!("../../../tests/compiler/semantics/interpolates.jai");
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];

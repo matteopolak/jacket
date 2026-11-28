@@ -13,7 +13,7 @@ use jaic::types::{TypeId, TypeKind};
 
 /// What a use resolved to, as far as the checks need it.
 #[derive(Clone, Debug)]
-pub enum Resolved {
+pub(crate) enum Resolved {
     /// A declared name and where (file, first and last line), when it is in a file. A use that
     /// the compile reached more than once (a macro or polymorphic body, once per instance) lists
     /// each declaration it resolved to; any of them is a right answer.
@@ -32,7 +32,7 @@ pub enum Resolved {
 }
 
 #[derive(Clone, Debug)]
-pub struct Ref {
+pub(crate) struct Ref {
     pub start: usize,
     pub end: usize,
     pub resolved: Resolved,
@@ -41,7 +41,7 @@ pub struct Ref {
 /// A place in a struct literal where a field name goes, and the fields completion must offer
 /// there: inside an empty `.{}`, all of them; at a named field, that one.
 #[derive(Clone, Debug)]
-pub struct Literal {
+pub(crate) struct Literal {
     pub at: usize,
     pub type_name: String,
     pub fields: Vec<String>,
@@ -50,12 +50,12 @@ pub struct Literal {
 /// A note of the file that compile-time code read, and where each reader is (file, 0-based
 /// line).
 #[derive(Clone, Debug)]
-pub struct ReadNote {
+pub(crate) struct ReadNote {
     pub at: usize,
     pub readers: Vec<(PathBuf, u32)>,
 }
 
-pub struct Oracle {
+pub(crate) struct Oracle {
     pub refs: Vec<Ref>,
     pub literals: Vec<Literal>,
     pub notes: Vec<ReadNote>,
@@ -96,7 +96,7 @@ fn declared(compiler: &Compiler, t: TypeId) -> bool {
 }
 
 /// Compiles `path` as a program with `options`. `Err` is the compiler's first error.
-pub fn compile(options: Options, path: &Path, text: &str) -> Result<Oracle, String> {
+pub(crate) fn compile(options: Options, path: &Path, text: &str) -> Result<Oracle, String> {
     let fs: Rc<dyn jaic::sema::FileSystem> = Rc::new(jaic::sema::NativeFs);
     let mut compiler = Compiler::new(options.clone(), fs.clone());
     // Compile-time code runs as the server runs it: output kept in memory, not on stdout.

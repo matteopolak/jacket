@@ -12,7 +12,7 @@ use crate::analysis::Span;
 
 /// One `%` directive of a format string.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Spec {
+pub(crate) struct Spec {
     pub span: Span,
     /// The argument it formats (0-based among the arguments after the format string), or
     /// `None` for `%00`.
@@ -20,7 +20,7 @@ pub struct Spec {
 }
 
 #[derive(Clone, Debug)]
-pub struct FormatCall {
+pub(crate) struct FormatCall {
     /// The name written before the `(` of the call.
     pub callee: String,
     /// The format string literal, quotes included.
@@ -33,7 +33,7 @@ pub struct FormatCall {
 }
 
 /// Calls in `text` with a literal format string among their first two arguments.
-pub fn calls(tokens: &[Token], text: &str) -> Vec<FormatCall> {
+pub(crate) fn calls(tokens: &[Token], text: &str) -> Vec<FormatCall> {
     let mut out = Vec::new();
 
     for (i, token) in tokens.iter().enumerate() {
@@ -168,7 +168,7 @@ fn arguments(tokens: &[Token], from: usize) -> Vec<Argument> {
 }
 
 /// The `%` directives of the string literal at `string` of `text` (read as `Basic` reads them).
-pub fn specs(text: &str, string: Span) -> Vec<Spec> {
+pub(crate) fn specs(text: &str, string: Span) -> Vec<Spec> {
     jaic::format_string::specs(text, string.start, string.end)
         .into_iter()
         .map(|s| Spec {

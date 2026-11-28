@@ -5,13 +5,13 @@ use std::path::Path;
 use jacket_config::{ConfigError, Disk, Loaded};
 
 /// The configuration above `cwd`, with notes printed. A broken file is an error.
-pub fn load(cwd: &Path) -> Result<Option<Loaded>, ConfigError> {
+pub(crate) fn load(cwd: &Path) -> Result<Option<Loaded>, ConfigError> {
     load_with(cwd, true)
 }
 
 /// [`load`], printing the notes only when `notes` is set: a command that starts a tool which
 /// reads the same file and prints them itself (`jailint`) leaves them to it.
-pub fn load_with(cwd: &Path, notes: bool) -> Result<Option<Loaded>, ConfigError> {
+pub(crate) fn load_with(cwd: &Path, notes: bool) -> Result<Option<Loaded>, ConfigError> {
     let loaded = jacket_config::load(&Disk, cwd)?;
 
     if notes && let Some(loaded) = &loaded {
@@ -25,7 +25,7 @@ pub fn load_with(cwd: &Path, notes: bool) -> Result<Option<Loaded>, ConfigError>
 
 /// `[toolchain] version` against this jacket: a project pinned to another release is an error
 /// with the command that installs it.
-pub fn check_toolchain(loaded: &Loaded) -> Result<(), String> {
+pub(crate) fn check_toolchain(loaded: &Loaded) -> Result<(), String> {
     pinned_toolchain(
         loaded.config.toolchain.version.as_deref(),
         &loaded.location.file(),

@@ -11,7 +11,7 @@ use similar::{ChangeTag, TextDiff};
 /// - b
 /// + x
 /// ```
-pub fn lines(want: &str, got: &str) -> String {
+pub(super) fn lines(want: &str, got: &str) -> String {
     let w: Vec<&str> = want.lines().collect();
     let g: Vec<&str> = got.lines().collect();
     let mut out = String::from("--- want\n+++ got\n");

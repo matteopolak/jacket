@@ -301,7 +301,7 @@ fn report_and_exit(what: &str) -> bool {
 /// Called before compiled code aborts the compiler process: a core file of the compiler is no use
 /// for the program's own failure, and writing one for a large multithreaded process takes long
 /// enough to look like a hang.
-pub fn skip_core_dump() {
+pub(super) fn skip_core_dump() {
     sys::skip_core_dump();
 }
 
@@ -384,7 +384,7 @@ mod sys {
     /// The actions in place before ours, by index in `SIGNALS`.
     static mut PREVIOUS: [Option<SigAction>; 4] = [None; 4];
 
-    pub fn install() {
+    pub(super) fn install() {
         let handler: extern "C" fn(c_int, *mut c_void, *mut c_void) = on_signal;
 
         for (i, &sig) in SIGNALS.iter().enumerate() {
@@ -466,7 +466,7 @@ mod sys {
         out.text()
     }
 
-    pub fn write_stderr(mut bytes: &[u8]) {
+    pub(super) fn write_stderr(mut bytes: &[u8]) {
         while !bytes.is_empty() {
             // SAFETY: writes the initialized bytes of a live slice.
             let n = unsafe { write(2, bytes.as_ptr().cast(), bytes.len()) };
@@ -479,7 +479,7 @@ mod sys {
         }
     }
 
-    pub fn skip_core_dump() {
+    pub(super) fn skip_core_dump() {
         // A core pattern that pipes to a handler (systemd-coredump, apport) ignores the size limit and
         // still stops every thread to stream the whole image, which on a process with many threads
         // outlasts the caller's patience. A process that is not dumpable is never dumped.
@@ -499,13 +499,13 @@ mod sys {
         }
     }
 
-    pub fn exit_now(status: i32) -> ! {
+    pub(super) fn exit_now(status: i32) -> ! {
         // SAFETY: `_exit` is async-signal-safe and ends the process.
         unsafe { _exit(status) }
     }
 
     /// Block this thread until the process ends.
-    pub fn wait_forever() -> ! {
+    pub(super) fn wait_forever() -> ! {
         loop {
             // SAFETY: `pause` is async-signal-safe and only suspends the calling thread.
             unsafe {

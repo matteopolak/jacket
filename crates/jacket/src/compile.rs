@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use jacket_config::{Files, Loaded};
 
 /// What the project contributes to a command line.
-pub struct Context<'a> {
+pub(crate) struct Context<'a> {
     pub loaded: Option<&'a Loaded>,
     pub cwd: &'a Path,
     pub fs: &'a dyn Files,
@@ -50,7 +50,7 @@ fn has_flag(region: &[OsString], name: &str) -> bool {
 }
 
 /// The `.jai` file the arguments name, if any.
-pub fn named_input(args: &[OsString]) -> Option<&OsString> {
+pub(crate) fn named_input(args: &[OsString]) -> Option<&OsString> {
     flag_region(args)
         .iter()
         .find(|a| text(a).ends_with(".jai") && !text(a).starts_with('-'))
@@ -67,7 +67,7 @@ fn asks_about_jaic(args: &[OsString]) -> bool {
 }
 
 /// The entry file of the project at hand, absolute.
-pub fn entry(ctx: &Context) -> Option<PathBuf> {
+pub(crate) fn entry(ctx: &Context) -> Option<PathBuf> {
     let base = ctx.loaded.map_or(ctx.cwd, |l| l.dir());
     let project = ctx.loaded.map(|l| &l.config.project);
 
@@ -165,7 +165,7 @@ const PATH_FLAGS: [&str; 4] = ["-import_dir", "-I", "-output_path", "-emit_ir"];
 
 /// Makes the path values among the jaic `flags` absolute from `cwd`. A malformed sequence is
 /// left as written: jaic diagnoses it when it is started.
-pub fn absolute_flag_paths(flags: &mut [String], cwd: &Path) {
+pub(crate) fn absolute_flag_paths(flags: &mut [String], cwd: &Path) {
     // The same compiler argument walk owns arity, target filtering and path values.
     if let Ok(parsed) = jaic_cli_args::arguments::target_flags(flags) {
         for value in parsed.values {
@@ -181,7 +181,10 @@ pub fn absolute_flag_paths(flags: &mut [String], cwd: &Path) {
 /// `check`, `run` and `test` all take their compiler flags from here.
 ///
 /// Fails when a dependency's `jacket.toml` cannot be read.
-pub fn project_flags(args: &[OsString], loaded: Option<&Loaded>) -> Result<Vec<OsString>, String> {
+pub(crate) fn project_flags(
+    args: &[OsString],
+    loaded: Option<&Loaded>,
+) -> Result<Vec<OsString>, String> {
     let Some(loaded) = loaded else {
         return Ok(Vec::new());
     };
@@ -203,7 +206,11 @@ pub fn project_flags(args: &[OsString], loaded: Option<&Loaded>) -> Result<Vec<O
 }
 
 /// The command line `jaic` is started with.
-pub fn jaic_argv(check: bool, args: &[OsString], ctx: &Context) -> Result<Vec<OsString>, String> {
+pub(crate) fn jaic_argv(
+    check: bool,
+    args: &[OsString],
+    ctx: &Context,
+) -> Result<Vec<OsString>, String> {
     let mut argv: Vec<OsString> = Vec::new();
 
     if check {
@@ -227,7 +234,7 @@ pub fn jaic_argv(check: bool, args: &[OsString], ctx: &Context) -> Result<Vec<Os
 }
 
 /// Where `jaic argv` writes the executable (`docs/tools/cli.md`, "Where the executable goes").
-pub fn executable(argv: &[OsString], cwd: &Path) -> Option<PathBuf> {
+pub(crate) fn executable(argv: &[OsString], cwd: &Path) -> Option<PathBuf> {
     let source = Path::new(named_input(argv)?);
     let region = flag_region(argv);
     let value = |name: &str| {
@@ -272,7 +279,7 @@ pub fn executable(argv: &[OsString], cwd: &Path) -> Option<PathBuf> {
 }
 
 /// `jacket run`'s arguments split into jaic's and the program's.
-pub fn split_run(args: &[OsString]) -> (&[OsString], &[OsString]) {
+pub(crate) fn split_run(args: &[OsString]) -> (&[OsString], &[OsString]) {
     if flag_region_has(args, "-interp") {
         return (args, &[]);
     }
@@ -290,7 +297,7 @@ fn flag_region_has(args: &[OsString], flag: &str) -> bool {
 /// The executable a successful jaic build wrote, read from the `JAIC_REPORT_EXE` file `report`
 /// (its last line). A metaprogram can pick the name, so jacket never guesses it: a missing or
 /// empty report, or a path that is not a file, is an error.
-pub fn reported_executable(report: &Path) -> Result<PathBuf, String> {
+pub(crate) fn reported_executable(report: &Path) -> Result<PathBuf, String> {
     let text = std::fs::read_to_string(report).map_err(|error| {
         if error.kind() == std::io::ErrorKind::NotFound {
             "jaic did not report the executable it wrote\nnote: the build wrote none; a metaprogram may have turned the output off".to_string()

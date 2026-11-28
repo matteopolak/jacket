@@ -18,7 +18,7 @@ pub(crate) const COMMAND: &str = "jai.showCompileTimeCosts";
 pub(crate) const NOTIFICATION: &str = "jai/compileTimeLimit";
 
 /// `1.2M steps · 3 ms`.
-pub fn cost_text(steps: u64, elapsed: Duration) -> String {
+pub(crate) fn cost_text(steps: u64, elapsed: Duration) -> String {
     let count = match steps {
         0..1_000 => format!("{steps}"),
         1_000..1_000_000 => format!("{:.1}k", steps as f64 / 1e3),

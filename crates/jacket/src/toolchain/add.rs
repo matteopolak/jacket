@@ -48,7 +48,7 @@ fn clear_live() {
 
 /// `jacket toolchain add TARGET...`: fetches a sysroot for a Linux target, or builds the builtins
 /// of a freestanding one. Returns whether every target worked.
-pub fn add(names: &[String], config: Option<&jacket_config::Config>) -> Result<(), String> {
+pub(crate) fn add(names: &[String], config: Option<&jacket_config::Config>) -> Result<(), String> {
     let lookup = super::lookup();
 
     for name in names {
@@ -135,7 +135,7 @@ fn add_one(target: Target, lookup: &Lookup) -> Result<(), String> {
 }
 
 /// The table `jacket toolchain list` prints: what the cache holds for each target.
-pub fn list() -> String {
+pub(crate) fn list() -> String {
     let host = System;
     let entries = cache::entries(&host);
     let Some(root) = cache::root(&host) else {
@@ -180,7 +180,7 @@ pub fn list() -> String {
 
 /// `jacket toolchain remove TARGET...` deletes what the cache holds for each target; with
 /// `all`, the whole cache: every target, the downloads and the unpacked sources.
-pub fn remove(
+pub(crate) fn remove(
     names: &[String],
     all: bool,
     config: Option<&jacket_config::Config>,

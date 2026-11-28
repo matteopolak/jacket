@@ -34,7 +34,7 @@ pub(super) struct Places {
 }
 
 impl Places {
-    pub fn new(compiler: &jaic::sema::Compiler, body: &LifetimeBody) -> Self {
+    pub(super) fn new(compiler: &jaic::sema::Compiler, body: &LifetimeBody) -> Self {
         let mut this = Self::default();
         // Lowering emits each projection after its base. Definitions precede their uses even
         // when a later block is checked before an earlier block's cleanup is filled in.
@@ -290,7 +290,7 @@ impl Places {
         this
     }
 
-    pub fn place(&mut self, value: Val, ty: TypeId) -> usize {
+    pub(super) fn place(&mut self, value: Val, ty: TypeId) -> usize {
         if let Some(&id) = self.values.get(&(value, ty)) {
             return id;
         }
@@ -315,7 +315,7 @@ impl Places {
         id
     }
 
-    pub fn project(&mut self, base: usize, projection: Projection) -> usize {
+    pub(super) fn project(&mut self, base: usize, projection: Projection) -> usize {
         if let Some(&id) = self.child_ids.get(&(base, projection)) {
             return id;
         }
@@ -334,18 +334,18 @@ impl Places {
     }
 
     /// The place with no projections that `place` hangs off.
-    pub fn root_of(&self, place: usize) -> usize {
+    pub(super) fn root_of(&self, place: usize) -> usize {
         self.roots[place]
     }
 
-    pub fn contains(&self, parent: usize, child: usize) -> bool {
+    pub(super) fn contains(&self, parent: usize, child: usize) -> bool {
         let (a, pa) = &self.paths[parent];
         let (b, pb) = &self.paths[child];
 
         a == b && pb.starts_with(pa)
     }
 
-    pub fn import(&mut self, other: &Self, id: usize) -> usize {
+    pub(super) fn import(&mut self, other: &Self, id: usize) -> usize {
         let (root, path) = &other.paths[id];
         let mut target = self.intern_root(*root);
 
@@ -366,7 +366,7 @@ impl Places {
         target
     }
 
-    pub fn unresolved(&self, place: usize) -> bool {
+    pub(super) fn unresolved(&self, place: usize) -> bool {
         self.paths[place].1.contains(&Projection::Deref) || self.under_indirect(place)
     }
 
@@ -377,7 +377,7 @@ impl Places {
                 .any(|base| self.indirect.contains(&base))
     }
 
-    pub fn stable_projection(&self, place: usize) -> bool {
+    pub(super) fn stable_projection(&self, place: usize) -> bool {
         let ((root, _), path) = &self.paths[place];
 
         self.stable_parameters.contains(root)
@@ -386,15 +386,15 @@ impl Places {
             && !self.under_indirect(place)
     }
 
-    pub fn ancestors(&self, place: usize) -> impl Iterator<Item = usize> + '_ {
+    pub(super) fn ancestors(&self, place: usize) -> impl Iterator<Item = usize> + '_ {
         std::iter::successors(self.parents[place], |&p| self.parents[p])
     }
 
-    pub fn existing(&self, value: Val, ty: TypeId) -> Option<usize> {
+    pub(super) fn existing(&self, value: Val, ty: TypeId) -> Option<usize> {
         self.values.get(&(value, ty)).copied()
     }
 
-    pub fn lookup(&self, other: &Self, place: usize) -> Option<usize> {
+    pub(super) fn lookup(&self, other: &Self, place: usize) -> Option<usize> {
         let (root, path) = &other.paths[place];
 
         path.iter()
@@ -403,11 +403,11 @@ impl Places {
             })
     }
 
-    pub fn projected(&self, parent: usize, projection: Projection) -> Option<usize> {
+    pub(super) fn projected(&self, parent: usize, projection: Projection) -> Option<usize> {
         self.child_ids.get(&(parent, projection)).copied()
     }
 
-    pub fn descendants(&self, parent: usize) -> Vec<usize> {
+    pub(super) fn descendants(&self, parent: usize) -> Vec<usize> {
         let mut result = Vec::new();
         let mut queue = self.children.get(&parent).cloned().unwrap_or_default();
 
@@ -422,7 +422,7 @@ impl Places {
         result
     }
 
-    pub fn copied_fields(&mut self, target: usize, source: usize) -> Vec<(usize, usize)> {
+    pub(super) fn copied_fields(&mut self, target: usize, source: usize) -> Vec<(usize, usize)> {
         let mut pairs = Vec::new();
 
         // Either side can introduce the field: a returned aggregate's output buffer

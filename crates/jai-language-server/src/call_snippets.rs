@@ -344,7 +344,7 @@ fn starts_statement(text: &str, lexed: &Lexed, start: usize) -> bool {
 
 impl Analysis {
     /// Whether `chain` names a value (a variable or a field of one), not a module or a type.
-    pub fn receiver_is_value(
+    pub(crate) fn receiver_is_value(
         &mut self,
         path: &std::path::Path,
         offset: usize,

@@ -1,5 +1,4 @@
 //! Refactoring code actions: extract, inline, fill in cases and fields, `ifx` rewrites.
-use std::path::PathBuf;
 
 use jai_language_server::{CodeAction, DiagnosticSeverity, Position, Range};
 use test_support::lsp::{open, position, uri};
@@ -657,7 +656,7 @@ fn declines_to_extract_what_cannot_be_a_procedure() {
 
 #[test]
 fn offered_refactorings_always_parse() {
-    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let dir = test_support::repo::stdlib();
     let mut offered = 0;
 
     for name in [

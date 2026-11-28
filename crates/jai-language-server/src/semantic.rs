@@ -19,14 +19,14 @@ use jaic::sema::{Compiler, FileSystem, Options};
 use jaic::source::FileId;
 use jaic::target::TargetOs;
 
-pub use self::cache::Cache;
-pub use self::overlay::Reads;
+pub(crate) use self::cache::Cache;
+pub(crate) use self::overlay::Reads;
 pub(crate) use self::parses::text_key;
-pub use self::parses::{note_parse, parse_error};
+pub(crate) use self::parses::{note_parse, parse_error};
 pub(crate) use self::queries::CheckFinding;
-pub use self::queries::EvalCost;
+pub(crate) use self::queries::EvalCost;
 pub(crate) use self::queries::LimitKind;
-pub use self::shift::Shift;
+pub(crate) use self::shift::Shift;
 
 /// Where the language server finds modules: a file system for everything that is not an open
 /// document, and compiler options for a main file (import paths, Preload, target).
@@ -107,10 +107,10 @@ pub(crate) fn text_hash(bytes: &[u8]) -> u64 {
 }
 
 /// A declaration in a compiled file: (path, text of the file, start, end of its name).
-pub type Decl = (String, Arc<str>, usize, usize);
+pub(crate) type Decl = (String, Arc<str>, usize, usize);
 
 /// What the type checker says about a hover.
-pub struct HoverFacts {
+pub(crate) struct HoverFacts {
     pub start: usize,
     pub end: usize,
     pub text: String,
@@ -138,7 +138,7 @@ const SMALL_KEPT: usize = 2;
 const ALTERNATES: usize = 3;
 
 /// The targets asked, in order, about code the environment's target skips.
-pub const OTHER_TARGETS: [TargetOs; 4] = [
+pub(crate) const OTHER_TARGETS: [TargetOs; 4] = [
     TargetOs::Linux,
     TargetOs::Windows,
     TargetOs::MacOS,
@@ -151,7 +151,7 @@ pub const OTHER_TARGETS: [TargetOs; 4] = [
 /// folders its build options add to the import path. Recorded while the metaprogram runs, so
 /// computed paths (`tprint`, variables, loops) are known exactly.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct BuildFacts {
+pub(crate) struct BuildFacts {
     pub programs: Vec<BuiltProgram>,
     /// Every filesystem source actually checked, including file imports and child workspaces.
     /// Content stamps let discovery invalidate this graph when a source changes.
@@ -162,7 +162,7 @@ pub struct BuildFacts {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct BuiltProgram {
+pub(crate) struct BuiltProgram {
     pub files: Vec<PathBuf>,
     pub strings: usize,
     pub import_dirs: Vec<PathBuf>,
@@ -170,9 +170,9 @@ pub struct BuiltProgram {
 
 /// The open documents' texts by path, shared so that asking again with the same inputs is
 /// known by address alone.
-pub type Buffers = Rc<BTreeMap<PathBuf, Arc<[u8]>>>;
+pub(crate) type Buffers = Rc<BTreeMap<PathBuf, Arc<[u8]>>>;
 
-pub struct Analysis {
+pub(crate) struct Analysis {
     pub compiler: Compiler,
     /// Entry observation belongs to the selected compiler and swaps with it.
     entry: Option<PathBuf>,

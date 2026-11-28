@@ -1,16 +1,13 @@
 //! Checked expressions must retain the actual procedure-instance result type.
-use std::rc::Rc;
 
 use jaic::{
     records::{FieldRef, Item, RecordTag, Records},
-    sema::{Compiler, Options, ProgramSource, VirtualFs},
+    sema::ProgramSource,
 };
+use test_support::compiler::bare_compiler;
 
 fn binary_result_types(source: &str) -> (Vec<String>, usize) {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let mut compiler = bare_compiler();
 
     compiler
         .compile_sources(&[ProgramSource::String(source.into())])
@@ -134,10 +131,7 @@ main :: () {}
 
 #[test]
 fn invalid_local_expression_still_reports_original_type_error() {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let mut compiler = bare_compiler();
     let error = compiler
         .compile_sources(&[ProgramSource::String(
             r#"main :: () { a:u8=2; b:string="x"; c:=a+b; }"#.into(),

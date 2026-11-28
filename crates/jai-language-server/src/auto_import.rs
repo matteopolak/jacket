@@ -37,13 +37,13 @@ mod names;
 mod programs;
 
 /// The most auto-import items one completion offers.
-pub const MAX_ITEMS: usize = 50;
+pub(crate) const MAX_ITEMS: usize = 50;
 
 /// The most overload signatures one item's documentation shows.
 const MAX_OVERLOADS: usize = 4;
 
 /// Characters to type before auto-import items are offered.
-pub const MIN_PREFIX: usize = 2;
+pub(crate) const MIN_PREFIX: usize = 2;
 
 /// The most files one load graph (a program's or a module's) follows.
 const MAX_LOADED: usize = 4000;

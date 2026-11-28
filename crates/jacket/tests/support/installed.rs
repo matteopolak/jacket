@@ -10,12 +10,12 @@ fn target_dir() -> PathBuf {
         .to_path_buf()
 }
 
-pub fn stdlib() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib")
+pub(crate) fn stdlib() -> PathBuf {
+    test_support::repo::stdlib()
 }
 
 /// A scratch directory of its own, so tests do not share files.
-pub fn scratch(name: &str) -> TempDir {
+pub(crate) fn scratch(name: &str) -> TempDir {
     let dir = TempDir::new(&format!("jacket-test-{name}"));
 
     std::fs::create_dir_all(&dir).expect("create the scratch directory");
@@ -24,7 +24,7 @@ pub fn scratch(name: &str) -> TempDir {
 
 /// `jacket` and `jaic` copied into a fresh directory, as an unpacked archive has them. `None`
 /// when `jaic` has not been built (`cargo test -p jacket` alone does not build it).
-pub fn archive(root: &Path) -> Option<PathBuf> {
+pub(crate) fn archive(root: &Path) -> Option<PathBuf> {
     let suffix = std::env::consts::EXE_SUFFIX;
     let jaic = target_dir().join(format!("jaic{suffix}"));
 
@@ -43,7 +43,7 @@ pub fn archive(root: &Path) -> Option<PathBuf> {
     Some(jacket)
 }
 
-pub fn jacket(exe: &Path, dir: &Path, args: &[&str]) -> std::process::Output {
+pub(crate) fn jacket(exe: &Path, dir: &Path, args: &[&str]) -> std::process::Output {
     Command::new(exe)
         .args(args)
         .current_dir(dir)

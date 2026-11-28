@@ -80,12 +80,6 @@ impl JsonSession {
         self.session.compile_counts()
     }
 
-    /// Work that makes later requests faster, for a transport to do while it waits for input
-    /// (see `Session::warm_auto_import`).
-    pub fn warm_up(&self) {
-        self.session.warm_auto_import();
-    }
-
     /// False when input interrupted the scan: retry on the next idle turn.
     pub fn warm_up_unless_interrupted(&self) -> bool {
         self.session.warm_auto_import_unless_interrupted()

@@ -19,7 +19,7 @@ use crate::model::{CodeAction, TextEdit};
 use crate::session::Session;
 
 /// The code of the type checker's diagnostic on the wire.
-pub const CHECK_CODE: &str = "check";
+pub(crate) const CHECK_CODE: &str = "check";
 
 impl Session {
     /// One `quickfix` per suggestion of each compile error and warning in `uri` that touches

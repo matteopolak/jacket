@@ -5,7 +5,7 @@ use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 
 fn check(source: &str) -> Result<(), String> {
     let mut options = Options::host();
-    let stdlib = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
 
     options.import_paths.push(stdlib.clone());
     options.set_stdlib(&NativeFs, &stdlib);

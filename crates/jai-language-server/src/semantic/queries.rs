@@ -16,7 +16,7 @@ use super::{Analysis, Decl, HoverFacts, SemanticAnalysisContext, SemanticCoverag
 const ENRICHED_ERRORS: usize = 50;
 
 /// A compile error or warning placed in one file.
-pub struct CheckFinding {
+pub(crate) struct CheckFinding {
     /// The byte range it is shown at.
     pub start: usize,
     pub end: usize,
@@ -32,7 +32,7 @@ pub struct CheckFinding {
 }
 
 /// A located note of a finding: a place in any compiled file.
-pub struct Related {
+pub(crate) struct Related {
     pub path: String,
     pub text: Arc<str>,
     pub start: usize,
@@ -42,7 +42,7 @@ pub struct Related {
 
 /// What a compile-time evaluation (a `#run`, a constant that needed the interpreter...) of the
 /// program cost, summed over the times the compile ran it.
-pub struct EvalCost {
+pub(crate) struct EvalCost {
     pub path: String,
     pub text: Arc<str>,
     /// The byte range of the code that was evaluated.
@@ -54,7 +54,7 @@ pub struct EvalCost {
 
 /// Which limit stopped compile-time code.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum LimitKind {
+pub(crate) enum LimitKind {
     /// One evaluation ran out of its block budget.
     Budget,
     /// The whole check ran past its time limit.
@@ -62,7 +62,7 @@ pub enum LimitKind {
 }
 
 /// A compile-time evaluation or check that a limit stopped, found by a compile.
-pub struct LimitHit {
+pub(crate) struct LimitHit {
     pub kind: LimitKind,
     pub path: String,
     pub text: Arc<str>,
@@ -199,7 +199,7 @@ impl Analysis {
 
     /// The top-level compile-time evaluations of the program and of the programs its
     /// metaprogram built, costliest first. A run inside another counts in the one around it.
-    pub fn evaluation_costs(&self) -> Vec<EvalCost> {
+    pub(crate) fn evaluation_costs(&self) -> Vec<EvalCost> {
         let mut sums: BTreeMap<(String, usize, usize), EvalCost> = BTreeMap::new();
 
         for (compiler, _) in self.polymorph_compilers() {
@@ -255,7 +255,7 @@ impl Analysis {
     /// Answer from the program that compiled `path`: the compiled root's own, or one a
     /// metaprogram built. The answering program stays when it compiled `path` too (a module
     /// both import).
-    pub fn focus(&mut self, path: &Path) {
+    pub(crate) fn focus(&mut self, path: &Path) {
         if self.others.is_empty() || self.file(path).is_some() {
             return;
         }
@@ -279,7 +279,7 @@ impl Analysis {
     }
 
     /// jailint's findings in `path` (computed once per compile).
-    pub fn lints(
+    pub(crate) fn lints(
         &mut self,
         path: &Path,
         config: &jailint::config::Config,
@@ -314,7 +314,7 @@ impl Analysis {
     }
 
     /// The spans (start, end) in `path` of the compile errors of `code`.
-    pub fn check_error_spans(
+    pub(crate) fn check_error_spans(
         &self,
         path: &Path,
         code: jaic::diagnostics::Code,
@@ -333,7 +333,7 @@ impl Analysis {
     /// The compile errors and warnings located in `path`, each at its own span when that is in
     /// the file, else at the first of its notes that is (a module procedure the file called).
     /// Errors come first, then warnings.
-    pub fn check_findings(&mut self, path: &Path) -> Vec<CheckFinding> {
+    pub(crate) fn check_findings(&mut self, path: &Path) -> Vec<CheckFinding> {
         let Some(file) = self.file(path) else {
             return Vec::new();
         };
@@ -465,13 +465,13 @@ impl Analysis {
 
     /// `offset` of `path` is code this compile skipped for its target: the file is not part of
     /// it, or an `#if` on `OS` or `CPU` did not take the branch it is in.
-    pub fn skipped(&self, path: &Path, offset: usize) -> bool {
+    pub(crate) fn skipped(&self, path: &Path, offset: usize) -> bool {
         self.skipped_span(path, offset).is_some()
     }
 
     /// The byte range around `offset` of `path` this compile did not check: an `#if` branch on
     /// `OS` or `CPU` it did not take, or the whole file when the compile did not reach it.
-    pub fn skipped_span(&self, path: &Path, offset: usize) -> Option<(usize, usize)> {
+    pub(crate) fn skipped_span(&self, path: &Path, offset: usize) -> Option<(usize, usize)> {
         let Some(file) = self.file(path) else {
             return Some((0, usize::MAX));
         };
@@ -486,7 +486,7 @@ impl Analysis {
 
     /// `offset` of `path` is in an `#if` arm or `ifx` branch no evaluation of this compile ran,
     /// or in a file it did not reach: another program that includes the file may run it.
-    pub fn in_unrun_branch(&self, path: &Path, offset: usize) -> bool {
+    pub(crate) fn in_unrun_branch(&self, path: &Path, offset: usize) -> bool {
         let Some(file) = self.file(path) else {
             return true;
         };
@@ -503,7 +503,7 @@ impl Analysis {
     /// Byte ranges of `path` no path through the program reaches: code after an exit, in a
     /// branch or loop its condition rules out, and `#if` or `ifx` arms no evaluation took.
     /// A procedure analysed once per instance counts only where every instance agrees.
-    pub fn unreachable(&self, path: &Path) -> Vec<(usize, usize)> {
+    pub(crate) fn unreachable(&self, path: &Path) -> Vec<(usize, usize)> {
         let (Some(file), Some(ide)) = (self.file(path), self.compiler.ed.facts()) else {
             return Vec::new();
         };
@@ -544,7 +544,7 @@ impl Analysis {
         kept
     }
 
-    pub fn file(&self, path: &Path) -> Option<FileId> {
+    pub(crate) fn file(&self, path: &Path) -> Option<FileId> {
         if let Some(&found) = self.found.borrow().get(path) {
             return found;
         }
@@ -555,7 +555,7 @@ impl Analysis {
         found
     }
 
-    pub fn coverage(&self, path: &Path) -> SemanticCoverage {
+    pub(crate) fn coverage(&self, path: &Path) -> SemanticCoverage {
         let file = self.file(path);
         let ide = self.compiler.ed.facts();
 
@@ -593,7 +593,7 @@ impl Analysis {
 
     /// A span of any compiled file as (path, text, start, end); `None` for a span in no file
     /// (`Span::NONE`, which builtins carry).
-    pub fn location(&self, span: jaic::source::Span) -> Option<Decl> {
+    pub(crate) fn location(&self, span: jaic::source::Span) -> Option<Decl> {
         let source = self.compiler.src.sources.try_get(span.file)?;
 
         Some((
@@ -606,7 +606,7 @@ impl Analysis {
 
     /// Hover at `offset`: what it covers, its description and memory layout, and where what
     /// it describes is declared (one per line of the description for overloads).
-    pub fn hover(&mut self, path: &Path, offset: usize) -> Option<HoverFacts> {
+    pub(crate) fn hover(&mut self, path: &Path, offset: usize) -> Option<HoverFacts> {
         let file = self.file(path)?;
         let hover = self.compiler.ide_hover(file, offset as u32)?;
         let spans = self.compiler.ide_hover_decls(file, offset as u32);
@@ -630,7 +630,12 @@ impl Analysis {
     /// The declarations `names` (`print`, `Basic.print`, `Type.field`) name as seen from
     /// `offset` of the file at `path`: where doc comment links lead. Falls back to the file's
     /// own scope when the file has no recorded scopes.
-    pub fn resolve_names(&mut self, path: &Path, offset: usize, names: &[String]) -> Vec<Decl> {
+    pub(crate) fn resolve_names(
+        &mut self,
+        path: &Path,
+        offset: usize,
+        names: &[String],
+    ) -> Vec<Decl> {
         let Some(file) = self.file(path) else {
             return Vec::new();
         };
@@ -647,7 +652,7 @@ impl Analysis {
     }
 
     /// The text this analysis compiled for the file at `path`.
-    pub fn compiled_text(&self, path: &Path) -> Option<&str> {
+    pub(crate) fn compiled_text(&self, path: &Path) -> Option<&str> {
         let file = self.file(path)?;
         let source = self.compiler.src.sources.try_get(file)?;
 
@@ -656,7 +661,7 @@ impl Analysis {
 
     /// Moves the declarations of `names` in the file at `path` from the text this analysis
     /// compiled to where they are in `text`, the document as it is now.
-    pub fn shift_to(&self, path: &Path, text: &str, names: &mut [IdeName]) {
+    pub(crate) fn shift_to(&self, path: &Path, text: &str, names: &mut [IdeName]) {
         let Some(file) = self.file(path) else {
             return;
         };
@@ -677,7 +682,7 @@ impl Analysis {
 
     /// Notes, on each of `names` that is an alias with no docs of its own, the declaration it
     /// names, where its docs are written.
-    pub fn forward_docs(&mut self, names: &mut [IdeName]) {
+    pub(crate) fn forward_docs(&mut self, names: &mut [IdeName]) {
         for name in names {
             let site = self.compiler.ide_doc_site(name.decl);
 
@@ -686,7 +691,7 @@ impl Analysis {
     }
 
     /// The path of each file `names` are declared in, by file number.
-    pub fn decl_files(&self, names: &[IdeName]) -> BTreeMap<u32, String> {
+    pub(crate) fn decl_files(&self, names: &[IdeName]) -> BTreeMap<u32, String> {
         let mut out = BTreeMap::new();
 
         for name in names {
@@ -705,7 +710,7 @@ impl Analysis {
     /// Declarations the identifier at `offset` names, or the compile-time code that read the
     /// note there, as (path, text, start, end) with byte offsets into that file's text (which
     /// may be a module or stdlib file, not an open document).
-    pub fn definition(&mut self, path: &Path, offset: usize) -> Vec<Decl> {
+    pub(crate) fn definition(&mut self, path: &Path, offset: usize) -> Vec<Decl> {
         let Some(file) = self.file(path) else {
             return Vec::new();
         };
@@ -731,7 +736,7 @@ impl Analysis {
     /// to compare `definition` with. `None` when the position is not a plain name the compile
     /// resolved to a declaration (a member, a module's name, a built-in, a qualified name).
     /// Empty when the name is not a procedure.
-    pub fn scope_procedures(&mut self, path: &Path, offset: usize) -> Option<Vec<Decl>> {
+    pub(crate) fn scope_procedures(&mut self, path: &Path, offset: usize) -> Option<Vec<Decl>> {
         let file = self.file(path)?;
         let text = self.compiler.src.sources.try_get(file)?.text.clone();
         let bytes = text.as_bytes();
@@ -785,20 +790,28 @@ impl Analysis {
     }
 
     /// The members of the enum an inferred `.NAME` at `offset` is expected to be.
-    pub fn complete_inferred(&mut self, path: &Path, offset: usize) -> Option<Vec<IdeName>> {
+    pub(crate) fn complete_inferred(&mut self, path: &Path, offset: usize) -> Option<Vec<IdeName>> {
         let file = self.file(path)?;
         Some(self.compiler.ide_inferred_members(file, offset as u32))
     }
 
     /// The fields of the struct literal whose field name starts at `offset`.
-    pub fn complete_literal_fields(&mut self, path: &Path, offset: usize) -> Option<Vec<IdeName>> {
+    pub(crate) fn complete_literal_fields(
+        &mut self,
+        path: &Path,
+        offset: usize,
+    ) -> Option<Vec<IdeName>> {
         let file = self.file(path)?;
         Some(self.compiler.ide_literal_fields(file, offset as u32))
     }
 
     /// Of the names visible at `offset`, those whose type fits the one the placeholder `.NAME`
     /// at `offset + 1` was expected to have; `None` when that is not known.
-    pub fn complete_fitting(&mut self, path: &Path, offset: usize) -> Option<BTreeSet<String>> {
+    pub(crate) fn complete_fitting(
+        &mut self,
+        path: &Path,
+        offset: usize,
+    ) -> Option<BTreeSet<String>> {
         let file = self.file(path)?;
         let scope = self.compiler.ide_scope_at(file, offset as u32)?;
         let names = self.compiler.ide_visible(scope, file, offset as u32);
@@ -811,13 +824,18 @@ impl Analysis {
 
     /// The members of the value whose member name starts at `offset`, by the type the compile
     /// recorded for it.
-    pub fn complete_recorded(&mut self, path: &Path, offset: usize) -> Option<Vec<IdeName>> {
+    pub(crate) fn complete_recorded(&mut self, path: &Path, offset: usize) -> Option<Vec<IdeName>> {
         let file = self.file(path)?;
         self.compiler.ide_recorded_members(file, offset as u32)
     }
 
     /// Completion candidates at `offset`, members of `chain` when it is not empty.
-    pub fn complete(&mut self, path: &Path, offset: usize, chain: &[&str]) -> Option<Vec<IdeName>> {
+    pub(crate) fn complete(
+        &mut self,
+        path: &Path,
+        offset: usize,
+        chain: &[&str],
+    ) -> Option<Vec<IdeName>> {
         let file = self.file(path)?;
         let scope = self.compiler.ide_scope_at(file, offset as u32)?;
 

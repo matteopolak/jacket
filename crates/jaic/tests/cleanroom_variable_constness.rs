@@ -1,26 +1,16 @@
 //! A variable is never a constant: only `::` and `: T :` declarations name constants.
-use std::rc::Rc;
 
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+use test_support::compiler::compile_rendered;
 
-fn compile(source: &str) -> Result<(), String> {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
-
-    c.compile_sources(&[ProgramSource::String(source.into())])
-        .map_err(|error| error.render(&c.src.sources))
-}
 
 fn accepts(source: &str) {
-    if let Err(message) = compile(source) {
+    if let Err(message) = compile_rendered(source) {
         panic!("{message}");
     }
 }
 
 fn rejects(source: &str, expected: &str) {
-    match compile(source) {
+    match compile_rendered(source) {
         Ok(()) => panic!("accepted, expected `{expected}`: {source}"),
         Err(message) => assert!(
             message.contains(expected),

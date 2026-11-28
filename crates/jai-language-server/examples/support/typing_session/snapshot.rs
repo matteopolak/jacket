@@ -8,7 +8,7 @@ use super::{
 /// A request made to a session, kept so that a failing run can be replayed with the same
 /// requests between the same edits (what the session cached depends on them).
 #[derive(Clone, Debug)]
-pub enum Query {
+pub(crate) enum Query {
     Diagnostics(DocumentUri),
     Tokens(DocumentUri),
     Hover(DocumentUri, Position),
@@ -19,7 +19,7 @@ pub enum Query {
 
 impl Query {
     /// Make the request and drop the answer.
-    pub fn execute(&self, session: &Session) {
+    pub(crate) fn execute(&self, session: &Session) {
         match self {
             Self::Diagnostics(u) => drop(session.diagnostics(u)),
             Self::Tokens(u) => drop(session.semantic_tokens(u)),

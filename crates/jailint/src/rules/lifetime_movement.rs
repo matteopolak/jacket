@@ -40,7 +40,7 @@ pub(super) struct Mutation {
 }
 
 impl Mutation {
-    pub fn new(action: Action, first: Selector) -> Self {
+    pub(super) fn new(action: Action, first: Selector) -> Self {
         Self {
             action,
             first,
@@ -48,7 +48,7 @@ impl Mutation {
         }
     }
 
-    pub fn guaranteed(self) -> bool {
+    pub(super) fn guaranteed(self) -> bool {
         !matches!(self.action, Action::Sort | Action::UnknownRemoval)
     }
 }

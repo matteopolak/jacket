@@ -16,7 +16,7 @@ use jacket_config::PathPattern;
 use regex_lite::Regex;
 
 /// The kinds `kind(...)` knows.
-pub const KINDS: [&str; 8] = [
+pub(super) const KINDS: [&str; 8] = [
     "unit",
     "property",
     "snapshot",
@@ -28,7 +28,7 @@ pub const KINDS: [&str; 8] = [
 ];
 
 /// What a filter looks at in a test.
-pub struct Subject<'a> {
+pub(super) struct Subject<'a> {
     /// The name in output (`Root::name` when several roots run) and the name in its program.
     pub names: [&'a str; 2],
     /// The test's root: the module it tests as a program imports it, and its folder's name.
@@ -41,7 +41,7 @@ pub struct Subject<'a> {
 
 /// A parsed filter expression.
 #[derive(Debug)]
-pub struct FilterExpr {
+pub(super) struct FilterExpr {
     node: Node,
 }
 
@@ -84,7 +84,7 @@ impl Text {
 
 /// A filter expression that does not parse: what is wrong and where.
 #[derive(Debug, PartialEq, Eq)]
-pub struct ParseError {
+pub(super) struct ParseError {
     pub message: String,
     /// The offset in characters of the source.
     pub at: usize,
@@ -107,7 +107,7 @@ impl std::error::Error for ParseError {
 }
 
 impl FilterExpr {
-    pub fn parse(source: &str) -> Result<FilterExpr, ParseError> {
+    pub(super) fn parse(source: &str) -> Result<FilterExpr, ParseError> {
         let mut parser = Parser {
             chars: source.chars().collect(),
             at: 0,
@@ -127,7 +127,7 @@ impl FilterExpr {
     }
 
     /// Whether the expression looks at `kind(snapshot)`, which costs reading the test's source.
-    pub fn uses_snapshot_kind(&self) -> bool {
+    pub(super) fn uses_snapshot_kind(&self) -> bool {
         fn walk(node: &Node) -> bool {
             match node {
                 Node::Kind(kind) => *kind == "snapshot",
@@ -140,7 +140,7 @@ impl FilterExpr {
         walk(&self.node)
     }
 
-    pub fn matches(&self, subject: &Subject) -> bool {
+    pub(super) fn matches(&self, subject: &Subject) -> bool {
         eval(&self.node, subject)
     }
 }

@@ -32,14 +32,14 @@ mod tests;
 
 /// One command of a block and the lines it printed, without the line break after the last.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Run {
+pub(super) struct Run {
     pub command: String,
     pub output: String,
 }
 
 /// A `console` fence.
 #[derive(Debug, PartialEq, Eq)]
-pub struct Block {
+pub(super) struct Block {
     /// The opening fence's line, from 1.
     pub line: usize,
     /// The folder the commands run in, from the guide's folder.
@@ -58,7 +58,7 @@ struct Capture {
 }
 
 /// The programs a block may run.
-pub struct Tools<'a> {
+pub(super) struct Tools<'a> {
     pub jacket: &'a Path,
     pub jaic: &'a Path,
     pub stdlib: &'a Path,
@@ -66,7 +66,7 @@ pub struct Tools<'a> {
 
 /// The `console` fences of `md`, parsed. A fence that does not start with a command, or has a
 /// setting other than `cwd=` and `cache`, is an error.
-pub fn blocks(md: &str) -> Result<Vec<Block>, String> {
+pub(super) fn blocks(md: &str) -> Result<Vec<Block>, String> {
     use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
     let options = Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH | Options::ENABLE_GFM;
     let mut out = Vec::new();
@@ -194,7 +194,7 @@ fn body(runs: &[Run]) -> String {
 }
 
 /// `text` without its terminal escape sequences (`ESC [ ... letter`).
-pub fn strip(text: &str) -> String {
+pub(super) fn strip(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut chars = text.chars();
 
@@ -224,7 +224,7 @@ pub fn strip(text: &str) -> String {
 /// What two outputs are compared as: line breaks as `\n`, no spaces at line ends, and times
 /// (`[   0.057s]`, `[  12ms]`) as `[time]`, since they differ from run to run. The `slowest:`
 /// list `jacket test` prints for tests over a second is left out for the same reason.
-pub fn normal(text: &str) -> String {
+pub(super) fn normal(text: &str) -> String {
     static TIME: std::sync::LazyLock<regex_lite::Regex> = std::sync::LazyLock::new(|| {
         regex_lite::Regex::new(r"\[ *[0-9]+(\.[0-9]+)?m?s\]").expect("valid pattern")
     });
@@ -253,7 +253,7 @@ pub fn normal(text: &str) -> String {
 
 /// `command` split into words the way a shell would: spaces separate them, and `'...'` or
 /// `"..."` keep spaces in one. No variables, globs or pipes.
-pub fn words(command: &str) -> Result<Vec<String>, String> {
+pub(super) fn words(command: &str) -> Result<Vec<String>, String> {
     let mut out = Vec::new();
     let mut word = String::new();
     let mut started = false;
@@ -474,7 +474,7 @@ fn run_block(block: &Block, dir: &Path, tools: &Tools<'_>) -> Result<Vec<Run>, S
 }
 
 /// The colour capture kept beside `guide`.
-pub fn capture_path(guide: &Path) -> PathBuf {
+pub(super) fn capture_path(guide: &Path) -> PathBuf {
     guide.with_extension("console.json")
 }
 
@@ -513,7 +513,7 @@ fn diff(want: &str, got: &str, command: &str) -> String {
 /// Runs the console blocks of the guide at `path` and reports each one whose output differs from
 /// what it printed, or whose colour capture is missing or stale; with `accept`, writes the guide
 /// and the capture instead. `shown` is the guide's path in messages.
-pub fn check(
+pub(super) fn check(
     path: &Path,
     shown: &str,
     tools: &Tools<'_>,
@@ -641,7 +641,7 @@ pub fn check(
 
 /// The coloured HTML of each console block of `md` whose capture beside `path` is current,
 /// keyed by the block's text. Blocks without one are left out and render as plain text.
-pub fn rendered(path: &Path, md: &str) -> HashMap<String, String> {
+pub(super) fn rendered(path: &Path, md: &str) -> HashMap<String, String> {
     let (Ok(blocks), Ok(Some(capture))) = (blocks(md), read_capture(&capture_path(path))) else {
         return HashMap::default();
     };
@@ -678,7 +678,7 @@ fn html(runs: &[Run]) -> String {
 
 /// Text with SGR escape sequences as HTML spans: bold, dim, italic, underline and the 16
 /// colours, as `ansi-*` classes the theme styles. Other sequences are dropped.
-pub fn ansi_html(text: &str) -> String {
+pub(super) fn ansi_html(text: &str) -> String {
     #[derive(Clone, Copy, Default, PartialEq)]
     struct Pen {
         bold: bool,

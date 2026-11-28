@@ -85,7 +85,7 @@ fn source(file: &Path, counts: &BTreeMap<u32, u64>) -> String {
 }
 
 /// The page for `data`, paths shown from `base`.
-pub fn render(data: &Data, base: &Path) -> String {
+pub(super) fn render(data: &Data, base: &Path) -> String {
     let modules = rows(data, base, Group::Module);
     let files = rows(data, base, Group::File);
     let (lines, functions) = total(&modules);

@@ -11,7 +11,7 @@ use super::{Finding, pos_of};
 /// A region the server fades as unreachable, with where a statement could be put to see whether
 /// it runs after all (`None`: the region does not start at a statement).
 #[derive(Serialize)]
-pub struct Dead {
+pub(crate) struct Dead {
     pub start: usize,
     pub end: usize,
     pub line: u32,
@@ -20,7 +20,7 @@ pub struct Dead {
 }
 
 /// Hover text that is only the syntax layer's fallback, which the compile has nothing behind.
-pub fn real_hover(hover: Option<&Hover>) -> bool {
+pub(crate) fn real_hover(hover: Option<&Hover>) -> bool {
     hover.is_some_and(|h| !h.contents.value.contains("Source syntax declaration"))
 }
 
@@ -74,7 +74,7 @@ fn probe_point(text: &str, start: usize, end: usize) -> Option<usize> {
 }
 
 /// (a): no error diagnostics, and every unreachable region listed for the run check.
-pub fn diagnostics(
+pub(crate) fn diagnostics(
     session: &Session,
     uri: &DocumentUri,
     text: &str,
@@ -129,7 +129,7 @@ fn evenly<T>(items: &[T], cap: usize) -> impl Iterator<Item = &T> {
 
 /// (b): each identifier the compiler resolved has a hover and, where it is declared in a file,
 /// a definition there.
-pub fn resolutions(
+pub(crate) fn resolutions(
     session: &Session,
     uri: &DocumentUri,
     text: &str,
@@ -229,7 +229,7 @@ pub fn resolutions(
 
 /// (d): completion where the code already has an answer. At a member name after `.`, the list
 /// holds that member; just inside a struct literal's `.{`, it holds the fields not yet named.
-pub fn completions(
+pub(crate) fn completions(
     session: &Session,
     uri: &DocumentUri,
     text: &str,
@@ -300,7 +300,7 @@ pub fn completions(
 }
 
 /// (e): go to definition on a note the compile-time code read lists each place that read it.
-pub fn notes(
+pub(crate) fn notes(
     session: &Session,
     uri: &DocumentUri,
     text: &str,

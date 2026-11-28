@@ -290,7 +290,7 @@ fn initial_direct_callee(function: &ir::Func) -> Option<ir::FuncId> {
 }
 
 impl Dependencies {
-    pub fn read_placeholder(&mut self, entity: EntityId) {
+    pub(super) fn read_placeholder(&mut self, entity: EntityId) {
         for (_, reads) in &mut self.lowering {
             if !reads.contains(&entity) {
                 reads.push(entity);
@@ -298,11 +298,11 @@ impl Dependencies {
         }
     }
 
-    pub fn begin_body(&mut self, procedure: ProcId) {
+    pub(super) fn begin_body(&mut self, procedure: ProcId) {
         self.lowering.push((procedure, Vec::new()));
     }
 
-    pub fn end_body(&mut self, procedure: ProcId, failed: bool) {
+    pub(super) fn end_body(&mut self, procedure: ProcId, failed: bool) {
         let (owner, reads) = self.lowering.pop().expect("paired body lowering");
 
         debug_assert_eq!(owner, procedure);

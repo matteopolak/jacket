@@ -19,7 +19,7 @@ use version::Version;
 
 /// The flags of `jacket upgrade`.
 #[derive(Debug, Clone, Default)]
-pub struct Options {
+pub(crate) struct Options {
     /// A specific release (`0.22.0` or `v0.22.0`) instead of the latest.
     pub version: Option<String>,
     /// Report whether an update exists; install nothing.
@@ -29,7 +29,7 @@ pub struct Options {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Outcome {
+pub(crate) enum Outcome {
     UpToDate,
     Available {
         to: String,
@@ -41,7 +41,7 @@ pub enum Outcome {
 }
 
 /// What a run works on, so tests can point it at a temporary folder and a fake release.
-pub struct Target<'a> {
+pub(crate) struct Target<'a> {
     /// The running `jacket`, canonical: its folder is the install.
     pub exe: &'a Path,
     /// The running version.
@@ -54,7 +54,7 @@ pub struct Target<'a> {
     pub confirm: &'a dyn Fn(&str) -> bool,
 }
 
-pub fn run(options: &Options) -> ExitCode {
+pub(crate) fn run(options: &Options) -> ExitCode {
     let exe = match std::env::current_exe().and_then(|exe| exe.canonicalize()) {
         Ok(exe) => exe,
         Err(error) => return fail(format!("cannot find the running jacket: {error}")),
@@ -106,7 +106,7 @@ fn ask(question: &str) -> bool {
 
 /// The archive name for an OS and architecture as `std::env::consts` spells them; `None` when
 /// releases have no build for it. Mirrors `tests/installers/vectors.json`.
-pub fn asset_name(os: &str, arch: &str) -> Option<String> {
+pub(crate) fn asset_name(os: &str, arch: &str) -> Option<String> {
     let arch = match arch {
         "x86_64" => "x64",
         "aarch64" => "arm64",
@@ -190,7 +190,7 @@ fn install_dir(exe: &Path) -> Result<&Path, String> {
     }
 }
 
-pub fn upgrade(target: &Target, options: &Options) -> Result<Outcome, String> {
+pub(crate) fn upgrade(target: &Target, options: &Options) -> Result<Outcome, String> {
     let install = install_dir(target.exe)?;
     let managed = managed::managed_by(target.exe);
 

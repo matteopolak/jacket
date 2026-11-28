@@ -55,7 +55,7 @@ fn flags(target: Target) -> Option<Flags> {
 }
 
 /// A build of the builtins: how long it took and what it was built from.
-pub struct Built {
+pub(super) struct Built {
     pub source: String,
     pub took: Duration,
 }
@@ -83,7 +83,7 @@ fn tools(lookup: &Lookup) -> Result<(PathBuf, PathBuf), Missing> {
 /// ```text
 /// jacket toolchain add thumbv7em-none-eabihf
 /// ```
-pub fn add(
+pub(super) fn add(
     target: Target,
     lookup: &Lookup,
     progress: &(dyn Fn(usize, usize) + Sync),
@@ -252,7 +252,7 @@ fn archive_objects(ar: &Path, archive: &Path, objects: &[PathBuf]) -> Result<(),
 }
 
 /// The text `jacket toolchain add` prints for a finished build.
-pub fn finished(built: &Built) -> String {
+pub(super) fn finished(built: &Built) -> String {
     format!(
         "{} (built in {:.1}s)",
         built.source,

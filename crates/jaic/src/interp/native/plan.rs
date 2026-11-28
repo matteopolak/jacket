@@ -7,7 +7,7 @@ use crate::layout::DataLayout;
 
 /// How a foreign procedure's signature maps onto the host C ABI, worked out once (`Plan::new`)
 /// and reused by every call: what is left per call is marshalling the arguments and the call.
-pub struct Plan {
+pub(crate) struct Plan {
     pub(super) arch: Option<Arch>,
     pub(super) host: DataLayout,
     pub(super) ret_pieces: Option<Vec<Piece>>,
@@ -40,7 +40,7 @@ pub(super) struct ArgPlan {
 }
 
 impl Plan {
-    pub fn new(sig: &Sig) -> Plan {
+    pub(crate) fn new(sig: &Sig) -> Plan {
         let arch = Arch::host();
         let host = DataLayout::host();
         let cabi = sig.c_abi.as_deref();

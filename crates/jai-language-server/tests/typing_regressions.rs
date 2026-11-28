@@ -1,7 +1,6 @@
 //! Cases the typing-session checker found (docs/tools/lsp-fuzzing.md), reduced by hand: answers
 //! while someone types must not depend on which requests came before, on a half-typed neighbour,
 //! or on a lexical edit that has since been completed.
-use std::path::Path;
 
 use jai_language_server::{Limits, Position, Range, SemanticTokenKind, Session, TextChange};
 use test_support::lsp::{position, uri};
@@ -13,10 +12,7 @@ use test_support::lsp::{position, uri};
 use crate::typing_files;
 
 fn session() -> Session {
-    let stdlib = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../stdlib")
-        .canonicalize()
-        .unwrap();
+    let stdlib = test_support::repo::stdlib().canonicalize().unwrap();
     Session::with_environment(Limits::default(), typing_files::native_environment(stdlib))
 }
 

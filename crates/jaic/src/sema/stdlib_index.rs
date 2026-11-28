@@ -78,7 +78,11 @@ pub(in crate::sema) struct StdlibView {
 }
 
 impl StdlibView {
-    pub fn new(index: Arc<StdlibIndex>, preload: Option<&Path>, fs: &dyn FileSystem) -> Self {
+    pub(super) fn new(
+        index: Arc<StdlibIndex>,
+        preload: Option<&Path>,
+        fs: &dyn FileSystem,
+    ) -> Self {
         let preload = preload.map(|p| fs.canonical(p));
         let excluded: Vec<usize> = index
             .modules
@@ -97,7 +101,7 @@ impl StdlibView {
     }
 
     /// The module named `name` is there to import.
-    pub fn has_module(&self, name: &str) -> bool {
+    pub(super) fn has_module(&self, name: &str) -> bool {
         self.index
             .by_name
             .get(name)
@@ -114,12 +118,12 @@ impl StdlibView {
                 == Some(&m)
     }
 
-    pub fn module_name(&self, m: usize) -> &str {
+    pub(super) fn module_name(&self, m: usize) -> &str {
         &self.index.modules[m].name
     }
 
     /// The modules that export `name`, in no particular order.
-    pub fn modules_exporting_name(&self, name: &str, fs: &dyn FileSystem) -> Vec<usize> {
+    pub(super) fn modules_exporting_name(&self, name: &str, fs: &dyn FileSystem) -> Vec<usize> {
         let mut found: Vec<usize> = Vec::new();
 
         // A name with other characters is no declaration in the library.
@@ -144,7 +148,7 @@ impl StdlibView {
     /// The modules that declare `operator <op>` and qualify: any, with no `names` to match;
     /// otherwise one of `homes` or one with a declaration whose parameters name every one of
     /// `names`.
-    pub fn modules_exporting_operator(
+    pub(super) fn modules_exporting_operator(
         &self,
         op: &str,
         names: &[String],
@@ -175,7 +179,7 @@ impl StdlibView {
 impl StdlibIndex {
     /// The index of the standard library under `stdlib`: one that is kept from an earlier
     /// compile when nothing it was built from changed, else a new one.
-    pub fn shared(fs: &dyn FileSystem, stdlib: &Path) -> Arc<Self> {
+    pub(super) fn shared(fs: &dyn FileSystem, stdlib: &Path) -> Arc<Self> {
         static KEPT_INDEXES: Mutex<Vec<(PathBuf, Arc<StdlibIndex>)>> = Mutex::new(Vec::new());
         let candidates: Vec<Arc<Self>> = KEPT_INDEXES
             .lock()

@@ -24,7 +24,7 @@ use super::{Ctx, DepError, Project, Result, manifest};
 
 /// One package's request for a name.
 #[derive(Clone, Debug)]
-pub struct Need {
+pub(super) struct Need {
     pub by: String,
     pub entry: Dependency,
     pub asked: Asked,
@@ -32,7 +32,7 @@ pub struct Need {
 
 impl Need {
     /// A request read once; fails when the entry is not one a package may write.
-    pub fn new(by: String, entry: Dependency) -> std::result::Result<Self, String> {
+    pub(super) fn new(by: String, entry: Dependency) -> std::result::Result<Self, String> {
         let asked = Asked::of(&entry)?;
 
         Ok(Self {
@@ -116,7 +116,7 @@ fn conflict(name: &str, url: &RepoUrl, needs: &[Need], tags: &[Tagged]) -> DepEr
 }
 
 /// The versions of the remote `tags` every need admits, newest first.
-pub fn candidates(reading: &Reading, needs: &[Need], tags: &[RemoteTag]) -> Vec<Tagged> {
+pub(super) fn candidates(reading: &Reading, needs: &[Need], tags: &[RemoteTag]) -> Vec<Tagged> {
     let ranged = needs.iter().any(|n| matches!(n.asked, Asked::Range(_)));
 
     reading
@@ -201,7 +201,7 @@ fn place(name: &str, group: &str, primary: bool) -> Result<(String, SubPath)> {
 
 /// The requirers that share one copy of a name.
 #[derive(Debug)]
-pub struct Group {
+pub(super) struct Group {
     /// The compatibility group: the major version, or `0.<minor>` below 1.0.
     pub key: String,
     /// Indices of the requirers in the needs the group was made from.
@@ -214,7 +214,7 @@ pub struct Group {
 }
 
 /// The project's own entry for a name: the one copy it fixes.
-pub struct Own {
+pub(super) struct Own {
     pub key: String,
     pub tag: Option<String>,
     pub commit: Option<CommitId>,
@@ -230,7 +230,7 @@ fn key_of(reading: &Reading, tag: Option<&str>) -> String {
 /// A group is one copy; a requirer joins the group of the project's pin when that admits it,
 /// else the group with the most requirers that admits it. Fails when requirers whose ranges
 /// share a group admit no common version, or one admits nothing.
-pub fn partition(
+pub(super) fn partition(
     name: &str,
     url: &RepoUrl,
     reading: &Reading,

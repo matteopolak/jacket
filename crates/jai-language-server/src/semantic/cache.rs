@@ -15,7 +15,7 @@ use super::{
     ALTERNATES, Analysis, Buffers, BuildFacts, CACHED, Environment, SMALL_COST, SMALL_KEPT,
 };
 
-pub struct Cache {
+pub(crate) struct Cache {
     entries: Vec<Analysis>,
     /// Canonical forms of the paths compiled, so a request does not ask the file system again.
     canonical: jaic::paths::CanonCache,
@@ -150,7 +150,7 @@ fn quick_key(root: &Path, dirs: &[PathBuf], files: &Buffers, os: Option<TargetOs
 impl Cache {
     /// Whether compiles leave unobservable library bodies unchecked. A change drops every
     /// compile kept, which were made under the other setting.
-    pub fn set_defer_library_bodies(&mut self, on: bool) {
+    pub(crate) fn set_defer_library_bodies(&mut self, on: bool) {
         if self.defer_library_bodies != on {
             *self = Self {
                 defer_library_bodies: on,
@@ -163,7 +163,7 @@ impl Cache {
 
     /// Library bodies the kept compiles left unchecked, and how many of those something later
     /// asked for (the lints, compile-time code).
-    pub fn library_body_counts(&self) -> (u64, u64) {
+    pub(crate) fn library_body_counts(&self) -> (u64, u64) {
         self.entries.iter().fold((0, 0), |(d, p), a| {
             (
                 d + a.compiler.pr.deferred_bodies,
@@ -174,7 +174,7 @@ impl Cache {
 
     /// Whether compile-time code may run. A change drops every compile kept, which were made
     /// under the other setting.
-    pub fn set_trusted(&mut self, trusted: bool) {
+    pub(crate) fn set_trusted(&mut self, trusted: bool) {
         if self.untrusted != trusted {
             return;
         }
@@ -188,7 +188,7 @@ impl Cache {
 
     /// The limits compiles run under. A change drops every compile kept: its errors and its
     /// stopping point were those of the other limits.
-    pub fn set_limits(&mut self, limits: CheckLimits) {
+    pub(crate) fn set_limits(&mut self, limits: CheckLimits) {
         if self.limits != limits {
             self.entries.clear();
             self.limits = limits;
@@ -200,34 +200,34 @@ impl Cache {
         std::mem::take(&mut self.limit_hits)
     }
 
-    pub fn trusted(&self) -> bool {
+    pub(crate) fn trusted(&self) -> bool {
         !self.untrusted
     }
 
     /// Programs compiled so far, and compiles alive now.
-    pub fn counts(&self) -> (usize, usize) {
+    pub(crate) fn counts(&self) -> (usize, usize) {
         (self.compiles, self.entries.len())
     }
 
     /// Files appeared or went away: canonical paths are asked for again.
-    pub fn forget_paths(&mut self) {
+    pub(crate) fn forget_paths(&mut self) {
         self.canonical.clear();
     }
 
     /// Disk or buffer contents changed; opening identical disk text does not call this.
-    pub fn invalidate(&mut self, path: &Path, topology: bool) {
+    pub(crate) fn invalidate(&mut self, path: &Path, topology: bool) {
         self.entries
             .retain(|a| !topology && !a.reads.borrow().concerns(path));
     }
 
     /// Drop every compile (answers they were made without have arrived); recorded build runs
     /// stay.
-    pub fn forget_compiles(&mut self) {
+    pub(crate) fn forget_compiles(&mut self) {
         self.entries.clear();
     }
 
     /// Drop the lints found so far (their settings changed); the compiles stay.
-    pub fn forget_lints(&mut self) {
+    pub(crate) fn forget_lints(&mut self) {
         for entry in &mut self.entries {
             entry.lints.clear();
         }
@@ -325,7 +325,7 @@ impl Cache {
     /// typed after that point is not in its facts, and does not need to be). Completion uses it
     /// instead of compiling again for every keystroke; the names declared by edits since that
     /// compile show up once the next one has run.
-    pub fn compiled_before(
+    pub(crate) fn compiled_before(
         &mut self,
         env: &Environment,
         root: &Path,
@@ -358,7 +358,7 @@ impl Cache {
     }
 
     /// The analysis of `root` with `files` open (compiled now unless cached).
-    pub fn analyze(
+    pub(crate) fn analyze(
         &mut self,
         env: &Environment,
         root: &Path,
@@ -369,7 +369,7 @@ impl Cache {
     }
 
     /// Like `analyze`, compiled for `os` instead of the environment's target when it is `Some`.
-    pub fn analyze_for(
+    pub(crate) fn analyze_for(
         &mut self,
         env: &Environment,
         root: &Path,
@@ -415,7 +415,7 @@ impl Cache {
 
     /// A kept analysis of `root` with `files` open, if one answers for them, without compiling
     /// and without making it the most recently used.
-    pub fn cached(
+    pub(crate) fn cached(
         &mut self,
         env: &Environment,
         root: &Path,
@@ -428,7 +428,7 @@ impl Cache {
 
     /// The kept analysis of `root` that was used last, whatever text it compiled: an answer
     /// from it is about older text, for the caller to move to the text now.
-    pub fn latest(&mut self, root: &Path, dirs: &[PathBuf]) -> Option<&mut Analysis> {
+    pub(crate) fn latest(&mut self, root: &Path, dirs: &[PathBuf]) -> Option<&mut Analysis> {
         self.entries
             .iter_mut()
             .rev()
@@ -438,7 +438,7 @@ impl Cache {
     /// An analysis of `root` that the cache does not keep, for work beside the editor's (the
     /// workspace's polymorph summaries): the compile the open document's requests use stays,
     /// with the one that checked it last, and room is made among the others only.
-    pub fn compile_detached(
+    pub(crate) fn compile_detached(
         &mut self,
         env: &Environment,
         root: &Path,

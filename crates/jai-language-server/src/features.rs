@@ -24,7 +24,7 @@ use crate::session::{Session, contains};
 use crate::{DocumentUri, Location, Range, TextEdit};
 
 /// URI scheme of expansion documents.
-pub const EXPANSION_SCHEME: &str = "jai-expansion://";
+pub(crate) const EXPANSION_SCHEME: &str = "jai-expansion://";
 
 /// Longest inlay hint label.
 const HINT_CHARS: usize = 40;
@@ -64,7 +64,7 @@ fn clip(text: &str, chars: usize) -> String {
 }
 
 /// Rename edits grouped by document URI.
-pub type RenameEdits = Vec<(String, Vec<TextEdit>)>;
+pub(crate) type RenameEdits = Vec<(String, Vec<TextEdit>)>;
 
 impl Session {
     /// Run `query` on the type-checked program, the document's text.

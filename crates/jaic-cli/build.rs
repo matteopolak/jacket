@@ -55,8 +55,8 @@ fn main() {
     }
 
     let generated = format!(
-        "pub const DIGEST: &str = \"{digest:016x}\";\n\
-         pub const FILES: &[(&str, &[u8])] = &[\n{list}];\n"
+        "pub(crate) const DIGEST: &str = \"{digest:016x}\";\n\
+         pub(crate) const FILES: &[(&str, &[u8])] = &[\n{list}];\n"
     );
 
     fs::write(out.join("crash_runtime.rs"), generated).expect("write crash_runtime.rs");

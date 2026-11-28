@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum Reason {
+pub(crate) enum Reason {
     BuiltinNoSource,
     InactiveTarget,
     UninstantiatedGeneric,
@@ -12,20 +12,20 @@ pub enum Reason {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Missing {
+pub(crate) struct Missing {
     pub hover: bool,
     pub definition: bool,
     pub wrong_definition: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Target {
+pub(crate) struct Target {
     pub uri: String,
     pub line: u32,
     pub character: u32,
 }
 
-pub fn definitions_match(expected: &[Target], actual: &[Target]) -> bool {
+pub(crate) fn definitions_match(expected: &[Target], actual: &[Target]) -> bool {
     let mut expected = expected.to_vec();
 
     expected.sort();
@@ -39,7 +39,7 @@ pub fn definitions_match(expected: &[Target], actual: &[Target]) -> bool {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Review {
+pub(crate) struct Review {
     pub case_id: String,
     pub input_id: String,
     pub fingerprint: String,
@@ -52,7 +52,7 @@ pub struct Review {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Oracle {
+pub(crate) struct Oracle {
     pub case_id: String,
     pub input_id: String,
     pub fingerprint: String,
@@ -63,7 +63,7 @@ pub struct Oracle {
 
 #[derive(Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Manifest {
+pub(crate) struct Manifest {
     #[serde(default)]
     pub reviews: Vec<Review>,
     #[serde(default)]
@@ -71,7 +71,7 @@ pub struct Manifest {
 }
 
 impl Manifest {
-    pub fn validate(&self) -> Result<(), String> {
+    pub(crate) fn validate(&self) -> Result<(), String> {
         let mut reviews = jaic::fxhash::HashSet::default();
 
         for review in &self.reviews {
@@ -121,7 +121,7 @@ impl Manifest {
 }
 
 #[derive(Serialize)]
-pub struct Gap {
+pub(crate) struct Gap {
     pub line: u32,
     pub character: u32,
     pub role: String,
@@ -133,7 +133,7 @@ pub struct Gap {
 }
 
 #[derive(Serialize)]
-pub struct Failure {
+pub(crate) struct Failure {
     pub kind: String,
     pub line: Option<u32>,
     pub character: Option<u32>,
@@ -142,7 +142,7 @@ pub struct Failure {
 }
 
 #[derive(Serialize)]
-pub struct File {
+pub(crate) struct File {
     pub case_id: String,
     pub input_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -157,7 +157,7 @@ pub struct File {
 }
 
 #[derive(Default, Serialize)]
-pub struct Counts {
+pub(crate) struct Counts {
     pub files: usize,
     pub audited_files: usize,
     pub unexecuted_files: usize,
@@ -180,7 +180,7 @@ pub struct Counts {
 }
 
 #[derive(Serialize)]
-pub struct Report {
+pub(crate) struct Report {
     pub schema: u32,
     pub build_id: String,
     pub stdlib_id: String,
@@ -195,7 +195,7 @@ pub struct Report {
     pub query_selection: Option<Vec<String>>,
 }
 
-pub fn fingerprint(text: &str) -> String {
+pub(crate) fn fingerprint(text: &str) -> String {
     // Stable change detection; release identity uses SHA256 of binaries and input manifests.
     let hash = text.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| {
         (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
@@ -204,7 +204,7 @@ pub fn fingerprint(text: &str) -> String {
 }
 
 impl Report {
-    pub fn finish(&mut self, reviews: &[Review], used: &[bool], missing_oracles: usize) {
+    pub(crate) fn finish(&mut self, reviews: &[Review], used: &[bool], missing_oracles: usize) {
         let mut counts = Counts {
             stale_reviews: used.iter().filter(|used| !**used).count(),
             missing_oracles,
@@ -280,7 +280,7 @@ impl Report {
         self.counts = counts;
     }
 
-    pub fn redact(&mut self) {
+    pub(crate) fn redact(&mut self) {
         for file in &mut self.files {
             file.path = None;
 

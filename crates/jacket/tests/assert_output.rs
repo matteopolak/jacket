@@ -44,10 +44,7 @@ fn a_failed_assert_is_reported_without_a_crash() {
     let out = Command::new(env!("CARGO_BIN_EXE_jacket"))
         .arg("test")
         .current_dir(&project)
-        .env(
-            "JAIC_STDLIB",
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"),
-        )
+        .env("JAIC_STDLIB", test_support::repo::stdlib())
         .output()
         .expect("start jacket");
     let text = format!(

@@ -3,14 +3,14 @@ use std::path::Path;
 
 use test_support::TempDir;
 
-pub fn require_readonly_capability(retained: bool, ci: bool) {
+pub(crate) fn require_readonly_capability(retained: bool, ci: bool) {
     assert!(
         retained || !ci,
         "CI formatter acceptance requires a filesystem that retains readonly permissions"
     );
 }
 
-pub fn is_appledouble_metadata(path: &Path) -> bool {
+pub(crate) fn is_appledouble_metadata(path: &Path) -> bool {
     if !path
         .file_name()
         .and_then(|name| name.to_str())

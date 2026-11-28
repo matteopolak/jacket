@@ -6,11 +6,11 @@ use std::cmp::Ordering;
 use crate::dep::version::{self, Scheme};
 
 #[derive(Debug, Clone)]
-pub struct Version(semver::Version);
+pub(super) struct Version(semver::Version);
 
 impl Version {
     /// Parses a tag or version; a leading `v` is allowed, and `0.22` is `0.22.0`.
-    pub fn parse(text: &str) -> Result<Version, String> {
+    pub(super) fn parse(text: &str) -> Result<Version, String> {
         match version::parse_tag(Scheme::Semver, None, text.trim()) {
             Some(version::Version::Semver(parsed)) => Ok(Version(parsed)),
             _ => Err(format!("`{text}` is not a version like 0.22.0")),
@@ -18,7 +18,7 @@ impl Version {
     }
 
     /// The tag a release of this version is published under.
-    pub fn tag(text: &str) -> Result<String, String> {
+    pub(super) fn tag(text: &str) -> Result<String, String> {
         Ok(format!("v{}", Version::parse(text)?.0))
     }
 }

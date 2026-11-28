@@ -37,10 +37,10 @@ pub(super) struct Block {
 type Blocks = BTreeMap<u64, Block>;
 
 /// The lines of each source file, and how often they ran.
-pub type Files = BTreeMap<PathBuf, BTreeMap<u32, u64>>;
+pub(super) type Files = BTreeMap<PathBuf, BTreeMap<u32, u64>>;
 
 /// What `--coverage` writes and checks.
-pub struct Output {
+pub(super) struct Output {
     /// The file that gets the report, in `format`.
     pub out: PathBuf,
     pub format: CoverageFormat,
@@ -57,7 +57,7 @@ pub struct Output {
 }
 
 /// What is measured and where it is found.
-pub struct Config {
+pub(super) struct Config {
     pub output: Output,
     /// A folder per test process is made below this one.
     pub dir: PathBuf,
@@ -76,7 +76,7 @@ pub struct Config {
     pub native: bool,
 }
 
-pub struct Coverage {
+pub(super) struct Coverage {
     output: Output,
     dir: PathBuf,
     include: Vec<PathBuf>,
@@ -104,7 +104,7 @@ pub struct Coverage {
 
 /// What the run files of a folder held.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct Collected {
+pub(super) struct Collected {
     /// Files that were what a process writes when it ends.
     pub recorded: usize,
     /// Files that were not: cut short, or from something else.
@@ -112,7 +112,7 @@ pub struct Collected {
 }
 
 /// What a run measured.
-pub struct Measured {
+pub(super) struct Measured {
     pub data: Data,
     /// The procedures in no program the tests ran, counted as not run.
     pub unbuilt: usize,
@@ -120,7 +120,7 @@ pub struct Measured {
 
 /// How a finished report went.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Verdict {
+pub(super) enum Verdict {
     Held,
     /// A module (or all of them) covers less than the baseline by more than the margin.
     Dropped,
@@ -129,7 +129,7 @@ pub enum Verdict {
 impl Coverage {
     /// Coverage per `config`. For native programs it fails when the tool that reads debug info
     /// is missing.
-    pub fn new(config: Config) -> Result<Coverage, String> {
+    pub(super) fn new(config: Config) -> Result<Coverage, String> {
         let dwarfdump = if config.native {
             Some(dwarf::find_dwarfdump()?)
         } else {
@@ -157,7 +157,7 @@ impl Coverage {
     }
 
     /// A fresh folder for one test process to write its blocks to.
-    pub fn run_dir(&self) -> PathBuf {
+    pub(super) fn run_dir(&self) -> PathBuf {
         let n = self.next.fetch_add(1, Ordering::Relaxed);
         let dir = self.dir.join(n.to_string());
         let _ = std::fs::create_dir_all(&dir);
@@ -168,7 +168,7 @@ impl Coverage {
     /// Merges what the processes that were given `dir` wrote into the blocks of their program,
     /// to be read after the run, and deletes the folder. For a program many processes run. What
     /// an interpreted run wrote is lines already, and is added at once.
-    pub fn collect(&self, dir: &Path) -> Collected {
+    pub(super) fn collect(&self, dir: &Path) -> Collected {
         let found = runs(dir);
         let collected = found.counted();
 
@@ -197,7 +197,7 @@ impl Coverage {
 
     /// Reads the lines of the programs the processes that were given `dir` ran now, and deletes
     /// the folder. For a program built to run once, which is read while it still exists.
-    pub fn collect_once(&self, dir: &Path) {
+    pub(super) fn collect_once(&self, dir: &Path) {
         let found = runs(dir);
 
         self.lose_files(&found.unreadable);
@@ -226,7 +226,7 @@ impl Coverage {
 
     /// Notes that a test process ran and left no coverage: `what` says which. Any such process
     /// makes the report incomplete, so the numbers cannot be trusted or recorded.
-    pub fn lost(&self, what: String) {
+    pub(super) fn lost(&self, what: String) {
         self.lost.lock().expect("lock").push(what);
     }
 
@@ -264,7 +264,7 @@ impl Coverage {
 
     /// Writes the report and prints the table: to standard output, or to standard error when
     /// that carries machine-readable results. Run before the programs are deleted.
-    pub fn report(&self, to_stdout: bool) -> Result<Verdict, String> {
+    pub(super) fn report(&self, to_stdout: bool) -> Result<Verdict, String> {
         let measured = self.finish()?;
         let data = &measured.data;
         let out = &self.output.out;
@@ -362,7 +362,7 @@ impl Coverage {
 
     /// The lines of every program, read from its debug info, with the procedures no program has
     /// code of as lines that never ran. Run before the programs are deleted.
-    pub fn finish(&self) -> Result<Measured, String> {
+    pub(super) fn finish(&self) -> Result<Measured, String> {
         if let Some(error) = self.failure.lock().expect("lock").take() {
             return Err(error);
         }
@@ -565,7 +565,7 @@ fn parse_run(text: &str) -> Option<Run> {
 
 /// The folders below which sources are reported on, as a set (a folder inside another is
 /// already covered by it).
-pub fn outermost(folders: impl IntoIterator<Item = PathBuf>) -> Vec<PathBuf> {
+pub(super) fn outermost(folders: impl IntoIterator<Item = PathBuf>) -> Vec<PathBuf> {
     let all: BTreeSet<PathBuf> = folders.into_iter().collect();
 
     all.iter()

@@ -2,7 +2,7 @@
 use super::*;
 
 pub(super) fn summaries(source: &str) -> (Compiler, Summaries) {
-    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];

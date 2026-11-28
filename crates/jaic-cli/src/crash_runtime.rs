@@ -12,7 +12,7 @@ mod embedded {
 }
 
 /// The library name the interpreter and the linker know the runtime by.
-pub const LIBRARY: &str = "portable_crash";
+pub(crate) const LIBRARY: &str = "portable_crash";
 
 /// What to do when the runtime cannot be unpacked.
 const FIX: &str = "note: set JAIC_CACHE_DIR to a writable folder";
@@ -30,7 +30,7 @@ fn cache_root() -> Result<PathBuf, String> {
 
 /// The directory holding the embedded crash runtime, unpacking it if needed. `Ok(None)` when this
 /// build embeds none; an error naming the folder when it cannot be written.
-pub fn dir() -> Result<Option<PathBuf>, String> {
+pub(crate) fn dir() -> Result<Option<PathBuf>, String> {
     if embedded::FILES.is_empty() {
         return Ok(None);
     }

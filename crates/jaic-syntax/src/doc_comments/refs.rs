@@ -7,7 +7,7 @@ use super::model::{json, path};
 /// One hop of a written name's alias chain. Repeated paths are ordered nearest first;
 /// the site chooses the first hop whose declaration has a page.
 #[derive(Debug, Default)]
-pub struct TypeRef {
+pub(super) struct TypeRef {
     /// As written: `Table` or `Hash.Table`.
     pub path: String,
     pub file: PathBuf,
@@ -17,12 +17,6 @@ pub struct TypeRef {
     /// This hop belongs to a private/internal/prelude scope.
     pub private: bool,
 }
-
-/// Types the language provides, which have no declaration to link to.
-pub(super) const BUILTIN_TYPES: &[&str] = &[
-    "int", "float", "float32", "float64", "bool", "string", "void", "Type", "Any", "s8", "s16",
-    "s32", "s64", "u8", "u16", "u32", "u64", "s128", "u128", "code", "Code",
-];
 
 /// The names in a type as written, `Hash.Table` as one: `[3] Hash.Table(string, T)` has
 /// `Hash.Table`, `string` and `T`. Directive identifiers are syntax: `*#Context` contributes no

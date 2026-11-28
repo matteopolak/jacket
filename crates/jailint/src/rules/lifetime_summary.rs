@@ -156,7 +156,7 @@ pub(super) struct Summary {
 }
 
 impl Summary {
-    pub fn preserves_address(&self, formal: usize) -> bool {
+    pub(super) fn preserves_address(&self, formal: usize) -> bool {
         !self.unknown_write.contains(&formal)
     }
 }
@@ -217,7 +217,7 @@ fn value(arg: &LifetimeArgument) -> Option<Val> {
 }
 
 impl Resolver<'_> {
-    pub fn value(&self, v: Val, summaries: &HashMap<ProcId, Summary>) -> Option<Path> {
+    pub(super) fn value(&self, v: Val, summaries: &HashMap<ProcId, Summary>) -> Option<Path> {
         if self
             .return_guard(v, summaries, &mut HashSet::default())?
             .is_some()
@@ -285,7 +285,7 @@ impl Resolver<'_> {
         out
     }
 
-    pub fn location(
+    pub(super) fn location(
         &self,
         p: usize,
         summaries: &HashMap<ProcId, Summary>,
@@ -563,7 +563,7 @@ impl Resolver<'_> {
         .then_some((viewed, held))
     }
 
-    pub fn effects(
+    pub(super) fn effects(
         &self,
         callee: ProcId,
         args: &[LifetimeArgument],
@@ -697,11 +697,11 @@ impl Resolver<'_> {
             .collect()
     }
 
-    pub fn materialize(&mut self, path: &Path) -> Option<usize> {
+    pub(super) fn materialize(&mut self, path: &Path) -> Option<usize> {
         self.materialize_region(path, false)
     }
 
-    pub fn materialize_storage(&mut self, path: &Path) -> Option<usize> {
+    pub(super) fn materialize_storage(&mut self, path: &Path) -> Option<usize> {
         self.materialize_region(path, true)
     }
 
@@ -897,11 +897,11 @@ pub(crate) fn built() -> u64 {
 
 impl Summaries {
     #[cfg(test)]
-    pub fn build(compiler: &Compiler) -> Self {
+    pub(super) fn build(compiler: &Compiler) -> Self {
         Self::build_for(compiler, &HashSet::default(), None)
     }
 
-    pub fn build_for(
+    pub(super) fn build_for(
         compiler: &Compiler,
         files: &HashSet<jaic::source::FileId>,
         entry_module: Option<jaic::sema::ModuleId>,

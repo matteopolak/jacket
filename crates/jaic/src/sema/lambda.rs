@@ -15,14 +15,14 @@ use crate::diagnostics::Code;
 use crate::types::TypeKind;
 
 /// Name of the constant holding the result type given to a lambda instance.
-pub const LAMBDA_RETURN: &str = "__lambda_return";
+pub(super) const LAMBDA_RETURN: &str = "__lambda_return";
 
 /// Prefix of the polymorphic variables standing for untyped lambda parameter types.
 const PARAM_PREFIX: &str = "__lambda_";
 
 /// Desugar a lambda: untyped parameters get a polymorphic type, an expression
 /// body becomes `return <expr>;`.
-pub fn lambda_lit(header: &ast::ProcHeader, body: &ast::Expr) -> Arc<ast::ProcLit> {
+pub(super) fn lambda_lit(header: &ast::ProcHeader, body: &ast::Expr) -> Arc<ast::ProcLit> {
     let mut header = header.clone();
 
     for (i, p) in header.params.iter_mut().enumerate() {

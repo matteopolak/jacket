@@ -1,15 +1,12 @@
 //! `black_box` returns what it is given, for scalars and aggregates, when the interpreter runs it.
-use std::rc::Rc;
 
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+use jaic::sema::{Compiler, ProgramSource};
+use test_support::compiler::bare_compiler;
 
 const DECLS: &str = "black_box :: (value: $T) -> T #intrinsic;\n";
 
 fn compile(source: &str) -> (Compiler, jaic::sema::Result<()>) {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let mut c = bare_compiler();
     let result = c.compile_sources(&[ProgramSource::String(format!("{DECLS}\n{source}"))]);
 
     (c, result)

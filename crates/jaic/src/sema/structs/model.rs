@@ -112,7 +112,7 @@ pub(super) struct FieldDecl {
 
 /// A struct's members as its body declares them, with `#if` and `#insert` expanded and declared
 /// types resolved: known before its storage is laid out, which may need other structs.
-pub struct StructMembers {
+pub(crate) struct StructMembers {
     pub(super) fields: Vec<MemberField>,
     pub(super) aliases: Vec<MemberAlias>,
 }
@@ -150,7 +150,7 @@ impl StructMembers {
 
 /// The field items of a struct whose members are collected and whose storage is not laid out
 /// yet: layout takes them, so `#insert` and `#if` in the body run once.
-pub struct CollectedFields(pub(super) Vec<FieldItem>);
+pub(crate) struct CollectedFields(pub(super) Vec<FieldItem>);
 
 pub(super) enum FieldItem {
     Default(ast::Stmt, ScopeId),

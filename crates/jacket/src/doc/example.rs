@@ -47,7 +47,7 @@ fn browser_skip(block: &Block) -> Option<String> {
 }
 
 /// Base64 with the URL alphabet and no padding, for the playground's `#code=`.
-pub fn base64url(bytes: &[u8]) -> String {
+pub(super) fn base64url(bytes: &[u8]) -> String {
     const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
     let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
 
@@ -100,7 +100,7 @@ fn block(info: &str, code: &str, (file, line): (&str, usize), notes: &[String]) 
 }
 
 /// A code block that is not an example: highlighted when it is Jai (or says nothing).
-pub fn plain_code(site: &Site, module: &Module, info: &str, code: &str) -> Example {
+pub(super) fn plain_code(site: &Site, module: &Module, info: &str, code: &str) -> Example {
     let lang = info.split([',', ' ']).next().unwrap_or("");
     let body = if lang.is_empty() || lang == "jai" {
         highlight::jai(code.trim_end(), &|name| site.call_link(module, name))
@@ -120,7 +120,7 @@ pub fn plain_code(site: &Site, module: &Module, info: &str, code: &str) -> Examp
 
 /// A fenced block of a doc comment: an example with buttons when it is ```` ```jai ````, else
 /// plain code. `file` and `line` say where the comment is, for the program's header.
-pub fn view(
+pub(super) fn view(
     site: &Site,
     module: &Module,
     (file, line): (&str, usize),
@@ -179,7 +179,7 @@ pub fn view(
 }
 
 /// The file name an example program is stored under: a digest of its text.
-pub fn program_id(text: &str) -> String {
+pub(super) fn program_id(text: &str) -> String {
     let digest = Sha256::digest(text.as_bytes());
     digest.iter().take(6).map(|b| format!("{b:02x}")).collect()
 }

@@ -2,6 +2,7 @@
 use std::rc::Rc;
 
 use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+use test_support::compiler::bare_compiler;
 
 #[path = "support/variadic_source.rs"]
 mod source;
@@ -39,10 +40,7 @@ fn baked_mixed_type_packs_preserve_relocations_and_deduplicate_instances() {
 
 #[test]
 fn baked_mixed_packs_preserve_values_and_order() {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let mut c = bare_compiler();
     let source = r"
     encode :: ($items: ..int) -> int { result:int; for items result=result*10+it; return result; }
     forward :: ($items: ..int) -> int { return encode(1,..items,4); }
@@ -57,10 +55,7 @@ fn baked_mixed_packs_preserve_values_and_order() {
 
 #[test]
 fn scalar_prefix_is_not_discarded_by_a_following_spread() {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let mut c = bare_compiler();
 
     if let Err(e)=c.compile_sources(&[ProgramSource::String("encode :: (items: ..int) -> int { result: int; for items result=result*10+it; return result; } test :: () -> int { tail: [2]int = .[2,3]; return encode(1,..tail); } #assert(test()==123);".into())]) {
         panic!("{}",e.render(&c.src.sources));
@@ -69,10 +64,7 @@ fn scalar_prefix_is_not_discarded_by_a_following_spread() {
 
 #[test]
 fn mixed_segments_preserve_values_order_defaults_and_polymorphism() {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let mut c = bare_compiler();
 
     if let Err(e) = c.compile_sources(&[ProgramSource::String(format!(
         "{SOURCE}\n#assert(check()==0);"
@@ -100,10 +92,7 @@ fn invalid_spread_lengths_and_c_variadic_arity_are_diagnosed() {
             "spread",
         ),
     ] {
-        let mut options = Options::host();
-
-        options.runtime_support = false;
-        let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+        let mut c = bare_compiler();
         let error = c
             .compile_sources(&[ProgramSource::String(source.into())])
             .expect_err("invalid variadic use must diagnose");

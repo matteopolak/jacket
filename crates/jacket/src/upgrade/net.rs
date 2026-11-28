@@ -7,9 +7,9 @@ use std::path::Path;
 
 use crate::net::Curl;
 
-pub const REPO: &str = "matteopolak/jacket";
+pub(super) const REPO: &str = "matteopolak/jacket";
 
-pub trait Source {
+pub(crate) trait Source {
     /// The releases API's JSON for the latest release, or for `tag`.
     fn release_json(&self, tag: Option<&str>) -> Result<String, String>;
 
@@ -22,7 +22,7 @@ pub trait Source {
 
 /// `curl`, and `tar` unless only checking (Windows uses its own `tar.exe`), before any download
 /// or prompt: an upgrade that cannot unpack must not start.
-pub fn require_tools(check_only: bool) -> Result<(), String> {
+pub(super) fn require_tools(check_only: bool) -> Result<(), String> {
     use jaic_toolchain::package::Need;
     crate::prerequisite::require(&Need::Curl, "curl", "jacket upgrade")?;
 
@@ -34,13 +34,13 @@ pub fn require_tools(check_only: bool) -> Result<(), String> {
 }
 
 /// GitHub, through `curl` and `tar`.
-pub struct Github {
+pub(super) struct Github {
     /// `Bearer` and `GITHUB_TOKEN`, sent to the API only, to lift its anonymous rate limit.
     token: Option<String>,
 }
 
 impl Github {
-    pub fn from_env() -> Github {
+    pub(super) fn from_env() -> Github {
         let token = jacket_config::env::GITHUB_TOKEN
             .get()
             .map(|t| t.trim().to_owned())

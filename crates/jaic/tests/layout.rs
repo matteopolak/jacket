@@ -6,7 +6,7 @@ use test_support::compiler::compile_source as compile;
 
 #[test]
 fn reflected_struct_alignment_matches_completed_layout() {
-    let stdlib = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];
@@ -31,7 +31,7 @@ fn reflected_struct_alignment_matches_completed_layout() {
 
 #[test]
 fn hidden_procedure_members_keep_their_reflected_marker_and_storage() {
-    let stdlib = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];

@@ -1,11 +1,11 @@
 //! Fully resolved input to the documentation templates. No compiler models reach the renderer.
 use serde::Serialize;
 mod build;
-pub mod guide;
-pub use build::{module, site};
+pub(super) mod guide;
+pub(super) use build::{module, site};
 
 #[derive(Serialize)]
-pub struct SiteView {
+pub(super) struct SiteView {
     pub format: u32,
     pub name: String,
     pub site_name: String,
@@ -29,13 +29,13 @@ pub struct SiteView {
 }
 
 #[derive(Serialize)]
-pub struct Image {
+pub(super) struct Image {
     pub url: String,
     pub mime: String,
 }
 
 #[derive(Serialize)]
-pub struct Category {
+pub(super) struct Category {
     pub name: String,
     pub class: String,
     pub badge: String,
@@ -47,13 +47,13 @@ pub struct Category {
 }
 
 #[derive(Serialize, Clone)]
-pub struct Link {
+pub(super) struct Link {
     pub href: String,
     pub label: String,
 }
 
 #[derive(Serialize)]
-pub struct ModuleView {
+pub(super) struct ModuleView {
     pub id: String,
     pub page: PageView,
     pub items: Vec<PageView>,
@@ -62,7 +62,7 @@ pub struct ModuleView {
 
 /// What `<head>` says about a page beyond its title and description. Empty strings are left out.
 #[derive(Serialize, Default)]
-pub struct PageHead {
+pub(super) struct PageHead {
     pub url: String,
     pub canonical: String,
     pub og_type: String,
@@ -73,7 +73,7 @@ pub struct PageHead {
 }
 
 #[derive(Serialize)]
-pub struct PageView {
+pub(super) struct PageView {
     pub head: PageHead,
     pub not_found: bool,
     pub title: String,
@@ -87,7 +87,7 @@ pub struct PageView {
 
 #[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
-pub enum Sidebar {
+pub(super) enum Sidebar {
     Modules {
         categories: Vec<NavCategory>,
     },
@@ -103,13 +103,13 @@ pub enum Sidebar {
 }
 
 #[derive(Serialize, Clone)]
-pub struct NavCategory {
+pub(super) struct NavCategory {
     pub label: String,
     pub groups: Vec<NavGroup>,
 }
 
 #[derive(Serialize, Clone)]
-pub struct NavGroup {
+pub(super) struct NavGroup {
     pub label: String,
     pub key: String,
     pub open: bool,
@@ -117,7 +117,7 @@ pub struct NavGroup {
 }
 
 #[derive(Serialize, Clone)]
-pub struct NavLink {
+pub(super) struct NavLink {
     pub href: String,
     pub label: String,
     pub title: Option<String>,
@@ -130,7 +130,7 @@ pub struct NavLink {
 
 #[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
-pub enum Content {
+pub(super) enum Content {
     /// The front page when `[doc] home` names no file, and the 404 page.
     Index {},
     Module {
@@ -179,28 +179,28 @@ pub enum Content {
 
 /// One system on a module page: `state` is `full`, `partial` or `none`, and `tip` says it in words.
 #[derive(Serialize)]
-pub struct Platform {
+pub(super) struct Platform {
     pub name: String,
     pub state: String,
     pub tip: String,
 }
 
 #[derive(Serialize)]
-pub struct Badge {
+pub(super) struct Badge {
     pub class: String,
     pub label: String,
     pub tip: String,
 }
 
 #[derive(Serialize)]
-pub struct Crumb {
+pub(super) struct Crumb {
     pub label: String,
     pub href: Option<String>,
     pub mono: bool,
 }
 
 #[derive(Serialize)]
-pub struct Title {
+pub(super) struct Title {
     pub label: String,
     pub kind: String,
     pub procedure: bool,
@@ -216,7 +216,7 @@ pub struct Title {
 
 /// One of the definitions of an item that differs by system.
 #[derive(Serialize)]
-pub struct VariantView {
+pub(super) struct VariantView {
     pub id: String,
     /// The systems it is for, in words.
     pub label: String,
@@ -228,7 +228,7 @@ pub struct VariantView {
 }
 
 #[derive(Serialize)]
-pub struct Definition {
+pub(super) struct Definition {
     pub id: Option<String>,
     pub name: String,
     pub type_html: String,
@@ -238,20 +238,20 @@ pub struct Definition {
 }
 
 #[derive(Serialize)]
-pub struct Section {
+pub(super) struct Section {
     pub id: String,
     pub label: String,
     pub groups: Vec<RowGroup>,
 }
 
 #[derive(Serialize)]
-pub struct RowGroup {
+pub(super) struct RowGroup {
     pub heading: Option<Link>,
     pub rows: Vec<Row>,
 }
 
 #[derive(Serialize)]
-pub struct Row {
+pub(super) struct Row {
     pub id: String,
     pub href: String,
     pub kind_badge: String,
@@ -275,7 +275,7 @@ pub struct Row {
 
 /// One definition of a name that differs by system, as a module page row shows it.
 #[derive(Serialize)]
-pub struct RowVariant {
+pub(super) struct RowVariant {
     pub label: String,
     pub lines_html: Vec<String>,
     pub declaration_html: String,
@@ -285,7 +285,7 @@ pub struct RowVariant {
 #[derive(Serialize)]
 /// Overloads retain the legacy layout: prose, definitions, then examples. Each segment list
 /// preserves display order; module/item prose and examples share a single mixed list.
-pub struct OverloadView {
+pub(super) struct OverloadView {
     pub id: String,
     pub label: Option<String>,
     pub card: bool,
@@ -299,7 +299,7 @@ pub struct OverloadView {
 
 #[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
-pub enum DocSegment {
+pub(super) enum DocSegment {
     Html {
         prose_html: String,
     },
@@ -327,13 +327,13 @@ pub enum DocSegment {
 
 /// One block of a group, under its caption.
 #[derive(Serialize)]
-pub struct GroupPart {
+pub(super) struct GroupPart {
     pub label: String,
     pub code_html: String,
 }
 
 #[derive(Serialize)]
-pub struct Example {
+pub(super) struct Example {
     pub plain: bool,
     pub compact: bool,
     pub code_html: String,
@@ -344,7 +344,7 @@ pub struct Example {
 
 #[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
-pub enum Outline {
+pub(super) enum Outline {
     Heading {
         id: String,
         label: String,
@@ -356,7 +356,7 @@ pub enum Outline {
 }
 
 #[derive(Serialize)]
-pub struct OutlineItem {
+pub(super) struct OutlineItem {
     pub id: String,
     pub label: String,
 }

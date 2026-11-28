@@ -11,6 +11,8 @@
 #![allow(clippy::disallowed_methods)]
 
 // The one place the LLVM version is spelled; shared so the variable name is never typed twice.
+// Its items are `pub` because `jacket-config` re-exports them; here nothing does.
+#[allow(unreachable_pub)]
 #[path = "../jacket-config/src/llvm/version.rs"]
 mod version;
 

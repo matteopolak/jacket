@@ -176,7 +176,7 @@ fn image(site: &Site, file: &str) -> Image {
     }
 }
 
-pub fn site(site: &Site) -> SiteView {
+pub(crate) fn site(site: &Site) -> SiteView {
     let mut header_links = Vec::new();
 
     if let Some(href) = &site.pages_href {
@@ -688,7 +688,7 @@ fn group(
     }
 }
 
-pub fn module(site: &Site, mi: usize) -> ModuleView {
+pub(crate) fn module(site: &Site, mi: usize) -> ModuleView {
     let m = &site.modules[mi];
     let mut segs = blocks_at(site, &m.docs, &m.id, 1);
     let description = lead(&segs).map_or_else(String::new, |(_, h)| h);

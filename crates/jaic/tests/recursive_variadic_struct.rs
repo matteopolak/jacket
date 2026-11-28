@@ -1,11 +1,11 @@
 //! A struct with a variadic `..Type` parameter may be named by one of its own arguments through a
 //! pointer; holding itself by value is still rejected.
-use std::{path::PathBuf, rc::Rc};
+use std::rc::Rc;
 
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 
 fn check(source: &str) -> Result<(), String> {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];

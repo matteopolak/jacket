@@ -59,13 +59,13 @@ const CHECKED_COPY: bool = cfg!(target_os = "linux");
 const CHECKED_VEC_LIMIT: usize = 1 << 20;
 
 /// Forget every page found accessible: memory may have been released.
-pub fn invalidate() {
+pub(super) fn invalidate() {
     EPOCH.fetch_add(1, Ordering::Relaxed);
 }
 
 /// What one interpreter has found accessible. Interpreters on different threads each have
 /// their own, and all forget at `invalidate`.
-pub struct Probe {
+pub(super) struct Probe {
     /// Pages found accessible, for reads and for writes.
     known: [[Entry; REMEMBERED]; 2],
     /// The ranges found accessible for reads and for writes.
@@ -87,7 +87,7 @@ impl Default for Probe {
 impl Probe {
     /// The `len` bytes of program memory at `addr`, or `None` when any of them cannot be
     /// read. Nothing is allocated for a range that is not there (a garbage length).
-    pub fn read_vec(&self, addr: u64, len: usize) -> Option<Vec<u8>> {
+    pub(super) fn read_vec(&self, addr: u64, len: usize) -> Option<Vec<u8>> {
         if (!CHECKED_COPY || len > CHECKED_VEC_LIMIT) && !self.accessible(addr, len, false) {
             return None;
         }
@@ -101,7 +101,7 @@ impl Probe {
 
     /// Copy `out.len()` bytes of program memory at `addr` into `out`. False when any of them
     /// cannot be read.
-    pub fn read(&self, addr: u64, out: &mut [u8]) -> bool {
+    pub(super) fn read(&self, addr: u64, out: &mut [u8]) -> bool {
         if !CHECKED_COPY && !self.accessible(addr, out.len(), false) {
             return false;
         }
@@ -110,7 +110,7 @@ impl Probe {
     }
 
     /// Copy `bytes` into program memory at `addr`. False when any of it cannot be written.
-    pub fn write(&self, addr: u64, bytes: &[u8]) -> bool {
+    pub(super) fn write(&self, addr: u64, bytes: &[u8]) -> bool {
         if !CHECKED_COPY && !self.accessible(addr, bytes.len(), true) {
             return false;
         }
@@ -363,7 +363,7 @@ mod sys {
 mod sys {
     use std::ffi::c_int;
 
-    pub fn copy(src: u64, dst: u64, len: usize, write: bool) -> bool {
+    pub(super) fn copy(src: u64, dst: u64, len: usize, write: bool) -> bool {
         unsafe extern "C" {
             static mach_task_self_: u32;
 
@@ -413,7 +413,7 @@ mod sys {
     }
 
     /// The mapping `at` lies in, if it allows reading (and, if asked, writing).
-    pub fn region(at: u64, write: bool) -> Option<(u64, u64)> {
+    pub(super) fn region(at: u64, write: bool) -> Option<(u64, u64)> {
         unsafe extern "C" {
             static mach_task_self_: u32;
 

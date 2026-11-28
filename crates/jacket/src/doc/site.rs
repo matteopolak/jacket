@@ -7,7 +7,7 @@ use super::highlight;
 use super::model::{Item, Kind, Module, Overload, Param, TypeRef};
 use crate::markup::escape;
 
-pub struct Site {
+pub(super) struct Site {
     pub modules: Vec<Module>,
     /// The headings modules are listed under, in display order; empty for one plain list.
     pub categories: Vec<Category>,
@@ -107,13 +107,8 @@ fn case_folders(modules: &[Module]) -> BTreeMap<String, String> {
     out
 }
 
-pub(super) const BUILTIN_TYPES: &[&str] = &[
-    "int", "float", "float32", "float64", "bool", "string", "void", "Type", "Any", "s8", "s16",
-    "s32", "s64", "u8", "u16", "u32", "u64", "s128", "u128", "code", "Code",
-];
-
 impl Site {
-    pub fn new(
+    pub(super) fn new(
         mut modules: Vec<Module>,
         groups: Vec<String>,
         base: String,
@@ -191,34 +186,34 @@ impl Site {
         }
     }
 
-    pub fn module_index(&self, id: &str) -> Option<usize> {
+    pub(super) fn module_index(&self, id: &str) -> Option<usize> {
         self.by_id.get(id).copied()
     }
 
     /// The module a `jaidoc:` link names.
-    pub fn module_for_link(&self, key: &str) -> Option<usize> {
+    pub(super) fn module_for_link(&self, key: &str) -> Option<usize> {
         self.by_key.get(key).copied().flatten()
     }
 
     // Where pages are.
 
-    pub fn href(&self, path: &str) -> String {
+    pub(super) fn href(&self, path: &str) -> String {
         format!("{}{path}", self.base)
     }
 
-    pub fn module_path(id: &str) -> String {
+    pub(super) fn module_path(id: &str) -> String {
         format!("api/{id}.html")
     }
 
     /// The file of an item's page, in its module's folder. Its address is the same without
     /// `.html`, which GitHub Pages and the dev servers look up.
-    pub fn item_path(&self, module: &str, name: &str) -> String {
+    pub(super) fn item_path(&self, module: &str, name: &str) -> String {
         format!("api/{module}/{}.html", self.folder(module, name))
     }
 
     /// Where the Playground link and "open in playground" go: `[doc] playground` or
     /// `--playground-url` when one is set, else the site's own playground page.
-    pub fn playground_href(&self) -> String {
+    pub(super) fn playground_href(&self) -> String {
         if self.playground.is_empty() {
             self.page_href(super::playground::PATH)
         } else {
@@ -227,13 +222,13 @@ impl Site {
     }
 
     /// Whether "open in playground" links are shown: there is a playground that can run code.
-    pub fn has_playground(&self) -> bool {
+    pub(super) fn has_playground(&self) -> bool {
         self.runtime || !self.playground.is_empty()
     }
 
     /// The address of a page from its file: the path without `.html`, and the front page
     /// (`index.html`) at the base URL itself.
-    pub fn page_href(&self, path: &str) -> String {
+    pub(super) fn page_href(&self, path: &str) -> String {
         let stem = path.strip_suffix(".html").unwrap_or(path);
 
         self.href(if stem == "index" {
@@ -244,7 +239,7 @@ impl Site {
     }
 
     /// The folder of an item's page below its module's folder.
-    pub fn folder(&self, module: &str, name: &str) -> String {
+    pub(super) fn folder(&self, module: &str, name: &str) -> String {
         self.folders
             .get(&format!("{module}/{name}"))
             .cloned()
@@ -253,7 +248,7 @@ impl Site {
 
     /// The folder name of an item: its name, with each character that is not safe in a file
     /// name (`<` in `operator<`) written as `-` and its code in hex. `site.js` does the same.
-    pub fn slug(name: &str) -> String {
+    pub(super) fn slug(name: &str) -> String {
         let mut out = String::new();
 
         for c in name.chars() {
@@ -268,18 +263,18 @@ impl Site {
     }
 
     /// A link to a module's page.
-    pub fn module_href(&self, id: &str) -> String {
+    pub(super) fn module_href(&self, id: &str) -> String {
         self.href(&format!("api/{id}"))
     }
 
     /// An item's page.
-    pub fn item_href(&self, module: &str, name: &str) -> String {
+    pub(super) fn item_href(&self, module: &str, name: &str) -> String {
         self.href(&format!("api/{module}/{}", self.folder(module, name)))
     }
 
     /// A link to `line` of a library file: at the commit the site was built from when that file is
     /// unchanged there, else at the source ref. None without a repository or anything to point at.
-    pub fn source_url(&self, file: &str, line: usize) -> Option<String> {
+    pub(super) fn source_url(&self, file: &str, line: usize) -> Option<String> {
         if self.repo.is_empty() {
             return None;
         }
@@ -299,18 +294,18 @@ impl Site {
     }
 
     /// The category of `m` that has a badge, as its index.
-    pub fn badge_of(&self, m: &Module) -> Option<usize> {
+    pub(super) fn badge_of(&self, m: &Module) -> Option<usize> {
         m.category
             .filter(|&c| self.categories.get(c).is_some_and(|c| !c.badge.is_empty()))
     }
 
     /// The folder of the extra pages: `tools` for `Tools`.
-    pub fn pages_dir(&self) -> String {
+    pub(super) fn pages_dir(&self) -> String {
         super::markdown::slug(&self.pages_title)
     }
 
     /// A page title: `what — name`.
-    pub fn title(&self, what: &str) -> String {
+    pub(super) fn title(&self, what: &str) -> String {
         if self.name.is_empty() {
             what.to_owned()
         } else {
@@ -322,7 +317,7 @@ impl Site {
 
     /// Where a link of a doc comment goes. `jaidoc:Module/item[#member]` is an intra-doc link
     /// from `jaic -doc_model`; it must lead to a page, or it is dropped (and recorded).
-    pub fn doc_link(&self, dest: &str, from: &str) -> Option<String> {
+    pub(super) fn doc_link(&self, dest: &str, from: &str) -> Option<String> {
         let Some(rest) = dest.strip_prefix("jaidoc:") else {
             return Some(dest.to_owned());
         };
@@ -367,7 +362,7 @@ impl Site {
     }
 
     /// Pages that would be written to the same file: an item named like a module below it.
-    pub fn path_clashes(&self) -> Vec<String> {
+    pub(super) fn path_clashes(&self) -> Vec<String> {
         let mut found = Vec::new();
 
         for module in &self.modules {
@@ -386,7 +381,7 @@ impl Site {
         found
     }
 
-    pub fn broken_links(&self) -> Vec<String> {
+    pub(super) fn broken_links(&self) -> Vec<String> {
         let mut found = self.broken.borrow().clone();
 
         found.sort();
@@ -395,7 +390,7 @@ impl Site {
     }
 
     /// The page of a procedure of `module` that an example calls by name.
-    pub fn call_link(&self, module: &Module, name: &str) -> Option<String> {
+    pub(super) fn call_link(&self, module: &Module, name: &str) -> Option<String> {
         let item = module.item(name).filter(|i| i.kind == Kind::Procedure)?;
         Some(self.item_href(&module.id, &item.name))
     }
@@ -403,7 +398,7 @@ impl Site {
     // Examples.
 
     /// Keeps the parts of an example's program (`parts`, JSON) under the digest of `program`.
-    pub fn add_example(&self, program: &str, parts: String) -> String {
+    pub(super) fn add_example(&self, program: &str, parts: String) -> String {
         let id = super::example::program_id(program);
 
         self.examples.borrow_mut().insert(id.clone(), parts);
@@ -411,15 +406,15 @@ impl Site {
     }
 
     /// Keeps `program` to run when testing, under the id `add_example` gave it.
-    pub fn add_runnable(&self, id: &str, program: super::example_check::Program) {
+    pub(super) fn add_runnable(&self, id: &str, program: super::example_check::Program) {
         self.runnable.borrow_mut().insert(id.to_owned(), program);
     }
 
-    pub fn runnable(&self) -> Vec<super::example_check::Program> {
+    pub(super) fn runnable(&self) -> Vec<super::example_check::Program> {
         self.runnable.borrow().values().cloned().collect()
     }
 
-    pub fn examples(&self) -> BTreeMap<String, String> {
+    pub(super) fn examples(&self) -> BTreeMap<String, String> {
         self.examples.borrow().clone()
     }
 
@@ -428,7 +423,7 @@ impl Site {
     /// `ty` as HTML: a name the compiler resolved (`refs`) to a type the library documents links
     /// to its page, builtin types are coloured. Nothing is matched by name alone, so two
     /// modules with a type of the same name each link to their own.
-    pub fn type_html(&self, ty: &str, refs: &[TypeRef], here: usize) -> String {
+    pub(super) fn type_html(&self, ty: &str, refs: &[TypeRef], here: usize) -> String {
         self.type_out(ty, refs, here, false)
     }
 
@@ -515,7 +510,7 @@ impl Site {
 
     /// An expression as written, such as a default value, highlighted, with each name the
     /// compiler resolved to a documented declaration linked to its page.
-    pub fn expr_html(&self, code: &str, refs: &[TypeRef], here: usize) -> String {
+    pub(super) fn expr_html(&self, code: &str, refs: &[TypeRef], here: usize) -> String {
         highlight::expr(code, &|name| {
             self.resolved(name, refs, here)
                 .map(|(m, item)| self.item_href(&self.modules[m].id, item))
@@ -524,7 +519,13 @@ impl Site {
 
     /// A struct, union or enum as written, highlighted, with each name the compiler resolved to
     /// a type that has a page linked to it. `own` is the item itself, whose name stays plain.
-    pub fn declaration_html(&self, code: &str, refs: &[TypeRef], here: usize, own: &str) -> String {
+    pub(super) fn declaration_html(
+        &self,
+        code: &str,
+        refs: &[TypeRef],
+        here: usize,
+        own: &str,
+    ) -> String {
         highlight::declaration(code, &|path| {
             let cuts = path
                 .match_indices('.')
@@ -579,7 +580,7 @@ impl Site {
             return path.to_owned();
         }
 
-        if BUILTIN_TYPES.contains(&path) {
+        if jaic::lexicon::TYPES.contains(&path) {
             return format!("<span class=\"ty\">{}</span>", escape(path));
         }
 
@@ -588,7 +589,7 @@ impl Site {
 }
 
 /// `name: type`, `name := default` or `name: type = default`.
-pub fn param_text(p: &Param) -> String {
+pub(super) fn param_text(p: &Param) -> String {
     match (p.ty.is_empty(), p.default.is_empty()) {
         (false, true) => format!("{}: {}", p.name, p.ty),
         (true, false) => format!("{} := {}", p.name, p.default),
@@ -610,7 +611,7 @@ fn param_marked(site: &Site, p: &Param, here: usize) -> String {
 }
 
 /// `signature_plain` with the type links of `type_out(.., true)`, for the search index.
-pub fn signature_marked(site: &Site, o: &Overload, here: usize) -> String {
+pub(super) fn signature_marked(site: &Site, o: &Overload, here: usize) -> String {
     let list = |ps: &[Param]| {
         ps.iter()
             .map(|p| param_marked(site, p, here))
@@ -661,7 +662,7 @@ fn returns_plain(returns: &[Param]) -> String {
 
 /// `(s: string, byte: u8) -> (found: bool, left: string, right: string)`, for a list or a
 /// search result.
-pub fn signature_plain(o: &Overload) -> String {
+pub(super) fn signature_plain(o: &Overload) -> String {
     let params = o
         .params
         .iter()
@@ -680,7 +681,7 @@ pub fn signature_plain(o: &Overload) -> String {
 /// What names each overload of `item` in the page outline: its parameters, `(s: string, n: int)`;
 /// with the results when two overloads take the same parameters, and `Overload 2` when even
 /// those match.
-pub fn overload_labels(item: &super::model::Item) -> Vec<String> {
+pub(super) fn overload_labels(item: &super::model::Item) -> Vec<String> {
     let clip = |text: String| -> String {
         if text.chars().count() <= 48 {
             return text;
@@ -721,7 +722,7 @@ pub fn overload_labels(item: &super::model::Item) -> Vec<String> {
 
 /// `(s: string, n := 1) -> bool` as HTML, for a list: the parameters on one line, the types
 /// linked, wrapping at spaces when the line is too long for its card.
-pub fn signature_line_html(site: &Site, o: &Overload, here: usize) -> String {
+pub(super) fn signature_line_html(site: &Site, o: &Overload, here: usize) -> String {
     let params = o
         .params
         .iter()
@@ -746,7 +747,7 @@ pub fn signature_line_html(site: &Site, o: &Overload, here: usize) -> String {
 
 /// The declaration of an overload as a code block's content: the name, then the parameters,
 /// broken over lines when they are long, and the results with links to their types.
-pub fn signature_html(site: &Site, name: &str, o: &Overload, here: usize) -> String {
+pub(super) fn signature_html(site: &Site, name: &str, o: &Overload, here: usize) -> String {
     let plain = format!("{name} :: {}", signature_plain(o));
     let head = format!("<span class=\"fn\">{}</span> :: (", escape(name));
     let tail = |returns: &[Param]| -> String {
@@ -802,7 +803,7 @@ pub fn signature_html(site: &Site, name: &str, o: &Overload, here: usize) -> Str
 
 /// The one-line form of what an item is, for a list: a procedure's first signature, or what a
 /// type or constant is set to.
-pub fn item_line(item: &Item) -> String {
+pub(super) fn item_line(item: &Item) -> String {
     match item.kind {
         Kind::Procedure => item
             .overloads

@@ -1,11 +1,9 @@
 //! `jaic -doc_model` documents what a module's top-level `#insert` declares.
-use std::{path::PathBuf, process::Command};
+use std::process::Command;
 
 use test_support::TempDir;
+use test_support::repo::stdlib;
 
-fn stdlib() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib")
-}
 
 /// The model of the module `name` in a library holding `source` as its `module.jai`.
 fn model(tag: &str, source: &str) -> (TempDir, serde_json::Value) {

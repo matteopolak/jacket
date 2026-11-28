@@ -12,14 +12,14 @@ use super::{Compiler, Result, Span, TypeId, Value, ir};
 use crate::ir::{ConvOp, Ty};
 
 /// Conversion costs used to rank overloads. Lower is better.
-pub const EXACT: u32 = 0;
+pub(super) const EXACT: u32 = 0;
 
-pub const LITERAL: u32 = 1;
-pub const WIDEN: u32 = 2;
-pub const POINTER: u32 = 3;
-pub const SUBTYPE: u32 = 4;
-pub const INT_TO_FLOAT: u32 = 5;
-pub const TO_ANY: u32 = 6;
+pub(super) const LITERAL: u32 = 1;
+pub(super) const WIDEN: u32 = 2;
+pub(super) const POINTER: u32 = 3;
+pub(super) const SUBTYPE: u32 = 4;
+pub(super) const INT_TO_FLOAT: u32 = 5;
+pub(super) const TO_ANY: u32 = 6;
 
 impl Compiler {
     /// Box a value into an `Any` (type info pointer + pointer to a copy).
@@ -86,7 +86,7 @@ impl Compiler {
 /// values never go to an unsigned type, and a signed type takes the signed range only, except
 /// that a `bit_pattern` constant (written in hex or binary, through `~`, or by name) may fill
 /// all the bits: `x: s8 = 0xff` is `-1`, `x: s8 = 255` is an error. `~0` also fills a `u64`.
-pub fn int_constant_fits(v: i128, bits: u8, signed: bool, bit_pattern: bool) -> bool {
+pub(super) fn int_constant_fits(v: i128, bits: u8, signed: bool, bit_pattern: bool) -> bool {
     if bits >= 128 {
         return true;
     }
@@ -106,7 +106,7 @@ pub fn int_constant_fits(v: i128, bits: u8, signed: bool, bit_pattern: bool) -> 
     }
 }
 
-pub fn int_fits(v: i128, bits: u8, signed: bool) -> bool {
+pub(super) fn int_fits(v: i128, bits: u8, signed: bool) -> bool {
     if bits >= 64 {
         // Accept both the signed and unsigned spelling of 64-bit constants.
         return v >= i64::MIN as i128 && v <= u64::MAX as i128;
@@ -122,7 +122,7 @@ pub fn int_fits(v: i128, bits: u8, signed: bool) -> bool {
 }
 
 /// Convert a scalar register between classes.
-pub fn numeric_conv(
+pub(super) fn numeric_conv(
     f: &mut FnCtx,
     v: ir::Val,
     ft: Ty,

@@ -33,7 +33,7 @@ impl BootstrapModule {
 
 /// The entry file of the module `name` directly under `dir`: `Name.jai`, else `Name/module.jai`.
 /// This is the one definition of what a module on disk looks like.
-pub fn module_file_in(fs: &dyn FileSystem, dir: &Path, name: &str) -> Option<PathBuf> {
+pub(super) fn module_file_in(fs: &dyn FileSystem, dir: &Path, name: &str) -> Option<PathBuf> {
     let file = dir.join(format!("{name}.jai"));
 
     if fs.is_file(&file) {
@@ -46,7 +46,12 @@ pub fn module_file_in(fs: &dyn FileSystem, dir: &Path, name: &str) -> Option<Pat
 
 /// The module a directory listing entry is, if it is one: `Name.jai`, or a folder `Name` with a
 /// `module.jai`.
-pub fn module_listed(fs: &dyn FileSystem, dir: &Path, entry: &str, is_dir: bool) -> Option<String> {
+pub(crate) fn module_listed(
+    fs: &dyn FileSystem,
+    dir: &Path,
+    entry: &str,
+    is_dir: bool,
+) -> Option<String> {
     if is_dir {
         fs.is_file(&crate::paths::module_entry(&dir.join(entry)))
             .then(|| entry.to_string())
@@ -92,7 +97,7 @@ impl PackageImports {
 /// as the module that loads it does, so a project's replacement for a library module is seen by
 /// all of the library or by none of it. A package's own folders reach only its own files, so a
 /// dependency cannot replace a module for the rest of the program.
-pub fn search_roots(
+pub(super) fn search_roots(
     import_paths: &[PathBuf],
     packages: &[PackageImports],
     from_dir: &Path,

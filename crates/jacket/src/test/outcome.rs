@@ -5,7 +5,7 @@ use std::time::Duration;
 use super::exec::{Failure, Subtest};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Status {
+pub(crate) enum Status {
     Pass,
     Fail,
     Skip,
@@ -20,7 +20,7 @@ pub enum Status {
 
 impl Status {
     /// Whether the run fails because of it (`flaky-fails` decides about FLAKY).
-    pub fn fails(self, flaky_fails: bool) -> bool {
+    pub(crate) fn fails(self, flaky_fails: bool) -> bool {
         matches!(self, Status::Fail | Status::Timeout | Status::XPass)
             || (flaky_fails && self == Status::Flaky)
     }
@@ -28,7 +28,7 @@ impl Status {
 
 /// What happened to a case.
 #[derive(Clone, Debug)]
-pub struct Outcome {
+pub(crate) struct Outcome {
     pub case: usize,
     pub status: Status,
     pub duration: Duration,

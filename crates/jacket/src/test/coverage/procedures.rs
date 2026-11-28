@@ -12,7 +12,7 @@ use super::report::{Function, Functions};
 
 /// One procedure `jaic -procedures` listed.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Procedure {
+pub(super) struct Procedure {
     pub file: PathBuf,
     pub name: String,
     pub line: u32,
@@ -23,7 +23,7 @@ pub struct Procedure {
 
 /// The records `jaic -procedures` prints: `procedure`, file, name, first line, last line and the
 /// running lines, separated by tabs.
-pub fn parse(text: &str) -> Vec<Procedure> {
+pub(super) fn parse(text: &str) -> Vec<Procedure> {
     text.lines().filter_map(parse_record).collect()
 }
 
@@ -51,7 +51,7 @@ fn parse_record(line: &str) -> Option<Procedure> {
 }
 
 /// Asks `jaic` for the procedures declared below `folders`.
-pub fn list(
+pub(super) fn list(
     (jaic, stdlib): (&Path, &Path),
     folders: &[PathBuf],
     flags: &[String],
@@ -79,7 +79,7 @@ pub fn list(
 
 /// The procedures none of whose lines are among the lines of `files`: no program has code of
 /// them.
-pub fn unreferenced<'a>(files: &Files, procedures: &[&'a Procedure]) -> Vec<&'a Procedure> {
+pub(super) fn unreferenced<'a>(files: &Files, procedures: &[&'a Procedure]) -> Vec<&'a Procedure> {
     procedures
         .iter()
         .copied()
@@ -94,7 +94,7 @@ pub fn unreferenced<'a>(files: &Files, procedures: &[&'a Procedure]) -> Vec<&'a 
 }
 
 /// Adds the lines of `procedures` to `files` as lines that never ran.
-pub fn add_never_run(files: &mut Files, procedures: &[&Procedure]) {
+pub(super) fn add_never_run(files: &mut Files, procedures: &[&Procedure]) {
     for p in procedures {
         let lines = files.entry(p.file.clone()).or_default();
 
@@ -109,7 +109,7 @@ pub fn add_never_run(files: &mut Files, procedures: &[&Procedure]) {
 /// none of those reached is as called as its declaration line ran (an interpreted program counts
 /// the entry of a procedure on that line). Procedures that share a name in a file are told
 /// apart by their line.
-pub fn functions(procedures: &[&Procedure], lines: &Files, entries: &Files) -> Functions {
+pub(super) fn functions(procedures: &[&Procedure], lines: &Files, entries: &Files) -> Functions {
     let mut by_file: BTreeMap<&Path, Vec<&Procedure>> = BTreeMap::new();
 
     for p in procedures {

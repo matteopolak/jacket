@@ -151,11 +151,6 @@ impl Sym {
         Sym::lookup(text, || Box::leak(text.to_owned().into_boxed_str()))
     }
 
-    /// Interns a spelling that is already leaked, without copying it again.
-    pub fn intern_static(text: &'static str) -> Sym {
-        Sym::lookup(text, || text)
-    }
-
     fn lookup(text: &str, leak: impl FnOnce() -> &'static str) -> Sym {
         let hash = BuildHasherDefault::<FxHasher>::new().hash_one(text);
 

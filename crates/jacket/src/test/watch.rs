@@ -26,19 +26,24 @@ const SKIPPED: [&str; 3] = ["target", "node_modules", ".git"];
 
 /// What a run used, to know what to watch and which changes it can narrow itself to.
 #[derive(Default)]
-pub struct Watched {
+pub(super) struct Watched {
     folders: BTreeSet<PathBuf>,
     tests: BTreeSet<PathBuf>,
 }
 
 impl Watched {
-    pub fn clear(&mut self) {
+    pub(super) fn clear(&mut self) {
         self.folders.clear();
         self.tests.clear();
     }
 
     /// The test roots and the folders the compiler is told to import from.
-    pub fn set_folders(&mut self, roots: &[Root], flags: &[String], root_flags: &[Vec<String>]) {
+    pub(super) fn set_folders(
+        &mut self,
+        roots: &[Root],
+        flags: &[String],
+        root_flags: &[Vec<String>],
+    ) {
         let imports = root_flags
             .iter()
             .flat_map(|f| discover::import_folders(f))
@@ -50,13 +55,13 @@ impl Watched {
             .collect();
     }
 
-    pub fn set_tests<'a>(&mut self, files: impl Iterator<Item = &'a Path>) {
+    pub(super) fn set_tests<'a>(&mut self, files: impl Iterator<Item = &'a Path>) {
         self.tests = files.map(canonical).collect();
     }
 }
 
 /// `path` with links resolved, so the files a scan finds are the files tests are in.
-pub fn canonical(path: &Path) -> PathBuf {
+pub(super) fn canonical(path: &Path) -> PathBuf {
     path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
 }
 
@@ -133,7 +138,7 @@ fn wait_for_change(folders: &BTreeSet<PathBuf>, stamps: &mut Stamps) -> BTreeSet
 
 /// Runs the tests, then again after each change, until interrupted (Ctrl-C). A run that fails
 /// before it knows what to watch (a bad flag) ends it, with that run's status.
-pub fn run(args: &TestArgs, cwd: &Path) -> ExitCode {
+pub(super) fn run(args: &TestArgs, cwd: &Path) -> ExitCode {
     let mut watched = Watched::default();
     let mut only: Option<BTreeSet<PathBuf>> = None;
     let mut stamps: Option<Stamps> = None;

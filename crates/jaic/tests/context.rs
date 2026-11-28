@@ -1,7 +1,7 @@
 //! Lexical context/cleanup regressions independent of stdlib bodies.
-use std::rc::Rc;
 
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+use jaic::sema::ProgramSource;
+use test_support::compiler::bare_compiler;
 
 const SETUP: &str = r"
 #add_context marker: s64 = 7;
@@ -9,10 +9,7 @@ push_copy :: () #expand { copied := context; `push_context,defer_pop copied; }
 ";
 
 fn check(source: &str) {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let mut c = bare_compiler();
 
     if let Err(error) = c.compile_sources(&[ProgramSource::String(format!("{SETUP}{source}"))]) {
         panic!("{}", error.render(&c.src.sources));

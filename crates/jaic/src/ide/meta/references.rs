@@ -253,34 +253,6 @@ impl Compiler {
         }
     }
 
-    /// Polymorphic procedures declared in `file` with the instances checking created: (the
-    /// procedure's span, each instance's bindings as `T = s64`).
-    pub fn ide_polymorphs(&self, file: FileId) -> Vec<(Span, String, Vec<String>)> {
-        let mut out = Vec::new();
-
-        for p in &self.pr.procs {
-            if !p.is_poly || p.span.file != file || p.bindings.is_some() {
-                continue;
-            }
-
-            let mut instances: Vec<String> = p
-                .instances
-                .values()
-                .filter(|inst| {
-                    self.ed
-                        .facts()
-                        .is_some_and(|f| f.selected_polymorphs.contains(inst))
-                })
-                .map(|&inst| self.ide_bindings_text(inst))
-                .collect();
-
-            instances.sort();
-            out.push((p.span, p.name.to_string(), instances));
-        }
-
-        out
-    }
-
     pub(in crate::ide) fn ide_bindings_text(&self, inst: ProcId) -> String {
         let Some(scope) = self.proc(inst).bindings else {
             return String::new();

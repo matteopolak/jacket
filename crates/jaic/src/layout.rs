@@ -382,10 +382,6 @@ impl DataLayout {
         self.write_uint(&mut bytes[..4], u64::from(value));
     }
 
-    pub fn read_u16(&self, bytes: &[u8]) -> u16 {
-        self.read_uint(&bytes[..2]) as u16
-    }
-
     pub fn write_u16(&self, bytes: &mut [u8], value: u16) {
         self.write_uint(&mut bytes[..2], u64::from(value));
     }
@@ -396,10 +392,6 @@ impl DataLayout {
 
     pub fn write_f32(&self, bytes: &mut [u8], value: f32) {
         self.write_u32(bytes, value.to_bits());
-    }
-
-    pub fn read_f64(&self, bytes: &[u8]) -> f64 {
-        f64::from_bits(self.read_u64(bytes))
     }
 
     pub fn write_f64(&self, bytes: &mut [u8], value: f64) {

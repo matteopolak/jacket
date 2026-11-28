@@ -646,7 +646,7 @@ mod tests {
 
     /// Struct names defined in the Jai sources the tags draw from, nested ones included.
     fn stdlib_struct_names(files: &[&str]) -> std::collections::BTreeSet<String> {
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+        let root = test_support::repo::stdlib();
         let mut names = std::collections::BTreeSet::new();
 
         for file in files {

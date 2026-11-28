@@ -165,7 +165,7 @@ impl Interp {
 /// `args` as one Windows command line that `CommandLineToArgvW` splits back into `args`. The
 /// first argument (the program) is read up to the next quote with no escapes; the others treat
 /// backslashes before a quote as escapes.
-pub fn windows_command_line(args: &[String]) -> String {
+pub(super) fn windows_command_line(args: &[String]) -> String {
     let mut line = String::new();
 
     for (index, arg) in args.iter().enumerate() {

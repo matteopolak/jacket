@@ -61,7 +61,7 @@ enum Reach {
 
 /// The program with its blocking procedures rewritten, or `None` when nothing needs it: the
 /// program cannot start a thread, or it has no `Wasi_Runtime`.
-pub fn instrument(program: &Program, layout: &jaic::layout::DataLayout) -> Option<Program> {
+pub(crate) fn instrument(program: &Program, layout: &jaic::layout::DataLayout) -> Option<Program> {
     let exports: HashMap<&str, usize> = program
         .funcs
         .iter()

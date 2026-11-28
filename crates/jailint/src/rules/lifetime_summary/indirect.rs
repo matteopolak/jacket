@@ -4,7 +4,11 @@ use super::{Effect, Event, HashMap, HashSet, ProcId, Resolver, Span, Summary};
 use crate::rules::lifetime_targets::Set;
 
 impl Resolver<'_> {
-    pub fn unknown_effects(&self, event: &Event, all: &HashMap<ProcId, Summary>) -> Vec<Effect> {
+    pub(crate) fn unknown_effects(
+        &self,
+        event: &Event,
+        all: &HashMap<ProcId, Summary>,
+    ) -> Vec<Effect> {
         let (Event::Call {
             args,
             expands: false,
@@ -56,7 +60,7 @@ impl Resolver<'_> {
             .collect()
     }
 
-    pub fn call_targets(&self, event: &Event) -> Set {
+    pub(crate) fn call_targets(&self, event: &Event) -> Set {
         match event {
             Event::Call {
                 callee, ..
@@ -90,7 +94,7 @@ impl Resolver<'_> {
         }
     }
 
-    pub fn call_effects(
+    pub(crate) fn call_effects(
         &self,
         event: &Event,
         all: &HashMap<ProcId, Summary>,
@@ -148,7 +152,7 @@ impl Resolver<'_> {
         result.into_iter().collect()
     }
 
-    pub fn call_stops(&self, event: &Event, all: &HashMap<ProcId, Summary>) -> bool {
+    pub(crate) fn call_stops(&self, event: &Event, all: &HashMap<ProcId, Summary>) -> bool {
         let targets = self.call_targets(event);
 
         !targets.unknown
@@ -179,7 +183,7 @@ pub(super) fn edges(
 }
 
 impl Resolver<'_> {
-    pub fn released_formals(
+    pub(crate) fn released_formals(
         &self,
         event: &Event,
         all: &HashMap<ProcId, Summary>,
@@ -326,7 +330,7 @@ impl Resolver<'_> {
         result
     }
 
-    pub fn passthrough(
+    pub(crate) fn passthrough(
         &self,
         event: &Event,
         index: usize,

@@ -242,7 +242,7 @@ mod imp {
 
     /// `Shared::parse` for a test, with a crawl that has nothing to find.
     #[cfg(test)]
-    pub fn prepare_for_test(path: &Path) -> Option<Prepared> {
+    pub(super) fn prepare_for_test(path: &Path) -> Option<Prepared> {
         let shared = Shared {
             state: Mutex::new(State {
                 queue: VecDeque::new(),

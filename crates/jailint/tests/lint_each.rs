@@ -11,7 +11,7 @@ main :: () { unused_b := 2; helper(3); }
 ";
 
 fn compile() -> (Compiler, jaic::source::FileId) {
-    let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = test_support::repo::stdlib();
     let mut options = Options::host();
 
     options.import_paths = vec![stdlib.clone()];

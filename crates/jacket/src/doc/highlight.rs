@@ -1,41 +1,8 @@
 //! Syntax colours for code on the site. Jai: keywords, types, strings, numbers, comments and
 //! `#directives`. It looks at one token at a time, which is enough for ten lines of example.
+use jaic::lexicon::Lexeme;
+
 use crate::markup::escape;
-
-const KEYWORDS: &[&str] = &[
-    "if",
-    "else",
-    "then",
-    "for",
-    "while",
-    "return",
-    "defer",
-    "using",
-    "struct",
-    "enum",
-    "enum_flags",
-    "union",
-    "cast",
-    "xx",
-    "inline",
-    "break",
-    "continue",
-    "case",
-    "remove",
-    "true",
-    "false",
-    "null",
-    "ifx",
-    "push_context",
-    "context",
-    "operator",
-    "interface",
-];
-
-const TYPES: &[&str] = &[
-    "int", "float", "float32", "float64", "bool", "string", "void", "Type", "Any", "s8", "s16",
-    "s32", "s64", "u8", "u16", "u32", "u64", "u128", "s128", "assert",
-];
 
 fn ident_start(c: char) -> bool {
     c.is_alphabetic() || c == '_'
@@ -55,20 +22,20 @@ fn span(out: &mut String, class: &str, text: &str) {
 
 /// `code` as HTML. `link` gives the page of a procedure the example calls, so a call to
 /// `trim(...)` can lead to it.
-pub fn jai(code: &str, link: &dyn Fn(&str) -> Option<String>) -> String {
+pub(super) fn jai(code: &str, link: &dyn Fn(&str) -> Option<String>) -> String {
     tokens(code, &|w| link(w).map(|h| (w.len(), h)), Names::Called)
 }
 
 /// A short expression as HTML, such as a default value: `link` is asked about every name, not
 /// only the called ones.
-pub fn expr(code: &str, link: &dyn Fn(&str) -> Option<String>) -> String {
+pub(super) fn expr(code: &str, link: &dyn Fn(&str) -> Option<String>) -> String {
     tokens(code, &|w| link(w).map(|h| (w.len(), h)), Names::Every)
 }
 
 /// A declaration as written: `link` is asked about each written path (`Hash.Table`) that is not
 /// being declared, and answers how much of its start (`Hash.Table`, or only `Hash`) leads to a
 /// page, and where.
-pub fn declaration(code: &str, link: &dyn Fn(&str) -> Option<(usize, String)>) -> String {
+pub(super) fn declaration(code: &str, link: &dyn Fn(&str) -> Option<(usize, String)>) -> String {
     tokens(code, link, Names::Paths)
 }
 
@@ -176,15 +143,14 @@ fn tokens(code: &str, link: &dyn Fn(&str) -> Option<(usize, String)>, names: Nam
 
             let word = &code[start..at(j)];
 
-            if KEYWORDS.contains(&word) {
-                span(&mut out, "k", word);
-                i = j;
+            let class = match jaic::lexicon::classify(word) {
+                Lexeme::Keyword => Some("k"),
+                Lexeme::Type => Some("t"),
+                Lexeme::Intrinsic | Lexeme::Plain => None,
+            };
 
-                continue;
-            }
-
-            if TYPES.contains(&word) {
-                span(&mut out, "t", word);
+            if let Some(class) = class {
+                span(&mut out, class, word);
                 i = j;
 
                 continue;
@@ -294,7 +260,7 @@ mod tests {
 }
 
 /// `code` as HTML when `lang` is a shell or TOML; `None` for other languages, which stay plain.
-pub fn other(lang: &str, code: &str) -> Option<String> {
+pub(super) fn other(lang: &str, code: &str) -> Option<String> {
     match lang {
         "sh" | "bash" | "shell" | "zsh" | "console" | "powershell" | "ps1" | "pwsh" => {
             Some(code.lines().map(shell_line).collect::<Vec<_>>().join("\n"))
@@ -557,7 +523,7 @@ mod other_tests {
 /// Classes: `de`/`dw` (error and warning, for the header and its markers), `dm` (the muted
 /// frame), `dk` (secondary `---` markers), `dh` (`help:` and `note:` labels), `dc` (a fix line's
 /// `~`), `da` (`+`), `dd` (`-`).
-pub fn diagnostic(text: &str) -> String {
+pub(super) fn diagnostic(text: &str) -> String {
     let mut level = "de";
     let mut out = Vec::new();
 

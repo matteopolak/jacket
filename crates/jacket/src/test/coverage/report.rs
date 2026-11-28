@@ -7,7 +7,7 @@ use super::Files;
 
 /// A procedure of a reported file and how often it was called.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Function {
+pub(crate) struct Function {
     pub name: String,
     /// The line it is declared on.
     pub line: u32,
@@ -15,11 +15,11 @@ pub struct Function {
 }
 
 /// The procedures of each file.
-pub type Functions = BTreeMap<PathBuf, Vec<Function>>;
+pub(super) type Functions = BTreeMap<PathBuf, Vec<Function>>;
 
 /// Everything `--coverage` measured.
 #[derive(Clone, Debug, Default)]
-pub struct Data {
+pub(crate) struct Data {
     /// How often each line ran.
     pub lines: Files,
     pub functions: Functions,
@@ -27,7 +27,7 @@ pub struct Data {
 
 /// The files in lcov's text format: `FN`, `FNDA`, `FNF` and `FNH` for the procedures, `DA`,
 /// `LF` and `LH` for the lines.
-pub fn lcov(data: &Data) -> String {
+pub(super) fn lcov(data: &Data) -> String {
     let mut text = String::new();
     let none = Vec::new();
 
@@ -59,14 +59,14 @@ pub fn lcov(data: &Data) -> String {
 
 /// How much of something ran.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct Tally {
+pub(super) struct Tally {
     pub hit: usize,
     pub total: usize,
 }
 
 impl Tally {
     /// The share that ran, in percent; a tally of nothing is complete.
-    pub fn percent(self) -> f64 {
+    pub(super) fn percent(self) -> f64 {
         if self.total == 0 {
             100.0
         } else {
@@ -82,7 +82,7 @@ impl Tally {
 
 /// A row of the table: a file or a module.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Row {
+pub(super) struct Row {
     pub name: String,
     pub lines: Tally,
     pub functions: Tally,
@@ -90,14 +90,18 @@ pub struct Row {
 
 /// What a row of the table is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Group {
+pub(super) enum Group {
     File,
     /// The nearest folder holding a `module.jai`, else the file's folder.
     Module,
 }
 
 /// The module `file` belongs to, as a path from `base` when it is below it.
-pub fn module_of(file: &Path, base: &Path, known: &mut BTreeMap<PathBuf, PathBuf>) -> String {
+pub(super) fn module_of(
+    file: &Path,
+    base: &Path,
+    known: &mut BTreeMap<PathBuf, PathBuf>,
+) -> String {
     let dir = file.parent().unwrap_or(file);
     let module = known
         .entry(dir.to_path_buf())
@@ -117,7 +121,7 @@ pub fn module_of(file: &Path, base: &Path, known: &mut BTreeMap<PathBuf, PathBuf
 }
 
 /// One row per file or module, by name.
-pub fn rows(data: &Data, base: &Path, group: Group) -> Vec<Row> {
+pub(super) fn rows(data: &Data, base: &Path, group: Group) -> Vec<Row> {
     let mut by_name: BTreeMap<String, Row> = BTreeMap::new();
     let mut modules = BTreeMap::new();
 
@@ -148,7 +152,7 @@ pub fn rows(data: &Data, base: &Path, group: Group) -> Vec<Row> {
 }
 
 /// The lines and procedures of all the rows.
-pub fn total(rows: &[Row]) -> (Tally, Tally) {
+pub(super) fn total(rows: &[Row]) -> (Tally, Tally) {
     let (mut lines, mut functions) = (Tally::default(), Tally::default());
 
     for row in rows {
@@ -160,7 +164,7 @@ pub fn total(rows: &[Row]) -> (Tally, Tally) {
 }
 
 /// A table of the rows, with a total.
-pub fn table(rows: &[Row], what: &str) -> String {
+pub(super) fn table(rows: &[Row], what: &str) -> String {
     let width = rows.iter().map(|r| r.name.len()).max().unwrap_or(0).max(5);
     let cell = |tally: Tally| {
         format!(

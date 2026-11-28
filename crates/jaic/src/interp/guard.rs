@@ -19,7 +19,7 @@
 
 /// A memory access that faulted.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct Fault {
+pub(crate) struct Fault {
     /// The address the access used.
     pub address: u64,
     /// Whether it was a store, when the processor says.
@@ -174,7 +174,7 @@ mod imp {
         }
     }
 
-    pub fn guarded<F: FnOnce() -> R, R>(f: F) -> Result<R, Fault> {
+    pub(crate) fn guarded<F: FnOnce() -> R, R>(f: F) -> Result<R, Fault> {
         crate::interp::crash::install();
         let mut job = Job {
             f: Some(f),
@@ -215,7 +215,7 @@ mod imp {
 
     /// If the thread has a guard, record the fault and arrange for the interrupted context to
     /// resume in `recover`. `context` is the `ucontext_t` the kernel passed the handler.
-    pub fn redirect(address: usize, context: *mut c_void) -> bool {
+    pub(crate) fn redirect(address: usize, context: *mut c_void) -> bool {
         let guard = INNERMOST.with(Cell::get);
 
         if guard.is_null() || context.is_null() {
@@ -331,10 +331,10 @@ mod imp {
     }
 }
 
-pub use imp::guarded;
+pub(crate) use imp::guarded;
 // Only the signal handler of `crash.rs` redirects faults.
 #[cfg(all(unix, any(target_os = "macos", target_os = "linux")))]
-pub use imp::redirect;
+pub(crate) use imp::redirect;
 
 #[cfg(all(
     test,

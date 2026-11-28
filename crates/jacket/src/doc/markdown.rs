@@ -7,7 +7,7 @@ use pulldown_cmark::{
 
 /// One block of rendered HTML (a paragraph, a list, a heading, a table), or a fenced code block.
 #[derive(Clone, Debug)]
-pub enum Segment {
+pub(super) enum Segment {
     Html(String),
     Code {
         /// The text after the opening fence, `jai,skip_on(wasm)`; empty for a bare fence.
@@ -16,7 +16,7 @@ pub enum Segment {
     },
 }
 
-pub struct Settings<'a> {
+pub(super) struct Settings<'a> {
     /// Added to the level of every heading (`#` in a doc comment is a third-level heading).
     pub heading_shift: usize,
     /// Give headings an `id` (GitHub's rule) so they can be linked.
@@ -26,7 +26,7 @@ pub struct Settings<'a> {
 }
 
 /// The plain text of HTML produced here: tags dropped, entities undone.
-pub fn plain(html: &str) -> String {
+pub(super) fn plain(html: &str) -> String {
     let mut out = String::with_capacity(html.len());
     let mut in_tag = false;
 
@@ -81,7 +81,7 @@ fn level(shift: usize, base: HeadingLevel) -> HeadingLevel {
 }
 
 /// GitHub's anchor for a heading: lower case, spaces to hyphens, punctuation dropped.
-pub fn slug(text: &str) -> String {
+pub(super) fn slug(text: &str) -> String {
     text.trim()
         .to_lowercase()
         .chars()
@@ -107,7 +107,7 @@ fn flush(buf: &mut Vec<Event<'_>>, out: &mut Vec<Segment>) {
 /// The first line of each indented code block of `md`: Markdown makes one of a paragraph's
 /// worth of lines after a blank line that start four spaces in, and that is almost never what a
 /// doc comment means, since only a fenced block can be run.
-pub fn indented_blocks(md: &str) -> Vec<String> {
+pub(super) fn indented_blocks(md: &str) -> Vec<String> {
     let mut out = Vec::new();
     let mut open = false;
 
@@ -139,7 +139,7 @@ fn alert_title(kind: BlockQuoteKind) -> &'static str {
 
 /// `md` as HTML blocks and code blocks. Alerts (`> [!NOTE]`, `> [!WARNING]`, ...) render as
 /// GitHub does: a `markdown-alert-<kind>` block quote that starts with its title.
-pub fn segments(md: &str, settings: &Settings<'_>) -> Vec<Segment> {
+pub(super) fn segments(md: &str, settings: &Settings<'_>) -> Vec<Segment> {
     let options = Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH | Options::ENABLE_GFM;
     let events: Vec<Event<'_>> = Parser::new_ext(md, options).collect();
     let mut out = Vec::new();

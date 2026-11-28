@@ -11,7 +11,7 @@ use jailint::config::Level;
 
 /// What the command line asked for.
 #[derive(Default)]
-pub struct Args {
+pub(crate) struct Args {
     pub default_project: bool,
     pub context: Option<PathBuf>,
     pub manifest: Option<PathBuf>,
@@ -34,7 +34,7 @@ pub struct Args {
 
 impl Args {
     /// The limits the flags set, over the defaults.
-    pub fn limits(&self) -> jaic::ide::lint_compile::CheckLimits {
+    pub(crate) fn limits(&self) -> jaic::ide::lint_compile::CheckLimits {
         use jaic::ide::lint_compile::CheckLimits;
         CheckLimits::new(
             self.compile_time_budget
@@ -278,7 +278,7 @@ fn levels(matches: &ArgMatches) -> Vec<(String, Level)> {
 }
 
 /// Parse `argv` (without the program name). `None` when a flag answered by itself.
-pub fn parse(argv: impl IntoIterator<Item = String>) -> Result<Option<Args>, String> {
+pub(crate) fn parse(argv: impl IntoIterator<Item = String>) -> Result<Option<Args>, String> {
     let command = command();
     let (common, rest) = take_shared(argv, &value_flags(&command))?;
     let argv = std::iter::once("jailint".to_string()).chain(rest);

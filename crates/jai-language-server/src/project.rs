@@ -14,12 +14,12 @@
 //!    (`auto_import.rs` `loader_chain`); a file nothing loads is its own entry.
 use std::path::{Component, Path};
 
-pub use jacket_config::{EntryFiles, Project as ProjectConfig};
-pub use jaic::project::*;
+pub(crate) use jacket_config::{EntryFiles, Project as ProjectConfig};
+pub(crate) use jaic::project::*;
 
 /// `base`'s entry files: `[project] entry`, else the inferred ones; declared ones are
 /// normalised.
-pub fn entry_files(base: &Path, project: Option<&ProjectConfig>) -> EntryFiles {
+pub(crate) fn entry_files(base: &Path, project: Option<&ProjectConfig>) -> EntryFiles {
     let mut found = jacket_config::entry_files(base, project);
 
     if found.declared {
@@ -29,10 +29,10 @@ pub fn entry_files(base: &Path, project: Option<&ProjectConfig>) -> EntryFiles {
     found
 }
 
-pub use jaic::paths::normalize;
+pub(crate) use jaic::paths::normalize;
 
 /// `target` relative to the folder `from`, with `/` separators (`../util/strings.jai`).
-pub fn relative(from: &Path, target: &Path) -> String {
+pub(crate) fn relative(from: &Path, target: &Path) -> String {
     let from: Vec<Component> = from.components().collect();
     let to: Vec<Component> = target.components().collect();
     let common = from.iter().zip(&to).take_while(|(a, b)| a == b).count();

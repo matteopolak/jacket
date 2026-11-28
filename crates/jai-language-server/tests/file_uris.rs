@@ -189,8 +189,7 @@ fn filesystem_proven_alias_uses_one_current_open_document_and_edit_identity() {
 fn native_windows_drive_uri_resolves_production_print() {
     // This exercises native Windows paths and real production-library file access when
     // the coordinator runs it on Windows. It is not counted as macOS confirmation.
-    let stdlib =
-        jaic::canonicalize(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib")).unwrap();
+    let stdlib = jaic::canonicalize(test_support::repo::stdlib()).unwrap();
     let configured = stdlib.clone();
     let mut s = Session::with_environment(
         Limits::default(),

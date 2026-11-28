@@ -50,10 +50,10 @@ struct Page {
 type Consoles = HashMap<String, String>;
 
 /// The path of the `[doc] home` page among the guides, until it takes the front page's place.
-pub const HOME: &str = "index.html";
+pub(crate) const HOME: &str = "index.html";
 
 /// Every extra page and the sidebar headings that list them.
-pub struct Guides {
+pub(crate) struct Guides {
     pages: Vec<Page>,
     pub nav: Vec<NavCategory>,
     /// A whole file's page.
@@ -206,7 +206,7 @@ fn promote(body: &str) -> String {
 
 /// Reads every page and works out the sidebar headings. `prefix` is the config folder's path in
 /// the repository.
-pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guides, String> {
+pub(crate) fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guides, String> {
     let (home, pages, sections) = (doc.home.as_deref(), &doc.page[..], &doc.section[..]);
     let mut out = Guides {
         pages: Vec::new(),
@@ -520,7 +520,7 @@ fn segments(segs: &[Segment], consoles: &Consoles) -> Vec<DocSegment> {
 impl Guides {
     /// The page to link a header button to: the first `[[doc.page]]`, else the overview of the
     /// section named like `pages-title`.
-    pub fn first_href(&self, site: &Site) -> Option<String> {
+    pub(crate) fn first_href(&self, site: &Site) -> Option<String> {
         let overview = format!("{}.html", site.pages_dir());
 
         self.pages
@@ -530,7 +530,7 @@ impl Guides {
             .map(|p| site.page_href(&p.path))
     }
 
-    pub fn pages(&self, site: &Site, nav: &[NavCategory]) -> Vec<PageView> {
+    pub(crate) fn pages(&self, site: &Site, nav: &[NavCategory]) -> Vec<PageView> {
         self.pages
             .iter()
             .map(|page| {

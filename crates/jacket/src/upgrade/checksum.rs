@@ -7,12 +7,12 @@ use sha2::{Digest, Sha256};
 
 /// The lower-case hex SHA-256 of `bytes`.
 #[cfg(test)]
-pub fn sha256_hex(bytes: &[u8]) -> String {
+pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
     hex(Sha256::digest(bytes).as_slice())
 }
 
 /// The lower-case hex SHA-256 of a file, read in chunks.
-pub fn sha256_file(path: &Path) -> std::io::Result<String> {
+pub(crate) fn sha256_file(path: &Path) -> std::io::Result<String> {
     use std::io::Read;
     let mut file = std::fs::File::open(path)?;
     let mut hash = Sha256::new();
@@ -32,12 +32,12 @@ pub fn sha256_file(path: &Path) -> std::io::Result<String> {
 }
 
 /// `bytes` as lower-case hex, two digits each.
-pub fn hex(bytes: &[u8]) -> String {
+pub(crate) fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 /// The hash `sums` (a `SHA256SUMS` file) lists for `asset`, lower-cased. The last entry wins.
-pub fn expected(sums: &str, asset: &str) -> Option<String> {
+pub(crate) fn expected(sums: &str, asset: &str) -> Option<String> {
     let mut found = None;
 
     for line in sums.lines() {
@@ -56,7 +56,7 @@ pub fn expected(sums: &str, asset: &str) -> Option<String> {
 }
 
 /// Checks `archive` against the hash `sums` lists for `asset`.
-pub fn verify(archive: &Path, asset: &str, sums: &str) -> Result<(), String> {
+pub(crate) fn verify(archive: &Path, asset: &str, sums: &str) -> Result<(), String> {
     let Some(want) = expected(sums, asset) else {
         return Err(format!("the release's SHA256SUMS has no entry for {asset}"));
     };

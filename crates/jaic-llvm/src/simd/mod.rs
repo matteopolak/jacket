@@ -12,7 +12,7 @@ mod generic;
 mod wasm;
 mod x86;
 
-pub use features::{Target, function_features};
+pub(crate) use features::{Target, function_features};
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::intrinsics::Intrinsic as LlvmIntrinsic;
@@ -28,7 +28,7 @@ use crate::lower::Error;
 type R<T> = Result<T, Error>;
 
 /// What a backend needs from the function being lowered.
-pub struct Cx<'a, 'ctx> {
+pub(crate) struct Cx<'a, 'ctx> {
     pub ctx: &'ctx Context,
     pub builder: &'a Builder<'ctx>,
     pub module: &'a Module<'ctx>,
@@ -141,7 +141,7 @@ impl<'ctx> Cx<'_, 'ctx> {
 
 /// `ByteLookup`: `dst[i] = idx[i] < 16 ? table[idx[i]] : 0`, for `width` bytes (16, 32 or 64)
 /// with the same 16-byte `table` for every 16-byte block.
-pub fn byte_lookup<'ctx>(
+pub(crate) fn byte_lookup<'ctx>(
     cx: &Cx<'_, 'ctx>,
     width: u8,
     dst: PointerValue<'ctx>,
@@ -159,7 +159,11 @@ pub fn byte_lookup<'ctx>(
 }
 
 /// `SignMask`: bit `i` of the result is the top bit of byte `i` of the `width` bytes at `src`.
-pub fn sign_mask<'ctx>(cx: &Cx<'_, 'ctx>, width: u8, src: PointerValue<'ctx>) -> R<IntValue<'ctx>> {
+pub(crate) fn sign_mask<'ctx>(
+    cx: &Cx<'_, 'ctx>,
+    width: u8,
+    src: PointerValue<'ctx>,
+) -> R<IntValue<'ctx>> {
     // The portable form (`icmp slt`, bitcast `<N x i1>` to `iN`) is already `pmovmskb` on x86
     // and a short shift/add sequence elsewhere; a target-specific backend goes first here.
     generic::sign_mask(cx, width, src)
@@ -167,7 +171,7 @@ pub fn sign_mask<'ctx>(cx: &Cx<'_, 'ctx>, width: u8, src: PointerValue<'ctx>) ->
 
 /// `StringCompare` with control byte `ctl` (and explicit lengths when `explicit`) of the 16 bytes
 /// at `a` and `b`: `(result, b_ends, a_ends)`, as `jaic::ir::string_compare` defines them.
-pub fn string_compare<'ctx>(
+pub(crate) fn string_compare<'ctx>(
     cx: &Cx<'_, 'ctx>,
     kind: (u8, bool),
     operands: (PointerValue<'ctx>, PointerValue<'ctx>),

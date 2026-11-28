@@ -24,13 +24,15 @@
 //!
 //! An `#assert` that fails in a portable file with no such import above it is reported on the
 //! assert itself: the file needs to be limited to the systems it is written for.
-use crate::config::{Config, file_platforms};
-use crate::{Finding, syntax::Cx};
+use std::cell::RefCell;
+use std::path::{Path, PathBuf};
+
 use jaic::fxhash::{HashMap, HashSet};
 use jaic::sema::{FailedAssert, ImportEdge};
 use jaic::target::TargetOs;
-use std::cell::RefCell;
-use std::path::{Path, PathBuf};
+
+use crate::config::{Config, file_platforms};
+use crate::{Finding, syntax::Cx};
 
 /// The rule's name, group and one-line summary, and its check.
 pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
@@ -51,7 +53,7 @@ pub(crate) struct Probe<'a> {
 }
 
 impl<'a> Probe<'a> {
-    pub fn new(config: &'a Config) -> Self {
+    pub(crate) fn new(config: &'a Config) -> Self {
         Probe {
             config,
             comments: RefCell::default(),
@@ -59,7 +61,7 @@ impl<'a> Probe<'a> {
     }
 
     /// Whether the file at `path` builds on `os`.
-    pub fn allowed(&self, path: &Path, os: TargetOs) -> bool {
+    pub(crate) fn allowed(&self, path: &Path, os: TargetOs) -> bool {
         if !self.config.builds_on(path, os) {
             return false;
         }
@@ -75,12 +77,12 @@ impl<'a> Probe<'a> {
 
     /// Whether the file at `path` is held to every target and builds on `os`. A file the
     /// compiler made up (a module's stand-in root) is not a file of the project.
-    pub fn portable(&self, path: &Path, os: TargetOs) -> bool {
+    pub(crate) fn portable(&self, path: &Path, os: TargetOs) -> bool {
         self.config.is_portable(path) && path.is_file() && self.allowed(path, os)
     }
 
     /// The targets the file at `path` builds on.
-    pub fn systems(&self, path: &Path) -> Vec<TargetOs> {
+    pub(crate) fn systems(&self, path: &Path) -> Vec<TargetOs> {
         self.config
             .portability
             .targets()
@@ -104,7 +106,9 @@ pub(crate) enum Leak {
         assert: FailedAssert,
     },
     /// `assert` fails in a file that is held to every target.
-    Own { assert: FailedAssert },
+    Own {
+        assert: FailedAssert,
+    },
 }
 
 /// The leaks of one compile for `os`: `edges` are the imports it met, `failed` the asserts that
