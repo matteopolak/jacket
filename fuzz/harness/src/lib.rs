@@ -366,8 +366,9 @@ fn lsp_framing(data: &[u8]) {
     }
 }
 
-/// What `lines` encode to decodes back to them, cut into pieces of `chunk` bytes.
-fn framing_round_trip(lines: &[&str], chunk: usize) {
+/// What `lines` encode to decodes back to them, cut into pieces of `chunk` bytes. Returns
+/// the decoded messages, which are what the server would be handed over stdio.
+fn framing_round_trip(lines: &[&str], chunk: usize) -> Vec<String> {
     let stream: Vec<u8> = lines
         .iter()
         .flat_map(|line| jai_language_server::framing::encode(line))
@@ -376,18 +377,32 @@ fn framing_round_trip(lines: &[&str], chunk: usize) {
         decode_chunked(&stream, chunk, 1 << 20).expect("encoded messages decode");
     assert!(oversized.is_empty());
     assert_eq!(messages, lines, "round trip at piece size {chunk}");
+    messages
 }
 
 /// Newline-separated JSON-RPC messages into the language server's JSON session, after a
 /// standard `initialize` handshake. The same bytes also go to the framing layer, and as text
-/// the lines are framed, cut into pieces and checked to come back unchanged.
+/// the lines are framed, cut into pieces and checked to come back unchanged. What the decoder
+/// gives, from the framed lines and from the raw bytes read as a stream, is what the session
+/// handles, as it is over stdio.
 pub fn lsp_json(data: &[u8]) {
     lsp_framing(data);
+    let chunk = data.first().map_or(1, |b| usize::from(*b % 64) + 1);
+    let streamed = decode_chunked(data, chunk, 1 << 16)
+        .map(|(messages, _)| messages)
+        .unwrap_or_default();
     let Ok(text) = std::str::from_utf8(data) else {
+        run_session(&streamed);
         return;
     };
     let lines: Vec<&str> = text.split('\n').collect();
-    framing_round_trip(&lines, data.first().map_or(1, |b| usize::from(*b % 64) + 1));
+    let mut messages = framing_round_trip(&lines, chunk);
+    messages.extend(streamed);
+    run_session(&messages);
+}
+
+/// `messages` into a JSON session after a standard `initialize` handshake.
+fn run_session(messages: &[String]) {
     on_compiler_stack(|| {
         let mut session = jai_language_server::JsonSession::with_environment(
             Limits::default(),
@@ -397,8 +412,8 @@ pub fn lsp_json(data: &[u8]) {
             r#"{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"capabilities":{}}}"#,
         );
         let _ = session.handle_json(r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#);
-        for line in lines {
-            let _ = session.handle_json(line);
+        for message in messages {
+            let _ = session.handle_json(message);
         }
     });
 }

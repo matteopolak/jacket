@@ -97,7 +97,10 @@ impl FileSystem for NativeFs {
             .collect()
     }
 
-    /// Size and modification time (a path that does not exist has a stamp of its own).
+    /// Size, modification time and, where the platform has one, the time its metadata last
+    /// changed and its inode: an edit that keeps the size and restores the modification time
+    /// (a checkout or sync that preserves times) still moves them. A path that does not exist
+    /// has a stamp of its own.
     fn stamp(&self, path: &Path) -> Option<u64> {
         use std::hash::{Hash, Hasher};
         let mut hasher = crate::fxhash::FxHasher::default();
@@ -111,6 +114,12 @@ impl FileSystem for NativeFs {
                     .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
                     .map(|d| d.as_nanos())
                     .hash(&mut hasher);
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::MetadataExt;
+
+                    (meta.ctime(), meta.ctime_nsec(), meta.ino()).hash(&mut hasher);
+                }
             }
             Err(_) => u64::MAX.hash(&mut hasher),
         }
@@ -217,6 +226,31 @@ impl FileSystem for VirtualFs {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// An edit that keeps the size and puts the modification time back (a checkout or sync that
+    /// preserves times) still changes the stamp.
+    #[test]
+    fn native_stamp_changes_when_an_edit_keeps_size_and_time() {
+        let dir = std::env::temp_dir().join(format!("jaic-stamp-{}", std::process::id()));
+
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("a.jai");
+
+        std::fs::write(&path, "x :: 1;").unwrap();
+        let modified = std::fs::metadata(&path).unwrap().modified().unwrap();
+        let before = NativeFs.stamp(&path);
+
+        std::fs::write(&path, "x :: 2;").unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_modified(modified)
+            .unwrap();
+
+        assert_ne!(NativeFs.stamp(&path), before);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn virtual_listing_names_files_and_folders_directly_inside() {
