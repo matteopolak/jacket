@@ -7,10 +7,8 @@ use jaic::builtin_keys::BitcodeOptimization;
 use jaic::sema::Options;
 use jaic::target::{Target, TargetCpu, TargetOs};
 
-use crate::options::{
-    CliError, FLAVOR_CONFLICT, add_code, add_run, add_sanitizer, read_backend, read_cpu, read_os,
-    read_package_import, set_color, store_level,
-};
+use crate::options::{CliError, FLAVOR_CONFLICT, add_sanitizer, read_backend, store_level};
+use crate::shared::SharedFlags;
 use crate::tuning;
 
 /// What jaic does with the program: build it (the default), only compile it, or interpret it.
@@ -71,29 +69,15 @@ pub enum CodegenBackend {
     Cranelift,
 }
 
-/// A `-add` or `-run` string, in command-line order.
-pub enum Added {
-    /// `-add`: more code for the target program.
-    Code(String),
-    /// `-run`: code to run at compile time.
-    Run(String),
-}
+/// The source text `-run "code"` adds to the program: the code in a `#run` block.
+pub fn run_source(code: &str) -> String {
+    let end = if code.trim_end().ends_with([';', '}']) {
+        ""
+    } else {
+        ";"
+    };
 
-impl Added {
-    /// The source text this adds to the program.
-    pub fn source(&self) -> String {
-        match self {
-            Added::Code(code) => code.clone(),
-            Added::Run(code) => {
-                let end = if code.trim_end().ends_with([';', '}']) {
-                    ""
-                } else {
-                    ";"
-                };
-                format!("#run {{\n{code}{end}\n}};\n")
-            }
-        }
-    }
+    format!("#run {{\n{code}{end}\n}};\n")
 }
 
 /// One `+Name` plugin with the arguments that follow it.
@@ -165,6 +149,20 @@ impl Plugin {
 }
 
 impl Cli {
+    /// The source `-add` and `-run` add to the program: every `-add` string, then every `-run`
+    /// as a `#run` block, each in command-line order.
+    pub fn added_sources(&self) -> Vec<String> {
+        let code = self.shared.add.iter().cloned();
+
+        code.chain(self.run.iter().map(|code| run_source(code)))
+            .collect()
+    }
+
+    /// Whether diagnostics are printed without colour: `-no_color` or `--color never`.
+    pub fn colorless(&self) -> bool {
+        self.no_color || self.shared.color == Some(jaic::render::ColorChoice::Never)
+    }
+
     /// The metaprogram `+Plugin` stands for, compiling `path`.
     pub fn plugin_metaprogram(&self, path: &Path, wasi: bool) -> String {
         let plugins: Vec<jaic::build::PluginImport> = self
@@ -176,7 +174,7 @@ impl Cli {
                 options: p.options.clone(),
             })
             .collect();
-        let added: Vec<String> = self.added.iter().map(Added::source).collect();
+        let added = self.added_sources();
 
         jaic::build::plugin_metaprogram(&jaic::build::PluginProgram {
             plugins: &plugins,
@@ -219,21 +217,10 @@ pub struct Cli {
     /// The program's source file; the caller sets it after parsing.
     #[arg(skip)]
     pub file: String,
-    /// also look for modules in <dir> (repeatable; short form -I)
-    #[arg(
-        name = "-import_dir",
-        name = "-I",
-        synopsis = "-import_dir <dir>",
-        value = "dir",
-        needs = "a directory",
-        hint = "dir",
-        tag = "import",
-        section = "Program"
-    )]
-    pub imports: Vec<PathBuf>,
-    /// also look for modules in <dir>, for the files under <package> only (repeatable)
-    #[arg(name = "-package_import_dir", synopsis = "-package_import_dir <package>=<dir>", needs = "a package folder and a directory, as <package>=<dir>", parse = read_package_import)]
-    pub package_imports: Vec<(PathBuf, PathBuf)>,
+    /// The options `jailint` takes as well: the target, the import folders, `-add`, `-j` and
+    /// `--color`.
+    #[arg(flatten)]
+    pub shared: SharedFlags,
     // `-exe` is the target workspace's `output_executable_name`: it may carry a directory and
     // an extension.
     /// the executable's name; it may include a directory and extension
@@ -303,30 +290,20 @@ pub struct Cli {
     /// install the crash handler (a metaprogram's setting wins; -no_backtrace_on_crash overrides)
     #[arg(name = "-backtrace_on_crash")]
     pub backtrace_on_crash: bool,
-    /// add the code to the target program (repeatable)
-    #[arg(name = "-add", alias = "--add", synopsis = "-add \"code\"", needs = "the code to add to the program", with = add_code, section = "Program")]
-    #[arg(name = "-run", synopsis = "-run \"code\"", needs = "the code to run at compile time", with = add_run, help = "run the code at compile time, as a `#run` (repeatable)")]
-    pub added: Vec<Added>,
+    /// run the code at compile time, as a `#run` (repeatable)
+    #[arg(
+        name = "-run",
+        synopsis = "-run \"code\"",
+        needs = "the code to run at compile time",
+        section = "Program"
+    )]
+    pub run: Vec<String>,
     #[arg(skip)]
     /// Arguments after `-`, for the metaprogram (`compiler_get_command_line`).
     pub command_line: Vec<String>,
     #[arg(skip)]
     /// `-interp` only: arguments after `--`, for the program (`get_command_line_arguments`).
     pub program_args: Vec<String>,
-    /// target OS: linux, windows, macos or wasm
-    #[arg(name = "-os", value = "os", needs = "an OS name: linux, windows, macos or wasm", parse = read_os, tag = "target")]
-    pub os: Option<TargetOs>,
-    /// target CPU: x64 or arm64
-    #[arg(name = "-cpu", value = "cpu", needs = "a CPU name: x64 or arm64", parse = read_cpu, tag = "target")]
-    pub cpu: Option<TargetCpu>,
-    /// build for an LLVM target triple (overrides -os and -cpu)
-    #[arg(
-        name = "-target",
-        value = "triple",
-        needs = "an LLVM target triple, such as x86_64-pc-windows-gnu",
-        tag = "target"
-    )]
-    pub target: Option<String>,
     /// What `-os`, `-cpu` and `-target` select, checked by [`Cli::finish`]; `None`: the host.
     #[arg(skip)]
     pub build_for: Option<Target>,
@@ -411,7 +388,6 @@ pub struct Cli {
     pub no_workspace_output: bool,
     /// no colour in diagnostics
     #[arg(name = "-no_color", section = "Diagnostics and output")]
-    #[arg(name = "--color", value = "when", needs = "auto, always or never", with = set_color, help = "colour in diagnostics: auto, always or never")]
     pub no_color: bool,
     /// one `path(line,col): error: message` line per diagnostic
     #[arg(name = "-msvc_format")]
@@ -553,11 +529,8 @@ impl Cli {
         host_os: TargetOs,
         host_cpu: TargetCpu,
     ) -> Result<Option<Target>, String> {
-        jaic::target::Selection {
-            os: self.os,
-            cpu: self.cpu,
-            triple: self.target.clone(),
-        }
-        .build_target(host_os, host_cpu, self.mode == Mode::Build)
+        self.shared
+            .selection()
+            .build_target(host_os, host_cpu, self.mode == Mode::Build)
     }
 }

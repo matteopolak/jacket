@@ -235,7 +235,9 @@ pub(super) fn native_backend(cli: &Cli) -> NativeBackend {
         emit_ir: cli.emit_ir.clone(),
         debug_info: !cli.no_debug_info,
         target: cli.build_for,
-        explicit_target: cli.target.is_some() || cli.os.is_some() || cli.cpu.is_some(),
+        explicit_target: cli.shared.target.is_some()
+            || cli.shared.os.is_some()
+            || cli.shared.cpu.is_some(),
         link_args: cli.link_args.clone(),
         sanitize: cli
             .sanitize

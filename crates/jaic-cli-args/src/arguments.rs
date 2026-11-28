@@ -2,10 +2,10 @@
 use std::path::PathBuf;
 
 use argdef::Args;
-use jaic::flags::Common;
 use jaic::target::Selection;
 
 use crate::cli::Cli;
+use crate::shared::{read_cpu, read_os};
 
 /// Target selection and host arguments with compiler target/mode options removed.
 #[derive(Debug)]
@@ -67,6 +67,16 @@ impl ArgumentValue {
     }
 }
 
+/// The text `jaic::render::Report::from_text` renders: the message, then a `help:` line for each
+/// help.
+fn error_text(error: argdef::Error) -> String {
+    error.help.iter().fold(error.message, |mut text, help| {
+        text.push_str("\nhelp: ");
+        text.push_str(help);
+        text
+    })
+}
+
 /// Inspect compiler arguments without interpreting option values as new options.
 /// Plugins and the `-`/`--` argument boundaries have the same meaning as in `jaic`.
 ///
@@ -81,7 +91,7 @@ pub fn target_flags(args: &[String]) -> Result<TargetFlags, String> {
         return Err(error.message);
     }
 
-    let mut common = Common::default();
+    let mut selection = Selection::default();
     let mut host = Vec::new();
     let mut values = Vec::new();
     let (mut check, mut interp, mut deps) = (false, false, false);
@@ -95,15 +105,16 @@ pub fn target_flags(args: &[String]) -> Result<TargetFlags, String> {
             "interp" => interp = true,
             "deps" => deps = true,
             "target" => {
-                // Only these three shared flags select the target; their values are checked here.
+                // Only these three options select the target; their values are checked here.
                 let value = token.value.as_deref().unwrap_or_default();
-                let (flag, _) = jaic::flags::find(jaic::flags::COMPILE, token.name)
-                    .expect("a `target` option is a shared flag");
 
-                common.take(
-                    flag.parse(token.name, value)
-                        .map_err(jaic::flags::FlagError::into_text)?,
-                );
+                match token.name {
+                    "-os" => selection.os = Some(read_os(token.name, value).map_err(error_text)?),
+                    "-cpu" => {
+                        selection.cpu = Some(read_cpu(token.name, value).map_err(error_text)?)
+                    }
+                    _ => selection.triple = Some(value.to_string()),
+                }
             }
             _ => {}
         }
@@ -135,7 +146,7 @@ pub fn target_flags(args: &[String]) -> Result<TargetFlags, String> {
     }
 
     Ok(TargetFlags {
-        selection: common.target,
+        selection,
         host,
         check,
         interp,
@@ -254,30 +265,6 @@ mod tests {
         // A flag with no value is for the compiler to report.
         assert_eq!(dirs(&["-I", "a", "-I"]), [path("a")]);
         assert!(dirs(&[]).is_empty());
-    }
-
-    /// `jailint` and `jacket` read the flags in `jaic::flags`; `Cli` declares them again with
-    /// derive attributes. Every part of a declaration that a tool shows or accepts must agree.
-    #[test]
-    fn shared_flags_are_declared_alike_by_cli_and_jaic_flags() {
-        let spec = Cli::spec();
-
-        for flag in jaic::flags::ALL {
-            let opt = spec
-                .opts
-                .iter()
-                .find(|o| o.spelled(flag.names[0]))
-                .unwrap_or_else(|| panic!("`Cli` has no `{}`", flag.names[0]));
-            let mut declared: Vec<&str> = opt.names.iter().chain(opt.aliases).copied().collect();
-            let mut shared: Vec<&str> = flag.names.to_vec();
-
-            declared.sort_unstable();
-            shared.sort_unstable();
-            assert_eq!(declared, shared, "{}: spellings", flag.names[0]);
-            assert_eq!(opt.needs, flag.what, "{}: needs", flag.names[0]);
-            assert_eq!(opt.label(), flag.synopsis, "{}: synopsis", flag.names[0]);
-            assert_eq!(opt.help, flag.help, "{}: help", flag.names[0]);
-        }
     }
 
     #[test]

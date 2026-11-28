@@ -334,7 +334,7 @@ mod tests {
     #[cfg(feature = "llvm")]
     use jaic::target::Target;
     use jaic::target::{TargetCpu, TargetOs};
-    use jaic_cli_args::cli::{Added, Cli, Flavor, Mode, Plugin};
+    use jaic_cli_args::cli::{Cli, Flavor, Mode, Plugin};
     use jaic_cli_args::options::CliError;
 
     use super::*;
@@ -447,7 +447,7 @@ mod tests {
             "meta",
         ]);
 
-        assert_eq!(c.imports, [PathBuf::from("d")]);
+        assert_eq!(c.shared.imports, [PathBuf::from("d")]);
         assert_eq!(c.plugins.len(), 2);
         assert_eq!(c.plugins[0].module, "One");
         assert_eq!(c.plugins[0].options, ["-x", "1"]);
@@ -564,7 +564,7 @@ mod tests {
     #[test]
     fn add_and_run_become_source_text() {
         let c = cli(&["a.jai", "-add", "x :: 1;", "-run", "f()", "-run", "g();"]);
-        let text: Vec<String> = c.added.iter().map(Added::source).collect();
+        let text = c.added_sources();
 
         assert_eq!(text[0], "x :: 1;");
         assert_eq!(text[1], "#run {\nf();\n};\n");

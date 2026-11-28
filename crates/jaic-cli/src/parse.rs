@@ -55,19 +55,19 @@ pub(super) fn parse(args: &[OsString]) -> Result<Request, CliError> {
     };
 
     if cli.doc_comments {
-        return Ok(Request::DocComments(file, cli.imports));
+        return Ok(Request::DocComments(file, cli.shared.imports));
     }
 
     if cli.doc_gaps {
-        return Ok(Request::DocGaps(file, cli.imports));
+        return Ok(Request::DocGaps(file, cli.shared.imports));
     }
 
     if cli.doc_model {
-        return Ok(Request::DocModel(file, cli.imports));
+        return Ok(Request::DocModel(file, cli.shared.imports));
     }
 
     if cli.procedures {
-        return Ok(Request::Procedures(file, cli.os, cli.cpu));
+        return Ok(Request::Procedures(file, cli.shared.os, cli.shared.cpu));
     }
 
     cli.file = file;
@@ -203,5 +203,5 @@ pub(super) fn color_choice(args: &[OsString]) -> jaic::render::ColorChoice {
         return jaic::render::ColorChoice::Never;
     }
 
-    jaic::render::ColorChoice::from_args(&own, jaic::flags::COLOR.names)
+    jaic::render::ColorChoice::from_args(&own, jaic_cli_args::shared::COLOR_NAMES)
 }

@@ -6,7 +6,6 @@
 use argdef::{Args, Error};
 
 use crate::cli::Cli;
-use crate::options::read_jobs;
 
 /// What the flags here set, in `Cli::tuning`.
 // The doc comments are `-help` text: names and variables stay unquoted.
@@ -21,10 +20,10 @@ pub struct Tuning {
         section = "Output (building only)"
     )]
     pub codegen_units: Option<usize>,
-    // The size of the shared thread pool. `-j 0` leaves it at one thread per core.
+    // The size of the shared thread pool, which `-j` sets as well (`-j 0` leaves it at one thread
+    // per core).
     /// threads in the pool that code generation and other parallel work share (default: one per core)
     #[arg(name = "-threads", value = "n", needs = "a number of threads")]
-    #[arg(name = "-j", alias = "--jobs", synopsis = "-j, --jobs <n>", needs = "a number of jobs", with = set_jobs, help = "run n compiles (or tests) at once (default: one per CPU)")]
     pub threads: Option<usize>,
     // `-parse_threads N`, `-serial_parse`: how files are parsed ahead of the checker.
     /// threads that parse files ahead of the checker (0 parses serially)
@@ -67,11 +66,6 @@ pub struct Tuning {
     pub split_units: Option<usize>,
 }
 
-fn set_jobs(tuning: &mut Tuning, name: &str, text: &str) -> Result<(), Error> {
-    tuning.threads = read_jobs(name, text)?;
-    Ok(())
-}
-
 fn read_run_budget(name: &str, text: &str) -> Result<u64, Error> {
     text.parse().map_err(|_| {
         Error::invalid(format!("`{name}` takes a whole number, not `{text}`")).help(format!(
@@ -85,7 +79,7 @@ pub fn knobs(cli: &Cli) -> jaic::knobs::Knobs {
     let t = &cli.tuning;
 
     jaic::knobs::Knobs {
-        threads: t.threads,
+        threads: t.threads.or(cli.shared.jobs()),
         parse_threads: t.parse_threads,
         serial_parse: t.serial_parse,
         profile: match (t.profile_ops, t.profile_counts) {

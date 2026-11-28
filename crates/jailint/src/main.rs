@@ -22,7 +22,7 @@ static ALLOCATOR: jaic::memory_limit::CountingAllocator<mimalloc::MiMalloc> =
 fn main() -> ExitCode {
     // Errors about the command line or configuration go to stderr in its own style.
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let color = jaic::render::ColorChoice::from_args(&args, jaic::flags::COLOR.names);
+    let color = jaic::render::ColorChoice::from_args(&args, jaic_cli_args::shared::COLOR_NAMES);
 
     jaic::render::set_style(jaic::render::detect(color));
 
@@ -164,18 +164,20 @@ fn run() -> Result<ExitCode, String> {
             .any(|path| path.is_dir() && jaic::canonicalize(path).is_ok_and(|path| path == stdlib));
     let mut compiler_options = jaic::sema::Options::host();
 
-    args.common.target.apply(&mut compiler_options)?;
+    let selection = args.shared.selection();
+
+    selection.apply(&mut compiler_options)?;
     let limits = args.limits();
     let mut options = jailint::driver::Options {
         compiler_options,
         source: args.context,
         paths: args.paths.clone(),
-        import_dirs: args.common.imports.clone(),
+        import_dirs: args.shared.imports.clone(),
         stdlib,
         config,
-        jobs: args.common.jobs.unwrap_or(0),
+        jobs: args.shared.jobs().unwrap_or(0),
         verbose: args.verbose,
-        add_sources: args.common.add,
+        add_sources: args.shared.add,
         limits,
         overlay: std::collections::BTreeMap::new(),
     };
@@ -206,17 +208,12 @@ fn run() -> Result<ExitCode, String> {
     }
 
     if let Some(path) = &args.manifest {
-        write_manifest(
-            path,
-            &options,
-            args.common.target.triple.as_deref(),
-            &outcome,
-        )?;
+        write_manifest(path, &options, selection.triple.as_deref(), &outcome)?;
     }
 
     // Lints go to stdout: its terminal decides the layout.
     let style = jaic::render::detect_with(
-        args.common.color.unwrap_or(jaic::render::ColorChoice::Auto),
+        args.shared.color.unwrap_or(jaic::render::ColorChoice::Auto),
         std::io::stdout().is_terminal(),
         jacket_config::env::lookup,
     );

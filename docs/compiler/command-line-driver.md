@@ -16,7 +16,7 @@ assert!(parsed.host.is_empty());
 ```
 
 Change option spellings/arity by editing the field's `#[arg(...)]` in `jaic-cli-args/src/cli.rs`
-or `tuning.rs`; shared value parsing belongs to `jaic::flags`. `target_flags` and `import_dirs`
+or `tuning.rs`; the options `jaic` and `jailint` share (`-os`, `-cpu`, `-target`, `-I`, `-package_import_dir`, `-add`, `-j`, `--color`) are one struct, `SharedFlags` in `jaic-cli-args/src/shared.rs`, flattened into both. `-add` strings come before `-run` ones in the program. `target_flags` and `import_dirs`
 find options through `Spec::scan`, the scanner the parser itself uses, and pick them by `tag`
 (`check`, `interp`, `deps`, `target`, `import`). `ArgumentValue::replace` preserves spaced/inline
 syntax. Extend parser parity and boundary tests when adding syntax; do not add a second arity list.

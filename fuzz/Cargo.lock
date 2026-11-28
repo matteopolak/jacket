@@ -423,9 +423,10 @@ dependencies = [
 name = "jailint"
 version = "0.40.0"
 dependencies = [
- "clap",
+ "argdef",
  "jacket-config",
  "jaic",
+ "jaic-cli-args",
  "mimalloc",
  "serde_json",
 ]

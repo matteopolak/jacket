@@ -253,7 +253,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
 /// file's, or the project's when jacket passes one in `JACKET_PROJECT`.
 fn start_progress(cli: &Cli) {
     jaic::progress::set_verbose(cli.verbose);
-    let mode = jaic::progress::mode(cli.quiet, cli.no_color || cli.msvc_format);
+    let mode = jaic::progress::mode(cli.quiet, cli.colorless() || cli.msvc_format);
 
     if mode == jaic::progress::Mode::Off {
         return;
@@ -293,8 +293,9 @@ fn enter_main_directory(cli: &mut Cli) -> Result<(PathBuf, PathBuf), ExitCode> {
     let path = jaic::canonicalize(&cli.file).unwrap_or_else(|_| PathBuf::from(&cli.file));
     let absolute = |p: &PathBuf| std::path::absolute(p).unwrap_or_else(|_| p.clone());
 
-    cli.imports = cli.imports.iter().map(absolute).collect();
-    cli.package_imports = cli
+    cli.shared.imports = cli.shared.imports.iter().map(absolute).collect();
+    cli.shared.package_imports = cli
+        .shared
         .package_imports
         .iter()
         .map(|(package, dir)| (absolute(package), absolute(dir)))
@@ -338,7 +339,7 @@ pub(super) fn compiler_options(cli: &Cli, stdlib: &Path, main: &Path) -> Result<
     match cli.build_target() {
         Ok(Some(target)) => target.apply(&mut options),
         // `-os`/`-cpu` for checking only.
-        Ok(None) => jaic::target::select_os_cpu(&mut options, cli.os, cli.cpu),
+        Ok(None) => jaic::target::select_os_cpu(&mut options, cli.shared.os, cli.shared.cpu),
         Err(message) => {
             print_error(&message);
             return Err(ExitCode::from(2));
@@ -352,8 +353,8 @@ pub(super) fn compiler_options(cli: &Cli, stdlib: &Path, main: &Path) -> Result<
 fn host_options(cli: &Cli, stdlib: &Path, main: &Path) -> Options {
     let mut inputs = jaic::project::ProgramInputs::for_file(&NativeFs, main, stdlib);
 
-    inputs.extra.clone_from(&cli.imports);
-    inputs.packages = jaic::sema::PackageImports::grouped(&cli.package_imports);
+    inputs.extra.clone_from(&cli.shared.imports);
+    inputs.packages = jaic::sema::PackageImports::grouped(&cli.shared.package_imports);
     let mut options = Options::for_program(&NativeFs, main, &inputs);
 
     if cli.no_dce {
@@ -596,7 +597,7 @@ fn compile_front_end(
     let compiled = if cli.plugins.is_empty() {
         let mut sources = vec![ProgramSource::File(path.to_path_buf())];
 
-        sources.extend(cli.added.iter().map(|a| ProgramSource::String(a.source())));
+        sources.extend(cli.added_sources().into_iter().map(ProgramSource::String));
 
         if wasi {
             sources.push(ProgramSource::String(

@@ -15,14 +15,15 @@ required-features = ["cli"]
 
 [features]
 # The command-line binary. The library (which the language server and its wasm build use) has
-# no use for `clap`, so those depend on it with default features off.
+# no use for the option parser, so those depend on it with default features off.
 default = ["cli"]
-cli = ["dep:clap", "dep:mimalloc"]
+cli = ["dep:argdef", "dep:jaic-cli-args", "dep:mimalloc"]
 
 [dependencies]
 jaic = { path = "../jaic" }
 jacket-config = { path = "../jacket-config" }
-clap = { version = "=4.6.7", features = ["derive"], optional = true }
+argdef = { path = "../argdef", optional = true }
+jaic-cli-args = { path = "../jaic-cli-args", optional = true }
 serde_json = "=1.0.154"
 # The binary runs roots on several threads; the system allocator serialises them.
 mimalloc = { version = "=0.1.52", optional = true, default-features = false }
