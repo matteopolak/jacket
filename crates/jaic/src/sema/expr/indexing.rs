@@ -389,7 +389,8 @@ impl Compiler {
                 (elem, addr)
             }
             TypeKind::Array {
-                elem, ..
+                elem,
+                kind,
             } => {
                 let (_, addr) = self.address_of(f, base_op, span)?;
 
@@ -399,7 +400,7 @@ impl Compiler {
                     f.b.intrinsic(ir::Intrinsic::BoundsCheck, vec![idx, count], &[]);
                 }
 
-                let p = self.view_data_at(f, addr);
+                let p = self.array_data_at(f, addr, kind);
                 (elem, f.b.load(Ty::Ptr, p))
             }
             TypeKind::String => {

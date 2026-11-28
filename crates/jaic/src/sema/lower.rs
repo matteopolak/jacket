@@ -234,8 +234,8 @@ pub struct LoopFrame {
 #[derive(Clone)]
 pub enum LoopRemove {
     /// A `for` over a resizable array or an array view: the container place, the index slot,
-    /// the element type and whether the loop runs in reverse.
-    Array(Operand, Val, TypeId, bool),
+    /// the element type, whether the loop runs in reverse and how the array holds its length.
+    Array(Operand, Val, TypeId, bool, ArrayKind),
     /// `remove` is an error in this loop; the message says why.
     Unsupported(String),
 }
@@ -568,6 +568,18 @@ impl Compiler {
     /// The address of the data pointer of the `string` or view at `view`.
     pub fn view_data_at(&self, f: &mut FnCtx, view: Val) -> Val {
         f.b.ptr_offset(view, self.ty.types.builtins().view.data)
+    }
+
+    /// The address of the data pointer of the array at `array`, whose length is held as `kind`:
+    /// a view's and a resizable array's layouts agree today, but each names its own.
+    pub fn array_data_at(&self, f: &mut FnCtx, array: Val, kind: ArrayKind) -> Val {
+        let builtins = self.ty.types.builtins();
+        let data = match kind {
+            ArrayKind::Resizable => builtins.resizable.data,
+            ArrayKind::View | ArrayKind::Fixed(_) => builtins.view.data,
+        };
+
+        f.b.ptr_offset(array, data)
     }
 
     /// Scalar register class of a type, or `None` for memory-class types.

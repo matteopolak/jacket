@@ -178,9 +178,9 @@ impl Compiler {
                 ),
             };
         };
-        let (container, index_slot, elem, reverse) = match frame.remove {
-            LoopRemove::Array(container, index_slot, elem, reverse) => {
-                (container, index_slot, elem, reverse)
+        let (container, index_slot, elem, reverse, kind) = match frame.remove {
+            LoopRemove::Array(container, index_slot, elem, reverse, kind) => {
+                (container, index_slot, elem, reverse, kind)
             }
             LoopRemove::Unsupported(message) => return err(Code::RemoveUnsupported, span, message),
         };
@@ -197,7 +197,7 @@ impl Compiler {
             );
         };
         let count = f.b.load(Ty::I64, addr);
-        let dp = self.view_data_at(f, addr);
+        let dp = self.array_data_at(f, addr, kind);
         let data = f.b.load(Ty::Ptr, dp);
         let size = self.size_of(elem, span)?;
         let s = f.b.iconst(Ty::I64, size);
@@ -733,16 +733,17 @@ impl Compiler {
             );
         }
 
-        let (elem, fixed) = match self.ty.types.kind(self.ty.types.repr(cty)).clone() {
-            _ if let Some(elem) = stand_in_elem => (elem, None),
+        let (elem, fixed, array_kind) = match self.ty.types.kind(self.ty.types.repr(cty)).clone() {
+            _ if let Some(elem) = stand_in_elem => (elem, None, ArrayKind::View),
             TypeKind::Array {
                 elem,
                 kind: ArrayKind::Fixed(n),
-            } => (elem, Some(n)),
+            } => (elem, Some(n), ArrayKind::Fixed(n)),
             TypeKind::Array {
-                elem, ..
-            } => (elem, None),
-            TypeKind::String => (TypeId::U8, None),
+                elem,
+                kind,
+            } => (elem, None, kind),
+            TypeKind::String => (TypeId::U8, None, ArrayKind::View),
             _ => return Err(Box::new(self.cannot_iterate(cty, c))),
         };
         let container = match op {
@@ -809,7 +810,7 @@ impl Compiler {
         let data = if fixed.is_some() {
             caddr
         } else {
-            let p = self.view_data_at(f, caddr);
+            let p = self.array_data_at(f, caddr, array_kind);
             f.b.load(Ty::Ptr, p)
         };
         let i = f.b.load(Ty::I64, idx);
@@ -876,7 +877,7 @@ impl Compiler {
         );
         self.ide_note_implicit_loop_names(for_, iterated, [it_ty, TypeId::S64]);
         let remove = if fixed.is_none() {
-            LoopRemove::Array(container.clone(), idx, elem, for_.reverse)
+            LoopRemove::Array(container.clone(), idx, elem, for_.reverse, array_kind)
         } else {
             let elem_name = self.ty.types.name(elem);
 
