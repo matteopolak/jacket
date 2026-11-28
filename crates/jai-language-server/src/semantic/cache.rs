@@ -466,6 +466,23 @@ impl Cache {
         self.build(env, root, dirs, files, inputs, None)
     }
 
+    /// `compile_detached` with every library body checked, as the program's compile-time code
+    /// then runs everything it reaches (what the editor check leaves unchecked it never runs).
+    /// For the questions only that answers, such as who read a note.
+    pub(crate) fn compile_detached_unskipped(
+        &mut self,
+        env: &Environment,
+        root: &Path,
+        dirs: &[PathBuf],
+        files: Buffers,
+    ) -> Option<Analysis> {
+        let was = std::mem::replace(&mut self.defer_library_bodies, false);
+        let analysis = self.compile_detached(env, root, dirs, files);
+
+        self.defer_library_bodies = was;
+        analysis
+    }
+
     /// The canonical texts and keys of a compile's inputs.
     fn inputs(
         &mut self,

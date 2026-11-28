@@ -136,6 +136,8 @@ mod navigation_associations;
 mod no_compile_in_requests;
 #[path = "note_readers.rs"]
 mod note_readers;
+#[path = "note_readers_deferred.rs"]
+mod note_readers_deferred;
 #[path = "outline.rs"]
 mod outline;
 #[path = "package_versions.rs"]

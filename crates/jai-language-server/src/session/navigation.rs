@@ -30,7 +30,7 @@ impl Session {
         }
 
         {
-            let (found, shift) = self
+            let (mut found, shift) = self
                 .with_semantic_at(uri, &doc.text, byte, |a, path, at| {
                     let definitions = a.definition(path, at);
                     let builtin = a
@@ -40,6 +40,13 @@ impl Session {
                     (!definitions.is_empty() || builtin).then_some(definitions)
                 })
                 .unwrap_or_default();
+
+            // The compile left library bodies unchecked, and with them the generic instances
+            // that read a note from there: check them once for this question.
+            if found.is_empty() && self.may_compile() && in_note(&doc.text, byte) {
+                found = self.note_readers_unskipped(uri, &doc.text, byte);
+            }
+
             let locations: Vec<Location> = found
                 .into_iter()
                 .filter_map(|(path, text, start, end)| {
@@ -102,6 +109,33 @@ impl Session {
                 })
             })
             .collect()
+    }
+
+    /// The compile-time code that read the note at `byte`, from a compile that checks every
+    /// library body. The compile is not kept.
+    fn note_readers_unskipped(
+        &self,
+        uri: &DocumentUri,
+        text: &str,
+        byte: usize,
+    ) -> Vec<crate::semantic::Decl> {
+        let Some(environment) = self.environment.as_ref() else {
+            return Vec::new();
+        };
+        let Some((files, root, dirs)) = self.compile_inputs(uri, text) else {
+            return Vec::new();
+        };
+        let Some(mut analysis) =
+            self.semantic
+                .borrow_mut()
+                .compile_detached_unskipped(environment, &root, &dirs, files)
+        else {
+            return Vec::new();
+        };
+        let path = Path::new(uri.path());
+
+        analysis.focus(path);
+        analysis.definition(path, byte)
     }
 
     /// The declaration that introduced the name at `position`, as written: an alias
@@ -351,4 +385,36 @@ impl Session {
             && text.is_char_boundary(facts.end))
         .then_some(facts)
     }
+}
+
+/// Whether `byte` is in a note: the name after an `@`, or what stands in the parentheses that
+/// follow one (`@json(default)`).
+fn in_note(text: &str, byte: usize) -> bool {
+    let line_start = text[..byte].rfind('\n').map_or(0, |i| i + 1);
+    let before = &text[line_start..byte.min(text.len())];
+    let word = |c: char| c.is_alphanumeric() || c == '_';
+    let name_start = before.trim_end_matches(word).len();
+
+    if before[..name_start].ends_with('@') {
+        return true;
+    }
+
+    // Inside `@name( ... )`: the nearest unclosed `(` is preceded by `@name`.
+    let mut depth = 0usize;
+
+    for (at, c) in before.char_indices().rev() {
+        match c {
+            ')' => depth += 1,
+            '(' if depth > 0 => depth -= 1,
+            '(' => {
+                let head = before[..at].trim_end_matches(word);
+
+                return head.ends_with('@');
+            }
+            ';' => return false,
+            _ => {}
+        }
+    }
+
+    false
 }
