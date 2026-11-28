@@ -36,6 +36,7 @@ impl JsonSession {
             lints_pending: false,
             index_progress: super::progress::IndexProgress::default(),
             workspace_published: std::collections::BTreeSet::new(),
+            open_generated: std::collections::BTreeSet::new(),
             refresh_diagnostics: false,
             refreshes: 0,
             watch_files: false,

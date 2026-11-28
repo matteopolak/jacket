@@ -159,3 +159,89 @@ fn the_pull_for_a_generated_document_answers_with_its_errors() {
         "uri": generated}}}),
     );
 }
+
+/// A client that cannot pull is sent the diagnostics of a generated document while it is open,
+/// again after a recompile, and none once it is closed.
+#[test]
+fn push_clients_get_the_errors_of_an_open_generated_document() {
+    use jai_language_server::{JsonSession, Limits};
+    use serde_json::{Value, json};
+    use test_support::lsp::{environment, uri_of};
+
+    let dir = erroring_project();
+    let mut json = JsonSession::with_environment(Limits::default(), environment());
+    let mut send = |message: Value| -> Vec<Value> {
+        json.handle_json(&message.to_string())
+            .unwrap()
+            .iter()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect()
+    };
+    let main = uri_of(&dir.join("main.jai"));
+
+    send(
+        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
+        "capabilities": {}, "workspaceFolders": [{"uri": uri_of(dir.path()).as_str(), "name": "w"}]}}),
+    );
+    send(json!({"jsonrpc": "2.0", "method": "initialized", "params": {}}));
+    send(
+        json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {
+        "uri": main.as_str(), "languageId": "jai", "version": 1, "text": MAIN}}}),
+    );
+    let found = send(
+        json!({"jsonrpc": "2.0", "id": 2, "method": "textDocument/definition", "params": {
+        "textDocument": {"uri": main.as_str()}, "position": {"line": 2, "character": 14}}}),
+    );
+    let generated = found
+        .iter()
+        .find_map(|m| m["result"].as_array())
+        .and_then(|locations| {
+            locations.iter().find_map(|l| {
+                l["uri"]
+                    .as_str()
+                    .filter(|u| u.starts_with("jai-generated:"))
+            })
+        })
+        .expect("a generated location")
+        .to_owned();
+    let published = |messages: &[Value]| -> Vec<Value> {
+        messages
+            .iter()
+            .filter(|m| {
+                m["method"] == "textDocument/publishDiagnostics" && m["params"]["uri"] == generated
+            })
+            .map(|m| m["params"]["diagnostics"].clone())
+            .collect()
+    };
+
+    let opened = send(
+        json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {
+        "uri": generated, "languageId": "jai", "version": 1, "text": ""}}}),
+    );
+    let first = published(&opened);
+
+    assert!(
+        first
+            .iter()
+            .any(|d| d.to_string().contains("type mismatch")),
+        "{opened:?}"
+    );
+    let edited = send(
+        json!({"jsonrpc": "2.0", "method": "textDocument/didChange", "params": {
+        "textDocument": {"uri": main.as_str(), "version": 2},
+        "contentChanges": [{"text": format!("{MAIN}\n")}]}}),
+    );
+
+    assert!(
+        published(&edited)
+            .iter()
+            .any(|d| d.to_string().contains("type mismatch")),
+        "{edited:?}"
+    );
+    let closed = send(
+        json!({"jsonrpc": "2.0", "method": "textDocument/didClose", "params": {"textDocument": {
+        "uri": generated}}}),
+    );
+
+    assert_eq!(published(&closed), vec![json!([])], "{closed:?}");
+}

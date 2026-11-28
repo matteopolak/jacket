@@ -91,6 +91,9 @@ pub struct JsonSession {
     lints_pending: bool,
     index_progress: progress::IndexProgress,
     workspace_published: std::collections::BTreeSet<String>,
+    /// The `jai-generated:` documents the client has open, which a push client is sent the
+    /// diagnostics of.
+    open_generated: std::collections::BTreeSet<String>,
 }
 
 

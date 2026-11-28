@@ -97,6 +97,16 @@ impl JsonSession {
             .uri
             .ends_with(&format!("/{}", jacket_config::FILE_NAME));
 
+        if item.uri.starts_with("jai-generated:") {
+            self.open_generated.insert(item.uri);
+
+            return Ok(if self.pull_diagnostics {
+                Vec::new()
+            } else {
+                self.generated_publications()
+            });
+        }
+
         if !is_file_uri(&item.uri) {
             // Untitled buffers and other schemes have no path to analyse.
             return Ok(vec![]);
@@ -186,6 +196,22 @@ impl JsonSession {
     }
 
     fn did_close(&mut self, params: Value) -> Result<Vec<Value>, Failure> {
+        if let Some(generated) = params["textDocument"]["uri"]
+            .as_str()
+            .filter(|uri| uri.starts_with("jai-generated:"))
+        {
+            let was_open = self.open_generated.remove(generated);
+
+            return Ok(if was_open && !self.pull_diagnostics {
+                vec![
+                    json!({"jsonrpc":"2.0","method":"textDocument/publishDiagnostics",
+                    "params":{"uri":generated,"diagnostics":[]}}),
+                ]
+            } else {
+                Vec::new()
+            });
+        }
+
         let Some(closed) = file_document(params)? else {
             return Ok(vec![]);
         };
@@ -339,7 +365,23 @@ impl JsonSession {
     }
 
     pub(super) fn publications_now(&self) -> Vec<Value> {
-        Self::publication_messages(self.session.publications())
+        let mut messages = Self::publication_messages(self.session.publications());
+
+        messages.extend(self.generated_publications());
+        messages
+    }
+
+    /// The diagnostics of each open `jai-generated:` document, as its program last checked it.
+    fn generated_publications(&self) -> Vec<Value> {
+        self.open_generated
+            .iter()
+            .filter_map(|uri| {
+                let diagnostics = self.session.generated_diagnostics(uri)?;
+
+                Some(json!({"jsonrpc":"2.0","method":"textDocument/publishDiagnostics",
+                    "params":{"uri":uri,"diagnostics":diagnostics.iter().map(diagnostic_wire).collect::<Vec<_>>()}}))
+            })
+            .collect()
     }
 
     pub(super) fn publication_messages(
