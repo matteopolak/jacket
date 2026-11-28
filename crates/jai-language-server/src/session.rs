@@ -109,6 +109,9 @@ pub struct Session {
     pub(crate) workspace_folders: Vec<PathBuf>,
     /// What modules and project files declare, for auto-import completion.
     pub(crate) index: RefCell<crate::auto_import::Index>,
+    /// The text of each generated source (`add_build_string`, `#import,string`) a location
+    /// pointed into, by the `jai-generated:` URI it was given (`generated_uri`).
+    generated: RefCell<std::collections::BTreeMap<String, std::sync::Arc<str>>>,
     /// Bumped by anything that can change a compile's inputs: an open document, a file on
     /// disk, the workspace folders.
     generation: std::cell::Cell<u64>,
@@ -186,6 +189,7 @@ impl Session {
             test_lenses: true,
             workspace_folders: Vec::new(),
             index: RefCell::default(),
+            generated: RefCell::default(),
             generation: std::cell::Cell::new(0),
             inputs: RefCell::default(),
             open_file_identities: RefCell::default(),

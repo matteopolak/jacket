@@ -50,6 +50,24 @@ impl Session {
             let locations: Vec<Location> = found
                 .into_iter()
                 .filter_map(|(path, text, start, end)| {
+                    if let Some(label) = generated_label(&path) {
+                        let uri = self.generated_uri(label, &text);
+                        let range = LineIndex::new(&text)
+                            .range(
+                                &text,
+                                Span {
+                                    start,
+                                    end,
+                                },
+                            )
+                            .ok()?;
+
+                        return Some(Location {
+                            uri,
+                            range,
+                        });
+                    }
+
                     let target = self.client_uri(Path::new(&path))?;
                     // A target in this file is where the edits since the compile left it.
                     let moved = target == *uri && !shift.is_none();
@@ -230,6 +248,39 @@ impl Session {
                 })
             })
             .collect()
+    }
+
+    /// The `jai-generated:` URI of a source with no file (`label` as it prints, without the
+    /// angle brackets), which this session then serves: named by the text, so the same code
+    /// has the same document whichever program generated it.
+    pub(crate) fn generated_uri(&self, label: &str, text: &std::sync::Arc<str>) -> String {
+        let mut hasher = jaic::fxhash::FxHasher::default();
+
+        std::hash::Hasher::write(&mut hasher, text.as_bytes());
+        let name: String = label
+            .chars()
+            .map(|c| {
+                if c.is_ascii_alphanumeric() {
+                    c
+                } else {
+                    '-'
+                }
+            })
+            .collect();
+        let uri = format!(
+            "jai-generated:///{:016x}/{name}.jai",
+            std::hash::Hasher::finish(&hasher)
+        );
+
+        self.generated
+            .borrow_mut()
+            .insert(uri.clone(), text.clone());
+        uri
+    }
+
+    /// The text of a `jai-generated:` document a location was given for.
+    pub fn generated_source(&self, uri: &str) -> Option<String> {
+        self.generated.borrow().get(uri).map(|t| t.to_string())
     }
 
     /// Text of a file the editor may not have open (a definition in a module or the stdlib):
@@ -417,4 +468,9 @@ fn in_note(text: &str, byte: usize) -> bool {
     }
 
     false
+}
+
+/// The label of a source with no file, which prints as `<label>`.
+fn generated_label(path: &str) -> Option<&str> {
+    path.strip_prefix('<')?.strip_suffix('>')
 }

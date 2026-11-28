@@ -74,6 +74,8 @@ mod formatting;
 mod framing;
 #[path = "fuzz_regressions.rs"]
 mod fuzz_regressions;
+#[path = "generated_code.rs"]
+mod generated_code;
 #[path = "generated_fields.rs"]
 mod generated_fields;
 #[path = "hierarchy.rs"]

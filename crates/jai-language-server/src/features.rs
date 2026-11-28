@@ -121,8 +121,19 @@ impl Session {
         start: usize,
         end: usize,
     ) -> Option<Location> {
-        let target = self.client_uri(Path::new(path))?;
         let span = Span::new(start, end);
+
+        // Generated code has no file: it is served as a `jai-generated:` document.
+        if let Some(label) = path.strip_prefix('<').and_then(|p| p.strip_suffix('>')) {
+            return Some(Location {
+                uri: self.generated_uri(label, text),
+                range: crate::position::LineIndex::new(text)
+                    .range(text, span)
+                    .ok()?,
+            });
+        }
+
+        let target = self.client_uri(Path::new(path))?;
         let range = match self.documents.get(&target) {
             Some(open) if open.same_positions(text) => open.index.range(&open.text, span).ok()?,
             _ => crate::position::LineIndex::new(text)

@@ -529,11 +529,13 @@ impl JsonSession {
     }
 
     /// The text of a definition's file the client has not opened (a module or stdlib file), so a
-    /// browser editor can show it read-only; or of a `jai-expansion:` document.
+    /// browser editor can show it read-only; of a `jai-expansion:` document, or of a `jai-generated:` one.
     fn source(&mut self, params: Value) -> Result<Value, Failure> {
         let p: DocumentIdentifier = decode(params)?;
         let text = if p.uri.starts_with(crate::features::EXPANSION_SCHEME) {
             self.session.expansion_source(&p.uri)
+        } else if p.uri.starts_with("jai-generated:") {
+            self.session.generated_source(&p.uri)
         } else {
             self.session.source(&uri(&p.uri)?)
         };
