@@ -88,6 +88,7 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `announce_release.py` | Post a release to Zulip (.github/workflows/zulip-release.yml, docs/tools/community-chat.md). | CI |
 | `check_action_pins.py` | Check the SHA-pinned GitHub Actions in `.github/workflows` and `.github/actions` and update them. | CI, hook, tools |
 | `check_android_wire_vectors.py` | Android ASN.1, SHA and CRC wire vectors from Python's own code, read by the Jai tests. | tools |
+| `check_android_jks.py` | Android JKS generation with a real JDK's `keytool`; OpenSSL verifies the signatures (needs `JAVA_HOME` or a JDK, and OpenSSL). Not part of `check_developer_tools`. | tools |
 | `check_changelog.py` | Fail when CHANGELOG.md's unreleased notes are too long to read at a glance. | tools |
 | `check_ci_sources.py` | Check literal Rust includes against public checkout inputs before compiling. | tools |
 | `check_dependency_age.py` | Fail closed for every registry dependency, including existing lock entries. | CI, tools |
