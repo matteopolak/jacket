@@ -1621,7 +1621,7 @@ Elf_Class :: enum u8 {
 // The byte order in the ELF identification.
 Elf_Endianness :: enum u8 {
     LSB :: 1;
-    MSB :: 1;
+    MSB :: 2;
 }
 
 // The OS ABI in the ELF identification.
