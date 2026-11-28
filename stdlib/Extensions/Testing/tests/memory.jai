@@ -41,6 +41,13 @@ heaps_are_not_offered :: () {
     expect((caps & .FREE) != 0);
 } @test
 
+caps_without_a_name_slot :: () {
+    // A capability query may pass no slot for the allocator's name.
+    caps := cast(Allocator_Caps) cast(u64) context.allocator.proc(.CAPS, 0, 0, null, context.allocator.data);
+
+    expect((caps & .FREE) != 0);
+} @test
+
 temporary_storage_starts_empty :: () {
     expect_equal(context.temporary_storage.total_bytes_occupied, 0);
     used := tprint("%", 1);

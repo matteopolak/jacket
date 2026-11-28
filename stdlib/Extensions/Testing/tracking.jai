@@ -266,7 +266,10 @@ tracking_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *v
     if mode == .CAPS {
         // `get_capabilities` passes no allocator data, so the parent is unknown here. No heaps: a heap
         // made through this allocator would be the parent's, then read as a tracker.
-        (cast(*string) old_memory).* = "test tracker";
+        if old_memory {
+            (cast(*string) old_memory).* = "test tracker";
+        }
+
         return cast(*void) cast(u64) (Allocator_Caps.MULTIPLE_THREADS | .FREE);
     }
 
