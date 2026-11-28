@@ -4,6 +4,10 @@
 zones and calendar-aware spans. Calendar differences, balancing, rounding and totals
 use the same ordered arithmetic as addition, including variable-length zoned days.
 
+## Naming
+
+Names follow jiff 1.0 where Jai allows. `Zoned_Date_Time` is jiff's `ZonedDateTime` (called `Zoned` before 1.0) and `to_zoned_date_time` is `Timestamp::to_zoned_datetime`. Jai conventions replace Rust's: types are `Snake_Case`, and methods are free procedures taking the value first (`until(a, b)` for `a.until(b)`).
+
 ## Concepts
 
 `Timestamp` identifies an instant independently of a zone. `Date`, `Time_Of_Day` and
@@ -17,19 +21,19 @@ gap or fold. `COMPATIBLE` resolves a gap later and a fold earlier; `EARLIER`,
 `LATER` and `REJECT` make the other choices explicit. No conversion implicitly uses
 the machine's zone.
 
-`Zoned` combines an instant with its zone and resolved offset. Adding calendar units
+`Zoned_Date_Time` combines an instant with its zone and resolved offset. Adding calendar units
 first changes its civil reading and resolves it again. Clock units then advance the
 exact timeline. One day therefore preserves the wall-clock time across a DST change;
 24 hours advances exactly 24 hours.
 
 `Span` keeps ten units separately, with one shared sign. Years, months and weeks
-need a relative date or zoned value to acquire an elapsed length. Zoned days also
+need a relative date or zoned value to acquire an elapsed length. Zoned_Date_Time days also
 vary in length. Span conversions involving calendar units use overloads taking
-`relative: Date` or `relative: Zoned`; clock-only conversions need neither.
+`relative: Date` or `relative: Zoned_Date_Time`; clock-only conversions need neither.
 `Signed_Duration` represents exact elapsed seconds and nanoseconds. Timestamp span
 arithmetic rejects every calendar unit, including days.
 
-Period helpers on `Date` (`first_of_month`, `last_of_month`, `first_of_year`, `last_of_year`) return days, so an end is the last day, inclusive. Zoned day ranges (`start_of_day`, `hours_in_day`) are half-open, ending at the next day's start. For a Zoned value, take its local date with `to_civil(zone, instant).date` first; the zone decides which year a late-evening instant belongs to.
+Period helpers on `Date` (`first_of_month`, `last_of_month`, `first_of_year`, `last_of_year`) return days, so an end is the last day, inclusive. Zoned_Date_Time day ranges (`start_of_day`, `hours_in_day`) are half-open, ending at the next day's start. For a Zoned_Date_Time value, take its local date with `to_civil(zone, instant).date` first; the zone decides which year a late-evening instant belongs to.
 
 ## Representation and errors
 
@@ -56,7 +60,7 @@ out-of-bounds access, crashes or unbounded work.
 Fallible procedures return a value and `Time_Error`; `.NONE` means success. An error
 has a static message and a zero-based byte offset for text/binary parsing, otherwise
 -1. Errors never need freeing. Do not consume failed results. `compare` returns
--1/0/1; `equal` and `hash` use the same semantic fields. Zoned comparison and
+-1/0/1; `equal` and `hash` use the same semantic fields. Zoned_Date_Time comparison and
 hashing depend only on the instant. Span ordering requires `span_compare` and an
 appropriate relative value. Zone ordering compares kind and rule content, never
 pointer addresses.
@@ -70,7 +74,7 @@ ordinary Jai assignment has no retain/release hook.
 
 Successful zone loaders return one owned reference. `time_zone_retain(zone)`
 acquires another; `time_zone_free(*zone)` releases an owner and resets it to UTC.
-Ordinary assignment borrows a handle. `Zoned`, transition cursors and abbreviation
+Ordinary assignment borrows a handle. `Zoned_Date_Time`, transition cursors and abbreviation
 slices borrow their zone: an owner must outlive them. UTC and fixed zones own no
 storage. The synchronized named-zone cache retains up to 64 zones; eviction releases
 its reference. Opaque handles are checked against a registry before use so invalid
@@ -79,7 +83,7 @@ found without taking the registry lock, and releasing the last owner clears them
 A cached name is found by comparing the stored path with the requested directory and
 name, so a hit allocates nothing and reads only `TZDIR`.
 
-ISO parsing of an owning `Time_Zone` or `Zoned` must return one owned zone
+ISO parsing of an owning `Time_Zone` or `Zoned_Date_Time` must return one owned zone
 reference, released through the zone field. An unnamed ruleset has no lossless ISO
 zone identifier; formatting it must return `UNSUPPORTED` rather than replace its
 rules with a fixed offset.
@@ -91,7 +95,7 @@ timestamps, offsets, RFC 9557 zoned values and ISO duration spans. Fractions hav
 most nine digits; lowercase `t`/`z` and space date-time separators are accepted.
 `format(*builder, value)` emits canonical text, `T`, UTC `Z` for timestamps, and
 trimmed fractional zeros. Signed durations use seconds-only ISO duration text; zones
-use bracketed names or fixed offsets. Zoned input rejects a conflicting numeric
+use bracketed names or fixed offsets. Zoned_Date_Time input rejects a conflicting numeric
 offset and zone, and also accepts a bare zone annotation.
 
 Pattern formatting/parsing uses English names and `%Y %m %d %e %H %I %M %S %f %.f %p
@@ -119,7 +123,7 @@ value carries no implicit local zone.
 
 | Feature | Time | jai-date |
 | --- | --- | --- |
-| Value types | `Date`, `Time_Of_Day`, `Date_Time`, `Timestamp`, `Zoned`, `Span`, `Signed_Duration` | `Date` only |
+| Value types | `Date`, `Time_Of_Day`, `Date_Time`, `Timestamp`, `Zoned_Date_Time`, `Span`, `Signed_Duration` | `Date` only |
 | Instants | `Timestamp`, nanoseconds, -9999 to 9999 | none; `date_from_unix_timestamp` keeps only the day |
 | Time zones | UTC, fixed offsets, TZif files, POSIX rules, never implicit (`time_zone_system` opts in to the machine zone) | UTC or the machine's zone, through libc `localtime_r` (POSIX only) |
 | DST gap and fold | `COMPATIBLE`, `EARLIER`, `LATER`, `REJECT` | no, no zoned times |
@@ -172,7 +176,7 @@ helpers after `#scope_module`.
 | `instants.jai` | timestamps, durations, offsets |
 | `spans.jai` | `until`/`since`, rounding, balancing, totals |
 | `zone_load.jai` | TZif and POSIX loading, the zone cache, the handle registry |
-| `zoned.jai` | offset lookup, civil-to-instant resolution, transitions |
+| `zoned_date_time.jai` | offset lookup, civil-to-instant resolution, transitions |
 | `ordering.jai` | `compare`, `equal`, `hash` |
 | `text.jai` | ISO `parse` and `format` |
 | `pattern.jai` | pattern `format` and `parse_format` |

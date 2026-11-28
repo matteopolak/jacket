@@ -98,7 +98,7 @@ span_zoned_relative :: () {
 
     assert(e.kind == .NONE);
     defer ST.time_zone_free(*zone);
-    start, se := ST.to_zoned(.{ .{ 2024, 3, 9 }, .{ 12, 0, 0, 0 } }, zone);
+    start, se := ST.to_zoned_date_time(.{ .{ 2024, 3, 9 }, .{ 12, 0, 0, 0 } }, zone);
 
     assert(se.kind == .NONE);
     hours, he := ST.span_total(.{ days = 1 }, .HOUR, start);
@@ -123,8 +123,8 @@ rounding_follows_disambiguation :: () {
 
     assert(ze.kind == .NONE);
     defer ST.time_zone_free(*zone);
-    a, ae := ST.to_zoned(.{ .{ 2024, 3, 9 }, .{ 2, 30, 0, 0 } }, zone);
-    b, be := ST.to_zoned(.{ .{ 2024, 3, 10 }, .{ 15, 0, 0, 0 } }, zone);
+    a, ae := ST.to_zoned_date_time(.{ .{ 2024, 3, 9 }, .{ 2, 30, 0, 0 } }, zone);
+    b, be := ST.to_zoned_date_time(.{ .{ 2024, 3, 10 }, .{ 15, 0, 0, 0 } }, zone);
 
     assert(ae.kind == .NONE && be.kind == .NONE);
     tie, te := ST.until(a, b, .DAY, .DAY, .HALF_TRUNC, 1, .COMPATIBLE);

@@ -248,10 +248,10 @@ next :: (cursor: *Time_Transitions) -> Time_Transition, bool, Time_Error {
 // assert(zone_error.kind == .NONE);
 // defer time_zone_free(*zone);
 // instant, _ := timestamp_from_seconds(1720000000);
-// z := zoned(instant, zone);
+// z := zoned_date_time(instant, zone);
 // assert(z.offset.seconds == -14400);
 // ```
-zoned :: (instant: Timestamp, zone: Time_Zone) -> Zoned {
+zoned_date_time :: (instant: Timestamp, zone: Time_Zone) -> Zoned_Date_Time {
     return .{ instant, zone, offset_at(zone, instant) };
 }
 
@@ -262,27 +262,27 @@ zoned :: (instant: Timestamp, zone: Time_Zone) -> Zoned {
 // assert(zone_error.kind == .NONE);
 // defer time_zone_free(*zone);
 // fold := Date_Time.{ .{ 2024, 11, 3 }, .{ 1, 30, 0, 0 } };
-// first, _ := to_zoned(fold, zone, .EARLIER);
-// second, _ := to_zoned(fold, zone, .LATER);
+// first, _ := to_zoned_date_time(fold, zone, .EARLIER);
+// second, _ := to_zoned_date_time(fold, zone, .LATER);
 // assert(first.offset.seconds == -14400 && second.offset.seconds == -18000);
 // ```
-to_zoned :: (wall: Date_Time, zone: Time_Zone, disambiguation := Disambiguation.COMPATIBLE) -> Zoned, Time_Error {
+to_zoned_date_time :: (wall: Date_Time, zone: Time_Zone, disambiguation := Disambiguation.COMPATIBLE) -> Zoned_Date_Time, Time_Error {
     t, e := to_timestamp(zone, wall, disambiguation);
     if e.kind != .NONE return .{}, e;
-    return zoned(t, zone), .{};
+    return zoned_date_time(t, zone), .{};
 }
 
 // Reads the existing Basic consensus clock in an explicit borrowed zone.
 //
 // ```jai
 // zone := time_zone_utc();
-// z, error := zoned_now(zone);
+// z, error := zoned_date_time_now(zone);
 // assert(error.kind == .NONE && z.offset.seconds == 0);
 // ```
-zoned_now :: (zone: Time_Zone) -> Zoned, Time_Error {
+zoned_date_time_now :: (zone: Time_Zone) -> Zoned_Date_Time, Time_Error {
     t, e := timestamp_now();
     if e.kind != .NONE return .{}, e;
-    return zoned(t, zone), .{};
+    return zoned_date_time(t, zone), .{};
 }
 
 // Keeps the instant while borrowing a different zone and resolving its offset.
@@ -290,10 +290,10 @@ zoned_now :: (zone: Time_Zone) -> Zoned, Time_Error {
 // ```jai
 // instant, _ := timestamp_from_seconds(0);
 // o, _ := offset(32400);
-// tokyo := with_zone(zoned(instant, time_zone_utc()), time_zone_fixed(o));
+// tokyo := with_zone(zoned_date_time(instant, time_zone_utc()), time_zone_fixed(o));
 // assert(tokyo.timestamp.seconds == 0 && tokyo.offset.seconds == 32400);
 // ```
-with_zone :: (value: Zoned, zone: Time_Zone) -> Zoned {
+with_zone :: (value: Zoned_Date_Time, zone: Time_Zone) -> Zoned_Date_Time {
     return .{ value.timestamp, zone, offset_at(zone, value.timestamp) };
 }
 
@@ -303,12 +303,12 @@ with_zone :: (value: Zoned, zone: Time_Zone) -> Zoned {
 // zone, zone_error := time_zone_from_posix("EST5EDT,M3.2.0,M11.1.0");
 // assert(zone_error.kind == .NONE);
 // defer time_zone_free(*zone);
-// start, _ := to_zoned(.{ .{ 2024, 3, 9 }, .{ 12, 0, 0, 0 } }, zone);
+// start, _ := to_zoned_date_time(.{ .{ 2024, 3, 9 }, .{ 12, 0, 0, 0 } }, zone);
 // by_day, _ := add(start, Span.{ days = 1 });
 // by_hours, _ := add(start, Span.{ hours = 24 });
 // assert(by_hours.timestamp.seconds - by_day.timestamp.seconds == 3600);
 // ```
-add :: (value: Zoned, amount: Span, overflow := Overflow.CONSTRAIN, disambiguation := Disambiguation.COMPATIBLE) -> Zoned, Time_Error {
+add :: (value: Zoned_Date_Time, amount: Span, overflow := Overflow.CONSTRAIN, disambiguation := Disambiguation.COMPATIBLE) -> Zoned_Date_Time, Time_Error {
     instant := value.timestamp;
 
     if calendar_nonzero(amount) {
@@ -325,7 +325,7 @@ add :: (value: Zoned, amount: Span, overflow := Overflow.CONSTRAIN, disambiguati
     result, e := timestamp_wide(stamp_ns(instant) + clock_ns(amount));
     if e.kind != .NONE return .{}, e;
 
-    return zoned(result, value.zone), .{};
+    return zoned_date_time(result, value.zone), .{};
 }
 
 // Finds the first valid instant of the local date, including days starting after midnight.
@@ -334,11 +334,11 @@ add :: (value: Zoned, amount: Span, overflow := Overflow.CONSTRAIN, disambiguati
 // zone, zone_error := time_zone_from_posix("EST5EDT,M3.2.0,M11.1.0");
 // assert(zone_error.kind == .NONE);
 // defer time_zone_free(*zone);
-// noon, _ := to_zoned(.{ .{ 2024, 3, 10 }, .{ 15, 0, 0, 0 } }, zone);
+// noon, _ := to_zoned_date_time(.{ .{ 2024, 3, 10 }, .{ 15, 0, 0, 0 } }, zone);
 // start, error := start_of_day(noon);
 // assert(error.kind == .NONE && to_civil(zone, start.timestamp).time.hour == 0);
 // ```
-start_of_day :: (value: Zoned) -> Zoned, Time_Error {
+start_of_day :: (value: Zoned_Date_Time) -> Zoned_Date_Time, Time_Error {
     wall := to_civil(value.zone, value.timestamp);
     wall.time = .{};
     t, e := to_timestamp(value.zone, wall);
@@ -350,7 +350,7 @@ start_of_day :: (value: Zoned) -> Zoned, Time_Error {
         if has && compare(to_civil(value.zone, change.timestamp).date, wall.date) == 0 t = change.timestamp;
     }
 
-    return zoned(t, value.zone), .{};
+    return zoned_date_time(t, value.zone), .{};
 }
 
 // Returns exact elapsed hours between consecutive local day starts.
@@ -359,11 +359,11 @@ start_of_day :: (value: Zoned) -> Zoned, Time_Error {
 // zone, zone_error := time_zone_from_posix("EST5EDT,M3.2.0,M11.1.0");
 // assert(zone_error.kind == .NONE);
 // defer time_zone_free(*zone);
-// day, _ := to_zoned(.{ .{ 2024, 3, 10 }, .{ 12, 0, 0, 0 } }, zone);
+// day, _ := to_zoned_date_time(.{ .{ 2024, 3, 10 }, .{ 12, 0, 0, 0 } }, zone);
 // hours, error := hours_in_day(day);
 // assert(error.kind == .NONE && hours == 23);
 // ```
-hours_in_day :: (value: Zoned) -> float64, Time_Error {
+hours_in_day :: (value: Zoned_Date_Time) -> float64, Time_Error {
     start, e := start_of_day(value);
     if e.kind != .NONE return 0, e;
 
@@ -372,7 +372,7 @@ hours_in_day :: (value: Zoned) -> float64, Time_Error {
 
     if de.kind != .NONE return 0, de;
 
-    following, fe := to_zoned(.{ d, .{} }, value.zone);
+    following, fe := to_zoned_date_time(.{ d, .{} }, value.zone);
     if fe.kind != .NONE return 0, fe;
 
     end, ee := start_of_day(following);

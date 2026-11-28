@@ -21,6 +21,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 
 ### Breaking changes
 
+- `Extensions/Time` follows jiff 1.0: `Zoned` is now `Zoned_Date_Time`, and `to_zoned` and `zoned` are `to_zoned_date_time` and `zoned_date_time`.
 - `jacket test` fails when a test-driver probe library is missing; `--allow-missing-prerequisites` skips those tests. `CI` no longer decides.
 - A project whose `[toolchain] version` differs from the running jacket is an error naming `jacket upgrade --version`.
 - `jacket toolchain check` refuses an unknown target name and lists the known ones.

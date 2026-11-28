@@ -1,8 +1,12 @@
 // Exact instants, civil values, explicit zones and calendar-aware spans.
 //
 // Types never mix by accident: a [Timestamp] is an exact instant, a [Date_Time] is a wall-clock
-// reading with no zone, and a [Zoned] is an instant read in an explicit [Time_Zone]. Every
+// reading with no zone, and a [Zoned_Date_Time] is an instant read in an explicit [Time_Zone]. Every
 // fallible procedure returns a [Time_Error]; `error.kind == .NONE` means success.
+//
+// Names follow jiff 1.0 where Jai allows: `Zoned_Date_Time` is its `ZonedDateTime`, and
+// `to_zoned_date_time` is its `Timestamp::to_zoned_datetime`. Types are `Snake_Case` and
+// procedures are free functions, so jiff's methods become `procedure(value, ...)`.
 //
 // Civil values and calendar arithmetic:
 //
@@ -23,9 +27,9 @@
 //
 // // 02:30 does not exist on 2024-03-10; the default policy moves it forward.
 // wall := Date_Time.{ .{ 2024, 3, 10 }, .{ 2, 30, 0, 0 } };
-// z, _ := to_zoned(wall, zone);
+// z, _ := to_zoned_date_time(wall, zone);
 // assert(z.offset.seconds == -14400);
-// _, rejected := to_zoned(wall, zone, .REJECT);
+// _, rejected := to_zoned_date_time(wall, zone, .REJECT);
 // assert(rejected.kind == .GAP);
 // ```
 //
@@ -47,7 +51,7 @@
 #load "instants.jai";
 #load "spans.jai";
 #load "zone_load.jai";
-#load "zoned.jai";
+#load "zoned_date_time.jai";
 #load "ordering.jai";
 #load "text.jai";
 #load "pattern.jai";

@@ -158,7 +158,7 @@ pattern_fields :: (v: $T) -> Pattern_Fields {
         f.wall = v;
         f.has_date = true;
         f.has_time = true;
-    } else #if T == Timestamp || T == Zoned {
+    } else #if T == Timestamp || T == Zoned_Date_Time {
         zone: Time_Zone;
 
         #if T == Timestamp f.stamp = v;
@@ -416,7 +416,7 @@ finish_pattern :: ($T: Type, v: *Pattern_Parse, r: *Text_Reader, options: Time_O
         return signed_duration(v.values[11], v.values[6]);
     }
 
-    #if T == Timestamp || T == Zoned {
+    #if T == Timestamp || T == Zoned_Date_Time {
         instant: Timestamp;
 
         if v.seen[11] {
@@ -451,7 +451,7 @@ finish_pattern :: ($T: Type, v: *Pattern_Parse, r: *Text_Reader, options: Time_O
         #if T == Timestamp return instant, .{};
         else {
             keep = true;
-            return zoned(instant, zone), .{};
+            return zoned_date_time(instant, zone), .{};
         }
     }
 

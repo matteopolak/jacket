@@ -1,13 +1,13 @@
 // Comparison, equality and hashing of the value types.
 
-// Orders values (-1/0/1); Zoned and Timestamp use only the instant. Zones order by kind and rule content.
+// Orders values (-1/0/1); Zoned_Date_Time and Timestamp use only the instant. Zones order by kind and rule content.
 //
 // ```jai
 // a := Date.{ 2024, 1, 1 };
 // b := Date.{ 2024, 2, 1 };
 // assert(compare(a, b) == -1 && compare(b, a) == 1 && compare(a, a) == 0);
 // ```
-compare :: (a: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned], b: T) -> int {
+compare :: (a: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned_Date_Time], b: T) -> int {
     #if T == Date {
         c := cmp64(a.year, b.year);
         if c != 0 return c;
@@ -28,7 +28,7 @@ compare :: (a: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, O
         return cmp64(a.nanoseconds, b.nanoseconds);
     } else #if T == Offset {
         return cmp64(a.seconds, b.seconds);
-    } else #if T == Zoned {
+    } else #if T == Zoned_Date_Time {
         return compare(a.timestamp, b.timestamp);
     } else {
         c := cmp64(cast(s64) a.kind, cast(s64) b.kind);
@@ -46,14 +46,14 @@ compare :: (a: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, O
     }
 }
 
-// Tests value equality consistent with compare and hash; Zoned ignores its zone.
+// Tests value equality consistent with compare and hash; Zoned_Date_Time ignores its zone.
 //
 // ```jai
 // a, _ := timestamp_from_seconds(5);
 // b, _ := timestamp_from_seconds(5);
 // assert(equal(a, b));
 // ```
-equal :: (a: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned], b: T) -> bool {
+equal :: (a: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned_Date_Time], b: T) -> bool {
     return compare(a, b) == 0;
 }
 
@@ -64,7 +64,7 @@ equal :: (a: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Off
 // b := Date.{ 2024, 1, 1 };
 // assert(hash(a) == hash(b));
 // ```
-hash :: (value: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned]) -> u32 {
+hash :: (value: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned_Date_Time]) -> u32 {
     h: u32 = 2166136261;
 
     #if T == Date {
@@ -81,7 +81,7 @@ hash :: (value: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, 
         h = hash_part(h, value.nanoseconds);
     } else #if T == Offset {
         h = hash_part(h, value.seconds);
-    } else #if T == Zoned {
+    } else #if T == Zoned_Date_Time {
         return hash(value.timestamp);
     } else {
         h = hash_part(h, cast(s64) value.kind);

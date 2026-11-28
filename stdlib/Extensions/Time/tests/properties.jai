@@ -54,7 +54,7 @@ bounded_malformed_text :: () #no_aoc {
 span_api_overloads :: () {
     origin := Prop.Date.{ 2024, 1, 1 };
     zone := Prop.time_zone_utc();
-    z, ze := Prop.to_zoned(.{ origin, .{} }, zone);
+    z, ze := Prop.to_zoned_date_time(.{ origin, .{} }, zone);
 
     assert(ze.kind == .NONE);
     b1, e1 := Prop.span_balance(.{ months = 1 }, .DAY, origin);
@@ -149,8 +149,8 @@ random_zoned_differences :: () #no_aoc {
     seed: u64 = 5;
 
     for 1..1500 {
-        a, ae := Prop.to_zoned(random_wall(*seed), zone);
-        b, be := Prop.to_zoned(random_wall(*seed), zone);
+        a, ae := Prop.to_zoned_date_time(random_wall(*seed), zone);
+        b, be := Prop.to_zoned_date_time(random_wall(*seed), zone);
 
         if ae.kind != .NONE || be.kind != .NONE continue;
 

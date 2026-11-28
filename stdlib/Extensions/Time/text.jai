@@ -1,6 +1,6 @@
 // ISO text parsing and formatting.
 
-// Reads the type's ISO text; Zoned rejects conflicting offsets and accepts bare zone annotations.
+// Reads the type's ISO text; Zoned_Date_Time rejects conflicting offsets and accepts bare zone annotations.
 //
 // ```jai
 // instant, error := parse(Timestamp, "2024-03-10T07:30:00Z");
@@ -49,7 +49,7 @@ parse :: ($T: Type, text: string, options: Time_Options = .{}) -> T, Time_Error 
         }
 
         return v, r.error;
-    } else #if T == Zoned {
+    } else #if T == Zoned_Date_Time {
         wall := read_wall(*r);
         has_offset := peek(*r) != 91;
         o: Offset;
@@ -79,7 +79,7 @@ parse :: ($T: Type, text: string, options: Time_Options = .{}) -> T, Time_Error 
             return .{}, error;
         }
 
-        return zoned(instant, v), .{};
+        return zoned_date_time(instant, v), .{};
     } else #if T == Span {
         v := read_span(*r);
         return v, r.error;
@@ -104,7 +104,7 @@ parse :: ($T: Type, text: string, options: Time_Options = .{}) -> T, Time_Error 
 // defer free(text);
 // assert(text == "2024-03-10T07:30:00Z");
 // ```
-format :: (builder: *Builder, value: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned, Span]) -> Time_Error {
+format :: (builder: *Builder, value: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned_Date_Time, Span]) -> Time_Error {
     #if T == Date {
         y: s64 = value.year;
         if y < 0 {
@@ -162,7 +162,7 @@ format :: (builder: *Builder, value: $T/ .[Date, Time_Of_Day, Date_Time, Timesta
         }
 
         append(builder, "]");
-    } else #if T == Zoned {
+    } else #if T == Zoned_Date_Time {
         e := format(builder, to_civil(value.zone, value.timestamp));
         if e.kind != .NONE return e;
 
@@ -252,7 +252,7 @@ format :: (builder: *Builder, value: $T/ .[Date, Time_Of_Day, Date_Time, Timesta
 // defer free(text);
 // assert(text == "Sunday Mar 10, 02:30");
 // ```
-format :: (builder: *Builder, value: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned], pattern: string, options: Time_Options = .{}) -> Time_Error {
+format :: (builder: *Builder, value: $T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned_Date_Time], pattern: string, options: Time_Options = .{}) -> Time_Error {
     if !valid_options(options) || pattern.count > options.max_text return .{ .LIMIT, "pattern limit", 0 };
 
     f := pattern_fields(value);

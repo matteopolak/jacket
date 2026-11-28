@@ -68,13 +68,13 @@ until :: (a: Timestamp, b: Timestamp, largest := Unit.SECOND, smallest := Unit.N
 // zone, zone_error := time_zone_from_posix("EST5EDT,M3.2.0,M11.1.0");
 // assert(zone_error.kind == .NONE);
 // defer time_zone_free(*zone);
-// a, _ := to_zoned(.{ .{ 2024, 3, 9 }, .{ 12, 0, 0, 0 } }, zone);
-// b, _ := to_zoned(.{ .{ 2024, 3, 10 }, .{ 12, 0, 0, 0 } }, zone);
+// a, _ := to_zoned_date_time(.{ .{ 2024, 3, 9 }, .{ 12, 0, 0, 0 } }, zone);
+// b, _ := to_zoned_date_time(.{ .{ 2024, 3, 10 }, .{ 12, 0, 0, 0 } }, zone);
 // days, _ := until(a, b);
 // hours, _ := until(a, b, largest = .HOUR);
 // assert(days.days == 1 && hours.hours == 23);
 // ```
-until :: (a: Zoned, b: Zoned, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1, disambiguation := Disambiguation.COMPATIBLE) -> Span, Time_Error {
+until :: (a: Zoned_Date_Time, b: Zoned_Date_Time, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1, disambiguation := Disambiguation.COMPATIBLE) -> Span, Time_Error {
     return difference(a, b, largest, smallest, rounding, increment, disambiguation);
 }
 
@@ -118,12 +118,12 @@ since :: (a: Timestamp, b: Timestamp, largest := Unit.SECOND, smallest := Unit.N
 // zone, zone_error := time_zone_from_posix("EST5EDT,M3.2.0,M11.1.0");
 // assert(zone_error.kind == .NONE);
 // defer time_zone_free(*zone);
-// a, _ := to_zoned(.{ .{ 2024, 3, 10 }, .{ 12, 0, 0, 0 } }, zone);
-// b, _ := to_zoned(.{ .{ 2024, 3, 9 }, .{ 12, 0, 0, 0 } }, zone);
+// a, _ := to_zoned_date_time(.{ .{ 2024, 3, 10 }, .{ 12, 0, 0, 0 } }, zone);
+// b, _ := to_zoned_date_time(.{ .{ 2024, 3, 9 }, .{ 12, 0, 0, 0 } }, zone);
 // span, error := since(a, b, largest = .HOUR);
 // assert(error.kind == .NONE && span.hours == 23);
 // ```
-since :: (a: Zoned, b: Zoned, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1, disambiguation := Disambiguation.COMPATIBLE) -> Span, Time_Error {
+since :: (a: Zoned_Date_Time, b: Zoned_Date_Time, largest := Unit.DAY, smallest := Unit.NANOSECOND, rounding := Rounding.TRUNC, increment: s64 = 1, disambiguation := Disambiguation.COMPATIBLE) -> Span, Time_Error {
     return difference(b, a, largest, smallest, rounding, increment, disambiguation);
 }
 
@@ -149,17 +149,17 @@ span_balance :: (value: Span, largest: Unit, relative: Date) -> Span, Time_Error
     return balance_relative(value, largest, Date_Time.{ relative, .{} });
 }
 
-// Uses a relative Zoned.
+// Uses a relative Zoned_Date_Time.
 //
 // ```jai
 // zone, zone_error := time_zone_from_posix("EST5EDT,M3.2.0,M11.1.0");
 // assert(zone_error.kind == .NONE);
 // defer time_zone_free(*zone);
-// start, _ := to_zoned(.{ .{ 2024, 3, 10 }, .{ 0, 0, 0, 0 } }, zone);
+// start, _ := to_zoned_date_time(.{ .{ 2024, 3, 10 }, .{ 0, 0, 0, 0 } }, zone);
 // span, error := span_balance(.{ hours = 30 }, .DAY, start);
 // assert(error.kind == .NONE && span.days == 1 && span.hours == 7);
 // ```
-span_balance :: (value: Span, largest: Unit, relative: Zoned) -> Span, Time_Error {
+span_balance :: (value: Span, largest: Unit, relative: Zoned_Date_Time) -> Span, Time_Error {
     return balance_relative(value, largest, relative);
 }
 
@@ -190,17 +190,17 @@ span_round :: (value: Span, smallest: Unit, largest: Unit, rounding := Rounding.
     return round_relative(value, smallest, largest, rounding, increment, Date_Time.{ relative, .{} });
 }
 
-// Uses a relative Zoned.
+// Uses a relative Zoned_Date_Time.
 //
 // ```jai
 // zone, zone_error := time_zone_from_posix("EST5EDT,M3.2.0,M11.1.0");
 // assert(zone_error.kind == .NONE);
 // defer time_zone_free(*zone);
-// start, _ := to_zoned(.{ .{ 2024, 3, 10 }, .{ 0, 0, 0, 0 } }, zone);
+// start, _ := to_zoned_date_time(.{ .{ 2024, 3, 10 }, .{ 0, 0, 0, 0 } }, zone);
 // span, error := span_round(.{ hours = 12 }, .DAY, .DAY, relative = start);
 // assert(error.kind == .NONE && span.days == 1);
 // ```
-span_round :: (value: Span, smallest: Unit, largest: Unit, rounding := Rounding.HALF_EXPAND, increment: s64 = 1, relative: Zoned) -> Span, Time_Error {
+span_round :: (value: Span, smallest: Unit, largest: Unit, rounding := Rounding.HALF_EXPAND, increment: s64 = 1, relative: Zoned_Date_Time) -> Span, Time_Error {
     return round_relative(value, smallest, largest, rounding, increment, relative);
 }
 
@@ -226,17 +226,17 @@ span_total :: (value: Span, unit: Unit, relative: Date) -> float64, Time_Error {
     return total_relative(value, unit, Date_Time.{ relative, .{} });
 }
 
-// Uses a relative Zoned.
+// Uses a relative Zoned_Date_Time.
 //
 // ```jai
 // zone, zone_error := time_zone_from_posix("EST5EDT,M3.2.0,M11.1.0");
 // assert(zone_error.kind == .NONE);
 // defer time_zone_free(*zone);
-// start, _ := to_zoned(.{ .{ 2024, 3, 10 }, .{ 0, 0, 0, 0 } }, zone);
+// start, _ := to_zoned_date_time(.{ .{ 2024, 3, 10 }, .{ 0, 0, 0, 0 } }, zone);
 // hours, error := span_total(.{ days = 1 }, .HOUR, start);
 // assert(error.kind == .NONE && hours == 23);
 // ```
-span_total :: (value: Span, unit: Unit, relative: Zoned) -> float64, Time_Error {
+span_total :: (value: Span, unit: Unit, relative: Zoned_Date_Time) -> float64, Time_Error {
     return total_relative(value, unit, relative);
 }
 
@@ -267,17 +267,17 @@ span_compare :: (a: Span, b: Span, relative: Date) -> int, Time_Error {
     return compare_relative(a, b, Date_Time.{ relative, .{} });
 }
 
-// Uses a relative Zoned.
+// Uses a relative Zoned_Date_Time.
 //
 // ```jai
 // zone, zone_error := time_zone_from_posix("EST5EDT,M3.2.0,M11.1.0");
 // assert(zone_error.kind == .NONE);
 // defer time_zone_free(*zone);
-// start, _ := to_zoned(.{ .{ 2024, 3, 10 }, .{ 0, 0, 0, 0 } }, zone);
+// start, _ := to_zoned_date_time(.{ .{ 2024, 3, 10 }, .{ 0, 0, 0, 0 } }, zone);
 // order, error := span_compare(.{ days = 1 }, .{ hours = 24 }, start);
 // assert(error.kind == .NONE && order == -1);
 // ```
-span_compare :: (a: Span, b: Span, relative: Zoned) -> int, Time_Error {
+span_compare :: (a: Span, b: Span, relative: Zoned_Date_Time) -> int, Time_Error {
     return compare_relative(a, b, relative);
 }
 
@@ -305,17 +305,17 @@ span_to_duration :: (value: Span, relative: Date) -> Signed_Duration, Time_Error
     return duration_wide(value_ns(end) - value_ns(origin));
 }
 
-// Uses a relative Zoned.
+// Uses a relative Zoned_Date_Time.
 //
 // ```jai
 // zone, zone_error := time_zone_from_posix("EST5EDT,M3.2.0,M11.1.0");
 // assert(zone_error.kind == .NONE);
 // defer time_zone_free(*zone);
-// start, _ := to_zoned(.{ .{ 2024, 3, 10 }, .{ 0, 0, 0, 0 } }, zone);
+// start, _ := to_zoned_date_time(.{ .{ 2024, 3, 10 }, .{ 0, 0, 0, 0 } }, zone);
 // d, error := span_to_duration(.{ days = 1 }, start);
 // assert(error.kind == .NONE && d.seconds == 23 * 3600);
 // ```
-span_to_duration :: (value: Span, relative: Zoned) -> Signed_Duration, Time_Error {
+span_to_duration :: (value: Span, relative: Zoned_Date_Time) -> Signed_Duration, Time_Error {
     origin := relative;
     end, e := add(origin, value);
     if e.kind != .NONE return .{}, e;
@@ -489,7 +489,7 @@ calendar_limit :: (u: Unit) -> s64 {
 
 // Adds a span, applying the gap/overlap policy where the type is zoned.
 add_with :: (a: $T, s: Span, policy: Disambiguation) -> T, Time_Error {
-    #if T == Zoned return add(a, s, disambiguation = policy);
+    #if T == Zoned_Date_Time return add(a, s, disambiguation = policy);
     else return add(a, s);
 }
 
@@ -499,7 +499,7 @@ unit_fits :: (a: $T, b: T, base: Span, u: Unit, sign: s64, n: s64, policy: Disam
 
     put_unit(*trial, u, n * sign);
 
-    #if T == Zoned {
+    #if T == Zoned_Date_Time {
         v, e := add(a, trial, disambiguation = policy);
         return e.kind == .NONE && wide_compare(value_ns(v), value_ns(b)) * sign <= 0;
     } else {
@@ -605,7 +605,7 @@ difference_raw :: (a: $T, b: T, largest: Unit, stop: Unit, policy: Disambiguatio
     } else {
         current: T;
         #if T == Timestamp current = a;
-        else #if T == Zoned {
+        else #if T == Zoned_Date_Time {
             v, e := add(a, result, disambiguation = policy);
             if e.kind != .NONE return .{}, e;
             current = v;

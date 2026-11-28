@@ -85,7 +85,7 @@ Time_Zone_Kind :: enum u8 {
 
 // An immutable zone handle.
 // RULES handles own one reference. Assignment borrows; time_zone_retain creates another owner.
-// Release each owner once with time_zone_free; a Zoned borrows its zone.
+// Release each owner once with time_zone_free; a Zoned_Date_Time borrows its zone.
 //
 // ```jai
 // zone, zone_error := time_zone_from_posix("EST5EDT,M3.2.0,M11.1.0");
@@ -103,10 +103,10 @@ Time_Zone :: struct {
 //
 // ```jai
 // instant, _ := timestamp_from_seconds(0);
-// z := zoned(instant, time_zone_utc());
+// z := zoned_date_time(instant, time_zone_utc());
 // assert(z.timestamp.seconds == 0 && z.offset.seconds == 0);
 // ```
-Zoned :: struct {
+Zoned_Date_Time :: struct {
     timestamp: Timestamp;
     zone: Time_Zone;
     offset: Offset;

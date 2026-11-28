@@ -94,7 +94,7 @@ date_time_to_calendar :: (value: Date_Time) -> Basic.Calendar_Time, Time_Error {
 //     assert(text == "{\"day\":\"2024-02-29\"}");
 // }
 // ```
-time_json_encode :: (writer: *Json_Writer, value: *$T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned, Span]) {
+time_json_encode :: (writer: *Json_Writer, value: *$T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned_Date_Time, Span]) {
     b: String_Builder;
 
     defer free_buffers(*b);
@@ -128,7 +128,7 @@ time_json_encode :: (writer: *Json_Writer, value: *$T/ .[Date, Time_Of_Day, Date
 //     assert(error.kind == .INVALID_VALUE);
 // }
 // ```
-time_json_decode :: (reader: *Json_Reader, out: *$T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned, Span]) -> bool {
+time_json_decode :: (reader: *Json_Reader, out: *$T/ .[Date, Time_Of_Day, Date_Time, Timestamp, Signed_Duration, Offset, Time_Zone, Zoned_Date_Time, Span]) -> bool {
     text, ok := Json.json_read_name(reader);
     if !ok return false;
 
@@ -143,7 +143,7 @@ time_json_decode :: (reader: *Json_Reader, out: *$T/ .[Date, Time_Of_Day, Date_T
         }
     }
 
-    #if T == Zoned {
+    #if T == Zoned_Date_Time {
         if v.zone.kind == .RULES {
             time_zone_free(*v.zone);
             return Json.json_fail(reader, .INVALID_VALUE, "rule-zone Json decoding needs an owning handler cleanup hook");

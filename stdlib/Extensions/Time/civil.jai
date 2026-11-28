@@ -166,7 +166,7 @@ first_of_year :: (value: Date) -> Date {
 // Returns 31 December of the validated date's year.
 //
 // A Date is a whole day, so the end of a period is its last day, inclusive, like
-// `last_of_month`. For an exclusive bound, add one day. For a Zoned value, pass the
+// `last_of_month`. For an exclusive bound, add one day. For a Zoned_Date_Time value, pass the
 // local date: `to_civil(value.zone, value.timestamp).date`.
 //
 // ```jai

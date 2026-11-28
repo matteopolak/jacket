@@ -20,7 +20,7 @@ zoned_dst :: () {
     b, be := ZT.to_timestamp(zone, fold, .LATER);
 
     assert(ae.kind == .NONE && be.kind == .NONE && b.seconds - a.seconds == 3600);
-    start, se := ZT.to_zoned(.{ .{ 2024, 3, 9 }, .{ 12, 0, 0, 0 } }, zone);
+    start, se := ZT.to_zoned_date_time(.{ .{ 2024, 3, 9 }, .{ 12, 0, 0, 0 } }, zone);
 
     assert(se.kind == .NONE);
     day, de := ZT.add(start, ZT.Span.{ days = 1 });
@@ -37,7 +37,7 @@ zoned_dst :: () {
 } @test
 
 zoned_iso :: () {
-    z, e := ZT.parse(ZT.Zoned, "2024-03-10T03:30:00-04:00[-04:00]");
+    z, e := ZT.parse(ZT.Zoned_Date_Time, "2024-03-10T03:30:00-04:00[-04:00]");
 
     assert(e.kind == .NONE);
     defer ZT.time_zone_free(*z.zone);
@@ -51,10 +51,10 @@ zoned_iso :: () {
 
     defer free(text);
     assert(text == "2024-03-10T03:30:00-04:00[-04:00]");
-    _, conflict := ZT.parse(ZT.Zoned, "2024-03-10T03:30:00-05:00[-04:00]");
+    _, conflict := ZT.parse(ZT.Zoned_Date_Time, "2024-03-10T03:30:00-05:00[-04:00]");
 
     assert(conflict.kind == .OFFSET_CONFLICT);
-    bare, be := ZT.parse(ZT.Zoned, "2024-03-10T03:30:00[+05:30]");
+    bare, be := ZT.parse(ZT.Zoned_Date_Time, "2024-03-10T03:30:00[+05:30]");
 
     assert(be.kind == .NONE && bare.offset.seconds == 19800);
 } @test
@@ -73,7 +73,7 @@ zoned_historical_days :: () {
         if name == "Asia/Gaza" wall.date = .{ 2020, 3, 28 };
         if name == "Pacific/Apia" wall.date = .{ 2011, 12, 31 };
 
-        z, ze := ZT.to_zoned(wall, zone);
+        z, ze := ZT.to_zoned_date_time(wall, zone);
 
         assert(ze.kind == .NONE);
         start, se := ZT.start_of_day(z);
