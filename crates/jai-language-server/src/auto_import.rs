@@ -129,6 +129,9 @@ pub(crate) struct Index {
     files: BTreeMap<PathBuf, (Option<u64>, Rc<FileScan>)>,
     /// Scans of open documents, with the hash of the text scanned.
     open: BTreeMap<PathBuf, (u64, Rc<FileScan>)>,
+    /// The `#import` paths of files read only to count them (the standard library's, whose
+    /// full scans are not kept), by the file's stamp before the read.
+    import_lists: BTreeMap<PathBuf, (Option<u64>, Rc<Vec<String>>)>,
     /// The `.jai` files on disk under each walked folder.
     walked: BTreeMap<PathBuf, Rc<Vec<PathBuf>>>,
     /// Settings files that did not read, with the problem last reported for each.
@@ -219,6 +222,10 @@ impl Index {
         }
     }
 
+    pub(crate) fn retained_scans_under(&self, dir: &Path) -> usize {
+        self.files.keys().filter(|p| p.starts_with(dir)).count()
+    }
+
     /// `path` changed: its scan and the module index it is part of are stale.
     pub(crate) fn changed(&mut self, path: &Path) {
         self.epoch += 1;
@@ -229,6 +236,7 @@ impl Index {
         }
 
         self.files.remove(path);
+        self.import_lists.remove(path);
         self.warming
             .retain(|_, module| !module.files.contains(path));
         self.import_dirs
@@ -501,6 +509,42 @@ impl Sources<'_> {
         }
 
         entries.into_iter().collect()
+    }
+
+    /// The `#import` paths of `path`, for a file whose full scan is not worth keeping: the
+    /// standard library's modules are listed by their shared module list, so a program that
+    /// loads one only needs its imports counted.
+    pub(super) fn imports_only(&self, index: &mut Index, path: &Path) -> Rc<Vec<String>> {
+        let key = self.key(path);
+
+        if !self.open.contains_key(&key) {
+            if let Some((stamp, imports)) = index.import_lists.get(&key) {
+                self.note_stamp(&key, *stamp);
+                return imports.clone();
+            }
+
+            let held = index.files.contains_key(&key);
+            let scan = self.scan_keyed(index, &key);
+            let imports = Rc::new(
+                scan.imports
+                    .iter()
+                    .map(|i| i.path.clone())
+                    .collect::<Vec<_>>(),
+            );
+
+            if !held
+                && !self.stopped()
+                && let Some((stamp, _)) = index.files.remove(&key)
+            {
+                index.import_lists.insert(key, (stamp, imports.clone()));
+            }
+
+            return imports;
+        }
+
+        let scan = self.scan_keyed(index, &key);
+
+        Rc::new(scan.imports.iter().map(|i| i.path.clone()).collect())
     }
 
     pub(crate) fn scan(&self, index: &mut Index, path: &Path) -> Rc<FileScan> {

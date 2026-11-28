@@ -1,6 +1,7 @@
 //! Project symbols and the completion items an auto import offers.
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 use jaic::fxhash::HashMap;
 use jaic::sema::{ModuleRanking, Rank};
@@ -29,6 +30,11 @@ impl Session {
         jaic::interrupt::arm();
         self.warm_auto_import_inner(true);
         !jaic::interrupt::disarm()
+    }
+
+    /// How many files under `dir` the auto-import index holds a full scan of.
+    pub fn retained_scans_under(&self, dir: &Path) -> usize {
+        self.index.borrow().retained_scans_under(dir)
     }
 
     fn warm_auto_import_inner(&self, stoppable: bool) {
@@ -353,9 +359,19 @@ impl Session {
         let current = sources.scan(&mut index, &file);
         let mut import_counts: HashMap<String, u32> = HashMap::default();
 
+        let stdlib_dir = program.stdlib.as_deref().map(|s| sources.key(s));
+
         for f in &program.closure {
-            for import in &sources.scan(&mut index, f).imports {
-                *import_counts.entry(import.path.clone()).or_insert(0) += 1;
+            let imports = if stdlib_dir.as_ref().is_some_and(|s| f.starts_with(s)) {
+                sources.imports_only(&mut index, f)
+            } else {
+                let scan = sources.scan(&mut index, f);
+
+                Rc::new(scan.imports.iter().map(|i| i.path.clone()).collect())
+            };
+
+            for import in imports.iter() {
+                *import_counts.entry(import.clone()).or_insert(0) += 1;
             }
         }
 

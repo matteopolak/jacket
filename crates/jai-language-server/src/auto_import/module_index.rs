@@ -289,7 +289,20 @@ impl Sources<'_> {
         )
     }
 
+    /// The stdlib's modules. The scans they were read from are not kept: the list is shared and
+    /// they are worth nothing alone, but a hundred files of declarations would stay in every
+    /// session for as long as it lives.
     pub(super) fn stdlib(&self, index: &mut Index, dir: &Path) -> Modules {
+        let modules = self.stdlib_modules(index, dir);
+
+        if !self.stopped() {
+            index.files.retain(|path, _| !path.starts_with(dir));
+        }
+
+        modules
+    }
+
+    fn stdlib_modules(&self, index: &mut Index, dir: &Path) -> Modules {
         if let Some((cached, cache)) = &index.stdlib
             && cached == dir
         {
