@@ -52,6 +52,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - `GetRect` Tab keeps cycling the typed text's completions, and a keyframe on a wrapping color animation takes the wrapped color.
 - `Elf_Endianness.MSB` in `executable_formats` is 2, the value big-endian ELF files carry.
 - `jaic -doc_gaps` follows every branch of an `#if OS` implementation import, so host-only aliases count as documented.
+- `jailint` reads the members used after a release from the program's events, not its source text.
 - `jailint` keeps a value a body stored in caller memory across calls that write no memory.
 - Go to definition and related notes open generated code (`add_build_string`) as read-only `jai-generated:` documents.
 - Go to definition on a note finds a reader that only a skipped library body's generic instance has.

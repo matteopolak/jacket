@@ -1,7 +1,7 @@
 //! Lifetime diagnostics and on-demand witnesses, separate from fixed-point state.
 use super::{
-    CfgOp, Cx, DEAD, Event, Finding, FreeSpans, HashMap, HashSet, LIVE, LifetimeBody, Model, Op,
-    Origin, Reports, Span, States, VecDeque, contains, inside, kills,
+    CfgOp, Cx, DEAD, Event, Finding, FreeSpans, HashMap, HashSet, LIVE, LifetimeBody,
+    LifetimeOperand, Model, Op, Origin, Reports, Span, States, VecDeque, contains, inside, kills,
 };
 use crate::Edit;
 use crate::rules::{finding, suggesting};
@@ -90,7 +90,7 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
                     continue;
                 }
 
-                if keeps_use(cx, model, &block.op, &witnesses, *at) {
+                if keeps_use(cx, body, model, &block.op, &witnesses, *at) {
                     continue;
                 }
 
@@ -293,6 +293,7 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
 /// the members that call did not free.
 fn keeps_use(
     cx: &Cx<'_>,
+    body: &LifetimeBody,
     model: &Model,
     op: &CfgOp,
     witnesses: &[(usize, Span)],
@@ -335,11 +336,7 @@ fn keeps_use(
         return true;
     }
 
-    let mut used = used_members(suffix, true);
-
-    if used.is_empty() {
-        used = used_members(&text[at.start as usize..], false);
-    }
+    let used = used_members(body, at);
 
     !used.is_empty()
         && released_members(model, witnesses).is_some_and(|freed| {
@@ -1215,31 +1212,89 @@ fn overlaps<S: PartialEq<T>, T>(freed: &[S], used: &[T]) -> bool {
     freed.iter().zip(used).all(|(a, b)| a == b)
 }
 
-/// The members read next in `text`, outermost first: with `after`, `text` follows the used
-/// expression (`.bar.names`); otherwise it starts with a variable (`*r.bar.names`).
-fn used_members(text: &str, after: bool) -> Vec<&str> {
-    let ident = |t: &str| {
-        t.find(|c: char| !(c.is_alphanumeric() || c == '_'))
-            .unwrap_or(t.len())
+/// The members read through the expression at `at`, outermost first: `["bar", "names"]` for
+/// `r.bar.names`. They are the field accesses in the events after it (`at` is a variable and the
+/// members follow) or, when none follow, the ones that built it (`at` is the whole expression).
+fn used_members(body: &LifetimeBody, at: Span) -> Vec<&str> {
+    let operand = |o: &LifetimeOperand| match o {
+        LifetimeOperand::Value(v) | LifetimeOperand::Place(v) => Some(*v),
+        LifetimeOperand::Other => None,
     };
-    let mut rest = if after {
-        text
-    } else {
-        let text = text.trim_start_matches(['*', '&']);
-        &text[ident(text)..]
-    };
-    let mut chain = Vec::new();
 
-    while let Some(next) = rest.strip_prefix('.') {
-        let member = &next[..ident(next)];
+    for block in &body.blocks {
+        let Some((first, mut current)) =
+            block.events.iter().enumerate().find_map(|(i, e)| match e {
+                Event::Use {
+                    place,
+                    span,
+                    ..
+                }
+                | Event::Address {
+                    place,
+                    span,
+                    ..
+                } if *span == at => Some((i, *place)),
+                Event::ReadMemory {
+                    value,
+                    span,
+                } if *span == at => Some((i, *value)),
+                Event::Expression {
+                    span,
+                    operand: o,
+                    ..
+                } if *span == at => operand(o).map(|v| (i, v)),
+                _ => None,
+            })
+        else {
+            continue;
+        };
+        let mut chain = Vec::new();
 
-        if member.is_empty() {
-            break;
+        for event in &block.events[first + 1..] {
+            if let Event::Field {
+                base,
+                result,
+                name,
+                ..
+            } = event
+                && operand(base) == Some(current)
+                && let Some(next) = operand(result)
+            {
+                chain.push(name.as_str());
+                current = next;
+            }
         }
 
-        chain.push(member);
-        rest = &next[member.len()..];
+        if chain.is_empty() {
+            for event in block.events[..first].iter().rev() {
+                match event {
+                    Event::Field {
+                        base,
+                        result,
+                        name,
+                        ..
+                    } if operand(result) == Some(current) => {
+                        chain.push(name.as_str());
+                        current = operand(base).unwrap_or(current);
+                    }
+                    Event::Call {
+                        ..
+                    }
+                    | Event::IndirectCall {
+                        ..
+                    }
+                    | Event::StatementEnd {
+                        ..
+                    } => break,
+                    _ => {}
+                }
+            }
+
+            chain.reverse();
+        }
+
+        return chain;
     }
 
-    chain
+    Vec::new()
 }

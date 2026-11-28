@@ -261,3 +261,20 @@ installed_then_forgotten :: () {
     print("%\n", value.*);
     free(value);
 }
+
+Pair :: struct {
+    names: [] string;
+    extra: *int;
+}
+
+drop_extra :: (pair: *Pair) {
+    free(pair.extra);
+}
+
+// Only `extra` was freed; the member read on the next line is another one.
+other_member :: (pair: *Pair) -> *string {
+    drop_extra(pair);
+
+    return pair
+        .names.data;
+}
