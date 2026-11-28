@@ -149,7 +149,7 @@ fn newest_list(tags: &[Tagged]) -> String {
 }
 
 /// How a version stands against the release-age policy.
-enum Verdict {
+pub(super) enum Verdict {
     Allowed,
     TooNew { age: i64, required: i64 },
     Unknown(String),
@@ -170,7 +170,16 @@ impl Gate {
         entry: &Dependency,
         url: &RepoUrl,
     ) -> Result<Self> {
-        let resolver = &project.config.resolver;
+        Self::from_resolver(&project.config.resolver, name, entry, url)
+    }
+
+    /// The gate of `entry` under `resolver`'s policy.
+    pub(super) fn from_resolver(
+        resolver: &jacket_config::Resolver,
+        name: &str,
+        entry: &Dependency,
+        url: &RepoUrl,
+    ) -> Result<Self> {
         let policy = Policy::from_config(resolver, entry)
             .map_err(|e| DepError::new(format!("{name}: {e}")))?;
         Ok(Self {
@@ -188,7 +197,7 @@ impl Gate {
         self.policy.active()
     }
 
-    fn check(&self, ctx: &mut Ctx, tag: &str, commit: &CommitId) -> Verdict {
+    pub(super) fn check(&self, ctx: &mut Ctx, tag: &str, commit: &CommitId) -> Verdict {
         if !self.active() {
             return Verdict::Allowed;
         }

@@ -16,6 +16,9 @@ impl Session {
     /// The hints of the type checker (inferred types, argument names, `#run` values) and the
     /// closing-brace names, in document order.
     pub fn inlay_hints(&self, uri: &DocumentUri, range: Range) -> Result<Vec<InlayHint>, Error> {
+        if self.config_document(uri).is_some() {
+            return self.manifest_inlay_hints(uri, range);
+        }
         let mut hints = self.typed_hints(uri, range)?;
         hints.extend(self.closing_brace_hints(uri, range)?);
         hints.sort_by_key(|h| (h.position.line, h.position.character));

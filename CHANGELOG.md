@@ -17,6 +17,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - `Gltf` adds `gltf_world_matrices` (every node's world matrix) and `gltf_decompose` (a matrix into translation, rotation and scale).
 - `jaic -completions bash|zsh|fish` and `jacket completions bash|zsh|fish` print shell completion scripts; `jacket completions SHELL --tool jaic` prints jaic's.
 - `jacket dep add` and `update` note a newer version skipped by `min-release-age`, with its age.
+- `jailsp` checks, completes and describes `jacket.toml`, hints dependency releases, and holds back Jai diagnostics while it is broken.
 - `jaic -help` is in capitalised sections (`Usage:`, `Modes:`, `Exit status:`), bold when colour is on.
 
 ### Breaking changes

@@ -70,7 +70,7 @@ A cold file has no semantic snapshot to query. Integration tests that require it
 
 ### Lints and quick fixes
 
-Lints run on documents that parse. The `[lint]` table of the nearest `jacket.toml` sets levels. Quick fixes carry the rule in `data.rule`; `source.fixAll.jailint` applies every machine-applicable fix. Compiler errors carry their notes, suggestions and `help` lines, with quick fixes for suggestions.
+Lints run on documents that parse. The `[lint]` table of the nearest `jacket.toml` sets levels; a `jacket.toml` with a problem stops the compile and lint diagnostics of the files under it until it is fixed ([`jacket.toml` in the editor](../tools/jacket-toml-in-the-editor.md)). Quick fixes carry the rule in `data.rule`; `source.fixAll.jailint` applies every machine-applicable fix. Compiler errors carry their notes, suggestions and `help` lines, with quick fixes for suggestions.
 
 ### Project settings
 

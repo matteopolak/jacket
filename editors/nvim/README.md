@@ -48,13 +48,19 @@ Without the plugin, a minimal setup is:
 vim.filetype.add({ extension = { jai = 'jai' } })
 vim.lsp.config('jailsp', {
   cmd = { 'jailsp' },
-  filetypes = { 'jai' },
-  root_markers = { 'jacket.toml', '.git' },
+  filetypes = { 'jai', 'toml' },
+  root_dir = function(bufnr, on_dir)
+    local toml = vim.bo[bufnr].filetype == 'toml'
+    if toml and vim.fs.basename(vim.api.nvim_buf_get_name(bufnr)) ~= 'jacket.toml' then
+      return
+    end
+    on_dir(vim.fs.root(bufnr, { 'jacket.toml', '.git' }))
+  end,
 })
 vim.lsp.enable('jailsp')
 ```
 
-`jailsp` needs `file://` documents and a stdlib: it finds `stdlib/` next to its executable, or from `JAIC_STDLIB` (`cmd_env = { JAIC_STDLIB = '/path/to/stdlib' }`). The plugin does not use nvim-lspconfig, so the two do not conflict; nvim-lspconfig has no `jailsp` config as of writing, so the snippet above is what to use there as well.
+`jailsp` also reads `jacket.toml` buffers: it reports their problems and completes keys and paths. `jailsp` needs `file://` documents and a stdlib: it finds `stdlib/` next to its executable, or from `JAIC_STDLIB` (`cmd_env = { JAIC_STDLIB = '/path/to/stdlib' }`). The plugin does not use nvim-lspconfig, so the two do not conflict; nvim-lspconfig has no `jailsp` config as of writing, so the snippet above is what to use there as well.
 
 ## The toolchain
 

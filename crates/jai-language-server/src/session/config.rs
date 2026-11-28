@@ -4,6 +4,7 @@ use crate::semantic::{self, Environment};
 use crate::{DocumentUri, Error, Limits, VirtualSources};
 use jaic::ide::lint_compile::CheckLimits;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 impl Session {
     /// Basic blocks one compile-time evaluation may run before it fails (`0`: no limit).
@@ -71,7 +72,19 @@ impl Session {
 
     /// Messages for the user (see `take_logs` for the log lines).
     pub fn take_messages(&self) -> Vec<String> {
-        self.index.borrow_mut().take_messages()
+        self.index
+            .borrow_mut()
+            .take_messages()
+            .into_iter()
+            .filter(|(config, _)| {
+                // An open settings file shows its own problems.
+                !config
+                    .as_ref()
+                    .and_then(|path| self.open_file_uri(path))
+                    .is_some_and(|uri| self.lint_configs.contains_key(&uri))
+            })
+            .map(|(_, message)| message)
+            .collect()
     }
 
     /// How many programs the type checker has compiled for this session, and how many of them
@@ -324,10 +337,35 @@ impl Session {
     }
 
     pub fn document_text(&self, uri: &DocumentUri) -> Result<&str, Error> {
+        if let Some((_, config)) = self.config_document(uri) {
+            return Ok(config.text.as_str());
+        }
         Ok(self.document(uri)?.text.as_str())
     }
 
     pub fn version(&self, uri: &DocumentUri) -> Result<i32, Error> {
+        if let Some((_, config)) = self.config_document(uri) {
+            return Ok(config.version);
+        }
         Ok(self.document(uri)?.version)
+    }
+
+    /// Where the dependency hints of a `jacket.toml` come from (see `DependencySource`).
+    pub fn set_dependency_source(&mut self, source: Rc<dyn crate::manifest::dependencies::Source>) {
+        self.dependency_source = Some(source);
+    }
+
+    /// A dependency lookup is still running.
+    pub fn dependency_lookups_waiting(&self) -> bool {
+        self.dependency_source
+            .as_ref()
+            .is_some_and(|source| source.waiting())
+    }
+
+    /// A dependency lookup finished since the last call: the hints are worth asking for again.
+    pub fn take_dependency_arrivals(&self) -> bool {
+        self.dependency_source
+            .as_ref()
+            .is_some_and(|source| source.take_arrivals())
     }
 }

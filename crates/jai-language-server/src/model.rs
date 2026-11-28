@@ -42,6 +42,8 @@ pub enum DiagnosticCode {
     Unreachable,
     /// A jailint rule, by name.
     Lint(&'static str),
+    /// A problem in a `jacket.toml`.
+    Config,
 }
 
 impl DiagnosticCode {
@@ -56,6 +58,7 @@ impl DiagnosticCode {
             Self::NotInProgram => ("not-in-program", "jaic"),
             Self::Unreachable => ("unreachable", "jaic"),
             Self::Lint(rule) => (rule, "jailint"),
+            Self::Config => ("config", "jacket"),
         }
     }
 }

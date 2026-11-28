@@ -14,6 +14,7 @@ pub mod policy;
 pub mod resolve;
 mod snapshot;
 pub mod spec;
+pub mod standing;
 pub mod types;
 pub mod version;
 
@@ -96,6 +97,7 @@ impl DepError {
         }
     }
 
+    #[must_use]
     pub fn note(mut self, note: impl Into<String>) -> Self {
         self.notes.push(note.into());
         self

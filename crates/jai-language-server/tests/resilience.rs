@@ -88,55 +88,77 @@ fn messages(out: &[Value]) -> Vec<String> {
         .collect()
 }
 
+/// The last publication for `uri` in `out`.
+fn published<'a>(out: &'a [Value], uri: &str) -> Option<&'a Value> {
+    out.iter()
+        .rev()
+        .find(|m| m["method"] == "textDocument/publishDiagnostics" && m["params"]["uri"] == uri)
+}
+
+/// The diagnostics of the last publication for `uri`, from `source`.
+fn from_source(out: &[Value], uri: &str, source: &str) -> Vec<Value> {
+    published(out, uri)
+        .and_then(|m| m["params"]["diagnostics"].as_array())
+        .into_iter()
+        .flatten()
+        .filter(|d| d["source"] == source)
+        .cloned()
+        .collect()
+}
+
 #[test]
-fn settings_files_that_do_not_parse_are_reported_once() {
+fn a_broken_settings_file_is_published_and_holds_back_the_jai_diagnostics() {
     let mut s = with_environment();
     send(
         &mut s,
         json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }),
     );
     let dir = "file:///resilience-config";
+    let (config, main) = (format!("{dir}/jacket.toml"), format!("{dir}/main.jai"));
     let broken = "[lint.rules\nunused_variable = \"deny\"\n";
-    open(&mut s, &format!("{dir}/jacket.toml"), 1, broken);
-    let main = format!("{dir}/main.jai");
-    let first = messages(&open(&mut s, &main, 1, "main :: () {\n    x := 1;\n}\n"));
-    assert_eq!(first.len(), 1, "{first:?}");
-    assert!(first[0].contains("jacket.toml"), "{first:?}");
-    assert!(first[0].contains("defaults"), "{first:?}");
-    // Same problem, next edit: nothing more.
-    let again = messages(&open(&mut s, &main, 2, "main :: () {\n    y := 1;\n}\n"));
-    assert!(again.is_empty(), "{again:?}");
-    // Fixed, then broken again: news.
-    open(&mut s, &format!("{dir}/jacket.toml"), 2, "[lint.rules]\n");
-    let ok = messages(&open(&mut s, &main, 3, "main :: () {\n    z := 1;\n}\n"));
-    assert!(ok.is_empty(), "{ok:?}");
-    // Editing the settings file re-lints the open documents, which is when it is read.
-    let mut broken_again = messages(&open(&mut s, &format!("{dir}/jacket.toml"), 3, broken));
-    broken_again.extend(messages(&open(
+    let out = open(&mut s, &config, 1, broken);
+    assert!(messages(&out).is_empty(), "{out:?}");
+    assert_eq!(from_source(&out, &config, "jacket").len(), 1, "{out:?}");
+    let out = open(&mut s, &main, 1, "main :: () {\n    x := 1;\n}\n");
+    assert!(messages(&out).is_empty(), "{out:?}");
+    assert!(from_source(&out, &main, "jailint").is_empty(), "{out:?}");
+    // Fixed: the lints are back.
+    let out = open(
         &mut s,
-        &main,
-        4,
-        "main :: () {\n    w := 1;\n}\n",
-    )));
-    assert_eq!(broken_again.len(), 1, "{broken_again:?}");
+        &config,
+        2,
+        "[lint.rules]\nunused_variable = \"deny\"\n",
+    );
+    assert!(from_source(&out, &config, "jacket").is_empty(), "{out:?}");
+    assert_eq!(from_source(&out, &main, "jailint").len(), 1, "{out:?}");
+    // Broken again: held back again.
+    let out = open(&mut s, &config, 3, broken);
+    assert_eq!(from_source(&out, &config, "jacket").len(), 1, "{out:?}");
+    assert!(from_source(&out, &main, "jailint").is_empty(), "{out:?}");
 }
 
 #[test]
-fn a_bad_project_file_is_reported_once_by_open_or_completion() {
+fn a_bad_project_file_is_a_diagnostic_not_a_popup() {
     let mut s = with_environment();
     send(
         &mut s,
         json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }),
     );
     let dir = "file:///resilience-project";
-    let mut found = messages(&open(
-        &mut s,
-        &format!("{dir}/jacket.toml"),
-        1,
-        "[project]\nentry = 3\n",
-    ));
+    let config = format!("{dir}/jacket.toml");
+    let out = open(&mut s, &config, 1, "[project]\nentry = 3\n");
+    let problems = from_source(&out, &config, "jacket");
+    assert_eq!(problems.len(), 1, "{out:?}");
+    assert!(
+        problems[0]["message"]
+            .as_str()
+            .unwrap()
+            .contains("an array of strings"),
+        "{problems:?}"
+    );
     let main = format!("{dir}/main.jai");
     let text = "main :: () {\n    prin\n}\n";
+    let mut found = messages(&out);
     found.extend(messages(&open(&mut s, &main, 1, text)));
     let out = send(
         &mut s,
@@ -151,11 +173,7 @@ fn a_bad_project_file_is_reported_once_by_open_or_completion() {
         }),
     );
     found.extend(messages(&out));
-    assert_eq!(found.len(), 1, "{out:?}");
-    assert!(found[0].contains("jacket.toml"), "{found:?}");
-    assert!(found[0].contains("an array of strings"), "{found:?}");
-    let again = complete(&mut s, &main, 1, 8);
-    assert!(messages(&again).is_empty(), "{again:?}");
+    assert!(found.is_empty(), "{found:?}");
 }
 
 fn complete(s: &mut JsonSession, uri: &str, line: u32, character: u32) -> Vec<Value> {
@@ -245,8 +263,12 @@ fn unfinished_config_edits_do_not_apply_or_warn_until_saved() {
         );
     }
     let save = json!({"jsonrpc":"2.0","method":"textDocument/didSave","params":{"textDocument":{"uri":config}}});
-    assert_eq!(messages(&send(&mut s, save.clone())).len(), 1);
-    assert!(messages(&send(&mut s, save.clone())).is_empty());
+    for _ in 0..2 {
+        let out = send(&mut s, save.clone());
+        assert!(messages(&out).is_empty(), "{out:?}");
+        assert_eq!(from_source(&out, config, "jacket").len(), 1, "{out:?}");
+        assert!(from_source(&out, main, "jailint").is_empty(), "{out:?}");
+    }
     let out = open(
         &mut s,
         config,

@@ -5,7 +5,7 @@
 ## How it works
 
 ```
-src/extension.ts         activation, LanguageClient, restart, jacket.toml sync
+src/extension.ts         activation, LanguageClient, restart, jacket.toml documents
 src/discovery.ts         finding jailsp, jaic, jaifmt
 src/toolchain.ts         archive per platform, checksums, download, versioned install
 src/toolchainManager.ts  prompts, progress, remembered answers
@@ -18,7 +18,7 @@ scripts/build.ts schemas writes the jailint, jaifmt and jacket.toml JSON schemas
 
 - **Highlighting.** The grammar is generated from the keyword lists at the top of `build-grammar.ts`; `jailsp` semantic tokens refine it. A here-string whose terminator names a language (`#string WGSL ... WGSL`, also GLSL, SQL, JSON, HTML, ...) is highlighted as that language if its grammar is installed. A here-string's name may sit on a later line, after comments; TextMate reads one line at a time and cannot see it, so only `#string` and its flags are scoped there and the body shows as code. Neovim's syntax file follows the later line.
 - **Schemas.** `schemas/jacket.schema.json` is contributed through `tomlValidation`; completion and validation need Even Better TOML (`tamasfe.even-better-toml`).
-- **Language client.** Starts `jailsp` over stdio. `JAIC_STDLIB` comes from `jai.stdlib.path`, `JAIC_PRELUDE` from `jai.stdlib.prelude`; entry files, module folders and lint levels from the nearest `jacket.toml`, whose edits apply on save. Tool-path and prelude settings restart the server; live settings update it in place.
+- **Language client.** Starts `jailsp` over stdio. `JAIC_STDLIB` comes from `jai.stdlib.path`, `JAIC_PRELUDE` from `jai.stdlib.prelude`; entry files, module folders and lint levels from the nearest `jacket.toml`, whose edits apply on save. The document selector includes `**/jacket.toml`, so the client sends it and `jailsp` answers with its [problems, completion, hover and dependency hints](jacket-toml-in-the-editor.md). Tool-path and prelude settings restart the server; live settings update it in place.
 - **Binary discovery.** `jailsp`: `jai.server.path`, `PATH`, next to `jaic`, downloaded toolchain. `jaic` and `jaifmt` likewise. A configured path that doesn't exist is an error naming the setting. With `jai.toolchain.preferDownloaded`, the download comes before `PATH`. If the `jailsp` on `PATH` is older than the extension's, it warns once per `path@version`.
 - **Toolchain download.** With nothing found, `jai.toolchain.autoDownload` decides. The archive (`RELEASE_ASSETS`) is checked against `toolchain-manifest.json` ([releases](releases.md#toolchain-manifest)), unpacked with system `tar`, and installed under `<globalStorage>/toolchain/<version>/`; old versions are deleted after the new one lands.
 - **Formatting.** Format Document, Format Selection and format on save all go to `jailsp`'s formatting providers, which run `jaifmt` (see [the language server](../compiler/language-server.md)). The extension only finds `jaifmt` (`jai.formatter.path`, `PATH`, next to `jaic`, the downloaded toolchain) and sends the path as the server's `formatter.path` setting. A format that fails is logged in the *Jai Language Server* output, not shown as a popup.

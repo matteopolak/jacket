@@ -81,6 +81,8 @@ pub struct Session {
     pub(crate) lint_configs: BTreeMap<DocumentUri, Document>,
     /// Configuration snapshots committed by opening or saving, separate from edits.
     pub(crate) saved_configs: BTreeMap<DocumentUri, String>,
+    /// Where dependency hints in a `jacket.toml` come from; none, no hints.
+    pub(crate) dependency_source: Option<Rc<dyn crate::manifest::dependencies::Source>>,
     /// Auto-import completion is on (`jai.completion.autoImport`).
     pub(crate) auto_import: bool,
     /// What bounds the compile-time code of a check (the client's settings).
@@ -166,6 +168,7 @@ impl Session {
             synced_builds: std::cell::Cell::new(0),
             lint_configs: BTreeMap::new(),
             saved_configs: BTreeMap::new(),
+            dependency_source: None,
             auto_import: true,
             check_limits: jaic::ide::lint_compile::CheckLimits::default(),
             limit_notices: false,

@@ -1,5 +1,4 @@
 import * as os from "node:os";
-import * as path from "node:path";
 import * as vscode from "vscode";
 import { DidOpenTextDocumentNotification, LanguageClient, type LanguageClientOptions, type ServerOptions, TransportKind } from "vscode-languageclient/node";
 import { type JaicCommand, runJaic } from "./commands";
@@ -15,7 +14,6 @@ import { JacketTests, type JacketTool, type LensArgument } from "./testing";
 import { ToolchainManager, type Installed } from "./toolchainManager";
 
 /** The editable config buffer; jailsp applies its contents on save. */
-const SETTINGS_FILE = "jacket.toml";
 
 let client: LanguageClient | undefined;
 let log: vscode.LogOutputChannel;
@@ -129,7 +127,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<{ clie
     // Granting trust makes the workspace's settings (tool paths) count and lets jailsp run
     // compile-time code: a restart starts it trusted, from the settings now in force.
     vscode.workspace.onDidGrantWorkspaceTrust(() => void restart(expansions)),
-    ...syncSettingsFiles(),
     { dispose: () => void client?.stop() },
   );
 
@@ -239,8 +236,13 @@ async function startServer(expansions: ExpansionDocuments): Promise<void> {
     options: { env: toolEnvironment() },
   };
   const clientOptions: LanguageClientOptions = {
-    // jailsp needs `file://` URIs: unsaved and virtual documents are not sent.
-    documentSelector: [{ scheme: "file", language: "jai" }],
+    // jailsp needs `file://` URIs: unsaved and virtual documents are not sent. A `jacket.toml` is
+    // sent too (its problems, key and path completion, hover, dependency hints), and its edits
+    // apply to the Jai files when it is saved.
+    documentSelector: [
+      { scheme: "file", language: "jai" },
+      { scheme: "file", pattern: "**/jacket.toml" },
+    ],
     outputChannel: serverOutput,
     traceOutputChannel: serverOutput,
     // The stdlib comes from `JAIC_STDLIB`, the project's entry files and module folders from
@@ -260,21 +262,12 @@ async function startServer(expansions: ExpansionDocuments): Promise<void> {
   client = next;
   try {
     await next.start();
-    openSettingsFiles(next);
   } catch (error) {
     log.error(`jailsp did not start: ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
     void vscode.window.showErrorMessage(`Jai: the language server (${server.path}) did not start: ${String(error)}`, "Show Output").then((choice) => {
       if (choice) serverOutput.show();
     });
   }
-}
-
-// --- jacket.toml ------------------------------------------------------------------------
-// jailsp reads lint and project settings from the nearest jacket.toml on disk. Open TOML buffers are synchronised separately and applied on save;
-// the document selector stays Jai-only, so other requests are not sent for TOML.
-
-function isSettingsFile(document: vscode.TextDocument): boolean {
-  return document.uri.scheme === "file" && path.basename(document.uri.fsPath) === SETTINGS_FILE;
 }
 
 /**
@@ -316,53 +309,6 @@ function serverSettings(): {
   };
 }
 
-function openSettingsFiles(target: LanguageClient): void {
-  for (const document of vscode.workspace.textDocuments) if (isSettingsFile(document)) didOpen(target, document);
-}
-
-// A replacement opens the current buffers itself; queued events from its predecessor
-// are already represented in that snapshot and must not be sent to either client.
-function notifySettings(target: LanguageClient, method: string, params: unknown): void {
-  void schedule(async () => {
-    if (target === runningClient()) await target.sendNotification(method, params);
-  });
-}
-
-function didOpen(target: LanguageClient, document: vscode.TextDocument): void {
-  notifySettings(target, "textDocument/didOpen", {
-    textDocument: { uri: document.uri.toString(), languageId: "toml", version: document.version, text: document.getText() },
-  });
-}
-
 function runningClient(): LanguageClient | undefined {
   return client?.isRunning() ? client : undefined;
-}
-
-function syncSettingsFiles(): vscode.Disposable[] {
-  return [
-    vscode.workspace.onDidOpenTextDocument((document) => {
-      const target = runningClient();
-      if (target && isSettingsFile(document)) didOpen(target, document);
-    }),
-    vscode.workspace.onDidChangeTextDocument((event) => {
-      const target = runningClient();
-      if (!target || !isSettingsFile(event.document) || event.contentChanges.length === 0) return;
-      notifySettings(target, "textDocument/didChange", {
-        textDocument: { uri: event.document.uri.toString(), version: event.document.version },
-        contentChanges: [{ text: event.document.getText() }],
-      });
-    }),
-    vscode.workspace.onDidSaveTextDocument((document) => {
-      const target = runningClient();
-      if (target && isSettingsFile(document)) {
-        notifySettings(target, "textDocument/didSave", { textDocument: { uri: document.uri.toString() } });
-      }
-    }),
-    vscode.workspace.onDidCloseTextDocument((document) => {
-      const target = runningClient();
-      if (target && isSettingsFile(document)) {
-        notifySettings(target, "textDocument/didClose", { textDocument: { uri: document.uri.toString() } });
-      }
-    }),
-  ];
 }

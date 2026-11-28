@@ -866,7 +866,7 @@ is_empty!(
 
 /// The keys each table accepts, to suggest the near one for a misspelling. A test keeps these in
 /// step with the structs.
-pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
+pub fn known_keys(table: &str) -> &'static [&'static str] {
     match table {
         "" => &[
             "project",
@@ -1075,4 +1075,44 @@ fn edits(a: &str, b: &str) -> usize {
         }
     }
     d[a.len()][b.len()]
+}
+
+/// Every table of the file, with `<name>` where the table's name is the user's.
+pub fn tables() -> Vec<String> {
+    [
+        "",
+        "project",
+        "toolchain",
+        "lint",
+        "lint.lifetimes",
+        "lint.freestanding",
+        "lint.portability",
+        "format",
+        "experimental",
+        "postgres",
+        "test",
+        "test.profile.<name>",
+        "doc",
+        "doc.format",
+        "doc.category",
+        "doc.group",
+        "doc.page",
+        "doc.section",
+        "target.<name>",
+        "dependencies.<name>",
+        "resolver",
+        "package",
+    ]
+    .map(String::from)
+    .to_vec()
+}
+
+/// What `key` of `table` is for, in a line or two.
+pub fn describe(table: &str, key: &str) -> Option<&'static str> {
+    crate::docs::describe(table, key)
+}
+
+/// What `table` holds (`lint.portability`).
+pub fn describe_table(table: &str) -> Option<&'static str> {
+    crate::docs::describe_table(table)
 }

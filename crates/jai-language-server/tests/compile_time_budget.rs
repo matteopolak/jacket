@@ -89,7 +89,8 @@ fn the_evaluation_budget_bounds_each_evaluation() {
 
 #[test]
 fn a_project_cannot_raise_the_budget() {
-    // `[check]` is not a setting of the project: the budget stays what the client set.
+    // `[check]` is not a setting of the project: it is a problem in the file, and the budget
+    // stays what the client set.
     let dir = test_support::lsp::project(
         "budget-toml",
         &[
@@ -99,8 +100,13 @@ fn a_project_cannot_raise_the_budget() {
     );
     let (mut s, uri, _) = test_support::lsp::open_file(&dir, "main.jai");
     s.set_evaluation_budget(20_000);
-    let found = errors(s.diagnostics(&uri).unwrap());
-    assert_eq!(found.len(), 1, "{found:#?}");
+    let config = test_support::lsp::uri_of(&dir.join("jacket.toml"));
+    let text = std::fs::read_to_string(dir.join("jacket.toml")).unwrap();
+    s.open(config.clone(), 1, text).unwrap();
+    let problems = s.diagnostics(&config).unwrap();
+    assert_eq!(problems.len(), 1, "{problems:#?}");
+    assert!(problems[0].message.contains("unknown setting `check`"));
+    assert_eq!(errors(s.diagnostics(&uri).unwrap()), []);
 }
 
 #[test]

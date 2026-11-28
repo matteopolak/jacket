@@ -22,6 +22,10 @@ fn serve(untrusted: bool, stdlib: std::path::PathBuf) -> Result<u8, Box<dyn std:
     if untrusted {
         session.set_trusted(false);
     }
+    #[cfg(feature = "dependency-hints")]
+    session.set_dependency_source(std::rc::Rc::new(
+        jai_language_server::manifest::live::Live::default(),
+    ));
     let stdout = std::io::stdout();
     let mut output = stdout.lock();
     // Decode on the reader thread so only complete interactive messages interrupt checks.
@@ -110,6 +114,9 @@ fn serve(untrusted: bool, stdlib: std::path::PathBuf) -> Result<u8, Box<dyn std:
         }
         // Compile-time service answers that compiles read as pending: once one is in, the
         // open files are checked again (published after the usual debounce).
+        for message in session.dependency_arrivals()? {
+            output.write_all(&jai_language_server::framing::encode(&message))?;
+        }
         if session.services_waiting() {
             for message in session.service_arrivals()? {
                 output.write_all(&jai_language_server::framing::encode(&message))?;
@@ -223,7 +230,7 @@ fn serve(untrusted: bool, stdlib: std::path::PathBuf) -> Result<u8, Box<dyn std:
                 }
                 Err(std::sync::mpsc::TryRecvError::Disconnected) => Ok(Input::end()),
             }
-        } else if session.services_waiting() {
+        } else if session.services_waiting() || session.dependency_lookups_waiting() {
             match input.recv_timeout(SERVICE_POLL) {
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
                 Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Ok(Input::end()),

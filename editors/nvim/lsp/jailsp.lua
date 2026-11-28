@@ -6,8 +6,15 @@ local config = require('jai.config')
 ---@type vim.lsp.Config
 return {
   cmd = require('jai').server_cmd,
-  filetypes = { 'jai' },
-  root_markers = { 'jacket.toml', '.git' },
+  -- `jacket.toml` too: jailsp reports its problems and completes its keys and paths.
+  filetypes = { 'jai', 'toml' },
+  root_dir = function(bufnr, on_dir)
+    local is_toml = vim.bo[bufnr].filetype == 'toml'
+    if is_toml and vim.fs.basename(vim.api.nvim_buf_get_name(bufnr)) ~= 'jacket.toml' then
+      return
+    end
+    on_dir(vim.fs.root(bufnr, { 'jacket.toml', '.git' }))
+  end,
   handlers = {
     -- A compile-time limit stopped code while checking: say how to raise it.
     ['jai/compileTimeLimit'] = function(_, notice)

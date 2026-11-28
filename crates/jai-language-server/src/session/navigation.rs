@@ -206,6 +206,9 @@ impl Session {
         position: Position,
         kind: MarkupKind,
     ) -> Result<Option<Hover>, Error> {
+        if self.config_document(uri).is_some() {
+            return self.manifest_hover(uri, position, kind);
+        }
         let (uri, doc) = self.document_entry(uri)?;
         let byte = doc.index.byte(&doc.text, position);
         let found = |start: usize, end: usize, text: HoverText| -> Result<Option<Hover>, Error> {

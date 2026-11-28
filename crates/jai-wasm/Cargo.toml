@@ -11,7 +11,7 @@ build = "build.rs"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-jai-language-server = { path = "../jai-language-server" }
+jai-language-server = { path = "../jai-language-server", default-features = false }
 jaic = { path = "../jaic" }
 serde_json = "=1.0.154"
 miniz_oxide = { version = "0.9", default-features = false, features = ["with-alloc"] }

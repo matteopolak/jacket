@@ -10,7 +10,9 @@
 #![forbid(unsafe_code)]
 use std::path::{Path, PathBuf};
 
+mod docs;
 pub mod env;
+pub mod issues;
 pub mod llvm;
 pub mod os_text;
 pub mod packages;
@@ -20,6 +22,7 @@ pub mod test_roots;
 pub mod tools;
 pub mod version;
 
+pub use issues::{Issue, issues, key_span};
 pub use pattern::{PathPattern, PatternError, relative_text};
 pub use schema::{
     Config, Dependency, Experimental, FORMAT_SETTINGS, Fallback, Format, Freestanding, Kind,

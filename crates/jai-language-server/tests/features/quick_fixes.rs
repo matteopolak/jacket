@@ -110,10 +110,17 @@ fn an_open_jailint_toml_configures_the_lints() {
             "version": 1, "text": "[lint.rules]\nbool_comparison = \"allow\"\n"}}),
     );
     assert_eq!(lint_count(&published), 0);
-    // The settings file is not Jai: nothing is published for it.
+    // The settings file is published with its own problems, which it has none of.
+    let own: Vec<_> = published
+        .iter()
+        .filter(|m| m["params"]["uri"] == settings)
+        .collect();
+    assert_eq!(own.len(), 1, "{published:?}");
     assert!(
-        published.iter().all(|m| m["params"]["uri"] != settings),
-        "{published:?}"
+        own[0]["params"]["diagnostics"]
+            .as_array()
+            .unwrap()
+            .is_empty()
     );
     let published = notify(
         &mut json,
@@ -121,7 +128,10 @@ fn an_open_jailint_toml_configures_the_lints() {
         serde_json::json!({"textDocument": {"uri": settings, "version": 2},
             "contentChanges": [{"text": "[lint.rules]\nbool_comparison = \"deny\"\n"}]}),
     );
-    assert!(published.is_empty(), "typing must not apply settings");
+    assert!(
+        published.iter().all(|m| m["params"]["uri"] == settings),
+        "typing must not apply settings: {published:?}"
+    );
     let published = notify(
         &mut json,
         "textDocument/didSave",
@@ -425,7 +435,12 @@ fn strict_lifetime_configuration_is_applied_to_open_documents() {
         "uri": "file:///lsp-test/jacket.toml", "version": 2
     }, "contentChanges": [{"text": settings("must")}]}),
     );
-    assert!(messages.is_empty(), "settings apply on save");
+    assert!(
+        messages
+            .iter()
+            .all(|m| m["params"]["uri"] == "file:///lsp-test/jacket.toml"),
+        "settings apply on save: {messages:?}"
+    );
     let messages = notify(
         &mut json,
         "textDocument/didSave",

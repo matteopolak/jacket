@@ -22,7 +22,7 @@ Generated from the code by `tools/generators/generate_reference_docs.py`: [tools
 
 - [jacket](tools/jacket.md), [jaic command line](tools/cli.md), [jacket test](tools/jacket-test.md), [jacket bench](tools/jacket-bench.md), [jacket doc](tools/jacket-doc.md) ([site assets](tools/doc-site-assets.md)), [jacket migrate](tools/jacket-migrate.md), [dependencies](tools/dependencies.md).
 - [jaifmt](tools/jaifmt.md) ([rules](tools/jaifmt-rules.md)), [jailint](tools/jailint.md), [argdef](tools/argdef.md) (option parsing, help and completions).
-- Editors: [VS Code](tools/vscode-extension.md), [Neovim](tools/neovim-plugin.md), [workspace trust](tools/workspace-trust.md).
+- Editors: [VS Code](tools/vscode-extension.md), [Neovim](tools/neovim-plugin.md), [workspace trust](tools/workspace-trust.md), [`jacket.toml` in the editor](tools/jacket-toml-in-the-editor.md).
 - [Environment variables](tools/environment.md), [prerequisites](tools/prerequisites.md), [community chat](tools/community-chat.md).
 
 ## Language

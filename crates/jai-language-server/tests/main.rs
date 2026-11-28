@@ -104,6 +104,8 @@ mod indexing_progress;
 mod interpolates;
 #[path = "interrupted_check.rs"]
 mod interrupted_check;
+#[path = "jacket_toml.rs"]
+mod jacket_toml;
 #[path = "lifetime_perf.rs"]
 mod lifetime_perf;
 #[path = "linked_editing.rs"]

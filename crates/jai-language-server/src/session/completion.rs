@@ -243,6 +243,9 @@ impl Session {
         uri: &DocumentUri,
         position: Position,
     ) -> Result<CompletionList, Error> {
+        if self.config_document(uri).is_some() {
+            return self.manifest_completion(uri, position);
+        }
         let (uri, doc) = self.document_entry(uri)?;
         let byte = doc.index.byte(&doc.text, position);
         if let Some(list) = self.asm_completion(uri, &doc.text, byte) {

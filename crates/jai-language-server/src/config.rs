@@ -2,53 +2,59 @@
 //! initial settings with `didOpen` and commits edits with `didSave`, also in the browser).
 //!
 //! `[lint]` is checked here too, so a rule typo is one problem reported once, whichever feature
-//! reads the file first.
+//! reads the file first. A file with a problem gives no settings (`Broken`): what depends on them
+//! is left out until it is fixed, never run with defaults in their place.
 use crate::auto_import::Index;
 use crate::session::Session;
 use jacket_config::{Files, Loaded};
 use std::path::Path;
 
-/// The settings above `start`, with problems and notes sent to the client. A file that does not
-/// parse gives the default settings (and a message) until it is fixed.
-pub(crate) fn load(files: &dyn Files, index: &mut Index, start: &Path) -> Option<Loaded> {
-    let location = jacket_config::locate(files, start)?;
+/// A `jacket.toml` that does not read, or whose checks found a problem. The problems are the
+/// file's diagnostics (`Session::manifest_diagnostics`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Broken;
+
+/// The settings above `start`: `Ok(None)` when no `jacket.toml` is there.
+pub(crate) fn load(
+    files: &dyn Files,
+    index: &mut Index,
+    start: &Path,
+) -> Result<Option<Loaded>, Broken> {
+    let Some(location) = jacket_config::locate(files, start) else {
+        return Ok(None);
+    };
     let stamp = crate::auto_import::hash(&files.read(&location.file()).unwrap_or_default());
     if let Some((seen, loaded)) = index.configs.get(&location.dir)
         && *seen == stamp
     {
-        return Some(loaded.clone());
+        return loaded.clone().map(Some).ok_or(Broken);
     }
-    let loaded = read(files, index, location)?;
-    index
-        .configs
-        .insert(loaded.location.dir.clone(), (stamp, loaded.clone()));
-    Some(loaded)
+    let dir = location.dir.clone();
+    let loaded = read(files, index, location);
+    index.configs.insert(dir, (stamp, loaded.clone()));
+    loaded.map(Some).ok_or(Broken)
 }
 
 fn read(files: &dyn Files, index: &mut Index, location: jacket_config::Location) -> Option<Loaded> {
-    let mut loaded =
-        match jacket_config::load_at_checked(files, location.clone(), jailint::config::CHECKS) {
-            Ok(loaded) => loaded,
-            Err(error) => {
-                index.bad_config(&error.path, &error.message);
-                return Some(Loaded {
-                    config: jacket_config::Config::default(),
-                    location,
-                    notes: Vec::new(),
-                    problems: Vec::new(),
-                });
-            }
-        };
-    let source = loaded.file();
-    if loaded.problems.is_empty() {
-        index.good_config(&source);
-    } else {
-        for problem in &loaded.problems {
-            index.bad_config(&source, problem);
+    let file = location.file();
+    let loaded = match jacket_config::load_at_checked(files, location, jailint::config::CHECKS) {
+        Ok(loaded) => loaded,
+        Err(error) => {
+            index.bad_config(&error.path, &error.message);
+            return None;
         }
-        loaded.config.lint = jacket_config::Lint::default();
+    };
+    if let Some(problem) = loaded.problems.first() {
+        index.bad_config(&file, problem);
+        return None;
     }
+    index.good_config(&file);
     Some(loaded)
+}
+
+/// Whether the settings above `start` are broken.
+pub(crate) fn is_broken(files: &dyn Files, index: &mut Index, start: &Path) -> bool {
+    load(files, index, start).is_err()
 }
 
 /// Saved configuration snapshots and source buffers over the disk.

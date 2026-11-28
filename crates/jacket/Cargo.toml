@@ -9,6 +9,10 @@ documentation.workspace = true
 description = "The jacket command: one front door to the Jai compiler, linter, formatter and language server."
 autotests = false
 
+[lib]
+name = "jacket_dep"
+path = "src/lib.rs"
+
 [[bin]]
 name = "jacket"
 path = "src/main.rs"

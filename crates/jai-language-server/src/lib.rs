@@ -23,6 +23,7 @@ mod interpolation;
 pub mod large_alloc;
 mod lexical_recovery;
 pub mod lints;
+pub mod manifest;
 mod model;
 mod modules;
 mod named_arguments;
@@ -46,6 +47,9 @@ pub mod windows_alloc;
 
 pub use call_snippets::CallSnippets;
 pub use document::{DocumentUri, TextChange, VirtualSources};
+pub use manifest::dependencies::{
+    Request as DependencyRequest, Source as DependencySource, Standing as DependencyStanding,
+};
 pub use model::{
     CallHierarchyCall, CallHierarchyItem, CodeAction, CodeLens, Command, CompletionData,
     CompletionItem, CompletionKind, CompletionList, Diagnostic, DiagnosticCode, DiagnosticSeverity,

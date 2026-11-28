@@ -15,8 +15,15 @@ path = "src/main.rs"
 jaic = { path = "../jaic" }
 jailint = { path = "../jailint", default-features = false }
 jacket-config = { path = "../jacket-config" }
+jacket = { path = "../jacket", optional = true }
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.154"
+
+[features]
+default = ["dependency-hints"]
+# Hints on the `[dependencies]` of a `jacket.toml`, found with git and the forges' APIs by a
+# background thread. The browser build has neither.
+dependency-hints = ["dep:jacket"]
 
 [target.'cfg(windows)'.dependencies]
 mimalloc = { version = "=0.1.52", default-features = false }

@@ -77,7 +77,7 @@ fn warnings(messages: &[Value]) -> usize {
 }
 
 #[test]
-fn save_and_watcher_notifications_report_one_problem() {
+fn save_and_watcher_notifications_publish_the_problem_without_a_popup() {
     let dir = test_support::lsp::project(
         "saved-config-watcher",
         &[
@@ -117,7 +117,20 @@ fn save_and_watcher_notifications_report_one_problem() {
     std::fs::write(dir.join("jacket.toml"), "import-path =").unwrap();
     let save = json!({"jsonrpc":"2.0","method":"textDocument/didSave","params":{"textDocument":{"uri":config}}});
     let watch = json!({"jsonrpc":"2.0","method":"workspace/didChangeWatchedFiles","params":{"changes":[{"uri":config,"type":2}]}});
-    assert_eq!(warnings(&send(&mut s, save.clone())), 1);
+    let problems = |messages: &[Value]| {
+        messages
+            .iter()
+            .filter(|m| {
+                m["method"] == "textDocument/publishDiagnostics"
+                    && m["params"]["uri"] == config
+                    && m["params"]["diagnostics"]
+                        .as_array()
+                        .is_some_and(|d| !d.is_empty())
+            })
+            .count()
+    };
+    let saved = send(&mut s, save.clone());
+    assert_eq!((warnings(&saved), problems(&saved)), (0, 1));
     assert_eq!(warnings(&send(&mut s, watch.clone())), 0);
     assert_eq!(warnings(&send(&mut s, save)), 0);
     assert_eq!(warnings(&send(&mut s, watch)), 0);

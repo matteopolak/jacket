@@ -142,7 +142,17 @@ impl JsonSession {
             return Ok(messages);
         }
         if settings {
-            return Ok(vec![]);
+            // Typing changes what the file says is wrong with it, not what the Jai files show:
+            // that waits for the save.
+            if self.pull_diagnostics {
+                return Ok(vec![]);
+            }
+            return Ok(Self::publication_messages(
+                self.session
+                    .config_publication(&target)
+                    .into_iter()
+                    .collect(),
+            ));
         }
         Ok(self.edited(false))
     }

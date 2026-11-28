@@ -52,21 +52,33 @@ impl ActionContext {
 
 impl Session {
     /// Settings for the document at `path`: the nearest `jacket.toml` (open, else on disk), or
-    /// the defaults; `None` when it excludes the document.
+    /// the defaults when there is none; `None` when it excludes the document, or when the file
+    /// is broken (its problems are its own diagnostics).
     pub(crate) fn lint_config(&self, path: &Path) -> Option<Config> {
-        let config = self.find_lint_config(path).unwrap_or_default();
+        let config = match self.find_lint_config(path) {
+            Ok(found) => found.unwrap_or_default(),
+            Err(crate::config::Broken) => return None,
+        };
         (!config.excluded(path)).then_some(config)
     }
 
-    fn find_lint_config(&self, path: &Path) -> Option<Config> {
+    fn find_lint_config(&self, path: &Path) -> Result<Option<Config>, crate::config::Broken> {
+        let Some(start) = path.parent() else {
+            return Ok(None);
+        };
         let mut index = self.index.borrow_mut();
-        let loaded = crate::config::load(
-            &crate::config::SessionFiles(self),
-            &mut index,
-            path.parent()?,
-        )?;
+        let loaded = crate::config::load(&crate::config::SessionFiles(self), &mut index, start)?;
         // `load` checked `[lint]`: it holds nothing invalid.
-        Config::from_lint(&loaded.config.lint, loaded.dir()).ok()
+        Ok(loaded.and_then(|loaded| Config::from_lint(&loaded.config.lint, loaded.dir()).ok()))
+    }
+
+    /// Whether the `jacket.toml` that applies to the document at `path` is broken.
+    pub(crate) fn config_broken(&self, path: &Path) -> bool {
+        let Some(start) = path.parent() else {
+            return false;
+        };
+        let mut index = self.index.borrow_mut();
+        crate::config::is_broken(&crate::config::SessionFiles(self), &mut index, start)
     }
 
     /// Lints of the open document `uri`, from the cached compile of its program.

@@ -24,6 +24,7 @@ impl GitError {
         }
     }
 
+    #[must_use]
     pub fn note(mut self, note: impl Into<String>) -> Self {
         self.notes.push(note.into());
         self

@@ -245,6 +245,13 @@ impl Session {
 
     fn publications_at(&self, stage: Stage) -> Vec<(String, i32, Vec<Diagnostic>)> {
         let _background = self.background();
+        let configs = self.lint_configs.iter().map(|(uri, doc)| {
+            (
+                uri.as_str().to_string(),
+                doc.version,
+                self.manifest_diagnostics(uri),
+            )
+        });
         self.documents
             .iter()
             .filter_map(|(uri, doc)| {
@@ -257,6 +264,7 @@ impl Session {
                     .ok()?;
                 Some((uri.as_str().into(), doc.version, diagnostics))
             })
+            .chain(configs)
             .collect()
     }
 
@@ -376,6 +384,9 @@ impl Session {
     /// The diagnostics a pull answers with. `Error::CheckUnavailable` when the check did not
     /// finish (stopped, failed, or deferred): an empty list would wipe what the client shows.
     pub fn diagnostics(&self, uri: &DocumentUri) -> Result<Vec<Diagnostic>, Error> {
+        if self.config_document(uri).is_some() {
+            return Ok(self.manifest_diagnostics(uri));
+        }
         if let Some(cached) = self.cached_workspace_diagnostics(uri) {
             return Ok(cached);
         }
@@ -402,6 +413,11 @@ impl Session {
         all: &mut Vec<Diagnostic>,
         stage: Stage,
     ) -> Result<(), Error> {
+        // What the compile and the lints find depends on the file's settings: none are
+        // published while they are broken. Syntax errors do not depend on them.
+        if self.config_broken(Path::new(uri.path())) {
+            return Ok(());
+        }
         let mut found: Vec<Diagnostic> = self
             .try_check_findings(uri)?
             .into_iter()

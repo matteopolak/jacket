@@ -129,14 +129,15 @@ pub(crate) struct Index {
     open: BTreeMap<PathBuf, (u64, Rc<FileScan>)>,
     /// The `.jai` files on disk under each walked folder.
     walked: BTreeMap<PathBuf, Rc<Vec<PathBuf>>>,
-    /// Settings files that did not parse, with the problem last reported for each.
+    /// Settings files that did not read, with the problem last reported for each.
     reported: BTreeMap<PathBuf, String>,
-    /// Messages for the client not sent yet.
-    pending: Vec<String>,
+    /// Messages for the client not sent yet, with the settings file one is about.
+    pending: Vec<(Option<PathBuf>, String)>,
     /// Log lines for the client not sent yet.
     logs: Vec<String>,
     /// The settings read for each config directory, with a hash of the text they were read from.
-    pub(crate) configs: BTreeMap<PathBuf, (u64, jacket_config::Loaded)>,
+    /// `None` for a file that does not read or has problems.
+    pub(crate) configs: BTreeMap<PathBuf, (u64, Option<jacket_config::Loaded>)>,
 }
 
 impl Index {
@@ -144,16 +145,20 @@ impl Index {
         self.epoch
     }
 
-    /// The settings file `path` does not parse: tell the client once per distinct problem.
+    /// The settings file `path` does not read: tell the client once per distinct problem, unless
+    /// it shows the file's own diagnostics (see `Session::take_messages`).
     pub(crate) fn bad_config(&mut self, path: &Path, problem: &str) {
         if self.reported.get(path).is_some_and(|p| p == problem) {
             return;
         }
         self.reported
             .insert(path.to_path_buf(), problem.to_string());
-        self.pending.push(format!(
-            "{}: {problem}. The defaults are used until it is fixed.",
-            path.display()
+        self.pending.push((
+            Some(path.to_path_buf()),
+            format!(
+                "{}: {problem}. Diagnostics that depend on it are off until it is fixed.",
+                path.display()
+            ),
         ));
     }
 
@@ -174,11 +179,11 @@ impl Index {
 
     /// A message for the client, sent once.
     pub(crate) fn notify(&mut self, message: String) {
-        self.pending.push(message);
+        self.pending.push((None, message));
     }
 
-    /// Messages for the client, once.
-    pub(crate) fn take_messages(&mut self) -> Vec<String> {
+    /// Messages for the client, once, with the settings file each is about.
+    pub(crate) fn take_messages(&mut self) -> Vec<(Option<PathBuf>, String)> {
         std::mem::take(&mut self.pending)
     }
 

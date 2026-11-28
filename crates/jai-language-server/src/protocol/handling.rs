@@ -215,6 +215,31 @@ impl JsonSession {
         self.session.services_waiting()
     }
 
+    /// Where the hints on a `jacket.toml`'s dependencies come from.
+    pub fn set_dependency_source(
+        &mut self,
+        source: std::rc::Rc<dyn crate::manifest::dependencies::Source>,
+    ) {
+        self.session.set_dependency_source(source);
+    }
+
+    /// A dependency lookup is still running: poll `dependency_arrivals` now and then.
+    pub fn dependency_lookups_waiting(&self) -> bool {
+        self.session.dependency_lookups_waiting()
+    }
+
+    /// Asks the client for its inlay hints again when a dependency lookup finished.
+    pub fn dependency_arrivals(&mut self) -> Result<Vec<String>, ProtocolError> {
+        if !self.session.take_dependency_arrivals() || !self.refresh_inlay_hints {
+            return Ok(Vec::new());
+        }
+        let messages: Vec<_> = self
+            .refresh_request("workspace/inlayHint/refresh")
+            .into_iter()
+            .collect();
+        self.encode_unprompted(messages)
+    }
+
     /// Checks the open files again when pending service answers came in (publishing, or asking
     /// a pulling client to pull).
     pub fn service_arrivals(&mut self) -> Result<Vec<String>, ProtocolError> {

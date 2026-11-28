@@ -412,6 +412,7 @@ dependencies = [
 name = "jai-language-server"
 version = "0.40.0"
 dependencies = [
+ "jacket",
  "jacket-config",
  "jaic",
  "jailint",

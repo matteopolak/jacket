@@ -80,8 +80,10 @@ impl Sources<'_> {
                     .iter()
                     .map(|p| project::normalize(p)),
             );
-            // A module below a dependency's repository root is found through its parent.
-            if let Some(loaded) = crate::config::load(self, index, folder) {
+            // A module below a dependency's repository root is found through its parent. A
+            // broken file adds nothing: its problems are its own diagnostics, and Jai diagnostics
+            // wait until it is fixed.
+            if let Ok(Some(loaded)) = crate::config::load(self, index, folder) {
                 deps.extend(
                     jacket_config::packages::dependency_dirs(folder, &loaded.config)
                         .into_iter()

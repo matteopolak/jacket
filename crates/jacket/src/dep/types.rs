@@ -208,6 +208,7 @@ impl SubPath {
     }
 
     /// `inner`, a folder of the repository checked out here, as a folder of the project.
+    #[must_use]
     pub fn join(&self, inner: &SubPath) -> SubPath {
         Self(format!("{}/{}", self.0, inner.0))
     }

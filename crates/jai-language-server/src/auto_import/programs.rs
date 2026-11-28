@@ -92,8 +92,8 @@ impl Sources<'_> {
     }
 
     /// The nearest config directory at or above `file` that configures a project (has a
-    /// `[project]` section): its folder and settings (the defaults when the file does not
-    /// parse). A `jacket.toml` that only holds `[lint]` or `[format]` does not make its folder
+    /// `[project]` section): its folder and settings (the defaults when the file does
+    /// not read: the diagnostics that depend on it wait, see `Session::config_broken`). A `jacket.toml` that only holds `[lint]` or `[format]` does not make its folder
     /// a project, so a repository-wide one does not make every file in it part of one program.
     pub(crate) fn config(
         &self,
@@ -102,7 +102,14 @@ impl Sources<'_> {
     ) -> Option<(PathBuf, ProjectConfig)> {
         let mut dir = file.parent()?.to_path_buf();
         loop {
-            let loaded = crate::config::load(self, index, &dir)?;
+            // A broken file's folder is still the project's, with the entries it would infer.
+            // What the settings would have changed is not applied, and no diagnostics are
+            // published for the file's programs (`Session::config_broken`).
+            let Ok(loaded) = crate::config::load(self, index, &dir) else {
+                let location = jacket_config::locate(self, &dir)?;
+                return Some((location.dir, ProjectConfig::default()));
+            };
+            let loaded = loaded?;
             if !loaded.config.project.is_empty() {
                 return Some((loaded.location.dir, loaded.config.project));
             }
@@ -146,7 +153,10 @@ impl Sources<'_> {
     /// its own (`jaic::test_notes::test_program_root`) in the test roots `[test] paths` names
     /// (`jacket_config::test_roots::is_root`), else in `base`.
     fn test_programs(&self, index: &mut Index, base: &Path) -> Vec<PathBuf> {
+        // A broken file names no test paths: the default roots stand until it is fixed.
         let config = crate::config::load(self, index, base)
+            .ok()
+            .flatten()
             .filter(|loaded| loaded.location.dir == base)
             .map(|loaded| loaded.config)
             .unwrap_or_default();

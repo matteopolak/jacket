@@ -124,6 +124,18 @@ T[':Jai restart brings the server back'] = function()
   end, 'a new client to attach')
 end
 
+T['jacket.toml gets its problems as diagnostics'] = function()
+  local toml = vim.fs.dirname(file) .. '/jacket.toml'
+  vim.fn.writefile({ '[lint]', 'max-nestng = 3' }, toml)
+  vim.cmd.edit(toml)
+  local buf = vim.api.nvim_get_current_buf()
+  h.wait_for(30000, function()
+    return #vim.diagnostic.get(buf) > 0
+  end, 'the jacket.toml diagnostic')
+  local found = vim.diagnostic.get(buf)[1]
+  assert(found.lnum == 1 and found.message:find('max-nesting', 1, true), vim.inspect(found))
+end
+
 T['the server stops with the editor'] = function()
   vim.lsp.enable('jailsp', false)
   h.wait_for(10000, function()

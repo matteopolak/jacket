@@ -40,6 +40,7 @@ impl Source {
     /// With a relative local path made absolute from `base`, so every command reaches the same
     /// repository from any folder (git would otherwise resolve `./x` against a remote for a
     /// submodule and against the current folder for everything else).
+    #[must_use]
     pub fn resolved(&self, base: &std::path::Path) -> Self {
         if self.0.starts_with("./") || self.0.starts_with("../") {
             let mut path = base.to_path_buf();

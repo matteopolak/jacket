@@ -510,3 +510,73 @@ fn dependencies_read_inline_tables_and_the_resolver_policy() {
     assert_eq!(config.resolver.seed.as_deref(), Some("k3v9q2xh"));
     assert!(unknown_note(&unknown[0]).contains("did you mean `resolver.dedupe`?"));
 }
+
+fn slice<'a>(text: &'a str, issue: &Issue) -> &'a str {
+    &text[issue.span.clone().expect("the issue has a place")]
+}
+
+#[test]
+fn an_unknown_key_is_an_issue_at_the_key() {
+    let text = "[lint]\nmax-nestng = 3\n[resolver]\nseeed = \"k\"\n";
+    let found = issues(text, Path::new("/p"), &[]);
+    assert_eq!(found.len(), 2);
+    assert_eq!(slice(text, &found[0]), "max-nestng");
+    assert!(
+        found[0]
+            .message
+            .contains("did you mean `lint.max-nesting`?")
+    );
+    assert_eq!(slice(text, &found[1]), "seeed");
+}
+
+#[test]
+fn a_syntax_or_type_error_is_an_issue_at_the_fault() {
+    let text = "[lint]\nmax-nesting = \"deep\"\n";
+    let found = issues(text, Path::new("/p"), &[]);
+    assert_eq!(found.len(), 1);
+    assert_eq!(slice(text, &found[0]), "\"deep\"");
+    let text = "[lint\nmax-nesting = 3\n";
+    let found = issues(text, Path::new("/p"), &[]);
+    assert_eq!(found.len(), 1);
+    assert!(found[0].span.is_some());
+}
+
+#[test]
+fn a_failed_check_is_an_issue_at_the_key_it_names() {
+    fn rules(config: &Config, _: &Path) -> Result<(), String> {
+        match config.lint.rules.keys().next() {
+            Some(name) => Err(format!("unknown rule `{name}`")),
+            None => Ok(()),
+        }
+    }
+    let text = "[lint.rules]\nunused_varible = \"deny\"\n";
+    let found = issues(text, Path::new("/p"), &[rules]);
+    assert_eq!(found.len(), 1);
+    assert_eq!(slice(text, &found[0]), "unused_varible");
+    assert_eq!(found[0].message, "unknown rule `unused_varible`");
+}
+
+#[test]
+fn a_valid_file_has_no_issues() {
+    assert!(issues("[project]\nentry = [\"main.jai\"]\n", Path::new("/p"), &[]).is_empty());
+}
+
+#[test]
+fn every_key_has_a_description() {
+    for table in schema::tables() {
+        for key in schema::known_keys(&table) {
+            assert!(
+                schema::describe(&table, key).is_some(),
+                "`{table}` `{key}` has no description"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_description_is_found_through_a_table_name_that_stands_for_many() {
+    assert!(schema::describe("dependencies.jaison", "git").is_some());
+    assert!(schema::describe("test.profile.ci", "jobs").is_some());
+    assert!(schema::describe("target.pico", "triple").is_some());
+    assert!(schema::describe("lint", "no-such-key").is_none());
+}
