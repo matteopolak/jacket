@@ -90,9 +90,10 @@ pub fn module_asm(arch: crate::abi::Arch, macho: bool) -> Option<String> {
             false,
         ),
         Arch::X86 => ("", include_str!("fiber/i386-sysv.s"), !macho),
-        // No fiber switch for these yet: `fibers` is refused on them.
         Arch::Arm32 => ("", include_str!("fiber/arm-aapcs32.s"), !macho),
-        Arch::Wasm | Arch::S390x | Arch::PowerPc64 | Arch::Avr => return None,
+        Arch::S390x => ("", include_str!("fiber/s390x-elf.s"), true),
+        // No fiber switch for these yet: `fibers` is refused on them.
+        Arch::Wasm | Arch::PowerPc64 | Arch::Avr => return None,
     };
     let note = if elf {
         ELF_NOTE
@@ -241,6 +242,8 @@ mod tests {
             (Arch::Aarch64, true),
             (Arch::Win64Arm, false),
             (Arch::X86, false),
+            (Arch::Arm32, false),
+            (Arch::S390x, false),
         ] {
             let text = super::module_asm(arch, macho).unwrap();
 
@@ -253,7 +256,10 @@ mod tests {
 
             assert_eq!(
                 text.contains(".note.GNU-stack"),
-                matches!(arch, Arch::X86_64 | Arch::Aarch64 | Arch::X86) && !macho
+                matches!(
+                    arch,
+                    Arch::X86_64 | Arch::Aarch64 | Arch::X86 | Arch::Arm32 | Arch::S390x
+                ) && !macho
             );
         }
 
