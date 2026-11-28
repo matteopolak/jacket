@@ -134,6 +134,8 @@ mod no_compile_in_requests;
 mod note_readers;
 #[path = "outline.rs"]
 mod outline;
+#[path = "package_versions.rs"]
+mod package_versions;
 #[path = "partial_edits.rs"]
 mod partial_edits;
 #[path = "poly_hints.rs"]

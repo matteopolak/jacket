@@ -257,9 +257,15 @@ pub(super) fn compile(
     // Metaprograms may compile other programs (`compiler_create_workspace`): those are checked
     // the same way, with no output and the same host, and their compile-time code is bounded
     // by the same limits.
+    // Each dependency's own folders and routed copies, as the build passes them.
+    let mut compiler_options = options();
+    // An unreadable `jacket.toml` was already reported when the import folders were found
+    // (`modules.rs`), so the compile goes on without per-package folders.
+    compiler_options.package_imports =
+        crate::dependencies::package_imports(&*fs, root).unwrap_or_default();
     let mut started = LintCompile::start(LintSetup {
         fs: fs.clone(),
-        options: options(),
+        options: compiler_options,
         host: host.clone(),
         observer: Some(Box::new(Built {
             added: added.clone(),

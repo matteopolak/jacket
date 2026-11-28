@@ -93,7 +93,7 @@ pub struct Resolver {
     /// `jacket dep add`. Without one the jitter is hashed from the package and version alone.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seed: Option<String>,
-    /// Experimental: solve every package's ranges together and share one copy per name.
+    /// Solve every package's ranges together and share one copy per compatible version group (default `true`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dedupe: Option<bool>,
 }

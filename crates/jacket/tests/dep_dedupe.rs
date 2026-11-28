@@ -134,7 +134,7 @@ impl World {
         let resolver = if dedupe {
             "[resolver]\ndedupe = true\n"
         } else {
-            ""
+            "[resolver]\ndedupe = false\n"
         };
         Self {
             project: Project::waived(&format!("[project]\nentry = [\"main.jai\"]\n{resolver}")),
@@ -416,33 +416,90 @@ fn a_shared_entry_cannot_be_removed_or_updated_by_name() {
     }
 }
 
-#[test]
-fn ranges_nothing_satisfies_name_every_requirer_and_leave_nothing_added() {
-    let mut world = World::new(true);
-    world.package("qlib", &qlib());
+/// `alpha` and `beta` need `qlib 1.x` and `gamma` needs `2.x`; only version 2 has
+/// `only_in_two`, which `gamma` calls.
+fn groups(world: &mut World) {
+    let mut versions = qlib();
+    versions[3] = version("v2.0.0").body("only_in_two :: () -> s64 { return 2; }\n");
+    world.package("qlib", &versions);
     world.package(
         "alpha",
         &[version("v1.0.0").needs(&[need("qlib", "^1.0", "v1.2.0")])],
     );
     world.package(
         "beta",
-        &[version("v1.0.0").needs(&[need("qlib", "^2.0", "v2.0.0")])],
+        &[version("v1.0.0").needs(&[need("qlib", "^1.1", "v1.4.0")])],
     );
-    assert_eq!(world.add("alpha", "^1").code, 0);
-    let run = world.add("beta", "^1");
-    assert_ne!(run.code, 0);
-    assert!(
-        run.err.contains("alpha needs ^1.0") && run.err.contains("beta needs ^2.0"),
-        "{}",
-        run.err
+    world.package(
+        "gamma",
+        &[version("v1.0.0")
+            .needs(&[need("qlib", "^2.0", "v2.0.0")])
+            .body("gamma_two :: () -> s64 { return only_in_two(); }\n")],
+    );
+}
+
+const GROUPS: &str = "#import \"Basic\";\n#import \"alpha\";\n#import \"beta\";\n#import \"gamma\";\nmain :: () {\n    print(\"% %\\n\", alpha_via_qlib(), gamma_two());\n}\n";
+
+fn add_all(world: &World, names: &[&str]) {
+    for name in names {
+        let run = world.add(name, "^1");
+        assert_eq!(run.code, 0, "{name}: {}{}", run.out, run.err);
+    }
+}
+
+#[test]
+fn incompatible_ranges_get_one_copy_per_group_and_each_package_finds_its_own() {
+    let mut world = World::new(true);
+    groups(&mut world);
+    world.main(GROUPS);
+    add_all(&world, &["alpha", "beta", "gamma"]);
+    // The larger group (`1.x`, two requirers) is the shared copy; `2.x` is set apart.
+    assert_eq!(
+        world.copies("qlib"),
+        ["modules/.versions/qlib@2/qlib", "modules/qlib"]
     );
     let toml = world.project.toml();
-    assert!(toml.contains("alpha") && !toml.contains("beta"), "{toml}");
-    assert!(!world.project.dir.join("modules/beta").exists());
-    assert!(
-        world.project.toml().contains("qlib"),
-        "alpha still needs qlib"
+    assert!(toml.contains("tag = \"v1.4.0\""), "{toml}");
+    assert!(toml.contains("tag = \"v2.0.0\""), "{toml}");
+    let run = world.check();
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    let check = world.project.jacket(&["dep", "check", "--offline"]);
+    assert_eq!(check.code, 0, "{}{}", check.out, check.err);
+}
+
+#[test]
+fn the_projects_own_group_is_the_shared_copy() {
+    let mut world = World::new(true);
+    groups(&mut world);
+    world.main(GROUPS);
+    let run = world.add("qlib", "^2");
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    add_all(&world, &["alpha", "beta", "gamma"]);
+    assert_eq!(
+        world.copies("qlib"),
+        ["modules/.versions/qlib@1/qlib", "modules/qlib"]
     );
+    assert_eq!(
+        git(
+            &world.project.dir.join("modules/qlib"),
+            &["describe", "--tags"]
+        ),
+        "v2.0.0"
+    );
+    let run = world.check();
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+}
+
+#[test]
+fn a_group_nobody_needs_any_more_is_removed() {
+    let mut world = World::new(true);
+    groups(&mut world);
+    world.main(GROUPS);
+    add_all(&world, &["alpha", "beta", "gamma"]);
+    let run = world.project.jacket(&["dep", "remove", "gamma"]);
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    assert_eq!(world.copies("qlib"), ["modules/qlib"]);
+    assert!(!world.project.toml().contains("qlib@2"));
 }
 
 #[test]

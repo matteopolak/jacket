@@ -1687,7 +1687,7 @@
         },
         "dedupe": {
           "type": "boolean",
-          "markdownDescription": "Experimental: solve every package's ranges together and share one copy per name."
+          "markdownDescription": "Solve every package's ranges together and share one copy per compatible version group (default `true`)."
         }
       }
     },

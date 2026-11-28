@@ -128,7 +128,7 @@ utf8 = { git = "github.com/x/utf8", version = "^0.4" }
 - `import-path` applies only to your library's files. Your library can't change which `Basic` or other module the rest of a program gets.
 - Only `[package]` and `[dependencies]` are read from a dependency. Its targets, lint and format settings never affect the program that uses it.
 
-Your library's own dependencies are checked out inside its folder, so each library gets its own copy. Two libraries that share a type through a third need one copy of it; `dedupe = true` under `[resolver]` does that, but it is experimental.
+Your library's own dependencies are shared: `jacket dep` keeps one copy of each module per group of compatible versions (the same `^1` or `0.minor` rule as Cargo), so two libraries that share a type through a third see the same type. Set `dedupe = false` under `[resolver]` to give each library its own nested copy instead.
 
 ## Where to go next
 

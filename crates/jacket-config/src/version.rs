@@ -1,0 +1,362 @@
+//! Version schemes, tag parsing and ranges.
+//!
+//! Tags come from `git ls-remote --tags`. A scheme decides which tags are versions and how they
+//! order; a range picks among them. Semver uses Cargo's range spelling (`^1.2`, `~1.2.3`,
+//! `>=1.0, <2.0`, `=1.4.0`, `*`); calendar and integer versions take only comparisons.
+use std::cmp::Ordering;
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Scheme {
+    /// `1.2.3`, `v1.2.3`, `1.2.3-rc.1`; two-part tags read as `x.y.0`.
+    #[default]
+    Semver,
+    /// `2024.05.01`, `2024.5`, `24.05`, compared field by field.
+    Calendar,
+    /// `42`, `r42`, `v42`.
+    Integer,
+}
+
+impl Scheme {
+    /// How `--scheme` and `jacket.toml` spell it.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Semver => "semver",
+            Self::Calendar => "calendar",
+            Self::Integer => "integer",
+        }
+    }
+
+    pub fn parse(text: &str) -> Result<Self, String> {
+        match text {
+            "semver" => Ok(Self::Semver),
+            "calendar" => Ok(Self::Calendar),
+            "integer" => Ok(Self::Integer),
+            other => Err(format!(
+                "unknown scheme `{other}`: use `semver`, `calendar` or `integer`"
+            )),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Version {
+    Semver(semver::Version),
+    /// Calendar fields, or the one integer.
+    Parts(Vec<u64>),
+}
+
+impl Ord for Version {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (self, other) {
+            (Self::Semver(a), Self::Semver(b)) => a.cmp(b),
+            (Self::Parts(a), Self::Parts(b)) => cmp_parts(a, b),
+            (Self::Semver(_), Self::Parts(_)) => Ordering::Less,
+            (Self::Parts(_), Self::Semver(_)) => Ordering::Greater,
+        }
+    }
+}
+
+impl PartialOrd for Version {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+fn cmp_parts(a: &[u64], b: &[u64]) -> Ordering {
+    (0..a.len().max(b.len()))
+        .map(|i| {
+            a.get(i)
+                .copied()
+                .unwrap_or(0)
+                .cmp(&b.get(i).copied().unwrap_or(0))
+        })
+        .find(|o| o.is_ne())
+        .unwrap_or(Ordering::Equal)
+}
+
+impl Version {
+    /// The name of the group of versions that can share one copy: the major (`1`), or
+    /// `0.<minor>` below `1.0.0`, as Cargo unifies. Calendar and integer versions are
+    /// compatible only with themselves, so each is its own group.
+    pub fn compat_key(&self) -> String {
+        match self {
+            Self::Semver(v) if v.major > 0 => v.major.to_string(),
+            Self::Semver(v) if v.minor > 0 => format!("0.{}", v.minor),
+            Self::Semver(v) => format!("0.0.{}", v.patch),
+            Self::Parts(parts) => parts
+                .iter()
+                .map(u64::to_string)
+                .collect::<Vec<_>>()
+                .join("."),
+        }
+    }
+
+    pub fn is_prerelease(&self) -> bool {
+        matches!(self, Self::Semver(v) if !v.pre.is_empty())
+    }
+}
+
+impl std::fmt::Display for Version {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Semver(v) => write!(f, "{v}"),
+            Self::Parts(p) => {
+                let text: Vec<String> = p.iter().map(u64::to_string).collect();
+                write!(f, "{}", text.join("."))
+            }
+        }
+    }
+}
+
+fn numbers(text: &str) -> Option<Vec<u64>> {
+    text.split('.')
+        .map(|part| {
+            (!part.is_empty() && part.bytes().all(|b| b.is_ascii_digit()))
+                .then(|| part.parse().ok())
+                .flatten()
+        })
+        .collect()
+}
+
+/// The version a tag names under `scheme`, after stripping `prefix`; `None` for a tag that is
+/// not one.
+pub fn parse_tag(scheme: Scheme, prefix: Option<&str>, tag: &str) -> Option<Version> {
+    let rest = match prefix {
+        Some(prefix) => tag.strip_prefix(prefix)?,
+        None => tag,
+    };
+    match scheme {
+        Scheme::Semver => {
+            let rest = rest.strip_prefix(['v', 'V']).unwrap_or(rest);
+            let (core, tail) = rest.split_at(rest.find(['-', '+']).unwrap_or(rest.len()));
+            let fields = numbers(core)?;
+            if !(2..=3).contains(&fields.len()) {
+                return None;
+            }
+            let full = format!(
+                "{}{tail}",
+                (0..3)
+                    .map(|i| fields.get(i).copied().unwrap_or(0).to_string())
+                    .collect::<Vec<_>>()
+                    .join(".")
+            );
+            semver::Version::parse(&full).ok().map(Version::Semver)
+        }
+        Scheme::Calendar => {
+            let rest = rest.strip_prefix(['v', 'V']).unwrap_or(rest);
+            let fields = numbers(rest)?;
+            (2..=4)
+                .contains(&fields.len())
+                .then_some(Version::Parts(fields))
+        }
+        Scheme::Integer => {
+            let rest = rest.strip_prefix(['v', 'V', 'r', 'R']).unwrap_or(rest);
+            let fields = numbers(rest)?;
+            (fields.len() == 1).then_some(Version::Parts(fields))
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Op {
+    Eq,
+    Gt,
+    Ge,
+    Lt,
+    Le,
+}
+
+#[derive(Clone, Debug)]
+pub enum Range {
+    Semver(semver::VersionReq),
+    /// Comparisons that must all hold; empty is `*`.
+    Compare(Vec<(Op, Vec<u64>)>),
+}
+
+pub fn parse_range(scheme: Scheme, text: &str) -> Result<Range, String> {
+    let text = text.trim();
+    match scheme {
+        Scheme::Semver => semver::VersionReq::parse(text)
+            .map(Range::Semver)
+            .map_err(|e| format!("`{text}` is not a version range: {e}")),
+        Scheme::Calendar | Scheme::Integer => {
+            if text == "*" {
+                return Ok(Range::Compare(Vec::new()));
+            }
+            let mut all = Vec::new();
+            for part in text.split(',') {
+                let part = part.trim();
+                let (op, rest) = [
+                    (">=", Op::Ge),
+                    ("<=", Op::Le),
+                    (">", Op::Gt),
+                    ("<", Op::Lt),
+                    ("=", Op::Eq),
+                ]
+                .into_iter()
+                .find_map(|(sign, op)| part.strip_prefix(sign).map(|r| (op, r.trim())))
+                .unwrap_or((Op::Eq, part));
+                let rest = rest.strip_prefix(['v', 'r']).unwrap_or(rest);
+                let fields = numbers(rest).ok_or_else(|| {
+                    format!(
+                        "`{part}` is not a comparison: calendar and integer versions take `>=`, `>`, `<=`, `<`, `=` and `*`"
+                    )
+                })?;
+                all.push((op, fields));
+            }
+            Ok(Range::Compare(all))
+        }
+    }
+}
+
+impl Range {
+    pub fn matches(&self, version: &Version) -> bool {
+        match (self, version) {
+            (Self::Semver(req), Version::Semver(v)) => req.matches(v),
+            (Self::Compare(all), Version::Parts(parts)) => all.iter().all(|(op, wanted)| {
+                let order = cmp_parts(parts, wanted);
+                match op {
+                    Op::Eq => order.is_eq(),
+                    Op::Gt => order.is_gt(),
+                    Op::Ge => order.is_ge(),
+                    Op::Lt => order.is_lt(),
+                    Op::Le => order.is_le(),
+                }
+            }),
+            _ => false,
+        }
+    }
+}
+
+/// A version range written by the user, read under the scheme it will match tags with.
+#[derive(Clone, Debug)]
+pub struct Requirement {
+    text: String,
+    range: Range,
+}
+
+impl Requirement {
+    pub fn parse(scheme: Scheme, text: &str) -> Result<Self, String> {
+        Ok(Self {
+            range: parse_range(scheme, text)?,
+            text: text.trim().to_string(),
+        })
+    }
+
+    /// As written, which is also how `jacket.toml` records it.
+    pub fn as_str(&self) -> &str {
+        &self.text
+    }
+
+    pub fn range(&self) -> &Range {
+        &self.range
+    }
+}
+
+impl PartialEq for Requirement {
+    fn eq(&self, other: &Self) -> bool {
+        self.text == other.text
+    }
+}
+
+impl Eq for Requirement {
+}
+
+impl std::fmt::Display for Requirement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.text)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn v(scheme: Scheme, prefix: Option<&str>, tag: &str) -> Option<String> {
+        parse_tag(scheme, prefix, tag).map(|v| v.to_string())
+    }
+
+    #[test]
+    fn semver_reads_prefixes_two_part_tags_and_prereleases() {
+        let s = Scheme::Semver;
+        assert_eq!(v(s, None, "1.2.3").as_deref(), Some("1.2.3"));
+        assert_eq!(v(s, None, "v1.2.3").as_deref(), Some("1.2.3"));
+        assert_eq!(v(s, None, "0.8").as_deref(), Some("0.8.0"));
+        assert_eq!(v(s, None, "v2.1").as_deref(), Some("2.1.0"));
+        assert_eq!(v(s, None, "1.2.3-rc.1").as_deref(), Some("1.2.3-rc.1"));
+        assert_eq!(
+            v(s, Some("alpha-"), "alpha-0.0.1").as_deref(),
+            Some("0.0.1")
+        );
+        assert_eq!(
+            v(s, Some("version-"), "version-1.0").as_deref(),
+            Some("1.0.0")
+        );
+        for bad in [
+            "latest",
+            "v1",
+            "release-1.2",
+            "1.2.3.4",
+            "1..2",
+            "nightly-2024",
+        ] {
+            assert_eq!(v(s, None, bad), None, "{bad}");
+        }
+        assert_eq!(
+            v(s, Some("alpha-"), "1.0.0"),
+            None,
+            "the prefix is required when set"
+        );
+    }
+
+    #[test]
+    fn calendar_and_integer_versions_compare_field_by_field() {
+        let c = Scheme::Calendar;
+        assert!(parse_tag(c, None, "2024.5").unwrap() < parse_tag(c, None, "2024.05.01").unwrap());
+        assert!(parse_tag(c, None, "24.05").unwrap() < parse_tag(c, None, "24.10").unwrap());
+        assert_eq!(v(c, None, "v1"), None);
+        let i = Scheme::Integer;
+        for tag in ["42", "r42", "v42"] {
+            assert_eq!(v(i, None, tag).as_deref(), Some("42"), "{tag}");
+        }
+        assert!(parse_tag(i, None, "r9").unwrap() < parse_tag(i, None, "r10").unwrap());
+        assert_eq!(v(i, None, "1.2"), None);
+    }
+
+    #[test]
+    fn semver_ranges_follow_cargo_including_prerelease_rules() {
+        let s = Scheme::Semver;
+        let pick = |range: &str, tag: &str| {
+            parse_range(s, range)
+                .unwrap()
+                .matches(&parse_tag(s, None, tag).unwrap())
+        };
+        assert!(pick("^1.2", "1.9.0") && !pick("^1.2", "2.0.0") && !pick("^1.2", "1.1.9"));
+        assert!(pick("~1.2.3", "1.2.9") && !pick("~1.2.3", "1.3.0"));
+        assert!(pick(">=1.0, <2.0", "1.5.0") && !pick(">=1.0, <2.0", "2.0.0"));
+        assert!(pick("=1.4.0", "1.4.0") && !pick("=1.4.0", "1.4.1"));
+        assert!(pick("*", "7.0.0") && !pick("*", "7.0.0-rc.1"));
+        assert!(
+            !pick("^1.2", "1.3.0-rc.1"),
+            "prereleases only when the range names one"
+        );
+        assert!(pick("^1.3.0-rc.1", "1.3.0-rc.2"));
+        assert!(pick("^0.4.1", "0.4.9") && !pick("^0.4.1", "0.5.0"));
+        assert!(parse_range(s, "latest").is_err());
+    }
+
+    #[test]
+    fn calendar_ranges_take_comparisons_only() {
+        let c = Scheme::Calendar;
+        let range = parse_range(c, ">=2024.1, <2025.1").unwrap();
+        assert!(range.matches(&parse_tag(c, None, "2024.05.01").unwrap()));
+        assert!(!range.matches(&parse_tag(c, None, "2025.01.01").unwrap()));
+        assert!(parse_range(c, "^2024.1").is_err());
+        assert!(
+            parse_range(Scheme::Integer, "*")
+                .unwrap()
+                .matches(&Version::Parts(vec![3]))
+        );
+        assert!(Scheme::parse("roman").is_err());
+    }
+}

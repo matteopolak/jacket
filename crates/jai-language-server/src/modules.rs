@@ -80,6 +80,20 @@ impl Sources<'_> {
                     .iter()
                     .map(|p| project::normalize(p)),
             );
+            // A module below a dependency's repository root is found through its parent.
+            if let Some(loaded) = crate::config::load(self, index, folder) {
+                deps.extend(
+                    jacket_config::packages::dependency_dirs(folder, &loaded.config)
+                        .into_iter()
+                        .map(|(_, dir)| dir.join(jacket_config::FILE_NAME)),
+                );
+                // A dependency's `jacket.toml` that does not read is reported to the client,
+                // and the compile that follows sees the same error.
+                match jacket_config::packages::dependency_roots(self, folder, &loaded.config) {
+                    Ok(roots) => dirs.extend(roots.modules.iter().map(|p| project::normalize(p))),
+                    Err(error) => index.bad_config(&error.path, &error.message),
+                }
+            }
         }
         // A test program of a library imports it by name, as `jacket test` lets it.
         if let Some(library) = jaic::test_notes::test_program_root(root, |p| self.is_file(p))

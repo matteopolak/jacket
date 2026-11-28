@@ -10,6 +10,7 @@ description = "The jacket.toml schema and its lookup."
 [dependencies]
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_ignored = "=0.1.14"
+semver = "=1.0.28"
 toml = "=1.2.1"
 
 [dev-dependencies]

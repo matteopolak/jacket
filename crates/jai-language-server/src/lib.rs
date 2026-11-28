@@ -7,6 +7,7 @@ mod closing_hints;
 mod compile_costs;
 mod completion_wire;
 mod config;
+mod dependencies;
 mod doc_view;
 pub(crate) use jaic::docs;
 mod document;

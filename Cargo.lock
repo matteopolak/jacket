@@ -401,6 +401,7 @@ dependencies = [
 name = "jacket-config"
 version = "0.40.0"
 dependencies = [
+ "semver",
  "serde",
  "serde_ignored",
  "serde_json",

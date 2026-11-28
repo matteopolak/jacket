@@ -206,7 +206,9 @@ fn a_new_library_names_itself_in_its_package_table() {
 
 #[test]
 fn list_reports_what_a_dependency_needs_against_its_nested_pin() {
-    let project = project();
+    // With dedupe on there is no nested pin to report against.
+    let project =
+        Project::waived("[project]\nentry = [\"main.jai\"]\n[resolver]\ndedupe = false\n");
     let inner = Origin::new(&project.root, "inner", MODULE);
     inner.release("v1.0.0", &[]);
     inner.release("v2.0.0", &[]);

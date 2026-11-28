@@ -24,7 +24,7 @@ utf8    = { git = "github.com/x/utf8", tag = "v0.4.1", min-release-age = "0" }  
 min-release-age = "3d"
 release-age-jitter = "2d"
 seed = "k3v9q2xh"        # random, written by `dep init` or the first `dep add`; commit it
-dedupe = false           # experimental; see Shared dependencies
+dedupe = true            # default; false nests a private copy in each package. See Shared dependencies
 
 [package]                # this project can be a dependency of others
 name = "my_lib"          # the import name; default: the repo name
@@ -55,7 +55,7 @@ A build that finds a managed submodule uninitialised fails with a note: `run jac
 
 ### `dep init`
 
-- Scans the module folders a compile would search (`<main_dir>/modules` and `[project] import_path`).
+- Scans the module folders a compile would search (`<main_dir>/modules` and `[project] import-path`).
 - **Submodules** become entries. The pin is the tag pointing at the checked-out commit (the highest semver one if several do), else the commit itself.
 - **Vendored copies** (folders with no remote) are listed as "vendored, not managed" and left alone. `jacket dep add <spec> --name <folder>` replaces one with a pinned submodule from a source the user names.
 - The policy applies: an adopted version that is too new, or whose age can't be checked, is listed with the override note.
@@ -129,31 +129,34 @@ A tag can be pushed again to a different commit. `dep check` and `dep update` co
   2. P's own import paths;
   3. the program's roots (`<main_dir>/modules`, its import paths, the stdlib).
 
-  So a dependency can't replace `Basic` or any other module for the rest of the program. `jacket build`, `check`, `run`, `test` and `lint` pass each dependency's folders as `-package_import_dir <dependency folder>=<folder>`; the language server doesn't apply them yet.
+  So a dependency can't replace `Basic` or any other module for the rest of the program. `jacket build`, `check`, `run`, `test` and `lint` pass each dependency's folders as `-package_import_dir <dependency folder>=<folder>`, and the language server applies the same ones.
 - `[dependencies]` gives the package's requirements as ranges. Without dedupe, `dep list` prints a `<dep> needs <name> <range>: pinned at <tag>` line for each and says when the nested pin doesn't satisfy it.
 - `jacket-version` is checked at `add` and `update`. A failing `add` removes the checkout; a failing `update` moves back to the old commit.
 - Everything else (`[target]`, `[lint]`, `[fmt]`, `[experimental]`, runners) belongs to whoever builds the program and is never read from a dependency.
 
 ## Shared dependencies (`dedupe`)
 
-Off by default and experimental.
+On by default; `[resolver] dedupe = false` turns it off.
 
 - **Off:** each dependency's own dependencies are fetched recursively as its own submodules. A library's files find their copy through `modules/` next to them, which `search_roots` already tries first. Each copy is a separate module instance, so two copies have distinct types, and errors name each instance.
-- **On** (`[resolver] dedupe = true`): after `add`, `update` and `remove`, the `[dependencies]` of every checked-out package are solved together with the project's entries.
-  - A name no entry covers becomes an entry with `shared = true`, pinned by `tag` to the newest version every requirer admits and the release-age policy accepts, as a submodule of the project's `modules/`.
-  - The nested submodules it replaces are never checked out (`dep sync` skips them too), so a library's `#import` falls through to the shared copy. The compiler doesn't change.
-  - Entries the user wrote keep their pin and must satisfy every requirer. A shared entry stays while it fits everyone; plain `dep update` moves it to the newest version they admit.
-  - Shared entries can't be removed or updated by name; the last package that needs one takes it with it. `dep list` marks them `(shared)` and `dep check` fails when a requirement is uncovered or unmet.
-  - A conflict names each requirer and its range. A failing `dep add` removes the package and any copies only it needed. Requirers must agree on the repository, `scheme` and `tag-prefix`.
+- **On:** after `add`, `update` and `remove`, the `[dependencies]` of every checked-out package are solved together with the project's entries, one copy per group of compatible versions, as Cargo does.
+  - A group is the major version (`1`), or `0.<minor>` below 1.0. Each requirer joins the group of the newest version it admits; a range that spans groups joins the one other requirers need. Within a group the copy is the newest version every member admits that the release-age policy accepts.
+  - The project's own entry, if it has one, is the primary group and stays at its pin. Otherwise the group with the most requirers is primary. The primary copy is an entry with `shared = true` at `modules/<name>`. Every other group is an entry `"<name>@<group>"` with `shared = true` and `path = "modules/.versions/<name>@<group>/<name>"`.
+  - The nested submodules these replace are never checked out (`dep sync` skips them too).
+  - **Routing:** a package whose range the primary copy doesn't admit is sent to the copy that does, with `-package_import_dir <package folder>=modules/.versions/<name>@<group>`. There is no lockfile: `jacket_config::packages::dependency_roots` derives the routing from each entry's recorded `tag` and the ranges in each package's own `[dependencies]`. `jacket`, `jailint` and `jailsp` all call it, so a file resolves an import the same way in a build and in the editor.
+  - A package's other files, and the project's, import the primary copy. Two groups are two module instances, so their types differ; a type from `foo 2.x` can't be passed to code built against `foo 1.x`.
+  - Entries the user wrote keep their pin. A requirer whose only admitted versions are in the pin's group but not the pin fails, naming the package and the pin. A shared copy stays while it fits its requirers; plain `dep update` moves each to the newest version its group admits.
+  - Shared entries can't be removed or updated by name; a copy goes with the last package that needs it. `dep list` marks them `(shared)` and `dep check` fails when a requirement is not met by any copy.
+  - Requirers whose ranges fall in one group but share no version, or that name different repositories, `scheme` or `tag-prefix`, are a conflict naming each requirer. A failing `dep add` removes the package and any copies only it needed.
   - A package that keeps a plain copy of a module in the folder where its submodule would be can't share it; `add` warns.
 - **Stress suite:** `crates/jacket/tests/dep_dedupe.rs` generates packages at several versions and compiles each shape with dedupe on and off. What it showed:
   - Diamond with a type in a public API: off, two copies of the type and a compile error (`argument of type Handle does not match parameter type Handle`); on, one copy and a clean build.
+  - Packages needing `1.x` and `2.x` of one module: on, a copy per group, and each package builds against its own.
   - A file in a package's subfolder importing a nested module: off, `module not found` (no `modules/` next to it); on, it finds the shared copy.
   - Different `#module_parameters` per requirer: one copy of the files, two module instances, and the same type error on and off.
   - Chain, deep chain with a diamond, and a cycle of packages: one copy per name, settled in a few rounds.
-  - Conflicting ranges, disagreeing schemes, a pinned entry the requirer rejects and a moved shared tag: each an error naming the packages.
-  - A fresh clone: `dep sync` checks out the shared copy and leaves the nested ones empty.
-- It stays off by default until it has run on real projects.
+  - Disagreeing schemes, a pinned entry the requirer rejects and a moved shared tag: each an error naming the packages.
+  - A fresh clone: `dep sync` checks out the shared copies and leaves the nested ones empty.
 
 ## How to change it
 
@@ -162,8 +165,8 @@ Off by default and experimental.
 - **Versions and ranges:** `dep/version.rs` (schemes, `parse_tag`, `parse_range`) and `dep/resolve.rs` (`classify`, `matching`).
 - **The policy:** `dep/policy.rs` (ages, jitter) and `dep/forge.rs` (release lists, the cache, GraphQL batching).
 - **A dependency's `[package]`:** `dep/package.rs` reads it, `dep/inspect.rs` applies it at `add` and reports requirements for `list`.
-- **Module search:** `jacket_config::packages::dependency_roots` decides what each dependency adds; `jacket` turns it into `-import_dir` and `-package_import_dir` (`compile.rs`) and `jailint` into `ProgramInputs::packages`. The compiler side is `search_roots` in `crates/jaic/src/sema/modules/filesystem.rs`; see [module search order](../compiler/project.md#module-search-order). The language server doesn't read dependency import paths yet.
-- **Sharing:** `dep/dedupe.rs`. The stress suite is `crates/jacket/tests/dep_dedupe.rs`; add a shape there with `observe`, which builds it with dedupe off and on and compiles both.
+- **Module search:** `jacket_config::packages::dependency_roots` decides what each dependency adds; `jacket` turns it into `-import_dir` and `-package_import_dir` (`compile.rs`), `jailint` into `ProgramInputs::packages` and `jailsp` into the compile's `package_imports` (`jai-language-server/src/dependencies.rs`). The compiler side is `search_roots` in `crates/jaic/src/sema/modules/filesystem.rs`; see [module search order](../compiler/project.md#module-search-order). Version parsing lives in `jacket_config::version` so these share it. A dependency's `jacket.toml` that can't be read or parsed, a package's `scheme` or range that doesn't read, or a recorded tag that isn't a version under its scheme, fails the build and the language server's import lookup, naming the file and the value.
+- **Sharing:** `dep/dedupe.rs` (`partition` makes the groups; `round` applies them). The stress suite is `crates/jacket/tests/dep_dedupe.rs`; add a shape there with `observe`, which builds it with dedupe off and on and compiles both. Routing is `dependency_roots` in `jacket-config/src/packages.rs`.
 - **Gotchas:** `add` and `sync` check out only the dependency itself; `Git::nested` checks out what is inside it, skipping what the project shares. Git blocks local-path submodule URLs by default; `add` allows the one the user typed, and tests allow them through `GIT_CONFIG_*`.
 
 ## Configuration

@@ -18,6 +18,7 @@ pub mod pattern;
 pub mod schema;
 pub mod test_roots;
 pub mod tools;
+pub mod version;
 
 pub use pattern::{PathPattern, PatternError, relative_text};
 pub use schema::{

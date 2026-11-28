@@ -368,7 +368,7 @@ const jacket = {
         "min-release-age": { type: "string", markdownDescription: "How long ago a version must have been published (`3d`, `12h`, `90m`, `2w`, `0`). Times come from the forge's release records." },
         "release-age-jitter": { type: "string", markdownDescription: "Adds a per-version wait in `[0, jitter]`, hashed from `seed`, the dependency and the version, so a bad release reaches projects in stages." },
         seed: { type: "string", markdownDescription: "Random text the jitter is hashed from. `jacket dep init` and the first `jacket dep add` write it; commit it." },
-        dedupe: { type: "boolean", markdownDescription: "Experimental: solve every package's ranges together and share one copy per name." },
+        dedupe: { type: "boolean", markdownDescription: "Solve every package's ranges together and share one copy per compatible version group (default `true`)." },
       },
     },
     doc: {
