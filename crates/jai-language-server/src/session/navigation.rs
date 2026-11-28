@@ -280,7 +280,7 @@ impl Session {
 
     /// The text of a `jai-generated:` document a location was given for.
     pub fn generated_source(&self, uri: &str) -> Option<String> {
-        self.generated.borrow().get(uri).map(|t| t.to_string())
+        self.generated.borrow().get(uri).map(ToString::to_string)
     }
 
     /// Text of a file the editor may not have open (a definition in a module or the stdlib):
