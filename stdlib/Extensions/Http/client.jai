@@ -1292,15 +1292,19 @@ close_idle_connections :: () {
     h2_close_idle(pool);
 }
 
-// Frees a client TLS config that connections were made with. It closes every pooled connection of the
-// running scheduler that uses the config (HTTP/1.1 and HTTP/2, and the `h2`-less copy that
-// `client_settings.http2 = false` makes of it), forgets what the pool knew about the config, then
-// releases it like `Tls.tls_config_free`. Use this instead of `Tls.tls_config_free` for a config that was
-// a `client.tls`: a pooled connection closes through its config, and a config allocated at the same
-// address later would otherwise be given connections that were made with the old one.
+// Frees a client TLS config that connections were made with. It closes every pooled connection that uses the
+// config (HTTP/1.1 and HTTP/2, and the `h2`-less copy that `client_settings.http2 = false` makes of it), forgets
+// what the pools knew about the config, then releases it like `Tls.tls_config_free`. Use this instead of
+// `Tls.tls_config_free` for a config that was a `client.tls`: a pooled connection closes through its config, and a
+// config allocated at the same address later would otherwise be given connections that were made with the old one.
 //
-// Responses made with the config must be read to the end or closed first, and no request using it may
-// be in flight. Call it on the scheduler that made the requests: pools are per scheduler.
+// It can be called from any thread. The running scheduler's pool is cleared before it returns; the pools of other
+// schedulers are told, and each closes its connections the next time it makes or finishes a request. The config's
+// TLS setup stays alive until the last of them has, so a connection another scheduler still holds keeps working
+// until then. A scheduler that makes no more requests clears its pool when it ends.
+//
+// Responses made with the config must be read to the end or closed first, and no request using it may be in
+// flight on any scheduler.
 //
 // ```jai,skip_on(wasm)
 // Tls :: #import "Extensions/Tls";
@@ -1318,20 +1322,38 @@ close_idle_connections :: () {
 // assert(config.native == null);
 // ```
 release_tls_config :: (config: *Tls.Tls_Config) {
-    derived := take_quiet_copy(config);
+    notice := New(Release_Notice);
+
+    notice.config = config;
+    notice.derived = take_quiet_copy(config);
+    notice.setups[0] = Tls.tls_config_detach(config);
+
+    if notice.derived notice.setups[1] = Tls.tls_config_detach(notice.derived);
 
     // Outside a scheduler no pool exists: a call made there closes its connections when it ends.
-    if Io.in_scheduler() evict_tls_config(client_pool(), config, derived);
+    own: *Client_Pool;
 
-    if derived {
-        kept := derived.alpn.data;
+    if Io.in_scheduler() own = client_pool();
 
-        Tls.tls_config_free(derived);
-        free(kept);
-        free(derived);
+    pool_registry_lock();
+
+    // The caller's own share counts too, so the notice outlives the loop.
+    notice.shares = 1;
+
+    for pool_registry {
+        if it == own continue;
+
+        array_add(*it.notices, notice);
+        atomic_store(*it.mail, cast(s32) 1);
+
+        notice.shares += 1;
     }
 
-    Tls.tls_config_free(config);
+    pool_registry_unlock();
+
+    if own evict_tls_config(own, config, notice.derived);
+
+    settle_notice(notice);
 }
 
 // What the running scheduler's pools hold right now, for tests and diagnostics (nothing here is
@@ -2325,7 +2347,7 @@ take_stored :: (source: *Body_Source) -> [..] u8 {
 
     note_sample(source, .{ data.count, data.data });
 
-    source.stored = .{};
+    source.stored = [..] u8.{};
     source.stored_at = 0;
     source.has_stored = false;
 
@@ -2505,16 +2527,89 @@ Client_Pool :: struct {
     buffers: [..] *u8;
     sources_created: int;
     recycle := true; // false in the scheduler of a call made outside one
+
+    // Configs released on other schedulers that this pool still has to forget, and whether there are any (read without
+    // the registry lock).
+    notices: [..] *Release_Notice;
+    mail: s32;
+}
+
+// A config released with `release_tls_config` while pools of other schedulers may hold connections made with it. The
+// pools only compare the pointers; the TLS setups and the `h2`-less copy stay until the last share is settled.
+Release_Notice :: struct {
+    config: *Tls.Tls_Config;
+    derived: *Tls.Tls_Config;
+    setups: [2] *void;
+    shares: s32;
 }
 
 pool_key: s32;
 
+// Every live pool and the lock that guards the list and the pools' `notices`.
+pool_registry: [..] *Client_Pool;
+pool_registry_flag: s32;
+
+pool_registry_lock :: () {
+    while true {
+        exchanged, _ := compare_and_swap(*pool_registry_flag, 0, 1);
+
+        if exchanged break;
+    }
+}
+
+pool_registry_unlock :: () {
+    atomic_store(*pool_registry_flag, cast(s32) 0);
+}
+
+// Gives up one share of `notice`; the last one frees what the config set up.
+settle_notice :: (notice: *Release_Notice) {
+    if atomic_add(*notice.shares, -1) != 1 return;
+
+    for notice.setups Tls.tls_detached_free(it);
+
+    if notice.derived {
+        kept := notice.derived.alpn.data;
+
+        free(kept);
+        free(notice.derived);
+    }
+
+    free(notice);
+}
+
+// Closes what the pool holds for configs that were released on other schedulers.
+drain_notices :: (pool: *Client_Pool) {
+    pool_registry_lock();
+
+    taken := pool.notices;
+
+    pool.notices = [..] *Release_Notice.{};
+    atomic_store(*pool.mail, cast(s32) 0);
+
+    pool_registry_unlock();
+
+    for taken {
+        evict_tls_config(pool, it.config, it.derived);
+        settle_notice(it);
+    }
+
+    array_free(taken);
+}
+
 client_pool :: () -> *Client_Pool {
     pool := cast(*Client_Pool) Io.scheduler_local(*pool_key);
 
-    if pool return pool;
+    if pool {
+        if atomic_load(*pool.mail) != 0 drain_notices(pool);
+
+        return pool;
+    }
 
     pool = New(Client_Pool);
+
+    pool_registry_lock();
+    array_add(*pool_registry, pool);
+    pool_registry_unlock();
 
     Io.set_scheduler_local(*pool_key, pool, drop_pool);
 
@@ -2523,6 +2618,25 @@ client_pool :: () -> *Client_Pool {
 
 drop_pool :: (value: *void) {
     pool := cast(*Client_Pool) value;
+
+    pool_registry_lock();
+
+    for pool_registry if it == pool {
+        remove it;
+
+        break;
+    }
+
+    taken := pool.notices;
+
+    pool.notices = [..] *Release_Notice.{};
+
+    pool_registry_unlock();
+
+    // Everything this pool holds closes below: its share of each notice is done.
+    for taken settle_notice(it);
+
+    array_free(taken);
 
     for pool.idle {
         close(it.stream, now = true);

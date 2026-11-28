@@ -188,6 +188,38 @@ tls_config_free :: (config: *Tls_Config) {
     config.native = null;
 }
 
+// Takes the setup out of a config and leaves the config freed (as after `tls_config_free`), so the setup can outlive
+// the config while streams made from it are still open on other threads. Free it with `tls_detached_free` once the last
+// of them is closed. A pool that frees configs for several threads uses this.
+//
+// - config: the config to take the setup from.
+//
+// Returns the setup, or null for a config that was not set up.
+//
+// ```jai,no_run
+// config: Tls_Config;
+// tls_config_init(*config);
+// setup := tls_config_detach(*config);
+// assert(config.native == null);
+// tls_detached_free(setup);
+// ```
+tls_config_detach :: (config: *Tls_Config) -> *void {
+    native := config.native;
+
+    config.native = null;
+
+    return native;
+}
+
+// Frees a setup that `tls_config_detach` returned. Every stream made from it must be closed first. Null is fine.
+//
+// - setup: what `tls_config_detach` returned.
+tls_detached_free :: (setup: *void) {
+    if !setup return;
+
+    release_native(cast(*Tls_Native) setup);
+}
+
 // Which setup the config is in: every `tls_config_init` that succeeds gives a new number, and 0 means not set up.
 // A pool that keys connections by a config's address can add this to tell the config from a later one at the same address.
 //

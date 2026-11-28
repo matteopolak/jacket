@@ -6,6 +6,7 @@
 #load "support/server_support.jai";
 
 Tls :: #import "Extensions/Tls";
+Atomics :: #import "Atomics";
 
 // The certificates of the Tls tests, as string constants (see ../../Tls/tests/data/make_certs.sh).
 #load "../../Tls/tests/fixtures/certs.jai";
@@ -845,6 +846,85 @@ rebuilt_config :: (base: string, server: *Server) {
     release_tls_config(*client_config);
 }
 
+// A config released on one scheduler closes the connections other schedulers pooled with it, and frees the setup
+// only after they have: `client` pools a connection, `releaser` frees the config, and `client` sees its pool empty.
+Cross_Release :: struct {
+    app: *App;
+    config: *Tls.Tls_Config;
+    ticket: s32;
+    base: string;
+    base_ready: s32;
+    pooled: s32;
+    released: s32;
+    finished: s32;
+}
+
+wait_for :: (flag: *s32) {
+    while atomic_load(flag) == 0 Io.sleep(1);
+}
+
+cross_release_entry :: (shared: *Cross_Release) {
+    role := Atomics.atomic_add(*shared.ticket, 1);
+
+    if role == 0 {
+        shared.app.config.address = "127.0.0.1:0";
+        shared.app.config.handle_signals = false;
+
+        server, error := start(shared.app);
+
+        if error.kind != .NONE {
+            print("FAIL: cannot listen: %\n", error_text(error));
+            exit(1);
+        }
+
+        shared.base = server_url(server);
+        atomic_store(*shared.base_ready, cast(s32) 1);
+
+        wait_for(*shared.finished);
+
+        stop(server);
+        wait(server);
+        close_server(*server);
+    } else if role == 1 {
+        wait_for(*shared.base_ready);
+
+        api: Client;
+
+        api.base_url = shared.base;
+        api.tls = shared.config;
+
+        reply := get_path(*api, "/ping");
+
+        check(reply.status == 200 && reply.body == "pong", "a request: % '%'", reply.status, reply.body);
+        check(http_statistics().idle_connections == 1, "the connection is pooled: %", http_statistics().idle_connections);
+
+        atomic_store(*shared.pooled, cast(s32) 1);
+        wait_for(*shared.released);
+
+        check(http_statistics().idle_connections == 0, "the other scheduler's release closed the connection: %", http_statistics().idle_connections);
+
+        atomic_store(*shared.finished, cast(s32) 1);
+    } else {
+        wait_for(*shared.pooled);
+
+        release_tls_config(shared.config);
+
+        check(shared.config.native == null, "the config is freed");
+
+        atomic_store(*shared.released, cast(s32) 1);
+    }
+}
+
+cross_scheduler_release :: () {
+    client_config := make_client_config();
+    shared: Cross_Release;
+
+    shared.app = *app;
+    shared.config = *client_config;
+
+    Io.io_run_threads(3, cross_release_entry, *shared);
+}
+
 main :: () {
     if !supported() return;
 
@@ -873,6 +953,7 @@ main :: () {
     run_server(*app, many_clients);
     run_server(*app, ragged_eof);
     run_server(*app, shutdown);
+    cross_scheduler_release();
 
     // The handshake timeout is short here.
     get(*impatient_app, "/ping", ping);

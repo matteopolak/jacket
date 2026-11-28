@@ -50,6 +50,8 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 
 - Go to definition and related notes open generated code (`add_build_string`) as read-only `jai-generated:` documents.
 - Go to definition on a note finds a reader that only a skipped library body's generic instance has.
+- `Http`'s `release_tls_config` works from any thread: other schedulers close their pooled connections, and the setup is freed after.
+- `Tls` adds `tls_config_detach` and `tls_detached_free`, which let a config's setup outlive the config.
 - `Gltf` adds `gltf_remove_extensions`, which strips an extension from many objects in one pass over the document.
 - `Testing`'s leak tracker caches which files are library code, which halves the cost of each tracked allocation.
 - `Simple_Package` adds `free_package`, which frees a `Load_Package`'s entries, lookup and file bytes.
