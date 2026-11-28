@@ -26,6 +26,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - `jacket test` fails when a test-driver probe library is missing; `--allow-missing-prerequisites` skips those tests. `CI` no longer decides.
 - A project whose `[toolchain] version` differs from the running jacket is an error naming `jacket upgrade --version`.
 - `jacket toolchain check` refuses an unknown target name and lists the known ones.
+- `f(g())` passes only `g`'s first value; a multi-value result is no longer spread over several parameters.
 - `jacket test` with no cache folder fails and says to set `JACKET_TEST_DEPS_DIR`.
 - `jacket test` refuses a standard library folder without a prelude and says where the folder came from.
 - `jaic`, `jailint` and `jailsp` no longer use the build machine's stdlib; set `JAIC_STDLIB` or keep `stdlib/` beside them.

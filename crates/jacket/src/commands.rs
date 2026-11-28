@@ -287,7 +287,7 @@ fn tool_version(tool: &str) -> String {
 
 /// `jacket explain [code]`: what a diagnostic code means, or the list of all of them.
 pub fn explain(code: Option<&str>) -> ExitCode {
-    use jaic::diagnostics::{Code, RETIRED};
+    use jaic::diagnostics::Code;
     let Some(name) = code else {
         print!("{}", explain_list());
         return ExitCode::SUCCESS;
@@ -306,16 +306,11 @@ pub fn explain(code: Option<&str>) -> ExitCode {
         print!("{}", rule.explanation());
         return ExitCode::SUCCESS;
     }
-    if RETIRED.contains(&name) {
-        println!("`{name}` is retired: no diagnostic uses it any more.");
-        return ExitCode::SUCCESS;
-    }
     let near = jaic::suggest::closest(
         name,
         Code::ALL
             .iter()
             .map(|code| code.name())
-            .chain(RETIRED.iter().copied())
             .chain(jailint::RULES.iter().map(|r| r.name)),
     );
     match near {

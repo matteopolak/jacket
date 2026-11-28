@@ -7,7 +7,7 @@ use std::fmt;
 
 mod catalog;
 mod levels;
-pub use catalog::{Code, RETIRED};
+pub use catalog::Code;
 pub use levels::{Level, Levels};
 
 /// What every leniency warning says besides its own message.

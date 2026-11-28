@@ -17,4 +17,4 @@ Untested codes are listed in `tools/ci/untested_codes.txt`. The list only shrink
 ## How to change it
 
 - Cover a listed code: add `tests/corpus/negative/<name>.jai` with a `kind: negative` manifest entry (expected `check` text and `code`; the sweep asserts both), or a crate test expecting `error[<code>]`. Then `--update`.
-- Rename or retire a code: a renamed code moves to `RETIRED` and its tests change with it.
+- Rename or retire a code: a renamed code is deleted and its tests change with it.

@@ -3,7 +3,7 @@
 //! A code is a stable kebab-case name (`type-mismatch`) that stands for one kind of problem. The
 //! name is what users see in `error[type-mismatch]`, what `jacket explain` takes, what `-A`/`-W`/
 //! `-D` flags accept, and what tools match on instead of message text. Wording can change; a name
-//! stays. To retire one, move it to [`RETIRED`] so `jacket explain` and the flags still know it.
+//! stays. To retire one, delete it.
 //!
 //! Each entry is `Variant = "name", Severity, "summary"`, optionally followed by `explain = "..."`
 //! (a short paragraph) and `example = "..."` (a few lines of Jai that trigger it). The summary
@@ -1029,10 +1029,6 @@ catalog! {
             "<…> has no field `<name>`";
     }
 }
-
-/// The code-like names of codes that no longer exist. `jacket explain` and the flags still accept
-/// them and say so.
-pub const RETIRED: &[&str] = &[];
 
 impl Code {
     /// The code called `name`.

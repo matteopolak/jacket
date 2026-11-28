@@ -558,25 +558,18 @@ impl Compiler {
         span: Span,
     ) -> Result<Operand> {
         let _ = expected;
-        // A multi-value call result passes its first value; when nothing accepts that, the
-        // values expand into several arguments (kept for older corpus code).
-        let mut spread_args = None;
+        // A multi-value call result passes its first value.
         if args.len() == 1
             && let Some(Operand::Multi(values)) = &args[0].op
         {
             let a = args[0].clone();
-            let value_arg = |value: &Operand| CallArg {
-                name: None,
-                spread: false,
-                expr: None,
-                op: Some(value.clone()),
-                span: a.span,
-                scope: a.scope,
-            };
-            spread_args = Some(values.iter().map(value_arg).collect::<Vec<_>>());
             args = vec![CallArg {
                 name: a.name,
-                ..value_arg(&values[0])
+                spread: false,
+                expr: None,
+                op: Some(values[0].clone()),
+                span: a.span,
+                scope: a.scope,
             }];
         }
         let (mut best, mut errors) = self.rank_candidates(procs, &args, span);
@@ -586,14 +579,6 @@ impl Compiler {
             .position(|e| e.code == Code::ModifyWithoutPolymorphs)
         {
             return Err(Box::new(errors.swap_remove(i)));
-        }
-        if best.is_empty()
-            && let Some(spread) = spread_args
-        {
-            let (b, e) = self.rank_candidates(procs, &spread, span);
-            if !b.is_empty() {
-                (best, errors, args) = (b, e, spread);
-            }
         }
         // Two positional arguments that match no overload may match a `#symmetric` one with
         // the arguments exchanged.

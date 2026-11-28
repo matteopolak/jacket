@@ -204,6 +204,18 @@ def run_case(args, project, entry, destination):
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+def find_jaic(named, which=shutil.which):
+    """`named` when given, else the `jaic` on PATH; exits with how to name one when there is neither.
+
+    For example `find_jaic(None)` is `/usr/local/bin/jaic` when that is on PATH."""
+    if named is not None:
+        return named
+    found = which("jaic")
+    if not found:
+        raise SystemExit("project_graph: no jaic on PATH; pass --jaic with the jaic built from this checkout")
+    return Path(found)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     selection = parser.add_mutually_exclusive_group(required=True)
@@ -217,7 +229,7 @@ def main():
     )
     parser.add_argument("--check-timeout", type=int, default=60)
     parser.add_argument(
-        "--jaic", type=Path, default=Path(shutil.which("jaic") or "jaic")
+        "--jaic", type=Path, help="the jaic to audit with (default: the one on PATH)"
     )
     parser.add_argument(
         "--audit",
@@ -238,7 +250,7 @@ def main():
         parser.error("timeouts must be positive")
     if args.upstream and args.entry:
         parser.error("--entry requires --project")
-    args.jaic, args.audit = args.jaic.resolve(), args.audit.resolve()
+    args.jaic, args.audit = find_jaic(args.jaic).resolve(), args.audit.resolve()
     if not args.audit.is_file():
         parser.error(
             "build ide_coverage first: cargo build --release -p jai-language-server --example ide_coverage"

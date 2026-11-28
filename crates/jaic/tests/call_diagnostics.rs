@@ -107,3 +107,20 @@ fn ordinary_variadic_with_named_tail_and_valid_overloads_still_typechecks() {
         panic!("{}", error.render(&c.src.sources));
     }
 }
+
+#[test]
+fn a_multi_value_call_result_is_not_spread_over_several_parameters() {
+    let source = "two :: () -> int, int { return 1, 2; }\n\
+                  add :: (a: int, b: int) -> int { return a + b; }\n\
+                  one :: (a: int) -> int { return a; }\n\
+                  main :: () { x := one(two()); y := add(two()); }";
+    let mut c = compiler();
+    let error = c
+        .compile_sources(&[ProgramSource::String(source.into())])
+        .expect_err("`add(two())` passes one argument");
+    assert!(
+        error.message.contains("argument"),
+        "{}",
+        error.render(&c.src.sources)
+    );
+}
