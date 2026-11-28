@@ -1,5 +1,6 @@
 MAX_CHANNELS_PER_SOUND :: 8;
 ACHANNEL_MAX :: 8;
+// The most channels the player mixes to the output.
 OUTPUT_CHANNELS_MAX :: ACHANNEL_MAX;
 NUM_SOURCE_DIRECTIONS :: 11;
 
@@ -40,18 +41,25 @@ Sound_Category :: enum u32 {
     MUSIC :: 4;
 }
 
+// One frame of audio, a float of -1 to 1 for each of up to `MAX_CHANNELS_PER_SOUND` channels.
 Audio_Sample_Base :: struct {
     channels: [MAX_CHANNELS_PER_SOUND] float;
 }
 
+// One frame of a sound before mixing, with a sample for each of its channels.
 Audio_Source_Sample :: struct {
     using base: Audio_Sample_Base;
 }
 
+// One frame of the mixed output, with a sample for each output channel.
 Audio_Dest_Sample :: struct {
     using base: Audio_Sample_Base;
 }
 
+// How one input channel of a stream feeds each output channel, as gain factors from 0 to 1.
+//
+// `source_scale_for_this_output_index` is the target, `interpolated_source_scale_for_this_output_index`
+// the gain in use, and `dvolume_dsample` the most it moves toward the target each sample.
 Scale_Mapping :: struct {
 
     source_scale_for_this_output_index: [OUTPUT_CHANNELS_MAX] float;
@@ -184,11 +192,16 @@ Sound_Stream :: struct {
     samples_needed_to_start_playing: s64;
 }
 
+// The codec a [Cached_Decoder] reads.
 Decoder_Type :: enum {
     OGG :: 0;
     ADPCM :: 1;
 }
 
+// A run of decoded frames of a compressed sound, as 16-bit interleaved samples in `data`.
+//
+// `start_address` and `end_address` are frame indexes (end exclusive), and `num_samples_contained` is
+// the count of frames decoded so far. The decoder that made it owns it.
 Cached_Decoder_Page :: struct {
     type: Decoder_Type;
     owner: *Cached_Decoder;
@@ -206,6 +219,11 @@ Cached_Decoder_Page :: struct {
     marked := false;
 }
 
+// Decodes a compressed sound page by page and keeps the pages near the play cursor.
+//
+// Lengths are in frames (one sample per channel). `issued_start_addresses` lists the first frames of the
+// pages queued and not yet decoded. With `do_not_queue` set, pages are decoded when requested instead of
+// on the decode thread. The procedure fields are set by the codec that creates the decoder.
 Cached_Decoder :: struct {
     type: Decoder_Type;
 
@@ -231,6 +249,7 @@ Cached_Decoder :: struct {
     make_page: (decoder: *Cached_Decoder) -> *Cached_Decoder_Page;
 }
 
+// A [Cached_Decoder] for Ogg Vorbis, with the open stream in `vorbis_file`.
 Cached_Ogg_Decoder :: struct {
     using base: Cached_Decoder;
 
@@ -247,15 +266,19 @@ Cached_Ogg_Decoder :: struct {
     bitrate_high: s64;
 }
 
+// A [Cached_Decoder] for IMA ADPCM; it needs no state beyond the base.
 Adpcm_Decoder :: struct {
     using base: Cached_Decoder;
 }
 
+// A range of frames, `start` up to `end`, and the memory holding them (16-bit interleaved samples,
+// starting at frame `start`).
 Buffer_Bounds :: struct {
     start, end: s64;
     memory: *void;
 }
 
+// The memory the mixer fills for the output. This backend uses only `buffer0`; `buffer1` stays empty.
 Fill_Region_Result :: struct {
     buffer0: string;
     buffer1: string;
@@ -300,6 +323,8 @@ Sound_Player_Config :: struct {
     release_asset: (stream: *Sound_Stream, data: *Sound_Data);
 }
 
+// Two neighbouring speakers that sound can be panned between, and the inverse of the matrix of their
+// directions.
 Vbap_Arc :: struct {
     speaker1: Audio_Channel;
     speaker2: Audio_Channel;

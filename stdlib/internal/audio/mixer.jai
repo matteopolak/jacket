@@ -1,12 +1,18 @@
 DELTA_RATE_MAX :: 18.0 * (1.0 / 40000.0);
 DELTA_RATE_MIN :: -DELTA_RATE_MAX;
 
+// Returns the bytes taken by `num_samples` frames of `stream`'s 16-bit interleaved audio.
 samples_to_bytes :: (stream: *Sound_Stream, num_samples: s64) -> s64 {
     assert(stream && stream.num_channels > 0 && stream.num_channels <= MAX_CHANNELS_PER_SOUND);
     assert(num_samples >= 0 && num_samples <= 0x7fffffffffffffff / (stream.num_channels * 2));
     return num_samples * stream.num_channels * 2;
 }
 
+// Finds the decoded samples that hold frame `index` of `data` for `stream`.
+//
+// Returns `success` and fills `result` with the frame range and the sample memory, or leaves it empty and
+// returns false when the index is outside the sound (or before its `repeat_end_position`), or a compressed
+// sound has no decoded page there yet. For a sample array the range is the whole sound.
 get_buffer_bounds :: (stream: *Sound_Stream, data: *Sound_Data, index: s64, result: *Buffer_Bounds) -> success: bool, no_overflow: bool {
     result.* = .{};
     if !stream || !data || data.nchannels == 0 return false, false;
@@ -37,6 +43,10 @@ get_buffer_bounds :: (stream: *Sound_Stream, data: *Sound_Data, index: s64, resu
     return true, true;
 }
 
+// Reads the frame at `source_cursor` from `samples` into `samples_return`, one float per channel in -1 to 1.
+//
+// Interpolates linearly between the frame at the cursor and the next one. `samples` holds the page that
+// begins at frame `page_start`; the cursor must lie in `page_start` up to `page_end` (frames).
 sample_n_channels :: (stream: *Sound_Stream, samples: *s16, page_start: s64, page_end: s64, source_cursor: float64, samples_return: [] float, no_overflow: bool) #no_abc {
     assert(stream && samples && page_end > page_start);
     assert(samples_return.count >= stream.num_channels);
@@ -52,6 +62,8 @@ sample_n_channels :: (stream: *Sound_Stream, samples: *s16, page_start: s64, pag
     }
 }
 
+// Adds one source frame to the output frame `dest`, scaling each input channel by its current gain for
+// every output channel. Clears `stream.silent_this_frame` when a contribution is non-zero.
 mix_sample_into_output_streams :: (stream: *Sound_Stream, source: *Audio_Source_Sample, dest: *Audio_Dest_Sample) #no_abc {
     assert(stream.num_channels > 0 && stream.num_channels <= MAX_CHANNELS_PER_SOUND);
 
@@ -64,6 +76,10 @@ mix_sample_into_output_streams :: (stream: *Sound_Stream, source: *Audio_Source_
     }
 }
 
+// Moves a repeating stream's play cursor back into its loop once it has passed the loop's end.
+//
+// The loop runs from `repeat_start_position` up to `repeat_end_position` (frames), or the end of the
+// sound when that is negative. Does nothing for streams that are not `.REPEATING`.
 maybe_wrap_play_cursor :: (stream: *Sound_Stream) {
     if !(stream.user_flags & .REPEATING) || !stream.sound_data return;
 
@@ -79,6 +95,7 @@ maybe_wrap_play_cursor :: (stream: *Sound_Stream) {
     stream.play_cursor = start + fmod(stream.play_cursor - start, cast(float64) (end - start));
 }
 
+// Moves every channel gain of `stream` one sample toward its target, by at most `dvolume_dsample`.
 catch_up_volumes :: (stream: *Sound_Stream) {
     for *mapping: stream.input_scale_mappings {
         for output: 0..OUTPUT_CHANNELS_MAX - 1 {
@@ -94,6 +111,11 @@ catch_up_volumes :: (stream: *Sound_Stream) {
     }
 }
 
+// Mixes frames of one decoded page into `accumulator`, advancing the cursor by the stream's rate each frame.
+//
+// Stops after `num_samples` frames or when the cursor leaves `page_start` up to `page_end` (frames).
+// Returns the new cursor and the number of frames written. The rate moves toward `desired_rate` by at
+// most `DELTA_RATE_MAX` per frame.
 accumulate_buffer_f :: (accumulator: *Audio_Dest_Sample, num_samples: s64, source_cursor: float64, page: *void, page_start: s64, page_end: s64, stream: *Sound_Stream, no_overflow: bool) -> (cursor: float64, samples_written: s64) {
     assert(num_samples >= 0);
     cursor := source_cursor;
@@ -114,6 +136,11 @@ accumulate_buffer_f :: (accumulator: *Audio_Dest_Sample, num_samples: s64, sourc
     return cursor, written;
 }
 
+// Mixes `num_samples` frames of `stream` into the start of `accumulator`, advancing its play cursor.
+//
+// Skips streams that wait for their first decoder pages and paused ones. Leading silence is consumed
+// first. A frame whose page is missing, or whose cursor lies outside the sound, advances the cursor
+// without adding sound.
 accumulate_stream :: (stream: *Sound_Stream, accumulator: [] Audio_Dest_Sample, num_samples: s64) -> bool {
     assert(num_samples >= 0 && num_samples <= accumulator.count);
     if !stream || !stream.sound_data return false;

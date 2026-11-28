@@ -1,5 +1,6 @@
 // Public DirectSound ABI declarations from the contract.
 
+// Speaker setups DirectSound reports; see [CONFIG].
 DSSPEAKER :: enum {
     HEADPHONE :: 1;
     MONO :: 2;
@@ -14,8 +15,10 @@ DSSPEAKER :: enum {
     _7POINT1_WIDE :: _7POINT1;
 }
 
+// The DirectSound buffer capabilities record; it declares no fields.
 DSBUFFERCAPS :: struct {}
 
+// Describes a DirectSound buffer to create: size, flags, length in bytes and sample format.
 DSBUFFERDESC :: struct {
     dwSize: s32;
     dwFlags: s32;
@@ -25,6 +28,7 @@ DSBUFFERDESC :: struct {
     guid3DAlgorithm: GUID;
 }
 
+// A wave format with a valid-bits count, a speaker mask in `dwChannelMask` and a sub-format.
 WAVEFORMATEXTENSIBLE :: struct {
     Format: Waveformatex;
     wValidBitsPerSample: s16;
@@ -32,21 +36,25 @@ WAVEFORMATEXTENSIBLE :: struct {
     SubFormat: GUID;
 }
 
+// What the device enumeration callback receives: the caller's context and the devices found so far.
 Enumeration_Callback_Data :: struct {
     outer_context: #Context;
     devices: [..] Output_Device;
 }
 
+// The DirectSound device interface; calls go through `vtable`.
 IDirectSound8 :: struct {
     #as unknown: IUnknown;
     #overlay (unknown) using vtable: *IDirectSound8Vtable;
 }
 
+// The DirectSound buffer interface; calls go through `vtable`.
 IDirectSoundBuffer8 :: struct {
     #as unknown: IUnknown;
     #overlay (unknown) using vtable: *IDirectSoundBuffer8Vtable;
 }
 
+// Function table of [IDirectSound8]; slots this module does not call are untyped pointers.
 IDirectSound8Vtable :: struct {
     #as using base: IUnknown_VTable;
     CreateSoundBuffer: (dsound: *IDirectSound8, desc: *DSBUFFERDESC, buffer: **IDirectSoundBuffer8, outer: **void = null) -> s32 #c_call;
@@ -59,6 +67,7 @@ IDirectSound8Vtable :: struct {
     Initialize: *void;
 }
 
+// Function table of [IDirectSoundBuffer8]; slots this module does not call are untyped pointers.
 IDirectSoundBuffer8Vtable :: struct {
     #as using base: IUnknown_VTable;
     GetCaps: (buffer: *IDirectSoundBuffer8, caps: *DSBUFFERCAPS) #c_call;
@@ -100,6 +109,7 @@ KSAUDIO_SPEAKER_5POINT1 :: SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT | SPEAKER_FR
 KSAUDIO_SPEAKER_5POINT1_SURROUND :: SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT | SPEAKER_FRONT_CENTER | SPEAKER_LOW_FREQUENCY | SPEAKER_SIDE_LEFT | SPEAKER_SIDE_RIGHT;
 KSAUDIO_SPEAKER_7POINT1 :: SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT | SPEAKER_FRONT_CENTER | SPEAKER_LOW_FREQUENCY | SPEAKER_BACK_LEFT | SPEAKER_BACK_RIGHT | SPEAKER_FRONT_LEFT_OF_CENTER | SPEAKER_FRONT_RIGHT_OF_CENTER;
 KSAUDIO_SPEAKER_7POINT1_SURROUND :: SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT | SPEAKER_FRONT_CENTER | SPEAKER_LOW_FREQUENCY | SPEAKER_BACK_LEFT | SPEAKER_BACK_RIGHT | SPEAKER_SIDE_LEFT | SPEAKER_SIDE_RIGHT;
+// The speaker mask for mono: front centre only.
 KSAUDIO_SPEAKER_MONO :: SPEAKER_FRONT_CENTER;
 KSAUDIO_SPEAKER_QUAD :: SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT | SPEAKER_BACK_LEFT | SPEAKER_BACK_RIGHT;
 KSAUDIO_SPEAKER_STEREO :: SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT;
@@ -125,18 +135,23 @@ SPEAKER_TOP_FRONT_LEFT :: 0x1000;
 SPEAKER_TOP_FRONT_RIGHT :: 0x4000;
 WAVE_FORMAT_EXTENSIBLE :: 0xFFFE;
 
+// Returns the speaker setup in a speaker configuration value from DirectSound (its low byte).
 CONFIG :: (speaker_config: s32) -> DSSPEAKER {
     return cast(DSSPEAKER) (speaker_config & 0xff);
 }
 
+// Returns the speaker geometry in a speaker configuration value (bits 16 to 23).
 GEOMETRY :: (speaker_config: s32) -> u8 {
     return cast,trunc(u8) (speaker_config >> 16);
 }
 
+// Writes the GUID that marks a wave format as integer PCM to `dest`.
 init_KSDATAFORMAT_SUBTYPE_PCM :: (dest: *GUID) {
     dest.* = .{ 1, 0, 0x10, .[0x80, 0, 0, 0xaa, 0, 0x38, 0x9b, 0x71] };
 }
 
+// Fills `w` with 16-bit PCM for `nchannels` channels at `OUTPUT_SAMPLING_RATE` Hz.
+// Stops the program if `nchannels` is not 1 to `MAX_CHANNELS_PER_SOUND`.
 init_wave_format :: (using w: *Waveformatex, nchannels: s16) {
     assert(nchannels > 0 && nchannels <= MAX_CHANNELS_PER_SOUND);
     wFormatTag = 1;

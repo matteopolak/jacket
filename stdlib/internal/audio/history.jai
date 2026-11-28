@@ -1,3 +1,4 @@
+// Moves the output history to its next interval, clearing it. The history keeps the last 64 intervals.
 advance_history_cursor :: () {
     history_cursor = (history_cursor + 1) % history_intervals.count;
     history_intervals[history_cursor] = .{};

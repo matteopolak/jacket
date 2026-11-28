@@ -1,5 +1,10 @@
 ADPCM_BLOCKS_PER_PAGE :: 3;
 
+// Creates a decoder that expands `data`'s IMA ADPCM blocks into 16-bit PCM pages, or returns null.
+//
+// Returns null when `data` is null, is not `.ADPCM_COMPRESSED`, or fails the block checks (channel count,
+// block size, step indexes, payload length). A page covers `ADPCM_BLOCKS_PER_PAGE` blocks. The decoder
+// points into `data`, which must outlive it; the caller frees it with [deinit].
 create_adpcm_decoder :: (data: *Sound_Data) -> *Adpcm_Decoder {
     push_allocator(context.default_allocator);
     if !valid_adpcm(data) return null;
@@ -17,6 +22,9 @@ create_adpcm_decoder :: (data: *Sound_Data) -> *Adpcm_Decoder {
     return decoder;
 }
 
+// Allocates an empty page for the decoder: a buffer for one page of 16-bit interleaved samples.
+//
+// The page's contents are filled in later by [recompute_page_adpcm]. Allocates with the default allocator.
 make_page_adpcm :: (using decoder: *Cached_Decoder) -> *Cached_Decoder_Page {
     push_allocator(context.default_allocator);
     page := New(Cached_Decoder_Page);
@@ -29,6 +37,11 @@ make_page_adpcm :: (using decoder: *Cached_Decoder) -> *Cached_Decoder_Page {
     return page;
 }
 
+// Decodes the blocks at `page.start_address` into `page`'s buffer and sets its end address and sample count.
+//
+// `page.start_address` is a frame index and must be a multiple of the sound's samples per block. The count
+// is clipped to the end of the sound. Stops the program if the page lies outside whole compressed blocks
+// or the decoder makes no progress.
 recompute_page_adpcm :: (using decoder: *Cached_Decoder, page: *Cached_Decoder_Page) {
     // Factory validation already checked every block header. Borrowed source
     // bytes must stay stable; per-page work validates only this page's bounds.

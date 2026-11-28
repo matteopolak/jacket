@@ -10,6 +10,9 @@ decode_queue_initted := false;
 completed_queue: [..] *Cached_Decoder_Page;
 completed_queue_lock: Mutex;
 
+// Starts the thread that decodes queued pages. Does nothing when it is already running.
+//
+// Stops the program if the thread cannot be created.
 init_sound_player_decode_queue :: () {
     push_allocator(context.default_allocator);
     if decode_queue_initted return;
@@ -34,6 +37,7 @@ init_sound_player_decode_queue :: () {
     thread_start(*decode_queue_thread);
 }
 
+// Decodes `page` in the calling thread and, when the queue is running, hands it to the completed list.
 process_one_page :: (page: *Cached_Decoder_Page) {
     push_allocator(context.default_allocator);
     assert(page && page.owner && page.owner.recompute_page);
@@ -48,6 +52,10 @@ process_one_page :: (page: *Cached_Decoder_Page) {
     unlock(*decode_queue_lock);
 }
 
+// Queues `page` for decoding on the decode thread.
+//
+// Does nothing when the page is already queued, being decoded, or completed and not yet collected. Stops
+// the program if the queue is not initialized or is shutting down.
 add_decode_queue_item :: (page: *Cached_Decoder_Page) {
     push_allocator(context.default_allocator);
     assert(decode_queue_initted, "initialize the audio decode queue before submitting work");
@@ -70,6 +78,7 @@ add_decode_queue_item :: (page: *Cached_Decoder_Page) {
     signal(*decode_queue_semaphore);
 }
 
+// Removes and returns the oldest decoded page, or null when none is waiting or the queue is not running.
 get_next_completed_decode_queue_item :: () -> *Cached_Decoder_Page {
     if !decode_queue_initted return null;
 

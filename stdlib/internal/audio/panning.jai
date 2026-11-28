@@ -7,6 +7,7 @@ vbap_speaker_directions: [ACHANNEL_MAX] Vector2;
 
 vbap_source_directions: [NUM_SOURCE_DIRECTIONS] Vector2;
 
+// Writes the inverse of the 2x2 matrix `m` to `result`. Stops the program if the matrix is singular.
 invert :: (using m: *Matrix2, result: *Matrix2) {
     determinant := cast(float64) _11 * _22 - cast(float64) _12 * _21;
 
@@ -19,11 +20,14 @@ invert :: (using m: *Matrix2, result: *Matrix2) {
     result.* = inverse;
 }
 
+// Converts a perceptual volume of 0 to 1 into a linear gain with `x` to the power 1 / (2 log10 2), about
+// 1.66, so a perceptual 0.5 gives a gain of about 0.32 (-10 dB).
 perceptual_to_linear :: (x: float) -> float {
     exponent := cast(float) (1.0 / (2.0 * log(cast(float64) 2) / log(cast(float64) 10)));
     return pow(x, exponent);
 }
 
+// Sets the target gain of input channel `index` to zero for every output channel.
 clear_scale_accumulation :: (stream: *Sound_Stream, index: s64) {
     assert(index >= 0 && index < MAX_CHANNELS_PER_SOUND);
     for *scale: stream.input_scale_mappings[index].source_scale_for_this_output_index scale.* = 0;
@@ -45,6 +49,10 @@ update_listener :: (camera_position: Vector3, camera_orientation: Quaternion) {
     listener_ready = true;
 }
 
+// Returns the unit direction of `position` in the listener's horizontal plane: x ahead, y to the left.
+//
+// Returns (1, 0), straight ahead, when no listener is set or the stream is not `.SPATIALIZED`. A position
+// directly above or below the listener has no horizontal direction and gives NaN.
 get_plane_dir :: (stream: *Sound_Stream, position: Vector3) -> Vector2 {
     if !listener_ready || !(stream.user_flags & .SPATIALIZED) return .{ 1, 0 };
     local := rotate(position - listener_position, conjugate(listener_orientation));
@@ -52,6 +60,10 @@ get_plane_dir :: (stream: *Sound_Stream, position: Vector3) -> Vector2 {
     return .{ local.x / magnitude, local.y / magnitude };
 }
 
+// Returns how near the stream is to the listener horizontally, from 0 to 1.
+//
+// It is 1 on top of the listener and falls to 0 at the smaller of `VERY_CLOSE` and three quarters of
+// `inner_radius` (world units).
 get_target_2_closeness :: (stream: *Sound_Stream) -> float {
     local := rotate(stream.position - listener_position, conjugate(listener_orientation));
     radius := min(VERY_CLOSE, stream.inner_radius * 0.75);
@@ -59,12 +71,17 @@ get_target_2_closeness :: (stream: *Sound_Stream) -> float {
     return clamp(1 - sqrt(local.x * local.x + local.y * local.y) / radius, 0.0, 1.0);
 }
 
+// Moves both values toward 1 by the fraction `closeness`, which is clamped to 0 to 1.
 adjust_stereo_dots_by_closeness :: (dot_left: *float, dot_right: *float, closeness: float) {
     amount := clamp(closeness, 0.0, 1.0);
     dot_left.* += (1 - dot_left.*) * amount;
     dot_right.* += (1 - dot_right.*) * amount;
 }
 
+// Adds stereo gains for a source heard from `plane_dir` to outputs 0 (left) and 1 (right) of `target`.
+//
+// The pair is scaled to unit power, then multiplied by `gain_scale`. A `.SPATIALIZED` stream close to the
+// listener spreads toward both speakers.
 accum_scale_target_2_source_mono :: (stream: *Sound_Stream, plane_dir: Vector2, gain_scale: float, target: *Scale_Mapping) {
     left := max(plane_dir.x * ROOT_2_OVER_2 + plane_dir.y * ROOT_2_OVER_2, 0.0);
     right := max(plane_dir.x * ROOT_2_OVER_2 - plane_dir.y * ROOT_2_OVER_2, 0.0);
@@ -81,12 +98,18 @@ accum_scale_target_2_source_mono :: (stream: *Sound_Stream, plane_dir: Vector2, 
     target.source_scale_for_this_output_index[1] += right * gain_scale / magnitude;
 }
 
+// Adds stereo gains for input channel `n` of a multichannel stream, turning the direction by that
+// channel's source direction. Stops the program if `n` is not a channel of the stream.
 accum_scale_target_2_source_n :: (stream: *Sound_Stream, plane_dir: Vector2, n: s64, gain_scale: float) {
     assert(n >= 0 && n < stream.num_channels);
     direction := channel_plane_direction(stream, plane_dir, n);
     accum_scale_target_2_source_mono(stream, direction, gain_scale, *stream.input_scale_mappings[n]);
 }
 
+// Adds gains for `plane_dir` to the two speakers of the output arc that fits it best (vector base
+// amplitude panning), scaled to unit power then by `gain_scale`.
+//
+// Does nothing when the output has no arcs (stereo) or the direction matches none.
 add_vbap_gain_for_direction :: (target: *Scale_Mapping, plane_dir: Vector2, gain_scale: float) {
     best_score := -FLOAT32_INFINITY;
     selected: *Vbap_Arc;
@@ -124,10 +147,16 @@ add_vbap_gain_for_direction :: (target: *Scale_Mapping, plane_dir: Vector2, gain
     target.source_scale_for_this_output_index[cast(s64) selected.speaker2] += gain_scale * b / power;
 }
 
+// Returns whether `stream` keeps `index` silent: footsteps do not play from the rear speakers.
 skip_this_output_channel :: (index: Audio_Channel, stream: *Sound_Stream) -> bool {
     return (stream.user_flags & .IS_FOOTSTEP) != 0 && (index == .REAR_LEFT || index == .REAR_RIGHT);
 }
 
+// Adds gains for a mono source heard from `plane_dir` to every output channel of `target`.
+//
+// Stereo output uses [accum_scale_target_2_source_mono]. Otherwise the direction is panned between the
+// nearest speakers, and a stream near the listener spreads to all speakers but the subwoofer. The result
+// is scaled to unit power, then by `gain_scale`.
 accum_scale_target_all_source_mono :: (stream: *Sound_Stream, plane_dir: Vector2, gain_scale: float, target: *Scale_Mapping) {
     if output_channel_count() == 2 {
         accum_scale_target_2_source_mono(stream, plane_dir, gain_scale, target);
@@ -159,12 +188,18 @@ accum_scale_target_all_source_mono :: (stream: *Sound_Stream, plane_dir: Vector2
         target.source_scale_for_this_output_index[output] += coefficients.source_scale_for_this_output_index[output] * gain_scale / power;
 }
 
+// Adds gains for input channel `n` of a multichannel stream to every output channel, turning the
+// direction by that channel's source direction. Stops the program if `n` is not a channel of the stream.
 accum_scale_target_all_source_n :: (stream: *Sound_Stream, plane_dir: Vector2, n: s64, gain_scale: float) {
     assert(n >= 0 && n < stream.num_channels);
     direction := channel_plane_direction(stream, plane_dir, n);
     accum_scale_target_all_source_mono(stream, direction, gain_scale, *stream.input_scale_mappings[n]);
 }
 
+// Returns the output speaker that plays a source direction.
+//
+// `.EXTEND_LEFT` and `.EXTEND_RIGHT` use the extra side speakers only on an 8-channel output, and the rear
+// speakers otherwise.
 source_dir_to_target_dir :: (source_dir_index: Source_Direction) -> Audio_Channel, success := true {
     if source_dir_index == {
         case .MONO; return .CENTER, true;
@@ -191,6 +226,11 @@ source_dir_to_target_dir :: (source_dir_index: Source_Direction) -> Audio_Channe
     return .CENTER, false;
 }
 
+// Adds gains for a music stream of one or two channels on an output of more than two: front speakers,
+// centre and subwoofer carry it, and the other speakers get half of `gain_scale`.
+//
+// A stereo stream's channels stay on their own side. Stereo output uses
+// [update_panning_helper_for_locked_output].
 update_panning_helper_for_many_channel_music :: (stream: *Sound_Stream, gain_scale: float) {
     assert(stream.num_channels == 1 || stream.num_channels == 2);
     channels := output_channel_count();
@@ -226,6 +266,11 @@ update_panning_helper_for_many_channel_music :: (stream: *Sound_Stream, gain_sca
     }
 }
 
+// Adds gains that do not depend on the listener: each input channel goes to the speaker its source
+// direction names.
+//
+// On stereo output a mono stream is split evenly, a stereo stream passes through, and other layouts go
+// to the side their source direction points to.
 update_panning_helper_for_locked_output :: (stream: *Sound_Stream, gain_scale: float) {
     channels := output_channel_count();
 
@@ -251,6 +296,11 @@ update_panning_helper_for_locked_output :: (stream: *Sound_Stream, gain_scale: f
     }
 }
 
+// Adds the target gains of `stream`, scaled by `gain_scale`, choosing how it is panned.
+//
+// Music on more than two speakers, and streams without a position (no listener, not `.SPATIALIZED`,
+// `.AMBIENT`, `.MUSIC` or the `.UI` category) get fixed gains. Others are panned by where they are
+// relative to the listener, which is stored in `stream.last_plane_dir`.
 update_panning_helper :: (stream: *Sound_Stream, gain_scale: float) {
     if (stream.user_flags & .MUSIC) && output_channel_count() > 2 {
         update_panning_helper_for_many_channel_music(stream, gain_scale);
@@ -298,6 +348,11 @@ set_master_volume :: (value: float) {
     master_volume = value;
 }
 
+// Recomputes `stream`'s loudness and per-channel gains for the listener's current position.
+//
+// Sets `max_gain`, `inaudible` and `debug_display_volume`, rebuilds the target gains, and sets how fast
+// each current gain ramps toward its target: the whole range in 1/30 s, a gain being a factor of 0 to 1.
+// The first update after the stream starts jumps to the target. Needs an initialized backend.
 update_panning :: (stream: *Sound_Stream) {
     lock_player();
     defer unlock_player();

@@ -3,6 +3,11 @@
 #if OS == .MACOS FILL_BUFFER_SIZE_IN_SAMPLES :: OUTPUT_SAMPLING_RATE / 2;
 #if OS == .WINDOWS FILL_BUFFER_SIZE_IN_SAMPLES :: 24000;
 
+// Lists the audio outputs the system offers, in the order the backend reports them.
+//
+// Returns the previous list when the set of names is unchanged, and also when the query fails (the
+// failure is logged on the next notice report). A changed list is a new snapshot; earlier snapshots stay
+// valid, so a caller may keep the slice.
 backend_get_devices :: () -> [] Output_Device {
     lock_producer();
     defer finish_backend_call();
@@ -56,6 +61,12 @@ backend_get_devices :: () -> [] Output_Device {
     return output_devices;
 }
 
+// Opens the output device and returns what it settled on.
+//
+// The result's `initted` is false when `config.seconds_to_fill_ahead` is not a positive number, the
+// device prefers a channel count other than 2, 6 or 8, or the device cannot be opened. Calling it again
+// while a device is open returns the current properties, with `initted` false if the device was lost.
+// `config.seconds_to_fill_ahead` (seconds) sets the least audio kept queued, in whole frames.
 backend_init :: (config: Sound_Player_Config) -> Backend_Properties {
     lock_producer();
     defer finish_backend_call();
@@ -110,19 +121,33 @@ backend_init :: (config: Sound_Player_Config) -> Backend_Properties {
 }
 
 #if OS == .WINDOWS {
+    // Returns the bytes queued in the output but not yet played, and the least that should stay queued.
+    //
+    // Both counts are in bytes of 16-bit interleaved samples. Returns 0 queued bytes when the device is lost.
     backend_count_buffered_bytes :: () -> (currently_buffered: s64, minimum_prebuffered: s64) {
         return count_output_bytes();
     }
 } else #if OS == .MACOS {
+    // Returns the bytes queued in the output but not yet played, and the least that should stay queued.
+    //
+    // Both counts are in bytes of 16-bit interleaved samples. Returns 0 queued bytes when the device is lost.
     backend_count_buffered_bytes :: () -> (currently_buffered: s64, minimum_prebuffered_bytes: s64) {
         return count_output_bytes();
     }
 } else #if OS == .LINUX {
+    // Returns the bytes queued in the output but not yet played, and the least that should stay queued.
+    //
+    // Both counts are in bytes of 16-bit interleaved samples. Returns 0 queued bytes when the device is lost.
     backend_count_buffered_bytes :: () -> (buffered_bytes: s64, minimum_prebuffered_bytes: s64) {
         return count_output_bytes();
     }
 }
 
+// Reserves `bytes_to_lock` bytes of the output for the mixer to write, and returns them in `buffer0`.
+//
+// The second result is false, with empty regions, when there is no usable device, a region is already
+// locked, `bytes_to_lock` is not positive, exceeds the staging buffer, or is not a whole number of frames
+// (channels times 2 bytes). `buffer1` is always empty. Pass the result to [backend_release_fill_regions].
 backend_lock_fill_regions :: (bytes_to_lock: s64) -> Fill_Region_Result, bool {
     lock_producer();
     defer unlock_producer();
@@ -137,6 +162,10 @@ backend_lock_fill_regions :: (bytes_to_lock: s64) -> Fill_Region_Result, bool {
     return result, true;
 }
 
+// Submits the region that [backend_lock_fill_regions] returned to the output and unlocks it.
+//
+// Stops the program if `result` is not the locked region. A failed submit marks the device lost. Starts
+// playback if a restart was pending.
 backend_release_fill_regions :: (result: Fill_Region_Result) {
     lock_producer();
     defer finish_backend_call();
@@ -167,6 +196,7 @@ backend_release_fill_regions :: (result: Fill_Region_Result) {
     }
 }
 
+// Starts or resumes playback on the output device. A failure marks the device lost.
 backend_play :: () {
     lock_producer();
     defer finish_backend_call();
@@ -176,11 +206,14 @@ backend_play :: () {
     if status != 0 lose_output_device(status);
 }
 
+// Returns whether the program has to call the player's update itself even when the player mixes on its own
+// thread: true except on Linux.
 backend_needs_async_update_from_main_thread :: () -> bool {
     #if OS == .LINUX return false;
     return true;
 }
 
+// Closes the output device. If closing fails, the device is marked lost and keeps its handle.
 backend_shutdown :: () {
     lock_producer();
     defer finish_backend_call();
@@ -217,6 +250,10 @@ close_output_device :: () -> bool {
 #scope_export
 
 #if OS == .WINDOWS || OS == .MACOS {
+    // Returns how many bytes lie from `rear` forward to `front` in a ring buffer of `buffer_len` bytes.
+    //
+    // Positions are byte offsets in `0..buffer_len - 1`, and the result wraps past the end when `front` is
+    // before `rear`. Stops the program on an out-of-range position.
     get_bytes_between :: (front: $T, rear: T, buffer_len: T) -> T {
         assert(buffer_len > 0 && front >= 0 && rear >= 0 && front < buffer_len && rear < buffer_len);
         if front >= rear return front - rear;

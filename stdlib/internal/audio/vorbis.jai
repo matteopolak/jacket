@@ -1,3 +1,7 @@
+// Reads the length in frames, channel count and sampling rate (Hz) of an Ogg Vorbis file in memory.
+//
+// Returns zeros when the data is too short or large, will not open, or has more than
+// `MAX_CHANNELS_PER_SOUND` channels or a zero rate.
 get_compressed_rate_channels_and_size :: (s: string) -> (num_samples: s64, num_channels: s64, sampling_rate: s64) {
     if s.count < 4 || s.count > 0x7fffffff return 0, 0, 0;
 
@@ -15,6 +19,8 @@ get_compressed_rate_channels_and_size :: (s: string) -> (num_samples: s64, num_c
     return length, info.channels, info.sample_rate;
 }
 
+// Opens the decoder's Vorbis stream if it is not open. Returns false when it cannot be opened or its
+// channel count or rate differs from the decoder's.
 start_vorbis_file :: (using decoder: *Cached_Ogg_Decoder) -> bool {
     if vorbis_file return true;
     if !sound_data || sound_data.buffer.count > 0x7fffffff || sound_data.buffer.count < 4 return false;
@@ -34,6 +40,12 @@ start_vorbis_file :: (using decoder: *Cached_Ogg_Decoder) -> bool {
     return true;
 }
 
+// Creates a decoder for the Ogg Vorbis sound `data`, with pages of `_page_size_in_samples` frames, or
+// returns null.
+//
+// Returns null when `data` is not `.OGG_COMPRESSED`, the page size is not positive or too large, or the
+// stream is empty or unsupported. On success it also sets the sound's channel count, rate and length.
+// The decoder points into `data`, which must outlive it.
 create_ogg_decoder :: (data: *Sound_Data, _page_size_in_samples: s64) -> *Cached_Decoder {
     push_allocator(context.default_allocator);
     if !data || data.type != .OGG_COMPRESSED || _page_size_in_samples <= 0 return null;
@@ -71,6 +83,7 @@ create_ogg_decoder :: (data: *Sound_Data, _page_size_in_samples: s64) -> *Cached
     return *decoder.base;
 }
 
+// Closes the decoder's Vorbis stream.
 deinit_proc_ogg :: (decoder: *Cached_Decoder) {
     ogg := cast(*Cached_Ogg_Decoder) decoder;
     if ogg.vorbis_file {
@@ -79,6 +92,8 @@ deinit_proc_ogg :: (decoder: *Cached_Decoder) {
     }
 }
 
+// Allocates an empty page for the decoder: a buffer for one page of 16-bit interleaved samples. Allocates
+// with the default allocator.
 make_page_ogg :: (using decoder: *Cached_Decoder) -> *Cached_Decoder_Page {
     push_allocator(context.default_allocator);
     page := New(Cached_Decoder_Page);
@@ -91,6 +106,10 @@ make_page_ogg :: (using decoder: *Cached_Decoder) -> *Cached_Decoder_Page {
     return page;
 }
 
+// Seeks to `_page.start_address` (a frame) and decodes one page of 16-bit samples into it.
+//
+// The page is clipped to the end of the sound. Stops the program if the stream cannot be opened or
+// sought, or ends before its declared length.
 recompute_page_ogg :: (using decoder: *Cached_Decoder, _page: *Cached_Decoder_Page) {
     ogg := cast(*Cached_Ogg_Decoder) decoder;
 
