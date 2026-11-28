@@ -27,7 +27,7 @@ CMSG_DATA :: (cmsg: *cmsghdr) -> *u8 {
     return cast(*u8) cmsg + CMSG_ALIGN(size_of(cmsghdr));
 }
 
-// Rounds `size` up to the alignment of control message data: 4 bytes on macOS, 8 elsewhere. A negative size, or one too
+// Rounds `size` up to the alignment of control message data: 4 bytes on macOS, the size of a pointer elsewhere (`size_t` in C: 8 bytes on 64-bit CPUs, 4 on i686 and armv7). A negative size, or one too
 // large to round, fails an assertion.
 //
 // ```jai,only(linux, macos)
@@ -70,4 +70,4 @@ CMSG_SIZE :: (size: int) -> u32 {
 B :: #import "Basic";
 
 #if OS == .MACOS BOUNDARY :: 4;
-else BOUNDARY :: size_of(u64);
+else BOUNDARY :: size_of(*void);

@@ -181,7 +181,8 @@ check_fd_set :: () {
         assert(CMSG_LEN(4) == cast(u32) (aligned_header + 4), "CMSG_LEN(4) %", CMSG_LEN(4));
         assert(CMSG_SIZE(4) == cast(u32) (aligned_header + CMSG_ALIGN(4)), "CMSG_SIZE(4) %", CMSG_SIZE(4));
         assert(CMSG_SIZE(0) == cast(u32) aligned_header);
-        #if OS == .LINUX assert(CMSG_LEN(4) == 20 && CMSG_SIZE(4) == 24, "glibc's 64-bit CMSG_LEN/CMSG_SPACE");
+        #if OS == .LINUX && size_of(*void) == 8 assert(CMSG_LEN(4) == 20 && CMSG_SIZE(4) == 24, "glibc's 64-bit CMSG_LEN/CMSG_SPACE");
+        #if OS == .LINUX && size_of(*void) == 4 assert(CMSG_LEN(4) == 16 && CMSG_SIZE(4) == 16, "glibc's 32-bit CMSG_LEN/CMSG_SPACE");
         #if OS == .MACOS assert(CMSG_LEN(4) == 16 && CMSG_SIZE(4) == 16, "Darwin's CMSG_LEN/CMSG_SPACE");
 
         message: msghdr;
@@ -232,14 +233,18 @@ connect_to :: (s: Socket, address: sockaddr_in) -> s32 {
 else SEND_FLAGS :: cast(MSG) 0;
 NO_FLAGS :: cast(MSG) 0;
 
+// The byte-count parameter of `send` and `recv`: `size_t`, 4 bytes on 32-bit CPUs.
+#if size_of(*void) == 4 Length :: u32;
+else Length :: u64;
+
 send_bytes :: (s: Socket, data: *u8, count: s64) -> s64 {
     #if OS == .WINDOWS return send(s, data, cast(s32) count, NO_FLAGS);
-    else return send(s, data, cast(u64) count, SEND_FLAGS);
+    else return send(s, data, cast(Length) count, SEND_FLAGS);
 }
 
 recv_bytes :: (s: Socket, data: *u8, count: s64, flags := NO_FLAGS) -> s64 {
     #if OS == .WINDOWS return recv(s, data, cast(s32) count, flags);
-    else return recv(s, data, cast(u64) count, flags);
+    else return recv(s, data, cast(Length) count, flags);
 }
 
 would_block :: () -> bool {
@@ -497,7 +502,7 @@ check_udp :: () {
 
     for sizes {
         #if OS == .WINDOWS sent := sendto(a, out.data, cast(s32) it, NO_FLAGS, cast(*sockaddr) *b_address, size_of(sockaddr_in));
-        else sent := sendto(a, out.data, cast(u64) it, NO_FLAGS, cast(*sockaddr) *b_address, size_of(sockaddr_in));
+        else sent := sendto(a, out.data, cast(Length) it, NO_FLAGS, cast(*sockaddr) *b_address, size_of(sockaddr_in));
         assert(sent == it, "sendto % bytes gave %, error %", it, sent, get_last_socket_error());
     }
 

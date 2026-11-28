@@ -12,7 +12,7 @@ main :: () {
         assert(S.CMSG_LEN(0) == length);
         assert(S.CMSG_LEN(0xffffffff - length) == 0xffffffff);
         #if OS == .MACOS boundary := 4;
-        else boundary := 8;
+        else boundary := size_of(*void);
         maximum := 0x7fffffffffffffff - (boundary - 1);
 
         assert(S.CMSG_ALIGN(maximum) == maximum);

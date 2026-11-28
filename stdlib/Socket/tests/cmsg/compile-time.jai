@@ -23,7 +23,7 @@ verify :: () -> bool {
         }
 
         #if OS == .MACOS expected := ((size + 3) / 4) * 4;
-        else expected := ((size + 7) / 8) * 8;
+        else expected := ((size + size_of(*void) - 1) / size_of(*void)) * size_of(*void);
         if S.CMSG_ALIGN(size) != expected || S.CMSG_LEN(size) != size_of(S.cmsghdr) + size return false;
     }
 
