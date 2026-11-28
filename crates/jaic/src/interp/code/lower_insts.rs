@@ -630,8 +630,13 @@ impl Builder<'_> {
             }
         }
 
-        // A narrower address wraps at its own width, which the 64-bit adds below do not.
-        if self.addresses.pointer_size() < 8 {
+        // A narrower address wraps at its own width, which the 64-bit adds below do not, unless
+        // the constant offset cannot carry an address of the program's memory past it.
+        let stays_inside = self
+            .int(offset)
+            .is_some_and(|x| self.addresses.never_wraps(x as i64));
+
+        if self.addresses.pointer_size() < 8 && !stays_inside {
             return self.bin(
                 dst,
                 BinOp::Add,
