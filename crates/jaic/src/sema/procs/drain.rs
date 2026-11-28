@@ -205,7 +205,7 @@ impl Compiler {
     }
 
     /// Counts the events after which a body that failed to lower may succeed.
-    pub(super) fn lower_epoch(&self) -> u64 {
+    pub(in crate::sema) fn lower_epoch(&self) -> u64 {
         let base =
             self.src.added + self.src.files.len() + self.ns.modules.len() + self.ct.runs_done;
         // Generated declarations/using entries can become visible without loading

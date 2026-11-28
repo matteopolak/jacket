@@ -4,6 +4,7 @@ use super::model::{
     StructMembers, StructSource, UsingFilters,
 };
 use crate::diagnostics::Code;
+use crate::ide::Recorder;
 use crate::sema::{
     Arc, Compiler, Diagnostic, HashMap, Result, ScopeId, Span, Sym, TypeId, ast, err, scope,
 };
@@ -124,15 +125,27 @@ impl Compiler {
                     format!("struct `{name}` contains itself (use a pointer)"),
                 );
             }
-            LayoutState::Pending => {}
+            LayoutState::Pending => {
+                if let Some((epoch, error)) = self.ty.layout_failures.get(&s)
+                    && *epoch == self.lower_epoch()
+                {
+                    return Err(error.clone());
+                }
+            }
         }
 
         crate::sema::body_probe::bump(crate::sema::body_probe::C::Layout);
         self.ty.types.struct_info_mut(s).layout = LayoutState::InProgress;
         let result = self.layout_struct_inner(s);
 
-        if result.is_err() {
+        if let Err(error) = &result {
             self.ty.types.struct_info_mut(s).layout = LayoutState::Pending;
+
+            if self.ed.counts_scope_changes() {
+                let epoch = self.lower_epoch();
+
+                self.ty.layout_failures.insert(s, (epoch, error.clone()));
+            }
         }
 
         result

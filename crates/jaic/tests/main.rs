@@ -76,6 +76,8 @@ mod ide_deadline;
 mod ide_entry;
 #[path = "ide_facts_golden.rs"]
 mod ide_facts_golden;
+#[path = "ide_failed_resolution.rs"]
+mod ide_failed_resolution;
 #[path = "ide_layout.rs"]
 mod ide_layout;
 #[path = "ide_lifetimes.rs"]

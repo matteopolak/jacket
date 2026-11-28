@@ -63,6 +63,10 @@ pub struct ImportEntry {
     pub module: Option<ModuleId>,
     /// Set while the import's module is being resolved, so that a recursive reference sees no module yet instead of recursing.
     pub loading: bool,
+    /// An editor analysis that failed to resolve this import and the state it failed in (the
+    /// program's progress and the module search paths): asked again before either changed, it fails the same way without evaluating its arguments
+    /// (and every struct their lookups lay out) once more.
+    pub failed: Option<(u64, Box<crate::diagnostics::Diagnostic>)>,
     /// The file that wrote the import (for relative paths and parameter evaluation).
     pub from_scope: ScopeId,
     /// `using,only(..)` / `using,except(..)` on a named import that also brings its names in.

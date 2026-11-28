@@ -38,6 +38,11 @@ pub struct TypeState {
         Probed<HashSet<(ScopeId, ast::AstId)>, { W::TyFieldFilterPending as usize }>,
     pub(in crate::sema) field_using_order:
         Probed<HashMap<ScopeId, Vec<structs::FieldUsing>>, { W::TyFieldUsingOrder as usize }>,
+    /// Structs an editor analysis failed to lay out, with the epoch of the failure: asked again
+    /// before anything changed, the layout fails the same way without evaluating its members
+    /// (and everything their lookups lay out) once more.
+    pub(in crate::sema) layout_failures:
+        HashMap<crate::types::StructId, (u64, Box<crate::diagnostics::Diagnostic>)>,
     /// The `#Context` type, once it is known.
     pub context_type: Option<TypeId>,
     /// `Type_Info` globals per type.
@@ -130,6 +135,7 @@ impl TypeState {
             field_filter_cache: Probed::default(),
             field_filter_pending: Probed::default(),
             field_using_order: Probed::default(),
+            layout_failures: HashMap::default(),
             context_type: None,
             infos: Probed::default(),
             failed_infos: Probed::default(),

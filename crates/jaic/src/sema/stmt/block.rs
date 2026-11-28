@@ -836,6 +836,7 @@ impl Compiler {
                                 import: import.clone(),
                                 module: None,
                                 loading: false,
+                                failed: None,
                                 from_scope: file_scope,
                                 filter: import.using.clone().unwrap_or(ast::UsingFilter::None),
                             },

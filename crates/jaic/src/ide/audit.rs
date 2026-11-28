@@ -33,6 +33,12 @@ impl Compiler {
 
         for i in 0..self.ns.entities.len() {
             let id = EntityId(i as u32);
+
+            if let Err(stop) = self.check_not_stopped(self.entity(id).span) {
+                errors.push(*stop);
+                return errors;
+            }
+
             let e = self.entity(id);
             let (scope, span) = (e.scope, e.span);
 
@@ -69,6 +75,12 @@ impl Compiler {
             let id = EntityId(i as u32);
 
             i += 1;
+
+            if let Err(stop) = self.check_not_stopped(self.entity(id).span) {
+                errors.push(*stop);
+                return errors;
+            }
+
             let e = self.entity(id);
             let span = e.span;
             let ty = match &e.state {
@@ -118,6 +130,11 @@ impl Compiler {
             let id = ProcId(i as u32);
 
             i += 1;
+
+            if let Err(stop) = self.check_not_stopped(self.proc(id).span) {
+                errors.push(*stop);
+                return errors;
+            }
 
             // Header classification resolves names and can run compile-time code. Apply
             // the recording policy before starting independent audit work; actual calls

@@ -23,6 +23,12 @@ impl Compiler {
             return Ok(None);
         }
 
+        if let Some((epoch, error)) = &known.failed
+            && *epoch == self.import_failure_epoch()
+        {
+            return Err(error.clone());
+        }
+
         let entry = known.clone();
 
         self.scope_mut(scope).imports[index].loading = true;
@@ -63,7 +69,15 @@ impl Compiler {
         let module = match resolved {
             Ok(module) => module,
             Err(error) => {
-                self.scope_mut(scope).imports[index].module = None;
+                let failed = self
+                    .ed
+                    .counts_scope_changes()
+                    .then(|| (self.import_failure_epoch(), error.clone()));
+                let import = &mut self.scope_mut(scope).imports[index];
+
+                import.module = None;
+                import.failed = failed;
+
                 return Err(error);
             }
         };
@@ -438,5 +452,19 @@ fn inferred_members(expr: &ast::Expr) -> Option<String> {
             Some(format!("{}|{}", inferred_members(a)?, inferred_members(b)?))
         }
         _ => None,
+    }
+}
+
+impl Compiler {
+    /// The state a failed import's result depends on: the program's progress
+    /// ([`Compiler::lower_epoch`]) and the module search paths, so adding a path retries it.
+    fn import_failure_epoch(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+
+        self.lower_epoch().hash(&mut hasher);
+        self.options.import_paths.hash(&mut hasher);
+        hasher.finish()
     }
 }
