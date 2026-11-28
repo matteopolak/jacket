@@ -11,7 +11,7 @@ from pathlib import Path
 
 from toolkit.repo import ROOT
 
-__all__ = ["kill_tree", "output", "run", "run_expect", "run_tree"]
+__all__ = ["kill_tree", "output", "run", "run_expect", "run_tree", "stop_tree"]
 
 # Popen arguments that put a child in its own process group (Windows) or session (POSIX), so that
 # `kill_tree` reaches what the child started.
@@ -30,6 +30,25 @@ def kill_tree(process: subprocess.Popen) -> None:
     except (ProcessLookupError, PermissionError):
         # Nothing left in the group (macOS answers EPERM for a group of one unreaped leader).
         process.kill()
+
+
+def stop_tree(process: subprocess.Popen, grace: float = 10) -> None:
+    """Stop `process` and its descendants: SIGTERM the group and wait up to `grace` seconds, then `kill_tree`.
+    Windows has no graceful signal, so it kills at once. Reaps the child. Start it with `NEW_GROUP`."""
+    if os.name != "nt":
+        # The group is signalled even when the leader has exited, since its children may still run.
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except (ProcessLookupError, PermissionError):
+            process.wait()
+            return
+        try:
+            process.wait(grace)
+        except subprocess.TimeoutExpired:
+            pass
+    if os.name != "nt" or process.poll() is None:
+        kill_tree(process)
+    process.wait()
 
 
 def run_tree(

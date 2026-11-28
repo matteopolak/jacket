@@ -6,8 +6,6 @@ scratch copy of its project under corpus/upstream, so a build that writes into i
 changes the pinned sources. Exits 1 when a check that was not skipped fails.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
 
 
 import argparse
@@ -17,7 +15,6 @@ import json
 import os
 import re
 import shutil
-import signal
 import socket
 import struct
 import subprocess
@@ -30,6 +27,7 @@ from pathlib import Path
 from stdlib.case_capabilities import user_deferred_reason
 import corpus.upstream_sandbox as usb
 from repo_output import host_platform
+from toolkit.process import NEW_GROUP, stop_tree
 from toolkit.repo import ROOT
 from repo_output import output_dir
 from toolkit.cli import add_jaic_argument
@@ -247,41 +245,6 @@ def capture(dest):
         return None
 
 
-# Programs under test run in their own process group, so stopping one also stops what it started
-# (the chess UI starts its engine as a child, which otherwise outlives it and spins on a closed pipe).
-GROUP = (
-    {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
-    if WINDOWS
-    else {"start_new_session": True}
-)
-
-
-def stop(proc):
-    if WINDOWS:
-        if proc.poll() is None:
-            subprocess.run(
-                ["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True
-            )
-            proc.wait()
-        return
-    # Signal the group even when the leader has exited: its children may still be running. macOS
-    # answers EPERM rather than ESRCH for a group whose only member is an unreaped leader.
-    try:
-        os.killpg(proc.pid, signal.SIGTERM)
-    except (ProcessLookupError, PermissionError):
-        proc.wait()
-        return
-    try:
-        proc.wait(10)
-    except subprocess.TimeoutExpired:
-        pass
-    try:
-        os.killpg(proc.pid, signal.SIGKILL)
-    except (ProcessLookupError, PermissionError):
-        pass
-    proc.wait()
-
-
 def read_pipe_text(path):
     try:
         return Path(path).read_text(errors="replace")
@@ -324,7 +287,7 @@ def gui_step(step, ctx):
             stdin=subprocess.DEVNULL,
             stdout=out,
             stderr=subprocess.STDOUT,
-            **GROUP,
+            **NEW_GROUP,  # own group: stop_tree also stops what it starts (the chess UI's engine child)
         )
     try:
         seconds = step.get("seconds", 8)
@@ -352,7 +315,7 @@ def gui_step(step, ctx):
                         f"{argv[0]}: the screen did not change ({changed:.2%} changed, {colors} colors)"
                     )
     finally:
-        stop(proc)
+        stop_tree(proc)
     text = read_pipe_text(log).replace("\r\n", "\n")
     check_output(text, step, argv[0])
     return text
@@ -380,7 +343,7 @@ def serve_step(step, ctx):
             stdin=subprocess.DEVNULL,
             stdout=out,
             stderr=subprocess.STDOUT,
-            **GROUP,
+            **NEW_GROUP,
         )
     try:
         deadline = time.time() + step.get("timeout", 30)
@@ -407,7 +370,7 @@ def serve_step(step, ctx):
         check_output(body, step, "response")
         return body
     finally:
-        stop(proc)
+        stop_tree(proc)
 
 
 def lsp_step(step, ctx):
@@ -434,7 +397,7 @@ def lsp_step(step, ctx):
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        **GROUP,
+        **NEW_GROUP,
     )
     try:
         proc.stdin.write(frame(request) + frame(shutdown))
@@ -462,7 +425,7 @@ def lsp_step(step, ctx):
             f"{argv[0]}: no reply to initialize\n{tail(chr(10).join(replies))}"
         )
     finally:
-        stop(proc)
+        stop_tree(proc)
 
 
 STEPS = {"run": run_step, "gui": gui_step, "serve": serve_step, "lsp": lsp_step}

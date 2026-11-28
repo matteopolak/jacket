@@ -170,17 +170,15 @@ zip_name :: (bytes: [] u8, utf8: bool) -> string, bool {
     out: [..] u8;
 
     for bytes {
-        if it < 128 array_add(*out, it);
-        else {
-            c := CP437[it - 128];
-            if c < 2048 array_add(*out, cast(u8) (0xc0 | (c >> 6)));
-            else {
-                array_add(*out, cast(u8) (0xe0 | (c >> 12)));
-                array_add(*out, cast(u8) (0x80 | ((c >> 6) & 63)));
-            }
-
-            array_add(*out, cast(u8) (0x80 | (c & 63)));
+        if it < 128 {
+            array_add(*out, it);
+            continue;
         }
+
+        encoded: [4] u8;
+        size := Utf8.encode(CP437[it - 128], encoded.data);
+
+        for 0..size - 1 array_add(*out, encoded[it]);
     }
 
     return .{ out.count, out.data }, true;

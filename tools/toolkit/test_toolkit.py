@@ -19,7 +19,7 @@ from toolkit import download, llvm
 from toolkit.lsp import FrameDecoder, FrameError, encode
 from toolkit.cli import add_jaic_argument, default_jaic
 from toolkit.hashing import sha256_bytes, sha256_file
-from toolkit.process import output, run, run_expect
+from toolkit.process import NEW_GROUP, output, run, run_expect, stop_tree
 from toolkit.host import brew_prefix, exe_name, host_cpu, host_os, require_tool
 from toolkit.repo import ROOT, cargo_binary, cargo_target_dir, git_files, jaifmt_path, stdlib_env
 
@@ -105,6 +105,20 @@ class RunTree(unittest.TestCase):
             script = f"import subprocess, sys, time; subprocess.Popen([sys.executable, '-c', {grandchild!r}]); time.sleep(30)"
             with self.assertRaises(subprocess.TimeoutExpired):
                 run([PY, "-c", script], echo=False, timeout=1, capture=True)
+            time.sleep(3.5)
+            self.assertFalse(marker.exists())
+
+
+class StopTree(unittest.TestCase):
+    def test_stops_the_child_and_its_descendants(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            marker = Path(tmp) / "marker"
+            grandchild = f"import time, pathlib; time.sleep(3); pathlib.Path({str(marker)!r}).write_text('x')"
+            script = f"import subprocess, sys, time; subprocess.Popen([sys.executable, '-c', {grandchild!r}]); time.sleep(30)"
+            process = subprocess.Popen([PY, "-c", script], **NEW_GROUP)
+            time.sleep(0.5)
+            stop_tree(process, grace=5)
+            self.assertIsNotNone(process.poll())
             time.sleep(3.5)
             self.assertFalse(marker.exists())
 

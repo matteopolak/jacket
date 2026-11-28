@@ -8,53 +8,11 @@ DIGIT_GROUP :: 10000;
 GROUP_DIGITS :: 4;
 MAX_U64_DIGITS :: 20;
 
-// How many bytes of `text` starting at `at` form one well-formed UTF-8 sequence (RFC 3629: no
-// overlong forms, no surrogates, nothing above U+10FFFF), or 0.
-utf8_sequence_length :: (text: string, at: int) -> int #no_abc {
-    first := text[at];
+// How many bytes of `text` starting at `at` form one well-formed UTF-8 sequence, or 0.
+utf8_sequence_length :: inline (text: string, at: int) -> int {
+    _, size := Utf8.decode(text, at);
 
-    if first < 0x80 return 1;
-    if first < 0xc2 return 0;
-
-    left := text.count - at;
-
-    if first < 0xe0 {
-        if left >= 2 && (text[at + 1] & 0xc0) == 0x80 return 2;
-
-        return 0;
-    }
-
-    if first < 0xf0 {
-        if left < 3 return 0;
-
-        second := text[at + 1];
-        low: u8 = 0x80;
-        high: u8 = 0xbf;
-
-        if first == 0xe0 low = 0xa0;
-        if first == 0xed high = 0x9f;
-        if second < low || second > high return 0;
-        if (text[at + 2] & 0xc0) != 0x80 return 0;
-
-        return 3;
-    }
-
-    if first < 0xf5 {
-        if left < 4 return 0;
-
-        second := text[at + 1];
-        low: u8 = 0x80;
-        high: u8 = 0xbf;
-
-        if first == 0xf0 low = 0x90;
-        if first == 0xf4 high = 0x8f;
-        if second < low || second > high return 0;
-        if (text[at + 2] & 0xc0) != 0x80 || (text[at + 3] & 0xc0) != 0x80 return 0;
-
-        return 4;
-    }
-
-    return 0;
+    return size;
 }
 
 #scope_module

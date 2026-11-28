@@ -40,19 +40,7 @@ zip_crc32 :: (s: string) -> u32 {
         return 0;
     }
 
-    crc: u32 = 0xffffffff;
-
-    for byte: s {
-        crc ^= cast(u32) byte;
-
-        for 0..7 {
-            bottom := (crc & 1) != 0;
-            crc >>= 1;
-            if bottom crc ^= 0xedb88320;
-        }
-    }
-
-    return ~crc;
+    return Deflate.crc32(cast([] u8) s);
 }
 
 Kilobytes :: (x: int) -> int #expand {
@@ -65,6 +53,7 @@ Megabytes :: (x: int) -> int #expand {
 
 #scope_module
 #import "Basic";
+Deflate :: #import "Extensions/Deflate";
 
 zip_eocd_valid :: (eocd: string) -> bool {
     if eocd.count < ZIP_END_OF_CENTRAL_DIRECTORY_RECORD_SIZE || !eocd.data {
