@@ -23,8 +23,9 @@ pub(super) struct Files<'a> {
 
 /// The top level of one file: what its names stand for, and the files it brings in.
 struct Top {
-    /// The first declaration or named import of each name.
-    names: HashMap<String, Name>,
+    /// Every declaration or named import of each name, in order: a name chosen by `#if` is declared
+    /// once for each branch.
+    names: HashMap<String, Vec<Name>>,
     /// Loaded files, in order.
     loads: Vec<PathBuf>,
     /// Modules imported without a name, in order.
@@ -126,9 +127,8 @@ impl<'a> Files<'a> {
                         for n in &decl.names {
                             top.names
                                 .entry(n.name.as_str().to_owned())
-                                .or_insert_with(|| {
-                                    Name::Decl(file.to_path_buf(), n.span.start as usize)
-                                });
+                                .or_default()
+                                .push(Name::Decl(file.to_path_buf(), n.span.start as usize));
                         }
                     }
                     TopLevelKind::Import(import) => {
@@ -142,7 +142,8 @@ impl<'a> Files<'a> {
 
                                 top.names
                                     .entry(n.name.as_str().to_owned())
-                                    .or_insert(Name::Module(found));
+                                    .or_default()
+                                    .push(Name::Module(found));
                             }
                             (None, Some(found)) => top.unnamed.push((found, UsingFilter::None)),
                             (_, None) => {}
@@ -168,8 +169,9 @@ impl<'a> Files<'a> {
         top
     }
 
-    /// What `name` is at the top level of `file` or of a file it loads.
-    fn top_level(&mut self, file: &Path, name: &str, depth: usize) -> Option<Name> {
+    /// What `name` is at the top level of `file` or of a file it loads: each thing a branch of
+    /// an `#if` makes it.
+    fn top_level(&mut self, file: &Path, name: &str, depth: usize) -> Option<Vec<Name>> {
         self.top_level_in(file, name, depth, &mut BTreeSet::new())
     }
 
@@ -179,7 +181,7 @@ impl<'a> Files<'a> {
         name: &str,
         depth: usize,
         seen: &mut BTreeSet<(PathBuf, String)>,
-    ) -> Option<Name> {
+    ) -> Option<Vec<Name>> {
         if !seen.insert((file.to_path_buf(), name.to_owned())) {
             return None;
         }
@@ -271,19 +273,30 @@ impl Resolver<PathBuf> for Files<'_> {
 
     fn resolve(&mut self, file: &PathBuf, _at: usize, path: &[String]) -> Option<(PathBuf, usize)> {
         let (last, modules) = path.split_last()?;
-        let mut here = file.clone();
+        let mut homes = vec![file.clone()];
 
+        // A module chosen by `#if OS` is every branch's module: the name is looked for in each.
         for module in modules {
-            let Name::Module(next) = self.top_level(&here, module, LOAD_DEPTH)? else {
-                return None;
-            };
+            let mut next = Vec::new();
 
-            here = next;
+            for home in &homes {
+                for name in self.top_level(home, module, LOAD_DEPTH).unwrap_or_default() {
+                    if let Name::Module(found) = name {
+                        next.push(found);
+                    }
+                }
+            }
+
+            homes = next;
         }
 
-        match self.top_level(&here, last, LOAD_DEPTH)? {
-            Name::Decl(owner, at) => Some((owner, at)),
-            Name::Module(_) => None,
-        }
+        homes.iter().find_map(|home| {
+            self.top_level(home, last, LOAD_DEPTH)?
+                .into_iter()
+                .find_map(|name| match name {
+                    Name::Decl(owner, at) => Some((owner, at)),
+                    Name::Module(_) => None,
+                })
+        })
     }
 }

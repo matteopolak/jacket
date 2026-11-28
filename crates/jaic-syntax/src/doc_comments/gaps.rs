@@ -268,6 +268,37 @@ mod tests {
     }
 
     #[test]
+    fn an_alias_through_an_os_chosen_impl_finds_its_target_in_any_branch() {
+        let dir = library(
+            "branches",
+            &[
+                (
+                    "module.jai",
+                    "// A module.\n\nshared :: Impl.shared;\n\nhost_only :: Impl.host_only;\n\n#if OS == .NONE Impl :: #import,file \"bare.jai\";\nelse Impl :: #import,file \"host.jai\";\n",
+                ),
+                ("bare.jai", "// Bare shared.\nshared :: () {}\n"),
+                (
+                    "host.jai",
+                    "// Host shared.\nshared :: () {}\n\n// Only on a host.\nhost_only :: () {}\n",
+                ),
+            ],
+        );
+        let found = gaps(&dir, Path::new("/nowhere"), &[]);
+        let module = rows(&found);
+
+        assert!(
+            module.contains(&("alias", "shared", true, false)),
+            "{module:?}"
+        );
+        assert!(
+            module.contains(&("alias", "host_only", true, false)),
+            "{module:?}"
+        );
+
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn a_comment_above_the_first_declaration_is_not_the_modules() {
         let dir = library(
             "opening",
