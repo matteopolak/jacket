@@ -13,6 +13,7 @@ use super::win32;
 #[cfg(not(windows))]
 use super::worker::run_worker;
 use super::worker::{absolute_deadline, join_ended_worker};
+use crate::interp::posix::PosixAbi;
 use crate::interp::threads_inline::ThreadFn;
 use crate::interp::word_or_zero;
 use crate::interp::{ExecState, Interp, Program, Res, Trap, Ty, ValueStack, ir};
@@ -115,7 +116,9 @@ impl Interp {
                 match self.fetch_timespec(arg(2)) {
                     Ok((secs, nanos)) => {
                         let deadline = absolute_deadline(secs, nanos);
+
                         self.cond_wait(arg(0), arg(1), Some(deadline))
+                            .map(|code| timed_out_for(program, code))
                     }
                     Err(trap) => Err(trap),
                 }
@@ -573,5 +576,43 @@ impl Interp {
         s.wake_object_waiters();
         s.release(None);
         shared.cv.notify_all();
+    }
+}
+
+/// `code` as the program's C library numbers it: a scheduler result of `ETIMEDOUT` (Linux's
+/// number) becomes the target's own `ETIMEDOUT`, whichever OS the host is.
+fn timed_out_for(program: &Program, code: u64) -> u64 {
+    if code != ETIMEDOUT {
+        return code;
+    }
+
+    let darwin = program.target_os == Some(crate::target::TargetOs::MacOS);
+
+    PosixAbi::new(darwin, program.target_cpu).errno(ETIMEDOUT)
+}
+
+#[cfg(test)]
+mod timeout_tests {
+    use super::*;
+    use crate::target::{TargetCpu, TargetOs};
+
+    fn program(os: TargetOs) -> Program {
+        Program {
+            target_os: Some(os),
+            target_cpu: Some(TargetCpu::X64),
+            ..Program::default()
+        }
+    }
+
+    #[test]
+    fn a_timed_out_wait_reports_the_targets_etimedout() {
+        assert_eq!(timed_out_for(&program(TargetOs::Linux), ETIMEDOUT), 110);
+        assert_eq!(timed_out_for(&program(TargetOs::MacOS), ETIMEDOUT), 60);
+    }
+
+    #[test]
+    fn other_wait_results_pass_through() {
+        assert_eq!(timed_out_for(&program(TargetOs::MacOS), 0), 0);
+        assert_eq!(timed_out_for(&program(TargetOs::MacOS), EBUSY), EBUSY);
     }
 }

@@ -42,7 +42,7 @@ AI :: enum_flags u32 {
 }
 
 cmsghdr :: struct {
-    cmsg_len: u64;
+    cmsg_len: size_t;
 
     cmsg_level: s32;
     cmsg_type: s32;
@@ -50,7 +50,7 @@ cmsghdr :: struct {
 }
 
 fd_set :: struct {
-    fds_bits: [16] __fd_mask;
+    fds_bits: [1024 / (8 * size_of(__fd_mask))] __fd_mask;
 }
 
 gaicb :: struct {
@@ -211,8 +211,8 @@ IFF :: enum u32 {
 }
 
 ifmap :: struct {
-    mem_start: u64;
-    mem_end: u64;
+    mem_start: size_t;
+    mem_end: size_t;
     base_addr: u16;
     irq: u8;
     dma: u8;
@@ -575,10 +575,10 @@ msghdr :: struct {
     msg_namelen: socklen_t;
 
     msg_iov: *iovec;
-    msg_iovlen: u64;
+    msg_iovlen: size_t;
 
     msg_control: *void;
-    msg_controllen: u64;
+    msg_controllen: size_t;
 
     msg_flags: s32;
 }
@@ -684,8 +684,8 @@ sockaddr_in6 :: struct {
 
 sockaddr_storage :: struct {
     ss_family: sa_family_t;
-    __ss_padding: [118] u8;
-    __ss_align: u64;
+    __ss_padding: [128 - 2 - size_of(size_t)] u8;
+    __ss_align: size_t;
 }
 
 TCP :: enum u32 {
@@ -889,19 +889,19 @@ getaddrinfo :: (__name: *u8, __service: *u8, __req: *addrinfo, __pai: **addrinfo
 
 gethostbyaddr :: (__addr: *void, __len: u32, __type: s32) -> *hostent #foreign libc;
 
-gethostbyaddr_r :: (__addr: *void, __len: u32, __type: s32, __result_buf: *hostent, __buf: *u8, __buflen: u64, __result: **hostent, __h_errnop: *s32) -> s32 #foreign libc;
+gethostbyaddr_r :: (__addr: *void, __len: u32, __type: s32, __result_buf: *hostent, __buf: *u8, __buflen: size_t, __result: **hostent, __h_errnop: *s32) -> s32 #foreign libc;
 
 gethostbyname :: (__name: *u8) -> *hostent #foreign libc;
 
 gethostbyname2 :: (__name: *u8, __af: s32) -> *hostent #foreign libc;
 
-gethostbyname2_r :: (__name: *u8, __af: s32, __result_buf: *hostent, __buf: *u8, __buflen: u64, __result: **hostent, __h_errnop: *s32) -> s32 #foreign libc;
+gethostbyname2_r :: (__name: *u8, __af: s32, __result_buf: *hostent, __buf: *u8, __buflen: size_t, __result: **hostent, __h_errnop: *s32) -> s32 #foreign libc;
 
-gethostbyname_r :: (__name: *u8, __result_buf: *hostent, __buf: *u8, __buflen: u64, __result: **hostent, __h_errnop: *s32) -> s32 #foreign libc;
+gethostbyname_r :: (__name: *u8, __result_buf: *hostent, __buf: *u8, __buflen: size_t, __result: **hostent, __h_errnop: *s32) -> s32 #foreign libc;
 
 gethostent :: () -> *hostent #foreign libc;
 
-gethostent_r :: (__result_buf: *hostent, __buf: *u8, __buflen: u64, __result: **hostent, __h_errnop: *s32) -> s32 #foreign libc;
+gethostent_r :: (__result_buf: *hostent, __buf: *u8, __buflen: size_t, __result: **hostent, __h_errnop: *s32) -> s32 #foreign libc;
 
 getifaddrs :: (__ifap: **ifaddrs) -> s32 #foreign libc;
 
@@ -911,45 +911,45 @@ getnameinfo :: (__sa: *sockaddr, __salen: socklen_t, __host: *u8, __hostlen: soc
 
 getnetbyaddr :: (__net: u32, __type: s32) -> *netent #foreign libc;
 
-getnetbyaddr_r :: (__net: u32, __type: s32, __result_buf: *netent, __buf: *u8, __buflen: u64, __result: **netent, __h_errnop: *s32) -> s32 #foreign libc;
+getnetbyaddr_r :: (__net: u32, __type: s32, __result_buf: *netent, __buf: *u8, __buflen: size_t, __result: **netent, __h_errnop: *s32) -> s32 #foreign libc;
 
 getnetbyname :: (__name: *u8) -> *netent #foreign libc;
 
-getnetbyname_r :: (__name: *u8, __result_buf: *netent, __buf: *u8, __buflen: u64, __result: **netent, __h_errnop: *s32) -> s32 #foreign libc;
+getnetbyname_r :: (__name: *u8, __result_buf: *netent, __buf: *u8, __buflen: size_t, __result: **netent, __h_errnop: *s32) -> s32 #foreign libc;
 
 getnetent :: () -> *netent #foreign libc;
 
-getnetent_r :: (__result_buf: *netent, __buf: *u8, __buflen: u64, __result: **netent, __h_errnop: *s32) -> s32 #foreign libc;
+getnetent_r :: (__result_buf: *netent, __buf: *u8, __buflen: size_t, __result: **netent, __h_errnop: *s32) -> s32 #foreign libc;
 
 getnetgrent :: (__hostp: **u8, __userp: **u8, __domainp: **u8) -> s32 #foreign libc;
 
-getnetgrent_r :: (__hostp: **u8, __userp: **u8, __domainp: **u8, __buffer: *u8, __buflen: u64) -> s32 #foreign libc;
+getnetgrent_r :: (__hostp: **u8, __userp: **u8, __domainp: **u8, __buffer: *u8, __buflen: size_t) -> s32 #foreign libc;
 
 getpeername :: (__fd: s32, __addr: *sockaddr, __len: *socklen_t) -> s32 #foreign libc;
 
 getprotobyname :: (__name: *u8) -> *protoent #foreign libc;
 
-getprotobyname_r :: (__name: *u8, __result_buf: *protoent, __buf: *u8, __buflen: u64, __result: **protoent) -> s32 #foreign libc;
+getprotobyname_r :: (__name: *u8, __result_buf: *protoent, __buf: *u8, __buflen: size_t, __result: **protoent) -> s32 #foreign libc;
 
 getprotobynumber :: (__proto: s32) -> *protoent #foreign libc;
 
-getprotobynumber_r :: (__proto: s32, __result_buf: *protoent, __buf: *u8, __buflen: u64, __result: **protoent) -> s32 #foreign libc;
+getprotobynumber_r :: (__proto: s32, __result_buf: *protoent, __buf: *u8, __buflen: size_t, __result: **protoent) -> s32 #foreign libc;
 
 getprotoent :: () -> *protoent #foreign libc;
 
-getprotoent_r :: (__result_buf: *protoent, __buf: *u8, __buflen: u64, __result: **protoent) -> s32 #foreign libc;
+getprotoent_r :: (__result_buf: *protoent, __buf: *u8, __buflen: size_t, __result: **protoent) -> s32 #foreign libc;
 
 getservbyname :: (__name: *u8, __proto: *u8) -> *servent #foreign libc;
 
-getservbyname_r :: (__name: *u8, __proto: *u8, __result_buf: *servent, __buf: *u8, __buflen: u64, __result: **servent) -> s32 #foreign libc;
+getservbyname_r :: (__name: *u8, __proto: *u8, __result_buf: *servent, __buf: *u8, __buflen: size_t, __result: **servent) -> s32 #foreign libc;
 
 getservbyport :: (__port: s32, __proto: *u8) -> *servent #foreign libc;
 
-getservbyport_r :: (__port: s32, __proto: *u8, __result_buf: *servent, __buf: *u8, __buflen: u64, __result: **servent) -> s32 #foreign libc;
+getservbyport_r :: (__port: s32, __proto: *u8, __result_buf: *servent, __buf: *u8, __buflen: size_t, __result: **servent) -> s32 #foreign libc;
 
 getservent :: () -> *servent #foreign libc;
 
-getservent_r :: (__result_buf: *servent, __buf: *u8, __buflen: u64, __result: **servent) -> s32 #foreign libc;
+getservent_r :: (__result_buf: *servent, __buf: *u8, __buflen: size_t, __result: **servent) -> s32 #foreign libc;
 
 getsockname :: (__fd: s32, __addr: *sockaddr, __len: *socklen_t) -> s32 #foreign libc;
 
@@ -1057,13 +1057,13 @@ rcmd :: (__ahost: **u8, __rport: u16, __locuser: *u8, __remuser: *u8, __cmd: *u8
 
 rcmd_af :: (__ahost: **u8, __rport: u16, __locuser: *u8, __remuser: *u8, __cmd: *u8, __fd2p: *s32, __af: sa_family_t) -> s32 #foreign libc;
 
-recv :: (__fd: s32, __buf: *void, __n: u64, __flags: MSG) -> s64 #foreign libc;
+recv :: (__fd: s32, __buf: *void, __n: size_t, __flags: MSG) -> ssize_t #foreign libc;
 
-recvfrom :: (__fd: s32, __buf: *void, __n: u64, __flags: MSG, __addr: *sockaddr, __addr_len: *socklen_t) -> s64 #foreign libc;
+recvfrom :: (__fd: s32, __buf: *void, __n: size_t, __flags: MSG, __addr: *sockaddr, __addr_len: *socklen_t) -> ssize_t #foreign libc;
 
 recvmmsg :: (__fd: s32, __vmessages: *mmsghdr, __vlen: u32, __flags: MSG, __tmo: *timespec) -> s32 #foreign libc;
 
-recvmsg :: (__fd: s32, __message: *msghdr, __flags: MSG) -> s64 #foreign libc;
+recvmsg :: (__fd: s32, __message: *msghdr, __flags: MSG) -> ssize_t #foreign libc;
 
 rexec :: (__ahost: **u8, __rport: s32, __name: *u8, __pass: *u8, __cmd: *u8, __fd2p: *s32) -> s32 #foreign libc;
 
@@ -1079,13 +1079,13 @@ ruserok_af :: (__rhost: *u8, __suser: s32, __remuser: *u8, __locuser: *u8, __af:
 
 select :: (__nfds: s32, __readfds: *fd_set, __writefds: *fd_set, __exceptfds: *fd_set, __timeout: *TIMEVAL) -> s32 #foreign libc;
 
-send :: (__fd: s32, __buf: *void, __n: u64, __flags: MSG) -> s64 #foreign libc;
+send :: (__fd: s32, __buf: *void, __n: size_t, __flags: MSG) -> ssize_t #foreign libc;
 
 sendmmsg :: (__fd: s32, __vmessages: *mmsghdr, __vlen: u32, __flags: MSG) -> s32 #foreign libc;
 
-sendmsg :: (__fd: s32, __message: *msghdr, __flags: MSG) -> s64 #foreign libc;
+sendmsg :: (__fd: s32, __message: *msghdr, __flags: MSG) -> ssize_t #foreign libc;
 
-sendto :: (__fd: s32, __buf: *void, __n: u64, __flags: MSG, __addr: *sockaddr, __addr_len: socklen_t) -> s64 #foreign libc;
+sendto :: (__fd: s32, __buf: *void, __n: size_t, __flags: MSG, __addr: *sockaddr, __addr_len: socklen_t) -> ssize_t #foreign libc;
 
 sethostent :: (__stay_open: s32) -> void #foreign libc;
 
@@ -1111,7 +1111,7 @@ socket :: (__domain: s32, __type: SOCK, __protocol: IPPROTO) -> s32 #foreign lib
 
 socketpair :: (__domain: s32, __type: SOCK, __protocol: IPPROTO, __fds: *[2] s32) -> s32 #foreign libc;
 
-__fd_mask :: s64;
+__fd_mask :: ssize_t;
 
 __USE_KERNEL_IPV6_DEFS :: 0;
 

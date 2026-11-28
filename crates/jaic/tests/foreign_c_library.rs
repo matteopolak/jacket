@@ -102,6 +102,17 @@ const FILE_CALLS: &str = r#"
         assert(fd >= 0, "open for fstat");
         assert(fstat(fd, *info) == 0 && info.st_size == 5, "fstat size: %", info.st_size);
         close(fd);
+
+        // A relative path resolves against a directory descriptor, not the working directory.
+        directory := open_file(temp_c_string(dir), O_RDONLY);
+        assert(directory >= 0, "open the directory: %", errno());
+        #if OS == .LINUX {
+            found_at := syscall(SYS_newfstatat, directory, temp_c_string("a.txt"), *info, 0);
+        } else {
+            found_at := fstatat(directory, temp_c_string("a.txt"), *info, 0);
+        }
+        assert(found_at == 0 && info.st_size == 5, "fstatat with a directory: % %", found_at, info.st_size);
+        close(directory);
     }
 "#;
 

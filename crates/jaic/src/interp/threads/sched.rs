@@ -24,7 +24,7 @@ pub(super) const NATIVE_SLICE: Duration = Duration::from_millis(1);
 /// blocked threads: every thread must stay blocked this long before that counts as a deadlock.
 pub const DEADLOCK_GRACE: Duration = Duration::from_secs(1);
 
-pub(super) use crate::interp::errno::{EBUSY, EINVAL, ETIMEDOUT_HOST as ETIMEDOUT};
+pub(super) use crate::interp::errno::{EBUSY, EINVAL, ETIMEDOUT_LINUX as ETIMEDOUT};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum Block {

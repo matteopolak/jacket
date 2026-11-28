@@ -89,10 +89,25 @@ pub(super) fn other_posix_library(program: &Program) -> Option<posix::Libraries>
     let target = posix::PosixAbi::of(os, cpu)?;
     let host = posix::PosixAbi::host()?;
 
-    (os != crate::sema::compiler_host().0).then_some(posix::Libraries {
+    (!is_host_library(os, Some(cpu))).then_some(posix::Libraries {
         target,
         host,
     })
+}
+
+/// Whether a program for `os` on `cpu` calls the C library the compiler runs on. A POSIX
+/// library also differs by CPU: Linux's system call numbers, open flags and `struct stat`, and
+/// macOS's `$INODE64` spellings, are not the host's when only the CPU is another.
+fn is_host_library(os: crate::target::TargetOs, cpu: Option<crate::target::TargetCpu>) -> bool {
+    let (host_os, host_cpu) = crate::sema::compiler_host();
+    let posix = |os| {
+        matches!(
+            os,
+            crate::target::TargetOs::Linux | crate::target::TargetOs::MacOS
+        )
+    };
+
+    os == host_os && (!posix(os) || cpu.is_none_or(|cpu| cpu == host_cpu))
 }
 
 /// How compile-time code of `program` reaches `foreign` on this host: `None` when it is not a
@@ -105,7 +120,9 @@ pub(super) fn reach(program: &Program, foreign: &ir::Foreign) -> Option<Reach> {
     let target = program.target_os?;
     let host = crate::sema::compiler_host().0;
 
-    if !native::is_c_library(&library.name, library.system) || target == host {
+    if !native::is_c_library(&library.name, library.system)
+        || is_host_library(target, program.target_cpu)
+    {
         return None;
     }
 
@@ -135,4 +152,69 @@ pub(super) fn reach(program: &Program, foreign: &ir::Foreign) -> Option<Reach> {
     }
 
     Some(Reach::Refused)
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use crate::ir::{Foreign, Library, Sig};
+    use crate::target::TargetCpu;
+
+    fn program(cpu: TargetCpu) -> (Program, Foreign) {
+        let (os, _) = crate::sema::compiler_host();
+        let program = Program {
+            target_os: Some(os),
+            target_cpu: Some(cpu),
+            libraries: vec![Library {
+                name: "libc".into(),
+                system: true,
+                link_always: false,
+                no_dll: false,
+                base_dir: String::new(),
+            }],
+            ..Program::default()
+        };
+
+        let foreign = Foreign {
+            symbol: "stat".into(),
+            library: Some(0),
+            sig: Sig {
+                params: vec![],
+                returns: vec![],
+                conv: ir::Conv::C,
+                c_varargs: false,
+                c_fixed: 0,
+                c_abi: None,
+            },
+            is_data: false,
+        };
+
+        (program, foreign)
+    }
+
+    fn other_cpu() -> TargetCpu {
+        match crate::sema::compiler_host().1 {
+            TargetCpu::X64 => TargetCpu::Arm64,
+            _ => TargetCpu::X64,
+        }
+    }
+
+    #[test]
+    fn the_host_os_on_another_cpu_is_another_c_library() {
+        let (program, foreign) = program(other_cpu());
+
+        assert!(matches!(
+            reach(&program, &foreign),
+            Some(Reach::Answered(_))
+        ));
+        assert!(other_posix_library(&program).is_some());
+    }
+
+    #[test]
+    fn the_host_os_on_the_host_cpu_is_called_natively() {
+        let (program, foreign) = program(crate::sema::compiler_host().1);
+
+        assert_eq!(reach(&program, &foreign), None);
+        assert!(other_posix_library(&program).is_none());
+    }
 }

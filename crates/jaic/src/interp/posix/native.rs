@@ -293,18 +293,66 @@ impl NativePosix {
         self.answer_stat(libraries, metadata, out)
     }
 
-    /// `fstatat(dir, path, out, flags)`, for the working directory or an absolute path.
+    /// `fstatat(dir, path, out, flags)`: a relative path resolves against `dir`, which is the
+    /// working directory for `AT_FDCWD`.
     fn fstatat(&mut self, libraries: Libraries, args: &[u64]) -> Option<u64> {
         let arg = |i: usize| args.get(i).copied().unwrap_or(0);
         let path = arg(1);
         let relative = read_u8(path) != b'/';
+        let dir = arg(0) as i32;
+        let no_follow = arg(3) & libraries.target.at_no_follow() != 0;
 
-        if relative && arg(0) as i32 as i64 != libraries.target.at_working_directory() {
-            return None;
+        if relative && i64::from(dir) != libraries.target.at_working_directory() {
+            return Some(self.stat_in(libraries, dir, path, arg(2), no_follow));
         }
 
-        let no_follow = arg(3) & libraries.target.at_no_follow() != 0;
         Some(self.stat(libraries, path, arg(2), no_follow))
+    }
+
+    /// `fstatat` for a relative `path` under the open directory `dir`: opens the entry without
+    /// reading it (`O_PATH` on Linux, `O_EVTONLY` on macOS, where `O_SYMLINK` stops at a link)
+    /// and asks for its metadata.
+    fn stat_in(
+        &mut self,
+        libraries: Libraries,
+        dir: i32,
+        path: u64,
+        out: u64,
+        no_follow: bool,
+    ) -> u64 {
+        use std::os::fd::FromRawFd;
+
+        let path = c_string(path);
+        let flags = if cfg!(target_os = "macos") {
+            const O_EVTONLY: i32 = 0x8000;
+            const O_SYMLINK: i32 = 0x20_0000;
+
+            O_EVTONLY
+                | if no_follow {
+                    O_SYMLINK
+                } else {
+                    0
+                }
+        } else {
+            const O_PATH: i32 = 0x20_0000;
+            let open = super::Open {
+                no_follow,
+                ..super::Open::default()
+            };
+
+            O_PATH | libraries.host.encode_open(open) as i32
+        };
+        // SAFETY: `path` is zero-terminated and the mode is not read without `O_CREAT`.
+        let fd = unsafe { host_openat(dir, path.as_ptr(), flags, 0u32) };
+
+        if fd < 0 {
+            return self.fail(libraries, host_code(&io::Error::last_os_error()));
+        }
+
+        // SAFETY: `fd` was just opened here and is closed when `file` drops.
+        let file = unsafe { fs::File::from_raw_fd(fd) };
+
+        self.answer_stat(libraries, file.metadata(), out)
     }
 
     /// `open` (`dir` `None`) or `openat`, with the program's flags and the creation mode.

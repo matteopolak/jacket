@@ -1,6 +1,6 @@
 // Accessors for the little-endian bitfields of glibc and bionic TCP structures.
 #assert OS == .LINUX || OS == .ANDROID;
-#assert CPU == .X64 || CPU == .ARM64;
+#assert CPU == .X64 || CPU == .ARM64 || ARCHITECTURE == .X86 || ARCHITECTURE == .ARM, "These accessors assume the little-endian bit order of x86 and Arm";
 
 // Reads the ACK flag of a TCP header from `fields`.
 get_anon_struct_1_ack :: (fields: tcphdr) -> bool {

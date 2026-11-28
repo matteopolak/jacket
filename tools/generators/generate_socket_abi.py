@@ -43,6 +43,27 @@ def route(guard):
     raise RuntimeError(f"no target file for condition {guard!r}")
 
 
+# The spec records the 64-bit Linux layouts. These C types are as wide as `long`, so on the 32-bit
+# CPUs they are four bytes; the generated Linux file spells them with the POSIX binding's
+# per-CPU `size_t` and `ssize_t`. Each rule must match, so a spec change fails here.
+LINUX_WORD_SIZED = [
+    (r"\b(cmsg_len|msg_iovlen|msg_controllen|mem_start|mem_end|__ss_align):(\s+)u64;", r"\1:\2size_t;"),
+    (r"\b(__n|__buflen): u64\b", r"\1: size_t"),
+    (r"\) -> s64 #foreign libc;", ") -> ssize_t #foreign libc;"),
+    (r"__ss_padding:(\s+)\[118\] u8;", r"__ss_padding:\1[128 - 2 - size_of(size_t)] u8;"),
+    (r"fds_bits:(\s+)\[16\] __fd_mask;", r"fds_bits:\1[1024 / (8 * size_of(__fd_mask))] __fd_mask;"),
+    (r"__fd_mask :: s64;", "__fd_mask :: ssize_t;"),
+]
+
+
+def linux_word_sized(code):
+    for pattern, replacement in LINUX_WORD_SIZED:
+        code, count = re.subn(pattern, replacement, code)
+        if not count:
+            raise RuntimeError(f"the Linux socket spec no longer matches {pattern!r}")
+    return code
+
+
 def guarded(code, guard):
     return f"#if {guard} {{\n{code}\n}}\n" if guard else code + "\n"
 
@@ -167,9 +188,10 @@ def main():
             header += f'libc :: #system_library "libc"; {EXTERNAL}\n'
         header += "#scope_export\n\n"
         path = ROOT / f"stdlib/internal/net/socket-abi-{target}.jai"
-        emit_generated(
-            path, header + "\n".join(files[target]), args.formatter, args.check
-        )
+        body = "\n".join(files[target])
+        if target == "linux":
+            body = linux_word_sized(body)
+        emit_generated(path, header + body, args.formatter, args.check)
 
 
 if __name__ == "__main__":

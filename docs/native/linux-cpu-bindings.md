@@ -30,7 +30,7 @@ Add a CPU in the `ARCHES` table of `vendor_linux_posix.py`. `--check` fails when
 
 The stdlib modules that pass on each CPU are listed in `tools/dev/<cpu>-roots.txt` and run in CI. Not covered:
 
-- `i686`, `armv7`: Socket, Http, Grpc, WebSocket and Tls, because `internal/net/socket-abi-linux.jai` has one 64-bit layout; the third-party native libraries (X11, mbedtls, freetype, lz4, stb), which have no 32-bit builds; the `Syscall` intrinsic, which is x86-64 only; musl.
+- `i686`, `armv7`: the third-party native libraries (X11, mbedtls, freetype, lz4, stb), which have no 32-bit builds; the `Syscall` intrinsic, which is x86-64 only; musl.
 - `s390x`: fibers, which have no switch routine.
 - `powerpc64`: fibers and IBM double-double `long double`.
 - Big-endian: the interpreter sandbox's hard-coded record layouts (`stat`, `dirent`) are little-endian.
