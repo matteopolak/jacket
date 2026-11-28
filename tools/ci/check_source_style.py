@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fail when a tracked Rust file is too long or a Rust or Python file carries a banner comment.
 
-Length: a `.rs` file may have at most MAX_LINES lines. Files already over the limit are listed in
+Length: a `.rs` file may have at most MAX_LINES non-blank lines (blank lines are spacing, so a style that adds them does not count against the budget). Files already over the limit are listed in
 ALLOWED_LONG with their current line count. The list only shrinks: a listed file may not grow past
 its recorded count, and a listed file that is back under the limit (or gone) must be removed from
 the list. Never add a new entry; split the file instead.
@@ -74,7 +74,8 @@ BANNER = re.compile(r"^\s*(//|#)\s*[-=*#~]{3,}\s*$")
 
 
 def line_count(text):
-    return text.count("\n") + (0 if text == "" or text.endswith("\n") else 1)
+    """The lines of `text` that are not blank."""
+    return sum(1 for line in text.split("\n") if line.strip())
 
 
 def check_lengths(counts, allowed=None, limit=MAX_LINES):
@@ -86,7 +87,7 @@ def check_lengths(counts, allowed=None, limit=MAX_LINES):
         if cap is None:
             if n > limit:
                 errors.append(
-                    f"{path}: {n} lines, over the {limit}-line limit; split it into modules"
+                    f"{path}: {n} non-blank lines, over the {limit}-line limit; split it into modules"
                 )
         elif n > cap:
             errors.append(

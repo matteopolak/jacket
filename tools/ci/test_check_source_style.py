@@ -25,6 +25,15 @@ class Lengths(unittest.TestCase):
         self.assertEqual(style.line_count("a\nb"), 2)
         self.assertEqual(style.line_count(""), 0)
 
+    def test_blank_lines_are_not_counted(self):
+        self.assertEqual(style.line_count("a\n\n  \nb\n\n"), 2)
+
+    def test_the_cap_is_on_non_blank_lines(self):
+        ok = style.line_count("x\n\n" * style.MAX_LINES)
+        over = style.line_count("x\n\n" * (style.MAX_LINES + 1))
+        self.assertEqual(style.check_lengths({"a.rs": ok}, {}), [])
+        self.assertIn("non-blank", style.check_lengths({"a.rs": over}, {})[0])
+
 
 def problems(source, name="tools/x/script.py"):
     return style.build_path_problems(source, name)
