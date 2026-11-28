@@ -340,3 +340,95 @@ fn the_note_returns_when_an_edit_to_the_build_graph_is_reverted() {
     edit(&mut s, 3, &text);
     assert!(codes(&s, &loose).contains(&DiagnosticCode::NotInProgram));
 }
+
+const TARGETED: &str = "#import \"Basic\";\n#if OS == .LINUX {\n    on_linux :: () -> int { return 1; }\n} else {\n    \
+    on_other :: () -> int { return 2; }\n}\nmain :: () {}\n";
+
+fn targeted_hover(options: &str, name: &str) -> String {
+    let build = build_with(
+        options,
+        "    add_build_file(tprint(\"%/src/main.jai\", #filepath), w);\n",
+    );
+    let dir = project(
+        "targeted",
+        &[
+            ("jacket.toml", TOML),
+            ("build.jai", &build),
+            ("src/main.jai", TARGETED),
+        ],
+    );
+    let mut s = session(&dir);
+    let (uri, text) = open(&mut s, &dir, "src/main.jai");
+
+    s.hover(&uri, at_offset(&text, name, 0))
+        .unwrap()
+        .unwrap_or_else(|| panic!("{name}: no hover"))
+        .contents
+        .value
+}
+
+/// The target the build sets for its workspace is the one the program is checked for, whatever
+/// the editor's own is.
+#[test]
+fn the_target_the_build_sets_decides_which_branch_is_checked() {
+    let linux = targeted_hover(
+        "    options.os_target = .LINUX;\n    options.cpu_target = .X64;\n",
+        "on_linux ::",
+    );
+
+    assert!(linux.contains("-> int"), "{linux}");
+    assert!(!linux.contains("Source syntax declaration"), "{linux}");
+    let windows = targeted_hover(
+        "    options.os_target = .WINDOWS;\n    options.cpu_target = .X64;\n",
+        "on_other ::",
+    );
+
+    assert!(windows.contains("-> int"), "{windows}");
+    assert!(!windows.contains("Source syntax declaration"), "{windows}");
+}
+
+/// Code that holds only for the target the build sets is not an error in the editor.
+#[test]
+fn an_assert_on_the_targets_os_holds_for_the_build_set_target() {
+    let build = build_with(
+        "    options.os_target = .LINUX;\n    options.cpu_target = .X64;\n",
+        "    add_build_file(tprint(\"%/src/main.jai\", #filepath), w);\n",
+    );
+    let dir = project(
+        "targeted-assert",
+        &[
+            ("jacket.toml", TOML),
+            ("build.jai", &build),
+            (
+                "src/main.jai",
+                "#import \"Basic\";\n#assert OS == .LINUX;\nmain :: () {}\n",
+            ),
+        ],
+    );
+    let mut s = session(&dir);
+    let (uri, _) = open(&mut s, &dir, "src/main.jai");
+
+    assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
+}
+
+/// A file that a `#load` with a computed path brings in is part of the program.
+#[test]
+fn a_file_a_computed_load_brings_in_is_not_noted() {
+    let dir = project(
+        "computed-load",
+        &[
+            ("jacket.toml", "[project]\nentry = [\"main.jai\"]\n"),
+            (
+                "main.jai",
+                "#import \"Basic\";\n#insert #run tprint(\"#load \\\"%1%2\\\";\", \"li\", \"b.jai\");\nmain :: () { helper(); }\n",
+            ),
+            ("lib.jai", "helper :: () {}\n"),
+        ],
+    );
+    let mut s = session(&dir);
+    let (main, _) = open(&mut s, &dir, "main.jai");
+    let (lib, _) = open(&mut s, &dir, "lib.jai");
+
+    assert_eq!(check_errors(&s, &main), Vec::<String>::new());
+    assert!(!codes(&s, &lib).contains(&DiagnosticCode::NotInProgram));
+}
