@@ -124,6 +124,24 @@ make_colors :: (sorted: [] *$T/Color_Keyframe, space: type_of(Interpolation.colo
     return r;
 }
 
+// The `i0` [interpolate_one_sample] is given for time `t`: the last key at or before `t`. With `wrapping`, a time
+// before the first key is -1 and one after the last key is the last, both of which blend toward the key on the other
+// side of the wrap; without it the last segment is the one between the last two keys, so a time after them holds
+// the last key's color. `sorted` is in order of increasing time and not empty.
+segment_index :: (sorted: [] *$T/Color_Keyframe, t: float, wrapping: bool) -> int {
+    index := 0;
+
+    if wrapping {
+        if t < sorted[0].t return -1;
+
+        while index + 1 < sorted.count && sorted[index + 1].t <= t index += 1;
+    } else {
+        while index + 1 < sorted.count - 1 && sorted[index + 1].t <= t index += 1;
+    }
+
+    return index;
+}
+
 interpolate_one_sample :: inline (i0: int, t: float, interp: Interpolation, sorted: [] *$T/Color_Keyframe, temp_colors: [] Vector3) -> (rgba: Vector4) {
     assert(sorted.count > 0 && sorted.count == temp_colors.count);
 
@@ -198,18 +216,7 @@ generate_color_samples :: (sorted: [] *$T/Color_Keyframe, interp: Interpolation,
 
     for *sample, i: output_samples {
         t := cast(float) i / cast(float) (output_samples.count - 1);
-        index := 0;
-
-        if interp.wrapping {
-            if t < sorted[0].t index = -1;
-            else {
-                while index + 1 < sorted.count && sorted[index + 1].t <= t index += 1;
-            }
-        } else {
-            while index + 1 < sorted.count - 1 && sorted[index + 1].t <= t index += 1;
-        }
-
-        sample.* = interpolate_one_sample(index, t, interp, sorted, colors);
+        sample.* = interpolate_one_sample(segment_index(sorted, t, interp.wrapping), t, interp, sorted, colors);
     }
 }
 

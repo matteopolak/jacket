@@ -234,6 +234,7 @@ checkbox_flags :: (r: Rect, current_value: *$Enum, button_value: Enum, theme: *C
 // state.
 //
 // - theme: null uses the default theme's dropdown theme.
+// - z: orders open lists that overlap: a list with a higher `z` is drawn over one with a lower `z`.
 dropdown :: (r: Rect, choices: [] string, current_value_pointer: *s32, theme: *Dropdown_Theme = null, identifier: s64 = 0, z: s32 = 100, loc := #caller_location) -> changed: bool, Dropdown_State {
     if theme == null theme = *default_overall_theme.dropdown_theme;
 
@@ -257,11 +258,12 @@ dropdown :: (r: Rect, choices: [] string, current_value_pointer: *s32, theme: *D
 
     if pressed {
         state.open = !state.open;
-        if state.open {
-            active_widget_add(*state.widget);
-            array_add_if_unique(*dropdown_popups, state);
-        } else active_widget_remove(*state.widget);
+        if state.open active_widget_add(*state.widget);
+        else active_widget_remove(*state.widget);
     }
+
+    // The list is drawn by [draw_popups] each frame it is open, and the requests are cleared after each.
+    if state.open array_add_if_unique(*dropdown_popups, state);
 
     changed := false;
 
@@ -326,9 +328,21 @@ dropdown_deactivate :: (widget: *Active_Widget) {
 //
 // Call once at the end of the frame, after all other widgets, so that popups appear on top.
 draw_popups :: () {
+    // Lists with a higher `z` are drawn later, so over the others; equal ones stay in the order they were opened.
+    for i: 1..dropdown_popups.count - 1 {
+        j := i;
+
+        while j > 0 && dropdown_popups[j].z < dropdown_popups[j - 1].z {
+            swap(*dropdown_popups[j], *dropdown_popups[j - 1]);
+            j -= 1;
+        }
+    }
+
     for p: dropdown_popups if p.open draw_dropdown_popup(p);
+
     dropdown_popups.count = 0;
     for w: subwindow_popups if w.wants_draw draw_subwindow(w);
+
     subwindow_popups.count = 0;
 }
 

@@ -542,9 +542,7 @@ init_color_by_interpolation :: (state: *Color_Animation_Editor_State, keyframe_i
 
     defer array_free(colors);
     t := state.color_keyframes[keyframe_index].t;
-    index := 0;
-
-    while index + 1 < pointers.count - 1 && pointers[index + 1].t <= t index += 1;
+    index := Color_Impl.segment_index(pointers, t, interp.wrapping);
 
     state.color_keyframes[keyframe_index].color_rgb = interpolate_one_sample(index, t, interp, pointers, colors);
 }
@@ -896,3 +894,5 @@ append_rgba :: (builder: *String_Builder, color: Vector4) {
 
     append(builder, "}\n");
 }
+
+Color_Impl :: #import "internal/numerics/color";

@@ -36,7 +36,7 @@ Status_Flags :: enum_flags u32 {
 Status_Flags_Ignore :: enum_flags u8 {
     NOTHING;
     LEFT_CLICK; // do not report DOWN or PRESSED
-    TOOLTIP;
+    TOOLTIP; // accepted and has no effect: a tooltip is text set with [tooltip], not a region that is hit-tested
     SCISSOR; // do not limit the hit test to the current scissor rectangle
 }
 
@@ -157,7 +157,8 @@ Selection :: struct {
 // Tab-completion callback for [text_input].
 //
 // Tab calls `proc` with the current text and `data`. It returns the candidate completions and `longest_match_length`, which is
-// stored in [Text_Input_State.longest_match]. Repeated Tab presses cycle through the candidates and Shift+Tab goes backwards.
+// stored in [Text_Input_State.longest_match]. Repeated Tab presses cycle through the candidates of the text as it was typed
+// before the first Tab, and Shift+Tab goes backwards; typing or setting the text starts a new cycle.
 Auto_Complete :: struct {
     proc: (str: string, data: *void) -> (results: [] string, longest_match_length: int);
     data: *void;
@@ -554,6 +555,8 @@ Text_Input_State :: struct #type_info_none {
     match_length: int;
     match_selection: int;
     longest_match: int = -1;
+    completion_prefix: string; // the text as typed before the first Tab of a cycle; owned by the state
+    completion_text: string; // what the last Tab put in the text, to tell a cycle from new typing; owned by the state
     do_active_widget_deactivate_all := false;
 }
 

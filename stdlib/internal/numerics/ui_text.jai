@@ -266,10 +266,12 @@ clear_text :: (using state: *Text_Input_State) {
     deselect(*selection);
 }
 
-// Inserts `s` at the end of the text of `state` with [insert_text].
+// Inserts `s` at the end of the text of `state` with [insert_text], clearing any selection first so that nothing is
+// replaced.
 //
 // Logs an error and asserts when the text would exceed `Text_Input_State.MAX_BUFFER_SIZE` bytes.
 append_text :: (using state: *Text_Input_State, s: string) {
+    deselect(*selection);
     insert_point = text.count;
     inserted := insert_text(state, s);
     if !inserted {
@@ -513,23 +515,35 @@ press_escape :: (using state: *Text_Input_State) {
 
 // Handles the Tab key by cycling through the completions of the state's `auto_complete`.
 //
-// Calls `auto_complete.proc` with the current text and replaces the text with the next match, or the previous
-// one when `shift_pressed` is true, then raises `.TEXT_MODIFIED`. Leaves the text alone when there is no
+// Calls `auto_complete.proc` with the text as it was typed before the first Tab of the cycle and replaces the text
+// with the next match, or the previous one when `shift_pressed` is true, then raises `.TEXT_MODIFIED`. A Tab after
+// a Tab continues the cycle; any other change of the text starts a new one. Leaves the text alone when there is no
 // completion procedure or no match.
 press_tab :: (using state: *Text_Input_State, shift_pressed := false) {
     tab_pressed = true;
     if auto_complete.proc == null return;
 
-    matches, longest := auto_complete.proc(text, auto_complete.data);
+    if completion_text.count == 0 || text != completion_text {
+        free(completion_prefix);
+        completion_prefix = copy_string(text);
+        match_selection = -1;
+    }
+
+    matches, longest := auto_complete.proc(completion_prefix, auto_complete.data);
 
     match_array = matches;
     match_length = matches.count;
     longest_match = longest;
     if matches.count == 0 return;
-    if shift_pressed match_selection = (match_selection + matches.count - 1) % matches.count;
-    else match_selection = (match_selection + 1) % matches.count;
+
+    if shift_pressed {
+        if match_selection < 0 match_selection = 0;
+        match_selection = (match_selection + matches.count - 1) % matches.count;
+    } else match_selection = (match_selection + 1) % matches.count;
 
     set_input(state, matches[match_selection]);
+    free(completion_text);
+    completion_text = copy_string(text);
     completion_change_time = current_time;
     pending_result_actions |= .TEXT_MODIFIED;
 }
