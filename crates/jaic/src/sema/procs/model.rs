@@ -33,12 +33,16 @@ pub struct ParamInfo {
 pub struct Signature {
     pub params: Vec<ParamInfo>,
     pub returns: Vec<TypeId>,
+    /// Parallel to `returns`: the parameter names and defaults of a returned procedure type, if it has them.
     pub return_callables: Vec<Option<Arc<ProcTypeParams>>>,
     pub return_names: Vec<Option<Sym>>,
     /// The procedure's type.
     pub ty: TypeId,
+    /// Whether the procedure receives the implicit `context`: false for `#c_call`, `#no_context` and intrinsics.
     pub has_context: bool,
+    /// Whether the procedure uses the C ABI.
     pub c_call: bool,
+    /// Whether a C-ABI procedure ends in a variadic parameter; that parameter is left out of `ty`'s `params`.
     pub c_varargs: bool,
     /// Scope the parameter types were resolved in (holds polymorphic bindings).
     pub scope: ScopeId,
@@ -77,6 +81,7 @@ pub struct ProcInfo {
     /// Parameter types were checked for bare polymorphic structs (implicit polymorphism).
     pub poly_checked: bool,
     pub is_macro: bool,
+    /// `None` until the signature is resolved.
     pub sig: Option<Arc<Signature>>,
     /// Set while the signature is being resolved, so that a signature that depends on itself is reported instead of recursing.
     pub sig_resolving: bool,

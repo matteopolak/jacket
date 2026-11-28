@@ -293,6 +293,7 @@ pub enum ExprKind {
     PolyRestricted {
         name: Sym,
         restriction: Box<Expr>,
+        /// Written `$T/interface Interface`, not `$T/Interface`.
         interface: bool,
     },
     /// An integer literal and how it was written.
@@ -534,7 +535,9 @@ pub struct AsmDecl {
 
 #[derive(Clone, Copy, Debug)]
 pub enum AsmPin {
+    /// A named register: `=== a`.
     Name(Ident),
+    /// A register number: `=== 15`.
     Index(u128),
 }
 
@@ -607,6 +610,7 @@ pub struct Return {
 pub enum ForeignName {
     /// `#foreign lib` — symbol is the declaration's name.
     Default,
+    /// The symbol written after the library: `#foreign lib "symbol"`.
     Named(Arc<str>),
 }
 
@@ -727,9 +731,12 @@ pub enum EnumItem {
 pub struct EnumLit {
     pub id: AstId,
     pub flags_enum: bool,
+    /// The type written after `enum`, such as `u8`.
     pub base: Option<Expr>,
     pub items: Vec<EnumItem>,
+    /// Written `#specified`.
     pub specified: bool,
+    /// Written `#complete`.
     pub complete: bool,
     pub notes: Vec<Note>,
     pub span: Span,
@@ -900,6 +907,7 @@ pub struct Case {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AssignOp {
     Assign,
+    /// A compound assignment: `x += y` is `Op(BinOp::Add)`.
     Op(BinOp),
 }
 
@@ -997,6 +1005,7 @@ pub enum UsingFilter {
     None,
     Only(Vec<Ident>),
     Except(Vec<Ident>),
+    /// The `a = b` pairs of `using,map(...)`, as `(a, b)` in the order written.
     Map(Vec<(Ident, Ident)>),
     /// A filter given as an expression: `using,only(.["+", "-"]) Basic;`, `using,except NAMES x: T;`.
     Computed {
@@ -1103,6 +1112,7 @@ pub struct SwitchStmt {
 #[derive(Clone, Debug)]
 /// A `while` loop.
 pub struct WhileStmt {
+    /// The loop's name for `break name`, written before the loop or as `name := cond`.
     pub label: Option<Ident>,
     /// `while name := cond`: `name` also holds the condition's value inside the loop.
     pub bind_label: bool,
@@ -1161,12 +1171,14 @@ pub struct InsertStmt {
 pub struct AssertStmt {
     pub cond: Expr,
     pub message: Option<Expr>,
+    /// The values for the `%` slots of `message`.
     pub args: Vec<Expr>,
 }
 
 #[derive(Clone, Debug)]
 pub struct ModuleParametersStmt {
     pub params: Vec<Param>,
+    /// The second list: the parameters visible to importers' runtime.
     pub runtime_params: Vec<Param>,
     pub body: Option<Block>,
 }

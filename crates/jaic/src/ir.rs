@@ -41,21 +41,27 @@ pub use self::program::{
 pub use self::string_compare::{StringCompare, string_compare};
 pub use crate::wide_float::{Arith as WideArith, WideFloat};
 
+/// Index into `Program::funcs`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct FuncId(pub u32);
 
+/// Index into `Program::globals`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct GlobalId(pub u32);
 
+/// Index into `Program::foreigns`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct ForeignId(pub u32);
 
+/// Index into `Func::vals`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Val(pub u32);
 
+/// Index into `Func::blocks`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct BlockId(pub u32);
 
+/// Index into `Func::slots`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct SlotId(pub u32);
 

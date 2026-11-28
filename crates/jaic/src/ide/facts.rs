@@ -92,6 +92,7 @@ pub struct IdeFacts {
     pub refs: Vec<IdeRef>,
     /// Static filter selectors may denote an entire exported overload set.
     pub(super) filter_targets: HashMap<Span, Vec<EntityId>>,
+    /// Each scope with the source span it covers.
     pub scopes: Vec<(Span, ScopeId)>,
     /// What `#insert`, `#run`, `#if` and macro calls produced (see `ide::meta`).
     pub expansions: Vec<crate::ide::meta::IdeExpansion>,
@@ -247,6 +248,7 @@ pub struct IdeFacts {
 pub struct IdeFieldSite {
     pub owner: StructId,
     pub declaring: StructId,
+    /// Index into the fields of `declaring`.
     pub field: usize,
     pub offset: u64,
 }

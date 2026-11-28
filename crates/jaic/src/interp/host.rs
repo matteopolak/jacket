@@ -5,6 +5,7 @@ use crate::ir::{self};
 /// Compiler-host operations for metaprograms and explicit private runtime transports.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Hook {
+    /// Index into the interpreter's `public_bindings`.
     PublicCompiler(usize),
     UnsupportedCompiler(ir::FuncId),
     /// `write_string(s: string, to_standard_error: bool)`

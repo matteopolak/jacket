@@ -38,7 +38,9 @@ pub enum ScopeKind {
 /// How far a pending item has got in its expansion.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PendingState {
+    /// Not started, or put back to retry after a name it needs is declared.
     Waiting,
+    /// Being expanded: a re-entrant lookup does not start it again.
     Expanding,
     Done,
 }
@@ -46,6 +48,7 @@ pub enum PendingState {
 /// A conditional or generated top-level item whose declarations are not yet known.
 pub struct Pending {
     pub stmt: ast::Stmt,
+    /// Whether the declarations the item produces are exported.
     pub exported: bool,
     /// File scope used for `#scope_file` declarations inside the item.
     pub file_scope: ScopeId,
@@ -56,6 +59,7 @@ pub struct Pending {
 #[derive(Clone)]
 pub struct ImportEntry {
     pub import: Arc<ast::Import>,
+    /// The imported module; `None` until it is resolved.
     pub module: Option<ModuleId>,
     /// Set while the import's module is being resolved, so that a recursive reference sees no module yet instead of recursing.
     pub loading: bool,
@@ -198,6 +202,7 @@ pub enum EntityKind {
     /// Global or struct-level constant/variable from source.
     Decl {
         decl: Arc<ast::Decl>,
+        /// Position of the entity's name in `decl.names`.
         index: usize,
     },
     /// `Name :: #import "X"`.

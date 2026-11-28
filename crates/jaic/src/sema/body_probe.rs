@@ -537,10 +537,15 @@ pub enum C {
     Foreigns,
     Modules,
     Files,
+    /// `Epochs::namespace_generation`.
     NamespaceGen,
+    /// `CompileTime::executions`.
     CtExec,
+    /// Lazy entity resolutions (`decls.rs`).
     EntResolve,
+    /// Signature resolutions (`procs/signature.rs`).
     SigResolve,
+    /// Struct layouts computed (`structs/layout.rs`).
     Layout,
     Nested,
     Entities,

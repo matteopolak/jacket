@@ -103,6 +103,7 @@ impl Workspace {
 /// One compiler message, in primitive form.
 #[derive(Clone, Debug, Default)]
 pub struct Event {
+    /// One of the `EVENT_*` constants.
     pub kind: i64,
     /// Integer payload; its meaning depends on `kind`.
     pub ints: Vec<i64>,

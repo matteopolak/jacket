@@ -19,6 +19,7 @@ use crate::source::FileId;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Entry {
     pub file: PathBuf,
+    /// One-based.
     pub line: usize,
     /// `module`, `procedure`, `struct`, `enum` or `alias`.
     pub kind: &'static str,

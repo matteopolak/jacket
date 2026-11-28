@@ -23,7 +23,7 @@ pub enum AtomicOp {
     Xor,
 }
 
-/// Built-in operations with backend-specific implementations.
+/// The fence of an [`Intrinsic::X86Fence`]: `Load` is `lfence`, `Store` is `sfence` and `Full` is `mfence`.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum X86Fence {
     Load,
@@ -43,8 +43,11 @@ pub enum X86Prefetch {
 /// Built-in operations with backend-specific implementations.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Intrinsic {
+    /// `(dst, src, size)`.
     Memcpy,
+    /// `(dst, byte, size)`.
     Memset,
+    /// `(a, b, size) -> I16`: -1, 0 or 1.
     Memcmp,
     /// (ptr, old, new) -> (success, `old_value`); width from operand type.
     CompareAndSwap,
@@ -96,6 +99,7 @@ pub enum Intrinsic {
     },
     /// One hardware attempt: (value: width, carry: I8). Width is I16/I32/I64.
     X86Random {
+        /// `rdseed` rather than `rdrand`.
         seed: bool,
         width: Ty,
     },
@@ -371,6 +375,7 @@ pub enum Inst {
     Loc {
         line: u32,
         col: u32,
+        /// Index into `Program::file_paths`.
         file: u32,
         scope: u32,
     },

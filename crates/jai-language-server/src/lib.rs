@@ -134,12 +134,16 @@ impl Limits {
 /// Why the session refused a change: a malformed input, a limit, or a document in the wrong state.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Error {
+    /// The text says why the URI is not accepted.
     Uri(&'static str),
+    /// The text says why the position is not valid.
     Position(&'static str),
+    /// The text says which limit was exceeded.
     Limit(&'static str),
     MissingDocument,
     AlreadyOpen,
     StaleVersion,
+    /// The text says why the edit is not valid.
     InvalidEdit(&'static str),
     /// The check a diagnostics pull needs was stopped, failed or deferred; asking again
     /// after newer input has settled gives the answer.

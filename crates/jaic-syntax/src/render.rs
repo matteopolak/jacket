@@ -26,9 +26,11 @@ use crate::source::{LineIndex, SourcePath};
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 /// How a diagnostic is laid out as text; see the module docs.
 pub enum Layout {
+    /// The long-standing text of each tool, used when stderr is not a terminal.
     Plain,
     Ascii,
     Unicode,
+    /// One `path(line,col): error: message` line per diagnostic, never coloured.
     Msvc,
 }
 

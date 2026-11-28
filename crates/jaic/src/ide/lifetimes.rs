@@ -240,7 +240,9 @@ pub enum LifetimeEvent {
     Branch {
         condition: Val,
         span: Span,
+        /// Index into `LifetimeBody::blocks`.
         then_block: usize,
+        /// Index into `LifetimeBody::blocks`.
         else_block: usize,
     },
     Call {
@@ -248,7 +250,9 @@ pub enum LifetimeEvent {
         memory: Option<LifetimeMemoryEffects>,
         args: Vec<LifetimeArgument>,
         span: Span,
+        /// The callee is an `#expand` macro.
         expands: bool,
+        /// The result index, value and type of each result that has a value.
         results: Vec<(usize, Val, TypeId)>,
     },
     IndirectCall {
@@ -339,15 +343,20 @@ impl LifetimeEvent {
 #[derive(Clone, Debug, Default)]
 pub struct LifetimeBlock {
     pub events: Vec<LifetimeEvent>,
+    /// Indices into `LifetimeBody::blocks`. A branch on a constant condition lists only the block it takes.
     pub successors: Vec<usize>,
+    /// The block ends in a return.
     pub normal_return: bool,
 }
 
 /// A contiguous run emitted while expanding code at a caller's source location.
 #[derive(Clone, Debug)]
 pub struct LifetimeSourceRange {
+    /// Index into `LifetimeBody::blocks`.
     pub block: usize,
+    /// Index into the block's `events` of the first event of the run.
     pub first_event: usize,
+    /// Index one past the last event of the run.
     pub end_event: usize,
     pub site: Span,
 }

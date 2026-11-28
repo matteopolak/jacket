@@ -750,7 +750,7 @@ pub struct Link {
     /// The dotted name the link spells (`Basic.print`), without backticks or `()`: the label,
     /// or the target of `[text](target)`.
     pub path: (usize, usize),
-    /// What it names: `print`, `Basic`, `print` for `Basic.print`'s last segment, ...
+    /// The segments of the dotted name: `Basic`, `print` for `Basic.print`.
     pub names: Vec<String>,
     /// Written `[text](name)`.
     pub targeted: bool,
@@ -1126,7 +1126,9 @@ pub fn link_names(doc: &str) -> Vec<Vec<String>> {
 /// A link in a source file: where its label is and what it names, resolved from `scope_at`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Site {
+    /// The text between the brackets, as byte offsets into the file.
     pub label: (usize, usize),
+    /// The segments of the dotted name: `Basic`, `print` for `Basic.print`.
     pub names: Vec<String>,
     /// An offset in the declaration the comment documents (its scope resolves the names).
     pub scope_at: usize,

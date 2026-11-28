@@ -66,15 +66,19 @@ const CHUNK: usize = 256 * 1024;
 
 /// One member a record fills: its place in the struct and how it is stored.
 pub struct PlanEntry {
+    /// Byte offset in the struct.
     pub offset: u64,
     pub shape: Shape,
+    /// Size of the member in bytes.
     pub size: usize,
     pub name: Name,
     /// An array's elements: their shape and size.
     pub element: Shape,
+    /// Size of one element in bytes.
     pub element_size: u64,
     /// The type a pointer (or a pointer element) points to, or the struct held in place.
     pub target: u64,
+    /// A resizable array (`[..] T`) rather than a view.
     pub resizable: bool,
 }
 

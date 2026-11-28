@@ -34,9 +34,10 @@ pub enum DiagnosticSeverity {
 pub enum DiagnosticCode {
     Lexer,
     Parser,
+    /// A `#load` target the session has no text for.
     Source,
+    /// A token or recursion budget was exceeded.
     Limit,
-    /// A format string disagrees with the arguments of its print-family call.
     /// The type checker's first error in the program.
     Check,
     /// No program entry loads or imports the file, so it is not checked as part of one.

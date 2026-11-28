@@ -66,6 +66,7 @@ pub enum Member {
 /// Where [`DataLayout::pack`] put each member of a record, and the record's size and alignment.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Packed {
+    /// Byte offset of each member, in member order.
     pub offsets: Vec<u64>,
     pub size: u64,
     pub align: u64,
@@ -102,7 +103,9 @@ impl Packer {
 /// `string` and `[] T`: a count, then the data pointer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct View {
+    /// Byte offset of the count.
     pub count: u64,
+    /// Byte offset of the data pointer.
     pub data: u64,
     pub size: u64,
     pub align: u64,
@@ -118,9 +121,13 @@ pub struct Allocator {
 /// `[..] T`: a view, the allocated capacity, then the allocator.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Resizable {
+    /// Byte offset of the count.
     pub count: u64,
+    /// Byte offset of the data pointer.
     pub data: u64,
+    /// Byte offset of the allocated capacity.
     pub allocated: u64,
+    /// Byte offset of the allocator.
     pub allocator: u64,
     pub size: u64,
     pub align: u64,
@@ -129,7 +136,9 @@ pub struct Resizable {
 /// `Any`: the value's type, then a pointer to the value.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Any {
+    /// Byte offset of the type.
     pub type_: u64,
+    /// Byte offset of the pointer to the value.
     pub value_pointer: u64,
     pub size: u64,
     pub align: u64,

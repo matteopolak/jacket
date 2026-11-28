@@ -161,6 +161,7 @@ impl FuncOrigin {
 pub struct FuncDebug {
     /// Procedure name as written (polymorph instances share it).
     pub name: String,
+    /// Index into `Program::file_paths`.
     pub file: u32,
     pub line: u32,
     /// Lexical scopes. Entry 0 is the procedure body itself; `Inst::Loc::scope` and
@@ -202,6 +203,7 @@ pub struct DebugGlobal {
     pub name: String,
     /// Key into `Program::debug_types`.
     pub ty: u32,
+    /// Index into `Program::file_paths`.
     pub file: u32,
     pub line: u32,
 }
@@ -264,6 +266,7 @@ pub struct DebugField {
 pub struct TraceInfo {
     /// Empty for an anonymous procedure.
     pub name: String,
+    /// Index into `Program::file_paths`.
     pub file: u32,
     pub line: u32,
     pub col: u32,

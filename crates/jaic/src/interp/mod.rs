@@ -131,6 +131,7 @@ pub fn compile_time_spent() -> (std::time::Duration, u64) {
 
 /// A code `compiler_get_code` made.
 pub struct MadeCode {
+    /// Index into `Interp::codes`.
     pub id: usize,
     /// The code whose scope it takes.
     pub scope_from: usize,

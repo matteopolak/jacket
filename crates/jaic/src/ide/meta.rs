@@ -94,6 +94,7 @@ pub struct IdeArg {
     pub param: usize,
     pub named: bool,
     pub variadic: bool,
+    /// The argument is `..value`, which spreads an array into variadic arguments.
     pub spread: bool,
     pub ty: Option<TypeId>,
 }
@@ -117,7 +118,9 @@ pub struct IdeCallInfo {
 #[derive(Clone, Debug)]
 pub struct IdeSignature {
     pub label: String,
+    /// Source text of each parameter.
     pub params: Vec<String>,
+    /// Name of each parameter; empty for an unnamed one.
     pub param_names: Vec<String>,
     pub span: Span,
 }
@@ -126,10 +129,12 @@ pub struct IdeSignature {
 #[derive(Clone, Debug)]
 pub struct IdeArgInfo {
     pub span: Span,
+    /// Index into the header parameters of the chosen procedure.
     pub param: usize,
     pub param_name: String,
     pub named: bool,
     pub variadic: bool,
+    /// The argument is `..value`, which spreads an array into variadic arguments.
     pub spread: bool,
     pub ty: Option<String>,
 }

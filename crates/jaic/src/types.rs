@@ -15,6 +15,7 @@ pub struct TypeId(pub u32);
 /// How an array's length is held.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ArrayKind {
+    /// Element count.
     Fixed(u64),
     View,
     Resizable,
@@ -101,6 +102,7 @@ pub struct DistinctId(pub u32);
 pub struct Field {
     pub name: Option<Sym>,
     pub ty: TypeId,
+    /// Byte offset in the struct.
     pub offset: u64,
     /// Alignment the layout used: the type's, or the member's `#align`.
     pub align: u64,
@@ -111,7 +113,7 @@ pub struct Field {
     /// The member's notes with where each is written (a note's place lets an editor compile
     /// watch which compile-time code reads it through type info).
     pub notes: Vec<crate::ast::Note>,
-    /// Constant initializer bytes (or none = zero / ---).
+    /// Where the member is declared.
     pub span: Span,
 }
 

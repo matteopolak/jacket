@@ -26,6 +26,7 @@ pub struct BuildSettings {
     /// `llvm_options.bitcode_optimization_setting`.
     pub optimization: BitcodeOptimization,
     pub additional_linker_arguments: Vec<String>,
+    /// In bytes; `None` keeps the default.
     pub temporary_storage_size: Option<i64>,
     pub array_bounds_check: Option<bool>,
     /// `Build_Options.null_pointer_check`.

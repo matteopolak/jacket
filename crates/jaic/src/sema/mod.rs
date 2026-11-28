@@ -294,7 +294,9 @@ impl HostPlatform {
 /// [`Options::host`] gives the defaults for the machine the compiler runs on.
 #[derive(Clone)]
 pub struct Options {
+    /// Operating system the program is built for.
     pub os: TargetOs,
+    /// Processor the program is built for.
     pub cpu: TargetCpu,
     /// Where compile-time code runs. Always the native platform outside tests, which replace it
     /// to exercise a host that differs from the target on a machine that does not.
@@ -523,8 +525,9 @@ pub struct FileInfo {
 /// See `Module::using_modules`.
 #[derive(Clone)]
 pub struct ModuleUsing {
-    /// The `using` filter as written, if any.
+    /// The module being used.
     pub module: ModuleId,
+    /// The `using` filter as written, if any.
     pub filter: Option<Arc<ast::UsingFilter>>,
     /// Whether the `using` is at export scope, so importers of the module see it too.
     pub exported: bool,
@@ -534,11 +537,14 @@ pub struct ModuleUsing {
 pub struct Module {
     /// Entry declarations are still being registered (recursive imports may see this instance).
     pub loading: bool,
+    /// Where the module was first imported, for errors about its arguments.
     pub argument_span: Span,
     /// Source-list provenance for validating an import before binding its header.
     pub argument_imports: Vec<Arc<ast::Import>>,
+    /// Whether the imports in `argument_imports` have been checked against the module parameters.
     pub arguments_validated: bool,
     pub name: String,
+    /// Where the module was loaded from; `None` for a module made without a path.
     pub path: Option<PathBuf>,
     /// Names visible module-wide (`#scope_export` and `#scope_module`).
     pub scope: ScopeId,
@@ -695,6 +701,7 @@ pub struct ProcTypeParams {
     pub declaration: Option<Arc<ast::ProcHeader>>,
     /// Each parameter's name, where it is declared (an empty span when nothing declares it).
     pub names: Vec<Option<ast::Ident>>,
+    /// One default per parameter, `None` when it has none.
     pub defaults: Vec<Option<ast::Expr>>,
     pub scope: ScopeId,
     /// Lexical headers on declared procedure-valued results.

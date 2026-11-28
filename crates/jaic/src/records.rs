@@ -43,6 +43,7 @@ pub enum Field {
 pub enum FieldRef<'a> {
     Int(i64),
     Str(&'a Arc<[u8]>),
+    /// A record id (0 = null).
     Ref(i64),
     List(List<'a>),
 }
