@@ -219,6 +219,26 @@ fn jaifmt_builds_and_formats() {
 
     std::fs::remove_file(dir.join("src/bad.jai")).unwrap();
     assert_eq!(fmt(&["--check", "src"]).status.code(), Some(0));
+
+    // With no path, the directory of the nearest jacket.toml is formatted, from any folder in
+    // it, and its ignore list applies.
+    std::fs::write(dir.join("src/c.jai"), messy).unwrap();
+    let from_inside = Command::new(&exe)
+        .arg("--check")
+        .current_dir(dir.join("src/skipped"))
+        .output()
+        .unwrap();
+
+    assert_eq!(from_inside.status.code(), Some(1));
+    // Only `c.jai` is listed: `skipped/b.jai` is ignored. A path outside the working folder is
+    // shown in full.
+    let listed = String::from_utf8_lossy(&from_inside.stdout);
+
+    assert!(listed.ends_with("/src/c.jai:2\n"), "{listed}");
+    assert_eq!(listed.lines().count(), 1, "{listed}");
+    assert_eq!(fmt(&[]).status.code(), Some(0));
+    assert_eq!(read("src/c.jai"), "main :: () {\n  x := 1;\n}\n");
+    assert_eq!(read("src/skipped/b.jai"), messy);
 }
 
 /// `jaic jaifmt/build.jai - -o <file>` builds the same jaifmt through the Compiler module,

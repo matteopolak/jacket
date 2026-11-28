@@ -25,6 +25,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - `Extensions/Time` follows jiff 1.0: `Zoned` is now `Zoned_Date_Time`, and `to_zoned` and `zoned` are `to_zoned_date_time` and `zoned_date_time`.
 - `jacket dep` shares one copy per compatible version group by default; incompatible ranges no longer conflict.
 - `jacket test` fails when a test-driver probe library is missing; `--allow-missing-prerequisites` skips those tests. `CI` no longer decides.
+- `jacket fmt` starts `jaifmt` with the arguments as written; `jaifmt` reads `jacket.toml` and, with no path, formats the project.
 - A project whose `[toolchain] version` differs from the running jacket is an error naming `jacket upgrade --version`.
 - `jacket toolchain check` refuses an unknown target name and lists the known ones.
 - `f(g())` passes only `g`'s first value; a multi-value result is no longer spread over several parameters.

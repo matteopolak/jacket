@@ -41,6 +41,8 @@ mod doc_module_identity;
 mod doc_theme;
 #[path = "explain.rs"]
 mod explain;
+#[path = "fmt_passthrough.rs"]
+mod fmt_passthrough;
 #[path = "forwarded_targets.rs"]
 mod forwarded_targets;
 #[path = "support/installed.rs"]

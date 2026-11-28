@@ -9,7 +9,6 @@ mod cli;
 mod commands;
 mod compile;
 mod doc;
-mod fmt;
 mod markup;
 mod migrate;
 mod parallel;
@@ -152,7 +151,7 @@ fn tool_command(command: &str, args: &[OsString], cwd: &Path) -> ExitCode {
         "check" => run_jaic(true, args, &ctx),
         "run" => run_program(args, &ctx),
         "lint" => run_tool(tools::JAILINT, "lint", args),
-        "fmt" => fmt::run(&fmt::plan(args, &ctx)),
+        "fmt" => run_tool(tools::JAIFMT, "fmt", args),
         _ => run_tool(tools::JAILSP, "lsp", args),
     }
 }

@@ -251,7 +251,7 @@ Exit status: 0 when nothing at level `deny` was found, 1 when something was, 2 o
 
 ### Formatting
 
-`jacket fmt` runs `jaifmt` on the project with its `[format]` settings; its flags are those of `jaifmt`. [Format rules](../tools/jaifmt-rules.md) shows what each setting does.
+`jacket fmt` runs `jaifmt` with the arguments as written, and with no path jaifmt formats the project; its flags are those of `jaifmt`. [Format rules](../tools/jaifmt-rules.md) shows what each setting does.
 
 Formats Jai source files in place. Directories are searched recursively for *.jai files.
 
@@ -276,7 +276,7 @@ jaifmt [OPTIONS] [PATHS]...
 | `--range <START:END>` | With --stdin: format only the top-level statements the byte range START:END touches and copy the rest unchanged |
 | `--config <FILE>` | Use this jacket.toml instead of the nearest one |
 | `--is-ignored <FILE>` | Print nothing; exit 0 when FILE is ignored by the nearest config's ignore list, 1 when it is not (for editors) |
-| `--set <KEY=VALUE>` | Set one [format] key, written as in jacket.toml (--set indent-width=2); implies --no-config. `jacket fmt` passes every resolved setting this way |
+| `--set <KEY=VALUE>` | Set one [format] key, written as in jacket.toml (--set indent-width=2); implies --no-config |
 | `--[no-]no-config` | Read no jacket.toml: start from the defaults, then --config and --set. Nothing is ignored, since the caller chooses the files |
 | `-v, --[no-]verbose` | Report every file, a summary, and lines over max-width |
 | `-j, --jobs <N>` | Format this many files at once [default: the number of cores] |

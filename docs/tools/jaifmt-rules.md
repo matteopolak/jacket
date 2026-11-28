@@ -509,4 +509,4 @@ The line length `jaifmt --verbose` reports lines over. Default 100. Lines are ne
 
 ### ignore
 
-Globs, relative to the `jacket.toml`, of files `jacket fmt` skips: `ignore = ["generated/**"]`.
+Globs, relative to the `jacket.toml`, of files `jaifmt` skips: `ignore = ["generated/**"]`.

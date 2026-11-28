@@ -1,7 +1,7 @@
 // jaifmt: a token-based formatter for Jai source. See docs/tools/jaifmt.md.
 //
 //     jaic jaifmt/build.jai    (or: jaic jaifmt/main.jai -O2 -exe target/jaifmt)
-//     jaifmt [--check] [--config file] [--verbose] [-j N] paths...
+//     jaifmt [--check] [--config file] [--verbose] [-j N] [paths...]    (no path: the project)
 //     jaifmt --stdin [--config file] < in.jai > out.jai
 //     jaifmt --stdin --range START:END [--config file] < in.jai > out.jai    (byte offsets)
 //     jaifmt --is-ignored file [--config file]    (exit 0 ignored, 1 formatted, 2 error)
@@ -43,7 +43,7 @@ HELP :: Args.Help(Options).{
     is_ignored = "Print nothing; exit 0 when FILE is ignored by the nearest config's ignore list, 1 when it is not (for editors)",
     range = "With --stdin: format only the top-level statements the byte range START:END touches and copy the rest unchanged",
     config = "Use this jacket.toml instead of the nearest one",
-    set = "Set one [format] key, written as in jacket.toml (--set indent-width=2); implies --no-config. `jacket fmt` passes every resolved setting this way",
+    set = "Set one [format] key, written as in jacket.toml (--set indent-width=2); implies --no-config",
     no_config = "Read no jacket.toml: start from the defaults, then --config and --set. Nothing is ignored, since the caller chooses the files",
     jobs = "Format this many files at once [default: the number of cores]",
     verbose = "Report every file, a summary, and lines over max-width",
@@ -92,7 +92,12 @@ main :: () {
         exit(cast(s32) format_stdin(explicit_config, options.range));
     }
 
-    if !options.paths.count fatal_usage("no files to format", "pass files or directories, as in `jaifmt src`, or use `jaifmt --stdin < file.jai`");
+    // With no path, the project: the directory of the nearest jacket.toml, else this one.
+    if !options.paths.count {
+        cwd := absolute_path(get_working_directory());
+        project, found := nearest_config_directory(cwd);
+        array_add(*options.paths, ifx found && !explicit_config then project else cwd);
+    }
 
     files: [..] string;
     totals: Totals;
