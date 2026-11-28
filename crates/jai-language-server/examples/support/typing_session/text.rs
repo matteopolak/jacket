@@ -6,7 +6,7 @@ pub(super) fn pos_of(text: &str, byte: usize) -> Position {
     let before = &text[..byte];
 
     Position {
-        line: before.bytes().filter(|&b| b == b'\n').count() as u32,
+        line: before.matches('\n').count() as u32,
         character: before
             .rsplit('\n')
             .next()
