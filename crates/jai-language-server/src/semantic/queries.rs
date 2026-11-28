@@ -48,7 +48,7 @@ pub struct EvalCost {
     /// The byte range of the code that was evaluated.
     pub start: usize,
     pub end: usize,
-    pub blocks: u64,
+    pub steps: u64,
     pub elapsed: std::time::Duration,
 }
 
@@ -204,7 +204,7 @@ impl Analysis {
 
         for (compiler, _) in self.polymorph_compilers() {
             for run in &compiler.meta.perf.runs {
-                let (Some(blocks), true) = (run.blocks, run.outermost) else {
+                let (Some(steps), true) = (run.steps, run.outermost) else {
                     continue;
                 };
                 let Some(file) = compiler.src.sources.try_get(run.span.file) else {
@@ -217,18 +217,18 @@ impl Analysis {
                     text: file.text.clone(),
                     start: run.span.start as usize,
                     end: run.span.end as usize,
-                    blocks: 0,
+                    steps: 0,
                     elapsed: std::time::Duration::ZERO,
                 });
 
-                entry.blocks += blocks;
+                entry.steps += steps;
                 entry.elapsed += run.elapsed;
             }
         }
 
         let mut costs: Vec<EvalCost> = sums.into_values().collect();
 
-        costs.sort_by_key(|c| std::cmp::Reverse((c.blocks, c.elapsed)));
+        costs.sort_by_key(|c| std::cmp::Reverse((c.steps, c.elapsed)));
         costs
     }
 

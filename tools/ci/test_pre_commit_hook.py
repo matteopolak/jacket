@@ -415,6 +415,27 @@ class PreCommitHookTests(unittest.TestCase):
         result = sh(["git", "commit", "-q", "-m", "x"], self.repo, env, check=False)
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_the_style_check_reads_the_staged_blobs(self):
+        shutil.copy(REPO / "tools/ci/check_source_style.py", self._ci_dir() / "check_source_style.py")
+        banner = "# ----------\nx = 1\n"
+        self.write("tools/unstaged.py", banner)
+        self.write("notes.txt", "x\n")
+        sh(["git", "add", "notes.txt"], self.repo)
+        result = self.commit()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.write("tools/staged.py", banner)
+        sh(["git", "add", "tools/staged.py"], self.repo)
+        self.write("tools/staged.py", "x = 1\n")
+        result = self.commit()
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("tools/staged.py:1: banner comment", result.stderr)
+        self.assertNotIn("unstaged.py", result.stderr)
+
+    def _ci_dir(self):
+        path = self.repo / "tools/ci"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
     def fake_shellcheck(self):
         """Put a stand-in shellcheck first on PATH, so the tests do not need the real one."""
         bin_dir = Path(self.tmp.name) / "bin"

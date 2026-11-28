@@ -729,7 +729,7 @@ impl Compiler {
 
         if c.ct.interp.eval_steps.is_none() && crate::interp::profile::run_costs() {
             // Blocks are counted when there is a budget; this one never runs out.
-            c.ct.interp.block_budget = Some(u64::MAX);
+            c.ct.interp.step_budget = Some(u64::MAX);
         }
 
         c.ns.root_scope = c.new_scope(scope::ScopeKind::Root, None, ModuleId(u32::MAX), None);

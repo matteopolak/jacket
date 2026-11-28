@@ -166,7 +166,7 @@ fn readiness_constant_run_failure_is_terminal() {
         false,
     );
 
-    compiler.ct.interp.block_budget = Some(32);
+    compiler.ct.interp.step_budget = Some(32);
     let error = compiler
         .compile_program(Path::new("/app/main.jai"))
         .expect_err("executed constant failure must be retained");

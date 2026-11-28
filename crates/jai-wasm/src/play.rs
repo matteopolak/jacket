@@ -321,30 +321,28 @@ fn run_styled(
             SharedHost(host.clone()),
             limits.budget,
         )));
-    compiler.ct.interp.block_budget = limits.budget;
+    compiler.ct.interp.step_budget = limits.budget;
     compiler.attach_workspaces(workspaces.clone());
     let entry = PathBuf::from(format!("{WORKSPACE_ROOT}/{}", main.trim_start_matches('/')));
     let mut ran_program = false;
     let outcome = match compiler.compile_program(&entry) {
-        Ok(()) => {
-            match jaic::build::finish_all(&workspaces, &mut compiler.ct.interp.block_budget) {
-                Err(message) => Err(Box::new(Diagnostic::new(
-                    Code::MetaprogramReport,
-                    Span::NONE,
-                    message,
-                ))),
-                Ok(()) if workspaces.borrow().any_failed() => Err(Box::new(Diagnostic::new(
-                    Code::MetaprogramReport,
-                    Span::NONE,
-                    "compilation failed in a metaprogram workspace (see stderr for diagnostics)",
-                ))),
-                Ok(()) if limits.compile_only => Ok(None),
-                Ok(()) => {
-                    ran_program = true;
-                    compiler.run_program_with_args(&io.args).map(Some)
-                }
+        Ok(()) => match jaic::build::finish_all(&workspaces, &mut compiler.ct.interp.step_budget) {
+            Err(message) => Err(Box::new(Diagnostic::new(
+                Code::MetaprogramReport,
+                Span::NONE,
+                message,
+            ))),
+            Ok(()) if workspaces.borrow().any_failed() => Err(Box::new(Diagnostic::new(
+                Code::MetaprogramReport,
+                Span::NONE,
+                "compilation failed in a metaprogram workspace (see stderr for diagnostics)",
+            ))),
+            Ok(()) if limits.compile_only => Ok(None),
+            Ok(()) => {
+                ran_program = true;
+                compiler.run_program_with_args(&io.args).map(Some)
             }
-        }
+        },
         Err(d) => Err(d),
     };
 

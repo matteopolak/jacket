@@ -1,13 +1,15 @@
 //! Testing the examples of a site: every one with a Run button is run before the site is written,
 //! the way the browser runs it, so a Run button never opens on an error.
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 use std::time::Duration;
 
 use crate::test::exec::{Invocation, run_bounded};
 
 /// The most an example may run when it has no `timeout(n)` of its own.
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// What a Node shard may take beyond its programs' own limits: loading the bundle and starting up.
+const SHARD_STARTUP: Duration = Duration::from_secs(60);
 
 /// The Node script that runs programs in the browser bundle, as `run-worker.js` does.
 const SCRIPT: &str = include_str!("run_examples.mjs");
@@ -71,7 +73,7 @@ pub fn run(engine: &Engine, programs: &[Program]) -> Result<Vec<Failure>, String
         Engine::Browser {
             node,
             runtime,
-        } => browser(node, runtime, programs, &dir),
+        } => browser(node, runtime, programs, &dir, SHARD_STARTUP),
     };
     let _ = std::fs::remove_dir_all(&dir);
 
@@ -162,11 +164,19 @@ fn interpret(
     }
 }
 
+/// How long a Node shard may take: its programs' own limits added up, and `startup`.
+fn shard_limit<'a>(programs: impl Iterator<Item = &'a Program>, startup: Duration) -> Duration {
+    programs.fold(startup, |total, p| {
+        total.saturating_add(p.timeout.map_or(DEFAULT_TIMEOUT, Duration::from_secs))
+    })
+}
+
 fn browser(
     node: &Path,
     runtime: &Path,
     programs: &[Program],
     dir: &Path,
+    startup: Duration,
 ) -> Result<Vec<Failure>, String> {
     let script = dir.join("run_examples.mjs");
 
@@ -187,15 +197,32 @@ fn browser(
     let shards = crate::parallel::threads().min(programs.len().max(1));
     let indices: Vec<usize> = (0..shards).collect();
     let found = crate::parallel::try_map(&indices, shards, |_, &shard| {
-        let output = Command::new(node)
-            .arg(&script)
-            .arg(runtime)
-            .arg(&list)
-            .arg(shard.to_string())
-            .arg(shards.to_string())
-            .stdin(Stdio::null())
-            .output()
+        // The script stops each program at its own limit; this stops a shard that hangs outside
+        // them (the bundle never loads, the engine never answers).
+        let limit = shard_limit(programs.iter().skip(shard).step_by(shards), startup);
+        let invocation = Invocation {
+            program: node.to_path_buf(),
+            args: vec![
+                script.to_string_lossy().into_owned(),
+                runtime.to_string_lossy().into_owned(),
+                list.to_string_lossy().into_owned(),
+                shard.to_string(),
+                shards.to_string(),
+            ],
+            cwd: dir.to_path_buf(),
+            env: Vec::new(),
+            pipe_input: false,
+        };
+        let output = run_bounded(&invocation, Some(limit))
             .map_err(|e| format!("could not start `{}`: {e}", node.display()))?;
+
+        if output.status.is_none() {
+            return Err(format!(
+                "the browser compiler did not finish within {} seconds",
+                limit.as_secs()
+            ));
+        }
+
         let mut seen = 0;
         let mut failed = Vec::new();
 

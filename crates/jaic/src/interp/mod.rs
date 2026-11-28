@@ -277,10 +277,10 @@ pub struct Interp {
     suspend_at: Option<usize>,
     /// The frames of the suspending thread saved so far, innermost first.
     captured: Vec<threads_inline::SuspFrame>,
-    /// Basic blocks left to run before execution traps (editors bound compile-time code).
-    pub block_budget: Option<u64>,
-    /// When set, each top-level compile-time evaluation starts with this many blocks in
-    /// `block_budget` (`begin_evaluation`) instead of drawing on what the last one left.
+    /// Steps left to run before execution traps (editors bound compile-time code).
+    pub step_budget: Option<u64>,
+    /// When set, each top-level compile-time evaluation starts with this many steps in
+    /// `step_budget` (`begin_evaluation`) instead of drawing on what the last one left.
     pub eval_steps: Option<u64>,
     /// This interpreter runs for a compile-time evaluation of another one (a workspace a
     /// metaprogram drives): its evaluations draw on the budget it was handed, not their own.
@@ -361,34 +361,34 @@ impl Interp {
     /// interp.begin_evaluation();
     /// interp.end_compile_time_budget();
     /// assert_eq!(
-    ///     (interp.eval_steps, interp.block_budget),
+    ///     (interp.eval_steps, interp.step_budget),
     ///     (None, Some(u64::MAX))
     /// );
     /// ```
     pub fn end_compile_time_budget(&mut self) {
         self.eval_steps = None;
 
-        if self.block_budget.is_some() {
-            self.block_budget = Some(u64::MAX);
+        if self.step_budget.is_some() {
+            self.step_budget = Some(u64::MAX);
         }
     }
 
     /// A top-level compile-time evaluation starts: it gets its own `eval_steps` when the
-    /// interpreter has them. Returns the blocks left, to measure the cost against.
+    /// interpreter has them. Returns the steps left, to measure the cost against.
     pub fn begin_evaluation(&mut self) -> Option<u64> {
         if let Some(limit) = self.eval_steps
             && !self.nested_eval
         {
-            self.block_budget = Some(limit);
+            self.step_budget = Some(limit);
         }
 
-        self.block_budget
+        self.step_budget
     }
 
     /// Hand `other` (an interpreter that runs part of the evaluation going on here) the
     /// budget: what is left, and whether its evaluations are nested in this one's.
     pub fn lend_budget(&self, other: &mut Interp, nested: bool) {
-        other.block_budget = self.block_budget;
+        other.step_budget = self.step_budget;
         other.eval_steps = self.eval_steps;
         other.nested_eval = nested || self.nested_eval;
         other.budget_traps = 0;
@@ -396,7 +396,7 @@ impl Interp {
 
     /// Take back what `lend_budget` lent, with the exhaustions that happened meanwhile.
     pub fn take_back_budget(&mut self, other: &Interp) {
-        self.block_budget = other.block_budget;
+        self.step_budget = other.step_budget;
         self.budget_traps += other.budget_traps;
     }
 
@@ -501,7 +501,7 @@ impl Interp {
             call_nesting: 0,
             suspend_at: None,
             captured: Vec::new(),
-            block_budget: None,
+            step_budget: None,
             eval_steps: None,
             nested_eval: false,
             budget_traps: 0,

@@ -197,7 +197,7 @@ impl Compiler {
         // A run inside another, or in a workspace the metaprogram around it drives, draws on
         // that run's budget; any other starts a fresh one.
         let outermost = !self.meta.perf.running() && !self.ct.interp.nested_eval;
-        let blocks_at_start = self.ct.interp.begin_evaluation();
+        let steps_at_start = self.ct.interp.begin_evaluation();
         let clock = self.meta.perf.start_run();
 
         crate::sema::body_probe::write(crate::sema::body_probe::W::CtExecutions);
@@ -247,8 +247,8 @@ impl Compiler {
             elapsed += self.meta.perf.finish_run(clock);
         }
 
-        let blocks = blocks_at_start
-            .zip(self.ct.interp.block_budget)
+        let steps = steps_at_start
+            .zip(self.ct.interp.step_budget)
             .map(|(start, left)| start.saturating_sub(left));
 
         if outermost && crate::interp::profile::run_costs() {
@@ -272,7 +272,7 @@ impl Compiler {
                         .starts_with(self.src.canon(root))
                 });
 
-            crate::interp::profile::record_run(place, blocks.unwrap_or(0), elapsed, library);
+            crate::interp::profile::record_run(place, steps.unwrap_or(0), elapsed, library);
         }
 
         self.meta.perf.runs.push(super::perf::RunStat {
@@ -280,7 +280,7 @@ impl Compiler {
             callee,
             stalls,
             elapsed,
-            blocks,
+            steps,
             outermost,
         });
         (

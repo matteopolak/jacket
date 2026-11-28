@@ -20,7 +20,7 @@ main :: () {
 
 ## How it works
 
-**`#run`.** `Compiler::check_run` (`sema/consteval.rs`) compiles the expression to a throwaway thunk, runs it with `call_thunk` and reads the result with `read_value`. Top-level `#run`s run in declaration order (`run_top_level`); top-level `#assert`s are checked after them. State lives in `Compiler::ct` (`sema/compile_time.rs`). Limits are `STACK_SIZE` (32 MiB) and `MAX_DEPTH` (20,000) in `interp/mod.rs`; the playground, jailsp and jailint also set `Interp::block_budget`. `Drop for Compiler` calls `Interp::shutdown` before fields drop, because Jai threads started at compile time can borrow the program.
+**`#run`.** `Compiler::check_run` (`sema/consteval.rs`) compiles the expression to a throwaway thunk, runs it with `call_thunk` and reads the result with `read_value`. Top-level `#run`s run in declaration order (`run_top_level`); top-level `#assert`s are checked after them. State lives in `Compiler::ct` (`sema/compile_time.rs`). Limits are `STACK_SIZE` (32 MiB) and `MAX_DEPTH` (20,000) in `interp/mod.rs`; the playground, jailsp and jailint also set `Interp::step_budget`. `Drop for Compiler` calls `Interp::shutdown` before fields drop, because Jai threads started at compile time can borrow the program.
 
 **Results.** `read_value` copies out of interpreter memory: scalars, strings and types become plain `Value`s, aggregates an `Aggregate` (bytes plus relocations). `freeze` replaces pointers with relocations.
 

@@ -419,8 +419,8 @@ impl JsonSession {
             self.session.set_check_time_limit(seconds);
         }
 
-        if let Some(blocks) = compile_time["costLensBlocks"].as_u64() {
-            self.session.set_cost_lens_blocks(blocks);
+        if let Some(blocks) = compile_time["costLensSteps"].as_u64() {
+            self.session.set_cost_lens_steps(blocks);
         }
 
         if let Some(on) = compile_time["limitNotices"].as_bool() {

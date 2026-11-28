@@ -87,7 +87,7 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
 
     if top_complete
         && let Err(message) =
-            jaic::build::finish_all(&workspaces, &mut compiler.ct.interp.block_budget)
+            jaic::build::finish_all(&workspaces, &mut compiler.ct.interp.step_budget)
     {
         error = Some(message);
     }

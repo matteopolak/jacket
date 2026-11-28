@@ -3,14 +3,14 @@
 use std::path::{Path, PathBuf};
 
 use super::build::Toolchain;
-use super::{coverage, discover, prerequisites, watch};
+use super::{coverage, discover, watch};
 use crate::cli::{CoverageFormat, TestArgs};
 
 /// The folder a coverage report goes to without `--coverage-out`: `JACKET_OUTPUT_DIR` (a
 /// relative one is below the checkout the standard library is in, as everywhere else), else
 /// `target/` in the project.
 fn report_dir(project_dir: &Path, stdlib: &Path, over: Option<std::ffi::OsString>) -> PathBuf {
-    prerequisites::output_override_in(stdlib.parent().unwrap_or(project_dir), over)
+    jacket_config::env::output_dir_below(stdlib.parent().unwrap_or(project_dir), over)
         .unwrap_or_else(|| project_dir.join("target"))
 }
 

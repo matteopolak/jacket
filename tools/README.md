@@ -352,6 +352,7 @@ extension's pinned `@resvg/resvg-js`; `--check` compares the result.
 | `check_audio_output.py` | Check what the stdlib runner's rows cannot say: real devices and multichannel formats. | tools |
 | `check_file_watcher_platforms.py` | File_Watcher source proof, and opt-in real Linux/Windows CI execution. | CI |
 | `check_float_power_sweep.py` | Verify every normal IEEE power-of-two interval using independent exact rationals. | tools |
+| `check_guide_files.py` | Fail when a guide's `jai` block headed with a file name is not a run of lines of that file in docs/examples. | tools |
 | `check_io_burst_diagnostics.py` | Source-only local checks, or one Linux execution with bounded resource evidence. | tools |
 | `check_platform_io.py` | Original platform I/O fixtures; use an explicit source-built compiler. | CI, tools |
 | `check_stdlib_suites.py` | Run the suites that need special flags, fixtures or hosts against the production library. | CI, tools |

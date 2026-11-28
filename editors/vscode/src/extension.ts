@@ -2,6 +2,7 @@ import * as os from "node:os";
 import * as vscode from "vscode";
 import { DidOpenTextDocumentNotification, LanguageClient, type LanguageClientOptions, type ServerOptions, TransportKind } from "vscode-languageclient/node";
 import { type JaicCommand, runJaic } from "./commands";
+import { JaiDebugProvider } from "./debug";
 import { hasPendingOpens, orderPendingOpens } from "./openOrder";
 import { MissingConfiguredTool, type Settings, findCompiler, findFormatter, findJacket, findServer, nodeEnvironment } from "./discovery";
 import { EXPANSION_SCHEME, ExpansionDocuments } from "./expansion";
@@ -110,6 +111,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<{ clie
       }),
     ),
     tests,
+    vscode.debug.registerDebugConfigurationProvider(
+      "jai",
+      new JaiDebugProvider({
+        compiler: () => {
+          const found = locate(() => findCompiler(settings(), nodeEnvironment(), installed?.dir));
+          return found && { path: found.path, env: toolEnvironment() };
+        },
+      }),
+    ),
     vscode.commands.registerCommand("jai.runTest", (argument: LensArgument) => tests.runLens(argument, false)),
     vscode.commands.registerCommand("jai.debugTest", (argument: LensArgument) => tests.runLens(argument, true)),
     vscode.workspace.onDidChangeTextDocument((event) => {

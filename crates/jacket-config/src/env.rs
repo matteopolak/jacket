@@ -283,6 +283,11 @@ vars! {
         default: "unset: scratch directories are removed",
         summary: "When set, test scratch directories are kept after the test.",
     }
+    TEST_REQUIRE_TOOLS {
+        name: "JACKET_TEST_REQUIRE_TOOLS", group: Testing, readers: [Tests],
+        default: "unset: a test whose tool is missing skips",
+        summary: "When set, a Rust test whose external tool (a linker, `llvm-pdbutil`, a cross compiler) is missing fails instead of skipping. CI sets it.",
+    }
     TEST_CODEGEN_UNITS {
         name: "JACKET_TEST_CODEGEN_UNITS", group: Testing, readers: [Tests],
         default: "unset",
@@ -501,8 +506,8 @@ vars! {
     }
     SYSTEM_ROOT {
         name: "SystemRoot", group: Standard, readers: [Jacket],
-        default: "`C:\\Windows`",
-        summary: "Locates the Windows system tools `jacket upgrade` uses.",
+        default: "unset: on Windows `jacket upgrade` fails and says to set it (Windows sets it for every program)",
+        summary: "The Windows folder, whose `System32\\tar.exe` `jacket upgrade` runs.",
     }
     LLVM_SYS_PREFIX {
         name: crate::llvm::SYS_PREFIX_VAR, group: Standard, readers: [Jaic, Jacket],
@@ -571,6 +576,28 @@ vars! {
     }
 }
 
+/// Where `JACKET_OUTPUT_DIR` (`value`) points, the one rule every reader shares: unset or empty
+/// is `None`, and a relative path is below the checkout `root`, as `tools/repo_output.py` reads it.
+///
+/// ```
+/// use std::path::{Path, PathBuf};
+///
+/// let root = Path::new("/checkout");
+/// assert_eq!(
+///     jacket_config::env::output_dir_below(root, Some("out".into())),
+///     Some(PathBuf::from("/checkout/out"))
+/// );
+/// assert_eq!(jacket_config::env::output_dir_below(root, None), None);
+/// ```
+pub fn output_dir_below(
+    root: &std::path::Path,
+    value: Option<std::ffi::OsString>,
+) -> Option<std::path::PathBuf> {
+    value
+        .filter(|dir| !dir.is_empty())
+        .map(|dir| root.join(dir))
+}
+
 /// The declaration of the variable called `name`.
 pub fn find(name: &str) -> Option<&'static Var> {
     ALL.iter().find(|var| var.name == name)
@@ -597,6 +624,22 @@ mod tests {
     use std::path::Path;
 
     use super::*;
+
+    #[test]
+    fn the_output_directory_is_the_one_the_tools_write_to() {
+        let root = Path::new("/checkout");
+
+        assert_eq!(output_dir_below(root, None), None);
+        assert_eq!(output_dir_below(root, Some("".into())), None);
+        assert_eq!(
+            output_dir_below(root, Some("/scratch/out".into())),
+            Some(std::path::PathBuf::from("/scratch/out"))
+        );
+        assert_eq!(
+            output_dir_below(root, Some("out".into())),
+            Some(std::path::PathBuf::from("/checkout/out"))
+        );
+    }
 
     #[test]
     fn names_are_unique() {

@@ -353,6 +353,10 @@ pub struct TestArgs {
     /// the snapshots that differ or are new
     #[arg(long)]
     pub accept: bool,
+    /// Write the missing `.stderr` of compile-fail tests from what the compiler printed, and
+    /// change nothing else (a missing one fails otherwise)
+    #[arg(long)]
+    pub create_missing: bool,
     /// Go through the pending `.snap.new` snapshots one by one (only lists them without a terminal)
     #[arg(long, conflicts_with_all = ["list", "accept"])]
     pub review: bool,

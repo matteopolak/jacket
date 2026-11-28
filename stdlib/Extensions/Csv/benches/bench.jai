@@ -84,7 +84,7 @@ count_fields :: (data: string, options: Csv_Options, size: int) -> int {
 benchmark_input :: () -> string {
     data, ok := read_entire_file(output_path("csv-conformance/bench.csv"));
 
-    assert(ok, "run `PYTHONPATH=tools python3 tools/portable/build_portable.py bench` first");
+    assert(ok, "run `PYTHONPATH=tools python3 tools/portable/build_portable.py bench csv` first");
 
     return data;
 }

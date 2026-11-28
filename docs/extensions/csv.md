@@ -161,7 +161,7 @@ there are no external runtime libraries.
 
 ```sh
 PYTHONPATH=tools python3 tools/portable/build_portable.py data
-PYTHONPATH=tools python3 tools/portable/build_portable.py bench
+PYTHONPATH=tools python3 tools/portable/build_portable.py bench csv
 jacket test --path stdlib/Extensions/Csv
 jacket test --path stdlib/Extensions/Csv --interp
 jacket bench --path stdlib/Extensions/Csv
@@ -242,7 +242,8 @@ chunk boundaries, typed conversions and allocation balance.
 
 `benchmarks/compare/csv/benches/csv.jai` (`tools/bench/library_compare.py csv`, see [library comparisons](../tools/library-comparisons.md)) runs Csv and [rluba/jai-csv](https://github.com/rluba/jai-csv) on two ~50 MB files of a million rows (LF endings so jai-csv can read them) and on 100,000 records written. "Quoted" repeats one row of an integer, a quoted name with a comma, a float, a bool and a quoted field with doubled quotes. "Plain" is closer to exported data: varied ids, names, numbers and notes, with one row in twenty holding a quoted name with a comma. Both libraries must produce the same counts, rows and written bytes before the timer starts.
 
-jai-csv has no record reader, so "records" calls its `csv_consume_col` per field, and "typed" uses `csv_parse` into the same struct without the `bool` column, which it cannot read. It does less: it keeps no position, has no limits, takes the whole input at once, reads only LF endings (`` stays in the last field), keeps a BOM in the first field, reports errors only as log messages, and has no record writer. Csv streams `Csv_Source` chunks, skips the BOM, has field, field-count and record limits, reports kind, offset, line and column, and supports lax quotes and typed rows with rename and skip notes.
+jai-csv has no record reader, so "records" calls its `csv_consume_col` per field, and "typed" uses `csv_parse` into the same struct without the `bool` column, which it cannot read. It does less: it keeps no position, has no limits, takes the whole input at once, reads only LF endings (`
+` stays in the last field), keeps a BOM in the first field, reports errors only as log messages, and has no record writer. Csv streams `Csv_Source` chunks, skips the BOM, has field, field-count and record limits, reports kind, offset, line and column, and supports lax quotes and typed rows with rename and skip notes.
 
 On the csv-spectrum cases Csv matches all twelve (the stray-quote `location_coordinates` with `lax_quotes`); jai-csv, read through `csv_consume_col`, fails on the quote errors of `empty_crlf` and `location_coordinates` and leaves `\r` in the last field of the CRLF cases.
 

@@ -119,7 +119,7 @@ fn host_evaluation_shares_the_execution_budget() {
     let error = compile_configured(
         "#run,host {while true {}} main :: () {}",
         true,
-        |compiler| compiler.ct.interp.block_budget = Some(10),
+        |compiler| compiler.ct.interp.step_budget = Some(10),
     )
     .expect_err("isolated execution must not evade the caller's budget");
 

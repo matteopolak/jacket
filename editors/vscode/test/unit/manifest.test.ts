@@ -50,3 +50,10 @@ describe("workspace trust", () => {
     assert.match(source, /onDidGrantWorkspaceTrust/);
   });
 });
+
+describe("debugging", () => {
+  it("contributes the jai debugger and breakpoints in Jai files", () => {
+    assert.deepEqual(manifest.contributes.debuggers.map((d: { type: string }) => d.type), ["jai"]);
+    assert.deepEqual(manifest.contributes.breakpoints, [{ language: "jai" }]);
+  });
+});

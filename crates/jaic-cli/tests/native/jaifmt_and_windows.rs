@@ -361,7 +361,7 @@ fn jaifmt_is_idempotent_on_the_repository() {
     // CI must exercise the actual readonly premise on a capable filesystem.
     formatter_fixtures::require_readonly_capability(
         readonly_retained,
-        jacket_config::env::CI.is_set() || jacket_config::env::GITHUB_ACTIONS.is_set(),
+        jacket_config::env::TEST_REQUIRE_TOOLS.is_set(),
     );
 
     if !readonly_retained {
@@ -604,8 +604,8 @@ fn msvc_builds_write_a_pdb() {
                 "no line 3 in the PDB:\n{text}"
             );
         }
-        // CI installs the LLVM release, which has it.
-        Err(e) if jacket_config::env::CI.os().is_some() => panic!("llvm-pdbutil: {e}"),
+        // CI installs the LLVM release, which has it, and sets the variable.
+        Err(e) if jacket_config::env::TEST_REQUIRE_TOOLS.is_set() => panic!("llvm-pdbutil: {e}"),
         Err(_) => eprintln!("llvm-pdbutil not found: skipping the line information check"),
     }
 

@@ -74,9 +74,11 @@ fn built_lib_dirs(host: &dyn Host, stdlib: &Path, platform: &str) -> Vec<PathBuf
     // `target/`.
     let mut candidates = Vec::new();
 
-    if let Some(output) = host.var(&jacket_config::env::OUTPUT_DIR) {
-        // A relative one is below the checkout, as the repository's tools read it.
-        candidates.push(stdlib.join("..").join(output).join("native-libs"));
+    if let Some(output) = jacket_config::env::output_dir_below(
+        &stdlib.join(".."),
+        host.var(&jacket_config::env::OUTPUT_DIR),
+    ) {
+        candidates.push(output.join("native-libs"));
     }
 
     candidates.push(stdlib.join("../native-libs"));

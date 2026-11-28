@@ -161,7 +161,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     }
 
     let finished = timings::time("workspaces", || {
-        jaic::build::finish_all(&workspaces, &mut compiler.ct.interp.block_budget)
+        jaic::build::finish_all(&workspaces, &mut compiler.ct.interp.step_budget)
     });
 
     if cli.mode == Mode::Build {

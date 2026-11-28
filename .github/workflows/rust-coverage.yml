@@ -16,6 +16,8 @@ permissions:
 env:
   # tools/ holds the folders the Python scripts import from (`from toolkit.repo import ROOT`).
   PYTHONPATH: ${{ github.workspace }}/tools
+  # A Rust test whose tool is missing fails here instead of skipping (`JACKET_TEST_REQUIRE_TOOLS`).
+  JACKET_TEST_REQUIRE_TOOLS: '1'
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true

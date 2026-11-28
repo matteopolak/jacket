@@ -21,7 +21,7 @@ Public `#compiler` declarations bind to `Hook::PublicCompiler` through `build/pu
 2. **New sources.** `add_source` and `settle`, then another round of events.
 3. **Checked to Done.** `finish_program` lowers, then PHASE `ALL_TARGET_CODE_BUILT` and `PRE_WRITE_EXECUTABLE`. In an intercepted workspace the output is written on the next step (`finish_write`), so what the metaprogram does on `PRE_WRITE_EXECUTABLE` (a board plugin writes its linker script) comes first. Then `POST_WRITE_EXECUTABLE` and COMPLETE.
 
-Never hold `shared.borrow_mut()` across `compile_sources` or a backend call: the registry borrow is released while a compiler runs so nested metaprograms work. One interpreter budget (`Interp::block_budget`) bounds a whole compilation.
+Never hold `shared.borrow_mut()` across `compile_sources` or a backend call: the registry borrow is released while a compiler runs so nested metaprograms work. One interpreter budget (`Interp::step_budget`) bounds a whole compilation.
 
 Events: `FILE` (1), `IMPORT` (4) and `TYPECHECKED` (5) exist only for intercepted workspaces. `PHASE` (2) carries 0 `ALL_SOURCE_CODE_PARSED`, 1 `TYPECHECKED_ALL_WE_CAN`, 2 `ALL_TARGET_CODE_BUILT`, 3 `PRE_WRITE_EXECUTABLE`, 4 `POST_WRITE_EXECUTABLE`, 5 `READY_FOR_CUSTOM_LINK_COMMAND`. `COMPLETE` (3) carries 0 or 1.
 

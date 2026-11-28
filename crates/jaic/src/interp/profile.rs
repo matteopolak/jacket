@@ -48,7 +48,7 @@ struct Totals {
 struct RunCost {
     /// `path:line:column` of the directive that started it.
     place: String,
-    blocks: u64,
+    steps: u64,
     nanos: u128,
     /// Started by a file of the standard library.
     library: bool,
@@ -182,11 +182,11 @@ impl Counts {
     }
 }
 
-/// Record that the top-level run started at `place` ran `blocks` basic blocks in `time`.
-pub(crate) fn record_run(place: String, blocks: u64, time: std::time::Duration, library: bool) {
+/// Record that the top-level run started at `place` ran `steps` steps in `time`.
+pub(crate) fn record_run(place: String, steps: u64, time: std::time::Duration, library: bool) {
     totals().runs.push(RunCost {
         place,
-        blocks,
+        steps,
         nanos: time.as_nanos(),
         library,
     });
@@ -205,25 +205,25 @@ pub fn run_report(top: usize) -> Option<String> {
     let (library, mut rows): (Vec<&RunCost>, Vec<&RunCost>) =
         totals.runs.iter().partition(|r| r.library);
 
-    rows.sort_by_key(|r| std::cmp::Reverse((r.blocks, r.nanos)));
-    let blocks = |rows: &[&RunCost]| rows.iter().map(|r| r.blocks).sum::<u64>();
+    rows.sort_by_key(|r| std::cmp::Reverse((r.steps, r.nanos)));
+    let steps = |rows: &[&RunCost]| rows.iter().map(|r| r.steps).sum::<u64>();
     let nanos = |rows: &[&RunCost]| rows.iter().map(|r| r.nanos).sum::<u128>();
-    let all = blocks(&rows) + blocks(&library);
+    let all = steps(&rows) + steps(&library);
     let mut out = format!(
-        "compile-time runs: {} runs, {} blocks, {}\n{:>6} {:>14} {:>10}  location\n",
+        "compile-time runs: {} runs, {} steps, {}\n{:>6} {:>14} {:>10}  location\n",
         rows.len(),
-        blocks(&rows),
+        steps(&rows),
         millis(nanos(&rows)),
         "%",
-        "blocks",
+        "steps",
         "time"
     );
 
     for r in rows.iter().take(top) {
         out.push_str(&format!(
             "{:>5.1}% {:>14} {:>10}  {}\n",
-            100.0 * r.blocks as f64 / all.max(1) as f64,
-            r.blocks,
+            100.0 * r.steps as f64 / all.max(1) as f64,
+            r.steps,
             millis(r.nanos),
             r.place
         ));
@@ -232,8 +232,8 @@ pub fn run_report(top: usize) -> Option<String> {
     if !library.is_empty() {
         out.push_str(&format!(
             "{:>5.1}% {:>14} {:>10}  standard library ({} runs)\n",
-            100.0 * blocks(&library) as f64 / all.max(1) as f64,
-            blocks(&library),
+            100.0 * steps(&library) as f64 / all.max(1) as f64,
+            steps(&library),
             millis(nanos(&library)),
             library.len()
         ));

@@ -183,6 +183,67 @@
         }
       }
     ],
+    "breakpoints": [
+      {
+        "language": "jai"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "jai",
+        "label": "Jai (CodeLLDB)",
+        "languages": [
+          "jai"
+        ],
+        "configurationAttributes": {
+          "launch": {
+            "properties": {
+              "file": {
+                "type": "string",
+                "default": "${file}",
+                "markdownDescription": "The `.jai` file to build with `jaic -O0` and debug."
+              },
+              "program": {
+                "type": "string",
+                "markdownDescription": "Where the executable is written. Defaults to the file's folder, named after the file."
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": [],
+                "markdownDescription": "Arguments for the program."
+              },
+              "cwd": {
+                "type": "string",
+                "markdownDescription": "The program's working folder. Defaults to the file's folder."
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "jai",
+            "request": "launch",
+            "name": "Debug current file",
+            "file": "${file}"
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "Jai: Debug File",
+            "description": "Build a Jai file with jaic and debug it with CodeLLDB",
+            "body": {
+              "type": "jai",
+              "request": "launch",
+              "name": "Debug ${1:main.jai}",
+              "file": "^\"\\${workspaceFolder}/${1:main.jai}\""
+            }
+          }
+        ]
+      }
+    ],
     "commands": [
       {
         "command": "jai.restartServer",
@@ -330,7 +391,7 @@
           "minimum": 0,
           "default": 100000000,
           "scope": "machine",
-          "markdownDescription": "Basic blocks one compile-time evaluation (a `#run`, a constant, an `#if` condition...) may run in the editor before it fails at its place and the rest of the program is checked without it. `0` for no limit. Only your user settings count: a workspace cannot raise it."
+          "markdownDescription": "Steps one compile-time evaluation (a `#run`, a constant, an `#if` condition...) may run in the editor before it fails at its place and the rest of the program is checked without it. `0` for no limit. Only your user settings count: a workspace cannot raise it."
         },
         "jai.compileTime.checkTimeLimit": {
           "type": "number",
@@ -339,11 +400,11 @@
           "scope": "machine",
           "markdownDescription": "Seconds a whole check of a program may spend running compile-time code before it stops with partial results and one notice. `0` for no limit. Only your user settings count: a workspace cannot raise it."
         },
-        "jai.compileTime.costLensBlocks": {
+        "jai.compileTime.costLensSteps": {
           "type": "integer",
           "minimum": 0,
           "default": 1000000,
-          "markdownDescription": "Show what a compile-time evaluation costs above it when it ran at least this many basic blocks. `Jai: Show Compile-Time Costs` lists them all."
+          "markdownDescription": "Show what a compile-time evaluation costs above it when it ran at least this many steps. `Jai: Show Compile-Time Costs` lists them all."
         },
         "jai.run.arguments": {
           "type": "array",

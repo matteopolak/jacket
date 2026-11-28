@@ -51,7 +51,7 @@ impl Interp {
     /// is a decrement; every 1024th step (and an empty budget) takes `tick_slow`.
     #[inline(always)]
     fn tick(&mut self) -> Res<()> {
-        match self.block_budget.as_mut() {
+        match self.step_budget.as_mut() {
             Some(left) if *left & 1023 != 0 => {
                 *left -= 1;
                 Ok(())
@@ -64,7 +64,7 @@ impl Interp {
     #[cold]
     #[inline(never)]
     fn tick_slow(&mut self) -> Res<()> {
-        if let Some(left) = self.block_budget.as_mut() {
+        if let Some(left) = self.step_budget.as_mut() {
             if *left == 0 {
                 match self.host.refill_budget() {
                     Some(more) => *left = more,

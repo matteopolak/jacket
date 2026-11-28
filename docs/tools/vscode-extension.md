@@ -69,7 +69,7 @@ Gotchas:
 | `jai.inlayHints.closingBraceMinLines` | `25` | name closing braces of blocks this long (`0` off) |
 | `jai.compileTime.evaluationBudget` | `100000000` | steps one compile-time evaluation may run (`0` no limit); machine-scoped |
 | `jai.compileTime.checkTimeLimit` | `10` | seconds a check may run compile-time code (`0` no limit); machine-scoped |
-| `jai.compileTime.costLensBlocks` | `1000000` | evaluations this costly show their cost |
+| `jai.compileTime.costLensSteps` | `1000000` | evaluations this costly show their cost |
 | `jai.run.arguments` | `[]` | extra arguments for Run/Build/Check File |
 | `jai.tests.codeLens` | `true` | Run/Debug Test lenses |
 | `jai.tests.arguments` | `[]` | extra `jacket test` arguments (`--interp`, `--`, `-O2`) |

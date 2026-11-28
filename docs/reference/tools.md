@@ -448,6 +448,7 @@ jacket test [OPTIONS] [FILTER]... [-- <FLAGS>...]
 | `--no-doc` | Leave the doc tests out |
 | `--keep-temp` | Keep every test's temporary folder (failed tests keep theirs anyway) |
 | `--accept` | Write what golden and compile-fail tests printed into their expected files, and keep the snapshots that differ or are new |
+| `--create-missing` | Write the missing `.stderr` of compile-fail tests from what the compiler printed, and change nothing else (a missing one fails otherwise) |
 | `--review` | Go through the pending `.snap.new` snapshots one by one (only lists them without a terminal) |
 | `--seed <N>` | The seed property tests start from [default: random for each run, shown with a failure] |
 | `-h, --help` | Print help (see a summary with '-h') |
@@ -516,6 +517,7 @@ jacket bench [OPTIONS] [FILTER]... [-- <FLAGS>...]
 | `--no-doc` | Leave the doc tests out |
 | `--keep-temp` | Keep every test's temporary folder (failed tests keep theirs anyway) |
 | `--accept` | Write what golden and compile-fail tests printed into their expected files, and keep the snapshots that differ or are new |
+| `--create-missing` | Write the missing `.stderr` of compile-fail tests from what the compiler printed, and change nothing else (a missing one fails otherwise) |
 | `--review` | Go through the pending `.snap.new` snapshots one by one (only lists them without a terminal) |
 | `--seed <N>` | The seed property tests start from [default: random for each run, shown with a failure] |
 | `--samples <N>` | Samples per benchmark, over `@samples` [default: 50] |
@@ -650,6 +652,7 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `JACKET_STDLIB_TARGETS_PART` | `K/N`: the stdlib-by-target check takes every Nth module and target pair from the Kth, so CI can split it. | `1/1` | tests |
 | `JACKET_TEST_CHANGED` | A JSON list of changed paths for the CI test-selection helper (`tools/ci/select_tests.py`); narrows stdlib tests before partitioning. | unset: the full test catalogue | tests |
 | `JACKET_TEST_CODEGEN_UNITS` | Passes `-codegen_units N` to the native build tests, to run them split into several modules. | unset | tests |
+| `JACKET_TEST_REQUIRE_TOOLS` | When set, a Rust test whose external tool (a linker, `llvm-pdbutil`, a cross compiler) is missing fails instead of skipping. CI sets it. | unset: a test whose tool is missing skips | tests |
 | `JAIC_ABI_CLANG` | The `clang` the C ABI tests compare against. | `clang` | tests |
 | `JAIC_ABI_CROSS` | Cross targets the C ABI tests also compile for, as a comma list of specs. | unset | tests |
 | `JAIC_CORPUS_ROOT` | The checkout whose `corpus/upstream` and `stdlib` the corpus sweep parses. | the repository | tests |
@@ -705,7 +708,7 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `ProgramFiles(x86)` | See `ProgramFiles`. | `C:\Program Files (x86)` | jaic |
 | `RUST_BACKTRACE` | When set, an internal compiler error shows the Rust backtrace. | unset | jaic |
 | `SDKROOT` | The macOS SDK native output links against, in place of the selected Xcode's. | unset | jaic |
-| `SystemRoot` | Locates the Windows system tools `jacket upgrade` uses. | `C:\Windows` | jacket |
+| `SystemRoot` | The Windows folder, whose `System32\tar.exe` `jacket upgrade` runs. | unset: on Windows `jacket upgrade` fails and says to set it (Windows sets it for every program) | jacket |
 | `TERM` | `dumb` turns colour, layout characters and the live status line off. | unset | jaic, jacket, jailint |
 | `WT_SESSION` | Set by Windows Terminal; it gets the Unicode diagnostic layout. | unset | jaic, jailint |
 | `XDG_CACHE_HOME` | The user cache root; `jaic` uses its `jaic` folder. | unset | jaic, jacket |

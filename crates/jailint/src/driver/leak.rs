@@ -105,7 +105,7 @@ pub(super) fn leak_pass(
                     if error.is_none() {
                         let _ = jaic::build::finish_all(
                             &workspaces,
-                            &mut compiler.ct.interp.block_budget,
+                            &mut compiler.ct.interp.step_budget,
                         );
                     }
 

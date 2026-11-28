@@ -1,4 +1,4 @@
-//! What bounds compile-time code in the editor: a budget of blocks for each evaluation, and a
+//! What bounds compile-time code in the editor: a budget of steps for each evaluation, and a
 //! wall-clock limit for the whole check. Both are the client's settings
 //! (`compileTime.evaluationBudget`, `compileTime.checkTimeLimit`); a project cannot set them.
 use jai_language_server::{Diagnostic, DiagnosticSeverity, JsonSession, Limits, Session};
@@ -31,7 +31,7 @@ fn errors(diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
 fn only_the_runaway_run_is_reported_where_it_was_started() {
     let mut s = test_support::lsp::session();
 
-    // The budget must run out first; on a slow machine 200M blocks outlast the default time limit.
+    // The budget must run out first; on a slow machine 200M steps outlast the default time limit.
     s.set_check_time_limit(0.0);
     s.open(test_support::lsp::uri(), 1, SOURCE.into()).unwrap();
     let errors = errors(s.diagnostics(&test_support::lsp::uri()).unwrap());
@@ -48,7 +48,7 @@ fn only_the_runaway_run_is_reported_where_it_was_started() {
     assert!(message.contains("main.jai:1"), "{message}");
 }
 
-/// Runs of 100 thousand blocks pass under the default budget but not under a smaller one.
+/// Runs of 100 thousand steps pass under the default budget but not under a smaller one.
 const HEAVY: &str = r"count :: (n: int) -> int {
     total := 0;
     for 0..n { total += it; }
@@ -180,7 +180,7 @@ fn costly_evaluations_get_a_lens_and_a_ranked_list() {
     let dir = test_support::lsp::project("cost-lens", &[("main.jai", HEAVY)]);
     let (mut s, uri, _) = test_support::lsp::open_file(&dir, "main.jai");
 
-    s.set_cost_lens_blocks(5000);
+    s.set_cost_lens_steps(5000);
     let lenses: Vec<_> = s
         .code_lenses(&uri)
         .unwrap()
@@ -193,13 +193,13 @@ fn costly_evaluations_get_a_lens_and_a_ranked_list() {
     assert_eq!(lenses[0].range.start.line, 6);
     let title = &lenses[0].command.title;
 
-    assert!(title.contains(" blocks · "), "{title}");
+    assert!(title.contains(" steps · "), "{title}");
     let costs = s.compile_time_costs(&uri);
 
     assert!(costs.len() >= 2, "{} evaluations", costs.len());
     assert_eq!(costs[0].location.range.start.line, 6);
-    assert!(costs.windows(2).all(|w| w[0].blocks >= w[1].blocks));
-    assert!(costs[0].blocks >= 100_000, "{}", costs[0].blocks);
+    assert!(costs.windows(2).all(|w| w[0].steps >= w[1].steps));
+    assert!(costs[0].steps >= 100_000, "{}", costs[0].steps);
 }
 
 #[test]
@@ -220,13 +220,13 @@ fn an_isolated_host_run_is_in_the_cost_list_at_its_own_directive() {
     s.set_workspace_folders(vec![dir.to_path_buf()]);
     let (uri, _) = test_support::lsp::open_from_disk(&mut s, &dir, "main.jai");
 
-    s.set_cost_lens_blocks(5000);
+    s.set_cost_lens_steps(5000);
     let costs = s.compile_time_costs(&uri);
 
     assert!(
         costs
             .iter()
-            .any(|c| c.location.range.start.line == 5 && c.blocks >= 20_000),
+            .any(|c| c.location.range.start.line == 5 && c.steps >= 20_000),
         "{:#?}",
         costs
             .iter()
@@ -234,7 +234,7 @@ fn an_isolated_host_run_is_in_the_cost_list_at_its_own_directive() {
             .map(|c| (
                 c.location.uri.as_str().to_string(),
                 c.location.range.start.line,
-                c.blocks
+                c.steps
             ))
             .collect::<Vec<_>>()
     );

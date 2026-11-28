@@ -20,8 +20,8 @@ pub struct RunStat {
     /// How many times the run stopped for something that was not compiled yet and started over.
     pub stalls: u64,
     pub elapsed: Duration,
-    /// Basic blocks the code ran, when the interpreter counts them (it has a budget).
-    pub blocks: Option<u64>,
+    /// Steps of the execution budget the code used, when the interpreter counts them (it has a budget).
+    pub steps: Option<u64>,
     /// Not inside another compile-time run: nested runs are part of the cost of the one
     /// around them, so a table of costs lists only the outermost.
     pub outermost: bool,

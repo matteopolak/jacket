@@ -1,5 +1,5 @@
-//! A compile-fail test with no `.stderr` yet gets one on the first run, and says so; under `CI`
-//! the missing file is a failure.
+//! A compile-fail test with no `.stderr` fails, whatever `CI` says; with `--create-missing` it gets
+//! one from what the compiler printed, and the run says so.
 use std::path::Path;
 use std::process::{Command, Output};
 
@@ -15,7 +15,7 @@ fn project() -> TempDir {
     project
 }
 
-fn run(project: &Path, ci: bool) -> Output {
+fn run(project: &Path, create_missing: bool) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_jacket"));
 
     command
@@ -27,8 +27,8 @@ fn run(project: &Path, ci: bool) -> Output {
         )
         .env_remove("CI");
 
-    if ci {
-        command.env("CI", "true");
+    if create_missing {
+        command.arg("--create-missing");
     }
 
     command.output().expect("start jacket")
@@ -43,7 +43,7 @@ fn text(out: &Output) -> String {
 }
 
 #[test]
-fn a_missing_compile_fail_stderr_is_written_on_the_first_run() {
+fn create_missing_writes_a_missing_compile_fail_stderr() {
     if toolchain::jaic_beside(Path::new(env!("CARGO_BIN_EXE_jacket"))).is_none() {
         return;
     }
@@ -51,7 +51,7 @@ fn a_missing_compile_fail_stderr_is_written_on_the_first_run() {
     let project = project();
     let expected = project.join("tests/compile_fail/bad.stderr");
 
-    let first = run(&project, false);
+    let first = run(&project, true);
     let shown = text(&first);
 
     assert!(first.status.success(), "{shown}");
@@ -64,7 +64,7 @@ fn a_missing_compile_fail_stderr_is_written_on_the_first_run() {
         "the written file holds the diagnostics"
     );
 
-    // The next run compares against what the first wrote.
+    // The next run, without the flag, compares against what the first wrote.
     let second = run(&project, false);
 
     assert!(second.status.success(), "{}", text(&second));
@@ -72,13 +72,13 @@ fn a_missing_compile_fail_stderr_is_written_on_the_first_run() {
 }
 
 #[test]
-fn under_ci_a_missing_stderr_still_fails_and_is_not_written() {
+fn a_missing_stderr_fails_and_is_not_written_without_the_flag() {
     if toolchain::jaic_beside(Path::new(env!("CARGO_BIN_EXE_jacket"))).is_none() {
         return;
     }
 
     let project = project();
-    let out = run(&project, true);
+    let out = run(&project, false);
     let shown = text(&out);
 
     assert!(!out.status.success(), "{shown}");

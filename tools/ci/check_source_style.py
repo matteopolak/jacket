@@ -25,6 +25,7 @@ lists the tests that use fake home folders on purpose.
 
 import ast
 import re
+import subprocess
 import sys
 
 from toolkit.repo import ROOT, git_files
@@ -78,8 +79,8 @@ def line_count(text):
     return sum(1 for line in text.split("\n") if line.strip())
 
 
-def check_lengths(counts, allowed=None, limit=MAX_LINES):
-    """Errors for `counts` (path -> lines) against the `allowed` over-limit list."""
+def check_lengths(counts, allowed=None, limit=MAX_LINES, complete=True):
+    """Errors for `counts` (path -> lines) against the `allowed` over-limit list; `complete` says `counts` covers every file."""
     allowed = ALLOWED_LONG if allowed is None else allowed
     errors = []
     for path, n in sorted(counts.items()):
@@ -102,7 +103,7 @@ def check_lengths(counts, allowed=None, limit=MAX_LINES):
                 f"{path}: shrank to {n} lines; lower its ALLOWED_LONG entry from {cap}"
             )
     for path in sorted(allowed):
-        if path not in counts:
+        if complete and path not in counts:
             errors.append(
                 f"{path}: gone; remove it from ALLOWED_LONG in check_source_style.py"
             )
@@ -187,29 +188,35 @@ def check_host_paths(name, text):
     ]
 
 
-def main():
+def staged_blobs():
+    """Path -> bytes for the files the index changes (added, copied, modified, renamed), as staged."""
+    names = subprocess.check_output(
+        ["git", "-c", "core.quotepath=off", "diff", "--cached", "--name-only", "-z", "--diff-filter=ACMR"], cwd=ROOT
+    ).split(b"\0")
+    return {n.decode(): subprocess.check_output(["git", "show", f":{n.decode()}"], cwd=ROOT) for n in names if n}
+
+
+def working_blobs():
+    """Path -> bytes for every tracked file present in the working tree."""
+    return {p: (ROOT / p).read_bytes() for p in git_files() if (ROOT / p).is_file()}
+
+
+def main(argv=None):
+    """Check the working tree, or with `--staged` only the files the index changes, as staged."""
+    staged = "--staged" in (sys.argv[1:] if argv is None else argv)
+    blobs = staged_blobs() if staged else working_blobs()
     counts, errors = {}, []
-    for path in git_files("*.rs"):
-        if (ROOT / path).is_file():
-            counts[path] = line_count(
-                (ROOT / path).read_text(encoding="utf-8", errors="replace")
-            )
-    errors += check_lengths(counts)
-    for path in git_files("*.rs", "*.py"):
-        if (ROOT / path).is_file():
-            errors += check_banners(
-                path, (ROOT / path).read_text(encoding="utf-8", errors="replace")
-            )
-    for path in git_files():
-        if (ROOT / path).is_file():
-            data = (ROOT / path).read_bytes()
-            if b"\0" not in data:
-                errors += check_host_paths(path, data.decode("utf-8", errors="replace"))
-    for path in git_files("tools/*.py"):
-        if (ROOT / path).is_file():
-            text = (ROOT / path).read_text(encoding="utf-8")
-            for problem in [*build_path_problems(text, path), *root_problems(text, path)]:
-                errors.append(f"{path}: {problem}")
+    for path, data in blobs.items():
+        text = data.decode("utf-8", errors="replace")
+        if path.endswith(".rs"):
+            counts[path] = line_count(text)
+        if path.endswith((".rs", ".py")):
+            errors += check_banners(path, text)
+        if b"\0" not in data:
+            errors += check_host_paths(path, text)
+        if path.startswith("tools/") and path.endswith(".py"):
+            errors += [f"{path}: {problem}" for problem in [*build_path_problems(text, path), *root_problems(text, path)]]
+    errors = check_lengths(counts, complete=not staged) + errors
     for e in errors:
         print(e, file=sys.stderr)
     return 1 if errors else 0

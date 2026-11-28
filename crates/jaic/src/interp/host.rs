@@ -135,7 +135,7 @@ pub trait Host {
         None
     }
 
-    /// Asked when `Interp::block_budget` runs out: a new budget to go on with, or `None` to stop
+    /// Asked when `Interp::step_budget` runs out: a new budget to go on with, or `None` to stop
     /// with "execution budget exhausted". The browser host refills it after the program waited
     /// for the page (an animation frame), so the budget bounds the work between two waits.
     fn refill_budget(&mut self) -> Option<u64> {

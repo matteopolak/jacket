@@ -29,7 +29,7 @@ fn run(compiler: &mut Compiler) -> Result<(), String> {
         .map_err(|error| error.render(&compiler.src.sources))
 }
 
-/// Eight runs of a thousand blocks each.
+/// Eight runs of a thousand steps each.
 const EIGHT_RUNS: &str = "
 count :: (n: int) -> int { total := 0; for 0..n { total += it; } return total; }
 #run count(1000); #run count(1000); #run count(1000); #run count(1000);
@@ -46,7 +46,7 @@ fn every_evaluation_starts_with_its_own_budget() {
     // With one budget for the whole compile, as before, the later runs trap.
     let mut shared = compiler(EIGHT_RUNS, None);
 
-    shared.ct.interp.block_budget = Some(2000);
+    shared.ct.interp.step_budget = Some(2000);
     let error = run(&mut shared).unwrap_err();
 
     assert!(error.contains("execution budget exhausted"), "{error}");
@@ -124,7 +124,7 @@ fn the_wall_clock_limit_interrupts_a_running_loop() {
     host.borrow_mut().stop_after(Duration::from_millis(100));
     let mut c = compiler("#run { while true {} } main :: () {}", None);
 
-    c.ct.interp.block_budget = Some(u64::MAX);
+    c.ct.interp.step_budget = Some(u64::MAX);
     c.ct.interp.set_host(Box::new(SharedHost(host.clone())));
     let error = run(&mut c).unwrap_err();
 

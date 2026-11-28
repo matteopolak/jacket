@@ -7,7 +7,7 @@
     python3 tools/dev/dev.py editor
     python3 tools/dev/dev.py site-assets [--fix]
     python3 tools/dev/dev.py tools-scripts [--fix]
-    python3 tools/dev/dev.py repo-checks [style|paths|ci-sources|stdlib-docs ...]
+    python3 tools/dev/dev.py repo-checks [style|paths|ci-sources|guide-files|stdlib-docs ...]
     python3 tools/dev/dev.py precommit
     python3 tools/dev/dev.py hooks
     python3 tools/dev/dev.py nvim [--unit] [-j N]
@@ -46,7 +46,7 @@ JAIFMT_SOURCES = ["jaifmt", "stdlib/Extensions/Jai_Format", "stdlib/Extensions/A
 JAILINT_SOURCES = ["crates/jailint", "crates/jaic", "crates/jaic-syntax", "crates/jaic-cli", "stdlib/prelude/module.jai", "Cargo.lock"]
 # Repository checks that read only the working tree (tools/ci/check_<name>.py), in `repo-checks` order.
 REPO_CHECKS = {"style": "check_source_style", "paths": "check_repo_paths", "ci-sources": "check_ci_sources",
-               "stdlib-docs": "check_stdlib_docs", "changelog": "check_changelog"}
+               "stdlib-docs": "check_stdlib_docs", "changelog": "check_changelog", "guide-files": "check_guide_files"}
 # Checks that need `jaic` built (they build it when it is not): `repo-checks` runs them, the pre-commit hook does not.
 BUILT_REPO_CHECKS = {"stdlib-docs"}
 
@@ -586,14 +586,15 @@ def run_captured(cmd: list[str], cwd: Path = ROOT, stdin: str | None = None,
     return done.returncode, done.stdout + done.stderr
 
 
-def repo_check_failures(names: list[str], skip_missing: bool = False) -> dict[str, str]:
-    """Run the named repository checks (all when empty); the output of each one that failed, by script."""
+def repo_check_failures(names: list[str], skip_missing: bool = False, staged: bool = False) -> dict[str, str]:
+    """Run the named repository checks (all when empty); the output of each one that failed, by script.
+    With `staged`, `style` checks only the staged blobs."""
     failures = {}
     for name in names or list(REPO_CHECKS):
         script = f"tools/ci/{REPO_CHECKS[name]}.py"
         if skip_missing and not (ROOT / script).is_file():
             continue
-        status, output = run_captured([sys.executable, script])
+        status, output = run_captured([sys.executable, script, *(["--staged"] if staged and name == "style" else [])])
         if status:
             failures[script] = output
     return failures
@@ -928,10 +929,10 @@ def precommit_checks(everything: list[str]) -> int:
         workflows = [f for f in everything if f.startswith(".github/workflows/") and f.endswith((".yml", ".yaml"))]
         if workflows:
             check_workflows(hook, workflows)
-        # They read the working tree, so a partly staged file is checked as it is on disk.
+        # `style` reads the staged blobs; the others read the working tree, so a partly staged file is checked as it is on disk.
         if not hook.skipped("repo"):
             hook.say("repo checks")
-            for script, output in repo_check_failures([n for n in REPO_CHECKS if n not in BUILT_REPO_CHECKS], skip_missing=True).items():
+            for script, output in repo_check_failures([n for n in REPO_CHECKS if n not in BUILT_REPO_CHECKS], skip_missing=True, staged=True).items():
                 hook.fail(f"PYTHONPATH=tools python3 {script}", output)
         staged_text = "\n".join(everything)
         if (not hook.skipped("locks") and re.search(r"Cargo\.(toml|lock)$", staged_text, re.M)

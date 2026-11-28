@@ -19,7 +19,7 @@ interface CompileTimeCost {
   uri: string;
   range: { start: { line: number; character: number }; end: { line: number; character: number } };
   title: string;
-  blocks: number;
+  steps: number;
 }
 
 export class ExpansionDocuments implements vscode.TextDocumentContentProvider {

@@ -1410,10 +1410,11 @@ shared: Shared_Port;
 
 PORT_DIAGNOSTIC_LIMIT :: 32;
 
-// Record only failed operations, with a bounded number of rows even if a peer keeps failing.
+// Record only failed operations, with a bounded number of rows even if a peer keeps failing. Call it right
+// after the failing operation: `platform_code` is the system's code for the fiber's last failure.
 port_failure :: (stage: string, turn: int = -1, count: s64 = -1, error: Io.Io_Error = .NONE, first_byte: s64 = -1) {
     if Atomics.atomic_add(*shared.diagnostic_count, 1) >= PORT_DIAGNOSTIC_LIMIT return;
-    print("IO_PORT_FAILURE stage=% port=% turn=% count=% error=% first_byte=%\n", stage, shared.port, turn, count, error, first_byte, to_standard_error = true);
+    print("IO_PORT_FAILURE stage=% port=% turn=% count=% error=% platform_code=% first_byte=%\n", stage, shared.port, turn, count, error, Io.last_platform_code(), first_byte, to_standard_error = true);
 }
 
 ping_connection :: (conn: Io.Tcp_Stream) {

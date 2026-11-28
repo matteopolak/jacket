@@ -172,7 +172,7 @@ fn coverage_lists_how_often_each_line_ran() {
     }
 }
 
-/// `-profile_runs` lists the top-level compile-time runs by the blocks they ran, with their
+/// `-profile_runs` lists the top-level compile-time runs by the steps they ran, with their
 /// share and place, and prints nothing unless asked.
 #[test]
 fn profile_runs_lists_compile_time_runs_by_cost() {

@@ -1,5 +1,5 @@
 //! What compile-time code costs: a code lens over each evaluation (`#run`, a constant that needed
-//! the interpreter...) that ran at least `compileTime.costLensBlocks` basic blocks, and the command
+//! the interpreter...) that ran at least `compileTime.costLensSteps` steps, and the command
 //! `jai.showCompileTimeCosts` that lists every evaluation of the program, costliest first.
 //!
 //! The costs are the interpreter's own counts, recorded by the compile that checked the program
@@ -17,13 +17,13 @@ pub(crate) const COMMAND: &str = "jai.showCompileTimeCosts";
 /// What the server sends when a limit stopped compile-time code.
 pub(crate) const NOTIFICATION: &str = "jai/compileTimeLimit";
 
-/// `1.2M blocks · 3 ms`.
-pub fn cost_text(blocks: u64, elapsed: Duration) -> String {
-    let count = match blocks {
-        0..1_000 => format!("{blocks}"),
-        1_000..1_000_000 => format!("{:.1}k", blocks as f64 / 1e3),
-        1_000_000..1_000_000_000 => format!("{:.1}M", blocks as f64 / 1e6),
-        _ => format!("{:.1}G", blocks as f64 / 1e9),
+/// `1.2M steps · 3 ms`.
+pub fn cost_text(steps: u64, elapsed: Duration) -> String {
+    let count = match steps {
+        0..1_000 => format!("{steps}"),
+        1_000..1_000_000 => format!("{:.1}k", steps as f64 / 1e3),
+        1_000_000..1_000_000_000 => format!("{:.1}M", steps as f64 / 1e6),
+        _ => format!("{:.1}G", steps as f64 / 1e9),
     };
     let time = match elapsed.as_secs_f64() {
         s if s >= 1.0 => format!("{s:.1} s"),
@@ -31,13 +31,13 @@ pub fn cost_text(blocks: u64, elapsed: Duration) -> String {
         _ => "<1 ms".to_string(),
     };
 
-    format!("{count} blocks · {time}")
+    format!("{count} steps · {time}")
 }
 
 /// One evaluation of the program, for the command's answer.
 pub struct CostRow {
     pub location: Location,
-    pub blocks: u64,
+    pub steps: u64,
     pub elapsed: Duration,
 }
 
@@ -47,9 +47,9 @@ impl CostRow {
         json!({
             "uri": self.location.uri,
             "range": self.location.range,
-            "blocks": self.blocks,
+            "steps": self.steps,
             "millis": self.elapsed.as_secs_f64() * 1e3,
-            "title": cost_text(self.blocks, self.elapsed),
+            "title": cost_text(self.steps, self.elapsed),
         })
     }
 }
@@ -60,11 +60,11 @@ impl Session {
         self.document(uri)?;
         let found = self.checked(uri, |a, file| {
             let path = a.compiler.src.sources.get(file).path.to_string();
-            let hint = self.check_limits.hint_blocks;
+            let hint = self.check_limits.hint_steps;
             let own: Vec<EvalCost> = a
                 .evaluation_costs()
                 .into_iter()
-                .filter(|c| c.path == path && c.blocks >= hint)
+                .filter(|c| c.path == path && c.steps >= hint)
                 .collect();
 
             own
@@ -81,7 +81,7 @@ impl Session {
             lenses.push(CodeLens {
                 range,
                 command: Command::at(
-                    cost_text(cost.blocks, cost.elapsed),
+                    cost_text(cost.steps, cost.elapsed),
                     COMMAND,
                     uri.as_str(),
                     range.start,
@@ -104,7 +104,7 @@ impl Session {
             .filter_map(|c| {
                 Some(CostRow {
                     location: self.location_in(&c.path, &c.text, c.start, c.end)?,
-                    blocks: c.blocks,
+                    steps: c.steps,
                     elapsed: c.elapsed,
                 })
             })

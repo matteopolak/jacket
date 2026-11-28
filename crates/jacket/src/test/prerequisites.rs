@@ -140,14 +140,9 @@ fn output_dir(root: &Path) -> PathBuf {
     output_override(root).unwrap_or_else(|| root.join("target"))
 }
 
-/// `JACKET_OUTPUT_DIR`, the one rule for where it points: unset or empty is `None`, and a
-/// relative one is below the checkout `root`, as `tools/repo_output.py` reads it.
+/// `JACKET_OUTPUT_DIR` below the checkout `root` ([`jacket_config::env::output_dir_below`]).
 pub(super) fn output_override(root: &Path) -> Option<PathBuf> {
-    output_override_in(root, jacket_config::env::OUTPUT_DIR.os())
-}
-
-pub(super) fn output_override_in(root: &Path, over: Option<std::ffi::OsString>) -> Option<PathBuf> {
-    over.filter(|dir| !dir.is_empty()).map(|dir| root.join(dir))
+    jacket_config::env::output_dir_below(root, jacket_config::env::OUTPUT_DIR.os())
 }
 
 /// `source` with its comments dropped, as jaic's lexer finds them (block comments nest, and a
@@ -855,22 +850,6 @@ mod tests {
         assert!(wants(
             "u :: \"http://x\"; p :: \"portable-tests/zip/\\\"\";"
         ));
-    }
-
-    #[test]
-    fn the_output_directory_is_the_one_the_tools_write_to() {
-        let root = Path::new("/checkout");
-
-        assert_eq!(output_override_in(root, None), None);
-        assert_eq!(output_override_in(root, Some("".into())), None);
-        assert_eq!(
-            output_override_in(root, Some("/scratch/out".into())),
-            Some(PathBuf::from("/scratch/out"))
-        );
-        assert_eq!(
-            output_override_in(root, Some("out".into())),
-            Some(PathBuf::from("/checkout/out"))
-        );
     }
 
     #[test]

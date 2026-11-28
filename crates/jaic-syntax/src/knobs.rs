@@ -31,7 +31,7 @@ pub struct Knobs {
     pub serial_parse: bool,
     /// `-profile`, `-profile_ops`.
     pub profile: Profile,
-    /// `-profile_runs`: count the blocks each top-level compile-time run executes and print the
+    /// `-profile_runs`: count the steps each top-level compile-time run executes and print the
     /// costliest (`interp/profile.rs`).
     pub run_costs: bool,
     /// `-interp -coverage`: record the lines the program runs (`interp/line_cover.rs`).

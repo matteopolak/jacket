@@ -628,7 +628,7 @@ pub struct Folders<'a> {
 
 /// Type-checks the compile-fail test `source`: it must fail, printing its `.stderr` (or, with
 /// `compile_fail(text)`, diagnostics that contain the text). A missing `.stderr` is written from
-/// what the compiler printed when `create_missing` (a first run; not under CI), else it fails.
+/// what the compiler printed when `create_missing` (`--create-missing`), else it fails.
 pub fn compile_fail(
     source: &Path,
     options: &TestOptions,
@@ -700,7 +700,7 @@ pub fn compile_fail(
         checked.created.push(expected);
     } else {
         checked.problems.push(format!(
-            "{} is missing; `jacket test --accept` writes it from these diagnostics:\n{got}",
+            "{} is missing; `jacket test --create-missing` writes it from these diagnostics:\n{got}",
             file_name(&expected)
         ));
     }

@@ -36,6 +36,8 @@ permissions:
 env:
   # tools/ holds the folders the Python scripts import from (`from toolkit.repo import ROOT`).
   PYTHONPATH: ${{ github.workspace }}/tools
+  # A Rust test whose tool is missing fails here instead of skipping (`JACKET_TEST_REQUIRE_TOOLS`).
+  JACKET_TEST_REQUIRE_TOOLS: '1'
   # GitHub refuses anonymous downloads from shared runners at times (a 403 on an archive URL), so
   # tools/toolkit/download.py authenticates to GitHub with the job's
   # read-only token. The corpus sandbox (tools/bench/sandbox.py) leaves it out.
@@ -998,12 +1000,15 @@ jobs:
         # tools/ci/coverage-baseline.json (docs/tools/jacket-test.md says how to record it again).
         if: ${{ always() && !cancelled() && matrix.coverage }}
         run: bash tools/ci/stdlib_coverage.sh
-      - name: Keep the measured coverage baseline
+      - name: Keep the measured coverage baseline and its line data
+        # The lcov file shows which lines a drop in the per-module table came from.
         if: ${{ always() && !cancelled() && matrix.coverage }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-baseline
-          path: target/coverage-baseline.json
+          path: |
+            target/coverage-baseline.json
+            target/stdlib-coverage.lcov
           if-no-files-found: ignore
       - name: NEW producer behavior suites against production
         # The suite legs run the suites `matrix.suites` names, two groups at a time; the independent

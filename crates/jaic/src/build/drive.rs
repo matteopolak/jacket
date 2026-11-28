@@ -59,7 +59,7 @@ pub(super) fn step(
         None => new_compiler(shared, id)?,
     };
 
-    compiler.ct.interp.block_budget = *budget;
+    compiler.ct.interp.step_budget = *budget;
     compiler.ct.interp.nested_eval = nested;
     // The registry borrow is released while the compiler runs: its
     // compile-time code may call back into the registry.
@@ -87,7 +87,7 @@ pub(super) fn step(
     );
 
     shared.borrow_mut().current.pop();
-    *budget = compiler.ct.interp.block_budget;
+    *budget = compiler.ct.interp.step_budget;
     let outcome = settle(
         shared,
         id,

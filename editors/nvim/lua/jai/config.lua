@@ -11,7 +11,7 @@ local M = {}
 ---@field completion { auto_import: boolean, call_snippets: 'addParentheses'|'fillArguments'|'none' }  Offer names the file cannot see yet; what accepting a procedure inserts.
 ---@field inlay_hints { closing_brace_min_lines: integer }  Name the closing brace of procedures, structs and enums this many lines long (0: never).
 ---@field run { arguments: string[] }  Extra `jaic` arguments for Run/Build/Check.
----@field compile_time { evaluation_budget: integer, check_time_limit: number, cost_lens_blocks: integer }  Limits on compile-time code while `jailsp` checks: basic blocks one top-level evaluation (`#run`, ...) may run (0: no limit), seconds a whole check may take (0: no limit), and the blocks from which an evaluation shows its cost.
+---@field compile_time { evaluation_budget: integer, check_time_limit: number, cost_lens_steps: integer }  Limits on compile-time code while `jailsp` checks: steps one top-level evaluation (`#run`, ...) may run (0: no limit), seconds a whole check may take (0: no limit), and the steps from which an evaluation shows its cost.
 ---@field trusted boolean  The workspace is trusted: `jailsp` may run its compile-time code (`#run`, build metaprograms, computed `#insert`) and `:Jai run`/`build`/`check` are on.
 ---@field format_on_save boolean  Format Jai buffers with `jaifmt` before writing.
 ---@field lsp { enable: boolean }  Enable `jailsp` when the plugin loads.
@@ -24,7 +24,7 @@ local defaults = {
   completion = { auto_import = true, call_snippets = 'addParentheses' },
   inlay_hints = { closing_brace_min_lines = 25 },
   run = { arguments = {} },
-  compile_time = { evaluation_budget = 100000000, check_time_limit = 10, cost_lens_blocks = 1000000 },
+  compile_time = { evaluation_budget = 100000000, check_time_limit = 10, cost_lens_steps = 1000000 },
   trusted = true,
   format_on_save = false,
   lsp = { enable = true },
@@ -48,7 +48,7 @@ end
 
 ---What `jailsp` reads as `initializationOptions` and as the `jai` section of
 ---`workspace/didChangeConfiguration`.
----@return { completion: { autoImport: boolean, callSnippets: string }, inlayHints: { closingBraceMinLines: integer }, compileTime: { evaluationBudget: integer, checkTimeLimit: number, costLensBlocks: integer, limitNotices: boolean }, trusted: boolean }
+---@return { completion: { autoImport: boolean, callSnippets: string }, inlayHints: { closingBraceMinLines: integer }, compileTime: { evaluationBudget: integer, checkTimeLimit: number, costLensSteps: integer, limitNotices: boolean }, trusted: boolean }
 function M.server_settings()
   local cfg = M.get()
   return {
@@ -58,7 +58,7 @@ function M.server_settings()
     compileTime = {
       evaluationBudget = cfg.compile_time.evaluation_budget,
       checkTimeLimit = cfg.compile_time.check_time_limit,
-      costLensBlocks = cfg.compile_time.cost_lens_blocks,
+      costLensSteps = cfg.compile_time.cost_lens_steps,
       limitNotices = true,
     },
     trusted = cfg.trusted,

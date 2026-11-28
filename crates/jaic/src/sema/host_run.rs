@@ -89,7 +89,7 @@ impl Compiler {
             let result = host.check_run_inner_all(scope, body, None, span)?;
 
             if let Some(shared) = host.ct.interp.workspaces.clone() {
-                crate::build::finish_all(&shared, &mut host.ct.interp.block_budget).map_err(
+                crate::build::finish_all(&shared, &mut host.ct.interp.step_budget).map_err(
                     |message| Box::new(Diagnostic::new(Code::CompileTimeTrap, span, message)),
                 )?;
 

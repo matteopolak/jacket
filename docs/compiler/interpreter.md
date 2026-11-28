@@ -33,7 +33,7 @@ Arguments between `-` and `--` go to a metaprogram. The program runs in the main
 
 - `debug_break()` stops the program with a runtime error, so a failed `assert` ends it.
 - Bounds checks are the `BoundsCheck` intrinsic ([pointers and arrays](../language/pointers-and-arrays.md#bounds-checks)); pointer indexing is never checked.
-- `block_budget` counts steps: loop back-edges, calls and `switch` jumps and traps with `execution budget exhausted`. The language server, jailint and the playground set it; `jaic` does too unless `-run_budget 0` ([limits](compile-time-limits.md)).
+- `step_budget` counts steps: loop back-edges, calls and `switch` jumps and traps with `execution budget exhausted`. The language server, jailint and the playground set it; `jaic` does too unless `-run_budget 0` ([limits](compile-time-limits.md)).
 - String literals and other `read_only` globals live in one page-protected region, so a write traps instead of changing every equal literal.
 
 ### Hosts

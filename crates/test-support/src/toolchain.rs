@@ -27,10 +27,11 @@ use jaic_toolchain::{Lookup, Overrides, System};
 
 static SYSTEM: System = System;
 
-/// Whether a missing [`require`]d tool fails the test rather than skipping it: on CI.
+/// Whether a missing [`require`]d tool fails the test rather than skipping it: when
+/// `JACKET_TEST_REQUIRE_TOOLS` is set.
 #[must_use]
 pub fn strict() -> bool {
-    jacket_config::env::CI.os().is_some()
+    jacket_config::env::TEST_REQUIRE_TOOLS.is_set()
 }
 
 /// The program `name` as the toolchain lookup finds it: `PATH` (and, on Windows, `PATHEXT`),
@@ -167,6 +168,24 @@ pub fn jaic_beside(jacket: &Path) -> Option<PathBuf> {
     }
 
     Some(jaic)
+}
+
+/// The `jaic` built beside `jacket`, for a test that cannot do without it. Panics, naming the
+/// command that builds it, when it is missing: `cargo test -p jacket` builds only `jacket`, so
+/// `jaic` has to be built into the same target directory first.
+#[must_use]
+pub fn paired_jaic(jacket: &Path) -> PathBuf {
+    let jaic = jacket
+        .parent()
+        .expect("jacket has a folder")
+        .join(format!("jaic{}", std::env::consts::EXE_SUFFIX));
+
+    assert!(
+        jaic.is_file(),
+        "{} is missing: this test runs the `jaic` built beside `jacket`; build it into the same target directory with `cargo build -p jaic-cli` (same profile, same CARGO_TARGET_DIR)",
+        jaic.display()
+    );
+    jaic
 }
 
 /// The C compiler for host builds: `CC`, else `clang` on Windows (MSVC hosts have no `cc`)

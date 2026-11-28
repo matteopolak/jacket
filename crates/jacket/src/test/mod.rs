@@ -124,6 +124,7 @@ struct Settings {
     needs: Vec<String>,
     keep_temp: bool,
     accept: bool,
+    create_missing: bool,
     /// The seed of property tests: `--seed`, else drawn once for the run.
     seed: u64,
     isolate: bool,
@@ -889,6 +890,7 @@ fn settings(
         },
         keep_temp: args.keep_temp,
         accept: args.accept,
+        create_missing: args.create_missing,
         seed: args.seed.unwrap_or_else(random_seed),
         isolate: !args.no_isolation,
         capture,

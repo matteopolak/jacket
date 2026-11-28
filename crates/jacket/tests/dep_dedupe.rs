@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use dep_support::{Origin, Project, Run, git};
+use test_support::toolchain;
 
 use crate::dep_support;
 
@@ -233,12 +234,7 @@ impl World {
     /// `jacket check`, with the compiler of this build.
     pub fn check(&self) -> Run {
         let jacket = Path::new(env!("CARGO_BIN_EXE_jacket"));
-        let bin = jacket.parent().unwrap();
-
-        assert!(
-            bin.join("jaic").exists(),
-            "build the compiler first: cargo build -p jaic-cli"
-        );
+        let _ = toolchain::paired_jaic(jacket);
         let stdlib = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
 
         self.project.jacket_env(

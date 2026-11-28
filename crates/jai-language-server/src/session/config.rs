@@ -9,29 +9,29 @@ use crate::semantic::{self, Environment};
 use crate::{DocumentUri, Error, Limits, VirtualSources};
 
 impl Session {
-    /// Basic blocks one compile-time evaluation may run before it fails (`0`: no limit).
-    pub fn set_evaluation_budget(&mut self, blocks: u64) {
+    /// Steps one compile-time evaluation may run before it fails (`0`: no limit).
+    pub fn set_evaluation_budget(&mut self, steps: u64) {
         let seconds = self.check_limits.seconds.unwrap_or(0.0);
 
-        self.change_limits(CheckLimits::new(blocks, seconds));
+        self.change_limits(CheckLimits::new(steps, seconds));
     }
 
     /// Seconds a whole check may take before it stops with partial results (`0`: no limit).
     pub fn set_check_time_limit(&mut self, seconds: f64) {
-        let blocks = self.check_limits.eval_steps;
-        let blocks = if blocks == u64::MAX {
+        let steps = self.check_limits.eval_steps;
+        let steps = if steps == u64::MAX {
             0
         } else {
-            blocks
+            steps
         };
 
-        self.change_limits(CheckLimits::new(blocks, seconds));
+        self.change_limits(CheckLimits::new(steps, seconds));
     }
 
-    /// The blocks from which a compile-time evaluation shows its cost.
-    pub fn set_cost_lens_blocks(&mut self, blocks: u64) {
+    /// The steps from which a compile-time evaluation shows its cost.
+    pub fn set_cost_lens_steps(&mut self, steps: u64) {
         self.change_limits(CheckLimits {
-            hint_blocks: blocks,
+            hint_steps: steps,
             ..self.check_limits
         });
     }

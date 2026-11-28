@@ -20,15 +20,15 @@ pub struct CheckLimits {
     pub eval_steps: u64,
     /// Seconds the whole check may take before it stops with partial results; `None`: no limit.
     pub seconds: Option<f64>,
-    /// Evaluations that ran at least this many blocks are worth showing the cost of.
-    pub hint_blocks: u64,
+    /// Evaluations that ran at least this many steps are worth showing the cost of.
+    pub hint_steps: u64,
 }
 
 impl CheckLimits {
     /// The steps one evaluation may take unless told otherwise.
     pub const DEFAULT_EVAL_STEPS: u64 = 100_000_000;
-    /// The blocks from which an evaluation shows its cost unless told otherwise.
-    pub const DEFAULT_HINT_BLOCKS: u64 = 1_000_000;
+    /// The steps from which an evaluation shows its cost unless told otherwise.
+    pub const DEFAULT_HINT_STEPS: u64 = 1_000_000;
     /// The seconds a check may take unless told otherwise.
     pub const DEFAULT_SECONDS: f64 = 10.0;
 
@@ -71,7 +71,7 @@ impl Default for CheckLimits {
         Self {
             eval_steps: Self::DEFAULT_EVAL_STEPS,
             seconds: Some(Self::default_seconds()).filter(|s| *s > 0.0 && s.is_finite()),
-            hint_blocks: Self::DEFAULT_HINT_BLOCKS,
+            hint_steps: Self::DEFAULT_HINT_STEPS,
         }
     }
 }
@@ -170,7 +170,7 @@ impl LintCompile {
             .ct
             .interp
             .set_host(Box::new(SharedHost(host.clone())));
-        compiler.ct.interp.block_budget = Some(limits.eval_steps);
+        compiler.ct.interp.step_budget = Some(limits.eval_steps);
         compiler.attach_workspaces(workspaces.clone());
         Self {
             compiler,
@@ -205,6 +205,6 @@ impl LintCompile {
     /// Drive the workspaces no message loop drives to their end, as a build does; their
     /// stopping errors are in their own facts. The first error is returned.
     pub fn finish_workspaces(&mut self) -> Result<(), String> {
-        crate::build::finish_all(&self.workspaces, &mut self.compiler.ct.interp.block_budget)
+        crate::build::finish_all(&self.workspaces, &mut self.compiler.ct.interp.step_budget)
     }
 }

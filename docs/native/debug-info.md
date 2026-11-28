@@ -7,6 +7,10 @@ $ jacket build main.jai -exe prog
 $ lldb --batch -o 'b helper.jai:23' -o run -o bt -o 'frame variable' ./prog
 ```
 
+## Editors
+
+VS Code: with CodeLLDB installed, a launch configuration of type `jai` builds the file with `jaic -O0` and starts it under lldb (`file`, `program`, `args`, `cwd`; [the extension's README](../../editors/vscode/README.md)). Neovim: the nvim-dap configuration is in [its README](../../editors/nvim/README.md#debugging).
+
 ## How it works
 
 1. **Sema records** (`sema/debug_info.rs`), only when `Options::debug_info` is set (never for `-interp`/`-check`):

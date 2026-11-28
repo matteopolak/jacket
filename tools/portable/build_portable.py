@@ -660,15 +660,19 @@ def data_fixtures():
     time_suites()
 
 
-def bench_data():
-    """The inputs `jacket bench` reads: Archive payloads, real-world JSON files and a large CSV."""
+def bench_data(suites=()):
+    """The inputs `jacket bench` reads: Archive payloads, real-world JSON files (downloaded) and a large CSV.
+    Name suites (archive, json, csv) to prepare only those; `csv` and `archive` work offline.
+
+    Example: `PYTHONPATH=tools python3 tools/portable/build_portable.py bench csv`.
+    """
     from archive_conformance.differential import bench_fixtures
     from csv_conformance.fetch import bench_input
     from dev.json_bench_data import fetch_data
 
-    bench_fixtures()
-    fetch_data()
-    bench_input()
+    steps = {"archive": bench_fixtures, "json": fetch_data, "csv": bench_input}
+    for name in suites or steps:
+        steps[name]()
 
 
 def main(argv=None):
@@ -688,9 +692,9 @@ def main(argv=None):
     commands.add_parser(
         "data", help="All the fixtures the stdlib tests read"
     ).set_defaults(run=lambda args: data_fixtures())
-    commands.add_parser("bench", help=bench_data.__doc__).set_defaults(
-        run=lambda args: bench_data()
-    )
+    bench = commands.add_parser("bench", help=bench_data.__doc__.split("\n")[0])
+    bench.add_argument("suites", nargs="*", choices=("archive", "json", "csv"))
+    bench.set_defaults(run=lambda args: bench_data(args.suites))
     meow = commands.add_parser("meow", help=meow_fixtures.__doc__.split("\n")[0])
     meow.add_argument("--verify-native", action="store_true")
     meow.set_defaults(run=lambda args: meow_fixtures(args.verify_native))

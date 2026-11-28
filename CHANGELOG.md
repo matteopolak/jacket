@@ -42,10 +42,13 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - An unwritable cache stops programs that need the crash runtime; set `JAIC_CACHE_DIR` to a writable folder.
 - A `JAIC_REPORT_EXE` file that cannot be written fails the build.
 - `-z stack-size=N` in linker arguments must be a number of bytes.
+- A compile-fail test with no `.stderr` fails; `jacket test --create-missing` writes it. `CI` no longer decides.
+- The cost-lens settings are `costLensSteps` and `cost_lens_steps`; `-profile_runs` and the lens count steps, not blocks.
 
 ### Fixes
 
 - `jaic -help` is in capitalised sections (`Usage:`, `Modes:`, `Exit status:`), bold when colour is on.
+- The VS Code extension debugs a Jai file under CodeLLDB; the Neovim README has an nvim-dap setup.
 - On macOS a failed `ld` link reports `ld`'s error, with no retry through `cc`; `SDKROOT` and `MACOSX_DEPLOYMENT_TARGET` apply.
 - `jaic -print_stdlib` fails when there is no standard library.
 - An invalid `-target` is a command-line error, read once, so no step builds for the host instead.

@@ -1,10 +1,10 @@
 //! Selected-target discovery must match the cases that conditional compilation makes runnable.
 #![cfg(unix)]
 use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 
-use test_support::TempDir;
+use test_support::{TempDir, toolchain};
 
 fn run(project: &Path, listing: Option<bool>) -> Vec<serde_json::Value> {
     let mut command = Command::new(env!("CARGO_BIN_EXE_jacket"));
@@ -56,15 +56,7 @@ fn names(records: &[serde_json::Value], event: Option<&str>) -> BTreeSet<String>
 }
 
 fn project() -> TempDir {
-    let compiler = PathBuf::from(env!("CARGO_BIN_EXE_jacket"))
-        .parent()
-        .unwrap()
-        .join("jaic");
-
-    assert!(
-        compiler.is_file(),
-        "build the paired debug compiler with cargo build -p jaic-cli"
-    );
+    let _ = toolchain::paired_jaic(Path::new(env!("CARGO_BIN_EXE_jacket")));
     let project = TempDir::new("target-catalogue");
 
     std::fs::create_dir_all(project.join("tests")).unwrap();

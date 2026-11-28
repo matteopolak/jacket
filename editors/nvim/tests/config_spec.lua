@@ -19,14 +19,14 @@ T['the compile-time limits default to the VS Code values'] = function()
   local c = config.server_settings().compileTime
   assert(c.evaluationBudget == 100000000, vim.inspect(c))
   assert(c.checkTimeLimit == 10, vim.inspect(c))
-  assert(c.costLensBlocks == 1000000, vim.inspect(c))
+  assert(c.costLensSteps == 1000000, vim.inspect(c))
   assert(c.limitNotices == true, vim.inspect(c))
 end
 
 T['compile_time overrides reach the server settings'] = function()
   config.set({ compile_time = { evaluation_budget = 5, check_time_limit = 0 } })
   local c = config.server_settings().compileTime
-  assert(c.evaluationBudget == 5 and c.checkTimeLimit == 0 and c.costLensBlocks == 1000000, vim.inspect(c))
+  assert(c.evaluationBudget == 5 and c.checkTimeLimit == 0 and c.costLensSteps == 1000000, vim.inspect(c))
   config.set({})
 end
 
