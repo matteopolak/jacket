@@ -46,7 +46,7 @@ class PreCommitHookTests(unittest.TestCase):
         (self.repo / ".githooks").mkdir()
         shutil.copy(REPO / ".githooks/pre-commit", self.repo / ".githooks/pre-commit")
         (self.repo / "tools/dev").mkdir(parents=True)
-        for script in ("dev.py", "rust_item_spacing.py", "staged-files.sh"):
+        for script in ("dev.py", "build_slot.py", "rust_item_spacing.py", "staged-files.sh"):
             shutil.copy(REPO / "tools/dev" / script, self.repo / "tools/dev" / script)
         shutil.copy(REPO / "tools/repo_output.py", self.repo / "tools/repo_output.py")
         shutil.copytree(
@@ -57,6 +57,8 @@ class PreCommitHookTests(unittest.TestCase):
         (self.repo / "target").mkdir()
         self.env = dict(os.environ, JAI_HOOK_NO_BUILD="1", JAI_HOOK_SKIP="rustfmt")
         self.env.pop("CARGO_TARGET_DIR", None)
+        # The hook takes a build slot; the tests use their own, not the machine's.
+        self.env["JACKET_BUILD_SLOT_DIR"] = str(Path(self.tmp.name) / "build-slots")
         # The copy of tools/ in the throwaway repository is the one dev.py imports from, so ROOT is that repository.
         self.env["PYTHONPATH"] = str(self.repo / "tools")
         # Keep any real jaifmt/jailint on the developer's PATH out of the tests.

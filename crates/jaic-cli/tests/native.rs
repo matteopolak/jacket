@@ -1,6 +1,7 @@
 //! Native backend acceptance: every corpus case with a runtime expectation
 //! that passes under `jaic -interp` must also pass when built with a plain `jaic`
 //! and executed as a native program.
+use jaic_toolchain::quiet_crash;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use test_support::TempDir;
@@ -115,7 +116,9 @@ fn build_and_run(source: &Path, dir: &Path, name: &str) -> Result<std::process::
             String::from_utf8_lossy(&build.stderr)
         ));
     }
-    Command::new(&exe).output().map_err(|e| e.to_string())
+    quiet_crash::quiet(&mut Command::new(&exe))
+        .output()
+        .map_err(|e| e.to_string())
 }
 
 #[test]

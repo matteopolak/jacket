@@ -248,6 +248,8 @@ pub(super) fn spawn(invocation: &Invocation) -> std::io::Result<Child> {
         // Its own group, so a timeout kills the programs it started too.
         command.process_group(0);
     }
+    // A test may crash on purpose; the OS need not write a report for it.
+    jaic_toolchain::quiet_crash::quiet(&mut command);
     command.spawn()
 }
 

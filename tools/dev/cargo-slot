@@ -1,0 +1,5 @@
+#!/bin/sh
+# `cargo`, run in a machine-wide build slot (tools/dev/build_slot.py): `tools/dev/cargo-slot nextest run -p jaic`.
+# Waits, without a time limit, while every slot is held by another job.
+dir=$(cd "$(dirname "$0")" && pwd)
+exec python3 "$dir/build_slot.py" run -- cargo "$@"

@@ -16,6 +16,7 @@ pub mod native_libs;
 pub mod overrides;
 pub mod package;
 pub mod pins;
+pub mod quiet_crash;
 pub mod testing;
 
 pub use found::{Found, Missing, Origin, tilde};

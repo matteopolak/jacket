@@ -25,6 +25,7 @@ from pathlib import Path
 
 # Run as a script (`python3 tools/dev/pre_push_clippy.py check`) or by the hook, with or without PYTHONPATH=tools.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import build_slot  # noqa: E402
 from toolkit.repo import cargo_binary  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -232,9 +233,10 @@ def check() -> int:
     dirty = dirty_rust() or bool(git("status", "--porcelain", "--", "stdlib").strip())
     if dirty:
         print("pre-push: warning: the checks also see uncommitted changes, so this run is not recorded", file=sys.stderr)
-    code = clippy(selected) if selected else 0
-    if code == 0 and stdlib:
-        code = stdlib_tests(stdlib)
+    with build_slot.slot():
+        code = clippy(selected) if selected else 0
+        if code == 0 and stdlib:
+            code = stdlib_tests(stdlib)
     if code == 0 and not dirty:
         write_stamp(stamp_file(), tree_of("HEAD"), selected + ([STDLIB_TESTS] if stdlib else []))
     return code

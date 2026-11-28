@@ -28,6 +28,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+import build_slot
 from toolkit import llvm
 from toolkit.process import run as toolkit_run
 from toolkit.host import exe_name
@@ -869,6 +870,11 @@ def cmd_precommit(args) -> int:
     everything = tracked([f for f in listed[1].split("\n") if f]) if listed[0] == 0 else []
     if not everything:
         return 0
+    with build_slot.slot():
+        return precommit_checks(everything)
+
+
+def precommit_checks(everything: list[str]) -> int:
     jai, rust, shell = staged("jai"), staged("rust"), staged("shell")
     with tempfile.TemporaryDirectory(prefix="jai-pre-commit.") as tmp:
         hook = Hook(Path(tmp))

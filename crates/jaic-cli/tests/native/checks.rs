@@ -1,5 +1,6 @@
 //! Runtime checks in native builds.
 use super::{build_and_run, exe_path, jaic, repo_root};
+use jaic_toolchain::quiet_crash;
 use std::process::Command;
 use test_support::TempDir;
 
@@ -111,7 +112,7 @@ END
             "{name}: build failed: {}",
             String::from_utf8_lossy(&build.stderr)
         );
-        let run = Command::new(exe_path(&dir, &format!("{name}-prog")))
+        let run = quiet_crash::quiet(&mut Command::new(exe_path(&dir, &format!("{name}-prog"))))
             .output()
             .unwrap();
         let err = String::from_utf8_lossy(&run.stderr);

@@ -41,6 +41,30 @@ mod new_feature;
 
 `every_test_file_is_built` in each `main.rs` fails, naming the line to add, when a file is missing (`test_support::layout`). A file another test declares with `mod name;` is a support module and needs no line. Tests CI runs on their own (`native`, `stdlib_targets`, `scale`, ...) stay separate `[[test]]` targets in `Cargo.toml`. Select tests by module, not binary: `cargo nextest run -p jaic -E 'test(/^modules::/)'`, or `--test integration modules::`.
 
+## Build slot
+
+Several agents and hooks building at once swap a 16 GiB machine. Heavy cargo jobs therefore take a machine-wide slot first: an `flock` on one of `slot-0` .. `slot-N-1` under `$XDG_CACHE_HOME/jacket/build-slots/` (default `~/.cache/jacket/build-slots/`), shared by every checkout and session. The default is 2 slots.
+
+The pre-commit hook, `tools/dev/pre_push_clippy.py check` and `tools/dev/cargo-slot` take one. Use the wrapper for any build, test or lint:
+
+```bash
+tools/dev/cargo-slot nextest run -p jaic modules::
+tools/dev/cargo-slot clippy --all-targets --locked -- -D warnings
+```
+
+While every slot is held, a job prints one line, such as `waiting for a build slot (all 2 held by pid 123: build_slot.py run -- cargo build; ...)`, and waits with no time limit. The slot is released when the job exits, however it ends; the kernel drops the lock if the job is killed. `SIGTERM` and `SIGHUP` reach the wrapped command before the wrapper exits, so a slot is not freed while its job still runs. A job started inside a job that holds a slot (a hook run by `cargo-slot`) uses that slot instead of waiting for another, through `JACKET_BUILD_SLOT_HELD`.
+
+| Variable | Effect |
+| --- | --- |
+| `JACKET_BUILD_SLOTS=N` | Number of slots (default 2); must be a positive number |
+| `JACKET_BUILD_SLOT_DIR=DIR` | Folder for the slot files; tests use it to stay off the machine's slots |
+
+To use a slot from Python: `with build_slot.slot(): ...` (`tools/dev/build_slot.py`). Tests: `python3 -m unittest test_build_slot` in `tools/dev`.
+
+## Tests that crash on purpose
+
+On macOS each crash makes `ReportCrash` symbolicate and save a report. Test harnesses start programs that may crash (failed checks, sanitizer reports) through `jaic_toolchain::quiet_crash::quiet`, which clears the child's Mach exception ports (`task_set_exception_ports` between `fork` and `exec`). The crash is still a signal in the exit status; only that child loses its report, and system-wide crash reporting is unchanged. It does nothing on other systems. The `jacket test` runner (`crates/jacket/src/test/exec.rs`) and the native tests in `crates/jaic-cli/tests/native` use it; wrap any new harness that runs a program that can crash.
+
 ## Pre-commit hook
 
 `.githooks/pre-commit` runs `python3 tools/dev/dev.py precommit`. Enable it with `just hooks`; skip once with `--no-verify`. It checks the staged contents exported to a temp directory, so a partly staged file is checked as staged. The hook path is relative, so each worktree runs its own hooks. It fails with an install hint when `python3` is missing; use `--no-verify` to skip it.
