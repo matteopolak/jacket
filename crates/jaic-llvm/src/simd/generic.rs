@@ -58,7 +58,14 @@ pub(super) fn sign_mask<'ctx>(
     let bits = cx
         .ctx
         .custom_width_int_type(std::num::NonZeroU32::new(u32::from(width)).ok_or("zero width")?)?;
-    let packed = b.build_bit_cast(neg, bits, "")?.into_int_value();
+    let mut packed = b.build_bit_cast(neg, bits, "")?.into_int_value();
+
+    // A big-endian target bitcasts lane 0 of `<N x i1>` to the top bit of the integer.
+    if cx.target.big_endian {
+        packed = cx
+            .call("llvm.bitreverse", &[bits.into()], &[packed.into()])?
+            .into_int_value();
+    }
 
     Ok(b.build_int_z_extend_or_bit_cast(packed, cx.ctx.i64_type(), "")?)
 }
@@ -309,4 +316,49 @@ fn string_compare_helper<'ctx>(
 
     b.build_return(Some(&out))?;
     Ok(f)
+}
+
+#[cfg(test)]
+mod tests {
+    use inkwell::context::Context;
+    use jaic::abi::Arch;
+
+    use super::*;
+    use crate::simd::Target;
+
+    /// The IR `sign_mask` of 16 bytes makes for a target of `arch`.
+    fn sign_mask_ir(arch: Arch) -> String {
+        let context = Context::create();
+        let module = context.create_module("sign_mask");
+        let builder = context.create_builder();
+        let pointer = context.ptr_type(inkwell::AddressSpace::default());
+        let function = module.add_function(
+            "probe",
+            context.i64_type().fn_type(&[pointer.into()], false),
+            None,
+        );
+
+        builder.position_at_end(context.append_basic_block(function, "entry"));
+        let target = Target::resolve(arch, "", "");
+        let cx = Cx {
+            ctx: &context,
+            builder: &builder,
+            module: &module,
+            target: &target,
+        };
+        let source = function.get_nth_param(0).unwrap().into_pointer_value();
+        let mask = sign_mask(&cx, 16, source).ok().expect("sign_mask lowers");
+
+        builder.build_return(Some(&mask)).unwrap();
+
+        module.print_to_string().to_string()
+    }
+
+    #[test]
+    fn a_big_endian_target_numbers_the_mask_bits_from_lane_zero() {
+        assert!(sign_mask_ir(Arch::S390x).contains("llvm.bitreverse.i16"));
+        assert!(sign_mask_ir(Arch::PowerPc64).contains("llvm.bitreverse.i16"));
+        assert!(!sign_mask_ir(Arch::X86_64).contains("bitreverse"));
+        assert!(!sign_mask_ir(Arch::Aarch64).contains("bitreverse"));
+    }
 }

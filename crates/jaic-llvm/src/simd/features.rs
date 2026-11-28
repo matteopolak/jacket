@@ -167,6 +167,9 @@ impl FeatureSet {
 pub(crate) struct Target {
     pub family: Family,
     pub features: FeatureSet,
+    /// Whether the target stores a multi-byte value with its most significant byte first, so a
+    /// `<N x i1>` bitcast to `iN` puts lane 0 in the top bit.
+    pub big_endian: bool,
 }
 
 impl Target {
@@ -198,6 +201,7 @@ impl Target {
         Target {
             family,
             features: set,
+            big_endian: matches!(arch, Arch::S390x | Arch::PowerPc64),
         }
     }
 
