@@ -30,6 +30,7 @@ import zipfile
 from pathlib import Path
 
 from repo_output import host_platform
+from toolkit import llvm
 from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.platforms import DESKTOP_POSIX
 from toolkit.repo import ROOT, cargo_target_dir
@@ -118,11 +119,9 @@ def archive_fixtures():
     (ARCHIVE_OUT / "unsupported64.a").write_bytes(magic + member("/SYM64/", b""))
     source = ARCHIVE_OUT / "original.c"
     source.write_text("int portable_archive_answer(void) { return 42; }\n")
-    compiler = shutil.which("clang") or shutil.which("cc")
+    compiler = llvm.require("clang")
     # GNU ar does not index objects of a foreign architecture (such as ARM64 COFF); llvm-ar does.
-    archive_tool = shutil.which("llvm-ar") or shutil.which("ar")
-    if not compiler or not archive_tool:
-        raise RuntimeError("source-built archive fixture requires a C compiler and ar")
+    archive_tool = llvm.require("llvm-ar")
     subprocess.run(
         [compiler, "-c", str(source), "-o", str(ARCHIVE_OUT / "original.o")], check=True
     )
@@ -577,7 +576,7 @@ def runtime(target, output_dir):
     output = (output_dir or temporary / "crash-runtime").resolve()
     temporary.mkdir(parents=True, exist_ok=True)
     plan = build_plan(
-        target, output, temporary, "clang", shutil.which("llvm-ar") or "ar"
+        target, output, temporary, llvm.require("clang"), llvm.require("llvm-ar")
     )
     plan["archive"].parent.mkdir(parents=True, exist_ok=True)
     plan["archive"].unlink(missing_ok=True)

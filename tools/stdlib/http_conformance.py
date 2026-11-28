@@ -113,7 +113,7 @@ def check_corpus():
     return True
 
 
-def run_harness(jaic, modes, jobs):
+def run_harness(jaic, modes, jobs, jacket=None):
     missing = [name for name in HTTP_CONFORMANCE_TESTS if not (HTTP_TESTS / (name + ".jai")).is_file()]
     if missing:
         raise RuntimeError(
@@ -123,7 +123,7 @@ def run_harness(jaic, modes, jobs):
     unknown = [mode for mode in modes.split(",") if mode not in MODE_OPTIONS]
     if unknown:
         raise RuntimeError("unknown HTTP conformance modes: " + ", ".join(unknown))
-    jacket = jacket_binary(jaic)
+    jacket = jacket_binary(jaic, jacket)
     ok = True
     for mode in modes.split(","):
         print(f"== {len(HTTP_CONFORMANCE_TESTS)} HTTP conformance tests ({mode})")
@@ -420,19 +420,19 @@ def external_suites(garden):
         return True
 
     if not docker:
-        print("http-garden: skipped, Docker is not installed")
+        print("http-garden: FAILED, Docker is not installed; install Docker or drop --garden")
 
-        return True
+        return False
 
     if subprocess.run([docker, "info"], capture_output=True).returncode != 0:
-        print("http-garden: skipped, the Docker daemon is not running")
+        print("http-garden: FAILED, the Docker daemon is not running; start Docker or drop --garden")
 
-        return True
+        return False
 
     if not (Path(garden) / "README.md").exists():
-        print(f"http-garden: skipped, {garden} is not a checkout")
+        print(f"http-garden: FAILED, {garden} is not a checkout of narfindustries/http-garden")
 
-        return True
+        return False
 
     print(
         "http-garden: Docker and a checkout are present. Build tools/stdlib/http_garden/server.jai into its image "
@@ -455,6 +455,7 @@ def main():
         help="comma-separated: interp, native, wasm-interp, wasm-native (default interp,native)",
     )
     ap.add_argument("--garden", help="a checkout of http-garden (needs Docker)")
+    ap.add_argument("--jacket", type=Path, help="the jacket to run the tests with (default: the one beside --jaic)")
     ap.add_argument("-j", "--jobs", type=int, default=2)
     args = ap.parse_args()
 
@@ -467,7 +468,7 @@ def main():
     # supply the following echo-server/llhttp compiler processes.
     ensure_native_libraries()
     ok = check_corpus()
-    ok = run_harness(jaic, args.modes, args.jobs) and ok
+    ok = run_harness(jaic, args.modes, args.jobs, args.jacket) and ok
     ok = check_server(jaic) and ok
     llhttp_summary(jaic)
     ok = external_suites(args.garden) and ok

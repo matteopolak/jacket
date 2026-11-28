@@ -85,7 +85,7 @@ A fiber fills an `Op`, calls `engine_submit` and parks; the engine completes it 
 
 ## Configuration
 
-- `JAI_IO_BACKEND=io_uring|epoll|kqueue|iocp|ioring` asks for a backend before `io_run`; an unavailable one is replaced and `backend_reason()` says why.
+- `JAI_IO_BACKEND=io_uring|epoll|kqueue|iocp|ioring` asks for a backend before `io_run`. A backend the system cannot give, or a name that is none of these, stops the program with the reason (`tests/backend-refused.jai`, `backend-unknown.jai`). With the variable unset the best backend is chosen, and `backend_reason()` says why it is not io_uring (or ioring) when it is not.
 - `JAI_IO_FILE_THREADS` (default 4, max 16, 0 = all inline) and `JAI_IO_FILE_INLINE` (default 32768 bytes) tune the epoll/kqueue file pool.
 - Module parameters: `STACK_BYTES` (256 KiB), `POOL_LIMIT` (1024), `TEMPORARY_BYTES` (2048), e.g. `#import "Extensions/Io"(STACK_BYTES = 64 * 1024)`.
 - Introspection: `backend()`, `backend_name()`, `backend_reason()`, `capabilities()`, `io_statistics()`.

@@ -11,7 +11,7 @@ Each dev command has one name, and CI's format and lint steps call the same reci
 | `build` | Builds `jaic-cli`, `jai-language-server`, `jailint`, `target/jaifmt` and the native pieces a release archive ships (`--release`, `--native=false`) |
 | `fmt` | `jaifmt` on Jai; `cargo fmt` plus `tools/dev/rust_item_spacing.py` on Rust (`--check`, `--lang`, `--staged`) |
 | `lint` | `jailint -D warnings` on Jai; clippy on Rust (`--fix`, `--lang`, `--staged`) |
-| `check` | `fmt --check`, `lint`, `editor`, `nvim-test --unit` |
+| `check` | `fmt --check`, `lint`, `editor`, `nvim-test --unit` (fails without nvim 0.11+) |
 | `test` | `cargo nextest run --profile ci` (needs cargo-nextest) plus doctests and the `tools/` unittests (`--suite cargo\|tools\|all`, `--crate`, `--partition slice:K/N`) |
 | `repo-checks` | CI's text checks: source style, repo paths, CI sources, stdlib docs |
 | `hooks` | Points `core.hooksPath` at `.githooks` |

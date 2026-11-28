@@ -4,13 +4,13 @@ A golden test is a program `name.jai` with `name.stdout`, `name.stderr` and `nam
 `// test:` notes on top (docs/tools/jacket-test.md).
 """
 
-import os
 import re
-import shutil
 import subprocess
 from pathlib import Path
 
-from toolkit.repo import ROOT, cargo_target_dir
+from toolkit.cli import default_jaic
+from toolkit.host import exe_name
+from toolkit.repo import ROOT
 
 NOTE = re.compile(r"^//\s*test:(.*)$")
 
@@ -27,31 +27,21 @@ def header_notes(source):
     return notes
 
 
-def jacket_binary(compiler=None):
-    """The `jacket` next to `compiler` (it starts the jaic beside itself), else on PATH, else in
-    the cargo target directory."""
-    if compiler is not None:
-        beside = (
-            Path(compiler)
-            .resolve()
-            .with_name("jacket" + (".exe" if os.name == "nt" else ""))
+def jacket_binary(compiler=None, jacket=None):
+    """The `jacket` to run: `jacket` when given (the `--jacket` flag), else the one beside `compiler` (it starts
+    the jaic beside itself; default compiler: the debug jaic of the cargo target directory). Exits nowhere
+    else: PATH is not searched, so the tests never run an installed jacket by accident.
+
+    For example `jacket_binary(Path("target/release/jaic"))` is `target/release/jacket`."""
+    if jacket is not None:
+        path = Path(jacket)
+    else:
+        path = Path(compiler or default_jaic()).resolve().with_name(exe_name("jacket"))
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"{path} does not exist: build it with `cargo build -p jacket -p jaic-cli`, or pass --jacket"
         )
-        if beside.is_file():
-            return beside
-    found = shutil.which("jacket")
-    if found:
-        return Path(found)
-    for profile in ("release", "debug"):
-        candidate = (
-            cargo_target_dir()
-            / profile
-            / ("jacket.exe" if os.name == "nt" else "jacket")
-        )
-        if candidate.is_file():
-            return candidate
-    raise FileNotFoundError(
-        "no `jacket` next to the compiler, on PATH or in the cargo target directory"
-    )
+    return path
 
 
 OS_NAMES = ("linux", "macos", "windows", "wasm")
@@ -108,11 +98,11 @@ def runs_on(notes, os_name, cpu):
 COMPILE_TIME_DRIVERS = frozenset({"stdlib/Autorun/tests/basics.jai"})
 
 
-def jacket_test_roots(root=ROOT, compiler=None):
+def jacket_test_roots(root=ROOT, compiler=None, jacket=None):
     """The folders `jacket test` runs in the project at `root` (`[test] paths` in jacket.toml,
     patterns expanded), as absolute paths."""
     result = subprocess.run(
-        [str(jacket_binary(compiler)), "test", "--roots"],
+        [str(jacket_binary(compiler, jacket)), "test", "--roots"],
         cwd=root,
         capture_output=True,
         text=True,
@@ -121,10 +111,10 @@ def jacket_test_roots(root=ROOT, compiler=None):
     return [Path(line) for line in result.stdout.splitlines() if line]
 
 
-def golden_sources(root=ROOT, compiler=None):
+def golden_sources(root=ROOT, compiler=None, jacket=None):
     """The golden test programs of every test root: the `tests/*.jai` files with an
     expected-output file beside them that are not compile-fail tests."""
-    for folder in sorted(jacket_test_roots(root, compiler)):
+    for folder in sorted(jacket_test_roots(root, compiler, jacket)):
         for source in sorted((folder / "tests").glob("*.jai")):
             expected = any(
                 source.with_suffix(suffix).is_file()
@@ -137,12 +127,12 @@ def golden_sources(root=ROOT, compiler=None):
                 yield source
 
 
-def cross_check(compiler, os_name, cpu, env=None):
+def cross_check(compiler, os_name, cpu, env=None, jacket=None):
     """Type-check (`jaic -check`) every golden test that runs on `os_name`/`cpu`, without running
     anything. Returns (checked count, failure texts)."""
     flags = ["-target", "wasm64-unknown-wasi"] if os_name == "wasm" else ["-os", os_name, "-cpu", cpu]
     checked, failures = 0, []
-    for source in golden_sources(compiler=compiler):
+    for source in golden_sources(compiler=compiler, jacket=jacket):
         if not runs_on(header_notes(source), os_name, "wasm" if os_name == "wasm" else cpu):
             continue
         result = subprocess.run(

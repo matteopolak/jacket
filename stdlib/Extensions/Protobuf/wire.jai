@@ -548,55 +548,6 @@ bytes_equal :: (a: [] u8, b: [] u8) -> bool {
     return true;
 }
 
-// Strict UTF-8 validation: rejects overlong encodings, surrogate code points and > U+10FFFF.
-valid_utf8 :: (bytes: [] u8) -> bool {
-    i: s64;
-    // Skip the ASCII prefix in complete unaligned words, then use the strict scalar
-    // validator for the tail and non-ASCII text. Short strings pay one prefix check.
-    while bytes.count - i >= 8 {
-        word: u64;
-        memcpy(*word, bytes.data + i, 8);
-        if (word & 0x8080808080808080) != 0 break;
-        i += 8;
-    }
-
-    if bytes.count - i >= 4 {
-        word: u32;
-        memcpy(*word, bytes.data + i, 4);
-        if (word & 0x80808080) == 0 i += 4;
-    }
-
-    while i < bytes.count {
-        a := bytes[i];
-
-        i += 1;
-        if a < 128 continue;
-
-        count: s64;
-        low: u8 = 128;
-        high: u8 = 191;
-
-        if a >= 194 && a <= 223 count = 1;
-        else if a >= 224 && a <= 239 {
-            count = 2;
-            if a == 224 low = 160;
-            if a == 237 high = 159;
-        } else if a >= 240 && a <= 244 {
-            count = 3;
-            if a == 240 low = 144;
-            if a == 244 high = 143;
-        } else return false;
-
-        if bytes.count - i < count return false;
-        if bytes[i] < low || bytes[i] > high return false;
-        for j: 1..count - 1 if bytes[i + j] < 128 || bytes[i + j] > 191 return false;
-
-        i += count;
-    }
-
-    return true;
-}
-
 // Maps a scalar value to its unsigned wire bits; kind is specialized at compile time.
 scalar_bits :: (value: $T, $kind: Scalar) -> u64 {
     #if kind == .SINT32 || kind == .SINT64 return zigzag(cast(s64) value);
@@ -666,7 +617,7 @@ read_scalar :: (r: *Reader, value: *$T, $kind: Scalar) -> bool {
 
         bytes: [] u8 = .{ n, r.bytes.data + r.pos };
 
-        #if kind == .STRING if !r.options.skip_utf8 && !valid_utf8(bytes) return fail(r, .BAD_UTF8);
+        #if kind == .STRING if !r.options.skip_utf8 && !Utf8.is_valid(bytes) return fail(r, .BAD_UTF8);
         if value.data release_scalar(r, value, kind);
 
         if !r.options.borrow {

@@ -1,8 +1,10 @@
 // test: skip_on(.WASM, reason = "needs Extensions/Io fibers, which wasm cannot run (no stack switching)")
 // Runs every Extensions/Io engine test once per backend the system can offer, forcing each with
 // JAI_IO_BACKEND: io_uring and epoll on Linux, kqueue on macOS, and iocp and ioring on Windows. A
-// backend the system refuses (io_uring in a container, on an old kernel, or with io_uring_disabled;
-// ioring before Windows 11 22H2) is skipped with the engine's reason.
+// backend the system does not offer (io_uring in a container, on an old kernel, or with
+// io_uring_disabled; ioring before Windows 11 22H2) is skipped with the engine's reason, found by
+// asking for no backend first: a named backend that is refused ends the program instead of being
+// replaced (`backend-refused.jai`), so it is never named here unless the system has it.
 //
 // The readiness backends (epoll, kqueue) also run the file tests twice more: once with every file
 // operation on the worker thread pool (JAI_IO_FILE_INLINE=0) and once with the pool off
@@ -82,18 +84,32 @@ main :: () {
     else #if OS == .WINDOWS names := string.["iocp", "ioring"];
     else names := string.["kqueue"];
 
+    // The automatic choice is the best backend the system offers. Only the one every system of
+    // the OS has can be named without knowing that.
+    #if OS == .LINUX baseline := "epoll";
+    else #if OS == .WINDOWS baseline := "iocp";
+    else baseline := "kqueue";
+
+    set_env("JAI_IO_BACKEND", "");
+    Io.io_run(probe_backend);
+
+    best := backend_found;
+    best_reason := reason_found;
+
     passed := 0;
 
     for names {
+        if it != best && it != baseline {
+            print("skipped %: the scheduler chose % instead (%)\n", it, best, best_reason);
+
+            continue;
+        }
+
         set_env("JAI_IO_BACKEND", it);
 
         Io.io_run(probe_backend);
 
-        if backend_found != it {
-            print("skipped %: the scheduler got % instead (%)\n", it, backend_found, reason_found);
-
-            continue;
-        }
+        assert(backend_found == it, "asked for %, got %: %", it, backend_found, reason_found);
 
         started := now_ms();
 

@@ -22,7 +22,6 @@ import argparse
 import os
 import re
 import shutil
-import signal
 import subprocess
 import sys
 import tarfile
@@ -34,6 +33,7 @@ from repo_output import output_dir, shared_output_dir
 from toolkit.cli import add_jaic_argument
 from toolkit.download import pinned
 from toolkit.host import brew_prefix
+from toolkit.process import NEW_GROUP, kill_tree
 from toolkit.repo import ROOT
 
 CONFORMANCE = ROOT / "stdlib" / "Extensions" / "Postgres" / "tests" / "conformance"
@@ -280,7 +280,11 @@ def run_tap_file(args, suite: dict, source: Path, bindir: Path, mode: str, out: 
     env["PG_TEST_EXTRA"] = " ".join([env.get("PG_TEST_EXTRA", ""), "ssl"]).strip()
     env["with_ssl"] = "openssl"
     # Where the suites read a certificate's serial number from (they only fall back to a pattern without it).
-    env.setdefault("OPENSSL", shutil.which("openssl") or "")
+    if not env.get("OPENSSL"):
+        found = shutil.which("openssl")
+        if not found:
+            raise SystemExit("openssl is not installed; install it (for example `brew install openssl`) or set OPENSSL to its path")
+        env["OPENSSL"] = found
     # The test library drops LC_ALL; a macOS postmaster still needs a valid locale from the rest.
     if not env.pop("LC_ALL", ""):
         for name in ("LANG", "LC_CTYPE", "LC_COLLATE"):
@@ -290,11 +294,11 @@ def run_tap_file(args, suite: dict, source: Path, bindir: Path, mode: str, out: 
     print(f"== {mode} {suite['file']}", flush=True)
     # A group of its own, so that a test that hangs takes the servers it started down with it.
     cwd = source / suite["cwd"] if "cwd" in suite else work
-    process = subprocess.Popen(command, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace", start_new_session=True)
+    process = subprocess.Popen(command, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace", **NEW_GROUP)
     try:
         output, _ = process.communicate(timeout=TAP_TIMEOUT)
     except subprocess.TimeoutExpired:
-        os.killpg(process.pid, signal.SIGKILL)
+        kill_tree(process)
         output, _ = process.communicate()
         output += f"\n# timed out after {TAP_TIMEOUT} seconds\n"
     (work / "prove.log").write_text(output)

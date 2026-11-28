@@ -7,6 +7,7 @@
     configured_prefix()     the install the environment names (that variable, else LLVM_PREFIX), or None
     prefixes()              every install worth looking in, best first
     tool(name)              the path of an LLVM program (`clang`, `llvm-symbolizer`), or None
+    require(name)           the same, but exits with an install hint when the program is missing
     llvm_config()           the path of `llvm-config`, or None
 
 The version comes from the environment CI exports (`LLVM_MAJOR`, `LLVM_SYS_PREFIX_VAR`) when set, else from
@@ -26,7 +27,8 @@ from toolkit.host import exe_name
 from toolkit.repo import ROOT
 
 __all__ = [
-    "configured_prefix", "llvm_config", "major", "major_minor", "prefixes", "sys_prefix_var", "tool", "version_env",
+    "configured_prefix", "llvm_config", "major", "major_minor", "prefixes", "require", "sys_prefix_var", "tool",
+    "version_env",
 ]
 
 _PINS = ROOT / ".github" / "pins.json"
@@ -107,3 +109,19 @@ def tool(name: str) -> str | None:
         if candidate.is_file():
             return str(candidate)
     return shutil.which(f"{name}-{major()}") or shutil.which(name)
+
+
+def require(name: str) -> str:
+    """The path of an LLVM program, or exit naming it and how to get it. Callers use this instead of
+    trying one tool and then a look-alike (`llvm-ar` then `ar`): the build must not change with what happens
+    to be installed.
+
+    For example `require("llvm-ar")`. Point at another install with `LLVM_PREFIX`.
+    """
+    found = tool(name)
+    if found is None:
+        raise SystemExit(
+            f"{name} is not installed. Install LLVM {major()} (docs/tools/llvm-setup.md) or set LLVM_PREFIX "
+            f"to an install that has bin/{name}."
+        )
+    return found

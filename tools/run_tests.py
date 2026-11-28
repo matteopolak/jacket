@@ -14,8 +14,9 @@ imports its siblings by bare name), with tools/ on PYTHONPATH so cross-folder im
 
 A folder runs in its own process and is killed after `--timeout` seconds (FOLDER_TIMEOUTS raises the limit of
 the slow ones). Folders that need prepared inputs have a fixture (FIXTURES below): it runs once, in the worker
-that needs it, and only when a selected file in that folder uses it; a fixture that cannot be satisfied skips
-the folder with a message instead of failing the run.
+that needs it, and only when a selected file in that folder uses it; a fixture that cannot be satisfied fails
+the folder, naming the fix. `--skip FOLDER` deselects a folder
+on purpose.
 """
 
 from __future__ import annotations
@@ -24,7 +25,6 @@ import argparse
 import fnmatch
 import os
 import re
-import signal
 import subprocess
 import sys
 import tempfile
@@ -35,6 +35,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
+from toolkit.process import NEW_GROUP, kill_tree
 from toolkit.repo import jaifmt_path
 
 TOOLS = Path(__file__).resolve().parent
@@ -43,8 +44,9 @@ DEFAULT_TIMEOUT = 900  # seconds one folder's tests may take
 FOLDER_TIMEOUTS = {"native_bindings": 1800, "stdlib": 1800, "ci": 1800}
 
 
-class Skip(Exception):
-    """A folder's fixture cannot be satisfied here; the message says why."""
+class FixtureError(Exception):
+    """A folder's fixture cannot be satisfied here; the message says why. The folder fails, so a missing input
+    never passes as a quiet skip. Deselect the folder with `--skip` when it is not wanted."""
 
 
 def sdl_environment() -> dict[str, str]:
@@ -63,11 +65,10 @@ def sdl_environment() -> dict[str, str]:
         env={**os.environ, "PYTHONPATH": os.pathsep.join(filter(None, [str(TOOLS), os.environ.get("PYTHONPATH", "")]))},
     )
     if result.returncode:
-        sys.stderr.write(
-            "run_tests.py: could not prepare the SDL test inputs (no network?); "
-            "the tools/bindings SDL tests will be skipped:\n" + result.stderr[-400:]
+        raise FixtureError(
+            "could not prepare the SDL test inputs (needs network access for the pinned headers; "
+            "set SDL_TEST_TMPDIR to prepared inputs):\n" + result.stderr[-400:]
         )
-        return {}
     return dict(line.split("=", 1) for line in result.stdout.splitlines() if "=" in line)
 
 
@@ -82,15 +83,15 @@ def formatter() -> dict[str, str]:
 
         ensure_jaifmt(str(os.cpu_count() or 1))
     except (Exception, SystemExit) as error:
-        raise Skip(f"{wanted} is missing and could not be built ({error})") from error
+        raise FixtureError(f"{wanted} is missing and could not be built ({error})") from error
     if not wanted.is_file():
-        raise Skip(f"{wanted} is missing")
+        raise FixtureError(f"{wanted} is missing")
     return {}
 
 
 @dataclass(frozen=True)
 class Fixture:
-    """Prepares a folder's tests: `prepare()` returns environment variables for them, or raises Skip. It runs
+    """Prepares a folder's tests: `prepare()` returns environment variables for them, or raises FixtureError. It runs
     when a selected file matching one of `files` is in the folder."""
 
     files: tuple[str, ...]
@@ -136,7 +137,7 @@ class Outcome:
     name: str
     tests: int = 0
     seconds: float = 0.0
-    status: str = "ok"  # ok | failed | timeout | skipped
+    status: str = "ok"  # ok | failed | timeout
     output: str = ""
 
 
@@ -146,7 +147,7 @@ class Fixtures:
     def __init__(self, table: dict[str, Fixture]):
         self.table = table
         self.lock = threading.Lock()
-        self.results: dict[str, dict[str, str] | Skip] = {}
+        self.results: dict[str, dict[str, str] | FixtureError] = {}
 
     def environment(self, folder: Path, patterns: list[str]) -> dict[str, str]:
         fixture = self.table.get(folder.name)
@@ -159,10 +160,10 @@ class Fixtures:
             if folder.name not in self.results:
                 try:
                     self.results[folder.name] = fixture.prepare()
-                except Skip as skip:
+                except FixtureError as skip:
                     self.results[folder.name] = skip
             result = self.results[folder.name]
-        if isinstance(result, Skip):
+        if isinstance(result, FixtureError):
             raise result
         return result
 
@@ -176,16 +177,13 @@ def run_process(command: list[str], env: dict[str, str], timeout: float) -> tupl
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        start_new_session=os.name == "posix",
+        **NEW_GROUP,
     )
     try:
         out, err = process.communicate(timeout=timeout)
         return process.returncode, out, err
     except subprocess.TimeoutExpired:
-        if os.name == "posix":
-            os.killpg(process.pid, signal.SIGKILL)
-        else:
-            process.kill()
+        kill_tree(process)
         out, err = process.communicate()
         return None, out or "", err or ""
 
@@ -203,8 +201,12 @@ def run_task(
     started = time.monotonic()
     try:
         env = dict(env, **fixtures.environment(folder, patterns))
-    except Skip as skip:
-        return Outcome(name, status="skipped", output=f"run_tests.py: skipping {label(folder)}: {skip}\n")
+    except FixtureError as skip:
+        return Outcome(
+            name,
+            status="failed",
+            output=f"run_tests.py: {label(folder)} cannot run: {skip}\nFix that, or deselect the folder with `--skip {folder.name}`.\n",
+        )
     limit = timeout or FOLDER_TIMEOUTS.get(folder.name, DEFAULT_TIMEOUT)
     command = [sys.executable, "-m", "unittest", "discover", "-s", str(folder), "-p", pattern]
     if verbose:
@@ -229,6 +231,7 @@ def run_all(
     timeout: float | None,
     table: dict[str, Fixture] | None = None,
     base_env: dict[str, str] | None = None,
+    skip: list[str] | None = None,
 ) -> list[Outcome]:
     base = dict(os.environ if base_env is None else base_env)
     base["PYTHONPATH"] = os.pathsep.join(filter(None, [str(TOOLS), base.get("PYTHONPATH", "")]))
@@ -239,6 +242,8 @@ def run_all(
         directory, pattern = split_path(given)
         for folder in folders(pattern):
             if directory is not None and label(folder) != directory:
+                continue
+            if skip and (label(folder) in skip or folder.name in skip):
                 continue
             if not only or label(folder) in only or folder.name in only:
                 tasks.append((folder, pattern))
@@ -269,17 +274,17 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("folders", nargs="*", help="only these folders (as tools/<name>; default all)")
     parser.add_argument("-p", "--pattern", action="append", help="test file pattern (repeatable; default test_*.py)")
+    parser.add_argument("--skip", action="append", default=[], metavar="FOLDER", help="deselect this folder (repeatable); a folder with missing inputs otherwise fails")
     parser.add_argument("-v", "--verbose", action="store_true", help="print every folder's output, not only failures'")
     parser.add_argument("-j", "--jobs", type=int, default=min(4, os.cpu_count() or 1), help="folders to run at once (default %(default)s)")
     parser.add_argument("--timeout", type=float, help="seconds before a folder's process is killed (default %d, longer for the slow folders)" % DEFAULT_TIMEOUT)
     args = parser.parse_args(argv)
-    outcomes = run_all(args.pattern or ["test_*.py"], args.folders, args.jobs, args.verbose, args.timeout)
+    outcomes = run_all(args.pattern or ["test_*.py"], args.folders, args.jobs, args.verbose, args.timeout, skip=args.skip)
     total = sum(o.tests for o in outcomes)
     failed = [o.name for o in outcomes if o.status in ("failed", "timeout")]
-    skipped = [o.name for o in outcomes if o.status == "skipped"]
     print(
         f"tools/run_tests.py: {total} tests; failed folders: {', '.join(failed) or 'none'}"
-        + (f"; skipped: {', '.join(skipped)}" if skipped else "")
+        + (f"; deselected: {', '.join(args.skip)}" if args.skip else "")
     )
     return 1 if failed or total == 0 else 0
 

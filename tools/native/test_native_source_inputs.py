@@ -64,7 +64,7 @@ class NativeReleaseInputs(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             vendor = Path(temporary)
             (vendor / "native.tar.gz").write_bytes(b"corrupt archive")
-            with self.assertRaisesRegex(RuntimeError, "Archive hash mismatch"):
+            with self.assertRaisesRegex(SystemExit, "does not match the pinned"):
                 builder.prepare_source("native", source, vendor)
             self.assertFalse((vendor / "native-1").exists())
 

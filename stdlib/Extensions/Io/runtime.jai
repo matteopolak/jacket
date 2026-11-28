@@ -70,8 +70,8 @@ with_grace :: (milliseconds: s64, body: Code) #expand {
 NO_DEADLINE :: -1;
 
 // The system facility a scheduler waits on: `IO_URING` or `EPOLL` on Linux, `KQUEUE` on macOS, `IOCP` or `IORING` on Windows. The
-// scheduler picks the best one the machine offers; the `JAI_IO_BACKEND` environment variable names another (`io_uring`, `epoll`,
-// `kqueue`, `iocp`, `ioring`). `NONE` is a system with no IO, where every operation fails with `.UNSUPPORTED`. Behaviour seen
+// scheduler picks the best one the machine offers; the `JAI_IO_BACKEND` environment variable names one (`io_uring`, `epoll`,
+// `kqueue`, `iocp`, `ioring`), and a named backend the machine cannot give stops the program with the reason. `NONE` is a system with no IO, where every operation fails with `.UNSUPPORTED`. Behaviour seen
 // through the API is the same on all of them; they differ in speed and in the kernel versions they need.
 Backend :: enum u8 {
     // No IO on this system: every operation fails with `.UNSUPPORTED`.
@@ -118,8 +118,9 @@ Capabilities :: struct {
 
 // The backend the running scheduler uses: `.IO_URING`, `.EPOLL`, `.KQUEUE`, `.IOCP`, `.IORING`, or
 // `.NONE` where IO is not implemented. Set `JAI_IO_BACKEND` to `io_uring`, `epoll`, `kqueue`,
-// `iocp` or `ioring` before `io_run` to ask for one; a backend the system cannot offer is
-// replaced (see `backend_reason`).
+// `iocp` or `ioring` before `io_run` to ask for one; one the system cannot offer stops the program
+// with the reason. With nothing asked for, the best backend is chosen, and `backend_reason` says why
+// it is not the first choice when it is not.
 //
 // ```jai
 // Io :: #import "Extensions/Io";
@@ -140,8 +141,9 @@ backend_name :: () -> string {
     return name_of_backend(backend());
 }
 
-// Why the running scheduler does not use the backend that was asked for or is the first choice on
-// this system (for example "io_uring is disabled here"). Empty when it does.
+// Why the running scheduler does not use the first choice on this system (for example "io_uring is
+// disabled here" when it fell back to epoll). Empty when it does, and always empty when a backend
+// was named in `JAI_IO_BACKEND`: a named backend that cannot be had stops the program instead.
 backend_reason :: () -> string {
     scheduler := current_scheduler();
 

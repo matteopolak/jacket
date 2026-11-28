@@ -29,7 +29,7 @@ saslprep :: (password: string) -> string, bool {
     at := 0;
 
     while at < password.count {
-        code, size := utf8_decode(password, at);
+        code, size := Utf8.decode(password, at);
         if size == 0 return password, false;
 
         at += size;
@@ -53,60 +53,11 @@ saslprep :: (password: string) -> string, bool {
 
 #scope_module
 
-utf8_decode :: (text: string, at: s64) -> code: u32, size: s64 {
-    first := text[at];
-    if first < 0x80 return first, 1;
-
-    size: s64;
-    code: u32;
-    minimum: u32;
-
-    if first >= 0xC2 && first <= 0xDF {
-        size = 2;
-        code = first & 0x1F;
-        minimum = 0x80;
-    } else if first >= 0xE0 && first <= 0xEF {
-        size = 3;
-        code = first & 0x0F;
-        minimum = 0x800;
-    } else if first >= 0xF0 && first <= 0xF4 {
-        size = 4;
-        code = first & 0x07;
-        minimum = 0x10000;
-    } else {
-        return 0, 0;
-    }
-
-    if at + size > text.count return 0, 0;
-
-    for 1..size - 1 {
-        next := text[at + it];
-        if (next & 0xC0) != 0x80 return 0, 0;
-
-        code = (code << 6) | (next & 0x3F);
-    }
-
-    if code < minimum || code > 0x10FFFF || (code >= 0xD800 && code <= 0xDFFF) return 0, 0;
-
-    return code, size;
-}
-
 utf8_append :: (out: *[..] u8, code: u32) {
-    if code < 0x80 {
-        array_add(out, cast(u8) code);
-    } else if code < 0x800 {
-        array_add(out, cast(u8) (0xC0 | (code >> 6)));
-        array_add(out, cast(u8) (0x80 | (code & 0x3F)));
-    } else if code < 0x10000 {
-        array_add(out, cast(u8) (0xE0 | (code >> 12)));
-        array_add(out, cast(u8) (0x80 | ((code >> 6) & 0x3F)));
-        array_add(out, cast(u8) (0x80 | (code & 0x3F)));
-    } else {
-        array_add(out, cast(u8) (0xF0 | (code >> 18)));
-        array_add(out, cast(u8) (0x80 | ((code >> 12) & 0x3F)));
-        array_add(out, cast(u8) (0x80 | ((code >> 6) & 0x3F)));
-        array_add(out, cast(u8) (0x80 | (code & 0x3F)));
-    }
+    buffer: [4] u8;
+    size := Utf8.encode(code, buffer.data);
+
+    for 0..size - 1 array_add(out, buffer[it]);
 }
 
 append_normalized :: (codes: *[..] u32, code: u32) {

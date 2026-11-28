@@ -43,13 +43,16 @@ class TargetProviders(unittest.TestCase):
             providers.toolchain("linux-arm64")
 
     def test_cross_compiler_and_archiver_are_target_tools(self):
-        with patch.object(
-            providers.shutil, "which", side_effect=lambda name: "/sdk/" + name
-        ):
+        with patch("shutil.which", side_effect=lambda name: "/sdk/" + name):
             compiler, archiver, _ = providers.toolchain("windows-arm64-mingw")
         self.assertIn("aarch64-w64-mingw32", compiler[0])
         self.assertIn("aarch64-w64-mingw32", archiver)
         self.assertNotIn("-w", compiler)
+
+    def test_a_missing_cross_compiler_is_an_error_naming_it(self):
+        with patch("shutil.which", return_value=None):
+            with self.assertRaisesRegex(SystemExit, "aarch64-w64-mingw32-gcc"):
+                providers.toolchain("windows-arm64-mingw")
 
 
 if __name__ == "__main__":

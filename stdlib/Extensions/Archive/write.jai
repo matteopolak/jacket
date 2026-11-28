@@ -28,7 +28,7 @@ write_archive :: (writer: Archive_Writer, items: [] Archive_Item, format: Archiv
 
         metadata += it.link.count;
         total += it.data.count;
-        if !valid_utf8(cast([] u8) it.name) || !valid_utf8(cast([] u8) it.link) return problem(.INVALID, "invalid UTF-8", 0, it.name);
+        if !Utf8.is_valid(cast([] u8) it.name) || !Utf8.is_valid(cast([] u8) it.link) return problem(.INVALID, "invalid UTF-8", 0, it.name);
 
         for c: it.name {
             if c == 0 return problem(.INVALID, "NUL in name", 0, it.name);

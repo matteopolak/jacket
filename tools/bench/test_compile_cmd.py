@@ -1,5 +1,6 @@
 import argparse
 import os
+import signal
 import sys
 import tempfile
 import time
@@ -296,7 +297,7 @@ class MeasureTests(unittest.TestCase):
                             pass
                         else:
                             if not pid:
-                                measure.kill_group(owner)
+                                os.killpg(owner, signal.SIGKILL)
                                 real_wait4(owner, 0)
 
     @unittest.skipIf(sys.platform == 'win32', 'injects a POSIX interruption after wait4 reaps the parent')

@@ -31,7 +31,9 @@ import tempfile
 import time
 from pathlib import Path
 from bench.measure import run_measured
+from toolkit import llvm
 from toolkit.host import exe_name
+from toolkit.lsp import encode
 from toolkit.process import run as toolkit_run
 from toolkit.repo import ROOT, cargo_target_dir
 
@@ -115,27 +117,21 @@ def profdata_tool():
 
 
 def bolt_tool(name, llvm_bin):
-    """llvm-bolt / merge-fdata: --llvm-bin, then an LLVM_SYS_*_PREFIX install (the official
-    Linux release tarball ships BOLT), then PATH (including apt's versioned names)."""
-    dirs = [Path(llvm_bin)] if llvm_bin else []
-    dirs += [
-        Path(v) / "bin"
-        for k, v in sorted(os.environ.items())
-        if k.startswith("LLVM_SYS_") and k.endswith("_PREFIX")
-    ]
-    for d in dirs:
-        if (d / name).exists():
-            return str(d / name)
-    found = shutil.which(name)
-    if found:
-        return found
-    for major in range(40, 17, -1):
-        found = shutil.which(f"{name}-{major}")
-        if found:
-            return found
-    sys.exit(
-        f"build_pgo: {name} not found; pass --llvm-bin (the LLVM release's bin directory)"
-    )
+    """llvm-bolt / merge-fdata from `--llvm-bin`, or else from the pinned LLVM install (`toolkit.llvm.tool`).
+
+    For example `bolt_tool("llvm-bolt", "/opt/llvm/bin")`. Exits when the tool is missing."""
+    if llvm_bin:
+        found = Path(llvm_bin) / exe_name(name)
+        if not found.is_file():
+            sys.exit(f"build_pgo: {found} does not exist; --llvm-bin must be the LLVM release's bin directory")
+        return str(found)
+    found = llvm.tool(name)
+    if not found:
+        sys.exit(
+            f"build_pgo: {name} not found; install the LLVM release (docs/tools/llvm-setup.md) "
+            "or pass --llvm-bin (its bin directory)"
+        )
+    return found
 
 
 def run(cmd, env=None, cwd=ROOT, check=True, **kw):
@@ -354,10 +350,7 @@ def lsp_session(jailsp, env, output=None):
         notify("textDocument/didClose", {"textDocument": doc})
     request("shutdown", None)
     notify("exit", None)
-    data = b"".join(
-        b"Content-Length: %d\r\n\r\n%s" % (len(body), body)
-        for body in (json.dumps(m).encode() for m in messages)
-    )
+    data = b"".join(encode(m) for m in messages)
     # A file destination keeps partial responses and stderr even if training is interrupted.
     with (
         Path(output).open("w+b") if output is not None else tempfile.TemporaryFile()

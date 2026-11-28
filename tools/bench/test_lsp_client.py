@@ -1,40 +1,16 @@
-import json
 import unittest
 from pathlib import Path
 
 from bench import cmd_lsp
 from bench import lsp_report
 from bench import lsp_session
-from bench.lsp_client import FrameDecoder, FrameError, capabilities, encode, parse_cpu_time
+from bench.lsp_client import capabilities, parse_cpu_time
 from bench.lsp_session import Document, Probe, ProbeFailed, Session, answer
 from bench.results import Report, Result, Status
 from bench.stats import Stat
 
 
 class FramingTests(unittest.TestCase):
-    def test_encode_counts_bytes_not_characters(self):
-        header, _, body = encode({'a': 'é'}).partition(b'\r\n\r\n')
-        self.assertEqual(header, b'Content-Length: %d' % len(body))
-        self.assertEqual(json.loads(body), {'a': 'é'})
-
-    def test_decoder_handles_split_and_joined_chunks(self):
-        data = encode({'id': 1}) + encode({'id': 2, 'x': 'ü'})
-        decoder = FrameDecoder()
-        out = []
-        for i in range(0, len(data), 3):
-            out += decoder.push(data[i:i + 3])
-        self.assertEqual([m['id'] for m in out], [1, 2])
-        self.assertEqual([m['id'] for m in FrameDecoder().push(data)], [1, 2])
-
-    def test_decoder_ignores_other_headers_and_rejects_bad_ones(self):
-        body = b'{"id":7}'
-        frame = b'content-type: x\r\nCONTENT-LENGTH: %d\r\n\r\n' % len(body) + body
-        self.assertEqual(FrameDecoder().push(frame), [{'id': 7}])
-        with self.assertRaises(FrameError):
-            FrameDecoder().push(b'Foo: 1\r\n\r\n{}')
-        with self.assertRaises(FrameError):
-            FrameDecoder().push(b'Content-Length: x\r\n\r\n{}')
-
     def test_ps_cpu_times(self):
         self.assertEqual(parse_cpu_time('0:01.50'), 1.5)
         self.assertEqual(parse_cpu_time('1:02:03'), 3723)

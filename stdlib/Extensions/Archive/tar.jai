@@ -230,7 +230,7 @@ parse_pax :: (b: [] u8, p: *Tar_Overrides, offset: s64, local: bool) -> Archive_
                 if it == 0 return problem(.INVALID, "NUL in pax path", offset + equal + 1);
             }
 
-            if !valid_utf8(value) return problem(.INVALID, "invalid pax UTF-8", offset + equal + 1);
+            if !Utf8.is_valid(value) return problem(.INVALID, "invalid pax UTF-8", offset + equal + 1);
 
             free(target.*);
             target.* = copy_string(cast(string) value);

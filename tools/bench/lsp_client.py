@@ -10,50 +10,8 @@ import threading
 import time
 from pathlib import Path
 
-from bench.measure import kill_group
-
-# ---------------------------------------------------------------------------------------- framing
-
-class FrameError(ValueError):
-    pass
-
-
-def encode(message: dict) -> bytes:
-    """One LSP frame: `Content-Length` header, blank line, compact JSON body."""
-    body = json.dumps(message, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
-    return b'Content-Length: %d\r\n\r\n' % len(body) + body
-
-
-class FrameDecoder:
-    """Incremental decoder: feed it arbitrary byte chunks, get complete JSON bodies back."""
-
-    def __init__(self) -> None:
-        self.buffer = b''
-
-    def push(self, data: bytes) -> list[dict]:
-        self.buffer += data
-        messages = []
-        while True:
-            end = self.buffer.find(b'\r\n\r\n')
-            if end < 0:
-                return messages
-            length = None
-            for line in self.buffer[:end].decode('ascii', errors='replace').split('\r\n'):
-                name, _, value = line.partition(':')
-                if name.strip().lower() == 'content-length':
-                    try:
-                        length = int(value.strip())
-                    except ValueError:
-                        raise FrameError(f'bad Content-Length {value.strip()!r}') from None
-            if length is None:
-                raise FrameError('header without Content-Length')
-            start = end + 4
-            if len(self.buffer) < start + length:
-                return messages
-            messages.append(json.loads(self.buffer[start:start + length].decode('utf-8')))
-            self.buffer = self.buffer[start + length:]
-
-
+from toolkit.lsp import FrameDecoder, FrameError, encode
+from toolkit.process import NEW_GROUP, kill_tree
 
 def parse_cpu_time(text: str) -> float:
     """`ps` CPU time: [DD-][HH:]MM:SS[.cc] or M:SS.cc, in seconds."""
@@ -181,9 +139,8 @@ class Client:
         # POSIX: a session of its own, so the whole group can be killed. Windows: a Job Object, which also
         # accounts the CPU time of the server and anything it starts.
         self.job = None
-        spawn = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP} if sys.platform == 'win32' else {'start_new_session': True}
         self.process = subprocess.Popen(command, cwd=cwd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                        stderr=self.stderr, **spawn)
+                                        stderr=self.stderr, **NEW_GROUP)
         if sys.platform == 'win32':
             from bench import winjob
             self.job = winjob.Job()
@@ -358,12 +315,12 @@ class Client:
             if pid:
                 break
             if time.perf_counter() > deadline:
-                kill_group(self.process.pid)
+                kill_tree(self.process)
                 _, status, usage = os.wait4(self.process.pid, 0)
                 break
             time.sleep(0.005)
         self.process.returncode = os.waitstatus_to_exitcode(status)
-        kill_group(self.process.pid)
+        kill_tree(self.process)
         self.reader.join(2)
         self.process.stdout.close()
         self.rusage = usage

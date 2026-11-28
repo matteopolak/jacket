@@ -224,7 +224,7 @@ check_extension :: (r: *Reader, tag: u64, $kind: Scalar, $T: Type, name: string)
 
         if sub.error.kind != .NONE return true;
 
-        if !valid_utf8(.{ n, sub.bytes.data + sub.pos }) {
+        if !Utf8.is_valid(([] u8).{ n, sub.bytes.data + sub.pos }) {
             fail(*sub, .BAD_UTF8);
             r.error = sub.error;
             return field_error(r, tprint("[%]", name));

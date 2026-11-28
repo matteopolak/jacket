@@ -1096,38 +1096,13 @@ ranges_union :: (a: [] Char_Range, b: [] Char_Range) -> [..] Char_Range {
 // The code point starting at `index` and its length in bytes. Invalid UTF-8 decodes as the
 // single byte, so every byte of any string is reachable.
 decode_utf8 :: (s: string, index: int) -> u32, int {
-    b0 := cast(u32) s[index];
-    if b0 < 0x80 return b0, 1;
+    first := cast(u32) s[index];
+    if first < 0x80 return first, 1;
 
-    count := 0;
-    value: u32;
+    code, size := Utf8.decode(s, index);
+    if size == 0 return first, 1;
 
-    if b0 >= 0xC2 && b0 <= 0xDF {
-        count = 1;
-        value = b0 & 0x1F;
-    } else if b0 >= 0xE0 && b0 <= 0xEF {
-        count = 2;
-        value = b0 & 0x0F;
-    } else if b0 >= 0xF0 && b0 <= 0xF4 {
-        count = 3;
-        value = b0 & 0x07;
-    } else {
-        return b0, 1;
-    }
-
-    if index + count >= s.count return b0, 1;
-
-    for 1..count {
-        b := cast(u32) s[index + it];
-        if (b & 0xC0) != 0x80 return b0, 1;
-        value = (value << 6) | (b & 0x3F);
-    }
-
-    // Overlong forms, surrogates and values past U+10FFFF are not valid.
-    if count == 2 && (value < 0x800 || (value >= 0xD800 && value <= 0xDFFF)) return b0, 1;
-    if count == 3 && (value < 0x10000 || value > 0x10FFFF) return b0, 1;
-
-    return value, count + 1;
+    return code, size;
 }
 
 utf8_encode_string :: (c: u32) -> string {
@@ -1141,28 +1116,5 @@ utf8_encode_string :: (c: u32) -> string {
 }
 
 utf8_encode :: (c: u32, out: *[4] u8) -> int {
-    if c < 0x80 {
-        (out.*)[0] = cast(u8) c;
-        return 1;
-    }
-
-    if c < 0x800 {
-        (out.*)[0] = cast(u8) (0xC0 | (c >> 6));
-        (out.*)[1] = cast(u8) (0x80 | (c & 0x3F));
-        return 2;
-    }
-
-    if c < 0x10000 {
-        (out.*)[0] = cast(u8) (0xE0 | (c >> 12));
-        (out.*)[1] = cast(u8) (0x80 | ((c >> 6) & 0x3F));
-        (out.*)[2] = cast(u8) (0x80 | (c & 0x3F));
-        return 3;
-    }
-
-    (out.*)[0] = cast(u8) (0xF0 | (c >> 18));
-    (out.*)[1] = cast(u8) (0x80 | ((c >> 12) & 0x3F));
-    (out.*)[2] = cast(u8) (0x80 | ((c >> 6) & 0x3F));
-    (out.*)[3] = cast(u8) (0x80 | (c & 0x3F));
-
-    return 4;
+    return Utf8.encode(c, cast(*u8) out);
 }

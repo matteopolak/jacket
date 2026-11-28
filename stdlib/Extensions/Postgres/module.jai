@@ -74,6 +74,7 @@
 #import "String";
 #import "Math";
 #import "File";
+Utf8 :: #import "Extensions/Utf8";
 Io :: #import "Extensions/Io";
 Json_Module :: #import "Extensions/Json";
 

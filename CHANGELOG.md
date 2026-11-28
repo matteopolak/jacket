@@ -117,6 +117,9 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - Doc and test HTML replace control characters instead of writing invalid XML.
 - `jacket upgrade --version 0.22` means `v0.22.0`.
 - `jacket doc` checks and reads modules on every core.
+- `JAI_IO_BACKEND` naming an unavailable or unknown backend stops the program with the reason, instead of falling back to epoll.
+- `load_system_fonts` returns an error naming `JAI_UI_FONT` when no font is found, instead of adding blank fonts.
+- `Extensions/Utf8` adds strict `decode`, `encode` and `is_valid`; Json, Regex, Postgres, Archive and UI use it; it replaces `Protobuf.valid_utf8`.
 
 ## [0.40.0] - 2026-11-24
 

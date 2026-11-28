@@ -36,6 +36,24 @@ class BuildEnvTests(unittest.TestCase):
             self.assertTrue(build_pgo.pgo_works(target))
 
 
+class BoltToolTests(unittest.TestCase):
+    def test_llvm_bin_is_the_only_place_looked_in_when_given(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(build_pgo.llvm, "tool", return_value="/elsewhere/llvm-bolt"):
+                with self.assertRaises(SystemExit) as raised:
+                    build_pgo.bolt_tool("llvm-bolt", tmp)
+            self.assertIn("--llvm-bin", str(raised.exception))
+            (Path(tmp) / build_pgo.exe_name("llvm-bolt")).write_text("")
+            self.assertEqual(build_pgo.bolt_tool("llvm-bolt", tmp), str(Path(tmp) / build_pgo.exe_name("llvm-bolt")))
+
+    def test_the_pinned_llvm_is_used_without_llvm_bin(self):
+        with mock.patch.object(build_pgo.llvm, "tool", return_value="/pinned/llvm-bolt"):
+            self.assertEqual(build_pgo.bolt_tool("llvm-bolt", ""), "/pinned/llvm-bolt")
+        with mock.patch.object(build_pgo.llvm, "tool", return_value=None):
+            with self.assertRaises(SystemExit):
+                build_pgo.bolt_tool("llvm-bolt", "")
+
+
 class LazyBackendTests(unittest.TestCase):
     def args(self, llvm):
         return mock.Mock(llvm=llvm, target="x86_64-unknown-linux-gnu", jobs=2)

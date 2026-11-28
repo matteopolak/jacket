@@ -3,19 +3,21 @@
 import os
 import shutil
 import sys
+import tarfile
 import tempfile
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import zipfile
 from collections.abc import Mapping
 from http.client import HTTPException, IncompleteRead
 from pathlib import Path
 
 
-from toolkit.hashing import sha256_file
+from toolkit.hashing import sha256_bytes, sha256_file
 
-__all__ = ["cache_dir", "fetch", "fetch_to", "pinned", "pinned_to", "request"]
+__all__ = ["cache_dir", "fetch", "fetch_to", "pinned", "pinned_archive", "pinned_to", "request"]
 
 ATTEMPTS = 6
 TRANSIENT = {408, 429, 500, 502, 503, 504}
@@ -52,6 +54,49 @@ def pinned_to(url: str, sha256: str, destination: Path, *, timeout: float = 120)
     For example `pinned_to(url, digest, corpus / "a.png")`; exits like `pinned` on a wrong digest.
     """
     shutil.copyfile(pinned(url, sha256, f"pinned/{sha256}", timeout=timeout), destination)
+
+
+def pinned_archive(
+    url: str, sha256: str, root: str, destination: Path, *, cache: Path | None = None, timeout: float = 120
+) -> Path:
+    """Download the `.tar.*` or `.zip` at `url`, check it against `sha256` and replace `destination` with its
+    top-level folder `root`. Exits on a wrong digest or a missing or symlinked root.
+
+    With `cache`, the archive is kept there and verified again on every call, so a corrupt cache is an error and
+    the tree is always rebuilt from verified bytes. For example
+    `pinned_archive(url, digest, "sdl-3.2", vendor / "sdl", cache=vendor / "sdl.tar.gz")`.
+    """
+    if cache is not None and cache.exists():
+        data = cache.read_bytes()
+    else:
+        data = fetch(url, timeout=timeout)
+        if cache is not None and sha256_bytes(data) == sha256:
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_bytes(data)
+    digest = sha256_bytes(data)
+    if digest != sha256:
+        raise SystemExit(f"{url}: SHA-256 {digest} does not match the pinned {sha256}")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=destination.name + "-extract-", dir=destination.parent) as fresh:
+        packed = Path(fresh) / "source.pack"
+        packed.write_bytes(data)
+        unpacked = Path(fresh) / "tree"
+        if url.endswith(".zip"):
+            with zipfile.ZipFile(packed) as unzip:
+                unzip.extractall(unpacked)
+        else:
+            with tarfile.open(packed) as tar:
+                tar.extractall(unpacked, filter="data")
+        extracted = unpacked / root
+        if not extracted.is_dir() or extracted.is_symlink():
+            raise SystemExit(f"{url}: the archive has no folder `{root}`")
+        if destination.is_symlink():
+            raise SystemExit(f"{destination} is a symlink; remove it")
+        if destination.exists():
+            shutil.rmtree(destination)
+        # One move of the whole folder: per-file moves can split AppleDouble companions on exFAT.
+        shutil.move(str(extracted), destination)
+    return destination
 
 
 # Some hosts (get.nexte.st) refuse urllib's default "Python-urllib/x.y" agent with 403.

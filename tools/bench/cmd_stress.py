@@ -15,7 +15,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from bench import common, procmem
-from bench.lsp_client import Client, FrameError, MemoryLimit, ServerExited, Timeout, capabilities, file_uri
+from toolkit.lsp import FrameError
+from bench.lsp_client import Client, MemoryLimit, ServerExited, Timeout, capabilities, file_uri
 from bench.lsp_positions import delete_lines_edit, insert_edit, pick_positions
 from bench.results import ROOT
 from bench.lsp_workloads import WORKLOADS

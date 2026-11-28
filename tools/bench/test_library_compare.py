@@ -1,6 +1,10 @@
+import os
+import tempfile
 import unittest
+from pathlib import Path
+from unittest import mock
 
-from bench.library_compare import LOOPBACK, report, scaled
+from bench.library_compare import LOOPBACK, libpq_directory, report, scaled
 
 
 def result(name: str, estimate: float, items: int = 0) -> dict:
@@ -9,6 +13,21 @@ def result(name: str, estimate: float, items: int = 0) -> dict:
         'time_ns': {'estimate': estimate, 'low': estimate * 0.9, 'high': estimate * 1.1},
         'items_per_iteration': items,
     }
+
+
+class LibpqDirectoryTests(unittest.TestCase):
+    def test_libpq_dir_must_be_set(self):
+        with mock.patch.dict(os.environ):
+            os.environ.pop('LIBPQ_DIR', None)
+            with self.assertRaisesRegex(SystemExit, 'LIBPQ_DIR'):
+                libpq_directory()
+
+    def test_libpq_dir_must_hold_libpq(self):
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {'LIBPQ_DIR': tmp}):
+            with self.assertRaisesRegex(SystemExit, 'LIBPQ_DIR'):
+                libpq_directory()
+            (Path(tmp) / 'libpq.so').write_text('')
+            self.assertEqual(libpq_directory(), tmp)
 
 
 class LibraryCompareTests(unittest.TestCase):

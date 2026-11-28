@@ -177,6 +177,7 @@ beside :: (path: string, loc := #caller_location) -> string {
 
 #scope_module
 Basic :: #import "Basic";
+Utf8 :: #import "Extensions/Utf8";
 #import "Basic";
 #import "String";
 

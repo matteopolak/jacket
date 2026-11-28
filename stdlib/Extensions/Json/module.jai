@@ -642,6 +642,7 @@ simd_enabled :: inline () -> bool {
 #import "Hash_Table";
 #import "Extensions/SIMD";
 Pieces :: #import "internal/byte-source";
+Utf8 :: #import "Extensions/Utf8";
 
 #scope_export
 

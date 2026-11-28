@@ -703,7 +703,7 @@ handle_key :: (ui: *UI_State, edit: *Text_Edit, event: Input_Event, style: Text_
         if options.read_only return result;
 
         buffer: [4] u8;
-        n := encode_utf8(event.character, buffer.data);
+        n := Utf8.encode(event.character, buffer.data);
 
         insert_text(edit, string.{ n, buffer.data });
         result.handled = true;
@@ -1326,34 +1326,6 @@ without_breaks :: (text: string) -> string {
     }
 
     return builder_to_string(*builder,, temp);
-}
-
-// Write `code` as UTF-8 into `out` (at least 4 bytes); returns the number of bytes.
-encode_utf8 :: (code: u32, out: *u8) -> int {
-    if code < 0x80 {
-        out[0] = cast(u8) code;
-        return 1;
-    }
-
-    if code < 0x800 {
-        out[0] = cast(u8) (0xC0 | (code >> 6));
-        out[1] = cast(u8) (0x80 | (code & 0x3F));
-        return 2;
-    }
-
-    if code < 0x10000 {
-        out[0] = cast(u8) (0xE0 | (code >> 12));
-        out[1] = cast(u8) (0x80 | ((code >> 6) & 0x3F));
-        out[2] = cast(u8) (0x80 | (code & 0x3F));
-        return 3;
-    }
-
-    out[0] = cast(u8) (0xF0 | (code >> 18));
-    out[1] = cast(u8) (0x80 | ((code >> 12) & 0x3F));
-    out[2] = cast(u8) (0x80 | ((code >> 6) & 0x3F));
-    out[3] = cast(u8) (0x80 | (code & 0x3F));
-
-    return 4;
 }
 
 // Layout constants of the editing widgets, in points and seconds.

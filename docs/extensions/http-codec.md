@@ -38,4 +38,4 @@ while true {
 - New scan: write the vector loop in `scan.jai` with a scalar twin; `tests/codec.jai` compares both.
 - Chunk framing is a byte-at-a-time state machine in `chunked.jai`.
 - Deliberate differences from the vendored llhttp fixtures live in `tools/corpus/http_deviations.json`, each with a reason. After editing it run `PYTHONPATH=tools python3 tools/corpus/gen_http_corpus.py` and commit `tests/fixtures/llhttp_cases.jai`.
-- Tests: `llhttp.jai`, `smuggling.jai`, `chunking.jai`, `codec.jai` in `stdlib/Extensions/Http/tests/`; `PYTHONPATH=tools python3 tools/stdlib/http_conformance.py` runs them, and `http-conformance.yml` does so when the module changes.
+- Tests: `llhttp.jai`, `smuggling.jai`, `chunking.jai`, `codec.jai` in `stdlib/Extensions/Http/tests/`; `PYTHONPATH=tools python3 tools/stdlib/http_conformance.py` runs them with the `jacket` beside `--jaic` (`--jacket` names another; `PATH` is not searched) and fails when `--garden DIR` is given but Docker or the checkout is missing, and `http-conformance.yml` does so when the module changes.

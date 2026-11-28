@@ -74,6 +74,29 @@ class HttpCoverageTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "check"):
             http_conformance.run_harness(Path("own-jaic"), "native,check", 1)
 
+    def test_a_requested_garden_fails_without_docker(self):
+        with patch.object(http_conformance.shutil, "which", return_value=None):
+            self.assertFalse(http_conformance.external_suites("some/garden"))
+
+    def test_a_requested_garden_fails_when_the_daemon_is_down(self):
+        with (
+            patch.object(http_conformance.shutil, "which", return_value="docker"),
+            patch.object(http_conformance.subprocess, "run") as run,
+        ):
+            run.return_value.returncode = 1
+            self.assertFalse(http_conformance.external_suites("some/garden"))
+
+    def test_a_requested_garden_fails_when_it_is_not_a_checkout(self):
+        with (
+            patch.object(http_conformance.shutil, "which", return_value="docker"),
+            patch.object(http_conformance.subprocess, "run") as run,
+        ):
+            run.return_value.returncode = 0
+            self.assertFalse(http_conformance.external_suites("/no/such/garden"))
+
+    def test_no_garden_requested_is_not_a_failure(self):
+        self.assertTrue(http_conformance.external_suites(None))
+
 
 if __name__ == "__main__":
     unittest.main()

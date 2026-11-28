@@ -11,7 +11,7 @@ App_Options :: struct {
     width: int = 960; // logical size in points
     height: int = 640;
     theme: Theme_Mode;
-    fonts: bool = true; // load the platform's fonts
+    fonts: bool = true; // load the platform's fonts; run_app returns false, naming JAI_UI_FONT, when none can be found
     menus: [] Menu_Item; // borrowed until the app loop returns; native clicks send matching keys
     frame_limit: int; // stop after this many frames (0: run until the window closes); for smoke tests
 }
@@ -108,7 +108,12 @@ run_app_with :: (options: App_Options, ui: *UI_State, app: *$T, build: (app: *T)
     ui.theme = default_theme(options.theme);
 
     if options.fonts {
-        load_system_fonts(*ui.text);
+        error := load_system_fonts(*ui.text);
+
+        if error != "" {
+            print("%\n", error);
+            return false;
+        }
     } else {
         add_synthetic_font(*ui.text);
         add_synthetic_font(*ui.text);

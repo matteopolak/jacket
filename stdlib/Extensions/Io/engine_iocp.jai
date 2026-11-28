@@ -71,16 +71,20 @@ Iocp_State :: struct {
 
         assert(state.accept_ex != null && state.connect_ex != null, "Io: Winsock has no AcceptEx/ConnectEx");
 
-        if request == .IO_URING || request == .EPOLL || request == .KQUEUE {
-            engine.fallback_reason = "JAI_IO_BACKEND names a backend Windows does not have";
-        }
+        if request == .IO_URING || request == .EPOLL || request == .KQUEUE refuse_backend(request, "Windows does not have it");
 
         // Files go through the IoRing unless completion ports were asked for or the ring is not there.
         if request != .IOCP {
             reason := ring_open(state);
 
-            if reason == "" engine.backend = .IORING;
-            else if engine.fallback_reason == "" engine.fallback_reason = reason;
+            if reason == "" {
+                engine.backend = .IORING;
+            } else if request == .IORING {
+                refuse_backend(request, reason);
+            } else {
+                // Nothing was asked for: completion ports for files too, with the reason on record.
+                engine.fallback_reason = reason;
+            }
         }
     }
 

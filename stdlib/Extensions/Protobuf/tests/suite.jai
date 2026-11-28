@@ -3,6 +3,7 @@
 #import "Extensions/Testing";
 Fuzz :: #import "Extensions/Fuzz";
 Proto :: #import "Extensions/Protobuf";
+Utf8 :: #import "Extensions/Utf8";
 Api :: #import "Extensions/Protobuf/Schema"(PATH = #run Proto.beside("fixtures/all.proto"));
 Flat :: #import "Extensions/Protobuf/Schema"(PATH = #run Proto.beside("fixtures/all.proto"), MAP = .ARRAY, STRIP_ENUM_PREFIX = true);
 Tables :: #import "Extensions/Protobuf/Schema"(PATH = #run Proto.beside("fixtures/all.proto"), MAP = .TABLE);
@@ -413,7 +414,7 @@ utf8_boundaries :: () {
             memset(bytes.data, 97, prefix);
             if it.count memcpy(bytes.data + prefix, it.data, it.count);
 
-            expect(Proto.valid_utf8(bytes));
+            expect(Utf8.is_valid(bytes));
         }
 
         bad := string.["c080", "eda080", "f4908080", "c2", "80", "f5808080", "e282", "f09f98"];
@@ -426,7 +427,7 @@ utf8_boundaries :: () {
             defer free(bytes.data);
             memset(bytes.data, 97, prefix);
             memcpy(bytes.data + prefix, tail.data, tail.count);
-            expect(!Proto.valid_utf8(bytes));
+            expect(!Utf8.is_valid(bytes));
         }
     }
 

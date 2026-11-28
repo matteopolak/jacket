@@ -4,18 +4,18 @@ import json
 import os
 from developer_checks import build_developer_bindings
 import re
-import shutil
+from pathlib import Path
+from toolkit.host import exe_name
 from developer_checks.check_developer_dwarf_lines import run
 from developer_checks.dev_common import JAIFMT, ROOT, sha256_file, output_dir, X86_LINUX, LINUX_ARCHES, TRIPLES
 
 
 def main():
     prefix = build_developer_bindings.llvm_prefix()
-    linker = (os.environ.get("DEVELOPER_TOOLS_LD_LLD")
-              or shutil.which("ld.lld", path=str(prefix / "bin"))
-              or shutil.which("ld.lld"))
-    if not linker:
-        raise RuntimeError("Relocated eh_frame fixtures require official ld.lld (DEVELOPER_TOOLS_LD_LLD)")
+    linker = os.environ.get("DEVELOPER_TOOLS_LD_LLD") or str(prefix / "bin" / exe_name("ld.lld"))
+    if not Path(linker).is_file():
+        raise RuntimeError(f"Relocated eh_frame fixtures require official ld.lld: {linker} does not exist; "
+                           "install LLVM or set DEVELOPER_TOOLS_LD_LLD to its path")
     declaration = "Native_Eh_Frame :: struct { filename: string; section_address: u64; fde_offset: s64; fde_end: s64; fde_length: u64; cie_offset: u64; pc_begin: u64; pc_range: u64; instruction_types: string; augmentation: string; encoding: u8; }"
     source = [declaration, "native_eh_frames :: Native_Eh_Frame.["]
     spec = (ROOT / "docs/specs/stdlib/modules/debug-info.md").read_text().split("#### `Call_Frame_Address_Instruction_Type`", 1)[1].split("#### ", 1)[0]

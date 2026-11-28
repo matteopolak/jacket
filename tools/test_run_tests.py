@@ -59,13 +59,13 @@ class Fixtures(unittest.TestCase):
         fixtures = run_tests.Fixtures({"ci": run_tests.Fixture(("test_sdl*.py",), lambda: self.fail("ran"))})
         self.assertEqual(fixtures.environment(self.folder(), ["test_pins.py"]), {})
 
-    def test_a_skip_is_remembered_and_raised(self):
+    def test_a_fixture_failure_is_remembered_and_raised(self):
         def refuse():
-            raise run_tests.Skip("no network")
+            raise run_tests.FixtureError("no network")
 
         fixtures = self.make(refuse)
         for _ in range(2):
-            with self.assertRaises(run_tests.Skip):
+            with self.assertRaises(run_tests.FixtureError):
                 fixtures.environment(self.folder(), ["test_*.py"])
 
 
@@ -86,14 +86,24 @@ class Runs(unittest.TestCase):
             self.assertGreater(outcome.tests, 0)
         self.assertEqual(self.run_folder("tools/stdlib/test_pins.py", only=()), [])
 
-    def test_a_skipped_fixture_skips_the_folder(self):
+    def test_an_unsatisfied_fixture_fails_the_folder(self):
         def refuse():
-            raise run_tests.Skip("not here")
+            raise run_tests.FixtureError("not here")
 
         table = {"ci": run_tests.Fixture(("test_pins.py",), refuse)}
         (outcome,) = self.run_folder("test_pins.py", table)
-        self.assertEqual(outcome.status, "skipped")
+        self.assertEqual(outcome.status, "failed")
         self.assertIn("not here", outcome.output)
+        self.assertIn("--skip ci", outcome.output)
+
+    def test_a_deselected_folder_does_not_run(self):
+        def refuse():
+            raise run_tests.FixtureError("not here")
+
+        table = {"ci": run_tests.Fixture(("test_pins.py",), refuse)}
+        with mock.patch.object(run_tests, "report"):
+            outcomes = run_tests.run_all(["test_pins.py"], ["ci"], 2, False, None, table, dict(os.environ), skip=["ci"])
+        self.assertEqual(outcomes, [])
 
     def test_a_failing_folder_is_reported_failed(self):
         with tempfile.TemporaryDirectory() as tmp:

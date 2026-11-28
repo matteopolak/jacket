@@ -248,7 +248,7 @@ run_smoke :: (gpu_frame: bool = false) {
     #if OS == .MACOS {
         loaded_font := load_font(*metrics.text, "/System/Library/Fonts/Supplemental/Arial.ttf");
         check(loaded_font, "proportional kerning font loads");
-    } else load_system_fonts(*metrics.text);
+    } else check(load_system_fonts(*metrics.text) == "", "system fonts load (set JAI_UI_FONT and JAI_UI_MONO_FONT if not)");
 
     style := Text_Style.{ size = 48 };
     adjustment := pair_kerning(*metrics.text, #char "A", #char "V", style);

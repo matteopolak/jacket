@@ -5,6 +5,8 @@ from developer_checks import build_developer_bindings
 import json
 import re
 import shutil
+from pathlib import Path
+from toolkit.host import exe_name
 import struct
 from developer_checks.dev_common import ROOT, labeled_runner, sha256_bytes, output_dir, WINDOWS_ARCHES
 
@@ -14,11 +16,10 @@ run = labeled_runner('MSF fixture command', expected=None, env=None, timeout=60,
 
 def main():
     llvm = build_developer_bindings.llvm_prefix() / "bin"
-    linker = (os.environ.get("DEVELOPER_TOOLS_LLD_LINK")
-              or shutil.which("lld-link", path=str(llvm))
-              or shutil.which("lld-link"))
-    if not linker:
-        raise RuntimeError("MSF native fixtures require official lld-link (DEVELOPER_TOOLS_LLD_LINK)")
+    linker = os.environ.get("DEVELOPER_TOOLS_LLD_LINK") or str(llvm / exe_name("lld-link"))
+    if not Path(linker).is_file():
+        raise RuntimeError(f"MSF native fixtures require official lld-link: {linker} does not exist; "
+                           "install LLVM or set DEVELOPER_TOOLS_LLD_LINK to its path")
     page_evidence = {"format": "https://www.llvm.org/docs/PDB/MsfFile.html", "scope": "original native PDB active FPM SDK byte oracles; host public-map operations, not target execution or public parser initialization", "fixtures": []}
     for architecture, target in WINDOWS_ARCHES:
         base = output_dir(f"developer-tools-msf-{architecture}")

@@ -3,6 +3,7 @@
     host_os()          "macos" | "linux" | "windows"
     host_cpu()         "arm64" | "x64"
     exe_name(name)     `name` with `.exe` appended on Windows
+    require_tool(name, hint)  the path of `name` on PATH, or exit saying how to install it
     brew_prefix()      Homebrew's prefix on macOS (`$HOMEBREW_PREFIX`, else `brew --prefix`), or None
 """
 
@@ -16,7 +17,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-__all__ = ["brew_prefix", "exe_name", "host_cpu", "host_os"]
+__all__ = ["brew_prefix", "exe_name", "host_cpu", "host_os", "require_tool"]
 
 _SYSTEMS = {"darwin": "macos", "linux": "linux", "win32": "windows"}
 _CPUS = {"arm64": "arm64", "aarch64": "arm64", "amd64": "x64", "x86_64": "x64", "x64": "x64"}
@@ -52,3 +53,14 @@ def brew_prefix() -> Path | None:
         except (OSError, subprocess.SubprocessError):
             pass
     return None
+
+
+def require_tool(name: str, hint: str) -> str:
+    """The path of `name` on PATH, or exit naming it and `hint` (how to install it).
+
+    For example `require_tool("x86_64-w64-mingw32-gcc", "install MinGW-w64 or llvm-mingw")`. Use this instead of
+    trying one tool and then another: the build must not change with what happens to be installed."""
+    found = shutil.which(name)
+    if found is None:
+        raise SystemExit(f"{name} is not on PATH: {hint}")
+    return found

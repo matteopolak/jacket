@@ -154,13 +154,12 @@ def uses_libpq(source: Path) -> bool:
 
 
 def libpq_directory() -> str:
-    """The folder with libpq (the linker finds `-lpq` through LIBRARY_PATH): `LIBPQ_DIR`, or Homebrew's."""
-    candidates = [os.environ.get('LIBPQ_DIR', ''), '/opt/homebrew/lib/postgresql@17', '/opt/homebrew/opt/libpq/lib',
-                  '/usr/local/opt/libpq/lib', '/usr/lib/x86_64-linux-gnu', '/usr/lib/aarch64-linux-gnu']
-    for candidate in candidates:
-        if candidate and any(Path(candidate).glob('libpq.*')):
-            return candidate
-    sys.exit('library_compare: libpq not found; set LIBPQ_DIR to the folder holding it')
+    """The folder with libpq (the linker finds `-lpq` through LIBRARY_PATH): `LIBPQ_DIR`, which is required."""
+    folder = os.environ.get('LIBPQ_DIR', '')
+    if not folder or not any(Path(folder).glob('libpq.*')):
+        sys.exit(f'library_compare: LIBPQ_DIR must name the folder holding libpq (it is {folder or "unset"}); '
+                 'for example `export LIBPQ_DIR="$(brew --prefix libpq)/lib"` or /usr/lib/x86_64-linux-gnu')
+    return folder
 
 
 # Comparisons that talk over the loopback interface (the sandbox allows nothing else).

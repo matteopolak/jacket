@@ -15,11 +15,9 @@ import re
 import shutil
 import subprocess
 import sys
-import tarfile
 import tempfile
 import urllib.request  # noqa: F401  (the tests patch urlopen through this module)
-from toolkit.download import fetch as fetch_pinned
-import zipfile
+from toolkit.download import fetch as fetch_pinned, pinned_archive
 from pathlib import Path
 
 from repo_output import host_platform, output_dir as repo_output_dir, shared_output_dir
@@ -78,24 +76,7 @@ def fetch(source: dict, cache: Path) -> Path:
         done = base / '.sha256'
         if done.exists() and done.read_text() == archive['sha256']:
             return base
-        data = download(archive['url'], archive['sha256'])
-        if base.exists():
-            shutil.rmtree(base)
-        base.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryDirectory() as tmp:
-            packed = Path(tmp) / 'source.pack'
-            packed.write_bytes(data)
-            if archive['url'].endswith('.zip'):
-                with zipfile.ZipFile(packed) as unzip:
-                    unzip.extractall(tmp)
-            else:
-                with tarfile.open(packed) as tar:
-                    # Python before 3.12 (macOS's own) has no extraction filters.
-                    tar.extractall(tmp, **({'filter': 'data'} if hasattr(tarfile, 'data_filter') else {}))
-            top = Path(tmp) / archive['root']
-            # Relocate the directory as a unit. Per-file moves can remove
-            # AppleDouble companions while iterating on macOS/exFAT volumes.
-            shutil.move(str(top), base)
+        pinned_archive(archive['url'], archive['sha256'], archive['root'], base)
         done.write_text(archive['sha256'])
         return base
     for rel, digest in source['files'].items():

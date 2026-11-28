@@ -1,17 +1,15 @@
 """Consume generated ICO and private group bytes using real LLVM SDK tools."""
 from pathlib import Path
-import shutil
 import struct
 import subprocess
 import sys
 
 
-from toolkit.host import brew_prefix
+from toolkit import llvm
 
 root = Path(sys.argv[1]).resolve()
-brew = brew_prefix()
-rc = shutil.which("llvm-rc") or str(brew / "opt/llvm/bin/llvm-rc" if brew else "llvm-rc")
-linker = shutil.which("lld-link") or str(brew / "bin/lld-link" if brew else "lld-link")
+rc = llvm.require("llvm-rc")
+linker = llvm.require("lld-link")
 icon_path = root / "resource.ico"
 rc_path = root / "resource.rc"
 res_path = root / "resource.res"

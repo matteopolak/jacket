@@ -4,24 +4,24 @@
 import argparse
 from pathlib import Path
 import platform
-import shutil
 import subprocess
+from toolkit.host import exe_name, require_tool
 from developer_checks import build_developer_bindings
 from developer_checks.dev_common import ROOT
 
 
-def sdk_tool(prefix, name, fallback):
-    """`prefix/bin/name`, or `fallback` from PATH when the SDK has none.
+def sdk_tool(prefix, name, xcode_name):
+    """`prefix/bin/name` of the SDK; on macOS `xcode_name` from PATH (Xcode's tool) instead.
 
     macOS always uses Xcode's tools: the x64 SDK has no clang and its llvm-ar cannot load libLLVM.
+    Either way a missing tool exits naming it; there is no second choice.
     """
-    tool = Path(prefix) / "bin" / name
-    if platform.system() != "Darwin" and (tool.exists() or tool.with_suffix(".exe").exists()):
-        return str(tool)
-    found = shutil.which(fallback)
-    if not found:
-        raise SystemExit(f"{prefix} has no bin/{name} and no {fallback} is on PATH")
-    return found
+    if platform.system() == "Darwin":
+        return require_tool(xcode_name, "install Xcode's command line tools (`xcode-select --install`)")
+    tool = Path(prefix) / "bin" / exe_name(name)
+    if not tool.is_file():
+        raise SystemExit(f"{tool} does not exist; point --llvm-prefix at an LLVM install that has bin/{name}")
+    return str(tool)
 
 
 def build(prefix=None, output_dir=None, record_nm=True):

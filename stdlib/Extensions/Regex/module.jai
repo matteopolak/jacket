@@ -784,6 +784,7 @@ fill_struct :: ($pattern: string, engine: *Engine, text: string, s: int, e: int,
 #import "Hash_Table";
 #import "Compiler";
 Byte_Search :: #import "Extensions/Byte_Search";
+Utf8 :: #import "Extensions/Utf8";
 Memory_Pool :: #import "Pool";
 
 #load "unicode.jai";

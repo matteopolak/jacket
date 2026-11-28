@@ -152,18 +152,22 @@ add_synthetic_font :: (text: *Text_System) {
 }
 
 // Load the platform's usual fonts: a sans font into slot 0, a monospace font into slot 1, then a
-// few fallbacks for symbols and CJK. Any that are missing are replaced by synthetic fonts for the
-// first two slots. The environment variables `JAI_UI_FONT` and `JAI_UI_MONO_FONT` name font files
-// that replace the sans and monospace choices.
+// few fallbacks for symbols and CJK. The environment variables `JAI_UI_FONT` and
+// `JAI_UI_MONO_FONT` name font files that are tried first for the sans and monospace slots.
+//
+// Returns "" on success. When no sans or no monospace font can be loaded it returns a message that
+// names the slot and says to set `JAI_UI_FONT` or `JAI_UI_MONO_FONT`, and adds no font at all, so
+// the caller decides (`add_synthetic_font` gives fixed metrics without glyphs).
 //
 // - text: the text system to fill.
 //
 // ```jai,no_run
 // ui := headless();
 // defer free_ui(*ui);
-// load_system_fonts(*ui.text);
+// error := load_system_fonts(*ui.text);
+// assert(error == "", error);
 // ```
-load_system_fonts :: (text: *Text_System) {
+load_system_fonts :: (text: *Text_System) -> string {
     sans := environment_variable("JAI_UI_FONT");
     mono := environment_variable("JAI_UI_MONO_FONT");
 
@@ -202,15 +206,62 @@ load_system_fonts :: (text: *Text_System) {
         array_add(*mono_paths, "/usr/share/fonts/liberation/LiberationMono-Regular.ttf");
     }
 
+    return load_fonts_from(text, sans_paths, mono_paths, fallback_paths);
+}
+
+// `load_system_fonts` for these candidate files: the first sans file that loads, the first
+// monospace file that loads, then every fallback that loads. Nothing is added when either of the
+// first two is missing.
+//
+// - text: the text system to fill.
+// - sans_paths: candidates for slot 0, in order.
+// - mono_paths: candidates for slot 1, in order.
+// - fallback_paths: fonts for glyphs the first two lack; each that loads is added.
+//
+// ```jai
+// ui := headless();
+// defer free_ui(*ui);
+// before := ui.text.fonts.count;
+// error := load_fonts_from(*ui.text, string.["/no/such/sans.ttf"], string.["/no/such/mono.ttf"], string.[]);
+// assert(error != "" && ui.text.fonts.count == before);
+// ```
+load_fonts_from :: (text: *Text_System, sans_paths: [] string, mono_paths: [] string, fallback_paths: [] string) -> string {
+    first := text.fonts.count;
+
     for sans_paths if load_font(text, it) break;
-    if !text.fonts.count add_synthetic_font(text);
+
+    if text.fonts.count == first {
+        return "UI: no sans font found; set JAI_UI_FONT to a .ttf or .ttc file";
+    }
 
     count := text.fonts.count;
 
     for mono_paths if load_font(text, it) break;
-    if text.fonts.count == count add_synthetic_font(text);
+
+    if text.fonts.count == count {
+        release_fonts_from(text, first);
+
+        return "UI: no monospace font found; set JAI_UI_MONO_FONT to a .ttf or .ttc file";
+    }
 
     for fallback_paths load_font(text, it);
+
+    return "";
+}
+
+// Frees the fonts in slots `first` and up, leaving the earlier ones.
+release_fonts_from :: (text: *Text_System, first: int) {
+    while text.fonts.count > first {
+        font := text.fonts[text.fonts.count - 1];
+
+        text.fonts.count -= 1;
+
+        if font.face FT_Done_Face(font.face);
+
+        array_free(font.data);
+        free(font.name.data);
+        free(font);
+    }
 }
 
 // Release every font and the glyph cache.
@@ -222,12 +273,7 @@ load_system_fonts :: (text: *Text_System) {
 // free_ui(*ui);
 // ```
 free_text_system :: (text: *Text_System) {
-    for text.fonts {
-        if it.face FT_Done_Face(it.face);
-        array_free(it.data);
-        free(it.name.data);
-        free(it);
-    }
+    release_fonts_from(text, 0);
 
     if text.library FT_Done_FreeType(text.library);
 

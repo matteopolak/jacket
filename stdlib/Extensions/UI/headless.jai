@@ -44,7 +44,8 @@ headless :: (options: Headless_Options = .{}) -> UI_State {
     set_scale(*ui.text, options.scale);
 
     if options.system_fonts {
-        load_system_fonts(*ui.text);
+        error := load_system_fonts(*ui.text);
+        assert(error == "", error);
     } else {
         add_synthetic_font(*ui.text);
         add_synthetic_font(*ui.text);

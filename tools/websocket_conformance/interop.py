@@ -9,7 +9,6 @@ import asyncio
 import importlib.metadata
 import os
 from pathlib import Path
-import shutil
 import ssl
 import statistics
 import sys
@@ -107,10 +106,6 @@ async def run(args):
         raise RuntimeError(f"use pinned Python {pins['python_websocket']}")
     assert importlib.metadata.version("websockets") == pins["websockets"]
     print(f"Python {sys.version.split()[0]}, websockets {pins['websockets']}", flush=True)
-    if not shutil.which("docker"):
-        print("Autobahn not run: Docker is unavailable; using pinned Python fallback", flush=True)
-    else:
-        print("Autobahn not run by this Python fallback runner", flush=True)
     env = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
     # Eight direction/transport/extension combinations, plus no-context-takeover clients.
     for tls in (False, True):

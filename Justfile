@@ -62,7 +62,7 @@ site-assets fix="":
 tools-scripts fix="":
     {{ py }} tools/dev/dev.py tools-scripts {{ if fix == "true" { "--fix" } else { "" } }}
 
-# Run the Neovim plugin's headless tests (editors/nvim); builds a debug jailsp for the end-to-end ones. Skipped without nvim 0.11.
+# Run the Neovim plugin's headless tests (editors/nvim); builds a debug jailsp for the end-to-end ones. Fails without nvim 0.11.
 [group('test')]
 [arg("unit", long, value="true")]
 [arg("jobs", long, short="j")]

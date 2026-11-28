@@ -270,7 +270,7 @@ free_archive :: (error: *Archive_Error) {
 #import "String";
 #import "Sort";
 Deflate :: #import "Extensions/Deflate";
-Unicode :: #import "Unicode";
+Utf8 :: #import "Extensions/Utf8";
 Map :: #import "Extensions/Hash_Map";
 
 problem :: (kind: Archive_Error_Kind, message: string, offset: s64 = 0, entry := "") -> Archive_Error {

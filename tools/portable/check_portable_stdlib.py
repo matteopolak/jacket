@@ -76,6 +76,7 @@ def run(command, env, expected=None, cwd=ROOT, expected_stderr="", expected_code
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     add_jaic_argument(parser)
+    parser.add_argument("--jacket", type=Path, help="the jacket for --check-target (default: the one beside --jaic)")
     parser.add_argument(
         "--stdlib", type=Path, help="Production tree; no source overlays"
     )
@@ -378,7 +379,7 @@ def main():
             env=env,
         )
         target_os, _, cpu = target.partition("/")
-        count, problems = cross_check(compiler, target_os, cpu, env)
+        count, problems = cross_check(compiler, target_os, cpu, env, args.jacket)
         for problem in problems:
             print("FAILED:", problem, file=sys.stderr)
         if checked.returncode or problems:

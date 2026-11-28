@@ -47,6 +47,7 @@
 #import "freetype";
 #import "Extensions/Environment";
 #import "Extensions/Text_Buffer";
+Utf8 :: #import "Extensions/Utf8";
 #import "Extensions/WebGPU";
 #import "Window_Type";
 #import "Window_Creation";

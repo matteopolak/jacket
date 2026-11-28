@@ -135,7 +135,8 @@ def find_header(name: str) -> Path | None:
 
 
 def cxx() -> str | None:
-    return os.environ.get("CXX") or shutil.which("clang++") or shutil.which("c++") or shutil.which("g++")
+    """`$CXX`, else the system's `c++`; None when neither exists (the C++ engines are then reported as skipped)."""
+    return os.environ.get("CXX") or shutil.which("c++")
 
 
 def ensure_jaic(jaic: Path) -> Path:

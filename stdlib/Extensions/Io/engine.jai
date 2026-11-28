@@ -9,8 +9,10 @@
 //   - The buffer and address of an operation belong to it until its completion arrives, even after
 //     a cancel. A canceled operation is never abandoned: the fiber stays parked until the engine
 //     reports it.
-//   - A missing kernel feature is never an error: capabilities are probed and the operation
-//     degrades (io_uring falls back to epoll as a whole when the ring cannot be had).
+//   - A missing kernel feature is not an error when nothing was asked for: capabilities are probed
+//     and the operation degrades (io_uring falls back to epoll as a whole when the ring cannot be
+//     had, and `backend_reason` says why). A backend named in `JAI_IO_BACKEND` is never replaced:
+//     if the system cannot give it, the program stops with the reason (`refuse_backend`).
 //   - Results are a byte count or the negative platform errno; `error_from_code` makes them portable.
 
 NANOSECONDS_PER_MILLISECOND :: 1_000_000;
@@ -174,17 +176,23 @@ engine_start :: (scheduler: *Scheduler) {
     request := requested_backend();
 
     #if OS == .LINUX {
+        if request == .KQUEUE || request == .IOCP || request == .IORING refuse_backend(request, "Linux does not have it");
+
         if request == .NONE || request == .IO_URING {
-            engine.fallback_reason = uring_start(engine);
+            reason := uring_start(engine);
+
             if engine.backend == .IO_URING return;
-        } else if request == .KQUEUE {
-            engine.fallback_reason = "JAI_IO_BACKEND=kqueue is not available on Linux";
+
+            if request == .IO_URING refuse_backend(request, reason);
+
+            // Nothing was asked for: epoll, with the reason on record.
+            engine.fallback_reason = reason;
         }
 
         epoll_start(engine);
         pool_configure(engine);
     } else #if OS == .MACOS {
-        if request == .IO_URING || request == .EPOLL engine.fallback_reason = "JAI_IO_BACKEND names a backend macOS does not have";
+        if request != .NONE && request != .KQUEUE refuse_backend(request, "macOS does not have it");
 
         kqueue_start(engine);
         pool_configure(engine);
@@ -223,16 +231,29 @@ engine_stop :: (scheduler: *Scheduler) {
     scheduler.engine = null;
 }
 
-// The backend a user asked for with JAI_IO_BACKEND, or `.NONE` if it is unset or unknown.
+// Stops the program: the backend a user named in JAI_IO_BACKEND cannot be used, and using another
+// one would hide it.
+refuse_backend :: (backend: Backend, reason: string) {
+    print("Io: JAI_IO_BACKEND=% cannot be used: %\n", name_of_backend(backend), reason, to_standard_error = true);
+    exit(1);
+}
+
+// The backend a user asked for with JAI_IO_BACKEND, or `.NONE` if it is unset or empty. A name that
+// is no backend stops the program.
 requested_backend :: () -> Backend {
     scratch: [256] u8;
     name := env_text("JAI_IO_BACKEND", *scratch);
+
+    if name.count == 0 return .NONE;
 
     if name == "io_uring" return .IO_URING;
     if name == "epoll" return .EPOLL;
     if name == "kqueue" return .KQUEUE;
     if name == "iocp" return .IOCP;
     if name == "ioring" return .IORING;
+
+    print("Io: JAI_IO_BACKEND=% is not a backend: use io_uring, epoll, kqueue, iocp or ioring\n", name, to_standard_error = true);
+    exit(1);
 
     return .NONE;
 }

@@ -797,36 +797,6 @@ find_backslash :: (raw: string, from: int) -> int {
     return raw.count;
 }
 
-append_utf8 :: (dest: *u8, code: int) -> int {
-    if code < 0x80 {
-        dest[0] = cast,no_check(u8) code;
-
-        return 1;
-    }
-
-    if code < 0x800 {
-        dest[0] = cast,no_check(u8) (0xc0 | (code >> 6));
-        dest[1] = cast,no_check(u8) (0x80 | (code & 0x3f));
-
-        return 2;
-    }
-
-    if code < 0x10000 {
-        dest[0] = cast,no_check(u8) (0xe0 | (code >> 12));
-        dest[1] = cast,no_check(u8) (0x80 | ((code >> 6) & 0x3f));
-        dest[2] = cast,no_check(u8) (0x80 | (code & 0x3f));
-
-        return 3;
-    }
-
-    dest[0] = cast,no_check(u8) (0xf0 | (code >> 18));
-    dest[1] = cast,no_check(u8) (0x80 | ((code >> 12) & 0x3f));
-    dest[2] = cast,no_check(u8) (0x80 | ((code >> 6) & 0x3f));
-    dest[3] = cast,no_check(u8) (0x80 | (code & 0x3f));
-
-    return 4;
-}
-
 // Resolves the escapes of a string that scan_string accepted. The result is never longer
 // than `raw`.
 unescape_into :: (raw: string, dest: *u8) -> int {
@@ -869,7 +839,7 @@ unescape_into :: (raw: string, dest: *u8) -> int {
                 code = 0x10000 + ((code - 0xd800) << 10) + (low - 0xdc00);
             }
 
-            out += append_utf8(*dest[out], code);
+            out += Utf8.encode(cast(u32) code, *dest[out]);
 
             continue;
         }

@@ -5,14 +5,15 @@ import argparse
 import json
 import os
 from pathlib import Path
-import shutil
 import subprocess
 
 from native_bindings.build_dependencies import prepare_source
 from native_bindings.prepare_rpmalloc import prepare
 from native_bindings.rpmalloc_profiles import PROFILES, c_definitions
 from native_bindings.config import RPMALLOC_SDK_BUILD_OPTIONS
+from toolkit import llvm
 from toolkit.hashing import sha256_bytes, sha256_file
+from toolkit.host import require_tool
 from toolkit.platforms import MINGW_PREFIXES, WINDOWS_TRIPLES
 from toolkit.repo import ROOT
 
@@ -28,19 +29,18 @@ def toolchain(target):
         raise ValueError("unsupported Windows provider target: " + target)
     prefix, _ = TARGETS[target]
     if target.endswith("-mingw"):
-        compiler = shutil.which(prefix + "-gcc") or shutil.which(prefix + "-clang")
-        archiver = shutil.which(prefix + "-ar")
+        hint = "install MinGW-w64 or llvm-mingw for " + target
+        compiler = require_tool(prefix + "-gcc", hint)
+        archiver = require_tool(prefix + "-ar", hint)
         command = [compiler]
     else:
-        compiler, archiver = shutil.which("clang"), shutil.which("llvm-ar")
+        compiler, archiver = llvm.require("clang"), llvm.require("llvm-ar")
         command = [
             compiler,
             "--target=" + prefix,
             "-fms-runtime-lib=static",
             "-fms-omit-default-lib",
         ]
-    if not compiler or not archiver:
-        raise ValueError("actual compiler/archiver SDK required for " + target)
     return command, archiver, target.endswith("-mingw")
 
 
@@ -284,14 +284,11 @@ def main():
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument(
         "--readobj",
-        default=os.environ.get("LLVM_READOBJ")
-        or shutil.which("llvm-readobj")
-        or shutil.which("llvm-readobj-23"),
+        default=os.environ.get("LLVM_READOBJ"),
+        help="llvm-readobj to use (default: $LLVM_READOBJ, else the pinned LLVM's)",
     )
     args = parser.parse_args()
-    if not args.readobj:
-        parser.error("an actual LLVM readobj executable is required (--readobj)")
-    build(args.platform, args.output.resolve(), args.readobj)
+    build(args.platform, args.output.resolve(), args.readobj or llvm.require("llvm-readobj"))
 
 
 if __name__ == "__main__":

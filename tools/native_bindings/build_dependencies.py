@@ -10,10 +10,8 @@ import json
 from pathlib import Path
 import platform
 import shutil
-import tarfile
-import tempfile
 import urllib.request  # noqa: F401  (the tests patch urlopen through this module)
-from toolkit.download import fetch
+from toolkit.download import fetch, pinned_archive
 from native_bindings.sdl_sdk_headers import prepare_runtime_headers
 from native_bindings.config import RPMALLOC_SDK_BUILD_OPTIONS
 from native_bindings.prepare_rpmalloc import prepare as prepare_rpmalloc
@@ -73,26 +71,11 @@ def prepare_source(name, source, vendor):
     archive_root = None
     if 'archive' in source:
         pin = source['archive']
-        archive = vendor / (name + '.tar.gz')
-        if not archive.exists():
-            archive.parent.mkdir(parents=True, exist_ok=True)
-            archive.write_bytes(download(pin['url']))
-        if sha256_file(archive) != pin['sha256']:
-            raise RuntimeError('Archive hash mismatch: ' + name)
         archive_root = vendor / pin['root']
-        # Recreate the complete tree from the verified archive. Checking only
-        # listed primary headers leaves cached transitive headers/source mutable.
-        with tempfile.TemporaryDirectory(prefix=name+'-extract-',dir=vendor) as fresh:
-            with tarfile.open(archive) as stream:
-                stream.extractall(fresh, filter='data')
-            extracted = Path(fresh)/pin['root']
-            if not extracted.is_dir() or extracted.is_symlink():
-                raise RuntimeError('Archive source root is missing or invalid: '+name)
-            if archive_root.is_symlink():
-                raise RuntimeError('Archive source root cannot be a symlink: '+name)
-            if archive_root.exists():
-                shutil.rmtree(archive_root)
-            extracted.rename(archive_root)
+        # The tree is recreated whole from the verified archive each time: checking only the listed
+        # primary headers would leave cached transitive headers and sources mutable.
+        pinned_archive(pin['url'], pin['sha256'], pin['root'], archive_root,
+                       cache=vendor / (name + '.tar.gz'), timeout=60)
     for filename, expected in source['files'].items():
         path = vendor / name / filename
         if not path.exists():

@@ -30,6 +30,8 @@ just nvim-test            # builds a debug jailsp, runs everything
 just nvim-test --unit     # without the end-to-end spec (what `just check` runs)
 ```
 
+Both fail, naming the install, when `nvim` is missing or older than 0.11; CI installs the pinned `nvim`.
+
 `JAILSP` names the server for the end-to-end spec.
 
 ## Publishing

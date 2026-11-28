@@ -8,14 +8,14 @@ process group: descendants that create another group/session escape it.
 from __future__ import annotations
 
 import os
-import signal
 import sys
 import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
-import subprocess
 from subprocess import DEVNULL, Popen
+
+from toolkit.process import kill_tree
 
 POLL_SECONDS = 0.005
 # CreateProcess's error for an image without a relocation table (a fixed base address) in an AppContainer,
@@ -56,19 +56,6 @@ class Run:
         return f'exit {self.returncode}: ' + ' | '.join(line[:160] for line in shown)
 
 
-def kill_group(pid: int) -> None:
-    """SIGKILL members of the POSIX process group led by `pid`, including children still in it.
-    This does not reach descendants that create another group/session. On Windows this fallback
-    uses `taskkill /T`; `run_measured` instead owns a Job Object."""
-    if sys.platform == 'win32':
-        subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], capture_output=True)
-        return
-    try:
-        os.killpg(pid, signal.SIGKILL)
-    except (ProcessLookupError, PermissionError):
-        pass
-
-
 def run_measured(command: list[str], cwd: Path | None = None, env: dict[str, str] | None = None,
                  timeout: float = 900, stdin_bytes: bytes | None = None, output=None,
                  limits: dict[int, int] | None = None) -> Run:
@@ -99,7 +86,7 @@ def run_measured(command: list[str], cwd: Path | None = None, env: dict[str, str
                 if pid:
                     break
                 if time.perf_counter() > deadline:
-                    kill_group(process.pid)
+                    kill_tree(process)
                     _, status, usage = os.wait4(process.pid, 0)
                     timed_out = True
                     break
@@ -107,7 +94,7 @@ def run_measured(command: list[str], cwd: Path | None = None, env: dict[str, str
             wall = time.perf_counter() - start
             process.returncode = os.waitstatus_to_exitcode(status)  # reaped here, not by Popen
         finally:
-            kill_group(process.pid)
+            kill_tree(process)
             if process.returncode is None:
                 process.wait()
         stdout = stderr = ''

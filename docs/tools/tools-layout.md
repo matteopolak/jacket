@@ -38,12 +38,14 @@ Import them folder-qualified: `from toolkit.hashing import sha256_file`.
 | Module | What it gives |
 |---|---|
 | `toolkit.repo` | `ROOT` (never recompute it from `__file__`), `git_files(*patterns)` (the index's paths), `cargo_target_dir()`, `cargo_binary()`, `jaifmt_path()`, `stdlib_env()` |
-| `toolkit.host` | `host_os()`, `host_cpu()`, `exe_name()`, `brew_prefix()` |
+| `toolkit.host` | `host_os()`, `host_cpu()`, `exe_name()`, `brew_prefix()`, `require_tool(name, hint)` (a tool on `PATH`, or exit with the hint) |
+| `toolkit.llvm` | `tool(name)` and `require(name)`: an LLVM program from the one search order in [LLVM setup](llvm-setup.md). A script that needs `llvm-ar` calls `require("llvm-ar")`; it never tries `ar` after it |
 | `toolkit.platforms` | `PLATFORMS`, `TRIPLES`, `WINDOWS_TRIPLES`, `MINGW_PREFIXES`: the `<os>-<cpu>` names and their compiler targets; `toolkit/test_platforms.py` fails when they disagree with `crates/jaic/src/target.rs` (OS and CPU names, Windows and Linux triples) |
 | `toolkit.hashing` | `sha256_file`, `sha256_bytes` |
 | `toolkit.age_policy` | `MIN_AGE` (the 14-day rule), `parse_time`, and the JSON answer cache helpers (`load_cache`, `save_cache`, `recent`) shared by the cargo and action-pin age checks |
-| `toolkit.download` | `fetch(url, ...)` with retries (the one download path; don't call `urllib` directly); `pinned(url, sha256, name)` caches under `~/.cache/jaic/` and exits on a digest mismatch |
-| `toolkit.process` | `run(command, ...)` (checked, echoes the command); `run_expect(...)` raises unless stdout, status and stderr match; `output(command...)` is stripped stdout, empty on failure |
+| `toolkit.download` | `fetch(url, ...)` with retries (the one download path; don't call `urllib` directly); `pinned(url, sha256, name)` caches under `~/.cache/jaic/` and exits on a digest mismatch; `pinned_archive(url, sha256, root, destination)` verifies a `.tar.*` or `.zip` and extracts its `root` folder |
+| `toolkit.process` | `run(command, ...)` (checked, echoes the command); `NEW_GROUP` and `kill_tree(process)` start a child in its own group and kill it with its descendants (use these, not `os.killpg`); `run_expect(...)` raises unless stdout, status and stderr match; `output(command...)` is stripped stdout, empty on failure |
+| `toolkit.lsp` | `Lsp` (a minimal language-server client), and `encode` / `FrameDecoder`, the one `Content-Length` framing the bench client and the PGO trainer share |
 | `toolkit.coverage_json` | `dumps(value)`: the coverage ledger format, one declaration per line |
 | `toolkit.cli` | `add_jaic_argument(parser)`: the shared `--jaic` option |
 
@@ -67,7 +69,7 @@ Any script under `tools/` that defines `OUTPUTS` is run, and a script in `tools/
 
 `PYTHONPATH=tools python3 tools/portable/build_portable.py zip` writes the stdlib ZIP fixtures through Python's `zipfile` module. The stored entries use the ZIP epoch and fixed Unix file metadata, so identical content produces identical bytes across clock changes and hosts; malformed variants derive from that same archive. Keep those fields explicit when adding an entry, and retain the controlled-clock regression in `portable/test_build_portable.py`. `JACKET_OUTPUT_DIR` selects the output root through `repo_output`.
 
-`tools/` has no `__init__.py`, so plain `unittest discover` skips subfolders. Use `python3 tools/run_tests.py [FOLDER ...] [-p PATTERN]... [-v] [-j N] [--timeout S]`: one `discover` per folder, each in its own process, run in parallel. Folders run at the same time, so tests must not share scratch paths. A folder that needs prepared inputs has an entry in `FIXTURES`. A script that only runs a suite by hand must not be named `test_*.py`. The SDL tests in `bindings/` need `SDL_TEST_TMPDIR` and prepared sources: `run_tests.py` prepares them, and run by hand without them they skip with the command to prepare them. When `CI` is set a missing input is an error instead, so CI cannot skip them silently. Node tests (`tools/browser/test_*.mjs`) run with `node --test`.
+`tools/` has no `__init__.py`, so plain `unittest discover` skips subfolders. Use `python3 tools/run_tests.py [FOLDER ...] [-p PATTERN]... [--skip FOLDER]... [-v] [-j N] [--timeout S]`: one `discover` per folder, each in its own process, run in parallel. Folders run at the same time, so tests must not share scratch paths. A folder that needs prepared inputs has an entry in `FIXTURES`; when the inputs cannot be prepared the folder fails with the fix, and `--skip FOLDER` deselects it on purpose. A script that only runs a suite by hand must not be named `test_*.py`. The SDL tests in `bindings/` need `SDL_TEST_TMPDIR` and prepared sources: `run_tests.py` prepares them, and run by hand without them they skip with the command to prepare them. When `CI` is set a missing input is an error instead, so CI cannot skip them silently. Node tests (`tools/browser/test_*.mjs`) run with `node --test`.
 
 ## Adding a tool
 

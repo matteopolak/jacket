@@ -437,16 +437,18 @@ def cmd_tools_scripts(args) -> int:
 
 
 def cmd_nvim(args) -> int:
-    """Run the Neovim plugin's headless tests (needs nvim >= 0.11); --unit leaves out the jailsp ones."""
+    """Run the Neovim plugin's headless tests (needs nvim >= 0.11, else fails); --unit leaves out the jailsp ones."""
     nvim = shutil.which("nvim")
     if nvim is None:
-        print("nvim not found: skipping the Neovim plugin tests (CI runs them)")
-        return 0
+        print("nvim not found: the Neovim plugin tests need nvim 0.11 or newer. Install it "
+              "(`brew install neovim`, or the release `nvim` in .github/pins.json) and put it on PATH.", file=sys.stderr)
+        return 1
     banner = subprocess.run([nvim, "--version"], capture_output=True, text=True).stdout.splitlines()
     found = re.match(r"NVIM v(\d+)\.(\d+)", banner[0]) if banner else None
     if found is None or (int(found.group(1)), int(found.group(2))) < (0, 11):
-        print(f"{banner[0] if banner else 'nvim'} is older than 0.11: skipping the Neovim plugin tests")
-        return 0
+        print(f"{banner[0] if banner else 'nvim'} is not nvim 0.11 or newer, which the Neovim plugin tests need. "
+              "Install a newer one (`brew install neovim`, or the release `nvim` in .github/pins.json).", file=sys.stderr)
+        return 1
     env = {k: v for k, v in os.environ.items() if k != "JAILSP"}
     if "MINI_TEST_DIR" not in env:
         fetched = subprocess.run([sys.executable, str(ROOT / "tools" / "dev" / "fetch_mini_test.py")], capture_output=True, text=True)

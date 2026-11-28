@@ -14,7 +14,9 @@ import re
 import shlex
 import shutil
 import subprocess
+from toolkit import llvm
 from toolkit.download import fetch
+from toolkit.host import require_tool
 from repo_output import host_platform
 from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.repo import ROOT, cargo_target_dir
@@ -159,9 +161,7 @@ def verify_archive_member(ar, archive, obj):
 def verify_vorbis_provider(ar, archive, obj, shared, entry, definitions):
     expected = set(definitions.read_text().splitlines()[2:])
     expected = {name.strip() for name in expected}
-    nm = shutil.which("llvm-nm") or shutil.which("nm")
-    if not nm:
-        raise RuntimeError("Vorbis provider verification requires llvm-nm (or native nm)")
+    nm = llvm.require("llvm-nm")
     result = subprocess.run([nm, "-g", str(archive)], cwd=ROOT, env=native_environment(),
                             capture_output=True, text=True)
     if result.returncode or result.stderr:
@@ -345,13 +345,12 @@ def main():
     if not (out.is_relative_to(build_root()) or out.is_relative_to(ROOT)):
         parser.error("--out must remain inside the configured build root (or this worktree when unset)")
     cc = shlex.split(args.cc) if args.cc else ["clang"]
-    ar = shlex.split(args.ar) if args.ar else [shutil.which("llvm-ar") or "ar"]
+    ar = shlex.split(args.ar) if args.ar else [llvm.require("llvm-ar")]
     build(target, out, cc, ar, args.mingw, args.test_runtime, args.require_device, args.test_vorbis)
     if args.check_windows:
-        compiler = shutil.which("x86_64-w64-mingw32-gcc")
-        archiver = shutil.which("x86_64-w64-mingw32-ar")
-        if not compiler or not archiver:
-            parser.error("--check-windows requires the public MinGW-w64 SDK")
+        hint = "--check-windows needs the public MinGW-w64 SDK (MinGW-w64 or llvm-mingw)"
+        compiler = require_tool("x86_64-w64-mingw32-gcc", hint)
+        archiver = require_tool("x86_64-w64-mingw32-ar", hint)
         build("windows-x64", native_root / "windows-x64-mingw", [compiler], [archiver], True)
 
 

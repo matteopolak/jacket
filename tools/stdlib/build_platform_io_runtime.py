@@ -5,8 +5,9 @@ import argparse
 import os
 from pathlib import Path
 import platform
-import shutil
 import subprocess
+from toolkit import llvm
+from toolkit.host import require_tool
 from toolkit.repo import ROOT
 from repo_output import output_dir
 
@@ -39,13 +40,13 @@ def build_static(compiler, target, source, directory, native):
     if native:
         archive = directory / "platform_io_windows_crash.lib"
         archive.unlink(missing_ok=True)
-        tool = shutil.which("llvm-lib") or "lib"
+        tool = llvm.require("llvm-lib")
         subprocess.run([tool, f"/OUT:{archive}", str(obj)], cwd=ROOT, check=True)
     else:
         archive = directory / "libplatform_io_windows_crash.a"
         archive.unlink(missing_ok=True)
         subprocess.run(
-            [shutil.which("llvm-ar") or "ar", "rcs", str(archive), str(obj)],
+            [llvm.require("llvm-ar"), "rcs", str(archive), str(obj)],
             cwd=ROOT,
             check=True,
         )
@@ -58,7 +59,7 @@ def main():
     parser.add_argument("--cpu", choices=["x64", "arm64"], default="x64")
     parser.add_argument(
         "--compiler",
-        help="native C compiler; defaults to clang or the target MinGW compiler",
+        help="native C compiler; defaults to clang on Windows, else the target MinGW gcc",
     )
     parser.add_argument(
         "--static-library",
@@ -89,10 +90,9 @@ def main():
         linker = [f"-Wl,/IMPLIB:{import_library}"]
     else:
         prefix = "aarch64" if args.cpu == "arm64" else "x86_64"
-        compiler = (
-            args.compiler
-            or shutil.which(prefix + "-w64-mingw32-clang")
-            or prefix + "-w64-mingw32-gcc"
+        compiler = args.compiler or require_tool(
+            prefix + "-w64-mingw32-gcc",
+            "install MinGW-w64 or llvm-mingw, or pass --compiler",
         )
         target = []
         import_library = directory / "libplatform_io_windows_crash.dll.a"

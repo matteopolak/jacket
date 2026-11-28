@@ -23,6 +23,8 @@ class RuntimeSetup(unittest.TestCase):
                     return_value=Path("/official/llvm"),
                 ),
                 patch.object(provider.subprocess, "run") as command,
+                # The prefix is fictional: only the choice of tool matters here, not its presence.
+                patch.object(provider, "sdk_tool", side_effect=lambda prefix, name, _: str(Path(prefix) / "bin" / name)),
             ):
                 output = provider.build(output_dir=directory)
             argv = command.call_args.args[0]

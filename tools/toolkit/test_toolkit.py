@@ -11,11 +11,16 @@ from pathlib import Path
 from unittest import mock
 
 
+import json
+import tarfile
+import zipfile
+
 from toolkit import download, llvm
+from toolkit.lsp import FrameDecoder, FrameError, encode
 from toolkit.cli import add_jaic_argument, default_jaic
 from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.process import output, run, run_expect
-from toolkit.host import brew_prefix, exe_name, host_cpu, host_os
+from toolkit.host import brew_prefix, exe_name, host_cpu, host_os, require_tool
 from toolkit.repo import ROOT, cargo_binary, cargo_target_dir, git_files, jaifmt_path, stdlib_env
 
 PY = sys.executable
@@ -362,6 +367,114 @@ class Llvm(unittest.TestCase):
             with mock.patch.dict(os.environ, env):
                 os.environ.pop("LLVM_SYS_991_PREFIX", None)
                 self.assertEqual(llvm.tool("llvm-symbolizer"), str(tool))
+
+
+class LspFraming(unittest.TestCase):
+    def test_encode_counts_bytes_not_characters(self):
+        header, _, body = encode({'a': 'é'}).partition(b'\r\n\r\n')
+        self.assertEqual(header, b'Content-Length: %d' % len(body))
+        self.assertEqual(json.loads(body), {'a': 'é'})
+
+    def test_decoder_handles_split_and_joined_chunks(self):
+        data = encode({'id': 1}) + encode({'id': 2, 'x': 'ü'})
+        decoder = FrameDecoder()
+        out = []
+        for i in range(0, len(data), 3):
+            out += decoder.push(data[i:i + 3])
+        self.assertEqual([m['id'] for m in out], [1, 2])
+        self.assertEqual([m['id'] for m in FrameDecoder().push(data)], [1, 2])
+
+    def test_decoder_ignores_other_headers_and_rejects_bad_ones(self):
+        body = b'{"id":7}'
+        frame = b'content-type: x\r\nCONTENT-LENGTH: %d\r\n\r\n' % len(body) + body
+        self.assertEqual(FrameDecoder().push(frame), [{'id': 7}])
+        with self.assertRaises(FrameError):
+            FrameDecoder().push(b'Foo: 1\r\n\r\n{}')
+        with self.assertRaises(FrameError):
+            FrameDecoder().push(b'Content-Length: x\r\n\r\n{}')
+
+
+
+class PinnedArchive(unittest.TestCase):
+    def archive(self, kind="tar"):
+        buffer = io.BytesIO()
+        files = {"pkg-1/include/a.h": b"header", "pkg-1/.hidden": b"dot"}
+        if kind == "zip":
+            with zipfile.ZipFile(buffer, "w") as pack:
+                for name, data in files.items():
+                    pack.writestr(name, data)
+        else:
+            with tarfile.open(fileobj=buffer, mode="w:gz") as pack:
+                for name, data in files.items():
+                    info = tarfile.TarInfo(name)
+                    info.size = len(data)
+                    pack.addfile(info, io.BytesIO(data))
+        return buffer.getvalue()
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.dest = Path(self.tmp.name) / "out" / "pkg"
+
+    def test_extracts_the_root_into_the_destination(self):
+        for kind, suffix in (("tar", "tar.gz"), ("zip", "zip")):
+            data = self.archive(kind)
+            with mock.patch.object(download, "fetch", return_value=data):
+                result = download.pinned_archive(
+                    f"https://example.invalid/pkg.{suffix}", sha256_bytes(data), "pkg-1", self.dest
+                )
+            self.assertEqual(result, self.dest)
+            self.assertEqual((self.dest / "include/a.h").read_bytes(), b"header")
+            self.assertEqual((self.dest / ".hidden").read_bytes(), b"dot")
+
+    def test_wrong_digest_exits_before_extraction(self):
+        with mock.patch.object(download, "fetch", return_value=self.archive()):
+            with self.assertRaises(SystemExit):
+                download.pinned_archive("https://example.invalid/p.tar.gz", "0" * 64, "pkg-1", self.dest)
+        self.assertFalse(self.dest.exists())
+
+    def test_a_missing_root_is_an_error(self):
+        data = self.archive()
+        with mock.patch.object(download, "fetch", return_value=data):
+            with self.assertRaises(SystemExit):
+                download.pinned_archive("https://example.invalid/p.tar.gz", sha256_bytes(data), "other", self.dest)
+
+    def test_cache_file_is_reused_and_verified(self):
+        data = self.archive()
+        cache = Path(self.tmp.name) / "cache.tar.gz"
+        with mock.patch.object(download, "fetch", return_value=data) as fetch:
+            download.pinned_archive("https://example.invalid/p.tar.gz", sha256_bytes(data), "pkg-1", self.dest, cache=cache)
+            download.pinned_archive("https://example.invalid/p.tar.gz", sha256_bytes(data), "pkg-1", self.dest, cache=cache)
+        self.assertEqual(fetch.call_count, 1)
+        cache.write_bytes(b"corrupt")
+        with self.assertRaises(SystemExit):
+            download.pinned_archive("https://example.invalid/p.tar.gz", sha256_bytes(data), "pkg-1", self.dest, cache=cache)
+
+
+class RequireTool(unittest.TestCase):
+    def test_a_missing_tool_names_itself_and_the_hint(self):
+        with mock.patch("shutil.which", return_value=None):
+            with self.assertRaises(SystemExit) as raised:
+                require_tool("x86_64-w64-mingw32-gcc", "install MinGW-w64")
+        self.assertIn("x86_64-w64-mingw32-gcc", str(raised.exception))
+        self.assertIn("install MinGW-w64", str(raised.exception))
+
+    def test_a_found_tool_is_returned(self):
+        with mock.patch("shutil.which", return_value="/bin/cc"):
+            self.assertEqual(require_tool("cc", "hint"), "/bin/cc")
+
+
+class LlvmRequire(unittest.TestCase):
+    def test_a_missing_tool_names_itself_and_the_fix(self):
+        with mock.patch.object(llvm, "tool", return_value=None):
+            with self.assertRaises(SystemExit) as raised:
+                llvm.require("llvm-ar")
+        self.assertIn("llvm-ar", str(raised.exception))
+        self.assertIn("LLVM_PREFIX", str(raised.exception))
+
+    def test_a_found_tool_is_returned(self):
+        with mock.patch.object(llvm, "tool", return_value="/x/llvm-ar"):
+            self.assertEqual(llvm.require("llvm-ar"), "/x/llvm-ar")
 
 
 if __name__ == "__main__":

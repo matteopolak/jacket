@@ -163,7 +163,7 @@ zip_local :: (a: *Archive, e: *Archive_Entry, flags: u16, name: [] u8, central: 
 
 zip_name :: (bytes: [] u8, utf8: bool) -> string, bool {
     if utf8 {
-        if !valid_utf8(bytes) return "", false;
+        if !Utf8.is_valid(bytes) return "", false;
         return copy_string(cast(string) bytes), true;
     }
 
@@ -184,17 +184,6 @@ zip_name :: (bytes: [] u8, utf8: bool) -> string, bool {
     }
 
     return .{ out.count, out.data }, true;
-}
-
-valid_utf8 :: (b: [] u8) -> bool {
-    i: s64;
-    while i < b.count {
-        _, n, status := Unicode.character_utf8_to_utf32(b.data + i, b.count - i, true);
-        if status != .CONVERSION_OK return false;
-        i += n;
-    }
-
-    return true;
 }
 
 CP437 :: u16.[

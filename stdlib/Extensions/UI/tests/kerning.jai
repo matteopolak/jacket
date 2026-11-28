@@ -12,7 +12,7 @@
         #if OS == .MACOS {
             expect(load_font(*ui.text, "/System/Library/Fonts/Supplemental/Arial.ttf"));
             expect(load_font(*ui.text, "/System/Library/Fonts/Menlo.ttc"));
-        } else load_system_fonts(*ui.text);
+        } else expect_equal(load_system_fonts(*ui.text), "");
 
         style := Text_Style.{ size = 48 };
         adjustment := pair_kerning(*ui.text, #char "A", #char "V", style);

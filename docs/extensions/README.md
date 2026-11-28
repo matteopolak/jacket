@@ -42,6 +42,7 @@
 | `Frame_Arena` | fixed-capacity per-frame bump arena, and a double-frame pair that keeps the previous frame alive | [frame-arena](frame-arena.md) |
 | `Stack_Allocator` | LIFO allocator with `mark` and `rewind` | [stack-allocator](stack-allocator.md) |
 | `Hash_Map` | opt-in SwissTable hash map: single-key, 16-slot SIMD group probing | [hash-map](hash-map.md) |
+| `Utf8` | strict UTF-8 decode, encode and validation | [utf8](utf8.md) |
 | `Byte_Search` | vectorized `memchr`/`memmem` | [byte-search](byte-search.md) |
 | `Jai_Format` | the formatter behind `jaifmt` and the playground's Format button | [jaifmt](../tools/jaifmt.md) |
 | `WebGPU` | the standard `webgpu.h` API: wgpu-native natively, the page's WebGPU in the playground | [webgpu](webgpu.md) |
