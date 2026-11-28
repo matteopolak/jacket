@@ -191,7 +191,7 @@ check_fd_set :: (fd: s32, set: *fd_set) -> bool {
 FD_ISSET :: (fd: s32, set: *fd_set) -> s32 {
     if !check_fd_set(fd, set) return 0;
     bits := cast(*u8) set;
-    if (bits[fd / 8] & ((cast(u8) 1) << (fd % 8))) != 0 return 1;
+    if (bits[descriptor_byte(fd)] & ((cast(u8) 1) << (fd % 8))) != 0 return 1;
     return 0;
 }
 
@@ -210,7 +210,7 @@ FD_ISSET :: (fd: s32, set: *fd_set) -> s32 {
 FD_SET :: (fd: s32, set: *fd_set) {
     if fd >= size_of(fd_set) * 8 return;
     assert(check_fd_set(fd, set));
-    (cast(*u8) set)[fd / 8] |= (cast(u8) 1) << (fd % 8);
+    (cast(*u8) set)[descriptor_byte(fd)] |= (cast(u8) 1) << (fd % 8);
 }
 
 // Removes descriptor `fd` from `set`. Clearing a descriptor that is not in the set, or one at or beyond the set's capacity,
@@ -228,10 +228,24 @@ FD_SET :: (fd: s32, set: *fd_set) {
 FD_CLR :: (fd: s32, set: *fd_set) {
     if fd >= size_of(fd_set) * 8 return;
     assert(check_fd_set(fd, set));
-    (cast(*u8) set)[fd / 8] &= ~((cast(u8) 1) << (fd % 8));
+    (cast(*u8) set)[descriptor_byte(fd)] &= ~((cast(u8) 1) << (fd % 8));
 }
 
 #scope_module
+// The byte of an `fd_set` that holds the bit of descriptor `fd`. The set is an array of machine words whose bit
+// `n` is `1 << n`, so a big-endian CPU stores the low byte of each word last.
+descriptor_byte :: (fd: s32) -> s64 {
+    index := cast(s64) fd / 8;
+
+    #if ARCHITECTURE == .S390X || ARCHITECTURE == .POWERPC64 {
+        word := size_of(*void);
+
+        return index - index % word + (word - 1 - index % word);
+    } else {
+        return index;
+    }
+}
+
 // The result of a `bind` that was refused before reaching the system: `-1`, with the socket error set to invalid argument.
 refuse_address :: () -> s32 {
     P.set_errno(cast(P.OS_Error_Code) P.EINVAL);

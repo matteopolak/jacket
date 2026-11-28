@@ -56,11 +56,32 @@ LINUX_WORD_SIZED = [
 ]
 
 
+# powerpc64 numbers these socket options differently from every other Linux CPU. The spec records
+# the common numbers; the generated file picks powerpc64's by CPU.
+LINUX_POWERPC64_OPTIONS = {
+    "SO_PASSCRED": (16, 20),
+    "SO_PEERCRED": (17, 21),
+    "SO_RCVLOWAT": (18, 16),
+    "SO_SNDLOWAT": (19, 17),
+    "SO_RCVTIMEO_OLD": (20, 18),
+    "SO_SNDTIMEO_OLD": (21, 19),
+}
+
+
 def linux_word_sized(code):
     for pattern, replacement in LINUX_WORD_SIZED:
         code, count = re.subn(pattern, replacement, code)
         if not count:
             raise RuntimeError(f"the Linux socket spec no longer matches {pattern!r}")
+    for name, (common, powerpc64) in LINUX_POWERPC64_OPTIONS.items():
+        code, count = re.subn(
+            rf"^{name} :: {common};$",
+            f"#if ARCHITECTURE == .POWERPC64 {{\n    {name} :: {powerpc64};\n}} else {{\n    {name} :: {common};\n}}",
+            code,
+            flags=re.M,
+        )
+        if count != 1:
+            raise RuntimeError(f"the Linux socket spec no longer declares {name} :: {common};")
     return code
 
 

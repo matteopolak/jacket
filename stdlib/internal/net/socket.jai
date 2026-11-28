@@ -339,8 +339,10 @@ bind :: (s: Socket, address: [16] u8, port: u16) -> s32 {
 #scope_module
 #import "Basic";
 
+// Swaps a port between host and network order: the network's is big-endian, so a big-endian CPU keeps it.
 host_port :: (value: u16) -> u16 {
-    return (value >> 8) | (value << 8);
+    #if ARCHITECTURE == .S390X || ARCHITECTURE == .POWERPC64 return value;
+    else return (value >> 8) | (value << 8);
 }
 
 append_hex :: (builder: *String_Builder, value: u32) {
