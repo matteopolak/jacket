@@ -109,7 +109,12 @@ impl<'a> Lookup<'a> {
         let major = jacket_config::llvm::MAJOR;
         let mut dirs = (self.llvm_bins)();
 
-        for keg in ["lld".to_string(), format!("lld@{major}")] {
+        for keg in [
+            "lld".to_string(),
+            format!("lld@{major}"),
+            "llvm".to_string(),
+            format!("llvm@{major}"),
+        ] {
             for root in ["/opt/homebrew/opt", "/usr/local/opt"] {
                 dirs.push(PathBuf::from(root).join(&keg).join("bin"));
             }

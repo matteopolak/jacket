@@ -22,6 +22,7 @@ fn args(found: &Found) -> Vec<String> {
 }
 
 const ARMHF: &str = "armv7-unknown-linux-gnueabihf";
+const S390X: &str = "s390x-unknown-linux-gnu";
 
 #[test]
 fn the_host_target_is_the_machine_s_os_and_cpu() {
@@ -347,4 +348,32 @@ fn a_sysroot_that_is_not_a_folder_is_an_error_naming_it() {
     .unwrap_err();
 
     assert_eq!(error.what, "-sysroot names `/nope`, which is not a folder");
+}
+
+#[test]
+fn a_mac_links_s390x_with_llvm_clang_not_apples() {
+    let mut host = FakeHost::mac();
+
+    host.file("/opt/homebrew/bin/ld.lld");
+    host.file("/opt/homebrew/opt/llvm/bin/clang");
+    host.file("/cache/mac/jacket/toolchains/s390x-unknown-linux-gnu/sysroot/usr/lib/libc.so");
+    let found = find(&host, S390X).unwrap();
+
+    assert_eq!(
+        found.program,
+        PathBuf::from("/opt/homebrew/opt/llvm/bin/clang")
+    );
+}
+
+#[test]
+fn a_mac_without_llvm_clang_is_told_to_install_it_for_s390x() {
+    let mut host = FakeHost::mac();
+
+    host.file("/opt/homebrew/bin/brew");
+    host.file("/opt/homebrew/bin/ld.lld");
+    host.file("/cache/mac/jacket/toolchains/s390x-unknown-linux-gnu/sysroot/usr/lib/libc.so");
+    let error = find(&host, S390X).unwrap_err();
+
+    assert_eq!(error.what, format!("no linker for {S390X}"));
+    assert!(error.notes[0].contains("clang"), "{:?}", error.notes);
 }

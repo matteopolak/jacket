@@ -163,7 +163,10 @@ fn cross_linux(lookup: &Lookup, target: Target, overrides: &Overrides) -> Result
         return Ok(Found::new(driver, Origin::System));
     }
 
-    let driver = if lookup.host.os() == Os::MacOs {
+    // Apple's `cc` is clang without the backends for s390x and powerpc64, so it cannot build the
+    // C sources a link brings (the crash runtime); LLVM's own clang can.
+    let apple_clang_lacks_cpu = matches!(target.cpu, TargetCpu::S390x | TargetCpu::PowerPc64);
+    let driver = if lookup.host.os() == Os::MacOs && !apple_clang_lacks_cpu {
         lookup.which("cc")
     } else {
         lookup.llvm_tool("clang")
