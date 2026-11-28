@@ -22,6 +22,7 @@ Every option is in the [reference](../reference/tools.md#compiling). Behaviour t
 - `-profile`, `-profile_ops` and `-coverage` (with `-interp`) count what the interpreter runs ([coverage](coverage.md)).
 - `-dev_*` flags study the compiler itself and may change at any time.
 - A build flavor (`-od`, `-o`, `-very_debug`) overrides a build metaprogram's optimization level; don't combine it with `-O0` to `-O3`.
+- `-backend cranelift` writes unoptimized builds with Cranelift, and hands LLVM what it cannot build ([Cranelift backend](../native/cranelift-backend.md)).
 
 ### Where the executable goes
 

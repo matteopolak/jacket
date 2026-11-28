@@ -18,6 +18,7 @@ jaic = { path = "../jaic" }
 jaic-cli-args = { path = "../jaic-cli-args" }
 jacket-config = { path = "../jacket-config" }
 jaic-llvm = { path = "../jaic-llvm", optional = true, default-features = false }
+jaic-cranelift = { path = "../jaic-cranelift", optional = true }
 jaic-native = { path = "../jaic-native", optional = true }
 jaic-toolchain = { path = "../jaic-toolchain" }
 mimalloc = { version = "=0.1.52", optional = true, default-features = false }
@@ -30,7 +31,7 @@ mimalloc = { version = "=0.1.52", optional = true, default-features = false }
 mimalloc = { version = "=0.1.52", optional = true, default-features = false, features = ["override"] }
 
 [features]
-default = ["dynamic-llvm", "mimalloc"]
+default = ["dynamic-llvm", "mimalloc", "cranelift"]
 # Native output (`jaic`); without it jaic only checks and interprets.
 llvm = ["dep:jaic-native"]
 # LLVM linked into the executable, as a shared library (development) or statically.
@@ -40,6 +41,9 @@ static-llvm = ["llvm", "dep:jaic-llvm", "jaic-llvm/static", "mimalloc"]
 # first writes native code, so every other command starts without loading it
 # (`docs/compiler/lazy-backend.md`). Release archives use this.
 lazy-llvm = ["llvm", "mimalloc"]
+# The experimental Cranelift code generator for unoptimized builds (`-backend cranelift`,
+# docs/native/cranelift-backend.md); it links through the same native output path as LLVM.
+cranelift = ["llvm", "dep:jaic-cranelift"]
 # Count in-place writes to shared compiler state for `-dev_body_probe`.
 body-probe = ["jaic/body-probe"]
 speculative-bodies = ["jaic/speculative-bodies"]

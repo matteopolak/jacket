@@ -71,6 +71,7 @@ By default jaic builds a native executable. Options may come before or after the
 | `-no_debug_info` | leave out native debug information |
 | `-no_inline` | do not inline procedures |
 | `-no_split` | generate code as one module instead of several |
+| `-backend <name>` | the code generator: llvm (the default) or cranelift, an experimental one for faster unoptimized builds; what it cannot build goes to llvm (docs/native/cranelift-backend.md) |
 | `-no_backtrace_on_crash` | leave the crash handler out of the program |
 | `-backtrace_on_crash` | install the crash handler (a metaprogram's setting wins; -no_backtrace_on_crash overrides) |
 | `-linker <program>` | link with this program instead of the one found for the target (also JAIC_LINKER) |

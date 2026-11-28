@@ -1,0 +1,19 @@
+[package]
+name = "jaic-cranelift"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Experimental Cranelift backend for unoptimized jaic builds: lowers jaic IR to native object files."
+
+[dependencies]
+jaic = { path = "../jaic" }
+jaic-native = { path = "../jaic-native" }
+cranelift-codegen = { version = "=0.134.4", default-features = false, features = ["std", "unwind", "x86", "arm64"] }
+cranelift-frontend = { version = "=0.134.4", default-features = false, features = ["std"] }
+cranelift-module = { version = "=0.134.4", default-features = false }
+cranelift-object = { version = "=0.134.4", default-features = false }
+
+[lints]
+workspace = true

@@ -203,3 +203,13 @@ impl Sanitize {
 /// The fuzzer's counters and PC table are also what a coverage report reads; its traced
 /// comparisons let libFuzzer solve `if x == 0x1234` style branches.
 pub const SANCOV_PASS: &str = "sancov-module";
+
+/// The macOS version objects are built for: `explicit` (`minimum_os_version`), else
+/// `MACOSX_DEPLOYMENT_TARGET`, else 11.0, the first arm64 macOS. The host triple's Darwin kernel
+/// version would map to a newer macOS than the SDK the linker targets (a warning per link).
+pub fn macos_deployment_target(explicit: Option<&str>) -> String {
+    explicit
+        .map(str::to_string)
+        .or_else(|| jacket_config::env::MACOSX_DEPLOYMENT_TARGET.get())
+        .unwrap_or_else(|| "11.0".into())
+}

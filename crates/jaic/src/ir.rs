@@ -14,6 +14,7 @@ mod builder;
 mod checks;
 mod func;
 mod insts;
+mod null_checks;
 mod program;
 mod string_compare;
 
@@ -32,6 +33,7 @@ pub use self::insts::{
     ORDER_ACQUIRE, ORDER_RELAXED, ORDER_RELEASE, ORDER_SEQ_CST, Sig, Term, WideOp, X86Fence,
     X86Prefetch,
 };
+pub use self::null_checks::NullChecks;
 pub use self::program::{
     Foreign, Global, Library, Program, Reloc, RelocTarget, Storage, TraceInfoLayout, TraceLayout,
     TraceNodeLayout,

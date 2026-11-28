@@ -110,8 +110,19 @@ fn exe_path(dir: &Path, name: &str) -> PathBuf {
 
 /// Build `source` natively into `dir` and run it.
 fn build_and_run(source: &Path, dir: &Path, name: &str) -> Result<std::process::Output, String> {
+    build_and_run_with(source, dir, name, &[])
+}
+
+/// Build `source` natively into `dir` with the extra `jaic` arguments `args`, and run it.
+fn build_and_run_with(
+    source: &Path,
+    dir: &Path,
+    name: &str,
+    args: &[&str],
+) -> Result<std::process::Output, String> {
     let exe = exe_path(dir, name);
     let build = jaic()
+        .args(args)
         .arg(source)
         .arg("-exe")
         .arg(&exe)
@@ -133,7 +144,20 @@ fn build_and_run(source: &Path, dir: &Path, name: &str) -> Result<std::process::
 
 #[test]
 fn corpus_runs_natively_like_the_interpreter() {
-    let dir = TempDir::new("native-corpus");
+    corpus_runs_natively_with("native-corpus", &[]);
+}
+
+/// The Cranelift code generator (docs/native/cranelift-backend.md) builds every corpus program
+/// that LLVM does into one that behaves the same.
+#[cfg(feature = "cranelift")]
+#[test]
+fn corpus_runs_natively_with_cranelift() {
+    corpus_runs_natively_with("native-corpus-cranelift", &["-backend", "cranelift"]);
+}
+
+/// Every corpus case the interpreter passes, built natively with `args` and run, passes too.
+fn corpus_runs_natively_with(scratch: &str, args: &[&str]) {
+    let dir = TempDir::new(scratch);
     let (mut checked, mut failures) = (0, Vec::new());
 
     for case in corpus_cases() {
@@ -151,7 +175,7 @@ fn corpus_runs_natively_like_the_interpreter() {
 
         checked += 1;
 
-        match build_and_run(&case.source, &dir, &case.id) {
+        match build_and_run_with(&case.source, &dir, &case.id, args) {
             Ok(native) if matches(&case, &native) => {}
             Ok(native) => failures.push(format!(
                 "{}: native exit {:?}, stdout {:?} (expected exit {}, stdout {:?})",
@@ -451,7 +475,59 @@ fn small_aggregate_parameters_are_not_spilled_as_pointers() {
 /// Compiler and C ABI regressions whose bugs showed only in compiled code.
 #[test]
 fn compiler_and_abi_regressions_run_natively() {
-    let dir = TempDir::new("native-stdlib-tests");
+    regressions_run_natively_with("native-stdlib-tests", &[]);
+}
+
+/// The same with the Cranelift code generator (docs/native/cranelift-backend.md).
+#[cfg(feature = "cranelift")]
+#[test]
+fn compiler_and_abi_regressions_run_natively_with_cranelift() {
+    regressions_run_natively_with("native-stdlib-tests-cranelift", &["-backend", "cranelift"]);
+}
+
+/// Every program of `examples/` that prints the same each run behaves the same built with
+/// Cranelift as with LLVM.
+#[cfg(feature = "cranelift")]
+#[test]
+fn examples_run_the_same_with_cranelift() {
+    let dir = TempDir::new("native-examples-cranelift");
+    let mut failures = Vec::new();
+
+    for example in [
+        "arrays-and-strings",
+        "basics",
+        "compile-time-record",
+        "files",
+        "machine",
+        "memory",
+        "metaprogramming",
+        "polymorphism",
+        "raymarch",
+        "runtime-safety",
+        "sum",
+        "type-variants",
+        "using-records",
+    ] {
+        let source = repo_root().join("examples").join(example).join("main.jai");
+        let run = |backend: &str| {
+            let name = format!("{example}-{backend}");
+
+            build_and_run_with(&source, &dir, &name, &["-backend", backend])
+                .map(|out| (out.status.code(), out.stdout))
+        };
+        let (llvm, cranelift) = (run("llvm"), run("cranelift"));
+
+        if llvm != cranelift {
+            failures.push(format!("{example}: llvm {llvm:?}\ncranelift {cranelift:?}"));
+        }
+    }
+
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// Build and run each compiler and C ABI regression with the extra `jaic` arguments `args`.
+fn regressions_run_natively_with(scratch: &str, args: &[&str]) {
+    let dir = TempDir::new(scratch);
 
     for name in [
         "struct-literal-overrides-default-string",
@@ -514,7 +590,7 @@ fn compiler_and_abi_regressions_run_natively() {
             "posix-stat-and-mutex" => "stdlib/POSIX/tests/stat-and-mutex.jai".to_string(),
             _ => format!("tests/compiler/regressions/{name}.jai"),
         });
-        let output = build_and_run(&source, &dir, name).unwrap();
+        let output = build_and_run_with(&source, &dir, name, args).unwrap();
 
         assert_eq!(
             String::from_utf8_lossy(&output.stdout),
@@ -688,4 +764,67 @@ fn stack_traces() {
         "{stderr}"
     );
     assert!(!output.status.success());
+}
+
+/// `-backend cranelift` says which code generator wrote the program, and a build that needs
+/// what Cranelift does not compile is written by LLVM instead, with the reason on the same line.
+#[cfg(feature = "cranelift")]
+#[test]
+fn cranelift_names_itself_and_hands_llvm_what_it_cannot_build() {
+    let dir = TempDir::new("native-cranelift-fallback");
+    let hello = dir.join("hello.jai");
+
+    std::fs::write(
+        &hello,
+        "#import \"Basic\";\nmain :: () { print(\"ok\\n\"); }\n",
+    )
+    .unwrap();
+    // `#asm` string compares lower to `StringCompare`, which Cranelift does not compile.
+    let asm = repo_root().join("tests/compiler/regressions/asm-string-compare.jai");
+
+    for (source, args, backend) in [
+        (&hello, &[][..], "cranelift"),
+        (&hello, &["-o"][..], "llvm"),
+        (&asm, &[][..], "llvm"),
+    ] {
+        let exe = exe_path(&dir, "program");
+        let output = jaic()
+            .env("JAIC_PROGRESS", "plain")
+            .args(["-backend", "cranelift"])
+            .args(args)
+            .arg(source)
+            .arg("-exe")
+            .arg(&exe)
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        let stderr = String::from_utf8_lossy(&output.stderr);
+
+        assert!(output.status.success(), "{args:?} {source:?}: {stderr}");
+        let line = stderr
+            .lines()
+            .find(|l| l.trim_start().starts_with("Backend "))
+            .unwrap_or_else(|| panic!("no Backend line: {stderr}"));
+        let text = line.trim_start().trim_start_matches("Backend ");
+
+        assert!(
+            text.starts_with(&format!("{backend} ")),
+            "{args:?} {source:?}: {line}"
+        );
+
+        if backend == "llvm" {
+            assert!(
+                text.contains(", since Cranelift does not support "),
+                "{line}"
+            );
+        }
+
+        let run = Command::new(&exe).output().unwrap();
+
+        assert_eq!(
+            String::from_utf8_lossy(&run.stdout),
+            "ok\n",
+            "{args:?} {source:?}"
+        );
+    }
 }

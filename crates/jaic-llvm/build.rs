@@ -1,5 +1,6 @@
 //! Finds which optional LLVM backends the linked LLVM was built with and sets
-//! `llvm_backend = "<name>"` for each, so `machine.rs` registers only backends that link.
+//! `llvm_backend = "<name>"` for each, so `machine.rs` registers only backends that link, and
+//! sets `JAIC_LLVM_VERSION` to the linked LLVM's version (`jaic_llvm::VERSION`).
 //! Official Windows releases, for one, have no `AVR`, `PowerPC` or `SystemZ` backend.
 
 // Cargo's variables for a build script are not the user's settings `jacket_config::env` declares.
@@ -28,6 +29,16 @@ fn main() {
     };
 
     println!("cargo::rerun-if-changed={config}");
+    let version = Command::new(&config)
+        .arg("--version")
+        .output()
+        .unwrap_or_else(|e| panic!("could not run {config} --version: {e}"));
+
+    assert!(version.status.success(), "{config} --version failed");
+    println!(
+        "cargo::rustc-env=JAIC_LLVM_VERSION={}",
+        String::from_utf8_lossy(&version.stdout).trim()
+    );
     let output = Command::new(&config)
         .arg("--targets-built")
         .output()

@@ -640,6 +640,7 @@ mod tests {
 
     /// The quoted `JAIC_*`, `JACKET_*` and `JAI_*` names in `text`, and any name handed straight
     /// to an `env("…")` or `lookup("…")` call, which panics at run time when it is undeclared.
+    /// Compile-time `env!("…")` names are skipped.
     fn quoted_names(text: &str) -> Vec<&str> {
         let mut found = Vec::new();
 
@@ -650,6 +651,13 @@ mod tests {
             };
             let word = &rest[..end];
             let before = &text[..start];
+
+            // `env!("X")` reads a build script's `rustc-env` at compile time, and a misspelt
+            // name fails the build.
+            if before.ends_with("env!(") {
+                continue;
+            }
+
             // `.env("X", value)` sets a child's environment, which needs no declaration.
             let read = (before.ends_with("env(") && !before.ends_with(".env("))
                 || before.ends_with("lookup(");

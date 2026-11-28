@@ -7,7 +7,7 @@ use jaic::ir::{Func, Linkage as IrLinkage, Term, Ty, Val};
 
 use super::error::Error;
 use super::plan::{ParamPlan, RetPlan};
-use super::state::{FnState, NullFacts};
+use super::state::FnState;
 use super::{Backend, R};
 
 impl<'ctx> Backend<'ctx, '_> {
@@ -34,19 +34,9 @@ impl<'ctx> Backend<'ctx, '_> {
             reg_ret: None,
             dbg: None,
             loc: (func.source_file, 0),
-            null_checks: func.null_checks,
-            nonnull: vec![false; func.vals.len()],
-            facts: NullFacts::default(),
+            checks: jaic::ir::NullChecks::new(func),
             flags: vec![None; func.vals.len()],
         };
-
-        for v in &func.trusted {
-            st.nonnull[v.0 as usize] = true;
-        }
-
-        if st.null_checks {
-            st.facts = NullFacts::new(func);
-        }
 
         if let Some(debug) = &self.debug {
             let local = func.linkage == IrLinkage::Internal;
@@ -71,7 +61,7 @@ impl<'ctx> Backend<'ctx, '_> {
 
             self.builder
                 .position_at_end(st.blocks[b].expect("reachable block"));
-            st.facts.enter_block();
+            st.checks.enter_block();
 
             if let (Some(debug), Some(dbg)) = (&self.debug, &mut st.dbg) {
                 dbg.enter_block(debug, func, &self.builder, b);

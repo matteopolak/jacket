@@ -273,7 +273,7 @@ impl<'ctx> Backend<'ctx, '_> {
             } => {
                 let p = st.slots[slot.0 as usize];
 
-                st.nonnull[dst.0 as usize] = true;
+                st.checks.address(*dst);
                 self.set(st, *dst, p.into());
             }
             Inst::StackAlloc {
@@ -291,7 +291,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     .unwrap()
                     .set_alignment(*align as u32)
                     .map_err(|e| Error(format!("dynamic stack alignment: {e:?}")))?;
-                st.nonnull[dst.0 as usize] = true;
+                st.checks.address(*dst);
                 self.set(st, *dst, pointer.into());
             }
             Inst::GlobalAddr {
@@ -300,7 +300,7 @@ impl<'ctx> Backend<'ctx, '_> {
             } => {
                 let p = self.global(global.0 as usize).as_pointer_value();
 
-                st.nonnull[dst.0 as usize] = true;
+                st.checks.address(*dst);
                 self.set(st, *dst, p.into());
             }
             Inst::FuncAddr {
@@ -309,7 +309,7 @@ impl<'ctx> Backend<'ctx, '_> {
             } => {
                 let p = self.func_ptr(*func)?;
 
-                st.nonnull[dst.0 as usize] = true;
+                st.checks.address(*dst);
                 self.set(st, *dst, p.into());
             }
             Inst::ForeignAddr {
@@ -318,7 +318,7 @@ impl<'ctx> Backend<'ctx, '_> {
             } => {
                 let p = self.foreign(foreign.0 as usize);
 
-                st.nonnull[dst.0 as usize] = true;
+                st.checks.address(*dst);
                 self.set(st, *dst, p.into());
             }
             Inst::PtrAdd {
@@ -345,15 +345,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     self.gep(base, off)?
                 };
 
-                if st.nonnull[base_val.0 as usize] {
-                    st.nonnull[dst.0 as usize] = true;
-                } else if st.null_checks
-                    && st.facts.constant[offset.0 as usize].is_some_and(|c| c < 4096)
-                {
-                    // A real address plus a field offset is not in the first page either.
-                    st.facts.derived[dst.0 as usize] = base_val.0 + 1;
-                }
-
+                st.checks.ptr_add(*dst, base_val, *offset);
                 self.set(st, *dst, p.into());
             }
             _ => unreachable!("dispatched only for this group's operations"),
@@ -379,15 +371,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     let _ = i.set_alignment(ty.align(&self.layout) as u32);
                 }
 
-                if st.null_checks
-                    && *ty == Ty::Ptr
-                    && let Some(slot) = st.facts.tracked_slot(*addr)
-                {
-                    let facts = &mut st.facts;
-
-                    facts.loaded_from[dst.0 as usize] = (slot as u32 + 1, facts.slot_version[slot]);
-                }
-
+                st.checks.load(*dst, *ty, *addr);
                 self.set(st, *dst, load);
             }
             Inst::Store {
@@ -401,19 +385,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 let store = b.build_store(p, v)?;
                 let _ = store.set_alignment(ty.align(&self.layout) as u32);
 
-                if st.null_checks
-                    && let Some(slot) = st.facts.tracked_slot(*addr)
-                {
-                    let known = *ty == Ty::Ptr && st.known_nonnull(*value);
-                    let facts = &mut st.facts;
-
-                    facts.slot_version[slot] += 1;
-                    facts.slot_checked[slot] = if known {
-                        facts.epoch
-                    } else {
-                        0
-                    };
-                }
+                st.checks.store(*ty, *addr, *value);
             }
             Inst::Copy {
                 dst,

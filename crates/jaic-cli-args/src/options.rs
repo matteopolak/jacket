@@ -5,7 +5,7 @@ use argdef::{Error, Shell};
 use jaic::flags::{self, FlagError, Shared, SharedFlag};
 use jaic::target::{TargetCpu, TargetOs};
 
-use super::cli::{Added, Cli};
+use super::cli::{Added, Cli, CodegenBackend};
 
 /// A build's exit status when the program has no `main` (its work is all `#run`s), so
 /// tools can tell "nothing to build" from a failed compile.
@@ -94,6 +94,19 @@ pub fn read_cpu(name: &str, text: &str) -> Result<TargetCpu, Error> {
     match shared(&flags::CPU, name, text)? {
         Shared::Cpu(cpu) => Ok(cpu),
         _ => unreachable!("`-cpu` reads a CPU"),
+    }
+}
+
+/// `-backend llvm` or `-backend cranelift`.
+pub fn read_backend(name: &str, text: &str) -> Result<CodegenBackend, Error> {
+    match text {
+        "llvm" => Ok(CodegenBackend::Llvm),
+        "cranelift" => Ok(CodegenBackend::Cranelift),
+        _ => Err(
+            Error::invalid(format!("`{name}` takes llvm or cranelift, not `{text}`")).help(
+                format!("`{name} cranelift` builds with the experimental Cranelift code generator"),
+            ),
+        ),
     }
 }
 

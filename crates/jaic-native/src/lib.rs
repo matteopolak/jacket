@@ -28,7 +28,9 @@ pub use self::linker::{
     OutputKind, archive, check_sanitizer_target, link_failure, linker_not_run, output_extension,
     require_dsymutil, write_dsym,
 };
-pub use self::options::{Codegen, OptLevel, Options, SANCOV_PASS, Sanitize};
+pub use self::options::{
+    Codegen, OptLevel, Options, SANCOV_PASS, Sanitize, macos_deployment_target,
+};
 pub use self::wasm::{WasmLink, link_wasm};
 
 /// Keep `fork` working when the process's C allocator is mimalloc's macOS zone

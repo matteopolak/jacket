@@ -45,19 +45,15 @@ pub(super) fn set_coverage_options(fuzzer: bool) {
     });
 }
 
-/// The host triple. On macOS LLVM's default names the Darwin kernel version, which it maps to
-/// a newer macOS than the SDK the linker targets (a warning per link); objects are built for a
-/// deployment target instead (`MACOSX_DEPLOYMENT_TARGET`, default 11.0, the first arm64 macOS).
+/// The host triple. On macOS LLVM's default names the Darwin kernel version; objects are built
+/// for a deployment target instead (`jaic_native::macos_deployment_target`).
 fn host_triple(macos_version: Option<&str>) -> TargetTriple {
     let default = TargetMachine::get_default_triple();
     let text = default.as_str().to_string_lossy().into_owned();
 
     match text.split_once("-apple-darwin") {
         Some((arch, _)) => {
-            let version = macos_version
-                .map(str::to_string)
-                .or_else(|| jacket_config::env::MACOSX_DEPLOYMENT_TARGET.get())
-                .unwrap_or_else(|| "11.0".into());
+            let version = jaic_native::macos_deployment_target(macos_version);
             TargetTriple::create(&format!("{arch}-apple-macosx{version}"))
         }
         None => default,

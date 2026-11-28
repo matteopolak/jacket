@@ -8,7 +8,7 @@ use jaic::sema::Options;
 use jaic::target::{Target, TargetCpu, TargetOs};
 
 use crate::options::{
-    CliError, FLAVOR_CONFLICT, add_code, add_run, add_sanitizer, read_cpu, read_os,
+    CliError, FLAVOR_CONFLICT, add_code, add_run, add_sanitizer, read_backend, read_cpu, read_os,
     read_package_import, set_color, store_level,
 };
 use crate::tuning;
@@ -60,6 +60,15 @@ impl Flavor {
             Flavor::VeryDebug => BitcodeOptimization::O0,
         }
     }
+}
+
+/// The code generator `-backend` picks.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CodegenBackend {
+    #[default]
+    Llvm,
+    /// Cranelift: unoptimized native builds only (`docs/native/cranelift-backend.md`).
+    Cranelift,
 }
 
 /// A `-add` or `-run` string, in command-line order.
@@ -272,6 +281,15 @@ pub struct Cli {
     /// generate code as one module instead of several
     #[arg(name = "-no_split")]
     pub no_split: bool,
+    /// the code generator: llvm (the default) or cranelift, an experimental one for faster
+    /// unoptimized builds; what it cannot build goes to llvm (docs/native/cranelift-backend.md)
+    #[arg(
+        name = "-backend",
+        value = "name",
+        needs = "a code generator: llvm or cranelift",
+        parse = read_backend
+    )]
+    pub backend: Option<CodegenBackend>,
     /// `-codegen_units`, `-parse_threads`, `-profile` and the `-dev_*` flags (`tuning.rs`).
     #[arg(flatten)]
     pub tuning: tuning::Tuning,

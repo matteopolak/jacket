@@ -26,6 +26,9 @@ pub const STAMP_SYMBOL: &str = "jaic_backend_stamp";
 
 pub const EMIT_SYMBOL: &str = "jaic_backend_emit";
 
+/// The version of the LLVM the library links, read like the stamp.
+pub const VERSION_SYMBOL: &str = "jaic_backend_version";
+
 /// `unsafe extern "C" fn(len: *mut usize) -> *const u8`: the stamp's bytes.
 type StampFn = unsafe extern "C" fn(*mut usize) -> *const u8;
 
@@ -115,6 +118,7 @@ pub unsafe fn serve(
 /// The opened library.
 pub struct Backend {
     emit: EmitFn,
+    version: String,
 }
 
 static BACKEND: OnceLock<Result<Backend, String>> = OnceLock::new();
@@ -191,18 +195,21 @@ pub fn load_from(path: &Path) -> Result<Backend, String> {
     };
     // SAFETY: the symbols have the signatures declared above in every library built from these
     // sources; the stamp is checked before the emit function is used.
-    let (theirs, emit) = unsafe {
+    let (theirs, emit, version) = unsafe {
         let stamp: StampFn =
             std::mem::transmute(sys::symbol(library, STAMP_SYMBOL).map_err(not_ours)?);
         let emit: EmitFn =
             std::mem::transmute(sys::symbol(library, EMIT_SYMBOL).map_err(not_ours)?);
-        let mut len = 0;
-        let bytes = stamp(&raw mut len);
+        let version: StampFn =
+            std::mem::transmute(sys::symbol(library, VERSION_SYMBOL).map_err(not_ours)?);
+        let read = |f: StampFn| {
+            let mut len = 0;
+            let bytes = f(&raw mut len);
 
-        (
-            String::from_utf8_lossy(std::slice::from_raw_parts(bytes, len)).into_owned(),
-            emit,
-        )
+            String::from_utf8_lossy(std::slice::from_raw_parts(bytes, len)).into_owned()
+        };
+
+        (read(stamp), emit, read(version))
     };
 
     if theirs != stamp() {
@@ -215,10 +222,16 @@ pub fn load_from(path: &Path) -> Result<Backend, String> {
 
     Ok(Backend {
         emit,
+        version,
     })
 }
 
 impl Backend {
+    /// The version of the LLVM the library links (`23.1.0`).
+    pub fn version(&self) -> &str {
+        &self.version
+    }
+
     fn run(
         &self,
         program: &Program,

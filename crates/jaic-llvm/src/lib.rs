@@ -21,6 +21,9 @@ pub use jaic_native::{
 
 pub use self::emit::{emit_object, emit_objects};
 
+/// The version of the LLVM this crate links, for the build's `Backend` line (`23.1.0`).
+pub const VERSION: &str = env!("JAIC_LLVM_VERSION");
+
 #[cfg(test)]
 mod tests {
     use std::path::Path;

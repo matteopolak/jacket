@@ -1,4 +1,4 @@
-//! Building workspaces and the LLVM output backend.
+//! Building workspaces and the native output backend (LLVM, or Cranelift with `-backend`).
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
@@ -29,44 +29,140 @@ compile_error!(
 );
 
 /// Where code generation runs: in this executable (`dynamic-llvm`, `static-llvm`), or in the
-/// library opened on the first build that writes native code (`lazy-llvm`). Linking stays here
-/// either way.
+/// library opened on the first build that writes native code (`lazy-llvm`); Cranelift's always
+/// runs here (`-backend cranelift`). Linking stays here either way.
 #[cfg(feature = "llvm")]
 mod generate {
     use std::path::{Path, PathBuf};
 
     use jaic::ir::Program;
+    use jaic_cli_args::cli::CodegenBackend;
     use jaic_native::Options;
+
+    /// The objects a code generator wrote, and whether it was Cranelift's (which writes no
+    /// debug information).
+    pub(super) struct Written {
+        pub(super) objects: Vec<PathBuf>,
+        pub(super) cranelift: bool,
+    }
+
+    /// Write `program` as `path` and, for LLVM, the objects of its other codegen units (`whole`:
+    /// one object). `-backend cranelift` uses Cranelift unless the build needs what it does not
+    /// compile; then LLVM writes it, and the `Backend` line says why.
+    pub(super) fn with(
+        backend: CodegenBackend,
+        program: &Program,
+        options: &Options,
+        path: &Path,
+        whole: bool,
+    ) -> Result<Written, String> {
+        let asked = backend == CodegenBackend::Cranelift;
+        let reason = match backend {
+            CodegenBackend::Llvm => None,
+            CodegenBackend::Cranelift => match cranelift(program, options, path)? {
+                Ok(objects) => {
+                    jaic::progress::tool(
+                        "Backend",
+                        &format!("cranelift {}", cranelift_version()),
+                        true,
+                    );
+                    return Ok(Written {
+                        objects,
+                        cranelift: true,
+                    });
+                }
+                Err(reason) => Some(reason),
+            },
+        };
+        let objects = if whole {
+            object(program, options, path).map(|()| vec![path.into()])?
+        } else {
+            objects(program, options, path)?
+        };
+        let text = match reason {
+            Some(reason) => format!("llvm {}, since {reason}", llvm_version()?),
+            None => format!("llvm {}", llvm_version()?),
+        };
+
+        jaic::progress::tool("Backend", &text, asked);
+        Ok(Written {
+            objects,
+            cranelift: false,
+        })
+    }
+
+    /// Cranelift's objects, or (inner `Err`) why it cannot write this build.
+    #[cfg(feature = "cranelift")]
+    fn cranelift(
+        program: &Program,
+        options: &Options,
+        path: &Path,
+    ) -> Result<Result<Vec<PathBuf>, String>, String> {
+        match jaic_cranelift::emit_objects(program, options, path) {
+            Ok(objects) => Ok(Ok(objects)),
+            Err(
+                e @ jaic_cranelift::Error::Unsupported {
+                    ..
+                },
+            ) => Ok(Err(e.to_string())),
+            Err(jaic_cranelift::Error::Failed(message)) => Err(message),
+        }
+    }
+
+    #[cfg(not(feature = "cranelift"))]
+    fn cranelift(
+        _: &Program,
+        _: &Options,
+        _: &Path,
+    ) -> Result<Result<Vec<PathBuf>, String>, String> {
+        Ok(Err("this jaic was built without Cranelift".into()))
+    }
+
+    #[cfg(feature = "cranelift")]
+    fn cranelift_version() -> &'static str {
+        jaic_cranelift::VERSION
+    }
+
+    #[cfg(not(feature = "cranelift"))]
+    fn cranelift_version() -> &'static str {
+        unreachable!("Cranelift wrote nothing in a jaic built without it")
+    }
+
+    #[cfg(not(feature = "lazy-llvm"))]
+    #[expect(
+        clippy::unnecessary_wraps,
+        reason = "the lazy library's version can fail to load"
+    )]
+    fn llvm_version() -> Result<&'static str, String> {
+        Ok(jaic_llvm::VERSION)
+    }
+
+    #[cfg(feature = "lazy-llvm")]
+    fn llvm_version() -> Result<&'static str, String> {
+        Ok(backend()?.version())
+    }
 
     /// Write `program` as the one object file `path`.
     #[cfg(not(feature = "lazy-llvm"))]
-    pub(super) fn object(program: &Program, options: &Options, path: &Path) -> Result<(), String> {
+    fn object(program: &Program, options: &Options, path: &Path) -> Result<(), String> {
         jaic_llvm::emit_object(program, options, path)
     }
 
     /// Write `program` as `path` and the objects of its other codegen units.
     #[cfg(not(feature = "lazy-llvm"))]
-    pub(super) fn objects(
-        program: &Program,
-        options: &Options,
-        path: &Path,
-    ) -> Result<Vec<PathBuf>, String> {
+    fn objects(program: &Program, options: &Options, path: &Path) -> Result<Vec<PathBuf>, String> {
         jaic_llvm::emit_objects(program, options, path)
     }
 
     /// Write `program` as the one object file `path`.
     #[cfg(feature = "lazy-llvm")]
-    pub(super) fn object(program: &Program, options: &Options, path: &Path) -> Result<(), String> {
+    fn object(program: &Program, options: &Options, path: &Path) -> Result<(), String> {
         backend()?.emit_object(program, options, path)
     }
 
     /// Write `program` as `path` and the objects of its other codegen units.
     #[cfg(feature = "lazy-llvm")]
-    pub(super) fn objects(
-        program: &Program,
-        options: &Options,
-        path: &Path,
-    ) -> Result<Vec<PathBuf>, String> {
+    fn objects(program: &Program, options: &Options, path: &Path) -> Result<Vec<PathBuf>, String> {
         backend()?.emit_objects(program, options, path)
     }
 
@@ -133,8 +229,9 @@ pub(super) fn build(
 }
 
 #[cfg(feature = "llvm")]
-pub(super) fn native_backend(cli: &Cli) -> LlvmBackend {
-    LlvmBackend {
+pub(super) fn native_backend(cli: &Cli) -> NativeBackend {
+    NativeBackend {
+        codegen: cli.backend.unwrap_or_default(),
         emit_ir: cli.emit_ir.clone(),
         debug_info: !cli.no_debug_info,
         target: cli.build_for,
@@ -209,9 +306,11 @@ impl OutputBackend for NoBackend {
     }
 }
 
-/// Native output through `jaic-llvm` and the system linker.
+/// Native output through `jaic-llvm` (or `jaic-cranelift`) and the system linker.
 #[cfg(feature = "llvm")]
-pub(super) struct LlvmBackend {
+pub(super) struct NativeBackend {
+    /// `-backend`: which code generator writes the objects.
+    codegen: jaic_cli_args::cli::CodegenBackend,
     emit_ir: Option<PathBuf>,
     debug_info: bool,
     /// What to build for; `None` for the host.
@@ -243,7 +342,7 @@ struct Prepared {
 }
 
 #[cfg(feature = "llvm")]
-impl LlvmBackend {
+impl NativeBackend {
     pub(super) fn workspace_target(
         &self,
         settings: &BuildSettings,
@@ -553,7 +652,7 @@ fn cross_library_dirs(target: Option<Target>) -> Vec<PathBuf> {
 }
 
 #[cfg(feature = "llvm")]
-impl OutputBackend for LlvmBackend {
+impl OutputBackend for NativeBackend {
     fn write_output(
         &mut self,
         program: &jaic::ir::Program,
@@ -569,15 +668,23 @@ impl OutputBackend for LlvmBackend {
             extra_link_args,
         } = self.prepare(settings, output)?;
         let output = output.as_path();
-
-        if matches!(
+        let whole = matches!(
             settings.output_type,
             OutputType::ObjectFile | OutputType::NoOutput
-        ) {
-            return timings::time("codegen", || generate::object(program, &options, &object));
+        );
+        let written = timings::time("codegen", || {
+            generate::with(self.codegen, program, &options, &object, whole)
+        })?;
+
+        if whole {
+            return Ok(());
         }
 
-        let objects = timings::time("codegen", || generate::objects(program, &options, &object))?;
+        let objects = written.objects;
+        // Cranelift writes no debug information (docs/native/cranelift-backend.md): nothing to
+        // keep the objects for or collect into a dSYM.
+        let debug_info = options.debug_info && !written.cranelift;
+        let keep_objects = keep_objects && !written.cranelift;
         let libraries = jaic_native::used_libraries(program);
         let wasm = target.is_some_and(jaic::target::Target::is_wasm);
         let freestanding = target.filter(|t| t.is_freestanding());
@@ -591,7 +698,6 @@ impl OutputBackend for LlvmBackend {
         let mut link_args = metaprogram_args.clone();
 
         link_args.extend(extra_link_args);
-        let debug_info = options.debug_info;
         let cross_library_dirs = cross_library_dirs(target);
         let linked = timings::time("link", || match settings.output_type {
             OutputType::ObjectFile | OutputType::NoOutput => unreachable!(),
@@ -671,8 +777,15 @@ impl OutputBackend for LlvmBackend {
     ) -> Result<jaic::build::LinkObjects, String> {
         let prepared = self.prepare(settings, output)?;
         let objects = timings::time("codegen", || {
-            generate::objects(program, &prepared.options, &prepared.object)
-        })?;
+            generate::with(
+                self.codegen,
+                program,
+                &prepared.options,
+                &prepared.object,
+                false,
+            )
+        })?
+        .objects;
         let libraries = jaic_native::used_libraries(program);
         let inputs = jaic_native::link_inputs(
             &libraries,

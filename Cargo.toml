@@ -8,6 +8,7 @@ members = [
     "crates/jaic-native",
     "crates/jaic-toolchain",
     "crates/jaic-llvm",
+    "crates/jaic-cranelift",
     "crates/jaic-backend",
     "crates/jaic-cli",
     "crates/jaic-cli-args",

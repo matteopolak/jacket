@@ -262,19 +262,8 @@ impl<'ctx> Backend<'ctx, '_> {
     /// Stop with a null pointer error when `addr` lies in the never-mapped first page. Addresses
     /// of slots and globals, and offsets into them, need no check.
     pub(super) fn null_check(&self, st: &mut FnState<'ctx>, addr: Val, kind: u64) -> R<()> {
-        if !st.null_checks || st.known_nonnull(addr) {
+        if !st.checks.check(addr) {
             return Ok(());
-        }
-
-        // Past this point `addr` is a real address; so is what the slot it came from holds,
-        // until the next store to that slot.
-        st.facts.mark(addr);
-        let (from, version) = st.facts.loaded_from[addr.0 as usize];
-
-        if let Some(slot) = from.checked_sub(1)
-            && st.facts.slot_version[slot as usize] == version
-        {
-            st.facts.slot_checked[slot as usize] = st.facts.epoch;
         }
 
         let i64t = self.ctx.i64_type();

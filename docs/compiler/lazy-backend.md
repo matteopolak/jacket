@@ -12,7 +12,7 @@ Only object emission needs LLVM. Everything else a native build does (build opti
 | --- | --- |
 | `crates/jaic-native` | No LLVM. `Options`, `Codegen`, `OptLevel`, `Sanitize`, the linker, `used_libraries`, and `backend`: the loader, the request types and the stamp. |
 | `crates/jaic-llvm` | Lowering and `emit_object` / `emit_objects`. Re-exports the `jaic-native` names, so code that links LLVM directly needs only this crate. |
-| `crates/jaic-backend` | A `cdylib` with two exports, `jaic_backend_stamp` and `jaic_backend_emit`, over `jaic-llvm`. |
+| `crates/jaic-backend` | A `cdylib` with three exports, `jaic_backend_stamp`, `jaic_backend_version` (the linked LLVM's version, for the build's `Backend` line) and `jaic_backend_emit`, over `jaic-llvm`. |
 | `crates/jaic-cli` | Links `jaic-native` always, and `jaic-llvm` only when LLVM is built in. |
 
 The driver calls code generation from one place, `generate::object(s)` in `crates/jaic-cli/src/backend.rs`. With the `lazy-llvm` feature that call opens the library (once), then hands it an `EmitRequest`. `-timings` shows the open as a `load backend` phase; a run that prints no such line never loaded it.

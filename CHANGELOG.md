@@ -18,7 +18,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - `jaic -completions bash|zsh|fish` and `jacket completions bash|zsh|fish` print shell completion scripts; `jacket completions SHELL --tool jaic` prints jaic's.
 - `jacket dep add` and `update` note a newer version skipped by `min-release-age`, with its age.
 - `jailsp` checks, completes and describes `jacket.toml`, hints dependency releases, and holds back Jai diagnostics while it is broken.
-- `jaic -help` is in capitalised sections (`Usage:`, `Modes:`, `Exit status:`), bold when colour is on.
+- `jaic -backend cranelift` generates unoptimized code twice as fast; LLVM builds what it cannot. A `Backend` line names which ran.
 
 ### Breaking changes
 
@@ -45,6 +45,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 
 ### Fixes
 
+- `jaic -help` is in capitalised sections (`Usage:`, `Modes:`, `Exit status:`), bold when colour is on.
 - On macOS a failed `ld` link reports `ld`'s error, with no retry through `cc`; `SDKROOT` and `MACOSX_DEPLOYMENT_TARGET` apply.
 - `jaic -print_stdlib` fails when there is no standard library.
 - An invalid `-target` is a command-line error, read once, so no step builds for the host instead.
