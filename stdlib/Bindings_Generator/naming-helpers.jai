@@ -1,8 +1,14 @@
+// Returns `name`, except that the C++ keyword `this` becomes `_this`. No other keyword is changed.
 avoid_cpp_keywords :: (name: string) -> string {
     if name == "this" return "_this";
     return name;
 }
 
+// Returns `name` changed so that it does not clash with a reserved Jai name.
+//
+// An `operator` name is converted with [replace_operator_name], keeping the operators Jai allows. A name in
+// `RESERVED_NAMES`, and with `avoid_type_names` also in `RESERVED_TYPE_NAMES`, gets a `_` in front. Any other
+// name is returned as it is.
 avoid_reserved_names :: (name: string, avoid_type_names := false) -> string {
     if generator_name_begins(name, "operator") return replace_operator_name(name, true);
     for reserved: RESERVED_NAMES if name == reserved return sprint("_%", name);
@@ -14,24 +20,41 @@ avoid_reserved_names :: (name: string, avoid_type_names := false) -> string {
     return name;
 }
 
+// Replaces every `-` and `.` in `_struct` with `_`, in place.
+//
+// The bytes of the string are modified, so it must not point at a literal.
 make_valid_identifer :: (_struct: string) {
     for byte, index: _struct {
         if byte == #char "-" || byte == #char "." _struct.data[index] = #char "_";
     }
 }
 
+// Returns the C++ operator name `name` with its operator symbols spelled as words, such as `operator_equals`.
+//
+// Spaces are removed first. With `keep_operators_allowed_in_jai`, symbols that Jai accepts in an operator
+// name (`==`, `+`, `[]` and similar) stay as they are; only the others (`->`, `++`, `,`, `()`) are replaced,
+// and `operator!` and `operator=` become `operator_not` and `operator_assign`.
 replace_operator_name :: (name: string, keep_operators_allowed_in_jai := false) -> string {
     return generator_name_replace_operator(name, keep_operators_allowed_in_jai);
 }
 
+// Shortens the Objective-C selector `s` in place to the part before its first `:`.
+//
+// A selector without `:` is left whole.
 convert_objc_selector_name_to_function_identifier :: (s: *string) {
     s.count = generator_name_selector_stem_length(s.*);
 }
 
+// Appends `ident` to `builder` with every `:` written as `_`.
 print_objc_selector_identifier :: (builder: *String_Builder, ident: string) {
     for byte: ident append(builder, ifx byte == #char ":" then #char "_" else byte);
 }
 
+// Returns the name of the enum value `name` of `_enum` with the configured prefixes removed.
+//
+// Returns an empty string for a name that ends with the options' `strip_enum_values_with_suffix`. Otherwise
+// removes the prefix given for this enum in `strip_enum_value_prefixes`, and with `strip_enum_prefixes` the
+// enum's own name and one `_` after it. Uses default options when none are active.
 get_enum_value_name :: (_enum: *Enum, name: string) -> string {
     options: Generate_Bindings_Options;
     configured := gm_active_options();
@@ -59,6 +82,14 @@ get_enum_value_name :: (_enum: *Enum, name: string) -> string {
     return result;
 }
 
+// Sets the output name of `_enum` and of each of its values that is not omitted.
+//
+// Removes the prefix shared by all the values, cut after its last `enum_prefix_delimiter`, when
+// `auto_detect_enum_prefixes` is on, there are at least two values, `already_stripped` is false and no value
+// name already starts with the enum name under `strip_enum_prefixes`. Leading `_` are dropped, reserved names
+// are escaped, and a name that is empty or starts with a digit gets a `_` in front. An enum without an output
+// name takes the shared prefix without trailing `_`, or `anon_enum` when that is empty. Uses default options
+// when none are active.
 compute_enum_names :: (_enum: *Enum, already_stripped := false) {
     options: Generate_Bindings_Options;
     configured := gm_active_options();

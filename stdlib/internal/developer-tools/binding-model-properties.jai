@@ -1,27 +1,47 @@
+// Returns whether `t` is `void`, looking through typedefs.
+//
+// Pointers, arrays, functions, structs, enums and references are not void, and neither is null.
 is_void_type :: (t: *CType) -> bool {
     return model_has_scalar_flag(t, .VOID);
 }
 
+// Returns whether `t` is a boolean type, looking through typedefs.
+//
+// Pointers, arrays, functions, structs, enums and references are not boolean, and neither is null.
 is_bool_type :: (t: *CType) -> bool {
     return model_has_scalar_flag(t, .BOOL);
 }
 
+// Returns whether `a` and `b` have the same file, line and column.
 is_same_location :: (a: Location, b: Location) -> bool {
     return a.file == b.file && a.line == b.line && a.column == b.column;
 }
 
+// Returns whether `a` and `b` describe the same type, looking through typedefs.
+//
+// Compares pointers, functions, structs, enums, `void`, `bool` and numbers by structure, and structs and
+// enums by identity. Types that the comparison cannot decide, such as arrays, references, template
+// instantiations and characters, log an error and compare as different, and so does a `const` or `volatile`
+// mismatch below the top level. Two null pointers are the same.
 is_same_type :: (a: *CType, b: *CType) -> bool {
     path: [..] Model_Type_Pair;
     defer array_free(path);
     return model_equal_type(a, b, true, *path);
 }
 
+// Returns whether `a` and `b` are the same expression.
+//
+// Only identical pointers and equal literals count; any other expression is different from every other one.
 is_same_expression :: (a: *Expression, b: *Expression) -> bool {
     if a == b return true;
     if !a || !b || a.kind != .LITERAL || b.kind != .LITERAL return false;
     return is_same_literal(cast(*Literal) a, cast(*Literal) b);
 }
 
+// Returns whether `a` and `b` are the same literal, with equal kind and value.
+//
+// Floats compare exactly. Enum literals need the same enum and value name, identifiers the same declaration.
+// Macro literals are never equal. A kind the comparison does not know logs an error.
 is_same_literal :: (a: *Literal, b: *Literal) -> bool {
     if a == b return true;
     if !a || !b || a.literal_kind != b.literal_kind return false;

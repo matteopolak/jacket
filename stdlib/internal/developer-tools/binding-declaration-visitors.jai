@@ -1,3 +1,10 @@
+// Marks C++ functions as omitted from the output, and passes other declarations to the visitors in
+// `user_data`.
+//
+// A function whose foreign name differs from its name is given `.OMIT_FROM_OUTPUT` and the visit stops there.
+// Any other declaration is offered to the `visitor` and `visitor_with_data` of the
+// [Cpp_Functions_Visitor_Data] that `user_data` points to, and the result is `.STOP` when either returns it
+// and `.RECURSE` otherwise. Asserts that `user_data` is not null.
 omit_cpp_functions_visitor :: (decl: *Declaration, parent_decl: *Declaration, user_data: *void) -> Declaration_Visit_Result {
     if decl && decl.kind == .FUNCTION && decl.foreign_name != decl.name {
         decl.decl_flags |= .OMIT_FROM_OUTPUT;
@@ -12,6 +19,14 @@ omit_cpp_functions_visitor :: (decl: *Declaration, parent_decl: *Declaration, us
     return .RECURSE;
 }
 
+// Makes the output name of `decl` differ from every name in `existing_declarations`, and adds `decl` to them.
+//
+// Starts by escaping reserved names, and by appending `_` to a function named like a struct in the global
+// scope. On a clash the name of an operator is converted with [replace_operator_name]; with
+// `try_parent_prefix`, names of the parents are put in front one after another; then `_1`, `_2` and so on is
+// appended until the name is free. Two functions with the same name and different signatures do not clash
+// when `allow_overloads` is set. With `insert` false the list is not changed. A declaration named `_` is left
+// alone and not added.
 avoid_name_clash :: (existing_declarations: *[..] *Declaration, decl: *Declaration, allow_overloads := true, insert := true, try_parent_prefix := false) {
     assert(decl != null);
     original := decl.output_name;
@@ -91,6 +106,10 @@ avoid_name_clash :: (existing_declarations: *[..] *Declaration, decl: *Declarati
     if existing_declarations && insert && !array_find(existing_declarations.*, decl) array_add(existing_declarations, decl);
 }
 
+// Appends the `#foreign` (for a function) or `#elsewhere` directive that binds `decl` to its library.
+//
+// Writes the library's identifier, then `foreign_name` in quotes when it differs from `decl_name`. A
+// declaration without a library logs an error, writes `__UnknownLib` and marks the session failed.
 append_elsewhere :: (builder: *String_Builder, decl: *Declaration, decl_name: string, foreign_name: string) {
     assert(builder != null && decl != null);
     append(builder, ifx decl.kind == .FUNCTION then "#foreign " else "#elsewhere ");
@@ -108,6 +127,11 @@ append_elsewhere :: (builder: *String_Builder, decl: *Declaration, decl_name: st
     }
 }
 
+// Returns `name` without the first of the options' `strip_prefixes` that it starts with.
+//
+// Underscores that follow the prefix are dropped while an identifier still follows them, and a `_` is put in
+// front when the result would not start like an identifier. Returns `name` unchanged when no prefix matches;
+// the result may point into `name`, or be a new string in the `_` case. Asserts that options are active.
 stripped_name :: (name: string) -> string {
     options := gp_current_options();
 
@@ -133,6 +157,11 @@ stripped_name :: (name: string) -> string {
     return name;
 }
 
+// Returns whether the typedef called `name` is replaced by its target in the output.
+//
+// True for names in `TYPEDEFS_TO_UNWRAP`, names starting with a prefix in `TYPEDEF_PREFIXES_TO_UNWRAP` or in
+// the options' `typedef_prefixes_to_unwrap`, and names that start with `__` and end with `_t`. Asserts that
+// options are active.
 should_unwrap_typedef :: (name: string) -> bool {
     for candidate: TYPEDEFS_TO_UNWRAP if candidate == name return true;
     for prefix: TYPEDEF_PREFIXES_TO_UNWRAP if begins_with(name, prefix) return true;
@@ -146,12 +175,19 @@ should_unwrap_typedef :: (name: string) -> bool {
     return false;
 }
 
+// Returns whether the typedef at the cursor `cur` is replaced by its target in the output, by its spelling.
+//
+// See the overload that takes a name.
 should_unwrap_typedef :: (cur: CXCursor) -> bool {
     spelling := clang_getCursorSpelling(cur);
     defer clang_disposeString(spelling);
     return should_unwrap_typedef(to_string(clang_getCString(spelling)));
 }
 
+// Returns whether `decl` is left out of the output.
+//
+// True when it has `.OMIT_FROM_OUTPUT`, when it is a macro whose value was discarded, or when `parent_decl`
+// or one of its ancestors is omitted. A cyclic parent chain logs an error and counts as omitted.
 should_be_omitted :: (decl: *Declaration, parent_decl: *Declaration) -> bool {
     if decl && decl.decl_flags & .OMIT_FROM_OUTPUT return true;
     if decl && decl.kind == .MACRO_DEFINITION && decl.macro_value_result == .DISCARD return true;
@@ -175,6 +211,12 @@ should_be_omitted :: (decl: *Declaration, parent_decl: *Declaration) -> bool {
     return false;
 }
 
+// Appends the output names of `decl` and of its ancestors up to `current_scope`, outermost first, each
+// followed by `separator`.
+//
+// Names that `current_scope` or its ancestors already provide are left out, and so are flattened namespaces
+// when `skip_flattened_namespaces` is set. Returns whether any scope was written. A cyclic parent chain logs
+// an error, sets `builder.failed` and gives false. `location` is not used.
 append_parent_path :: (builder: *String_Builder, decl: *Declaration, current_scope: *Declaration, location: Location, separator := ".", skip_flattened_namespaces := true) -> bool {
     scope_ancestors: [..] *Declaration;
     path: [..] *Declaration;
@@ -222,6 +264,10 @@ append_parent_path :: (builder: *String_Builder, decl: *Declaration, current_sco
     return processed;
 }
 
+// A declaration visitor that omits typedefs and macros that would print as a copy of their own name.
+//
+// Descends into namespaces and structs. For a typedef or macro whose printed type or value equals its output
+// name, sets `.OMIT_FROM_OUTPUT`. Stops at every other declaration and at one it cannot print.
 omit_unnecessary_typedefs_and_macros :: (decl: *Declaration, parent: *Declaration, user_data: *void) -> Declaration_Visit_Result {
     if !decl return .STOP;
     if decl.kind == .NAMESPACE || decl.kind == .STRUCT return .RECURSE;

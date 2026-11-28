@@ -1,9 +1,20 @@
+// One member of an ar archive.
+//
+// `name` is the member name with long-name table and BSD `#1/` names resolved and any trailing `/` removed.
+// `header_start_offset` is the byte offset of the member header in [Archive.content], the value symbol indexes use.
+// `data` is the member payload, without the header or the BSD embedded name.
 Archive_File :: struct {
     name: string;
     header_start_offset: u32;
     data: [] u8;
 }
 
+// A parsed ar archive.
+//
+// `content` is the whole file; member names, member data and `symbol_names` point into it. The slices `files`,
+// `symbol_file_offsets` and `symbol_names` are allocated with the context allocator.
+// `symbol_file_offsets[i]` is the [Archive_File.header_start_offset] of the member that defines `symbol_names[i]`.
+// The symbol index and long-name table members are not listed in `files`.
 Archive :: struct {
     content: string;
     symbol_file_offsets: [] u32;
@@ -11,16 +22,23 @@ Archive :: struct {
     files: [] Archive_File;
 }
 
+// Returns whether `file_content` starts with the 8-byte `!<arch>\n` ar signature.
 is_ar :: (file_content: string) -> bool {
     return file_content.count >= 8 && part(file_content, 0, 8) == "!<arch>\n";
 }
 
+// Returns whether `file_content` starts with a universal (fat) binary magic number, in either byte order and
+// in the 32-bit or 64-bit offset layout.
 is_apple_universal :: (file_content: string) -> bool {
     if file_content.count < 4 return false;
     magic := word(file_content.data, true);
     return magic == 0xcafebabe || magic == 0xbebafeca || magic == 0xcafebabf || magic == 0xbfbafeca;
 }
 
+// Reads the file at `path` and parses it as an ar archive.
+//
+// Returns `false` if the file cannot be read or is not a valid archive. On success the file content stays alive in
+// [Archive.content] and the caller owns it; on failure it is freed.
 parse_ar_file :: (path: string) -> success: bool, Archive {
     content, read_ok := F.read_entire_file(path);
     if !read_ok return false, .{};
@@ -31,6 +49,12 @@ parse_ar_file :: (path: string) -> success: bool, Archive {
     return ok, archive;
 }
 
+// Parses `content` as an ar archive without copying it.
+//
+// Returns `false` and an empty [Archive] if the signature is missing or any header, size, long name, symbol index
+// or symbol offset is malformed. Reads GNU/System V, COFF import-library and BSD symbol indexes; 64-bit indexes
+// are rejected. `content` is not freed on failure. `archive_filename` is only used in the message printed when
+// `verbose` is set.
 parse_ar :: (content: string, archive_filename: string, verbose := false) -> success: bool, Archive {
     records: [..] Archive_File;
     offsets: [..] u32;

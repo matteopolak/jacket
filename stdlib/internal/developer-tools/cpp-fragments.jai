@@ -1,3 +1,9 @@
+// Appends the C++ spelling of the literal `lit` to `builder`, and returns whether it could be written.
+//
+// With `target_type`, the value is written as `static_cast<T>(...)`. A target must be a number, `bool`, enum
+// or pointer type, not a reference, and must suit the literal: only a null literal fits a pointer, only an
+// integer an enum. `print_integers_as_hex` selects hexadecimal integers. Returns false and appends nothing
+// for a null `builder` or `lit`, or when the literal cannot be written.
 append_cpp_literal :: (builder: *String_Builder, lit: *Literal, target_type: *CType = null, current_scope: *Declaration = null, print_integers_as_hex := false) -> valid: bool {
     if !builder || !lit return false;
 
@@ -34,6 +40,11 @@ append_cpp_literal :: (builder: *String_Builder, lit: *Literal, target_type: *CT
     return !builder.failed;
 }
 
+// Appends the C++ spelling of `expression` to `builder`, and returns whether it could be written.
+//
+// A literal is written as by [append_cpp_literal]. Any other expression is written as it is and cannot have a
+// `target_type`. Returns false and appends nothing for a null `builder` or `expression`, or when it cannot be
+// written.
 append_cpp_expression :: (builder: *String_Builder, expression: *Expression, target_type: *CType = null, current_scope: *Declaration = null) -> valid: bool {
     if !builder || !expression return false;
     if expression.kind == .LITERAL return append_cpp_literal(builder, cast(*Literal) expression, target_type, current_scope);

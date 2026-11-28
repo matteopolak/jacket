@@ -1,4 +1,8 @@
-// Single canonical storage, from the public type inventory.
+// The state of one generation run.
+//
+// Holds the libclang index and translation unit, the declarations built from the headers (`global_scope`),
+// the libraries that were loaded, the primitive types shared by all declarations, and counts of what was
+// written or left out. [run_generator] fills it from the headers named in the options.
 Generator :: struct #type_info_none {
     global_scope: Block;
     pointer_size: s64;
@@ -63,11 +67,17 @@ Generator :: struct #type_info_none {
     }
 }
 
+// A token array from `clang_tokenize` and its length.
+//
+// The generator keeps these in `tokens_to_free` and releases them with `clang_disposeTokens` when it is torn
+// down.
 Token_Info :: struct {
     token_pointer: *CXToken;
     num_tokens: u32;
 }
 
+// The symbol names read from the library file `full_path` for one OS and CPU, kept in the cache that
+// [os_get_symbol_names_from_file_fixed_and_cached] uses.
 Library_Symbols :: struct {
     os: Operating_System_Tag;
     cpu: CPU_Tag;

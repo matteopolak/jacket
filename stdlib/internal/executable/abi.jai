@@ -238,8 +238,11 @@ N_ARM_THUMB_DEF :: 0x0008;
 N_SYMBOL_RESOLVER :: 0x0100;
 N_ALT_ENTRY :: 0x0200;
 N_COLD_FUNC :: 0x0400;
+// Mach-O CPU type as stored in a header: a signed 32-bit value; see [Cpu_Type].
 cpu_type_t :: s32;
+// Mach-O CPU subtype as stored in a header: a signed 32-bit value; see [Cpu_Subtype].
 cpu_subtype_t :: s32;
+// Mach-O CPU thread type: a signed 32-bit value, `CPU_THREADTYPE_NONE` or `CPU_THREADTYPE_INTEL_HTT`.
 cpu_threadtype_t :: s32;
 Coff_Optional_Header_Windows_Specific_Pe32 :: Coff_Optional_Header_Windows_Specific(u32);
 Coff_Optional_Header_Windows_Specific_Pe32_Plus :: Coff_Optional_Header_Windows_Specific(u64);
@@ -253,17 +256,20 @@ PE_MAGIC_PREFIX :: 0x00004550;
 MAX_IDENTIFIER_LENGTH :: 512;
 MAX_CONCURRENT_TOKENS :: 8;
 
+// A parsed Apple universal (fat) binary: the file bytes and one slice per architecture.
 Apple_Universal_Binary :: struct {
     content: string;
     files: [] Arch_File;
 }
 
+// One architecture slice of an [Apple_Universal_Binary]; `data` is the slice bytes, a Mach-O image.
 Arch_File :: struct {
     cpu_type: Cpu_Type;
     cpu_subtype: Cpu_Subtype;
     data: [] u8;
 }
 
+// Indices of the per-CPU time counters the kernel reports (`MAX` is the count).
 CPU_STATE :: enum {
     MAX :: 4;
     USER :: 0;
@@ -272,12 +278,17 @@ CPU_STATE :: enum {
     NICE :: 3;
 }
 
+// Flag bits that a Mach-O CPU type combines with its base architecture: `MASK` selects them, `ABI64` and
+// `ABI64_32` mark the 64-bit and 64-bit-with-32-bit-pointer ABIs.
 CPU_ARCH :: enum {
     MASK :: 0xff000000;
     ABI64 :: 0x01000000;
     ABI64_32 :: 0x02000000;
 }
 
+// Mach-O CPU type values, the `cputype` field of a Mach-O header and of a universal-binary slice.
+//
+// // 64-bit variants are the base value or-ed with a [CPU_ARCH] flag.
 Cpu_Type :: enum s32 {
     ANY :: -1;
     VAX :: 1;
@@ -297,6 +308,10 @@ Cpu_Type :: enum s32 {
     POWERPC64 :: POWERPC | cast(s32) CPU_ARCH.ABI64;
 }
 
+// Mach-O CPU subtype values, the `cpusubtype` field of a header.
+//
+// // Values are only meaningful together with the CPU type: the same number names different models per
+// architecture. `MASK` selects the capability bits in the top byte.
 Cpu_Subtype :: enum s32 {
     MASK :: -16777216;
     LIB64 :: -2147483648;
@@ -385,6 +400,7 @@ Cpu_Subtype :: enum s32 {
     ARM64_32_V8 :: 1;
 }
 
+// CPU family identifiers that Apple platforms report for a processor model.
 CPUFAMILY :: enum {
     UNKNOWN :: 0;
     POWERPC_G3 :: 0xcee41549;
@@ -435,6 +451,7 @@ CPUFAMILY :: enum {
     INTEL_6_26 :: INTEL_NEHALEM;
 }
 
+// Sub-family identifiers that refine an Apple-silicon [CPUFAMILY].
 CPUSUBFAMILY :: enum {
     UNKNOWN :: 0;
     ARM_HP :: 1;
@@ -445,6 +462,9 @@ CPUSUBFAMILY :: enum {
     ARM_HA :: 6;
 }
 
+// Mach-O load command identifiers, the `cmd` field of every load command.
+//
+// // Commands that dyld must understand to load the image also carry `REQ_DYLD` (bit 31).
 Load_Command_Type :: enum u32 {
     REQ_DYLD :: 0x80000000;
     SEGMENT :: 0x1;
@@ -507,6 +527,7 @@ Load_Command_Type :: enum u32 {
     TARGET_TRIPLE :: 0x39;
 }
 
+// Flags in the `flags` field of a Mach-O segment command.
 Segment_Flags :: enum_flags u32 {
     HIGHVM :: 0x1;
     FVMLIB :: 0x2;
@@ -515,6 +536,10 @@ Segment_Flags :: enum_flags u32 {
     READ_ONLY :: 0x10;
 }
 
+// Flags in the `flags` field of a Mach-O section.
+//
+// // The low byte is the section type (`REGULAR` to `INIT_FUNC_OFFSETS`), a number rather than a bit set.
+// The `ATTR_` members are attribute bits in the upper bits and bits 8 to 10.
 Section_Flags :: enum_flags u32 {
     REGULAR :: 0x0;
     ZEROFILL :: 0x1;
@@ -551,6 +576,7 @@ Section_Flags :: enum_flags u32 {
     ATTR_LOC_RELOC :: 0x00000100;
 }
 
+// The 32-bit Mach-O file header, laid out as in the file.
 mach_header :: struct {
     magic: u32;
     cputype: s32;
@@ -561,6 +587,8 @@ mach_header :: struct {
     flags: u32;
 }
 
+// The 64-bit Mach-O file header, laid out as in the file. Differs from [mach_header] by the trailing
+// `reserved` word.
 mach_header_64 :: struct {
     magic: u32;
     cputype: s32;
@@ -572,15 +600,18 @@ mach_header_64 :: struct {
     reserved: u32;
 }
 
+// The prefix shared by every Mach-O load command: its type and its total size in bytes.
 load_command :: struct {
     cmd: u32;
     cmdsize: u32;
 }
 
+// A string inside a load command: `offset` is the byte offset of the text from the start of the command.
 lc_str :: struct {
     offset: u32;
 }
 
+// The 32-bit Mach-O `LC_SEGMENT` command.
 segment_command :: struct {
     cmd: u32;
     cmdsize: u32;
@@ -595,6 +626,8 @@ segment_command :: struct {
     flags: u32;
 }
 
+// The 64-bit Mach-O `LC_SEGMENT_64` command: names a segment, its memory and file ranges, its protections
+// and `nsects` sections that follow.
 segment_command_64 :: struct {
     cmd: u32;
     cmdsize: u32;
@@ -609,6 +642,7 @@ segment_command_64 :: struct {
     flags: u32;
 }
 
+// A 32-bit Mach-O section header, which follows a [segment_command].
 section :: struct {
     sectname: [16] u8;
     segname: [16] u8;
@@ -623,6 +657,7 @@ section :: struct {
     reserved2: u32;
 }
 
+// A 64-bit Mach-O section header, which follows a [segment_command_64].
 section_64 :: struct {
     sectname: [16] u8;
     segname: [16] u8;
@@ -638,18 +673,21 @@ section_64 :: struct {
     reserved3: u32;
 }
 
+// The fixed VM shared library identification inside [fvmlib_command].
 fvmlib :: struct {
     name: lc_str;
     minor_version: u32;
     header_addr: u32;
 }
 
+// The Mach-O `LC_LOADFVMLIB` and `LC_IDFVMLIB` commands, which name a fixed VM shared library.
 fvmlib_command :: struct {
     cmd: u32;
     cmdsize: u32;
     fvmlib_: fvmlib;
 }
 
+// The dynamic library identification inside [dylib_command]: name, build time and versions.
 dylib :: struct {
     name: lc_str;
     timestamp: u32;
@@ -657,12 +695,15 @@ dylib :: struct {
     compatibility_version: u32;
 }
 
+// The Mach-O commands that name a dynamic library: `LC_LOAD_DYLIB`, `LC_ID_DYLIB`, `LC_LOAD_WEAK_DYLIB` and
+// `LC_REEXPORT_DYLIB`.
 dylib_command :: struct {
     cmd: u32;
     cmdsize: u32;
     dylib_: dylib;
 }
 
+// A dynamic library command that carries its name offset and use flags inline.
 dylib_use_command :: struct {
     cmd: u32;
     cmdsize: u32;
@@ -673,30 +714,36 @@ dylib_use_command :: struct {
     flags: u32;
 }
 
+// The Mach-O `LC_SUB_FRAMEWORK` command: names the umbrella framework this image belongs to.
 sub_framework_command :: struct {
     cmd: u32;
     cmdsize: u32;
     umbrella: lc_str;
 }
 
+// The Mach-O `LC_SUB_CLIENT` command: names a client allowed to link this sub-framework directly.
 sub_client_command :: struct {
     cmd: u32;
     cmdsize: u32;
     client: lc_str;
 }
 
+// The Mach-O `LC_SUB_UMBRELLA` command: names a sub-umbrella framework.
 sub_umbrella_command :: struct {
     cmd: u32;
     cmdsize: u32;
     sub_umbrella: lc_str;
 }
 
+// The Mach-O `LC_SUB_LIBRARY` command: names a sub-library.
 sub_library_command :: struct {
     cmd: u32;
     cmdsize: u32;
     sub_library: lc_str;
 }
 
+// The Mach-O `LC_PREBOUND_DYLIB` command: a library the image was prebound against and the modules it
+// links.
 prebound_dylib_command :: struct {
     cmd: u32;
     cmdsize: u32;
@@ -705,17 +752,20 @@ prebound_dylib_command :: struct {
     linked_modules: lc_str;
 }
 
+// The Mach-O `LC_LOAD_DYLINKER` and `LC_ID_DYLINKER` commands: the path of the dynamic linker.
 dylinker_command :: struct {
     cmd: u32;
     cmdsize: u32;
     name: lc_str;
 }
 
+// The Mach-O `LC_THREAD` and `LC_UNIXTHREAD` header; the initial register state follows it.
 thread_command :: struct {
     cmd: u32;
     cmdsize: u32;
 }
 
+// The 32-bit Mach-O `LC_ROUTINES` command: the address of the library initialization routine.
 routines_command :: struct {
     cmd: u32;
     cmdsize: u32;
@@ -729,6 +779,7 @@ routines_command :: struct {
     reserved6: u32;
 }
 
+// The 64-bit Mach-O `LC_ROUTINES_64` command: the address of the library initialization routine.
 routines_command_64 :: struct {
     cmd: u32;
     cmdsize: u32;
@@ -742,6 +793,7 @@ routines_command_64 :: struct {
     reserved6: u64;
 }
 
+// The Mach-O `LC_SYMTAB` command: file offsets and counts of the symbol table and its string table.
 symtab_command :: struct {
     cmd: u32;
     cmdsize: u32;
@@ -751,6 +803,8 @@ symtab_command :: struct {
     strsize: u32;
 }
 
+// The Mach-O `LC_DYSYMTAB` command: splits the symbol table into local, external and undefined ranges and
+// locates the dynamic-linking tables.
 dysymtab_command :: struct {
     cmd: u32;
     cmdsize: u32;
@@ -774,11 +828,13 @@ dysymtab_command :: struct {
     nlocrel: u32;
 }
 
+// One entry of a dylib table of contents: maps an externally defined symbol to the module that defines it.
 dylib_table_of_contents :: struct {
     symbol_index: u32;
     module_index: u32;
 }
 
+// A 32-bit dylib module table entry.
 dylib_module :: struct {
     module_name: u32;
     iextdefsym: u32;
@@ -795,6 +851,8 @@ dylib_module :: struct {
     objc_module_info_size: u32;
 }
 
+// A 64-bit dylib module table entry; differs from [dylib_module] in the width and position of the
+// Objective-C module info fields.
 dylib_module_64 :: struct {
     module_name: u32;
     iextdefsym: u32;
@@ -811,10 +869,12 @@ dylib_module_64 :: struct {
     objc_module_info_addr: u64;
 }
 
+// A dylib reference table entry; `__bitfield` packs a 24-bit symbol index and an 8-bit flags value.
 dylib_reference :: struct {
     __bitfield: u32;
 }
 
+// The Mach-O `LC_TWOLEVEL_HINTS` command: location and count of the two-level namespace hints table.
 twolevel_hints_command :: struct {
     cmd: u32;
     cmdsize: u32;
@@ -822,34 +882,42 @@ twolevel_hints_command :: struct {
     nhints: u32;
 }
 
+// One two-level namespace hint; `__bitfield` packs an 8-bit sub-image index and a 24-bit table-of-contents
+// index.
 twolevel_hint :: struct {
     __bitfield: u32;
 }
 
+// The Mach-O `LC_PREBIND_CKSUM` command: the checksum of a prebound library.
 prebind_cksum_command :: struct {
     cmd: u32;
     cmdsize: u32;
     cksum: u32;
 }
 
+// The Mach-O `LC_UUID` command: the 128-bit identifier of the image.
 uuid_command :: struct {
     cmd: u32;
     cmdsize: u32;
     uuid: [16] u8;
 }
 
+// The Mach-O `LC_RPATH` command: a run-path search entry for `@rpath` library names.
 rpath_command :: struct {
     cmd: u32;
     cmdsize: u32;
     path: lc_str;
 }
 
+// The Mach-O `LC_TARGET_TRIPLE` command: the target triple the image was built for.
 target_triple_command :: struct {
     cmd: u32;
     cmdsize: u32;
     triple: lc_str;
 }
 
+// The shape shared by the Mach-O commands that point at a blob in `__LINKEDIT`, such as
+// `LC_CODE_SIGNATURE`, `LC_FUNCTION_STARTS` and `LC_DATA_IN_CODE`.
 linkedit_data_command :: struct {
     cmd: u32;
     cmdsize: u32;
@@ -857,6 +925,8 @@ linkedit_data_command :: struct {
     datasize: u32;
 }
 
+// The 32-bit Mach-O `LC_ENCRYPTION_INFO` command: the encrypted file range and whether it is encrypted
+// (`cryptid`).
 encryption_info_command :: struct {
     cmd: u32;
     cmdsize: u32;
@@ -865,6 +935,7 @@ encryption_info_command :: struct {
     cryptid: u32;
 }
 
+// The 64-bit Mach-O `LC_ENCRYPTION_INFO_64` command: [encryption_info_command] plus alignment padding.
 encryption_info_command_64 :: struct {
     cmd: u32;
     cmdsize: u32;
@@ -874,6 +945,8 @@ encryption_info_command_64 :: struct {
     pad: u32;
 }
 
+// The Mach-O `LC_VERSION_MIN_*` commands: the minimum OS version and SDK version, each packed as
+// `xxxx.yy.zz`.
 version_min_command :: struct {
     cmd: u32;
     cmdsize: u32;
@@ -881,6 +954,8 @@ version_min_command :: struct {
     sdk: u32;
 }
 
+// The Mach-O `LC_BUILD_VERSION` command: platform, minimum OS version and SDK version, followed by `ntools`
+// [build_tool_version] entries.
 build_version_command :: struct {
     cmd: u32;
     cmdsize: u32;
@@ -890,11 +965,14 @@ build_version_command :: struct {
     ntools: u32;
 }
 
+// One tool entry that follows a [build_version_command].
 build_tool_version :: struct {
     tool: u32;
     version: u32;
 }
 
+// The Mach-O `LC_DYLD_INFO` and `LC_DYLD_INFO_ONLY` commands: file offset and size of each dyld opcode
+// stream (rebase, bind, weak bind, lazy bind) and the export trie.
 dyld_info_command :: struct {
     cmd: u32;
     cmdsize: u32;
@@ -910,12 +988,14 @@ dyld_info_command :: struct {
     export_size: u32;
 }
 
+// The Mach-O `LC_LINKER_OPTION` command: `count` NUL-terminated option strings follow it.
 linker_option_command :: struct {
     cmd: u32;
     cmdsize: u32;
     count: u32;
 }
 
+// The obsolete Mach-O `LC_SYMSEG` command: location of a symbol segment.
 symseg_command :: struct {
     cmd: u32;
     cmdsize: u32;
@@ -923,11 +1003,13 @@ symseg_command :: struct {
     size: u32;
 }
 
+// The obsolete Mach-O `LC_IDENT` command header.
 ident_command :: struct {
     cmd: u32;
     cmdsize: u32;
 }
 
+// The Mach-O `LC_FVMFILE` command: a fixed VM file and its load address.
 fvmfile_command :: struct {
     cmd: u32;
     cmdsize: u32;
@@ -935,6 +1017,8 @@ fvmfile_command :: struct {
     header_addr: u32;
 }
 
+// The Mach-O `LC_MAIN` command: the entry point as a file offset within `__TEXT` and the initial stack
+// size, 0 for the default.
 entry_point_command :: struct {
     cmd: u32;
     cmdsize: u32;
@@ -942,24 +1026,31 @@ entry_point_command :: struct {
     stacksize: u64;
 }
 
+// The Mach-O `LC_SOURCE_VERSION` command: the version of the sources the image was built from, packed in
+// `version`.
 source_version_command :: struct {
     cmd: u32;
     cmdsize: u32;
     version: u64;
 }
 
+// One `LC_DATA_IN_CODE` entry: a data range inside code, at file offset `offset`, `length` bytes, and its
+// `kind`.
 data_in_code_entry :: struct {
     offset: u32;
     length: u16;
     kind: u16;
 }
 
+// A Mach-O thread-local variable descriptor: the accessor thunk, the key and the offset within the thread-
+// local block.
 tlv_descriptor :: struct {
     thunk: #type (unknown0: *tlv_descriptor) -> *void #c_call;
     key: u64;
     offset: u64;
 }
 
+// The Mach-O `LC_NOTE` command: a data range in the file owned by `data_owner`.
 note_command :: struct {
     cmd: u32;
     cmdsize: u32;
@@ -968,6 +1059,8 @@ note_command :: struct {
     size: u64;
 }
 
+// The Mach-O `LC_FILESET_ENTRY` command: one member image of a file set, with its address, file offset and
+// entry name.
 fileset_entry_command :: struct {
     cmd: u32;
     cmdsize: u32;
@@ -977,16 +1070,21 @@ fileset_entry_command :: struct {
     reserved: u32;
 }
 
+// A Mach-O relocation entry; `r_address` is the offset in the section and `__bitfield` packs the symbol
+// number, pc-relative flag, length, extern flag and type.
 relocation_info :: struct {
     r_address: s32;
     __bitfield: u32;
 }
 
+// A scattered Mach-O relocation entry; `__bitfield` packs the scattered flag, pc-relative flag, length,
+// type and offset, and `r_value` is the target address.
 scattered_relocation_info :: struct {
     __bitfield: u32;
     r_value: s32;
 }
 
+// Mach-O relocation types shared by architectures without their own list.
 reloc_type_generic :: enum u32 {
     VANILLA :: 0;
     PAIR :: 1;
@@ -996,6 +1094,7 @@ reloc_type_generic :: enum u32 {
     TLV :: 5;
 }
 
+// A 32-bit Mach-O symbol table entry.
 nlist :: struct {
     n_un: struct {
         n_strx: u32;
@@ -1006,6 +1105,7 @@ nlist :: struct {
     n_value: u32;
 }
 
+// A 64-bit Mach-O symbol table entry: string-table index, type byte, section number, description and value.
 nlist_64 :: struct {
     n_un: struct {
         n_strx: u32;
@@ -1016,6 +1116,7 @@ nlist_64 :: struct {
     n_value: u64;
 }
 
+// Mach-O relocation types for x86-64.
 reloc_type_x86_64 :: enum u32 {
     UNSIGNED :: 0;
     SIGNED :: 1;
@@ -1029,6 +1130,7 @@ reloc_type_x86_64 :: enum u32 {
     TLV :: 9;
 }
 
+// Mach-O relocation types for arm64.
 reloc_type_arm64 :: enum u32 {
     UNSIGNED :: 0;
     SUBTRACTOR :: 1;
@@ -1044,6 +1146,7 @@ reloc_type_arm64 :: enum u32 {
     AUTHENTICATED_POINTER :: 11;
 }
 
+// The COFF file header that follows the PE signature, or starts a COFF object.
 Coff_Header :: struct {
     machine: Machine_Type;
     num_sections: u16;
@@ -1054,6 +1157,8 @@ Coff_Header :: struct {
     characteristics: Header_Characteristics;
 }
 
+// The standard fields of the PE optional header for PE32+ (64-bit) images; `magic` tells the two layouts
+// apart.
 Coff_Optional_Header_Pe32_Plus :: struct {
     magic: Magic;
     major_linker_version: u8;
@@ -1069,11 +1174,15 @@ Coff_Optional_Header_Pe32_Plus :: struct {
     };
 }
 
+// The standard fields of the PE optional header for PE32 (32-bit) images: the PE32+ fields plus
+// `base_of_data`.
 Coff_Optional_Header_Pe32 :: struct {
     using base: Coff_Optional_Header_Pe32_Plus;
     base_of_data: u32;
 }
 
+// The Windows-specific part of the PE optional header. `Size_Offset_Type` is `u32` for PE32 and `u64` for
+// PE32+, see the `_Pe32` and `_Pe32_Plus` aliases.
 Coff_Optional_Header_Windows_Specific :: struct(Size_Offset_Type: Type) {
     image_base: Size_Offset_Type;
     section_alignment: u32;
@@ -1098,11 +1207,13 @@ Coff_Optional_Header_Windows_Specific :: struct(Size_Offset_Type: Type) {
     number_of_rva_and_sizes: u32;
 }
 
+// One PE data directory entry: an RVA and a size in bytes.
 Coff_Data_Directory :: struct {
     virtual_address: u32;
     size: u32;
 }
 
+// Positions of the well-known entries in the PE data directory array.
 Coff_Data_Directory_Index :: enum {
     Export_Table :: 0;
     Import_Table :: 1;
@@ -1122,6 +1233,7 @@ Coff_Data_Directory_Index :: enum {
     Reserved :: 15;
 }
 
+// One entry of the PE debug directory.
 Coff_Debug_Directory_Entry :: struct {
     characteristics: u32;
     time_date_stamp: u32;
@@ -1133,6 +1245,7 @@ Coff_Debug_Directory_Entry :: struct {
     pointer_to_raw_data: u32;
 }
 
+// The kinds of debug information a [Coff_Debug_Directory_Entry] can point at.
 Coff_Debug_Type :: enum u32 {
     TYPE_UNKNOWN :: 0;
     TYPE_COFF :: 1;
@@ -1152,6 +1265,7 @@ Coff_Debug_Type :: enum u32 {
     TYPE_EX_DLLCHARACTERISTICS :: 20;
 }
 
+// A COFF section header; `name` is NUL-padded to 8 bytes.
 Coff_Section_Header :: struct {
     name: [8] u8;
     virtual_size: u32;
@@ -1165,6 +1279,7 @@ Coff_Section_Header :: struct {
     characteristics: Section_Characteristics;
 }
 
+// COFF machine identifiers, the `machine` field of [Coff_Header].
 Machine_Type :: enum u16 {
     UNKNOWN :: 0x0;
     AM33 :: 0x1d3;
@@ -1195,6 +1310,7 @@ Machine_Type :: enum u16 {
     WCEMIPSV2 :: 0x169;
 }
 
+// Flags in the `characteristics` field of [Coff_Header].
 Header_Characteristics :: enum_flags u16 {
     RELOCS_STRIPPED :: 0x0001;
     EXECUTABLE_IMAGE :: 0x0002;
@@ -1213,6 +1329,7 @@ Header_Characteristics :: enum_flags u16 {
     BYTES_REVERSED_HI :: 0x8000;
 }
 
+// The subsystem a PE image requires, the `subsystem` field of the Windows-specific header.
 Windows_Subsystem_Type :: enum u16 {
     UNKNOWN :: 0;
     NATIVE :: 1;
@@ -1230,6 +1347,7 @@ Windows_Subsystem_Type :: enum u16 {
     WINDOWS_BOOT_APPLICATION :: 16;
 }
 
+// Flags in the `dll_characteristics` field of the PE Windows-specific header.
 Windows_Dll_Characteristics :: enum_flags u16 {
     HIGH_ENTROPY_VA :: 0x0020;
     DYNAMIC_BASE :: 0x0040;
@@ -1244,6 +1362,9 @@ Windows_Dll_Characteristics :: enum_flags u16 {
     TERMINAL_SERVER_AWARE :: 0x8000;
 }
 
+// Flags in the `characteristics` field of a [Coff_Section_Header].
+//
+// // The `ALIGN_*` members are a 4-bit value in bits 20 to 23, not independent bits.
 Section_Characteristics :: enum_flags u32 {
     TYPE_NO_PAD :: 0x00000008;
     CNT_CODE :: 0x00000020;
@@ -1282,18 +1403,21 @@ Section_Characteristics :: enum_flags u32 {
     MEM_WRITE :: 0x80000000;
 }
 
+// One `.pdata` entry: the RVA range of a function and the RVA of its unwind info.
 Pdata_Entry :: struct {
     begin_address: u32;
     end_address: u32;
     unwind_info_address: u32;
 }
 
+// A COFF relocation record, unaligned as stored in the file.
 Coff_Relocation :: struct {
     virtual_address: u32 #align 1;
     symbol_index: u32 #align 1;
     type: Coff_Relocation_Type_x64 #align 1;
 }
 
+// COFF relocation types for x64.
 Coff_Relocation_Type_x64 :: enum u16 {
     ABSOLUTE :: 0x0000;
     ADDR64 :: 0x0001;
@@ -1314,6 +1438,8 @@ Coff_Relocation_Type_x64 :: enum u16 {
     SSPAN32 :: 0x0010;
 }
 
+// A COFF symbol table record, unaligned as stored in the file. `name` is either the inline short name or,
+// when the first 4 bytes are zero, an offset into the string table.
 Coff_Symbol :: struct {
     name: union {
         short_name: [8] u8;
@@ -1329,6 +1455,7 @@ Coff_Symbol :: struct {
     number_of_aux_symbols: u8 #align 1;
 }
 
+// COFF symbol storage classes, the `storage_class` field of [Coff_Symbol].
 Coff_Symbol_Storage_Class :: enum u8 {
     END_OF_FUNCTION :: 0xFF;
     NULL :: 0;
@@ -1359,6 +1486,7 @@ Coff_Symbol_Storage_Class :: enum u8 {
     CLR_TOKEN :: 107;
 }
 
+// The fixed 4-byte header of x64 unwind info, with the version and flags still packed in `version_flags`.
 Unwind_Info_Header :: struct {
     version_flags: u8;
     prolog_size: u8;
@@ -1366,6 +1494,8 @@ Unwind_Info_Header :: struct {
     frame_register: u8;
 }
 
+// Decoded x64 unwind info. `unwind_codes` holds the 16-bit unwind code slots; `extra` is the exception
+// handler when `flags` has `EHANDLER` or `UHANDLER`, or the chained entry when it has `CHAININFO`.
 Unwind_Info :: struct {
     version: u8;
     flags: Unwind_Info_Flags;
@@ -1379,6 +1509,7 @@ Unwind_Info :: struct {
     };
 }
 
+// Flags in the unwind info header.
 Unwind_Info_Flags :: enum_flags u8 {
     NHANDLER :: 0x0;
     EHANDLER :: 0x1;
@@ -1386,15 +1517,19 @@ Unwind_Info_Flags :: enum_flags u8 {
     CHAININFO :: 0x4;
 }
 
+// The exception handler record in unwind info: the RVA of the handler.
 Unwind_Info_Exception_Handler :: struct {
     address: u32;
 }
 
+// One x64 unwind code slot: the prolog offset, and the operation code and operation info packed in
+// `code_info`.
 Unwind_Code :: struct {
     prolog_offset: u8;
     code_info: u8;
 }
 
+// The x64 unwind operations, the low 4 bits of [Unwind_Code.code_info].
 Unwind_Operation_Code :: enum u8 {
     PUSH_NONVOL :: 0;
     ALLOC_LARGE :: 1;
@@ -1407,6 +1542,7 @@ Unwind_Operation_Code :: enum u8 {
     PUSH_MACHFRAME :: 10;
 }
 
+// The x64 general registers by their unwind-info encoding.
 Unwind_Operation_Info_Register :: enum {
     RAX :: 0;
     RCX :: 1;
@@ -1426,6 +1562,7 @@ Unwind_Operation_Info_Register :: enum {
     R15 :: 15;
 }
 
+// A parsed ELF64 image: the headers, the sections the reader needs, the symbol tables and the file bytes.
 Elf :: struct {
     header: *Elf_Header_64;
     program_header_table: [] Elf_Program_Header_64;
@@ -1448,6 +1585,8 @@ Elf :: struct {
     content: string;
 }
 
+// The ELF file header. `Offset_Type` is `u32` for 32-bit files and `u64` for 64-bit files, see
+// [Elf_Header_32] and [Elf_Header_64].
 Elf_Header :: struct(Offset_Type: Type) {
     ident: struct {
         magic: u32;
@@ -1473,22 +1612,26 @@ Elf_Header :: struct(Offset_Type: Type) {
     section_names_section_index: u16;
 }
 
+// The file class in the ELF identification: 32-bit or 64-bit.
 Elf_Class :: enum u8 {
     _32_BIT :: 1;
     _64_BIT :: 2;
 }
 
+// The byte order in the ELF identification.
 Elf_Endianness :: enum u8 {
     LSB :: 1;
     MSB :: 1;
 }
 
+// The OS ABI in the ELF identification.
 Elf_Abi :: enum u8 {
     SYSTEM_V :: 0x00;
     LINUX :: 0x03;
     FREEBSD :: 0x09;
 }
 
+// The object file type, the `type` field of [Elf_Header].
 Elf_Type :: enum u16 {
     NONE :: 0x00;
     REL :: 0x01;
@@ -1501,11 +1644,13 @@ Elf_Type :: enum u16 {
     HIPROC :: 0xFFFF;
 }
 
+// The machine identifiers this module knows, the `machine` field of [Elf_Header].
 Elf_Machine :: enum u16 {
     AMD_x64 :: 0x3E;
     ARM_v8 :: 0xB7;
 }
 
+// An ELF64 section header.
 Elf_Section_Header :: struct {
     name_offset: u32;
     type: Elf_Section_Type;
@@ -1519,6 +1664,7 @@ Elf_Section_Header :: struct {
     entsize: u64;
 }
 
+// The `type` field of an [Elf_Section_Header].
 Elf_Section_Type :: enum u32 {
     NULL :: 0x00;
     PROGBITS :: 0x01;
@@ -1542,6 +1688,7 @@ Elf_Section_Type :: enum u32 {
     LLVM_ADDRSIG :: 0x6FFF4C03;
 }
 
+// Flags in the `flags` field of an [Elf_Section_Header].
 Elf_Section_Flags :: enum_flags u64 {
     WRITE :: 0x01;
     ALLOC :: 0x02;
@@ -1559,6 +1706,7 @@ Elf_Section_Flags :: enum_flags u64 {
     EXCLUDE :: 0x8000000;
 }
 
+// The `type` field of an ELF program header.
 Elf_Segment_Type :: enum u32 {
     NULL :: 0;
     LOAD :: 1;
@@ -1583,6 +1731,7 @@ Elf_Segment_Type :: enum u32 {
     HIPROC :: 0x7fffffff;
 }
 
+// Permission flags of an ELF program header.
 Elf_Segment_Flags :: enum_flags u32 {
     EXEC :: (1 << 0);
     WRITE :: (1 << 1);
@@ -1591,6 +1740,8 @@ Elf_Segment_Flags :: enum_flags u32 {
     MASKPROC :: 0xf0000000;
 }
 
+// An ELF64 symbol table entry. `info` packs the binding in the high 4 bits and the type in the low 4;
+// `other` holds the visibility in the low 2 bits.
 Elf_Symbol :: struct {
     name_offset: u32;
     info: u8;
@@ -1600,6 +1751,7 @@ Elf_Symbol :: struct {
     size: u64;
 }
 
+// Symbol binding, the high 4 bits of [Elf_Symbol.info].
 Elf_Symbol_Binding :: enum {
     LOCAL :: 0;
     GLOBAL :: 1;
@@ -1608,6 +1760,7 @@ Elf_Symbol_Binding :: enum {
     GNU_UNIQUE :: 10;
 }
 
+// Symbol type, the low 4 bits of [Elf_Symbol.info].
 Elf_Symbol_Type :: enum {
     NOTYPE :: 0;
     OBJECT :: 1;
@@ -1620,6 +1773,7 @@ Elf_Symbol_Type :: enum {
     GNU_IFUNC :: 10;
 }
 
+// Symbol visibility, the low 2 bits of [Elf_Symbol.other].
 Elf_Symbol_Visibility :: enum u8 {
     DEFAULT :: 0;
     INTERNAL :: 1;
@@ -1627,6 +1781,7 @@ Elf_Symbol_Visibility :: enum u8 {
     PROTECTED :: 3;
 }
 
+// Reserved values of [Elf_Symbol.section_index].
 Elf_Special_Section_Indices :: enum u16 {
     UNDEF :: 0;
     BEFORE :: 0xff00;
@@ -1636,6 +1791,7 @@ Elf_Special_Section_Indices :: enum u16 {
     XINDEX :: 0xffff;
 }
 
+// A decoded ELF relocation: place, type, symbol and addend.
 Elf_Relocation :: struct {
     address: u64;
     type: Elf_Relocation_Type;
@@ -1643,6 +1799,7 @@ Elf_Relocation :: struct {
     addend: s64;
 }
 
+// Relocation types for AMD64 and AArch64 ELF objects, plus one PlayStation 4 type.
 Elf_Relocation_Type :: enum u32 {
     AMD64_64 :: 1;
     AMD64_PC32 :: 2;
@@ -1665,11 +1822,13 @@ Elf_Relocation_Type :: enum u32 {
     AARCH64_RELATIVE :: 1027;
 }
 
+// An entry of the ELF64 dynamic section: a tag and its value or address.
 Elf_Dynamic_64 :: struct {
     tag: Elf_Dynamic_Tag;
     value: u64;
 }
 
+// Tags of the ELF dynamic section.
 Elf_Dynamic_Tag :: enum s64 {
     NULL :: 0;
     NEEDED :: 1;
@@ -1721,6 +1880,7 @@ Elf_Dynamic_Tag :: enum s64 {
     VERNEEDNUM :: 0x6fffffff;
 }
 
+// Values of the `DT_FLAGS` dynamic entry.
 Elf_Dynamic_Flags :: enum_flags u64 {
     ORIGIN :: 0x00000001;
     SYMBOLIC :: 0x00000002;
@@ -1729,6 +1889,8 @@ Elf_Dynamic_Flags :: enum_flags u64 {
     STATIC_TLS :: 0x00000010;
 }
 
+// A parsed 64-bit Mach-O image: the header, its load commands, sections and symbols, the DWARF sections the
+// reader needs and the file bytes.
 Mach_O :: struct {
     header: *Mach_Header;
     load_commands: [] *Load_Command;
@@ -1741,6 +1903,7 @@ Mach_O :: struct {
     content: string;
 }
 
+// The 64-bit Mach-O header with typed fields, the same layout as [mach_header_64].
 Mach_Header :: struct {
     magic: u32;
     cputype: Cpu_Type;
@@ -1752,6 +1915,8 @@ Mach_Header :: struct {
     reserved: u32;
 }
 
+// A decoded Mach-O symbol; `type` is read as [Mach_Symbolic_Symbol_Type] for debugging symbols and as
+// [Mach_Symbol_Type] otherwise.
 Mach_Symbol :: struct {
     name: string;
     type: union {
@@ -1764,6 +1929,7 @@ Mach_Symbol :: struct {
     section: u8;
 }
 
+// The type bits of a non-debugging Mach-O symbol.
 Mach_Symbol_Type :: enum u8 {
     UNDEFINED :: N_UNDF;
     ABSOLUTE :: N_ABS;
@@ -1772,6 +1938,7 @@ Mach_Symbol_Type :: enum u8 {
     INDIRECT :: N_INDR;
 }
 
+// The stab types of Mach-O debugging symbols.
 Mach_Symbolic_Symbol_Type :: enum u8 {
     GLOBAL :: N_GSYM;
     F77_NAME :: N_FNAME;
@@ -1794,17 +1961,20 @@ Mach_Symbolic_Symbol_Type :: enum u8 {
     LENGTH :: N_LENG;
 }
 
+// Flags of a decoded [Mach_Symbol]: external, private external and symbolic.
 Mach_Symbol_Flags :: enum_flags u8 {
     EXTERNAL;
     PRIVATE_EXTERNAL;
     SYMBOLIC;
 }
 
+// The typed prefix of every load command in a parsed [Mach_O].
 Load_Command :: struct {
     cmd: Load_Command_Type;
     cmdsize: u32;
 }
 
+// The typed form of [segment_command_64].
 Segment_Command_64 :: struct {
     using base: Load_Command;
     segname: [16] u8;
@@ -1818,6 +1988,7 @@ Segment_Command_64 :: struct {
     flags: Segment_Flags;
 }
 
+// The typed form of [section_64].
 Section_64 :: struct {
     sectname: [16] u8;
     segname: [16] u8;
@@ -1833,6 +2004,7 @@ Section_64 :: struct {
     reserved3: u32;
 }
 
+// The typed form of [symtab_command].
 Symtab_Command :: struct {
     using base: Load_Command;
     symoff: u32;
@@ -1841,11 +2013,13 @@ Symtab_Command :: struct {
     strsize: u32;
 }
 
+// The typed form of [uuid_command].
 Uuid_Command :: struct {
     using base: Load_Command;
     uuid: [16] u8;
 }
 
+// The typed form of [build_version_command].
 Build_Version_Command :: struct {
     using base: Load_Command;
     platform: Mach_Platform;
@@ -1854,6 +2028,7 @@ Build_Version_Command :: struct {
     ntools: u32;
 }
 
+// Flags in the `flags` field of [Mach_Header].
 Mach_Header_Flags :: enum_flags u32 {
     NOUNDEFS :: 0x1;
     INCRLINK :: 0x2;
@@ -1885,6 +2060,7 @@ Mach_Header_Flags :: enum_flags u32 {
     DYLIB_IN_CACHE :: 0x80000000;
 }
 
+// The platform identifiers of a [Build_Version_Command].
 Mach_Platform :: enum u32 {
     UNKNOWN :: 0;
     ANY :: 0xFFFFFFFF;
@@ -1914,6 +2090,7 @@ Mach_Platform :: enum u32 {
     VISIONOS_EXCLAVEKIT :: 24;
 }
 
+// The legacy MS-DOS header at the start of a PE file; `lfanew` is the file offset of the PE signature.
 Ms_Dos_Header :: struct {
     magic: u16;
     cblp: u16;
@@ -1936,6 +2113,7 @@ Ms_Dos_Header :: struct {
     lfanew: u32;
 }
 
+// Token kinds of the text-based dylib lexer.
 Token_Type :: enum s16 {
     IDENT :: 256;
     STRING :: 258;
@@ -1945,6 +2123,7 @@ Token_Type :: enum s16 {
     ERROR;
 }
 
+// Properties of a lexed number or string value.
 Value_Flags :: enum_flags u32 {
     HERE_STRING :: 0x1;
     NUMBER :: 0x2;
@@ -1957,6 +2136,7 @@ Value_Flags :: enum_flags u32 {
     OVERFLOWED :: 0x1000_0000;
 }
 
+// A token of the text-based dylib lexer: its type, start and end line and column, text and value flags.
 Token :: struct {
     type: Token_Type = .ERROR;
     l0, c0: s32;
@@ -1966,6 +2146,7 @@ Token :: struct {
     preceeding_whitespace: s32;
 }
 
+// The state of the text-based dylib lexer: input position, lookahead tokens and error state.
 Lexer :: struct {
     current_line_number: s32;
     current_external_file_error_report_line_number: s32;
@@ -1986,12 +2167,14 @@ Lexer :: struct {
     reported_error := false;
 }
 
+// The encodings a hex digit escape can select: 8-bit ASCII, 16-bit Unicode or 32-bit Unicode.
 Hex_Digit_Type :: enum u8 {
     ASCII_8_BIT :: 0;
     UNICODE_16 :: 1;
     UNICODE_32 :: 2;
 }
 
+// A parsed text-based dylib stub: the stub format version, its targets, install name and exports.
 Text_Based_Dylib :: struct {
     tbd_version: int;
     targets: [] string;
@@ -1999,12 +2182,15 @@ Text_Based_Dylib :: struct {
     exports: [] Target_Exports;
 }
 
+// The symbols and re-exported libraries a text-based dylib stub lists for a set of targets.
 Target_Exports :: struct {
     targets: [] string;
     symbols: [] string;
     re_exports: [] string;
 }
 
+// An ELF program header. `Size_Type` is `u32` or `u64`; the position of `flags` differs between the two
+// layouts, see [Elf_Program_Header_32] and [Elf_Program_Header_64].
 Elf_Program_Header :: struct(Size_Type: Type) {
     type: Elf_Segment_Type;
     #if Size_Type == u64 {

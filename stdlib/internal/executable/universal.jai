@@ -1,3 +1,7 @@
+// Reads the file at `path` and parses it as an Apple universal (fat) binary.
+//
+// Returns `false` if the file cannot be read or is invalid. On success the caller owns the file content in
+// [Apple_Universal_Binary.content]; on failure it is freed.
 parse_apple_universal_file :: (path: string) -> success: bool, Apple_Universal_Binary {
     content, read_ok := F.read_entire_file(path);
     if !read_ok return false, .{};
@@ -8,6 +12,11 @@ parse_apple_universal_file :: (path: string) -> success: bool, Apple_Universal_B
     return ok, value;
 }
 
+// Parses a universal (fat) binary, in the 32-bit or 64-bit offset layout and either byte order, without copying.
+//
+// Returns `false` if the architecture table or any slice is out of range, misaligned, overlaps another slice or
+// repeats a CPU type and subtype. The `files` array is allocated with the context allocator and each slice points
+// into `content`, which is not freed on failure. `filename` and `verbose` are unused.
 parse_apple_universal :: (content: string, filename: string, verbose := false) -> success: bool, Apple_Universal_Binary {
     files: [..] Arch_File;
     transferred := false;

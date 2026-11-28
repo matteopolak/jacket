@@ -1,3 +1,10 @@
+// Adds the struct member `decl` to the bitfield group being built in `status`, and returns what to emit for
+// it.
+//
+// Returns `decl` itself when it is not a bitfield of a supported integer or bool type, ending any open group.
+// Returns the new [Bitfield] when `decl` starts a group, and null when it joined the open group or has zero
+// width. On Windows a member whose type differs from that of the group's first member starts a new group.
+// Asserts that options are active and `status.parent` is set.
 maybe_add_to_bitfield :: (using status: *Bitfield_Status, decl: *Declaration) -> *Declaration {
     assert(status != null && decl != null);
     storage := strip_type(decl.type, typedefs = true, enums = true);
@@ -49,6 +56,12 @@ maybe_add_to_bitfield :: (using status: *Bitfield_Status, decl: *Declaration) ->
     return null;
 }
 
+// Chooses the storage type of the bitfield group `bitfield` from the span of its members.
+//
+// The type is that of the widest member. When the members use fewer bytes than that, it shrinks to the
+// unsigned integer that fits (except on Windows); when they use more, it becomes an array of bytes.
+// `alignment_type` is set to the widest member's type when the chosen type is less aligned than it. Asserts
+// that the group has valid members. `index` is not used.
 finish_bitfield :: (using bitfield: *Bitfield, index: int) {
     assert(bitfield != null && members.count > 0 && bit_offset_in_parent >= 0);
     largest: *CType;
@@ -94,6 +107,10 @@ finish_bitfield :: (using bitfield: *Bitfield, index: int) {
     alignment_type = ifx type.alignment < largest.alignment then largest else null;
 }
 
+// Returns the only member of the bitfield group `decl`, or `decl` itself.
+//
+// A declaration that is not a group, or a group with other than one member, is returned as it is. The member
+// takes the type of the group.
 maybe_unwrap_bitfield_declaration :: (decl: *Declaration) -> *Declaration {
     if !decl || decl.kind != .BITFIELD return decl;
 
@@ -108,6 +125,11 @@ maybe_unwrap_bitfield_declaration :: (decl: *Declaration) -> *Declaration {
     return member;
 }
 
+// Appends the names of the fields that hold the anonymous records from `decl` out to `current_scope`,
+// outermost first, each followed by `separator`.
+//
+// Returns whether anything was appended. Every record on the way must be anonymous, which is asserted. A
+// cyclic containment logs an error, sets `builder.failed` and gives false.
 append_parent_field_path :: (builder: *String_Builder, decl: *Declaration, current_scope: *Declaration, separator := ".") -> bool {
     names: [..] string;
     visited: [..] *Declaration;

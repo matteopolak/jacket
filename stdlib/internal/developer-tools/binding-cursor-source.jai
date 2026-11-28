@@ -1,3 +1,8 @@
+// Appends the template arguments of `ty` to `arguments`, and returns whether `ty` is a template
+// specialization and how many of `children` were used.
+//
+// Returns false, with nothing appended, when `arguments` is null, `ty` is not a template specialization or
+// its arguments cannot be built.
 fill_template_arguments :: (ty: CXType, arguments: *[..] *Expression, children: [] CXCursor, location_cur: CXCursor) -> bool, int {
     if !arguments return false, 0;
 
@@ -12,6 +17,12 @@ fill_template_arguments :: (ty: CXType, arguments: *[..] *Expression, children: 
     return true, consumed;
 }
 
+// Appends the template arguments written after the identifier `expr` to `arguments`.
+//
+// Type references become type-reference expressions and other children become the expressions they convert
+// to. Returns false when `expr` is not an identifier literal, when there is no active session, when a
+// template reference is ambiguous, or when a child cannot be converted; in that last case a placeholder named
+// `__Unsupported_Template_Argument` is appended and an error is logged.
 fill_template_arguments_for_expression :: (expr: *Literal, arguments: *[..] *Expression, children: [] CXCursor, parent: CXCursor) -> bool {
     if !expr || expr.literal_kind != .IDENTIFIER || !expr.identifier || !arguments || children.count < 0 || (children.count && !children.data) return false;
 
@@ -66,6 +77,8 @@ fill_template_arguments_for_expression :: (expr: *Literal, arguments: *[..] *Exp
     return true;
 }
 
+// Returns a copy of the spelling of `cur`, or with `all_info` that spelling followed by the cursor kind and
+// type in parentheses. The caller frees the result.
 as_str :: (cur: CXCursor, all_info := false) -> string {
     spelling := clang_getCursorSpelling(cur);
 
@@ -83,12 +96,17 @@ as_str :: (cur: CXCursor, all_info := false) -> string {
     return sprint("% (%, %)", text, to_string(clang_getCString(kind)), type);
 }
 
+// Returns a copy of the spelling of `ty`. The caller frees the result.
 as_str :: (ty: CXType) -> string {
     spelling := clang_getTypeSpelling(ty);
     defer clang_disposeString(spelling);
     return copy_string(to_string(clang_getCString(spelling)));
 }
 
+// Returns `location` written as `file:line:column`, with the file name in lowercase.
+//
+// File names are cached in the active generator. Asserts that a generator is active and `location` has a
+// file. The caller frees the result.
 to_string :: (location: Location) -> string {
     generator := gp_current_generator();
 
@@ -109,18 +127,21 @@ to_string :: (location: Location) -> string {
     return sprint("%:%:%", filename, location.line, location.column);
 }
 
+// Logs a message prefixed with the location of the cursor `cur`.
 log :: (cur: CXCursor, format_string: string, args: ..Any, loc := #caller_location, flags := Log_Flags.NONE, user_flags: u32 = 0) {
     location: Location;
     fill_location(*location, cur);
     log(location, format_string, ..args, loc = loc, flags = flags, user_flags = user_flags);
 }
 
+// Logs an error message prefixed with the location of the cursor `cur`.
 log_error :: (cur: CXCursor, format_string: string, args: ..Any, loc := #caller_location, flags := Log_Flags.NONE, user_flags: u32 = 0) {
     location: Location;
     fill_location(*location, cur);
     log(location, format_string, ..args, loc = loc, flags = flags | .ERROR, user_flags = user_flags);
 }
 
+// Logs a message prefixed with `location`. Asserts that a generator is active and `location` has a file.
 log :: (location: Location, format_string: string, args: ..Any, loc := #caller_location, flags := Log_Flags.NONE, user_flags: u32 = 0) {
     prefix := to_string(location);
     defer free(prefix);
@@ -128,10 +149,17 @@ log :: (location: Location, format_string: string, args: ..Any, loc := #caller_l
     Binding_Diagnostic_Basic.log("%: %", prefix, body, loc = loc, flags = flags, user_flags = user_flags);
 }
 
+// Logs an error message prefixed with `location`. Asserts that a generator is active and `location` has a
+// file.
 log_error :: (location: Location, format_string: string, args: ..Any, loc := #caller_location, flags := Log_Flags.NONE, user_flags: u32 = 0) {
     log(location, format_string, ..args, loc = loc, flags = flags | .ERROR, user_flags = user_flags);
 }
 
+// Returns the spellings of the tokens of `cur`, concatenated without separators and without comments.
+//
+// For a cursor with no tokens, returns the spelling of the token at its location. Returns an empty string,
+// with an error logged, for a null cursor or one without a translation unit. The caller frees a non-empty
+// result.
 raw_tokens_string_from_cursor :: (cur: CXCursor) -> string {
     if clang_Cursor_isNull(cur) != 0 {
         log_error("Bindings_Generator: cannot reconstruct tokens from a null cursor\n");

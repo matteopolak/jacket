@@ -1,3 +1,8 @@
+// Returns an array type of the size written in the source of `cur`, in place of the pointer type `type`.
+//
+// Reads the size from the last child of `cur`: when it is a positive integer literal, the result is a new
+// array of that many elements of the pointed-to type. Returns `type` itself when it is not a pointer, no such
+// literal is found, or the size is out of range (the last case also logs an error).
 maybe_convert_pointer_type_to_fixed_array_type :: (cur: CXCursor, type: *CType) -> *CType {
     if !type || !type.pointer_to return type;
 
@@ -32,10 +37,20 @@ maybe_convert_pointer_type_to_fixed_array_type :: (cur: CXCursor, type: *CType) 
     return result;
 }
 
+// Returns the type that an array parameter of type `type` has in a function signature, and whether it
+// changed.
+//
+// An array with a known size or size expression becomes a new pointer type to it, marked as inserted. An
+// array of unknown size is converted through its element type. Any other type, a null type and `va_list` are
+// returned unchanged with `changed` false.
 maybe_convert_fixed_array_type :: (type: *CType) -> *CType, changed: bool {
     return binding_normalize_array_parameter(type, 0);
 }
 
+// Replaces the expression of `decl` with a null literal when it is the integer zero and `decl` is a pointer.
+//
+// The literal keeps the location and raw text of the original. References and non-pointer types are left
+// alone.
 maybe_convert_expression_zero_to_null :: (decl: *Declaration) {
     if !decl || !is_zero_int_expression(decl.expression) return;
 

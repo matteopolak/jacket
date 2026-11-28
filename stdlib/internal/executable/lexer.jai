@@ -1,3 +1,7 @@
+// Resets `lexer` to read `input` from the start, clearing its token queue and error state; `user_data` is kept.
+//
+// If the lexer owns its previous input, that input is freed, and `input` is copied first when it points into it.
+// The lexer owns the new input only in that copy case.
 set_input_from_string :: (lexer: *Lexer, input: string) {
     input := input;
 
@@ -24,6 +28,9 @@ set_input_from_string :: (lexer: *Lexer, input: string) {
     lexer.current_character_index = 1;
 }
 
+// Reads the file at `file_path` into `lexer` and makes the lexer own the content.
+//
+// Returns `false` if `lexer` is null or the file cannot be read.
 set_input_from_file :: (lexer: *Lexer, file_path: string) -> bool {
     if !lexer return false;
 
@@ -36,11 +43,13 @@ set_input_from_file :: (lexer: *Lexer, file_path: string) -> bool {
     return true;
 }
 
+// Returns the next byte of the input without consuming it, or -1 at the end of input.
 peek_next_character :: (lexer: *Lexer) -> s16 {
     if !lexer || lexer.input_cursor < 0 || lexer.input_cursor >= lexer.input.count return -1;
     return lexer.input[lexer.input_cursor];
 }
 
+// Consumes one byte and advances the line and column counters. Does nothing at the end of input.
 eat_character :: (using lexer: *Lexer) {
     c := peek_next_character(lexer);
     if c < 0 return;
@@ -54,6 +63,9 @@ eat_character :: (using lexer: *Lexer) {
     } else if current_character_index < 0x7fffffff current_character_index += 1;
 }
 
+// Moves the read position back by one byte.
+//
+// Rescans the input from the start to recompute the line and column, so it takes `O(n)` time.
 unwind_one_character :: (lexer: *Lexer) {
     if !lexer || lexer.input_cursor <= 0 return;
 
@@ -66,23 +78,29 @@ unwind_one_character :: (lexer: *Lexer) {
     while lexer.input_cursor < end eat_character(lexer);
 }
 
+// Returns whether `c` can begin an identifier: a letter, `_`, `$` or a byte of 128 or more.
 starts_identifier :: inline (c: u8) -> bool {
     return (c >= #char "a" && c <= #char "z") || (c >= #char "A" && c <= #char "Z") || c == #char "_" || c == #char "$" || c >= 128;
 }
 
+// Returns whether `c` can continue an identifier: an identifier start or a decimal digit.
 continues_identifier :: (c: s32) -> bool {
     if c < 0 || c > 255 return false;
     return starts_identifier(cast(u8) c) || starts_number(c);
 }
 
+// Returns whether `c` is an ASCII decimal digit.
 starts_number :: (c: s32) -> bool {
     return c >= #char "0" && c <= #char "9";
 }
 
+// Returns whether `c` is a space, tab, carriage return, vertical tab or form feed.
 is_non_newline_whitespace :: (c: s16) -> bool {
     return c == #char " " || c == #char "\t" || c == #char "\r" || c == 11 || c == 12;
 }
 
+// Consumes and returns the next decimal digit as a number from 0 to 9, or returns -1 without consuming if the next
+// byte is not a digit.
 get_decimal_digit :: (lexer: *Lexer) -> s32 {
     c := peek_next_character(lexer);
     if !starts_number(c) return -1;
@@ -90,6 +108,8 @@ get_decimal_digit :: (lexer: *Lexer) -> s32 {
     return c - #char "0";
 }
 
+// Consumes the next hexadecimal digit and returns its value and `true`, or `0` and `false` if the next byte is
+// not one. The `type` parameter is unused.
 get_hex_digit :: (lexer: *Lexer, type: Hex_Digit_Type) -> (value: u8, success: bool) {
     digit := lex_digit(peek_next_character(lexer));
     if digit < 0 return 0, false;
@@ -97,6 +117,10 @@ get_hex_digit :: (lexer: *Lexer, type: Hex_Digit_Type) -> (value: u8, success: b
     return cast(u8) digit, true;
 }
 
+// Returns the rest of the current line, without the newline, and consumes the newline.
+//
+// `line` and `column` must equal the lexer's current position; otherwise an error is reported and an empty string
+// is returned. The result points into the input.
 get_and_eat_remainder_of_line :: (lexer: *Lexer, line: s32, column: s32) -> string {
     if !lexer return "";
 
@@ -115,16 +139,22 @@ get_and_eat_remainder_of_line :: (lexer: *Lexer, line: s32, column: s32) -> stri
     return result;
 }
 
+// Consumes bytes up to, but not including, the next newline.
 eat_until_newline :: (lexer: *Lexer) {
     while peek_next_character(lexer) >= 0 && peek_next_character(lexer) != 10 eat_character(lexer);
 }
 
+// Sets the end line and column of `token` to the lexer's current position.
 set_end_of_token :: (lexer: *Lexer, token: *Token) {
     if !lexer || !token return;
     token.l1 = lexer.current_line_number;
     token.c1 = lexer.current_character_index;
 }
 
+// Reserves the next slot in the lookahead queue and returns it, initialised with the current position and the
+// whitespace skipped before it.
+//
+// Reports an error and returns the end-of-input token if the queue already holds `MAX_CONCURRENT_TOKENS` tokens.
 get_unused_token :: (lexer: *Lexer) -> *Token {
     if !lexer return null;
 
@@ -145,6 +175,9 @@ get_unused_token :: (lexer: *Lexer) -> *Token {
     return result;
 }
 
+// Reads an identifier into `result`, sets its type to `IDENT` and returns its text.
+//
+// The type becomes `ERROR`, and an error is reported, if the text is empty or longer than `MAX_IDENTIFIER_LENGTH`.
 parse_ident :: (lexer: *Lexer, result: *Token) -> string {
     if !lexer || !result return "";
 
@@ -166,6 +199,8 @@ parse_ident :: (lexer: *Lexer, result: *Token) -> string {
     return result.string_value;
 }
 
+// Returns the type of `token`, first turning an identifier that is `---` or `...` into `TRIPLE_MINUS` or
+// `TRIPLE_DOT`. No other word is a keyword.
 check_for_keyword :: (token: *Token) -> Token_Type {
     if !token return .ERROR;
 
@@ -179,6 +214,7 @@ check_for_keyword :: (token: *Token) -> Token_Type {
     return token.type;
 }
 
+// Reads an identifier into a new token and returns it, treating `---` and `...` as their own token types.
 make_ident_or_keyword :: (lexer: *Lexer) -> *Token {
     token := get_unused_token(lexer);
     if !token || token == *lexer.eof_token return token;
@@ -189,6 +225,7 @@ make_ident_or_keyword :: (lexer: *Lexer) -> *Token {
     return token;
 }
 
+// Consumes one byte into a new token of type `c`, with that byte as its text, and returns the token.
 make_one_character_token :: (lexer: *Lexer, c: Token_Type) -> *Token {
     token := get_unused_token(lexer);
     if !token || token == *lexer.eof_token return token;
@@ -203,6 +240,10 @@ make_one_character_token :: (lexer: *Lexer, c: Token_Type) -> *Token {
     return token;
 }
 
+// Returns a new token of type `c`, or of type `augmented - subtractor` if the next byte is `=`.
+//
+// The `=` is consumed only if `eat` is set. Reports an error and returns an `ERROR` token if the augmented code
+// does not fit in 16 bits.
 check_for_equals :: (lexer: *Lexer, c: Token_Type, augmented: Token_Type, eat := true, subtractor: s32 = 0) -> *Token {
     token := get_unused_token(lexer);
     if !token || token == *lexer.eof_token return token;
@@ -224,6 +265,11 @@ check_for_equals :: (lexer: *Lexer, c: Token_Type, augmented: Token_Type, eat :=
     return token;
 }
 
+// Reads a string literal that starts with the quote `end_char` and returns it as a token.
+//
+// Supports `"` strings with the escapes `\n`, `\r`, `\t`, `\0`, `\"`, `\\`, `\xHH`, `\uHHHH` and `\UHHHHHHHH`, triple-quoted
+// here strings that run to the closing triple quote, and `'` strings where `''` stands for one quote. An
+// unterminated string, a newline in a quoted string or a bad escape reports an error.
 make_string_constant :: (lexer: *Lexer, end_char: s16) -> *Token {
     token := get_unused_token(lexer);
     if !token || token == *lexer.eof_token return token;
@@ -344,6 +390,7 @@ make_string_constant :: (lexer: *Lexer, end_char: s16) -> *Token {
     return token;
 }
 
+// Returns the number of lines in a here string token: 1 plus its newlines, or 0 if `token` is not a here string.
 count_herestring_lines :: (lexer: *Lexer, token: *Token) -> s64 {
     if !token || token.value_flags & .HERE_STRING == 0 return 0;
     lines: s64 = 1;
@@ -351,6 +398,8 @@ count_herestring_lines :: (lexer: *Lexer, token: *Token) -> s64 {
     return lines;
 }
 
+// Consumes a block comment at the current position, including nested block comments. Does nothing if the input
+// does not start with `/*`; reports an error if the comment is unterminated.
 eat_input_due_to_block_comment :: (lexer: *Lexer) {
     if lex_at(lexer, 0) != #char "/" || lex_at(lexer, 1) != #char "*" return;
 
@@ -374,6 +423,11 @@ eat_input_due_to_block_comment :: (lexer: *Lexer) {
     report_parse_error(lexer, "unterminated block comment");
 }
 
+// Reads the next token from the input and returns it, or the end-of-input token at the end.
+//
+// Skips whitespace, `//` comments and block comments first and records how much whitespace preceded the token.
+// Numbers, identifiers, strings, `---` and `...` get their own types; any other byte becomes a token whose type is
+// that byte value, and a control character below 32 gives an `ERROR` token.
 compose_new_token :: (lexer: *Lexer) -> *Token {
     if !lexer return null;
     if lexer.num_incoming_tokens >= MAX_CONCURRENT_TOKENS return get_unused_token(lexer);
@@ -434,6 +488,11 @@ compose_new_token :: (lexer: *Lexer) -> *Token {
     return make_one_character_token(lexer, cast(Token_Type) c);
 }
 
+// Returns the token `lookahead_index` places ahead of the current one without consuming it, lexing more input
+// as needed.
+//
+// `lookahead_index` must be below `MAX_CONCURRENT_TOKENS`; otherwise an error is reported and the end-of-input
+// token is returned.
 peek_token :: (lexer: *Lexer, lookahead_index: s32) -> *Token {
     if !lexer return null;
 
@@ -448,10 +507,12 @@ peek_token :: (lexer: *Lexer, lookahead_index: s32) -> *Token {
     return *lexer.tokens[(lexer.token_array_cursor + lookahead_index) % MAX_CONCURRENT_TOKENS];
 }
 
+// Returns the next token without consuming it. See [peek_token].
 peek_next_token :: (using lexer: *Lexer) -> *Token {
     return peek_token(lexer, 0);
 }
 
+// Consumes the next token, lexing it first if none is queued.
 eat_token :: (lexer: *Lexer) {
     if !lexer return;
     if lexer.num_incoming_tokens == 0 peek_next_token(lexer);
@@ -462,27 +523,34 @@ eat_token :: (lexer: *Lexer) {
     }
 }
 
+// Returns a copy of the most recently consumed token.
 get_last_token :: (lexer: *Lexer) -> Token {
     if !lexer return .{};
     return lexer.tokens[(lexer.token_array_cursor + MAX_CONCURRENT_TOKENS - 1) % MAX_CONCURRENT_TOKENS];
 }
 
+// Returns whether `value` is nonzero and either below 0.0001 or at least 1e15 in magnitude.
 has_a_big_exponent :: inline (value: float64) -> bool {
     magnitude := value;
     if magnitude < 0 magnitude = -magnitude;
     return magnitude != 0 && (magnitude < 0.0001 || magnitude >= 1000000000000000.0);
 }
 
+// Prints `lexer:LINE:COL: error: MESSAGE` for the lexer's current position and sets `reported_error`.
+//
+// `format` and `arguments` are formatted as for `print`.
 report_parse_error :: (lexer: *Lexer, format: string, arguments: ..Any) {
     if !lexer return;
     report_parse_error(lexer, lexer.current_line_number, lexer.current_character_index, format, ..arguments);
 }
 
+// Reports an error at the start of `token`, or at the current position if `token` is null.
 report_parse_error :: (lexer: *Lexer, token: *Token, format: string, arguments: ..Any) {
     if token report_parse_error(lexer, token.l0, token.c0, format, ..arguments);
     else report_parse_error(lexer, format, ..arguments);
 }
 
+// Reports an error at `line` and `col`.
 report_parse_error :: (lexer: *Lexer, line: s32, col: s32, format: string, arguments: ..Any) {
     if !lexer return;
 
@@ -494,11 +562,13 @@ report_parse_error :: (lexer: *Lexer, line: s32, col: s32, format: string, argum
     B.print("lexer:%:%: error: %\n", line, col, message);
 }
 
+// Prints `lexer:LINE:COL: detail: MESSAGE` for the lexer's current position, to follow up an error.
 report_detail :: (lexer: *Lexer, format: string, arguments: ..Any) {
     if !lexer return;
     report_detail(lexer, lexer.current_line_number, lexer.current_character_index, format, ..arguments);
 }
 
+// Prints a detail message at `line` and `col`.
 report_detail :: (lexer: *Lexer, line: s32, col: s32, format: string, arguments: ..Any) {
     if !lexer return;
     message := B.sprint(format, ..arguments);

@@ -1,3 +1,8 @@
+// A parsed COFF object or PE image.
+//
+// `content` is the whole file; `header`, the optional header pointers, `section_headers`, `symbols` and
+// `string_table` point into it, so it must outlive them. `section_relocations[i]` lists the relocations of
+// `section_headers[i]` and is allocated with the context allocator.
 Coff :: struct {
     header: *Coff_Header;
     optional_header: Coff_Optional_Header;
@@ -8,6 +13,7 @@ Coff :: struct {
     content: string;
 }
 
+// The optional header of a PE image, as pointers into [Coff.content].
 Coff_Optional_Header :: struct {
     // Which member of the union is set; zero when the file has no optional header.
     magic: Coff_Optional_Header_Pe32_Plus.Magic;
@@ -25,6 +31,9 @@ Coff_Optional_Header :: struct {
     debug_directory_entries: [] Coff_Debug_Directory_Entry;
 }
 
+// Returns whether `file_content` starts with a COFF header whose machine is x86-64, x86 or ARM64.
+//
+// COFF has no signature, so this checks only the machine tag and that the header fits.
 is_coff :: (file_content: string) -> bool {
     if file_content.count < size_of(Coff_Header) return false;
     machine := coff_word(file_content.data, 2);
@@ -32,6 +41,10 @@ is_coff :: (file_content: string) -> bool {
     return machine == 0x8664 || machine == 0x14c || machine == 0xaa64;
 }
 
+// Reads the file at `path` and parses it as a COFF object.
+//
+// Returns `false` if the file cannot be read or is invalid. On success the caller owns the file content in
+// [Coff.content]; on failure it is freed.
 parse_coff_file :: (path: string) -> success: bool, Coff {
     content, read_ok := F.read_entire_file(path);
     if !read_ok return false, .{};
@@ -42,6 +55,12 @@ parse_coff_file :: (path: string) -> success: bool, Coff {
     return ok, value;
 }
 
+// Parses a COFF object or image whose header starts at `start_offset` in `file_content`, without copying.
+//
+// Returns `false` and an empty [Coff] if the header, optional header, data directories, symbols, section
+// contents, line numbers, relocations or debug directory do not fit in the file, or a symbol or section name is
+// invalid. The header must be 4-byte aligned in memory. `file_content` is not freed on failure. `path` and
+// `verbose` are unused.
 parse_coff :: (file_content: string, path := "(unspecified file)", verbose := false, start_offset := 0) -> success: bool, Coff {
     result: Coff;
     relocations: [..][] Coff_Relocation;
@@ -161,6 +180,10 @@ parse_coff :: (file_content: string, path := "(unspecified file)", verbose := fa
     return true, result;
 }
 
+// Returns whether `file_content` is a PE image, and the offset of its COFF header.
+//
+// Checks the `MZ` prefix and the `PE\0\0` signature at the offset stored at byte 60. The offset is 0 when the
+// result is `false`.
 is_pe :: (file_content: string) -> bool, coff_start: int {
     if file_content.count < 64 || coff_word(file_content.data, 2) != MS_DOS_MAGIC_PREFIX return false, 0;
 
@@ -171,6 +194,10 @@ is_pe :: (file_content: string) -> bool, coff_start: int {
     return true, cast(s64) offset + 4;
 }
 
+// Reads the file at `path` and parses it as a PE image.
+//
+// Returns `false` if the file cannot be read or is invalid. On success the caller owns the file content in
+// [Coff.content]; on failure it is freed.
 parse_pe_file :: (path: string) -> success: bool, Coff {
     content, read_ok := F.read_entire_file(path);
     if !read_ok return false, .{};
@@ -181,6 +208,9 @@ parse_pe_file :: (path: string) -> success: bool, Coff {
     return ok, value;
 }
 
+// Parses a PE image by locating its COFF header and calling [parse_coff].
+//
+// Returns `false` if `file_content` is not a PE image, fails to parse, or has no optional header.
 parse_pe :: (file_content: string, path := "(unspecified file)", verbose := false) -> success: bool, Coff {
     valid, offset := is_pe(file_content);
     if !valid return false, .{};
@@ -196,6 +226,10 @@ parse_pe :: (file_content: string, path := "(unspecified file)", verbose := fals
     return true, value;
 }
 
+// Returns the exception table entries of section `section_index`, usually `.pdata`.
+//
+// Returns an empty slice if the section is missing or invalid, its size is not a multiple of the entry size, or
+// an entry's begin address is not below its end address. The caller frees the result.
 get_pdata :: (using coff: Coff, section_index: int) -> [] Pdata_Entry {
     data := get_section_data(coff, section_index);
     if data.count % size_of(Pdata_Entry) != 0 return .{};
@@ -219,6 +253,10 @@ get_pdata :: (using coff: Coff, section_index: int) -> [] Pdata_Entry {
     return .{ entries.count, entries.data };
 }
 
+// Decodes the unwind information at `offset` in section `section_index`, usually `.xdata`.
+//
+// Returns `false` if the data is truncated or has an unsupported version, flag combination or unwind code. The
+// caller frees `unwind_codes` and, when set, `extra.chained` or `extra.handler`.
 get_xdata :: (using coff: Coff, section_index: int, offset: u64) -> success: bool, Unwind_Info {
     data := get_section_data(coff, section_index);
     if !coff_range(data.count, offset, 4) return false, .{};
@@ -278,6 +316,9 @@ get_xdata :: (using coff: Coff, section_index: int, offset: u64) -> success: boo
     return true, result;
 }
 
+// Returns the raw contents of section `section_index`.
+//
+// Returns an empty slice if the index is out of range or the section's data lies outside the file.
 get_section_data :: (coff: Coff, section_index: int) -> [] u8 {
     if section_index < 0 || section_index >= coff.section_headers.count return .{};
     section := coff.section_headers[section_index];
@@ -285,6 +326,10 @@ get_section_data :: (coff: Coff, section_index: int) -> [] u8 {
     return .{ section.size_of_raw_data, coff.content.data + section.pointer_to_raw_data };
 }
 
+// Returns the name of the symbol at `symbol_index` and whether it is valid.
+//
+// Short names are read from the symbol record and long names from the string table. The result points into
+// `coff`.
 get_symbol_name :: (using coff: Coff, symbol_index: int) -> string, bool {
     if symbol_index < 0 || symbol_index >= symbols.count return "", false;
     symbol := *symbols[symbol_index];
@@ -292,6 +337,9 @@ get_symbol_name :: (using coff: Coff, symbol_index: int) -> string, bool {
     return string_from_zero_padded_array(symbol.name.short_name), true;
 }
 
+// Returns the zero-terminated string at `offset` in the string table and whether it was found.
+//
+// Offsets below 4 are invalid because the first four bytes hold the table size. The result points into `coff`.
 get_string_table_entry :: (using coff: Coff, offset: int) -> string, bool {
     if offset < 4 || offset >= string_table.count return "", false;
 
@@ -302,6 +350,9 @@ get_string_table_entry :: (using coff: Coff, offset: int) -> string, bool {
     return "", false;
 }
 
+// Returns the name of `header` and whether it is valid.
+//
+// A name of the form `/N` refers to string table offset `N`. Inline names are returned as a temporary string.
 get_section_name :: (coff: Coff, header: Coff_Section_Header) -> string, bool {
     if header.name[0] != #char "/" return B.copy_temporary_string(string_from_zero_padded_array(header.name)), true;
 

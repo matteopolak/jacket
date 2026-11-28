@@ -1,6 +1,10 @@
 #load "binding-bitfields.jai";
 #load "binding-declaration-emission.jai";
 
+// Appends the template arguments `params` to `builder` as `(a, b)`.
+//
+// Each argument is written for the type of the template parameter at the same position in `type_params`.
+// Writes nothing for empty `params`. On failure an error is logged and `builder.failed` is set.
 append_template_instantiation_params :: (builder: *String_Builder, params: [] *Expression, type_params: [] *Declaration, current_scope: *Declaration) {
     if params.count == 0 return;
 
@@ -12,6 +16,11 @@ append_template_instantiation_params :: (builder: *String_Builder, params: [] *E
     commit_type_fragment(builder, *fragment, valid);
 }
 
+// Appends the Jai source for the typedef `def` to `builder`, as `Name :: type;`.
+//
+// An `.ISA` or `.DISTINCT` typedef is written with `#type,isa` or `#type,distinct`. When the output name is
+// not a valid identifier, both flags are set or the type cannot be written, an error is logged,
+// `builder.failed` is set and nothing is appended.
 print_typedef :: (builder: *String_Builder, def: *Typedef) {
     fragment: String_Builder;
 
@@ -31,6 +40,11 @@ print_typedef :: (builder: *String_Builder, def: *Typedef) {
     commit_type_fragment(builder, *fragment, valid);
 }
 
+// Appends the Jai source for the enum `_enum` to `builder`, and counts it.
+//
+// With the options' `c_enum_emulation`, the declaration starts with `using`. When the output name is not a
+// valid identifier, no options are active or the body cannot be written, an error is logged, `builder.failed`
+// is set and nothing is appended.
 print_enum :: (builder: *String_Builder, _enum: *Enum) {
     fragment: String_Builder;
 
@@ -51,6 +65,10 @@ print_enum :: (builder: *String_Builder, _enum: *Enum) {
     if valid && builder && !builder.failed gp_current_generator().counts.enums += 1;
 }
 
+// Appends the Jai source for the enum `_enum` without its name, starting at `enum` or `enum_flags`, and
+// counts it.
+//
+// On failure an error is logged, `builder.failed` is set and nothing is appended.
 print_enum_body :: (builder: *String_Builder, _enum: *Enum) {
     fragment: String_Builder;
 
@@ -61,12 +79,19 @@ print_enum_body :: (builder: *String_Builder, _enum: *Enum) {
     if valid && builder && !builder.failed gp_current_generator().counts.enums += 1;
 }
 
+// Appends the C++ spelling of the type `ty` to `builder`, with names relative to `current_scope`.
+//
+// On failure an error is logged, `builder.failed` is set and nothing is appended.
 append_cpp_type :: (builder: *String_Builder, ty: *CType, current_scope: *Declaration, flags: Print_Decl_Flags = 0) {
     fragment: String_Builder;
     defer free_buffers(*fragment);
     commit_type_fragment(builder, *fragment, cpp_declarator(*fragment, ty, current_scope, "", flags, 0, false, true));
 }
 
+// Appends ` const` to `builder` when `flags` has `.C_TYPE_DETAILS` and `ty` is const, and ` &` when `ty` is a
+// reference.
+//
+// A null `ty` logs an error and sets `builder.failed`.
 append_cpp_type_modifiers :: (builder: *String_Builder, ty: *CType, flags: Print_Decl_Flags) {
     if !ty {
         fail_type_emission(builder);
@@ -77,12 +102,20 @@ append_cpp_type_modifiers :: (builder: *String_Builder, ty: *CType, flags: Print
     if ty.flags & .REFERENCE append(builder, " &");
 }
 
+// Appends the Jai spelling of the type `ty` to `builder`, with names relative to `current_scope`.
+//
+// `existing_declarations` is used when a name has to be made unique. On failure an error is logged,
+// `builder.failed` is set and nothing is appended.
 print_type_to_builder :: (builder: *String_Builder, ty: *CType, current_scope: *Declaration, flags: Print_Decl_Flags = 0, existing_declarations: *[..] *Declaration = null) {
     fragment: String_Builder;
     defer free_buffers(*fragment);
     commit_type_fragment(builder, *fragment, jai_model_type(*fragment, ty, current_scope, flags, 0, existing_declarations));
 }
 
+// Returns the Jai spelling of the type `ty`, with names relative to `current_scope`.
+//
+// Returns an empty string when the type cannot be written, after logging an error. The caller frees the
+// result.
 type_to_string :: (ty: *CType, current_scope: *Declaration, flags: Print_Decl_Flags = 0) -> string {
     builder: String_Builder;
 
@@ -93,6 +126,11 @@ type_to_string :: (ty: *CType, current_scope: *Declaration, flags: Print_Decl_Fl
     return builder_to_string(*builder);
 }
 
+// Appends the Jai spelling of the function type `type` to `builder`, with its calling convention directives.
+//
+// With `func`, the arguments come from the options' `get_func_args_for_printing` in the
+// `.FOREIGN_FUNC_DECLARATION` mode. On failure an error is logged, `builder.failed` is set and nothing is
+// appended.
 print_function_type_to_builder :: (builder: *String_Builder, type: *Function_Type, current_scope: *Declaration, func: *Function = null, flags: Print_Decl_Flags = 0) {
     fragment: String_Builder;
 
@@ -120,6 +158,10 @@ print_function_type_to_builder :: (builder: *String_Builder, type: *Function_Typ
     commit_type_fragment(builder, *fragment, valid);
 }
 
+// Returns whether `value` is larger than the greatest signed integer of the size of `target_type`.
+//
+// Typedefs and enums are looked through; a missing size counts as 8 bytes, and a 16-byte type is never
+// exceeded. Asserts on a size other than 1, 2, 4, 8 or 16.
 exceeds_signed_int_value :: (value: u64, target_type: *CType) -> bool {
     type := strip_type(target_type, typedefs = true, enums = true);
     bytes: s64 = 8;
@@ -135,6 +177,10 @@ exceeds_signed_int_value :: (value: u64, target_type: *CType) -> bool {
     return value > maximum;
 }
 
+// Returns `type` after following typedefs, enum underlying types and pointers, as far as the flags allow.
+//
+// Stops at the first type that is none of the enabled kinds. Returns null for a null type, and with an error
+// logged for a cyclic chain.
 strip_type :: (type: *CType, typedefs := false, enums := false, pointers := false) -> *CType {
     seen: [..] *CType;
 

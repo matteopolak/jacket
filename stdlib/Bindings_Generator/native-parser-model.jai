@@ -1,11 +1,13 @@
 // Public data contract from the specification; private algorithms are independent.
 
+// A libclang string handle; free it with `clang_disposeString`.
 CXString :: struct {
     data: *void;
     private_flags: u32;
 }
 
 #if OS == .WINDOWS {
+    // libclang cursor kinds as signed 32-bit values, as used on Windows.
     CXCursorKind :: enum s32 {
         UnexposedDecl :: 1;
         StructDecl :: 2;
@@ -316,6 +318,7 @@ CXString :: struct {
         LastAttr :: 441;
     }
 } else {
+    // libclang cursor kinds as unsigned 32-bit values.
     CXCursorKind :: enum u32 {
         UnexposedDecl :: 1;
         StructDecl :: 2;
@@ -627,6 +630,7 @@ CXString :: struct {
     }
 }
 
+// A libclang cursor: a reference to a node of the parsed syntax tree.
 CXCursor :: struct {
     kind: CXCursorKind;
     xdata: s32;
@@ -634,6 +638,7 @@ CXCursor :: struct {
 }
 
 #if OS == .WINDOWS {
+    // libclang type kinds as signed 32-bit values, as used on Windows.
     CXTypeKind :: enum s32 {
         Invalid :: 0;
         Unexposed :: 1;
@@ -766,6 +771,7 @@ CXCursor :: struct {
         LastBuiltin :: 40;
     }
 } else {
+    // libclang type kinds as unsigned 32-bit values.
     CXTypeKind :: enum u32 {
         Invalid :: 0;
         Unexposed :: 1;
@@ -899,12 +905,14 @@ CXCursor :: struct {
     }
 }
 
+// A libclang type handle.
 CXType :: struct {
     kind: CXTypeKind;
     data: [2] *void;
 }
 
 #if OS == .WINDOWS {
+    // Result codes of libclang calls that parse or load a translation unit; the Windows variant is signed.
     CXErrorCode :: enum s32 {
         Success :: 0;
         Failure :: 1;
@@ -913,6 +921,7 @@ CXType :: struct {
         ASTReadError :: 4;
     }
 } else {
+    // Result codes of libclang calls that parse or load a translation unit.
     CXErrorCode :: enum u32 {
         Success :: 0;
         Failure :: 1;
@@ -922,15 +931,19 @@ CXType :: struct {
     }
 }
 
+// Opaque libclang translation unit.
 CXTranslationUnitImpl :: struct {}
 
 #if OS == .WINDOWS {
+    // A file held in memory that libclang reads in place of the one on disk; Windows `Length` is 32 bits
+    // wide.
     CXUnsavedFile :: struct {
         Filename: *u8;
         Contents: *u8;
         Length: u32;
     }
 } else {
+    // A file held in memory that libclang reads in place of the one on disk.
     CXUnsavedFile :: struct {
         Filename: *u8;
         Contents: *u8;
@@ -939,12 +952,16 @@ CXTranslationUnitImpl :: struct {}
 }
 
 #if OS == .WINDOWS {
+    // What a libclang child visitor returns: `Break` stops, `Continue` goes to the next sibling, `Recurse`
+    // visits the children first; the Windows variant is signed.
     CXChildVisitResult :: enum s32 {
         Break :: 0;
         Continue :: 1;
         Recurse :: 2;
     }
 } else {
+    // What a libclang child visitor returns: `Break` stops, `Continue` goes to the next sibling, `Recurse`
+    // visits the children first.
     CXChildVisitResult :: enum u32 {
         Break :: 0;
         Continue :: 1;
@@ -952,11 +969,13 @@ CXTranslationUnitImpl :: struct {}
     }
 }
 
+// A libclang source location.
 CXSourceLocation :: struct {
     ptr_data: [2] *void;
     int_data: u32;
 }
 
+// A libclang source range.
 CXSourceRange :: struct {
     ptr_data: [2] *void;
     begin_int_data: u32;
@@ -964,6 +983,7 @@ CXSourceRange :: struct {
 }
 
 #if OS == .WINDOWS {
+    // Severity of a libclang diagnostic, from `Ignored` to `Fatal`; the Windows variant is signed.
     CXDiagnosticSeverity :: enum s32 {
         Ignored :: 0;
         Note :: 1;
@@ -972,6 +992,7 @@ CXSourceRange :: struct {
         Fatal :: 4;
     }
 } else {
+    // Severity of a libclang diagnostic, from `Ignored` to `Fatal`.
     CXDiagnosticSeverity :: enum u32 {
         Ignored :: 0;
         Note :: 1;
@@ -981,6 +1002,7 @@ CXSourceRange :: struct {
     }
 }
 
+// Options for creating a libclang index; set `Size` to the size of this struct.
 CXIndexOptions :: struct {
     Size: u32;
     ThreadBackgroundPriorityForIndexing: u8;
@@ -991,6 +1013,7 @@ CXIndexOptions :: struct {
 }
 
 #if OS == .WINDOWS {
+    // The kind of value libclang's constant evaluation produced; the Windows variant is signed.
     CXEvalResultKind :: enum s32 {
         Int :: 1;
         Float :: 2;
@@ -1001,6 +1024,7 @@ CXIndexOptions :: struct {
         UnExposed :: 0;
     }
 } else {
+    // The kind of value libclang's constant evaluation produced.
     CXEvalResultKind :: enum u32 {
         Int :: 1;
         Float :: 2;
@@ -1012,6 +1036,8 @@ CXIndexOptions :: struct {
     }
 }
 
+// Opaque libclang virtual file overlay.
 CXVirtualFileOverlayImpl :: struct {}
 
+// Opaque libclang module map descriptor.
 CXModuleMapDescriptorImpl :: struct {}

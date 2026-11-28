@@ -1,3 +1,5 @@
+// Returns whether `file_content` is a text-based dylib stub: its first line after comments, blank lines and an
+// optional UTF-8 byte order mark starts with `--- !tapi-tbd`.
 is_tbd :: (file_content: string) -> bool {
     reader := Tbd_Reader.{ content = file_content };
     if file_content.count >= 3 && file_content[0] == 0xef && file_content[1] == 0xbb && file_content[2] == 0xbf reader.cursor = 3;
@@ -11,6 +13,10 @@ is_tbd :: (file_content: string) -> bool {
     return false;
 }
 
+// Reads the file at `path` and parses it as a text-based dylib stub.
+//
+// Returns `false` if the file cannot be read or is invalid. The result does not point into the file content,
+// which is freed before returning. The caller frees each document and the slice.
 parse_tbd_file :: (path: string) -> success: bool, [] Text_Based_Dylib {
     content, read_ok := F.read_entire_file(path);
     if !read_ok return false, .{};
@@ -18,6 +24,11 @@ parse_tbd_file :: (path: string) -> success: bool, [] Text_Based_Dylib {
     return parse_tbd(content, path);
 }
 
+// Parses every YAML document of a text-based dylib stub.
+//
+// Returns `false` and prints a message that names `path` if the input is not valid UTF-8, a document is invalid
+// or unsupported, or there are no documents. The strings in the result are copies; the caller frees each document
+// and the slice.
 parse_tbd :: (file_content: string, path := "(unspecified file)") -> success: bool, [] Text_Based_Dylib {
     if !tbd_utf8_valid(file_content) {
         B.print("TBD %: invalid UTF-8 input\n", path);

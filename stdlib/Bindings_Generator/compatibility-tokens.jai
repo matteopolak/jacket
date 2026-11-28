@@ -1,5 +1,11 @@
+// Pairs of a C macro and the Jai constant that [string_from_macro_value] writes in its place, such as
+// `INT_MAX` and `S32_MAX`. Built at compile time by [generate_replacements_array].
 TOKENS_TO_REPLACE :: #insert #run generate_replacements_array();
 
+// Returns the Jai source of the `TOKENS_TO_REPLACE` array.
+//
+// Covers the limit macros of `float.h`, `limits.h` and `stdint.h`. The `long` macros follow `TARGET_OS`: 32
+// bits on Windows and 64 bits elsewhere. Meant to run at compile time.
 generate_replacements_array :: () -> string {
     builder: String_Builder;
 

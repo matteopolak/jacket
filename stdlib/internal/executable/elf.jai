@@ -1,7 +1,12 @@
+// Returns whether `file_content` starts with the ELF magic bytes `\x7fELF`.
 is_elf :: (file_content: string) -> bool {
     return file_content.count >= 4 && file_content[0] == 0x7f && file_content[1] == #char "E" && file_content[2] == #char "L" && file_content[3] == #char "F";
 }
 
+// Reads the file at `path` and parses it as an ELF file.
+//
+// Returns `false` if the file cannot be read or is invalid. On success the caller owns the file content in
+// [Elf.content]; on failure it is freed.
 parse_elf_file :: (path: string) -> success: bool, elf: Elf {
     content, read_ok := F.read_entire_file(path);
     if !read_ok return false, .{};
@@ -12,6 +17,11 @@ parse_elf_file :: (path: string) -> success: bool, elf: Elf {
     return ok, value;
 }
 
+// Validates the ELF header of `data` and returns it with the program header table.
+//
+// Accepts only little-endian 64-bit files of the current version, with `data` 8-byte aligned in memory. Returns
+// `false` and null results if the header or any program header is inconsistent. A `phnum` of `0xffff` reads the
+// real count from the first section header. `path` is unused.
 parse_elf_header_and_program_header_table :: (data: string, path := "(unspecified file)") -> bool, *Elf_Header_64, [] Elf_Program_Header_64 {
     if !is_elf(data) || data.count < size_of(Elf_Header(u64)) return false, null, .{};
     if data[4] != 2 || data[5] != 1 || data[6] != 1 || cast(u64) data.data % 8 != 0 return false, null, .{};
@@ -45,6 +55,11 @@ parse_elf_header_and_program_header_table :: (data: string, path := "(unspecifie
     return true, header, table;
 }
 
+// Parses a 64-bit little-endian ELF file without copying it.
+//
+// Returns `false` and an empty [Elf] if the header, program headers, section headers, symbol tables or section
+// names are inconsistent or out of range. Pointers in the result point into `file_content`, which is not freed on
+// failure. `path` is unused.
 parse_elf :: (file_content: string, path := "(unspecified file)") -> success: bool, elf: Elf { // jailint: allow(cognitive_complexity)
     header_ok, header, programs := parse_elf_header_and_program_header_table(file_content, path);
     if !header_ok return false, .{};
@@ -155,6 +170,8 @@ parse_elf :: (file_content: string, path := "(unspecified file)") -> success: bo
     return true, result;
 }
 
+// Returns whether `section_header` has a valid alignment and, unless it is `NOBITS`, lies within a file of
+// `file_size` bytes.
 validate_section_header :: (section_header: *Elf_Section_Header, file_size: s64) -> success: bool {
     if !section_header || file_size < 0 return false;
     if !elf_alignment(section_header.addralign) return false;
@@ -162,11 +179,16 @@ validate_section_header :: (section_header: *Elf_Section_Header, file_size: s64)
     return elf_range(file_size, section_header.offset, section_header.size);
 }
 
+// Returns the contents of `section`, or an empty slice if it is null, `NOBITS` or out of range.
 get_section_data :: (elf: Elf, section: *Elf_Section_Header) -> [] u8 {
     if !section || section.type == .NOBITS || !validate_section_header(section, elf.content.count) return .{};
     return .{ cast(s64) section.size, elf.content.data + section.offset };
 }
 
+// Returns the `RELA` relocations that apply to section `section_index`, and whether the lookup succeeded.
+//
+// Returns an empty slice and `true` if the section has no relocation table, and an empty slice and `false` if the
+// index is out of range or the table is malformed.
 get_relocations :: (elf: Elf, section_index: int) -> [] Elf_Relocation, bool {
     if section_index < 0 || section_index >= elf.sections.count return .{}, false;
 
@@ -179,34 +201,43 @@ get_relocations :: (elf: Elf, section_index: int) -> [] Elf_Relocation, bool {
     return .{}, true;
 }
 
+// Returns a pointer to the symbol with index `symbol_id`, or null if it is out of range.
 get_symbol :: (elf: Elf, symbol_id: Elf_Symbol_Id) -> *Elf_Symbol {
     index := cast(u32) symbol_id;
     if index >= elf.symbols.count return null;
     return *elf.symbols[index];
 }
 
+// Returns the type stored in the low 4 bits of `symbol.info`.
 get_type :: (symbol: Elf_Symbol) -> Elf_Symbol_Type {
     return cast(Elf_Symbol_Type) (symbol.info & 15);
 }
 
+// Returns the binding stored in the high 4 bits of `symbol.info`.
 get_binding :: (symbol: Elf_Symbol) -> Elf_Symbol_Binding {
     return cast(Elf_Symbol_Binding) (symbol.info >> 4);
 }
 
+// Returns the visibility stored in the low 2 bits of `symbol.other`.
 get_visibility :: (symbol: Elf_Symbol) -> Elf_Symbol_Visibility {
     return cast(Elf_Symbol_Visibility) (symbol.other & 3);
 }
 
+// Returns the type of `symbol` and its name looked up in `symbol_names`, and whether the name was found.
 get_symbol_type_and_name :: (elf: Elf, symbol: Elf_Symbol, symbol_names: string) -> Elf_Symbol_Type, name: string, success: bool {
     ok, name := get_string_from_table(symbol.name_offset, symbol_names);
     return get_type(symbol), name, ok;
 }
 
+// Returns the name of `section` from the section name string table and whether it was found.
 get_section_name :: (elf: Elf, section: Elf_Section_Header) -> string, success: bool {
     ok, name := get_string_from_table(section.name_offset, elf.section_names);
     return name, ok;
 }
 
+// Returns the zero-terminated string at `index` in `table` and whether it was found.
+//
+// The result points into `table`. The call fails if `index` is out of range or no terminator follows it.
 get_string_from_table :: (index: int, table: string) -> success: bool, string {
     if index < 0 || index >= table.count return false, "";
     for index..table.count - 1 if table[it] == 0 return true, .{ it - index, table.data + index };

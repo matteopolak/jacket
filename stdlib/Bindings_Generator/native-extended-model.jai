@@ -1,6 +1,7 @@
 // Additional native ABI types; no native implementation bodies are reproduced.
 
 #if OS == .WINDOWS {
+    // Availability of an entity: available, deprecated, not available or not accessible.
     CXAvailabilityKind :: enum s32 {
         Available :: 0;
         Deprecated :: 1;
@@ -8,6 +9,7 @@
         NotAccessible :: 3;
     }
 } else {
+    // Availability of an entity: available, deprecated, not available or not accessible.
     CXAvailabilityKind :: enum u32 {
         Available :: 0;
         Deprecated :: 1;
@@ -17,6 +19,7 @@
 }
 
 #if OS == .WINDOWS {
+    // Kinds of binary operator expression that a cursor can have.
     CXBinaryOperatorKind :: enum s32 {
         Invalid :: 0;
         PtrMemD :: 1;
@@ -55,6 +58,7 @@
         Last :: 33;
     }
 } else {
+    // Kinds of binary operator expression that a cursor can have.
     CXBinaryOperatorKind :: enum u32 {
         Invalid :: 0;
         PtrMemD :: 1;
@@ -95,6 +99,7 @@
 }
 
 #if OS == .WINDOWS {
+    // Calling convention of a function type.
     CXCallingConv :: enum s32 {
         Default :: 0;
         C :: 1;
@@ -135,6 +140,7 @@
         Unexposed :: 200;
     }
 } else {
+    // Calling convention of a function type.
     CXCallingConv :: enum u32 {
         Default :: 0;
         C :: 1;
@@ -177,12 +183,14 @@
 }
 
 #if OS == .WINDOWS {
+    // Three-way index option: default, enabled or disabled.
     CXChoice :: enum s32 {
         Default :: 0;
         Enabled :: 1;
         Disabled :: 2;
     }
 } else {
+    // Three-way index option: default, enabled or disabled.
     CXChoice :: enum u32 {
         Default :: 0;
         Enabled :: 1;
@@ -190,12 +198,15 @@
     }
 }
 
+// Result of a code-completion request: `NumResults` completions at `Results`.
 CXCodeCompleteResults :: struct {
     Results: *CXCompletionResult;
     NumResults: u32;
 }
 
 #if OS == .WINDOWS {
+    // Flags selecting what a code-completion request includes, such as macros, code patterns and brief
+    // comments.
     CXCodeComplete_Flags :: enum_flags s32 {
         IncludeMacros :: 0x1;
         IncludeCodePatterns :: 0x2;
@@ -204,6 +215,8 @@ CXCodeCompleteResults :: struct {
         IncludeCompletionsWithFixIts :: 0x10;
     }
 } else {
+    // Flags selecting what a code-completion request includes, such as macros, code patterns and brief
+    // comments.
     CXCodeComplete_Flags :: enum_flags u32 {
         IncludeMacros :: 0x1;
         IncludeCodePatterns :: 0x2;
@@ -214,6 +227,7 @@ CXCodeCompleteResults :: struct {
 }
 
 #if OS == .WINDOWS {
+    // Kind of one chunk of a completion string, such as typed text, a placeholder or punctuation.
     CXCompletionChunkKind :: enum s32 {
         Optional :: 0;
         TypedText :: 1;
@@ -238,6 +252,7 @@ CXCodeCompleteResults :: struct {
         VerticalSpace :: 20;
     }
 } else {
+    // Kind of one chunk of a completion string, such as typed text, a placeholder or punctuation.
     CXCompletionChunkKind :: enum u32 {
         Optional :: 0;
         TypedText :: 1;
@@ -264,6 +279,7 @@ CXCodeCompleteResults :: struct {
 }
 
 #if OS == .WINDOWS {
+    // Bit set of the syntactic contexts in which a completion is offered.
     CXCompletionContext :: enum_flags s32 {
         Unexposed :: 0x0;
         AnyType :: 0x1;
@@ -292,6 +308,7 @@ CXCodeCompleteResults :: struct {
         Unknown :: 0x7fffff;
     }
 } else {
+    // Bit set of the syntactic contexts in which a completion is offered.
     CXCompletionContext :: enum_flags u32 {
         Unexposed :: 0x0;
         AnyType :: 0x1;
@@ -321,6 +338,7 @@ CXCodeCompleteResults :: struct {
     }
 }
 
+// One code completion: the kind of the completed entity and its completion string.
 CXCompletionResult :: struct {
     CursorKind: CXCursorKind;
     CompletionString: CXCompletionString;
@@ -328,6 +346,7 @@ CXCompletionResult :: struct {
 
 CXCompletionString :: *void;
 
+// Callback invoked for each cursor found within a source range; `_context` is passed back to `visit`.
 CXCursorAndRangeVisitor :: struct {
     _context: *void;
     visit: #type (_context: *void, unknown0: CXCursor, unknown1: CXSourceRange) -> CXVisitorResult #c_call;
@@ -335,9 +354,11 @@ CXCursorAndRangeVisitor :: struct {
 
 CXCursorSet :: *CXCursorSetImpl;
 
+// Opaque target of [CXCursorSet]; has no fields.
 CXCursorSetImpl :: struct {}
 
 #if OS == .WINDOWS {
+    // Kind of exception specification on a C++ function declaration or type.
     CXCursor_ExceptionSpecificationKind :: enum s32 {
         None :: 0;
         DynamicNone :: 1;
@@ -351,6 +372,7 @@ CXCursorSetImpl :: struct {}
         NoThrow :: 9;
     }
 } else {
+    // Kind of exception specification on a C++ function declaration or type.
     CXCursor_ExceptionSpecificationKind :: enum u32 {
         None :: 0;
         DynamicNone :: 1;
@@ -366,6 +388,7 @@ CXCursorSetImpl :: struct {}
 }
 
 #if OS == .WINDOWS {
+    // Flags controlling how a diagnostic is formatted as text.
     CXDiagnosticDisplayOptions :: enum s32 {
         DisplaySourceLocation :: 1;
         DisplayColumn :: 2;
@@ -375,6 +398,7 @@ CXCursorSetImpl :: struct {}
         DisplayCategoryName :: 32;
     }
 } else {
+    // Flags controlling how a diagnostic is formatted as text.
     CXDiagnosticDisplayOptions :: enum u32 {
         DisplaySourceLocation :: 1;
         DisplayColumn :: 2;
@@ -389,11 +413,13 @@ CXDiagnosticSet :: *void;
 
 CXFieldVisitor :: #type (C: CXCursor, client_data: CXClientData) -> CXVisitorResult #c_call;
 
+// Identifier that is unique for a file, stored as three 64-bit words.
 CXFileUniqueID :: struct {
     data: [3] u64;
 }
 
 #if OS == .WINDOWS {
+    // Flags for index-wide options: background thread priority for indexing, editing or both.
     CXGlobalOptFlags :: enum s32 {
         None :: 0;
         ThreadBackgroundPriorityForIndexing :: 1;
@@ -401,6 +427,7 @@ CXFileUniqueID :: struct {
         ThreadBackgroundPriorityForAll :: 3;
     }
 } else {
+    // Flags for index-wide options: background thread priority for indexing, editing or both.
     CXGlobalOptFlags :: enum u32 {
         None :: 0;
         ThreadBackgroundPriorityForIndexing :: 1;
@@ -409,6 +436,7 @@ CXFileUniqueID :: struct {
     }
 }
 
+// Attribute attached to a declaration, reported by the indexing API.
 CXIdxAttrInfo :: struct {
     kind: CXIdxAttrKind;
     cursor: CXCursor;
@@ -416,6 +444,7 @@ CXIdxAttrInfo :: struct {
 }
 
 #if OS == .WINDOWS {
+    // Kind of attribute that the indexing API reports.
     CXIdxAttrKind :: enum s32 {
         Unexposed :: 0;
         IBAction :: 1;
@@ -423,6 +452,7 @@ CXIdxAttrInfo :: struct {
         IBOutletCollection :: 3;
     }
 } else {
+    // Kind of attribute that the indexing API reports.
     CXIdxAttrKind :: enum u32 {
         Unexposed :: 0;
         IBAction :: 1;
@@ -431,12 +461,14 @@ CXIdxAttrInfo :: struct {
     }
 }
 
+// Base class of a class or interface, reported by the indexing API.
 CXIdxBaseClassInfo :: struct {
     base: *CXIdxEntityInfo;
     cursor: CXCursor;
     loc: CXIdxLoc;
 }
 
+// Indexing information for a C++ class declaration: the declaration and its `numBases` base classes.
 CXIdxCXXClassDeclInfo :: struct {
     declInfo: *CXIdxDeclInfo;
     bases: **CXIdxBaseClassInfo;
@@ -451,10 +483,12 @@ CXIdxClientEntity :: *void;
 
 CXIdxClientFile :: *void;
 
+// Container of a declaration, reported by the indexing API.
 CXIdxContainerInfo :: struct {
     cursor: CXCursor;
 }
 
+// Indexing information for one declaration, reported to the `indexDeclaration` callback.
 CXIdxDeclInfo :: struct {
     entityInfo: *CXIdxEntityInfo;
     cursor: CXCursor;
@@ -472,16 +506,20 @@ CXIdxDeclInfo :: struct {
 }
 
 #if OS == .WINDOWS {
+    // Flags describing a declaration reported by the indexing API.
     CXIdxDeclInfoFlags :: enum s32 {
         CXIdxDeclFlag_Skipped :: 1;
     }
 } else {
+    // Flags describing a declaration reported by the indexing API.
     CXIdxDeclInfoFlags :: enum u32 {
         CXIdxDeclFlag_Skipped :: 1;
     }
 }
 
 #if OS == .WINDOWS {
+    // Template relationship of an indexed entity: not a template, a template, or a partial or full
+    // specialization.
     CXIdxEntityCXXTemplateKind :: enum s32 {
         NonTemplate :: 0;
         Template :: 1;
@@ -489,6 +527,8 @@ CXIdxDeclInfo :: struct {
         TemplateSpecialization :: 3;
     }
 } else {
+    // Template relationship of an indexed entity: not a template, a template, or a partial or full
+    // specialization.
     CXIdxEntityCXXTemplateKind :: enum u32 {
         NonTemplate :: 0;
         Template :: 1;
@@ -497,6 +537,7 @@ CXIdxDeclInfo :: struct {
     }
 }
 
+// Entity named by a declaration or reference, reported by the indexing API.
 CXIdxEntityInfo :: struct {
     kind: CXIdxEntityKind;
     templateKind: CXIdxEntityCXXTemplateKind;
@@ -509,6 +550,7 @@ CXIdxEntityInfo :: struct {
 }
 
 #if OS == .WINDOWS {
+    // Kind of entity that the indexing API reports, such as a function, struct or variable.
     CXIdxEntityKind :: enum s32 {
         Unexposed :: 0;
         Typedef :: 1;
@@ -540,6 +582,7 @@ CXIdxEntityInfo :: struct {
         CXXConcept :: 27;
     }
 } else {
+    // Kind of entity that the indexing API reports, such as a function, struct or variable.
     CXIdxEntityKind :: enum u32 {
         Unexposed :: 0;
         Typedef :: 1;
@@ -573,6 +616,7 @@ CXIdxEntityInfo :: struct {
 }
 
 #if OS == .WINDOWS {
+    // Source language of an entity that the indexing API reports.
     CXIdxEntityLanguage :: enum s32 {
         None :: 0;
         C :: 1;
@@ -581,6 +625,7 @@ CXIdxEntityInfo :: struct {
         Swift :: 4;
     }
 } else {
+    // Source language of an entity that the indexing API reports.
     CXIdxEntityLanguage :: enum u32 {
         None :: 0;
         C :: 1;
@@ -590,6 +635,7 @@ CXIdxEntityInfo :: struct {
     }
 }
 
+// One reference to an entity, reported to the `indexEntityReference` callback.
 CXIdxEntityRefInfo :: struct {
     kind: CXIdxEntityRefKind;
     cursor: CXCursor;
@@ -601,17 +647,20 @@ CXIdxEntityRefInfo :: struct {
 }
 
 #if OS == .WINDOWS {
+    // Whether a reference reported by the indexing API is direct or implicit.
     CXIdxEntityRefKind :: enum s32 {
         Direct :: 1;
         Implicit :: 2;
     }
 } else {
+    // Whether a reference reported by the indexing API is direct or implicit.
     CXIdxEntityRefKind :: enum u32 {
         Direct :: 1;
         Implicit :: 2;
     }
 }
 
+// Extra information for an `IBOutletCollection` attribute.
 CXIdxIBOutletCollectionAttrInfo :: struct {
     attrInfo: *CXIdxAttrInfo;
     objcClass: *CXIdxEntityInfo;
@@ -619,6 +668,7 @@ CXIdxIBOutletCollectionAttrInfo :: struct {
     classLoc: CXIdxLoc;
 }
 
+// Information about an AST file or module imported by the indexed translation unit.
 CXIdxImportedASTFileInfo :: struct {
     file: CXFile;
     module: CXModule;
@@ -626,6 +676,7 @@ CXIdxImportedASTFileInfo :: struct {
     isImplicit: s32;
 }
 
+// Information about a file that the preprocessor included.
 CXIdxIncludedFileInfo :: struct {
     hashLoc: CXIdxLoc;
     filename: *u8;
@@ -635,11 +686,13 @@ CXIdxIncludedFileInfo :: struct {
     isModuleImport: s32;
 }
 
+// Source location used by the libclang indexing API.
 CXIdxLoc :: struct {
     ptr_data: [2] *void;
     int_data: u32;
 }
 
+// Indexing information for an Objective-C category declaration.
 CXIdxObjCCategoryDeclInfo :: struct {
     containerInfo: *CXIdxObjCContainerDeclInfo;
     objcClass: *CXIdxEntityInfo;
@@ -648,18 +701,21 @@ CXIdxObjCCategoryDeclInfo :: struct {
     protocols: *CXIdxObjCProtocolRefListInfo;
 }
 
+// Indexing information for an Objective-C container declaration, with the container's kind.
 CXIdxObjCContainerDeclInfo :: struct {
     declInfo: *CXIdxDeclInfo;
     kind: CXIdxObjCContainerKind;
 }
 
 #if OS == .WINDOWS {
+    // Kind of Objective-C container declaration: forward reference, interface or implementation.
     CXIdxObjCContainerKind :: enum s32 {
         ForwardRef :: 0;
         Interface :: 1;
         Implementation :: 2;
     }
 } else {
+    // Kind of Objective-C container declaration: forward reference, interface or implementation.
     CXIdxObjCContainerKind :: enum u32 {
         ForwardRef :: 0;
         Interface :: 1;
@@ -667,24 +723,28 @@ CXIdxObjCContainerDeclInfo :: struct {
     }
 }
 
+// Indexing information for an Objective-C interface declaration.
 CXIdxObjCInterfaceDeclInfo :: struct {
     containerInfo: *CXIdxObjCContainerDeclInfo;
     superInfo: *CXIdxBaseClassInfo;
     protocols: *CXIdxObjCProtocolRefListInfo;
 }
 
+// Indexing information for an Objective-C property declaration, with its getter and setter entities.
 CXIdxObjCPropertyDeclInfo :: struct {
     declInfo: *CXIdxDeclInfo;
     getter: *CXIdxEntityInfo;
     setter: *CXIdxEntityInfo;
 }
 
+// One Objective-C protocol referenced by a declaration.
 CXIdxObjCProtocolRefInfo :: struct {
     protocol: *CXIdxEntityInfo;
     cursor: CXCursor;
     loc: CXIdxLoc;
 }
 
+// List of `numProtocols` Objective-C protocols referenced by a declaration.
 CXIdxObjCProtocolRefListInfo :: struct {
     protocols: **CXIdxObjCProtocolRefInfo;
     numProtocols: u32;
@@ -695,6 +755,7 @@ CXInclusionVisitor :: #type (included_file: CXFile, inclusion_stack: *CXSourceLo
 CXIndexAction :: *void;
 
 #if OS == .WINDOWS {
+    // Flags controlling what the indexing API reports and how it runs.
     CXIndexOptFlags :: enum s32 {
         None :: 0;
         SuppressRedundantRefs :: 1;
@@ -704,6 +765,7 @@ CXIndexAction :: *void;
         SkipParsedBodiesInSession :: 16;
     }
 } else {
+    // Flags controlling what the indexing API reports and how it runs.
     CXIndexOptFlags :: enum u32 {
         None :: 0;
         SuppressRedundantRefs :: 1;
@@ -715,6 +777,7 @@ CXIndexAction :: *void;
 }
 
 #if OS == .WINDOWS {
+    // Source language of a cursor.
     CXLanguageKind :: enum s32 {
         Invalid :: 0;
         C :: 1;
@@ -722,6 +785,7 @@ CXIndexAction :: *void;
         CPlusPlus :: 3;
     }
 } else {
+    // Source language of a cursor.
     CXLanguageKind :: enum u32 {
         Invalid :: 0;
         C :: 1;
@@ -731,6 +795,7 @@ CXIndexAction :: *void;
 }
 
 #if OS == .WINDOWS {
+    // Linkage of an entity: none, internal, unique external or external.
     CXLinkageKind :: enum s32 {
         Invalid :: 0;
         NoLinkage :: 1;
@@ -739,6 +804,7 @@ CXIndexAction :: *void;
         External :: 4;
     }
 } else {
+    // Linkage of an entity: none, internal, unique external or external.
     CXLinkageKind :: enum u32 {
         Invalid :: 0;
         NoLinkage :: 1;
@@ -749,6 +815,7 @@ CXIndexAction :: *void;
 }
 
 #if OS == .WINDOWS {
+    // Error codes returned when loading serialized diagnostics.
     CXLoadDiag_Error :: enum s32 {
         None :: 0;
         Unknown :: 1;
@@ -756,6 +823,7 @@ CXIndexAction :: *void;
         InvalidFile :: 3;
     }
 } else {
+    // Error codes returned when loading serialized diagnostics.
     CXLoadDiag_Error :: enum u32 {
         None :: 0;
         Unknown :: 1;
@@ -767,12 +835,16 @@ CXIndexAction :: *void;
 CXModule :: *void;
 
 #if OS == .WINDOWS {
+    // Flags selecting which parts of a name a range lookup covers: the qualifier, template arguments or a
+    // single piece.
     CXNameRefFlags :: enum s32 {
         WantQualifier :: 1;
         WantTemplateArgs :: 2;
         WantSinglePiece :: 4;
     }
 } else {
+    // Flags selecting which parts of a name a range lookup covers: the qualifier, template arguments or a
+    // single piece.
     CXNameRefFlags :: enum u32 {
         WantQualifier :: 1;
         WantTemplateArgs :: 2;
@@ -781,6 +853,7 @@ CXModule :: *void;
 }
 
 #if OS == .WINDOWS {
+    // Bit set of Objective-C declaration qualifiers.
     CXObjCDeclQualifierKind :: enum s32 {
         None :: 0;
         In :: 1;
@@ -791,6 +864,7 @@ CXModule :: *void;
         Oneway :: 32;
     }
 } else {
+    // Bit set of Objective-C declaration qualifiers.
     CXObjCDeclQualifierKind :: enum u32 {
         None :: 0;
         In :: 1;
@@ -803,6 +877,7 @@ CXModule :: *void;
 }
 
 #if OS == .WINDOWS {
+    // Bit set of Objective-C property attributes.
     CXObjCPropertyAttrKind :: enum s32 {
         noattr :: 0;
         readonly :: 1;
@@ -820,6 +895,7 @@ CXModule :: *void;
         class :: 4096;
     }
 } else {
+    // Bit set of Objective-C property attributes.
     CXObjCPropertyAttrKind :: enum u32 {
         noattr :: 0;
         readonly :: 1;
@@ -838,6 +914,8 @@ CXModule :: *void;
     }
 }
 
+// Availability of an entity on one platform, with the versions where it was introduced, deprecated and
+// obsoleted.
 CXPlatformAvailability :: struct {
     Platform: CXString;
     Introduced: CXVersion;
@@ -850,6 +928,7 @@ CXPlatformAvailability :: struct {
 CXPrintingPolicy :: *void;
 
 #if OS == .WINDOWS {
+    // Property of a printing policy that controls how declarations are printed.
     CXPrintingPolicyProperty :: enum s32 {
         Indentation :: 0;
         SuppressSpecifiers :: 1;
@@ -880,6 +959,7 @@ CXPrintingPolicy :: *void;
         LastProperty :: 25;
     }
 } else {
+    // Property of a printing policy that controls how declarations are printed.
     CXPrintingPolicyProperty :: enum u32 {
         Indentation :: 0;
         SuppressSpecifiers :: 1;
@@ -912,12 +992,14 @@ CXPrintingPolicy :: *void;
 }
 
 #if OS == .WINDOWS {
+    // Reference qualifier of a C++ member function: none, lvalue (`&`) or rvalue (`&&`).
     CXRefQualifierKind :: enum s32 {
         None :: 0;
         LValue :: 1;
         RValue :: 2;
     }
 } else {
+    // Reference qualifier of a C++ member function: none, lvalue (`&`) or rvalue (`&&`).
     CXRefQualifierKind :: enum u32 {
         None :: 0;
         LValue :: 1;
@@ -928,22 +1010,26 @@ CXPrintingPolicy :: *void;
 CXRemapping :: *void;
 
 #if OS == .WINDOWS {
+    // Flags for reparsing a translation unit; only the none value is defined.
     CXReparse_Flags :: enum_flags s32 {
         CXReparse_None :: 0x0;
     }
 } else {
+    // Flags for reparsing a translation unit; only the none value is defined.
     CXReparse_Flags :: enum_flags u32 {
         CXReparse_None :: 0x0;
     }
 }
 
 #if OS == .WINDOWS {
+    // Result of a visit operation: success, invalid arguments or the visit was interrupted.
     CXResult :: enum s32 {
         Success :: 0;
         Invalid :: 1;
         VisitBreak :: 2;
     }
 } else {
+    // Result of a visit operation: success, invalid arguments or the visit was interrupted.
     CXResult :: enum u32 {
         Success :: 0;
         Invalid :: 1;
@@ -952,6 +1038,7 @@ CXRemapping :: *void;
 }
 
 #if OS == .WINDOWS {
+    // Error codes returned when saving a translation unit.
     CXSaveError :: enum s32 {
         None :: 0;
         Unknown :: 1;
@@ -959,6 +1046,7 @@ CXRemapping :: *void;
         InvalidTU :: 3;
     }
 } else {
+    // Error codes returned when saving a translation unit.
     CXSaveError :: enum u32 {
         None :: 0;
         Unknown :: 1;
@@ -968,26 +1056,31 @@ CXRemapping :: *void;
 }
 
 #if OS == .WINDOWS {
+    // Flags for saving a translation unit; only the none value is defined.
     CXSaveTranslationUnit_Flags :: enum_flags s32 {
         CXSaveTranslationUnit_None :: 0x0;
     }
 } else {
+    // Flags for saving a translation unit; only the none value is defined.
     CXSaveTranslationUnit_Flags :: enum_flags u32 {
         CXSaveTranslationUnit_None :: 0x0;
     }
 }
 
+// Array of `count` source ranges at `ranges`.
 CXSourceRangeList :: struct {
     count: u32;
     ranges: *CXSourceRange;
 }
 
+// Array of `Count` strings at `Strings`.
 CXStringSet :: struct {
     Strings: *CXString;
     Count: u32;
 }
 
 #if OS == .WINDOWS {
+    // Bit set of the roles a symbol occurrence plays, such as declaration, definition, reference or call.
     CXSymbolRole :: enum s32 {
         None :: 0;
         Declaration :: 1;
@@ -1001,6 +1094,7 @@ CXStringSet :: struct {
         Implicit :: 256;
     }
 } else {
+    // Bit set of the roles a symbol occurrence plays, such as declaration, definition, reference or call.
     CXSymbolRole :: enum u32 {
         None :: 0;
         Declaration :: 1;
@@ -1016,12 +1110,14 @@ CXStringSet :: struct {
 }
 
 #if OS == .WINDOWS {
+    // Thread-local storage kind of a variable: none, dynamic or static.
     CXTLSKind :: enum s32 {
         None :: 0;
         Dynamic :: 1;
         Static :: 2;
     }
 } else {
+    // Thread-local storage kind of a variable: none, dynamic or static.
     CXTLSKind :: enum u32 {
         None :: 0;
         Dynamic :: 1;
@@ -1029,6 +1125,7 @@ CXStringSet :: struct {
     }
 }
 
+// Memory used by a translation unit: `numEntries` entries at `entries`.
 CXTUResourceUsage :: struct {
     data: *void;
     numEntries: u32;
@@ -1036,11 +1133,13 @@ CXTUResourceUsage :: struct {
 }
 
 #if OS == .WINDOWS {
+    // One entry of translation-unit resource usage: a kind and its amount.
     CXTUResourceUsageEntry :: struct {
         kind: CXTUResourceUsageKind;
         amount: u32;
     }
 } else {
+    // One entry of translation-unit resource usage: a kind and its amount.
     CXTUResourceUsageEntry :: struct {
         kind: CXTUResourceUsageKind;
         amount: u64;
@@ -1048,6 +1147,7 @@ CXTUResourceUsage :: struct {
 }
 
 #if OS == .WINDOWS {
+    // Category of memory that a translation-unit resource-usage entry measures.
     CXTUResourceUsageKind :: enum s32 {
         AST :: 1;
         Identifiers :: 2;
@@ -1069,6 +1169,7 @@ CXTUResourceUsage :: struct {
         Last :: 14;
     }
 } else {
+    // Category of memory that a translation-unit resource-usage entry measures.
     CXTUResourceUsageKind :: enum u32 {
         AST :: 1;
         Identifiers :: 2;
@@ -1093,9 +1194,11 @@ CXTUResourceUsage :: struct {
 
 CXTargetInfo :: *CXTargetInfoImpl;
 
+// Opaque target of [CXTargetInfo]; has no fields.
 CXTargetInfoImpl :: struct {}
 
 #if OS == .WINDOWS {
+    // Kind of a template argument, such as a type, declaration, integral value, template, pack or expression.
     CXTemplateArgumentKind :: enum s32 {
         Null :: 0;
         Type :: 1;
@@ -1109,6 +1212,7 @@ CXTargetInfoImpl :: struct {}
         Invalid :: 9;
     }
 } else {
+    // Kind of a template argument, such as a type, declaration, integral value, template, pack or expression.
     CXTemplateArgumentKind :: enum u32 {
         Null :: 0;
         Type :: 1;
@@ -1124,6 +1228,7 @@ CXTargetInfoImpl :: struct {}
 }
 
 #if OS == .WINDOWS {
+    // Flags controlling how a translation unit is parsed.
     CXTranslationUnit_Flags :: enum_flags s32 {
         None :: 0x0;
         DetailedPreprocessingRecord :: 0x1;
@@ -1144,6 +1249,7 @@ CXTargetInfoImpl :: struct {}
         RetainExcludedConditionalBlocks :: 0x8000;
     }
 } else {
+    // Flags controlling how a translation unit is parsed.
     CXTranslationUnit_Flags :: enum_flags u32 {
         None :: 0x0;
         DetailedPreprocessingRecord :: 0x1;
@@ -1166,6 +1272,7 @@ CXTargetInfoImpl :: struct {}
 }
 
 #if OS == .WINDOWS {
+    // Nullability of a pointer type: non-null, nullable, unspecified, invalid or nullable result.
     CXTypeNullabilityKind :: enum s32 {
         NonNull :: 0;
         Nullable :: 1;
@@ -1174,6 +1281,7 @@ CXTargetInfoImpl :: struct {}
         NullableResult :: 4;
     }
 } else {
+    // Nullability of a pointer type: non-null, nullable, unspecified, invalid or nullable result.
     CXTypeNullabilityKind :: enum u32 {
         NonNull :: 0;
         Nullable :: 1;
@@ -1184,6 +1292,7 @@ CXTargetInfoImpl :: struct {}
 }
 
 #if OS == .WINDOWS {
+    // Kinds of unary operator expression that a cursor can have.
     CXUnaryOperatorKind :: enum s32 {
         Invalid :: 0;
         PostInc :: 1;
@@ -1202,6 +1311,7 @@ CXTargetInfoImpl :: struct {}
         Coawait :: 14;
     }
 } else {
+    // Kinds of unary operator expression that a cursor can have.
     CXUnaryOperatorKind :: enum u32 {
         Invalid :: 0;
         PostInc :: 1;
@@ -1221,6 +1331,7 @@ CXTargetInfoImpl :: struct {}
     }
 }
 
+// Version number with major, minor and subminor parts.
 CXVersion :: struct {
     Major: s32;
     Minor: s32;
@@ -1228,6 +1339,7 @@ CXVersion :: struct {
 }
 
 #if OS == .WINDOWS {
+    // Symbol visibility of an entity: invalid, hidden, protected or default.
     CXVisibilityKind :: enum s32 {
         Invalid :: 0;
         Hidden :: 1;
@@ -1235,6 +1347,7 @@ CXVersion :: struct {
         Default :: 3;
     }
 } else {
+    // Symbol visibility of an entity: invalid, hidden, protected or default.
     CXVisibilityKind :: enum u32 {
         Invalid :: 0;
         Hidden :: 1;
@@ -1244,11 +1357,13 @@ CXVersion :: struct {
 }
 
 #if OS == .WINDOWS {
+    // Value a visitor callback returns to stop (`Break`) or continue (`Continue`) the traversal.
     CXVisitorResult :: enum s32 {
         Break :: 0;
         Continue :: 1;
     }
 } else {
+    // Value a visitor callback returns to stop (`Break`) or continue (`Continue`) the traversal.
     CXVisitorResult :: enum u32 {
         Break :: 0;
         Continue :: 1;
@@ -1256,6 +1371,7 @@ CXVersion :: struct {
 }
 
 #if OS == .WINDOWS {
+    // Kinds of binary operator expression.
     CX_BinaryOperatorKind :: enum s32 {
         Invalid :: 0;
         PtrMemD :: 1;
@@ -1294,6 +1410,7 @@ CXVersion :: struct {
         LAST :: 33;
     }
 } else {
+    // Kinds of binary operator expression.
     CX_BinaryOperatorKind :: enum u32 {
         Invalid :: 0;
         PtrMemD :: 1;
@@ -1334,6 +1451,7 @@ CXVersion :: struct {
 }
 
 #if OS == .WINDOWS {
+    // C++ access specifier of a member: invalid, public, protected or private.
     CX_CXXAccessSpecifier :: enum s32 {
         CXXInvalidAccessSpecifier :: 0;
         CXXPublic :: 1;
@@ -1341,6 +1459,7 @@ CXVersion :: struct {
         CXXPrivate :: 3;
     }
 } else {
+    // C++ access specifier of a member: invalid, public, protected or private.
     CX_CXXAccessSpecifier :: enum u32 {
         CXXInvalidAccessSpecifier :: 0;
         CXXPublic :: 1;
@@ -1349,6 +1468,7 @@ CXVersion :: struct {
     }
 }
 
+// Callbacks that the indexing API invokes while it walks a translation unit.
 IndexerCallbacks :: struct {
     abortQuery: #type (client_data: CXClientData, reserved: *void) -> s32 #c_call;
     diagnostic: #type (client_data: CXClientData, unknown0: CXDiagnosticSet, reserved: *void) -> void #c_call;

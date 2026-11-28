@@ -1,3 +1,10 @@
+// Calls `visitor` for `decl` and every declaration below it, depth first, passing each its parent and `data`.
+//
+// A declaration is visited once, even when it is reachable twice. Returning `.RECURSE` visits its children,
+// which are the members of a namespace, struct, enum or bitfield group, the arguments of a function, and for
+// a struct also its metadata, parents, template parameters and virtual functions; returning `.STOP` skips
+// them but does not end the walk. `parent` and `depth` describe where `decl` sits, and `depth` counts up from
+// the given value. Asserts that `visitor` is not null, and that the walk does not go 256 levels deep.
 visit_declarations :: (visitor: Declaration_Visitor_With_Data, data: *void, decl: *Declaration, parent: *Declaration = null, depth := 0) {
     assert(visitor != null && depth >= 0, "invalid declaration visitor");
     seen: [..] *Declaration;
@@ -5,11 +12,18 @@ visit_declarations :: (visitor: Declaration_Visitor_With_Data, data: *void, decl
     walk_declarations(visitor, data, decl, parent, depth, *seen);
 }
 
+// Does the same as the overload that takes `data`, for a visitor that needs none.
 visit_declarations :: (visitor: Declaration_Visitor, decl: *Declaration, parent: *Declaration = null, depth := 0) {
     closure: Plain_Visitor = .{ visitor = visitor };
     visit_declarations(call_plain_visitor, *closure, decl, parent, depth);
 }
 
+// Returns the enum called `enum_name` that is visible from `decl`, or null.
+//
+// Matches the original or the output name. Searches the scope of `decl` (`decl` itself when it is a namespace
+// or struct, otherwise its parent), then each enclosing scope, looking at the scope itself and at its direct
+// members, and finally the global scope of the active generator. A cyclic parent chain logs an error and
+// gives null.
 find_parent_enum :: (decl: *Declaration, enum_name: string) -> *Enum {
     if !decl || !enum_name return null;
 
@@ -55,6 +69,10 @@ find_parent_enum :: (decl: *Declaration, enum_name: string) -> *Enum {
     return null;
 }
 
+// Returns a new type that refers to `_enum`, with the size, alignment and number flags of its underlying
+// type.
+//
+// The type is allocated with `New`. Asserts that `_enum` is not null.
 create_type_of_enum :: (_enum: *Enum) -> *CType {
     assert(_enum != null, "enum type requires an enum declaration");
     result := New(CType);
@@ -69,11 +87,15 @@ create_type_of_enum :: (_enum: *Enum) -> *CType {
     return result;
 }
 
+// Sets the type of `decl` to a new type that refers to `_enum`. Asserts that `decl` is not null.
 change_type_to_enum :: (decl: *Declaration, _enum: *Enum) {
     assert(decl != null);
     decl.type = create_type_of_enum(_enum);
 }
 
+// Sets the type of `decl` to the enum called `enum_name` found by [find_parent_enum].
+//
+// Returns false and changes nothing when there is no such enum.
 change_type_to_enum :: (decl: *Declaration, enum_name: string) -> bool {
     _enum := find_parent_enum(decl, enum_name);
     if !_enum return false;
@@ -81,26 +103,42 @@ change_type_to_enum :: (decl: *Declaration, enum_name: string) -> bool {
     return true;
 }
 
+// Sets the return type of `function_type` to `new_return_type`. `name` is only used in the assertion message.
+//
+// Asserts that neither the function type nor the new type is null.
 change_return_type :: (name: string, function_type: *Function_Type, new_return_type: *CType) {
     assert(function_type != null && new_return_type != null, "invalid return type change for %", name);
     function_type.return_type = new_return_type;
 }
 
+// Sets the return type of the function that `decl` declares or points to, to `new_return_type`.
+//
+// Asserts that `decl` is not null, and that it has a function type, looking through typedefs and pointers.
 change_return_type :: (decl: *Declaration, new_return_type: *CType) {
     assert(decl != null);
     change_return_type(decl.name, declaration_function_type(decl), new_return_type);
 }
 
+// Sets the return type of `function_type` to a type that refers to `_enum`.
+//
+// `name` is only used in the assertion message. Asserts that `function_type` is not null.
 change_return_type_to_enum :: (name: string, function_type: *Function_Type, _enum: *Enum) {
     assert(function_type != null, "no function type for %", name);
     change_return_type(name, function_type, create_type_of_enum(_enum));
 }
 
+// Sets the return type of the function that `decl` declares or points to, to a type that refers to `_enum`.
+//
+// Asserts that `decl` is not null.
 change_return_type_to_enum :: (decl: *Declaration, _enum: *Enum) {
     assert(decl != null);
     change_return_type_to_enum(decl.name, declaration_function_type(decl), _enum);
 }
 
+// Sets the return type of the function that `decl` declares or points to, to the enum called `enum_name`
+// found by [find_parent_enum].
+//
+// Returns false and changes nothing when there is no such enum or `decl` has no function type.
 change_return_type_to_enum :: (decl: *Declaration, enum_name: string) -> bool {
     _enum := find_parent_enum(decl, enum_name);
     if !_enum || !declaration_function_type(decl) return false;
@@ -108,6 +146,10 @@ change_return_type_to_enum :: (decl: *Declaration, enum_name: string) -> bool {
     return true;
 }
 
+// Sets the return type of `function_type` to the enum called `enum_name`.
+//
+// The enum is searched for from each argument of the function. Returns false and changes nothing when none is
+// found.
 change_return_type_to_enum :: (name: string, function_type: *Function_Type, enum_name: string) -> bool {
     _enum := find_function_enum(function_type, enum_name);
     if !_enum return false;
@@ -115,6 +157,10 @@ change_return_type_to_enum :: (name: string, function_type: *Function_Type, enum
     return true;
 }
 
+// Sets the type of the argument `argument_name` of `function_type` to a type that refers to `_enum`.
+//
+// The argument matches by original or output name. Returns false when `function_type` or `_enum` is null,
+// which also logs an error naming `name`, or when there is no such argument.
 change_argument_type_to_enum :: (name: string, function_type: *Function_Type, argument_name: string, _enum: *Enum) -> bool {
     if !function_type || !_enum {
         log_error("Bindings_Generator: no function or enum type for %\n", name);
@@ -129,23 +175,38 @@ change_argument_type_to_enum :: (name: string, function_type: *Function_Type, ar
     return false;
 }
 
+// Sets the type of the argument `argument_name` of the function that `decl` declares or points to, to a type
+// that refers to `_enum`.
+//
+// Returns false when `decl` is null, has no function type or has no such argument.
 change_argument_type_to_enum :: (decl: *Declaration, argument_name: string, _enum: *Enum) -> bool {
     if !decl return false;
     return change_argument_type_to_enum(decl.name, declaration_function_type(decl), argument_name, _enum);
 }
 
+// Sets the type of the argument `argument_name` of the function that `decl` declares or points to, to the
+// enum called `enum_name` found by [find_parent_enum].
+//
+// Returns false and changes nothing when there is no such enum or argument.
 change_argument_type_to_enum :: (decl: *Declaration, argument_name: string, enum_name: string) -> bool {
     _enum := find_parent_enum(decl, enum_name);
     if !_enum return false;
     return change_argument_type_to_enum(decl, argument_name, _enum);
 }
 
+// Sets the type of the argument `argument_name` of `function_type` to the enum called `enum_name`.
+//
+// The enum is searched for from each argument of the function. Returns false and changes nothing when none is
+// found or the function has no such argument.
 change_argument_type_to_enum :: (name: string, function_type: *Function_Type, argument_name: string, enum_name: string) -> bool {
     _enum := find_function_enum(function_type, enum_name);
     if !_enum return false;
     return change_argument_type_to_enum(name, function_type, argument_name, _enum);
 }
 
+// Returns a new pointer type to `pointee`, with the size and alignment of a pointer on the host.
+//
+// The type is allocated with `New`. Asserts that `pointee` is not null.
 create_pointer_to :: (pointee: *CType) -> *CType {
     assert(pointee != null);
     result := New(CType);
@@ -156,6 +217,10 @@ create_pointer_to :: (pointee: *CType) -> *CType {
     return result;
 }
 
+// Returns a new integer type of `size` bytes, signed or unsigned.
+//
+// The type is allocated with `New` and its alignment equals its size. Asserts when `size` is not 1, 2, 4 or
+// 8.
 get_int_type :: (size: int, signed: bool) -> *CType {
     assert(size == 1 || size == 2 || size == 4 || size == 8, "unsupported integer byte width %", size);
     result := New(CType);

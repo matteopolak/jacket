@@ -1,9 +1,14 @@
+// Returns whether `file_content` starts with a Mach-O magic number, 32-bit or 64-bit, in either byte order.
 is_macho :: (file_content: string) -> bool {
     if file_content.count < 4 return false;
     magic := read_le(file_content.data, 4);
     return magic == MH_MAGIC || magic == MH_MAGIC_64 || magic == MH_CIGAM || magic == MH_CIGAM_64;
 }
 
+// Reads the file at `path` and parses it as a Mach-O file.
+//
+// Returns `false` if the file cannot be read or is invalid. On success the caller owns the file content in
+// [Mach_O.content]; on failure it is freed.
 parse_macho_file :: (path: string) -> success: bool, Mach_O {
     content, read_ok := F.read_entire_file(path);
     if !read_ok return false, .{};
@@ -14,6 +19,11 @@ parse_macho_file :: (path: string) -> success: bool, Mach_O {
     return ok, value;
 }
 
+// Parses a little-endian 64-bit Mach-O file without copying it.
+//
+// Returns `false` and an empty [Mach_O] if the magic is not the 64-bit native one, `file_content` is not 8-byte
+// aligned in memory, or the header, load commands, segments, sections or symbols are inconsistent. The pointers
+// in the result point into `file_content`, which is not freed on failure. `path` is unused.
 parse_macho :: (file_content: string, path := "(unspecified file)") -> success: bool, Mach_O {
     result: Mach_O;
     commands: [..] *Load_Command;
@@ -126,6 +136,9 @@ parse_macho :: (file_content: string, path := "(unspecified file)") -> success: 
     return true, result;
 }
 
+// Returns the contents of `section`, which must be one of `macho.sections`.
+//
+// Returns an empty slice if `section` is null or not in `macho`, is zero-filled, or lies outside the file.
 get_section_data :: (macho: Mach_O, section: *Section_64) -> [] u8 {
     if !section return .{};
 
@@ -136,14 +149,19 @@ get_section_data :: (macho: Mach_O, section: *Section_64) -> [] u8 {
     return .{ cast(s64) section.size, macho.content.data + section.offset };
 }
 
+// Returns the section name of `section` as a temporary string.
 get_section_name :: (section: Section_64) -> string {
     return B.copy_temporary_string(string_from_zero_padded_array(section.sectname));
 }
 
+// Returns the segment name recorded in `section` as a temporary string.
 get_segment_name :: (section: Section_64) -> string {
     return B.copy_temporary_string(string_from_zero_padded_array(section.segname));
 }
 
+// Returns the bytes of `padded` up to the first zero byte, or all of them if there is none.
+//
+// The result points into `padded`.
 string_from_zero_padded_array :: (padded: [] u8) -> string {
     for padded if it == 0 return .{ it_index, padded.data };
     return .{ padded.count, padded.data };

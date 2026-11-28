@@ -1,5 +1,12 @@
 // Public data contract from the specification; private algorithms are independent.
 
+// Describes the headers to bind and how the bindings are written. Pass it to [generate_bindings],
+// [generate_bridge] or [run_generator].
+//
+// The declarations give the default of each field; the generator reads the collections and does not free
+// them. `source_files` lists the headers. Options without source files produce output with no declarations,
+// which is not an error. [normalize_options] fills in the defaults that depend on the target, such as the
+// system include directories.
 Generate_Bindings_Options :: struct #type_info_none {
     os := TARGET_OS;
     cpu := CPU;
@@ -7,10 +14,10 @@ Generate_Bindings_Options :: struct #type_info_none {
     libraries: [..] Library;
     system_library_search_paths: [..] string;
     system_libraries: [..] Library;
-    libnames: [..] string;
-    libpaths: [..] string;
-    system_library_names: [..] string;
-    system_library_paths: [..] string;
+    libnames: [..] string; // Deprecated: use `libraries`.
+    libpaths: [..] string; // Deprecated: use `library_search_paths`.
+    system_library_names: [..] string; // Deprecated: use `system_libraries`.
+    system_library_paths: [..] string; // Deprecated: use `system_library_search_paths`.
     static_library_suffix: string;
     shared_library_suffix: string;
     system_include_paths: [..] string;
@@ -61,13 +68,22 @@ Generate_Bindings_Options :: struct #type_info_none {
     log_unsupported := false;
 }
 
+// A library for the bindings to link against, as it is given in the options.
+//
+// `filename` is the path or name that [os_load_library] searches for. `identifier` is the name of the
+// `#library` constant in the output; when empty it is derived from the file name.
 Library :: struct {
     filename: string;
     identifier: string;
 }
 
+// A library found by [os_load_library].
+//
+// `handle` is set for a shared library and is null for a static one, whose `symbol_names` were read from the
+// file instead. Symbols of a shared library are looked up through its handle. `full_path` is the path without
+// suffix, or the bare name for a system library.
 Library_Info :: struct {
-    identifier: string;
+    identifier: string; // Name of the `#library` constant in the output.
     full_path: string;
     #if OS == .WINDOWS {
         handle: W.HMODULE;
@@ -76,18 +92,26 @@ Library_Info :: struct {
     }
     is_shared_library: bool;
     is_system_library: bool;
-    symbol_names: [] string;
+    symbol_names: [] string; // Exported names of a static library; empty for a shared one.
     flags: Flags;
     Flags :: enum_flags {
-        LINK_ALWAYS
+        LINK_ALWAYS // Writes `link_always` on the `#library` directive.
     }
 }
 
+// The functions that [generate_bridge] writes wrappers for, collected while walking the output declarations.
+//
+// `needs_placement_new` is set when a wrapper is a constructor or returns a struct by value, and makes the
+// file include `<new>`.
 Bridge_Data :: struct {
     functions: [..] *Function;
     needs_placement_new: bool;
 }
 
+// The visitors that [omit_cpp_functions_visitor] calls for declarations other than C++ functions.
+//
+// A pointer to it is the `user_data` of [omit_cpp_functions_visitor]. `visitor_data` is passed to
+// `visitor_with_data`.
 Cpp_Functions_Visitor_Data :: struct {
     visitor: Declaration_Visitor;
     visitor_with_data: Declaration_Visitor_With_Data;

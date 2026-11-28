@@ -1,3 +1,18 @@
+// Generates Jai declarations for C and C++ headers, parsed with libclang.
+//
+// Fill a [Generate_Bindings_Options] with the headers in `source_files`, the include paths and the
+// libraries to bind against, then call [generate_bindings]: one overload returns the text in a
+// `String_Builder`, the other writes it to a file. Both return false when generation fails.
+// [generate_bridge] writes C-linkage C++ adapter source for the bound functions instead; compiling
+// and linking it is up to the caller.
+//
+// ```jai,no_run
+// options: Generate_Bindings_Options;
+// array_add(*options.source_files, "mylib.h");
+// array_add(*options.libraries, .{ filename = "mylib" });
+// if !generate_bindings(options, "mylib.jai") exit(1);
+// ```
+
 #module_parameters(
     // The operating system the generated bindings are for.
     TARGET_OS: type_of(OS) = xx OS

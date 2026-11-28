@@ -1,17 +1,27 @@
+// Returns whether `c` is `0` to `9`, `a` to `f` or `A` to `F`.
 is_hex_digit :: (c: u32) -> bool {
     return (c >= #char "0" && c <= #char "9") || (c >= #char "a" && c <= #char "f") || (c >= #char "A" && c <= #char "F");
 }
 
+// Returns whether `suffix` is a valid C integer suffix.
+//
+// Accepts an optional leading `u` or `U` followed by nothing, `z`, `Z`, `l`, `L`, `ll` or `LL`.
 is_valid_int_literal_suffix :: (suffix: string) -> bool {
     suffix := suffix;
     if suffix.count > 0 && (suffix[0] == #char "u" || suffix[0] == #char "U") suffix = slice(suffix, 1, suffix.count - 1);
     return suffix == "" || suffix == "z" || suffix == "Z" || suffix == "l" || suffix == "L" || suffix == "ll" || suffix == "LL";
 }
 
+// Returns whether `suffix` is empty, `f` or `F`.
 is_valid_float_literal_suffix :: (suffix: string) -> bool {
     return suffix == "" || suffix == "f" || suffix == "F";
 }
 
+// Returns the Jai spelling of the C floating-point literal `c_value`, and whether it is one.
+//
+// A literal needs a digit and a `.` or an exponent. The suffix is dropped, a missing fraction is written as
+// `.0` (`1.` becomes `1.0` and `1e5` becomes `1.0e5`). Gives an empty value and false for anything else. The
+// value is in temporary storage or points into `c_value`.
 convert_float_literal :: (c_value: string) -> value: string, success: bool {
     index: s64;
     while index < c_value.count && literal_digit(c_value[index]) index += 1;
@@ -56,6 +66,13 @@ convert_float_literal :: (c_value: string) -> value: string, success: bool {
     return slice(c_value, 0, index), true;
 }
 
+// Returns the Jai spelling of the C literal `c_value`, whether it converted, and whether it is a string.
+//
+// Strings are returned as they are when they are one properly closed string. Hexadecimal integers keep their
+// digits with a `0x` prefix, octal integers are written in hexadecimal, `0b` integers stay binary and decimal
+// integers keep their digits; integer suffixes are dropped. Anything with a `.` or an exponent goes through
+// [convert_float_literal]. Gives an empty value and false for text that is not a well-formed literal, and for
+// an octal or binary value above 64 bits. The value is in temporary storage or points into `c_value`.
 convert_literal_value :: (c_value: string) -> value: string, success: bool, was_string := false {
     if !c_value return "", false, false;
 

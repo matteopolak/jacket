@@ -1,3 +1,6 @@
+// Returns the arguments of `type`, or of the type of `func` when `type` is null, for every printing mode.
+//
+// Returns an empty slice when there is no function type. Asserts that `mode` is a known mode.
 _default_get_func_args_for_printing :: (func: *Function, type: *Function_Type, mode: Arg_Print_Mode) -> [] *Declaration {
     assert(mode == .OUTER_WRAPPER || mode == .FOREIGN_FUNC_DECLARATION || mode == .INNER_WRAPPER_CALL, "unknown argument print mode");
     if !type && func && func.type type = func.type.type_of_function;
@@ -7,6 +10,20 @@ _default_get_func_args_for_printing :: (func: *Function, type: *Function_Type, m
 
 #load "binding-options-normalization.jai";
 
+// Returns a copy of `original_options` with the defaults that depend on the target filled in, and whether
+// that worked.
+//
+// - Empty `system_include_paths` are asked of the C compiler.
+// - `-target` is added to `extra_clang_arguments` unless it has one.
+// - Apple and Android targets without `system_library_search_paths` get them from their SDK or NDK.
+// - The static library suffix defaults to `.a` off Windows, and the shared one to `.so` for Android.
+// - Empty `library_search_paths` become the working directory.
+// - Path fragments for non-system paths are lowercased.
+// - `libnames`, `system_library_names`, `libpaths` and `system_library_paths` are moved to their
+//   replacements, with a warning.
+//
+// Returns false, with an error logged, when there is no default target or no SDK root. The arrays in the
+// result are copies that the caller frees. [generate_bindings] does this itself.
 normalize_options :: (original_options: Generate_Bindings_Options) -> Generate_Bindings_Options, bool {
     state: Binding_Options_Normalization;
     state.options = original_options;
@@ -19,10 +36,20 @@ normalize_options :: (original_options: Generate_Bindings_Options) -> Generate_B
     return state.options, accepted;
 }
 
+// Generates the Jai bindings for `options` and returns them in a `String_Builder`, and whether that worked.
+//
+// Normalizes the options first. Options without `source_files` give output without declarations and succeed.
+// On failure `success` is false, with errors logged, and the builder holds no output. With `log_results`, the
+// size of the output is logged. The caller frees the builder with `free_buffers`.
 generate_bindings :: (_options: Generate_Bindings_Options, log_results := false) -> generated_result: String_Builder, success: bool {
     return binding_output(_options, log_results, false);
 }
 
+// Writes to `filename` the C++ source of wrappers that give the C++ functions of `options` C-callable names.
+//
+// Wraps the functions that have a library and a mangled native name. Private, protected and deprecated
+// functions, operators and Objective-C methods are skipped. Returns false, with an error logged, when
+// generation fails or the file cannot be written.
 generate_bridge :: (_options: Generate_Bindings_Options, filename: string) -> success: bool {
     result, ok := binding_output(_options, false, true);
 
@@ -45,6 +72,10 @@ binding_output :: (_options: Generate_Bindings_Options, log_results: bool, bridg
 }
 
 #scope_export
+// Generates the Jai bindings for `options` and writes them to the file `filename`.
+//
+// Returns false, with an error logged, when generation fails or the file cannot be written. With
+// `log_results`, the size of the output is logged.
 generate_bindings :: (options: Generate_Bindings_Options, filename: string, log_results := true) -> success: bool {
     result, ok := generate_bindings(options, log_results = log_results);
 
@@ -59,6 +90,9 @@ generate_bindings :: (options: Generate_Bindings_Options, filename: string, log_
     return true;
 }
 
+// Returns whether `identifier` is made of ASCII letters, digits and `_`, and does not start with a digit.
+//
+// The empty string is not an identifier. Keywords are not checked.
 looks_like_valid_identifier :: (identifier: string) -> bool {
     if !identifier return false;
 
@@ -71,6 +105,11 @@ looks_like_valid_identifier :: (identifier: string) -> bool {
     return true;
 }
 
+// Returns the directories that the C compiler searches for system headers when it targets `os` and `cpu`.
+//
+// Asks the compiler, so it must be installed. Framework directories are left out. Returns an empty slice,
+// with an error logged, when there is no default target or the compiler is missing or fails. The strings and
+// the array are copies that the caller frees.
 get_default_system_include_paths :: (os := OS, cpu := CPU) -> [] string {
     triple := binding_target_triple(os, cpu);
 

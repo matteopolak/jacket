@@ -1,5 +1,11 @@
 // Public emission entry points; algorithms and state stay in the shared private implementation.
 
+// Appends the C++ wrapper that gives the function `func` a C-callable name to `builder`.
+//
+// Sets the function's `output_name` to its parent path, joined with `_`, followed by its own name, and
+// `_message` for a function that needs a printf wrapper. The name is then changed to differ from every
+// declaration in `existing_declarations`. On an invalid function or an unsupported signature an error is
+// logged, `builder.failed` is set and nothing is appended.
 append_cpp_wrapper :: (builder: *String_Builder, func: *Function, existing_declarations: *[..] *Declaration) {
     fragment: String_Builder;
 
@@ -23,6 +29,14 @@ append_cpp_wrapper :: (builder: *String_Builder, func: *Function, existing_decla
     commit_type_fragment(builder, *fragment, valid);
 }
 
+// Appends the Jai source for the declaration `_decl` to `builder`.
+//
+// Writes the header comment, then the declaration, which may be a function, struct, enum, typedef, namespace,
+// macro, bitfield group or variable. `current_scope` is the scope that names are written relative to.
+// `align_declarations` is the name width to pad names to, as returned by [get_name_alignment].
+// `existing_declarations` is used to avoid name clashes, and `explicit_alignment` is an `#align` value to put
+// on the declaration. When the declaration cannot be written, an error is logged, `builder.failed` is set and
+// nothing is appended.
 print_declaration_to_builder :: (builder: *String_Builder, _decl: *Declaration, current_scope: *Declaration, flags: Print_Decl_Flags = 0, align_declarations := 0, existing_declarations: *[..] *Declaration = null, explicit_alignment := 0) {
     fragment: String_Builder;
 
@@ -33,6 +47,12 @@ print_declaration_to_builder :: (builder: *String_Builder, _decl: *Declaration, 
     commit_type_fragment(builder, *fragment, valid);
 }
 
+// Appends the Jai source for the function `func` to `builder`, and counts it.
+//
+// `foreign_name` is the symbol name written after `#foreign` when it differs from the output name. Functions
+// that need a wrapper for printf-style or adjusted arguments are written as the foreign declaration and the
+// wrapper. A virtual function without a library writes nothing. When the function cannot be written, an error
+// is logged, `builder.failed` is set and nothing is appended.
 print_function :: (builder: *String_Builder, func: *Function, current_scope: *Declaration, foreign_name: string) {
     fragment: String_Builder;
 
@@ -44,6 +64,12 @@ print_function :: (builder: *String_Builder, func: *Function, current_scope: *De
     if valid && builder && !builder.failed gp_current_generator().counts.functions += 1;
 }
 
+// Appends the Jai source for the struct `_struct` to `builder`, and counts it.
+//
+// `existing_declarations` is used to avoid name clashes among generated members. `explicit_alignment`
+// replaces the struct's alignment, which is written as `#align` on its first data member. When the output
+// name is not a valid identifier or the body cannot be written, an error is logged, `builder.failed` is set
+// and nothing is appended.
 print_struct :: (builder: *String_Builder, _struct: *Struct, existing_declarations: *[..] *Declaration, explicit_alignment := 0) {
     fragment: String_Builder;
 
@@ -59,6 +85,12 @@ print_struct :: (builder: *String_Builder, _struct: *Struct, existing_declaratio
     if valid && builder && !builder.failed gp_current_generator().counts.structs += 1;
 }
 
+// Appends the Jai source for the namespace `ns` to `builder` as a struct holding its declarations.
+//
+// Omitted declarations and empty namespaces are skipped. A declaration that should move to the global scope
+// is queued in the generator's `declarations_for_global_scope` instead of being written here. When the output
+// name is not a valid identifier, no generator is active, a member is null or a member fails, an error is
+// logged, `builder.failed` is set and nothing is appended.
 print_namespace :: (builder: *String_Builder, ns: *Namespace) {
     entered := BE_Traversal.enter(.DECLARATION_BODY, ns);
 

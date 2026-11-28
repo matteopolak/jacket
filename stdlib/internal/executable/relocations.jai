@@ -1,3 +1,8 @@
+// Applies the ELF `RELA` relocations of section `section_index` to `data`, a copy of that section's contents, and
+// returns whether all were applied.
+//
+// Supports x86-64 and AArch64 relocation types. Returns `false`, leaving `data` unchanged, if a relocation is
+// unsupported, out of range, overlaps another, overflows its field, or refers to an invalid symbol or table.
 apply_relocations :: (elf: Elf, section_index: int, data: [] u8) -> bool { // jailint: allow(cognitive_complexity)
     if !elf.header || data.count < 0 || section_index < 0 || section_index >= elf.sections.count return false;
 
@@ -123,6 +128,10 @@ apply_relocations :: (elf: Elf, section_index: int, data: [] u8) -> bool { // ja
     return true;
 }
 
+// Applies the COFF relocations of section `section_index` to `data`, a copy of that section's contents.
+//
+// Supports x86-64 images. Prints a message and leaves `data` unchanged if a relocation is unsupported, out of
+// range, overlaps another, overflows its field or refers to an unresolved symbol.
 apply_relocations :: (coff: Coff, section_index: int, data: [] u8) {
     if !apply_coff(coff, section_index, data) B.print("COFF relocation rejected: invalid, unsupported or unresolved relocation\n");
 }
