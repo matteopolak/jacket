@@ -36,10 +36,13 @@ pub(super) enum Engine<'a> {
         stdlib: &'a Path,
         import_dir: Vec<std::ffi::OsString>,
     },
-    /// The bundle's own `engine.mjs` under Node, exactly the compiler the page loads.
+    /// The bundle's own `engine.mjs` under Node, exactly the compiler the page loads. `modules`
+    /// is a library other than the standard library: its `.jai` files are supplied below
+    /// `modules/`, where a program's own folder looks for the modules it imports.
     Browser {
         node: PathBuf,
         runtime: &'a Path,
+        modules: Option<&'a Path>,
     },
 }
 
@@ -73,11 +76,53 @@ pub(super) fn run(engine: &Engine, programs: &[Program]) -> Result<Vec<Failure>,
         Engine::Browser {
             node,
             runtime,
-        } => browser(node, runtime, programs, &dir, SHARD_STARTUP),
+            modules,
+        } => browser(node, runtime, *modules, programs, &dir, SHARD_STARTUP),
     };
     let _ = std::fs::remove_dir_all(&dir);
 
     result
+}
+
+/// The `.jai` files below `root`, keyed `modules/<path>` as the browser compiler looks for them;
+/// folders starting with `.` are skipped.
+pub(super) fn module_files(
+    root: &Path,
+) -> Result<std::collections::BTreeMap<String, String>, String> {
+    fn walk(
+        dir: &Path,
+        prefix: &str,
+        found: &mut std::collections::BTreeMap<String, String>,
+    ) -> Result<(), String> {
+        let entries =
+            std::fs::read_dir(dir).map_err(|e| format!("cannot read {}: {e}", dir.display()))?;
+
+        for entry in entries {
+            let entry = entry.map_err(|e| format!("cannot read {}: {e}", dir.display()))?;
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let path = entry.path();
+
+            if name.starts_with('.') {
+                continue;
+            }
+
+            if path.is_dir() {
+                walk(&path, &format!("{prefix}{name}/"), found)?;
+            } else if name.ends_with(".jai") {
+                let text = std::fs::read_to_string(&path)
+                    .map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+
+                found.insert(format!("{prefix}{name}"), text);
+            }
+        }
+
+        Ok(())
+    }
+
+    let mut found = std::collections::BTreeMap::new();
+
+    walk(root, "modules/", &mut found)?;
+    Ok(found)
 }
 
 fn failures(programs: &[Program], mut outcomes: Vec<Option<String>>) -> Vec<Failure> {
@@ -174,6 +219,7 @@ fn shard_limit<'a>(programs: impl Iterator<Item = &'a Program>, startup: Duratio
 fn browser(
     node: &Path,
     runtime: &Path,
+    modules: Option<&Path>,
     programs: &[Program],
     dir: &Path,
     startup: Duration,
@@ -194,6 +240,14 @@ fn browser(
 
     std::fs::write(&list, serde_json::to_vec(&json).map_err(|e| e.to_string())?)
         .map_err(|e| format!("cannot write {}: {e}", list.display()))?;
+    let files = dir.join("modules.json");
+    let supplied = modules.map(module_files).transpose()?.unwrap_or_default();
+
+    std::fs::write(
+        &files,
+        serde_json::to_vec(&supplied).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| format!("cannot write {}: {e}", files.display()))?;
     let shards = crate::parallel::threads().min(programs.len().max(1));
     let indices: Vec<usize> = (0..shards).collect();
     let found = crate::parallel::try_map(&indices, shards, |_, &shard| {
@@ -208,6 +262,7 @@ fn browser(
                 list.to_string_lossy().into_owned(),
                 shard.to_string(),
                 shards.to_string(),
+                files.to_string_lossy().into_owned(),
             ],
             cwd: dir.to_path_buf(),
             env: Vec::new(),

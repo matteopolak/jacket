@@ -527,11 +527,11 @@ fn link_status(args: &DocArgs, broken: &[String], unlinked: &[String], filtered:
 }
 
 /// What runs the examples: the browser compiler under Node with `--runtime`, else jaic's
-/// interpreter. A missing `node`, or a library the bundle does not hold, is an error, not a
-/// quiet switch to the other one.
+/// interpreter. A missing `node`, or import folders the bundle cannot be given, is an error, not
+/// a quiet switch to the other one.
 fn engine<'a>(
     runtime: Option<&'a Path>,
-    root: &Path,
+    root: &'a Path,
     stdlib: &'a Path,
     jaic: &'a Path,
     project: &[std::ffi::OsString],
@@ -549,16 +549,14 @@ fn engine<'a>(
         return Err(example_check::node_missing());
     }
 
-    if root != stdlib {
-        return Err(format!(
-            "--runtime tests the examples in the browser compiler, which holds only the standard library, so it cannot run the examples of {}: drop --runtime to test them in jaic's interpreter, or pass --no-test-examples",
-            root.display()
-        ));
+    if root != stdlib && !project.is_empty() {
+        return Err("--runtime supplies only the library's own modules to the browser compiler, so it cannot run examples that import other folders: drop --runtime to test them in jaic's interpreter, or pass --no-test-examples".into());
     }
 
     Ok(example_check::Engine::Browser {
         node: PathBuf::from("node"),
         runtime,
+        modules: (root != stdlib).then_some(root),
     })
 }
 
@@ -655,12 +653,8 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
             }
         }
 
-        let bundle = args
-            .runtime
-            .as_deref()
-            .map(playground::bundle)
-            .transpose()?
-            .unwrap_or_default();
+        let library = args.runtime.is_some() && root != stdlib;
+        let bundle = playground::site_bundle(args.runtime.as_deref(), library.then_some(&root))?;
         let version = args.version.clone().unwrap_or_default();
 
         if let Some(since) = &doc.since
@@ -779,7 +773,13 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
 
         let view_elapsed = view_start.elapsed();
         let examples = site.examples();
-        let mut files = auxiliary_files(&site, logo.into_iter().chain(icon), &version, &examples);
+        let mut files = auxiliary_files(
+            &site,
+            logo.into_iter().chain(icon),
+            &version,
+            &examples,
+            library,
+        );
 
         files.extend(metadata.files(&urls, image_file));
         let published = published_files(&config_dir, &doc.files, &files)?;
@@ -911,6 +911,7 @@ fn auxiliary_files(
     images: impl Iterator<Item = (String, Vec<u8>)>,
     version: &str,
     examples: &BTreeMap<String, String>,
+    library: bool,
 ) -> Vec<(String, Vec<u8>)> {
     let mut files: Vec<(String, Vec<u8>)> = Vec::new();
 
@@ -934,7 +935,7 @@ fn auxiliary_files(
     }
 
     if site.runtime {
-        add("runtime.json".into(), playground::runtime_json());
+        add("runtime.json".into(), playground::runtime_json(library));
     }
 
     files
@@ -1196,12 +1197,25 @@ mod tests {
             no_node.contains("`node` is not installed") && no_node.contains("drop --runtime"),
             "{no_node}"
         );
-        // The bundle holds the standard library only.
-        let other = pick(Some(Path::new("rt")), Path::new("/lib"), true).unwrap_err();
+        // Another library is supplied to the bundle; extra import folders are not.
+        assert_eq!(
+            pick(Some(Path::new("rt")), Path::new("/lib"), true),
+            Ok(true)
+        );
+        let imports = engine(
+            Some(Path::new("rt")),
+            Path::new("/lib"),
+            stdlib,
+            jaic,
+            &["-import_dir".into(), "/more".into()],
+            true,
+        )
+        .err()
+        .unwrap();
 
         assert!(
-            other.contains("--runtime") && other.contains("standard library"),
-            "{other}"
+            imports.contains("--runtime") && imports.contains("other folders"),
+            "{imports}"
         );
     }
 }

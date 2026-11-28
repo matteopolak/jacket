@@ -293,7 +293,7 @@ export function mount() {
   let found = [];
   /** @type {Record<string, Diagnostic[]>} */
   let live = {};
-  /** @type {{ engine: string, wasm: string, formatter: string, examples: string } | null} */
+  /** @type {{ engine: string, wasm: string, formatter: string, examples: string, modules?: string } | null} */
   let runtime = null;
   /** @type {Promise<string> | null} */
   let driver = null;
@@ -644,7 +644,7 @@ export function mount() {
       w.addEventListener('message', onMessage);
       w.addEventListener('error', onError);
       if (request.files) abort = stop;
-      w.postMessage({ id, engine: known.engine, wasm: known.wasm, ...request });
+      w.postMessage({ id, engine: known.engine, wasm: known.wasm, modules: known.modules, ...request });
     });
   }
 
@@ -1689,6 +1689,7 @@ export function mount() {
         wasm: resolve(spec.wasm),
         formatter: resolve(spec.formatter),
         examples: resolve(spec.examples),
+        modules: spec.modules && resolve(spec.modules),
       };
     } catch (error) {
       say(error instanceof Error ? error.message : String(error), 'bad');

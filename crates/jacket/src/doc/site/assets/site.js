@@ -928,7 +928,7 @@
   // Copy and Run.
   /** @type {Worker | null} */
   var worker = null;
-  /** @type {Promise<{ engine: string, wasm: string }> | null} */
+  /** @type {Promise<{ engine: string, wasm: string, modules?: string }> | null} */
   var runtime = null;
   /** @type {Record<string, Promise<Parts>>} */
   var texts = {};
@@ -945,6 +945,7 @@
           return {
             engine: new URL(c.engine, new URL(base, location.href).href).href,
             wasm: new URL(c.wasm, new URL(base, location.href).href).href,
+            modules: c.modules && new URL(c.modules, new URL(base, location.href).href).href,
           };
         });
     }
@@ -1132,7 +1133,7 @@
     });
   }
   /**
-   * @param {{ program: string, engine: string, wasm: string }} request
+   * @param {{ program: string, engine: string, wasm: string, modules?: string }} request
    * @param {number} limit Milliseconds before the worker is stopped.
    * @returns {Promise<Ran>}
    */
@@ -1198,7 +1199,12 @@
     Promise.all([parts(id), runtimeUrls()])
       .then(function (got) {
         return ask(
-          { program: fill(got[0].run, text), engine: got[1].engine, wasm: got[1].wasm },
+          {
+            program: fill(got[0].run, text),
+            engine: got[1].engine,
+            wasm: got[1].wasm,
+            modules: got[1].modules,
+          },
           60000,
         );
       })

@@ -415,7 +415,7 @@ pub(crate) struct DocArgs {
     pub repo: Option<String>,
     /// A browser bundle (`tools/browser/build_scripting_wasm.py --output DIR`) to copy into the
     /// site, so the Run buttons and the playground work; without it they say how to build one.
-    /// The examples are then tested in that compiler under Node (standard library only; an error
+    /// The examples are then tested in that compiler under Node, given the library's own modules (an error
     /// without `node`)
     #[arg(long, value_name = "DIR")]
     pub runtime: Option<std::path::PathBuf>,

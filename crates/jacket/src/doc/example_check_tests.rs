@@ -27,6 +27,12 @@ fn runtime() -> TempDir {
       return { exitCode: 0 };
     }
     if (text === 'fail') return { exitCode: 1, stderr: 'it failed' };
+    if (text === 'needs util') {
+      const util = files['modules/Util/module.jai'];
+      return util === 'answer :: 42;\\n' && !('modules/Util/notes.txt' in files)
+        ? { exitCode: 0 }
+        : { exitCode: 1, stderr: 'Util was not supplied' };
+    }
     return { exitCode: 0 };
   } };
 }",
@@ -48,6 +54,7 @@ fn run_in(runtime: &TempDir, programs: &[Program]) -> Vec<Failure> {
         &Engine::Browser {
             node: "node".into(),
             runtime,
+            modules: None,
         },
         programs,
     )
@@ -67,6 +74,51 @@ fn an_example_in_the_browser_is_stopped_at_its_own_timeout() {
     assert_eq!(labels, ["spins", "after"]);
     assert_eq!(failures[0].message, "Stopped after 1s.");
     assert_eq!(failures[1].message, "it failed");
+}
+
+#[test]
+fn the_modules_of_a_library_are_supplied_to_the_browser_compiler() {
+    let runtime = runtime();
+    let library = TempDir::new("doc-example-library");
+
+    std::fs::create_dir_all(library.join("Util")).unwrap();
+    std::fs::create_dir_all(library.join(".hidden")).unwrap();
+    std::fs::write(library.join("Util/module.jai"), "answer :: 42;\n").unwrap();
+    std::fs::write(library.join("Util/notes.txt"), "not source").unwrap();
+    std::fs::write(library.join(".hidden/module.jai"), "skipped :: 0;\n").unwrap();
+    let programs = [program("uses Util", "needs util", None)];
+    let run_with = |modules| {
+        run(
+            &Engine::Browser {
+                node: "node".into(),
+                runtime: &runtime,
+                modules,
+            },
+            &programs,
+        )
+        .unwrap()
+    };
+
+    assert!(run_with(Some(&library)).is_empty());
+    assert_eq!(run_with(None)[0].message, "Util was not supplied");
+}
+
+#[test]
+fn module_files_are_the_jai_sources_below_a_library_without_hidden_folders() {
+    let library = TempDir::new("doc-example-module-files");
+
+    std::fs::create_dir_all(library.join("A/internal")).unwrap();
+    std::fs::create_dir_all(library.join(".git")).unwrap();
+    std::fs::write(library.join("A/module.jai"), "a :: 1;").unwrap();
+    std::fs::write(library.join("A/internal/x.jai"), "x :: 1;").unwrap();
+    std::fs::write(library.join("A/readme.md"), "text").unwrap();
+    std::fs::write(library.join(".git/y.jai"), "y :: 1;").unwrap();
+    let files = module_files(&library).unwrap();
+
+    assert_eq!(
+        files.keys().map(String::as_str).collect::<Vec<_>>(),
+        ["modules/A/internal/x.jai", "modules/A/module.jai"]
+    );
 }
 
 #[test]
@@ -91,6 +143,7 @@ fn a_shard_that_hangs_outside_its_programs_is_stopped() {
     let error = browser(
         &node,
         &runtime,
+        None,
         &[program("never", "ok", Some(1))],
         &work,
         Duration::from_secs(1),

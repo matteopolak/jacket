@@ -8,7 +8,8 @@
 //   `lsp`: one language-server message (or a list of them), answered as `{ id, lsp }` with the
 //          messages the server sent back;
 //   `warm`: only load the compiler.
-// `assets` (a URL) is where the program's `load_asset` calls fetch from.
+// `assets` (a URL) is where the program's `load_asset` calls fetch from. `modules` (a URL) is a
+// JSON map of the library's files, supplied beside every program so it can import them.
 // The reply is `{ id, result, ms }`, `{ id, ready }` for a warm-up, or `{ id, error, crashed }`.
 
 /**
@@ -18,6 +19,8 @@
 
 /** @type {Engine | null} */
 let engine = null;
+/** The library files last fetched, by URL. @type {{ url: string, files: Record<string, string> } | null} */
+let library = null;
 /** What the loaded engine was made for, so a request for other assets gets its own. */
 let loaded = '';
 
@@ -54,7 +57,15 @@ scope.addEventListener('message', async (event) => {
     const running = engine;
     const started = performance.now();
     // The budget counts interpreter steps, so a loop that never ends stops with a message.
-    const files = request.files || { 'main.jai': request.program };
+    if (request.modules && library?.url !== request.modules) {
+      const response = await fetch(request.modules);
+      if (!response.ok) throw new Error('The library modules could not be loaded.');
+      library = { url: request.modules, files: await response.json() };
+    }
+    const files = {
+      ...(request.modules ? library?.files : {}),
+      ...(request.files || { 'main.jai': request.program }),
+    };
     const play = { budget: 200_000_000, ...request.play };
     const result = running.play(files, request.main || 'main.jai', play);
     scope.postMessage({ id, result, ms: performance.now() - started });

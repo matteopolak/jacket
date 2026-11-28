@@ -87,16 +87,50 @@ fn safe(path: &str) -> bool {
             .all(|part| !part.is_empty() && part != "." && part != "..")
 }
 
-/// `runtime.json`: where the page finds the files of the bundle.
-pub(super) fn runtime_json() -> String {
-    serde_json::json!({
+/// The library's `modules/` files below `runtime/` as one JSON map, which the page supplies to
+/// the compiler beside every program so it can import them.
+pub(crate) fn library_modules(root: &Path) -> Result<(String, Vec<u8>), String> {
+    let files = super::example_check::module_files(root)?;
+
+    Ok((
+        MODULES.into(),
+        serde_json::to_vec(&files).map_err(|e| e.to_string())?,
+    ))
+}
+
+/// The files of the `runtime` bundle, if any, and with `library` its modules (see
+/// [`library_modules`]).
+pub(crate) fn site_bundle(
+    runtime: Option<&Path>,
+    library: Option<&Path>,
+) -> Result<Vec<(String, Vec<u8>)>, String> {
+    let mut files = runtime.map(bundle).transpose()?.unwrap_or_default();
+
+    if let Some(root) = library {
+        files.push(library_modules(root)?);
+    }
+
+    Ok(files)
+}
+
+/// The file `library_modules` makes, below `runtime/`.
+pub(crate) const MODULES: &str = "modules.json";
+
+/// `runtime.json`: where the page finds the files of the bundle, and with `modules` the library's
+/// own modules.
+pub(crate) fn runtime_json(modules: bool) -> String {
+    let mut spec = serde_json::json!({
         "engine": "runtime/engine.mjs",
         "wasm": "runtime/jai_wasm.wasm",
         "formatter": "runtime/jaifmt-playground.jai",
         "examples": "runtime/examples.json",
-    })
-    .to_string()
-        + "\n"
+    });
+
+    if modules {
+        spec["modules"] = format!("runtime/{MODULES}").into();
+    }
+
+    spec.to_string() + "\n"
 }
 
 /// The playground page, with the module list beside it.

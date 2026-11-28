@@ -1,7 +1,10 @@
 // Runs example programs in the browser compiler (`jacket doc --runtime`), the way the Run button's
-// worker does: the same engine, one `main.jai`, the same step budget.
+// worker does: the same engine, a `main.jai`, the same step budget.
 //
-//   node run_examples.mjs <runtime dir> <programs.json> <shard> <shards>
+//   node run_examples.mjs <runtime dir> <programs.json> <shard> <shards> <modules.json>
+//
+// `modules.json` maps `modules/<path>` to the text of the library's files, supplied beside
+// `main.jai` so a program can import them.
 //
 // `programs.json` is an array of `{ text, timeoutSeconds }`; `timeoutSeconds` is a decimal string,
 // so a budget larger than a double holds still reads exactly. Prints one JSON line per program of
@@ -19,7 +22,7 @@ const LONGEST_DELAY = 2_147_483_647;
 
 /** The worker: one engine, kept for every program that does not crash it. */
 async function compile() {
-  const { runtime } = workerData;
+  const { runtime, modules } = workerData;
   const { createEngine } = await import(pathToFileURL(resolve(runtime, "engine.mjs")).href);
   const bytes = await readFile(join(runtime, "jai_wasm.wasm"));
   let engine = null;
@@ -27,7 +30,7 @@ async function compile() {
     let line;
     try {
       engine ??= await createEngine(bytes);
-      const r = engine.play({ "main.jai": text }, "main.jai", { budget: 200_000_000 });
+      const r = engine.play({ ...modules, "main.jai": text }, "main.jai", { budget: 200_000_000 });
       const printed = (r.stdout || "") + (r.stderr || "");
       const errors = (r.diagnostics || []).some(d => d.severity === "error");
       if (r.exitCode === 0 && !errors) {
@@ -71,12 +74,13 @@ function run(worker, program) {
 }
 
 async function main() {
-  const [runtime, file, shard, shards] = process.argv.slice(2);
+  const [runtime, file, shard, shards, moduleFile] = process.argv.slice(2);
   const programs = JSON.parse(await readFile(file, "utf8"));
+  const modules = JSON.parse(await readFile(moduleFile, "utf8"));
   let worker = null;
   try {
     for (let i = Number(shard); i < programs.length; i += Number(shards)) {
-      worker ??= new Worker(new URL(import.meta.url), { workerData: { runtime: resolve(runtime) } });
+      worker ??= new Worker(new URL(import.meta.url), { workerData: { runtime: resolve(runtime), modules } });
       const { line, retire } = await run(worker, programs[i]);
       if (retire) {
         await worker.terminate();

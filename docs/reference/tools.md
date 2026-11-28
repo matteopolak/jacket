@@ -564,7 +564,7 @@ jacket doc [OPTIONS] [PATH] [-- <FLAGS>...]
 | `--logo <FILE>` | An SVG or PNG for the header and the page icon, over `[doc] logo` [default: none] |
 | `--icon <FILE>` | An SVG or PNG for the page icon alone, over `[doc] icon` [default: the logo] |
 | `--repo <URL>` | The repository's web address, over `[doc] repo`; Source links go to `<URL>/blob/<ref>/<file>` [default: none, and no Source links] |
-| `--runtime <DIR>` | A browser bundle (`tools/browser/build_scripting_wasm.py --output DIR`) to copy into the site, so the Run buttons and the playground work; without it they say how to build one. The examples are then tested in that compiler under Node (standard library only; an error without `node`) |
+| `--runtime <DIR>` | A browser bundle (`tools/browser/build_scripting_wasm.py --output DIR`) to copy into the site, so the Run buttons and the playground work; without it they say how to build one. The examples are then tested in that compiler under Node, given the library's own modules (an error without `node`) |
 | `--playground-url <URL>` | Where "open in playground" and the Playground link go, over `[doc] playground` [default: the site's own playground page] |
 | `--source-ref <REF>` | The tag, branch or commit Source links point at [default: the checkout's commit] |
 | `--module <NAME>` | Document only these modules (`String`, `Extensions/Http`); repeatable |
