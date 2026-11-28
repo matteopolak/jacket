@@ -484,6 +484,22 @@ impl Analysis {
         })
     }
 
+    /// `offset` of `path` is in an `#if` arm or `ifx` branch no evaluation of this compile ran,
+    /// or in a file it did not reach: another program that includes the file may run it.
+    pub fn in_unrun_branch(&self, path: &Path, offset: usize) -> bool {
+        let Some(file) = self.file(path) else {
+            return true;
+        };
+
+        self.compiler.ed.facts().is_some_and(|ide| {
+            ide.static_branches.iter().any(|(span, ran)| {
+                !ran && span.file == file
+                    && span.start as usize <= offset
+                    && offset <= span.end as usize
+            })
+        })
+    }
+
     /// Byte ranges of `path` no path through the program reaches: code after an exit, in a
     /// branch or loop its condition rules out, and `#if` or `ifx` arms no evaluation took.
     /// A procedure analysed once per instance counts only where every instance agrees.

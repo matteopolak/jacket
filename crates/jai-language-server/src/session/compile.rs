@@ -446,8 +446,29 @@ impl Session {
         }
 
         let analysis = cache.analyze(environment, &root, &dirs, files.clone())?;
+        let skipped = analysis.skipped(path, byte);
 
-        if !analysis.skipped(path, byte) {
+        if !skipped && !analysis.in_unrun_branch(path, byte) {
+            return None;
+        }
+
+        // Another entry that includes the file may check what this one skips (code behind a
+        // constant that entry sets).
+        for sibling in self.sibling_roots(uri) {
+            let sibling_dirs = self.import_dirs(&sibling);
+            let Some(analysis) = cache.analyze(environment, &sibling, &sibling_dirs, files.clone())
+            else {
+                continue;
+            };
+
+            analysis.focus(path);
+
+            if let Some(found) = query(analysis, path) {
+                return Some(found);
+            }
+        }
+
+        if !skipped {
             return None;
         }
 

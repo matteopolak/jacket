@@ -126,6 +126,8 @@ mod module_alias_uses;
 mod module_roots;
 #[path = "modules.rs"]
 mod modules;
+#[path = "multi_entry_hover.rs"]
+mod multi_entry_hover;
 #[path = "named_arguments.rs"]
 mod named_arguments;
 #[path = "navigation_associations.rs"]
