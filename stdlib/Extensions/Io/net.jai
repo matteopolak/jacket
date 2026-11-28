@@ -956,7 +956,7 @@ unix_sockaddr :: (path: string, storage: *Sock_Storage) -> u32 {
         bytes[0] = cast(u8) length;
         bytes[1] = AF_UNIX;
     } else {
-        bytes[0] = AF_UNIX;
+        bytes[FAMILY_BYTE] = AF_UNIX;
     }
 
     for path bytes[2 + it_index] = it;
@@ -965,6 +965,11 @@ unix_sockaddr :: (path: string, storage: *Sock_Storage) -> u32 {
 }
 
 SOCKADDR_IN_SIZE :: 16;
+
+// The byte of a Linux `sockaddr` that holds the low byte of its 16-bit family: the first on a little-endian CPU, the
+// second on a big-endian one.
+#if ARCHITECTURE == .S390X || ARCHITECTURE == .POWERPC64 FAMILY_BYTE :: 1;
+else FAMILY_BYTE :: 0;
 SOCKADDR_IN6_SIZE :: 28;
 MAX_HOST_NAME_LENGTH :: 253;
 
@@ -1147,7 +1152,7 @@ to_sockaddr :: (address: Address, storage: *Sock_Storage) -> u32 {
             bytes[0] = SOCKADDR_IN_SIZE;
             bytes[1] = AF_INET;
         } else {
-            bytes[0] = AF_INET;
+            bytes[FAMILY_BYTE] = AF_INET;
         }
 
         bytes[2] = cast(u8) (address.port >> 8);
@@ -1162,7 +1167,7 @@ to_sockaddr :: (address: Address, storage: *Sock_Storage) -> u32 {
             bytes[0] = SOCKADDR_IN6_SIZE;
             bytes[1] = AF_INET6;
         } else {
-            bytes[0] = AF_INET6;
+            bytes[FAMILY_BYTE] = AF_INET6;
         }
 
         bytes[2] = cast(u8) (address.port >> 8);
@@ -1183,7 +1188,7 @@ from_sockaddr :: (storage: *Sock_Storage) -> Address {
     address: Address;
 
     #if OS == .MACOS family := bytes[1];
-    else family := bytes[0];
+    else family := bytes[FAMILY_BYTE];
 
     if family == AF_INET {
         address.family = .IPV4;
