@@ -1,0 +1,139 @@
+# Doc comments for the generated declarations in stdlib/GL, by name.
+
+GL_Procedures = """
+The loaded GL function pointers, one member per function, plus `gl_version_major`, `gl_version_minor` and a
+`bool` per core version and extension saying whether it is available. The module's global `gl` is one of
+these; [gl_load] fills it.
+"""
+
+GLbitfield = """
+The GL `GLbitfield` type: an unsigned 32-bit set of flags.
+"""
+
+GLboolean = """
+The GL `GLboolean` type: a `bool`.
+"""
+
+GLbyte = """
+The GL `GLbyte` type: a signed 8-bit integer.
+"""
+
+GLchar = """
+The GL `GLchar` type: a byte of text.
+"""
+
+GLcharARB = """
+The GL `GLcharARB` type: a byte of text.
+"""
+
+GLclampd = """
+The GL `GLclampd` type: a 64-bit float in the range 0 to 1.
+"""
+
+GLclampf = """
+The GL `GLclampf` type: a 32-bit float in the range 0 to 1.
+"""
+
+GLclampx = """
+The GL `GLclampx` type: a signed 32-bit 16.16 fixed-point value in the range 0 to 1.
+"""
+
+GLDEBUGPROCARB = """
+The GL `GLDEBUGPROCARB` type: the same as `GLDEBUGPROC`.
+"""
+
+GLDEBUGPROCKHR = """
+The GL `GLDEBUGPROCKHR` type: the same as `GLDEBUGPROC`.
+"""
+
+GLdouble = """
+The GL `GLdouble` type: a 64-bit float.
+"""
+
+GLenum = """
+The GL `GLenum` type: an unsigned 32-bit enumerant.
+"""
+
+GLfixed = """
+The GL `GLfixed` type: a signed 32-bit 16.16 fixed-point value.
+"""
+
+GLfloat = """
+The GL `GLfloat` type: a 32-bit float.
+"""
+
+GLhalf = """
+The GL `GLhalf` type: a 16-bit float, stored as `u16`.
+"""
+
+GLhalfARB = """
+The GL `GLhalfARB` type: a 16-bit float, stored as `u16`.
+"""
+
+GLhalfNV = """
+The GL `GLhalfNV` type: a 16-bit float, stored as `u16`.
+"""
+
+GLhandleARB = """
+The GL `GLhandleARB` type: an unsigned 32-bit object handle.
+"""
+
+GLint = """
+The GL `GLint` type: a signed 32-bit integer.
+"""
+
+GLint64 = """
+The GL `GLint64` type: a signed 64-bit integer.
+"""
+
+GLint64EXT = """
+The GL `GLint64EXT` type: a signed 64-bit integer.
+"""
+
+GLintptr = """
+The GL `GLintptr` type: a signed 64-bit buffer offset.
+"""
+
+GLintptrARB = """
+The GL `GLintptrARB` type: a signed 64-bit buffer offset.
+"""
+
+GLshort = """
+The GL `GLshort` type: a signed 16-bit integer.
+"""
+
+GLsizei = """
+The GL `GLsizei` type: a 32-bit count or size, here unsigned.
+"""
+
+GLsizeiptr = """
+The GL `GLsizeiptr` type: a signed 64-bit buffer size.
+"""
+
+GLsizeiptrARB = """
+The GL `GLsizeiptrARB` type: an unsigned 64-bit buffer size.
+"""
+
+GLsync = """
+The GL `GLsync` type: a sync object handle, stored as `u64`.
+"""
+
+GLubyte = """
+The GL `GLubyte` type: an unsigned 8-bit integer.
+"""
+
+GLuint = """
+The GL `GLuint` type: an unsigned 32-bit integer.
+"""
+
+GLuint64 = """
+The GL `GLuint64` type: an unsigned 64-bit integer.
+"""
+
+GLuint64EXT = """
+The GL `GLuint64EXT` type: an unsigned 64-bit integer.
+"""
+
+GLushort = """
+The GL `GLushort` type: an unsigned 16-bit integer.
+"""

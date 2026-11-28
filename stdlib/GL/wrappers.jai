@@ -89,7 +89,8 @@ gl_load :: (procs: *GL_Procedures, GetProcAddress: GetProcAddressFunction = null
     }
 }
 
-// Explicit source lengths preserve embedded NULs and concatenation boundaries.
+// Sets the source of `shader` to `source`. The length is passed, so the text needs no terminating zero.
+// Aborts if `source` is 2 GiB or longer.
 _glShaderSource :: (shader: GLuint, source: string) {
     if source.count > 0x7fff_ffff binding_abort();
     data := source.data;
@@ -97,6 +98,8 @@ _glShaderSource :: (shader: GLuint, source: string) {
     gl.glShaderSource(shader, 1, *data, *length);
 }
 
+// Sets the source of `shader` to the pieces in `sources`, joined in order. Aborts on more than 2^32 - 1
+// pieces or a piece of 2 GiB or longer.
 _glShaderSource :: (shader: GLuint, sources: [] string) {
     if sources.count > 0xffff_ffff binding_abort();
 
@@ -115,18 +118,21 @@ _glShaderSource :: (shader: GLuint, sources: [] string) {
     gl.glShaderSource(shader, cast(GLsizei) sources.count, data, lengths);
 }
 
+// Returns the location of the uniform `name` in `program`, or -1 if there is none.
 _glGetUniformLocation :: inline (program: u32, $$name: string) -> s32 {
     text := Native.terminated_copy(name);
     defer Native.release(text);
     return gl.glGetUniformLocation(program, text);
 }
 
+// Binds the vertex attribute `name` in `program` to `index`. Takes effect at the next link.
 _glBindAttribLocation :: inline (program: u32, index: u32, $$name: string) {
     text := Native.terminated_copy(name);
     defer Native.release(text);
     gl.glBindAttribLocation(program, index, text);
 }
 
+// Returns the location of the vertex attribute `name` in `program`, or -1 if there is none.
 _glGetAttribLocation :: (program: GLuint, $$name: string) -> GLint {
     text := Native.terminated_copy(name);
     defer Native.release(text);
@@ -144,20 +150,23 @@ gl_label_object :: (identifier: GLenum, name: GLuint, label: string) {
     gl.glObjectLabel(identifier, name, cast(GLsizei) label.count, label.data);
 }
 
-// These strings describe caller-owned writable storage, not text to terminate
-// or copy. Keep the requested capacity and every native output parameter.
+// Reads the name, size and type of active attribute `index` of `program`. `name` is the caller's buffer
+// the driver writes into, at most `bufSize` bytes; aborts if `bufSize` is larger than `name`.
 _glGetActiveAttrib :: (program: GLuint, index: GLuint, bufSize: GLsizei,
                       length: *GLsizei, size: *GLint, type: *GLenum, $$name: string) {
     if bufSize > name.count binding_abort();
     gl.glGetActiveAttrib(program, index, bufSize, length, size, type, name.data);
 }
 
+// Reads the name, size and type of active uniform `index` of `program`, like [_glGetActiveAttrib].
 _glGetActiveUniform :: (program: GLuint, index: GLuint, bufSize: GLsizei,
                        length: *GLsizei, size: *GLint, type: *GLenum, $$name: string) {
     if bufSize > name.count binding_abort();
     gl.glGetActiveUniform(program, index, bufSize, length, size, type, name.data);
 }
 
+// Prints the info log of `shader`, labelled with `name`, to standard output. Prints nothing when the log
+// is empty.
 DumpShaderInfoLog :: (shader: GLuint, name: string) {
     capacity: GLint;
 
@@ -174,6 +183,8 @@ DumpShaderInfoLog :: (shader: GLuint, name: string) {
                       cast(s32) written, text) < 0 binding_abort();
 }
 
+// Prints the info log of `program`, labelled with `name`, to standard output. Prints nothing when the log
+// is empty.
 DumpProgramInfoLog :: (program: GLuint, name: string) {
     capacity: GLint;
 
@@ -191,6 +202,7 @@ DumpProgramInfoLog :: (program: GLuint, name: string) {
 }
 
 #if DUMP_GL_ERRORS {
+    // Prints every pending GL error with `tag` and the caller's location, and returns whether there was any.
     DumpGLErrors :: (tag: string, loc := #caller_location) -> bool {
         had_error := false;
 
@@ -207,12 +219,15 @@ DumpProgramInfoLog :: (program: GLuint, name: string) {
         return had_error;
     }
 } else {
+    // Returns false. `DUMP_GL_ERRORS` is off, so errors are not read.
     DumpGLErrors :: inline (#discard tag: string, #discard loc := #caller_location) -> bool {
         return false;
     }
 }
 
 #if OS == .MACOS {
+    // Makes an NSOpenGL context with no view attached and returns it with the MSAA sample count it got,
+    // or null when it can't be made.
     nsgl_create_context :: (major_version: s32 = 0, minor_version: s32 = 0,
                            compatibility := false, debug := false,
                            wanted_msaa: s32 = DEFAULT_MSAA) -> *NSOpenGLContext, chosen_msaa: s32 {
@@ -220,6 +235,8 @@ DumpProgramInfoLog :: (program: GLuint, name: string) {
         return cast(*NSOpenGLContext) created, samples;
     }
 
+    // Makes an NSOpenGL context and attaches it to the content view of `win`. Returns null when `win` or its
+    // view is missing or the context can't be made. Doesn't make it current.
     nsgl_create_context :: (win: *NSWindow, major_version: s32 = 0, minor_version: s32 = 0,
                            compatibility := false, debug := false) -> *NSOpenGLContext {
         if !win {
@@ -239,6 +256,7 @@ DumpProgramInfoLog :: (program: GLuint, name: string) {
         return created;
     }
 
+    // Returns the address of the GL function `name`, or null if it isn't found.
     nsgl_get_proc_address :: (name: string) -> *void {
         text := Native.terminated_copy(name);
         defer Native.release(text);
@@ -329,6 +347,9 @@ gl_create_context :: (win: $Window, major_version: s32 = 0, minor_version: s32 =
 }
 
 #if OS == .WINDOWS {
+    // Makes a WGL context for `hwnd`, sharing objects with `share` when given, and returns it with the
+    // window's device context and the MSAA sample count it got, or null when it can't be made. Doesn't make
+    // it current.
     wgl_create_context :: (hwnd: HWND, share: HGLRC = null, major_version: s32 = 0, minor_version: s32 = 0,
                           compatibility := false, debug := false, wanted_msaa: s32 = DEFAULT_MSAA) -> HGLRC, HDC, chosen_msaa: s32 {
         return NativeWGL.create(hwnd, share, major_version, minor_version, compatibility, debug, wanted_msaa);
@@ -336,6 +357,9 @@ gl_create_context :: (win: $Window, major_version: s32 = 0, minor_version: s32 =
 }
 
 #if OS == .LINUX {
+    // Makes a GLX context for `window` on the global X display and returns it with its framebuffer config
+    // and the MSAA sample count it got, or null when it can't be made (GLX older than 1.3 included).
+    // Doesn't make it current.
     glx_create_context :: (window: Window_Type, major_version: s32 = 0, minor_version: s32 = 0,
                           compatibility := false, debug := false) -> GLXContext, GLXFBConfig, chosen_msaa: s32 {
         display := X.x_global_display;

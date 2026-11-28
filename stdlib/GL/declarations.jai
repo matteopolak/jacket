@@ -27,6 +27,9 @@
 // Types and layouts
 
 #if ENABLE_ALL_EXTENSIONS {
+    // The loaded GL function pointers, one member per function, plus `gl_version_major`, `gl_version_minor` and a
+    // `bool` per core version and extension saying whether it is available. The module's global `gl` is one of
+    // these; [gl_load] fills it.
     GL_Procedures :: struct #type_info_procedures_are_void_pointers #type_info_no_size_complaint {
         GLenum :: u32;
         GLboolean :: bool;
@@ -9266,6 +9269,9 @@
 }
 
 #if !ENABLE_ALL_EXTENSIONS {
+    // The loaded GL function pointers, one member per function, plus `gl_version_major`, `gl_version_minor` and a
+    // `bool` per core version and extension saying whether it is available. The module's global `gl` is one of
+    // these; [gl_load] fills it.
     GL_Procedures :: struct #type_info_procedures_are_void_pointers #type_info_no_size_complaint {
         gl_version_major: s32;
         gl_version_minor: s32;
@@ -13103,70 +13109,103 @@ GL_ZERO :: 0;
 
 GL_ZERO_TO_ONE :: 0x935F;
 
+// The GL `GLbitfield` type: an unsigned 32-bit set of flags.
 GLbitfield :: u32;
 
+// The GL `GLboolean` type: a `bool`.
 GLboolean :: bool;
 
+// The GL `GLbyte` type: a signed 8-bit integer.
 GLbyte :: s8;
 
+// The GL `GLchar` type: a byte of text.
 GLchar :: u8;
 
+// The GL `GLcharARB` type: a byte of text.
 GLcharARB :: u8;
 
+// The GL `GLclampd` type: a 64-bit float in the range 0 to 1.
 GLclampd :: float64;
 
+// The GL `GLclampf` type: a 32-bit float in the range 0 to 1.
 GLclampf :: float32;
 
+// The GL `GLclampx` type: a signed 32-bit 16.16 fixed-point value in the range 0 to 1.
 GLclampx :: s32;
 
+// The GL `GLDEBUGPROCARB` type: the same as `GLDEBUGPROC`.
 GLDEBUGPROCARB :: GLDEBUGPROC;
 
+// The GL `GLDEBUGPROCKHR` type: the same as `GLDEBUGPROC`.
 GLDEBUGPROCKHR :: GLDEBUGPROC;
 
+// The GL `GLdouble` type: a 64-bit float.
 GLdouble :: float64;
 
+// The GL `GLenum` type: an unsigned 32-bit enumerant.
 GLenum :: u32;
 
+// The GL `GLfixed` type: a signed 32-bit 16.16 fixed-point value.
 GLfixed :: s32;
 
+// The GL `GLfloat` type: a 32-bit float.
 GLfloat :: float32;
 
+// The GL `GLhalf` type: a 16-bit float, stored as `u16`.
 GLhalf :: u16;
 
+// The GL `GLhalfARB` type: a 16-bit float, stored as `u16`.
 GLhalfARB :: u16;
 
+// The GL `GLhalfNV` type: a 16-bit float, stored as `u16`.
 GLhalfNV :: u16;
 
+// The GL `GLhandleARB` type: an unsigned 32-bit object handle.
 GLhandleARB :: u32;
 
+// The GL `GLint` type: a signed 32-bit integer.
 GLint :: s32;
 
+// The GL `GLint64` type: a signed 64-bit integer.
 GLint64 :: s64;
 
+// The GL `GLint64EXT` type: a signed 64-bit integer.
 GLint64EXT :: s64;
 
+// The GL `GLintptr` type: a signed 64-bit buffer offset.
 GLintptr :: s64;
 
+// The GL `GLintptrARB` type: a signed 64-bit buffer offset.
 GLintptrARB :: s64;
 
+// The GL `GLshort` type: a signed 16-bit integer.
 GLshort :: s16;
 
+// The GL `GLsizei` type: a 32-bit count or size, here unsigned.
 GLsizei :: u32;
 
+// The GL `GLsizeiptr` type: a signed 64-bit buffer size.
 GLsizeiptr :: s64;
 
+// The GL `GLsizeiptrARB` type: an unsigned 64-bit buffer size.
 GLsizeiptrARB :: u64;
 
+// The GL `GLsync` type: a sync object handle, stored as `u64`.
 GLsync :: u64;
 
+// The GL `GLubyte` type: an unsigned 8-bit integer.
 GLubyte :: u8;
 
+// The GL `GLuint` type: an unsigned 32-bit integer.
 GLuint :: u32;
 
+// The GL `GLuint64` type: an unsigned 64-bit integer.
 GLuint64 :: u64;
 
+// The GL `GLuint64EXT` type: an unsigned 64-bit integer.
 GLuint64EXT :: u64;
 
+// The GL `GLushort` type: an unsigned 16-bit integer.
 GLushort :: u16;
 
 GLX_MAX_SWAP_INTERVAL_EXT :: 0x20F2;
