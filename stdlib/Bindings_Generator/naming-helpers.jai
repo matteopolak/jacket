@@ -1,4 +1,5 @@
-// Returns `name`, except that the C++ keyword `this` becomes `_this`. No other keyword is changed.
+// Returns `name`, except that the C++ keyword `this` becomes `_this`. No other keyword is changed. The result is
+// `name` or a constant.
 avoid_cpp_keywords :: (name: string) -> string {
     if name == "this" return "_this";
     return name;
@@ -9,12 +10,15 @@ avoid_cpp_keywords :: (name: string) -> string {
 // An `operator` name is converted with [replace_operator_name], keeping the operators Jai allows. A name in
 // `RESERVED_NAMES`, and with `avoid_type_names` also in `RESERVED_TYPE_NAMES`, gets a `_` in front. Any other
 // name is returned as it is.
+//
+// The result is never freed by the caller: it is `name` itself, a constant, or a string in temporary storage that
+// stays valid until the next `reset_temporary_storage`. Copy it to keep it.
 avoid_reserved_names :: (name: string, avoid_type_names := false) -> string {
     if generator_name_begins(name, "operator") return replace_operator_name(name, true);
-    for reserved: RESERVED_NAMES if name == reserved return sprint("_%", name);
+    for reserved: RESERVED_NAMES if name == reserved return tprint("_%", name);
 
     if avoid_type_names {
-        for reserved: RESERVED_TYPE_NAMES if name == reserved return sprint("_%", name);
+        for reserved: RESERVED_TYPE_NAMES if name == reserved return tprint("_%", name);
     }
 
     return name;
@@ -34,6 +38,9 @@ make_valid_identifer :: (_struct: string) {
 // Spaces are removed first. With `keep_operators_allowed_in_jai`, symbols that Jai accepts in an operator
 // name (`==`, `+`, `[]` and similar) stay as they are; only the others (`->`, `++`, `,`, `()`) are replaced,
 // and `operator!` and `operator=` become `operator_not` and `operator_assign`.
+//
+// The result is never freed by the caller: it is a constant or a string in temporary storage that stays valid
+// until the next `reset_temporary_storage`. Copy it to keep it.
 replace_operator_name :: (name: string, keep_operators_allowed_in_jai := false) -> string {
     return generator_name_replace_operator(name, keep_operators_allowed_in_jai);
 }

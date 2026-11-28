@@ -109,7 +109,7 @@ generator_name_replace_operator :: (name: string, keep: bool) -> string {
         }
     }
 
-    return builder_to_string(*builder);
+    return builder_to_string(*builder,, temp);
 }
 
 #scope_file

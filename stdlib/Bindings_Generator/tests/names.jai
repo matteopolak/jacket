@@ -239,7 +239,35 @@ check_enum_compute :: () {
     assert(red.output_name == "ONLY_Red" && omitted.output_name == "Other");
 }
 
+// The names these procedures return are never the caller's to free: nothing they return is a live heap allocation.
+live_allocations := 0;
+base_allocator: Allocator;
+
+counting_allocator :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
+    if mode == .ALLOCATE live_allocations += 1;
+    if mode == .FREE live_allocations -= 1;
+
+    return base_allocator.proc(mode, size, old_size, old_memory, base_allocator.data);
+}
+
+check_result_ownership :: () {
+    base_allocator = context.allocator;
+
+    {
+        push_allocator(counting_allocator, null);
+        reserved := BG.avoid_reserved_names("cast");
+        spelled := BG.replace_operator_name("operator ++");
+        kept := BG.replace_operator_name("operator +", true);
+        plain := BG.avoid_reserved_names("ordinary");
+
+        assert(reserved == "_cast" && spelled == "operator_plus_plus" && kept == "operator+" && plain == "ordinary");
+    }
+
+    assert(live_allocations == 0, "% allocations are left for the caller to free", live_allocations);
+}
+
 main :: () {
+    check_result_ownership();
     check_identifiers();
     check_operators();
     check_enum_lookup();

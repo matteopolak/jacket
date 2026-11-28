@@ -56,6 +56,7 @@
         OrAssign :: 32;
         Comma :: 33;
         Last :: 33;
+        LAST :: 33; // the name [CX_BinaryOperatorKind] gives it
     }
 } else {
     // Kinds of binary operator expression that a cursor can have.
@@ -95,6 +96,7 @@
         OrAssign :: 32;
         Comma :: 33;
         Last :: 33;
+        LAST :: 33; // the name [CX_BinaryOperatorKind] gives it
     }
 }
 
@@ -1370,85 +1372,8 @@ CXVersion :: struct {
     }
 }
 
-#if OS == .WINDOWS {
-    // Kinds of binary operator expression.
-    CX_BinaryOperatorKind :: enum s32 {
-        Invalid :: 0;
-        PtrMemD :: 1;
-        PtrMemI :: 2;
-        Mul :: 3;
-        Div :: 4;
-        Rem :: 5;
-        Add :: 6;
-        Sub :: 7;
-        Shl :: 8;
-        Shr :: 9;
-        Cmp :: 10;
-        LT :: 11;
-        GT :: 12;
-        LE :: 13;
-        GE :: 14;
-        EQ :: 15;
-        NE :: 16;
-        And :: 17;
-        Xor :: 18;
-        Or :: 19;
-        LAnd :: 20;
-        LOr :: 21;
-        Assign :: 22;
-        MulAssign :: 23;
-        DivAssign :: 24;
-        RemAssign :: 25;
-        AddAssign :: 26;
-        SubAssign :: 27;
-        ShlAssign :: 28;
-        ShrAssign :: 29;
-        AndAssign :: 30;
-        XorAssign :: 31;
-        OrAssign :: 32;
-        Comma :: 33;
-        LAST :: 33;
-    }
-} else {
-    // Kinds of binary operator expression.
-    CX_BinaryOperatorKind :: enum u32 {
-        Invalid :: 0;
-        PtrMemD :: 1;
-        PtrMemI :: 2;
-        Mul :: 3;
-        Div :: 4;
-        Rem :: 5;
-        Add :: 6;
-        Sub :: 7;
-        Shl :: 8;
-        Shr :: 9;
-        Cmp :: 10;
-        LT :: 11;
-        GT :: 12;
-        LE :: 13;
-        GE :: 14;
-        EQ :: 15;
-        NE :: 16;
-        And :: 17;
-        Xor :: 18;
-        Or :: 19;
-        LAnd :: 20;
-        LOr :: 21;
-        Assign :: 22;
-        MulAssign :: 23;
-        DivAssign :: 24;
-        RemAssign :: 25;
-        AddAssign :: 26;
-        SubAssign :: 27;
-        ShlAssign :: 28;
-        ShrAssign :: 29;
-        AndAssign :: 30;
-        XorAssign :: 31;
-        OrAssign :: 32;
-        Comma :: 33;
-        LAST :: 33;
-    }
-}
+// The older name of [CXBinaryOperatorKind], which `clang_Cursor_getBinaryOpcode` uses; its last member is `LAST` there.
+CX_BinaryOperatorKind :: CXBinaryOperatorKind;
 
 #if OS == .WINDOWS {
     // C++ access specifier of a member: invalid, public, protected or private.

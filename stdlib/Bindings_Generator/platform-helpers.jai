@@ -14,6 +14,10 @@ find_lib_for_foreign_name :: (name: string) -> *Library_Info {
 // The first read for an OS, CPU and path is kept, and later calls return that list. On macOS and iOS targets
 // one leading `_` is removed from every name. `success` is false, with an error logged, when the file cannot
 // be read.
+//
+// Ownership differs between the calls, as the documented behaviour requires. The call that reads the file returns
+// the names it read, which the caller frees; the cache keeps its own copies. Every later call returns the
+// cache's names, which are borrowed: do not free or change them, and they stay valid for the program's life.
 os_get_symbol_names_from_file_fixed_and_cached :: (full_path: string) -> success: bool, [] string {
     return gp_cached_symbols(full_path);
 }

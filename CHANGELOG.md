@@ -48,6 +48,10 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 
 ### Fixes
 
+- `GetRect`'s open dropdown lists keep drawing after the first frame, and `z` orders overlapping ones. `append_text` never replaces a selection.
+- `GetRect` Tab keeps cycling the typed text's completions, and a keyframe on a wrapping color animation takes the wrapped color.
+- `Elf_Endianness.MSB` in `executable_formats` is 2, the value big-endian ELF files carry.
+- `jaic -doc_gaps` follows every branch of an `#if OS` implementation import, so host-only aliases count as documented.
 - Go to definition and related notes open generated code (`add_build_string`) as read-only `jai-generated:` documents.
 - Go to definition on a note finds a reader that only a skipped library body's generic instance has.
 - `Http`'s `release_tls_config` works from any thread: other schedulers close their pooled connections, and the setup is freed after.

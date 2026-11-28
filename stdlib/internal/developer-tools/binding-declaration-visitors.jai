@@ -32,17 +32,7 @@ avoid_name_clash :: (existing_declarations: *[..] *Declaration, decl: *Declarati
     original := decl.output_name;
     normalized := avoid_reserved_names(original);
 
-    if normalized.data != original.data {
-        static_result := binding_compact_name_is(original, "operator!") || binding_compact_name_is(original, "operator=");
-
-        if normalized != original {
-            session := context._bindings_generator_session;
-            if session decl.output_name = GM_Sessions.copy_text(session, normalized);
-            else decl.output_name = copy_string(normalized);
-        }
-
-        if !static_result free(normalized);
-    }
+    if normalized != original binding_store_name(decl, normalized);
 
     if decl.output_name == "_" return;
 
@@ -59,8 +49,7 @@ avoid_name_clash :: (existing_declarations: *[..] *Declaration, decl: *Declarati
 
     if existing_declarations && binding_name_collides(existing_declarations.*, decl, decl.output_name, allow_overloads) {
         if begins_with(decl.output_name, "operator") {
-            repaired := replace_operator_name(decl.output_name);
-            binding_store_repaired_name(decl, repaired);
+            binding_store_name(decl, replace_operator_name(decl.output_name));
         }
 
         base := decl.output_name;
@@ -302,12 +291,18 @@ binding_compact_name_is :: (source: string, expected: string) -> bool {
     return index == expected.count;
 }
 
-binding_store_repaired_name :: (decl: *Declaration, owned_name: string) {
+// Gives `decl` a copy of `name`, owned by the session when there is one.
+binding_store_name :: (decl: *Declaration, name: string) {
     session := context._bindings_generator_session;
-    if session {
-        decl.output_name = GM_Sessions.copy_text(session, owned_name);
-        free(owned_name);
-    } else decl.output_name = owned_name;
+
+    if session decl.output_name = GM_Sessions.copy_text(session, name);
+    else decl.output_name = copy_string(name);
+}
+
+// [binding_store_name] for a heap string the caller no longer needs.
+binding_store_repaired_name :: (decl: *Declaration, owned_name: string) {
+    binding_store_name(decl, owned_name);
+    free(owned_name);
 }
 
 binding_name_collides :: (declarations: [] *Declaration, decl: *Declaration, candidate: string, allow_overloads: bool) -> bool {

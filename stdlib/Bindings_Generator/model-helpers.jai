@@ -107,18 +107,16 @@ create_declaration_inner :: (cur: CXCursor, parent: CXCursor, ignore_non_structs
 
 // Builds the [CType] for `ty`, with `cur` as the source cursor. `cursor_is_accurate` says whether `cur`
 // describes `ty` itself. `type_arg_index` and `substitute_children` select a template argument and the cursor
-// children to use for it.
+// children to use for it. `loc` is accepted for compatibility and not used.
 create_type :: (ty: CXType, cur: CXCursor, cursor_is_accurate := true, loc := #caller_location, type_arg_index := 0, substitute_children: [] CXCursor = .[]) -> *CType {
     return gm_public_type(ty, cur, cursor_is_accurate, type_arg_index, substitute_children);
 }
 
-// Builds the [CType] for `ty`; behaves like [create_type].
-create_type_inner :: (ty: CXType, cur: CXCursor, cursor_is_accurate := true, loc := #caller_location, type_arg_index := 0, substitute_children: [] CXCursor = .[]) -> *CType {
-    return gm_public_type(ty, cur, cursor_is_accurate, type_arg_index, substitute_children);
-}
+// The same procedure as [create_type].
+create_type_inner :: create_type;
 
 // Builds the [Function_Type] for the function or function-type cursor `cur`; `func`, when given, is the
-// function it belongs to.
+// function it belongs to. `loc` is accepted for compatibility and not used.
 create_function_type :: (cur: CXCursor, ty: CXType, func: *Function = null, cursor_is_accurate := true, loc := #caller_location) -> *Function_Type {
     return gm_build_function_type(cur, ty, func, cursor_is_accurate, 0);
 }
