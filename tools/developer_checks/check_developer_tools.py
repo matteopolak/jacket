@@ -52,6 +52,7 @@ CHECKS = [
     ("check_developer_string_macros", ()),
     ("check_developer_declaration_visitors", ()),
     ("check_developer_integer_range", ()),
+    ("check_android_wire_vectors", ()),
     ("check_developer_cpp_scopes", ()),
     ("check_developer_anonymous_types", ()),
     ("check_developer_bitfield_layout", ()),
