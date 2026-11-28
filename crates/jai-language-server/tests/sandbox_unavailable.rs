@@ -6,8 +6,8 @@ use test_support::lsp::{open_file, project};
 
 const SOURCE: &str = "#import \"Basic\";\n\
     #import \"POSIX\";\n\
-    make_dir :: () -> string {\n    template := copy_string(\"/tmp/jacket-XXXXXX\");\n    \
-    if !mkdtemp(template.data) return \"\";\n    return template;\n}\n\
+    make_dir :: () -> string {\n    path := copy_string(\"/tmp/jacket-fifo\");\n    \
+    if mkfifo(path.data, 420) != 0 return \"\";\n    return path;\n}\n\
     #run {\n    dir := make_dir();\n    print(\"%\\n\", dir);\n}\n\
     TEMP_DIR :: #run make_dir();\n\
     main :: () {\n    copy := TEMP_DIR;\n    print(\"%\\n\", copy);\n}\n\
@@ -33,7 +33,7 @@ fn sandbox_unavailable_calls_are_unknown_not_errors() {
 }
 
 /// The reported scenario: `build_cpp_dynamic_lib` run at compile time creates its scratch
-/// directory with `mkdtemp`, which the editor sandbox does not provide.
+/// directory with `mkdtemp`, then starts the C compiler, which the editor sandbox refuses.
 const BUILD_CPP: &str = "#import \"Basic\";\n\
     #import \"BuildCpp\";\n\
     #import \"Compiler\";\n\
