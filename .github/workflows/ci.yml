@@ -212,7 +212,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: {persist-credentials: false}
-      - run: python3 tools/ci/install_pinned.py rust
+      - run: python3 tools/ci/install_pinned.py rust --component rust-analyzer
       - uses: ./.github/actions/install-tool
         with: {tool: cargo-machete}
       - uses: ./.github/actions/install-tool
@@ -222,6 +222,9 @@ jobs:
       - name: Duplicate versions, licenses, sources and advisories
         if: ${{ !cancelled() }}
         run: cargo deny --locked check
+      - name: Exported items nothing uses
+        if: ${{ !cancelled() }}
+        run: PYTHONPATH=tools python3 tools/ci/check_unused_exports.py
       - name: Pinned actions match their tags and are at least 14 days old
         if: ${{ !cancelled() }}
         env:

@@ -129,7 +129,15 @@ Cargo only selects crate versions published at least 14 days ago, direct and tra
 
 When a new LLVM is in no crates.io release of `inkwell` yet, pin it to a git commit at least 14 days old (`rev = "<full hash>"`) and set `cargoLock.allowBuiltinFetchGit = true` in `nix/jaic.nix`; switch back to a registry version once one is 14 days old. Put shared dependencies in `[workspace.dependencies]`, prefer exact versions, and never weaken the age policy to resolve a conflict.
 
-`cargo machete` and `cargo deny` run in the `dependency-hygiene` job; `deny.toml` holds the license and source policy.
+`cargo machete`, `cargo deny` and `tools/ci/check_unused_exports.py` run in the `dependency-hygiene` job; `deny.toml` holds the license and source policy.
+
+## Dead code
+
+The workspace warns on `unreachable_pub`: a `pub` item no other crate can reach is `pub(crate)`, so `dead_code` sees it unused. `tools/ci/check_unused_exports.py` covers what a crate does export. It reads the `rust-analyzer scip` index of the whole workspace and fails on a `pub` item of a library crate that is written nowhere else in the workspace. Test code, trait impls, members and `#[no_mangle]` items are skipped; an item kept as public API on purpose goes in `ALLOWED` in the script. It needs the `rust-analyzer` rustup component:
+
+```bash
+PYTHONPATH=tools python3 tools/ci/check_unused_exports.py
+```
 
 ## Fixing reported bugs
 

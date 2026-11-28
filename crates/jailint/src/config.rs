@@ -27,13 +27,10 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use jacket_config::{Disk, Files, Lint, PathPattern};
+pub use jaic::diagnostics::Level;
 use jaic::diagnostics::{Code, Severity};
 use jaic::fxhash::HashMap;
 use jaic::target::TargetOs;
-
-pub const FILE_NAME: &str = jacket_config::FILE_NAME;
-
-pub use jaic::diagnostics::Level;
 
 /// A group of rules, named like a rule in settings, `-A`/`-W`/`-D` and `allow(...)` comments.
 /// Its level is the default of every rule in it.

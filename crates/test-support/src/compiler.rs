@@ -68,15 +68,3 @@ pub fn compile_main_file(source: &str) -> Result<(), String> {
         .compile_program(Path::new("/main.jai"))
         .map_err(|error| error.render(&compiler.src.sources))
 }
-
-/// Compile `source` and panic with the rendered diagnostic if it does not compile.
-#[must_use]
-pub fn compile_ok(source: &str) -> Compiler {
-    let (compiler, result) = compile_source(source);
-
-    if let Err(error) = result {
-        panic!("{}", error.render(&compiler.src.sources));
-    }
-
-    compiler
-}
