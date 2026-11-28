@@ -64,6 +64,10 @@ fn migrate(args: &MigrateArgs, cwd: &Path) -> Result<ExitCode, String> {
         root: cwd.to_path_buf(),
         ..jailint::Config::default()
     });
+    // `--apply` needs git to undo its edits: say so before the slower checks and the plan.
+    if args.apply {
+        git_toplevel(&start)?;
+    }
     let stdlib = jaic::default_stdlib_dir();
     if let Some(message) = jaic::missing_stdlib(&stdlib) {
         return Err(message);

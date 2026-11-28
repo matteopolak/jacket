@@ -1,4 +1,4 @@
-//! `jacket lint` leaves the configuration notes to `jailint`, which prints them itself.
+//! `jacket lint` reports a configuration error once, itself, before it starts `jailint`.
 #![cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
@@ -6,13 +6,13 @@ use std::process::Command;
 use test_support::TempDir;
 
 #[test]
-fn lint_prints_each_note_once() {
+fn lint_reports_an_unknown_setting_once() {
     let root = TempDir::new("jacket-test-lint-notes");
     let bin = root.join("bin");
     std::fs::create_dir_all(&bin).expect("create the archive directory");
     let jacket = bin.join("jacket");
     std::fs::copy(env!("CARGO_BIN_EXE_jacket"), &jacket).expect("copy jacket");
-    // A stand-in `jailint` that reports the note as the real one does.
+    // A stand-in `jailint` that would repeat the error if jacket ran it.
     let lint = bin.join("jailint");
     std::fs::write(
         &lint,
@@ -31,5 +31,10 @@ fn lint_prints_each_note_once() {
         .expect("start jacket");
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert_eq!(stderr.matches("max_nestng").count(), 1, "{stderr}");
-    assert!(stderr.starts_with("jailint:"), "{stderr}");
+    assert!(stderr.starts_with("jacket: error:"), "{stderr}");
+    assert!(
+        stderr.contains("did you mean `lint.max_nesting`?"),
+        "{stderr}"
+    );
+    assert!(!out.status.success());
 }
