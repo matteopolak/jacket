@@ -246,8 +246,11 @@ foundation :: #library,system "Foundation"; @native(external)
 default_runloop_mode: *void #elsewhere foundation "NSDefaultRunLoopMode";
 
 application_load :: () -> s8 #foreign appkit "NSApplicationLoad";
-native_class :: (name: *u8) -> *void #foreign objc "objc_getClass";
+
+Objc :: #import "internal/objc-runtime";
+
+native_class :: Objc.objc_getClass;
 native_send :: () #foreign objc "objc_msgSend";
-set_association :: (object: *void, key: *void, value: *void, policy: u64) #foreign objc "objc_setAssociatedObject";
-get_association :: (object: *void, key: *void) -> *void #foreign objc "objc_getAssociatedObject";
+set_association :: Objc.objc_setAssociatedObject;
+get_association :: Objc.objc_getAssociatedObject;
 #if CPU == .X64 native_send_stret :: () #foreign objc "objc_msgSend_stret";

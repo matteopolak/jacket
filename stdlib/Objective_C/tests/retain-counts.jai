@@ -5,7 +5,10 @@
 
 libobjc :: #library,system "objc";
 msg_send :: () #foreign libobjc "objc_msgSend";
-sel_name :: (name: *u8) -> *void #foreign libobjc "sel_registerName";
+
+Objc :: #import "internal/objc-runtime";
+
+sel_name :: Objc.sel_registerName;
 
 sel_register :: (name: string) -> *void {
     return sel_name(to_c_string(name));

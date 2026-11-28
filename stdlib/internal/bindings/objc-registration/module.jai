@@ -126,10 +126,12 @@ objc :: #library,system "objc"; @native(external)
     NativeBool :: s8;
 }
 
-allocate_class :: (parent: *void, name: *u8, extra: u64) -> *void #foreign objc "objc_allocateClassPair";
-dispose_class :: (class: *void) #foreign objc "objc_disposeClassPair";
-instance_size :: (class: *void) -> u64 #foreign objc "class_getInstanceSize";
+Objc :: #import "internal/objc-runtime";
+
+allocate_class :: Objc.objc_allocateClassPair;
+dispose_class :: Objc.objc_disposeClassPair;
+instance_size :: Objc.class_getInstanceSize;
 add_ivar :: (class: *void, name: *u8, size: u64, alignment: u8, types: *u8) -> NativeBool #foreign objc "class_addIvar";
-selector :: (name: *u8) -> *void #foreign objc "sel_registerName";
-metaclass :: (object: *void) -> *void #foreign objc "object_getClass";
+selector :: Objc.sel_registerName;
+metaclass :: Objc.object_getClass;
 add_method :: (class: *void, selector: *void, implementation: *void, types: *u8) -> NativeBool #foreign objc "class_addMethod";

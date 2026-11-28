@@ -132,20 +132,22 @@ sockaddr :: struct {
     'freetype': 'ptrdiff_t :: s64;',
     'Objective_C': '''ptrdiff_t :: s64;
 Native :: #import "internal/bindings/native";
-binding_objc_class :: (name: *u8) -> *void #foreign libobjc "objc_getClass";
-binding_objc_selector :: (name: *u8) -> *void #foreign libobjc "sel_registerName";
+Binding_Objc :: #import "internal/objc-runtime";
+binding_objc_class :: Binding_Objc.objc_getClass;
+binding_objc_selector :: Binding_Objc.sel_registerName;
 binding_objc_send :: () #foreign libobjc "objc_msgSend";
 #import "internal/libc";
 binding_abort :: c_abort;
 binding_strlen :: (text: *u8) -> u64 #foreign libc "strlen";
 #if CPU == .X64 { binding_objc_send_stret :: () #foreign libobjc "objc_msgSend_stret"; }
-#library,system,link_always "Foundation"; '''+EXTERNAL+'''
-#library,system,link_always "QuartzCore"; '''+EXTERNAL,
-    'Metal': '''binding_objc_class :: (name: *u8) -> *void #foreign libobjc "objc_getClass";
-binding_objc_selector :: (name: *u8) -> *void #foreign libobjc "sel_registerName";
+foundation_link :: #library,system,link_always "Foundation"; '''+EXTERNAL+'''
+quartzcore_link :: #library,system,link_always "QuartzCore"; '''+EXTERNAL,
+    'Metal': '''Binding_Objc :: #import "internal/objc-runtime";
+binding_objc_class :: Binding_Objc.objc_getClass;
+binding_objc_selector :: Binding_Objc.sel_registerName;
 binding_objc_send :: () #foreign libobjc "objc_msgSend";
 #if CPU == .X64 { binding_objc_send_stret :: () #foreign libobjc "objc_msgSend_stret"; }
-#library,system,link_always "Metal"; '''+EXTERNAL+'''
+metal_link :: #library,system,link_always "Metal"; '''+EXTERNAL+'''
 uint64_t :: u64;
 uint32_t :: u32;
 int32_t :: s32;

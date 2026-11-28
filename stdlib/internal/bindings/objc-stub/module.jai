@@ -40,9 +40,12 @@ system :: #library,system "System"; @native(external)
 objc :: #library,system "objc"; @native(external)
 open_library :: (path: *u8, mode: s32) -> *void #foreign system "dlopen";
 close_library :: (handle: *void) -> s32 #foreign system "dlclose";
-lookup_class :: (name: *u8) -> *void #foreign objc "objc_lookUpClass";
-superclass :: (class: *void) -> *void #foreign objc "class_getSuperclass";
-instance_size :: (class: *void) -> u64 #foreign objc "class_getInstanceSize";
+
+Objc :: #import "internal/objc-runtime";
+
+lookup_class :: Objc.objc_lookUpClass;
+superclass :: Objc.class_getSuperclass;
+instance_size :: Objc.class_getInstanceSize;
 
 release_string :: (value: string) {
     if value.data context.allocator.proc(.FREE, 0, value.count, value.data, context.allocator.data);

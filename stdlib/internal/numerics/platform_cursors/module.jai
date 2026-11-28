@@ -83,10 +83,13 @@ set :: (handle: *void) -> (success: bool, message: string) {
     objc :: #system_library "objc"; @native(external)
     // NSApplicationLoad ensures AppKit is linked and initialized before class lookup.
     NSApplicationLoad :: () -> u8 #foreign appkit;
-    objc_getClass :: (name: *u8) -> *void #foreign objc;
-    sel_registerName :: (name: *u8) -> *void #foreign objc;
-    objc_retain :: (object: *void) -> *void #foreign objc;
-    objc_release :: (object: *void) #foreign objc;
+
+    Objc :: #import "internal/objc-runtime";
+
+    objc_getClass :: Objc.objc_getClass;
+    sel_registerName :: Objc.sel_registerName;
+    objc_retain :: Objc.objc_retain;
+    objc_release :: Objc.objc_release;
     message_object :: (receiver: *void, selector: *void) -> *void #foreign objc "objc_msgSend";
     message_bool :: (receiver: *void, selector: *void, argument: *void) -> u8 #foreign objc "objc_msgSend";
     message_resize :: (receiver: *void, selector: *void, position: u64, directions: u64) -> *void #foreign objc "objc_msgSend";

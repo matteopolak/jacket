@@ -4,15 +4,17 @@
 #scope_file
 #import "Objective_C";
 
-binding_objc_class :: (name: *u8) -> *void #foreign libobjc "objc_getClass";
-binding_objc_selector :: (name: *u8) -> *void #foreign libobjc "sel_registerName";
+Binding_Objc :: #import "internal/objc-runtime";
+
+binding_objc_class :: Binding_Objc.objc_getClass;
+binding_objc_selector :: Binding_Objc.sel_registerName;
 binding_objc_send :: () #foreign libobjc "objc_msgSend";
 
 #if CPU == .X64 {
     binding_objc_send_stret :: () #foreign libobjc "objc_msgSend_stret";
 }
 
-#library,system,link_always "Metal"; @native(external)
+metal_link :: #library,system,link_always "Metal"; @native(external)
 uint64_t :: u64;
 uint32_t :: u32;
 int32_t :: s32;

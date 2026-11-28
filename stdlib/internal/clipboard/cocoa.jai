@@ -118,8 +118,11 @@ objc :: #library,system "objc"; @native(external)
 appkit :: #library,system "AppKit"; @native(external)
 application_load :: () -> s8 #foreign appkit "NSApplicationLoad";
 objc_send :: () #foreign objc "objc_msgSend";
-objc_class :: (name: *u8) -> *void #foreign objc "objc_getClass";
-selector :: (name: *u8) -> *void #foreign objc "sel_registerName";
+
+Objc :: #import "internal/objc-runtime";
+
+objc_class :: Objc.objc_getClass;
+selector :: Objc.sel_registerName;
 
 send_object :: (receiver: *void, name: *u8) -> *void {
     Send :: #type (receiver: *void, selector: *void) -> *void #c_call;

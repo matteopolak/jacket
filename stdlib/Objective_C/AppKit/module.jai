@@ -239,7 +239,7 @@ Cocoa :: #library,system "Cocoa"; @native(external)
 
 O :: #import "Objective_C";
 
-#library,system,link_always "AppKit"; @native(external)
+appkit_link :: #library,system,link_always "AppKit"; @native(external)
 libobjc :: #library,system "objc"; @native(external)
 binding_send :: () #foreign libobjc "objc_msgSend";
 #if CPU == .X64 binding_send_stret :: () #foreign libobjc "objc_msgSend_stret";
@@ -256,7 +256,9 @@ send_nothing :: (receiver: *void, selector: string) {
     send(receiver, O.selector(selector));
 }
 
-class_named :: (name: *u8) -> *void #foreign libobjc "objc_getClass";
+Objc :: #import "internal/objc-runtime";
+
+class_named :: Objc.objc_getClass;
 
 current_cursor :: (selector: string) -> *NSCursor {
     return send_result(class_named("NSCursor"), selector, *NSCursor);

@@ -48,8 +48,10 @@ objc_getClass :: (name: string) -> *void {
 
 objc :: #system_library "libobjc"; @native(external)
 
-sel_registerName :: (name: *u8) -> *void #foreign objc;
-objc_getClass_c :: (name: *u8) -> *void #foreign objc "objc_getClass";
+Objc :: #import "internal/objc-runtime";
+
+sel_registerName :: Objc.sel_registerName;
+objc_getClass_c :: Objc.objc_getClass;
 msg_ptr :: (receiver: *void, selector: *void) -> *void #foreign objc "objc_msgSend";
 msg_f64 :: (receiver: *void, selector: *void) -> float64 #foreign objc "objc_msgSend";
 msg_set_ptr :: (receiver: *void, selector: *void, value: *void) #foreign objc "objc_msgSend";
