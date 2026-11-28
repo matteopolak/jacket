@@ -3,7 +3,24 @@
 // on the scheduler's thread (blocking-with-readiness): a slow disk stalls every fiber of that
 // thread for the length of the call. Opening a file is always a plain call.
 
-// How [open_file] opens a file.
+// How [open_file] opens a file. Every mode but `.READ` creates a missing file.
+//
+// ```jai,only(linux, macos)
+// Io :: #import "Extensions/Io";
+// #import "File";
+//
+// Io.io_run(() {
+//     Io.write_file("/tmp/jacket-io-mode.txt", "one");
+//     file, _ := Io.open_file("/tmp/jacket-io-mode.txt", .APPEND);
+//     Io.write(*file, " two");
+//     Io.close(*file);
+//
+//     data, _ := Io.read_file("/tmp/jacket-io-mode.txt");
+//     defer free(data.data);
+//     assert(cast(string) data == "one two");
+// });
+// file_delete("/tmp/jacket-io-mode.txt");
+// ```
 File_Mode :: enum u8 {
     // An existing file, read only.
     READ;
@@ -15,7 +32,25 @@ File_Mode :: enum u8 {
     READ_WRITE;
 }
 
-// An open file. `read` and `write` use and advance `position`; `read_at` and `write_at` do not. It has a position, so every procedure takes it by pointer.
+// An open file from [open_file]; close it with [close]. [read] and [write] use and advance
+// `position`; [read_at] and [write_at] do not. It has a position, so every procedure takes it by
+// pointer.
+//
+// ```jai,only(linux, macos)
+// Io :: #import "Extensions/Io";
+// #import "File";
+//
+// Io.io_run(() {
+//     Io.write_file("/tmp/jacket-io-file.txt", "abcdef");
+//     file, _ := Io.open_file("/tmp/jacket-io-file.txt");
+//     defer Io.close(*file);
+//
+//     buffer: [4] u8;
+//     Io.read_full(*file, buffer);
+//     assert(file.position == 4);
+// });
+// file_delete("/tmp/jacket-io-file.txt");
+// ```
 Io_File :: struct {
     handle: Handle;
     position: s64;
@@ -188,6 +223,20 @@ read_at :: (file: *Io_File, buffer: [] u8, offset: s64) -> s64, Io_Error {
 // Writes some of `data` at the file's position (at the end, for `.APPEND`) and moves the
 // position past it. At least one byte unless `data` is empty; returns how many. Use [write] to
 // write everything.
+//
+// ```jai,only(linux, macos)
+// Io :: #import "Extensions/Io";
+// #import "File";
+//
+// Io.io_run(() {
+//     file, _ := Io.open_file("/tmp/jacket-io-write-some.txt", .WRITE);
+//     defer Io.close(*file);
+//
+//     count, error := Io.write_some(*file, cast([] u8) "hello");
+//     assert(error == .NONE && count >= 1 && file.position == count);
+// });
+// file_delete("/tmp/jacket-io-write-some.txt");
+// ```
 write_some :: (file: *Io_File, data: [] u8) -> s64, Io_Error {
     if data.count == 0 return 0, .NONE;
 
@@ -227,7 +276,7 @@ write :: (file: *Io_File, data: [] u8) -> s64, Io_Error {
     return write(writer_of(file), data);
 }
 
-// The `write` for a `string`.
+// [write] for a `string`.
 write :: (file: *Io_File, text: string) -> s64, Io_Error {
     return write(file, ([] u8).{ text.count, text.data });
 }
@@ -274,7 +323,7 @@ write_at :: (file: *Io_File, data: [] u8, offset: s64) -> s64, Io_Error {
     return total, .NONE;
 }
 
-// The `write_at` for a `string`.
+// [write_at] for a `string`.
 write_at :: (file: *Io_File, text: string, offset: s64) -> s64, Io_Error {
     return write_at(file, ([] u8).{ text.count, text.data }, offset);
 }
@@ -383,7 +432,7 @@ write_file :: (path: string, data: [] u8) -> Io_Error {
     return write_error;
 }
 
-// The `write_file` for a `string`.
+// [write_file] for a `string`.
 write_file :: (path: string, text: string) -> Io_Error {
     return write_file(path, ([] u8).{ text.count, text.data });
 }

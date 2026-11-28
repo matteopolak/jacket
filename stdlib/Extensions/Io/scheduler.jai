@@ -6,8 +6,20 @@
 // channel's wait list, ...), `park` it, and report what woke it. `wake` makes a parked fiber ready
 // again, `cancel` wakes it with `.CANCELED`.
 
-// Why a blocking call returned early or failed. `platform_code()` gives the system's own error
+// Why a blocking call returned early or failed. [last_platform_code] gives the system's own error
 // number for the last failure of the running fiber, which is how `OTHER` stays useful.
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     error: Io.Io_Error;
+//     Io.with_deadline(10, #code {
+//         error = Io.sleep(60_000);
+//     });
+//     assert(error == .TIMED_OUT);
+// });
+// ```
 Io_Error :: enum u8 {
     NONE;
     // `cancel` was called for this fiber, now or earlier.
@@ -98,8 +110,19 @@ Fiber :: struct {
     temporary_ready: bool;
 }
 
-// A name for one fiber, returned by `spawn`. It stays safe to use after the fiber has ended: the `generation` tells a reused fiber
-// slot from the one the handle named, so `cancel` and `join` on a stale handle do nothing.
+// A name for one fiber, returned by [spawn]. It stays safe to use after the fiber has ended: the
+// `generation` tells a reused fiber slot from the one the handle named, so [cancel] on a stale
+// handle does nothing.
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     quick := Io.spawn(() {});
+//     Io.yield(); // it runs and ends
+//     Io.cancel(quick); // a handle to an ended fiber is safe
+// });
+// ```
 Fiber_Handle :: struct {
     fiber: *Fiber;
     generation: u64;
@@ -218,8 +241,21 @@ spawn :: (proc: $P) -> Fiber_Handle {
     return start_fiber(current_scheduler(), spawn_block(proc));
 }
 
-// The `spawn` for a procedure that takes one argument: `data` is copied for the new fiber, so a
-// pointer in it must stay valid until the fiber is done with it.
+// [spawn] for a procedure that takes one argument: `data` is copied for the new fiber, so a pointer
+// in it must stay valid until the fiber is done with it.
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     seen: int;
+//     Io.spawn((out: *int) {
+//         out.* = 7;
+//     }, *seen);
+//     Io.yield();
+//     assert(seen == 7);
+// });
+// ```
 spawn :: (proc: $P, data: $T) -> Fiber_Handle {
     return start_fiber(current_scheduler(), spawn_block(proc, data));
 }

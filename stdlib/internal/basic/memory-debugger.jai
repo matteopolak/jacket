@@ -9,6 +9,7 @@
     Memory_Debugger :: REPLACEMENT_INTERFACE;
 }
 
+// Records `size` bytes at `memory` from `allocator` as live. Basic's `Memory_Debugger.check_alloc`.
 _check_alloc :: inline (allocator: Allocator, memory: *void, size: s64) {
     if Debug_Context.is_active() return;
 
@@ -18,6 +19,7 @@ _check_alloc :: inline (allocator: Allocator, memory: *void, size: s64) {
     }
 }
 
+// Records the allocation at `memory` as freed. Basic's `Memory_Debugger.check_free`.
 _check_free :: inline (allocator: Allocator, memory: *void) {
     if Debug_Context.is_active() return;
 
@@ -27,22 +29,41 @@ _check_free :: inline (allocator: Allocator, memory: *void) {
     }
 }
 
+// Records the heap `a` as live. Basic's `Memory_Debugger.check_create_heap`.
 _check_create_heap :: (a: Allocator) {
     if Debug_Context.is_active() return;
     debug_record(a, a.data, 0, true, null);
     #if MEMORY_DEBUGGER && VISUALIZE_MEMORY_DEBUGGER && REPLACEMENT_INTERFACE == Memory_Debugger_Interface vis_update_if_it_has_been_long_enough();
 }
 
+// Records the heap `a` as gone. Basic's `Memory_Debugger.check_destroy_heap`.
 _check_destroy_heap :: (a: Allocator) {
     if Debug_Context.is_active() return;
     debug_release(a, a.data, true);
     #if MEMORY_DEBUGGER && VISUALIZE_MEMORY_DEBUGGER && REPLACEMENT_INTERFACE == Memory_Debugger_Interface vis_update_if_it_has_been_long_enough();
 }
 
+// Sends this frame's allocation counts to the memory viewer. Call it once per frame; it does nothing
+// unless `MEMORY_DEBUGGER` and `VISUALIZE_MEMORY_DEBUGGER` are both on.
 memory_visualizer_per_frame_update :: () #expand #no_debug {
     #if MEMORY_DEBUGGER && VISUALIZE_MEMORY_DEBUGGER && REPLACEMENT_INTERFACE == Memory_Debugger_Interface visualization_per_frame();
 }
 
+// Asks the allocator `a` for a new, separate heap and returns an allocator for it. Free it with
+// [destroy_heap], which also frees everything allocated from it.
+//
+// `a` must support `.CREATE_HEAP` (see `get_capabilities`); otherwise an assert fails. The memory
+// debugger tracks the heap when it is on.
+//
+// ```jai
+// caps := get_capabilities(context.default_allocator);
+// if caps & .CREATE_HEAP {
+//     heap := create_heap(context.default_allocator);
+//     defer destroy_heap(heap);
+//     bytes := cast(*u8) alloc(64,, heap);
+//     bytes[63] = 1;
+// }
+// ```
 create_heap :: (a: Allocator) -> Allocator {
     data := a.proc(.CREATE_HEAP, 0, 0, null, a.data);
 
@@ -80,6 +101,7 @@ start_debugger :: () {
     initialize_debugger();
 }
 
+// Frees the heap `b` from [create_heap] and everything allocated from it.
 destroy_heap :: (b: Allocator) {
     #if MEMORY_DEBUGGER Memory_Debugger.check_destroy_heap(b);
     b.proc(.DESTROY_HEAP, 0, 0, null, b.data);

@@ -1,6 +1,6 @@
-// The bytes `trim`, `trim_left` and `trim_right` remove by default: space, tab, carriage return and line feed.
+// The bytes [trim], [trim_left] and [trim_right] remove by default: space, tab, carriage return and line feed.
 DEFAULT_SPACES :: " \t\r\n";
-// The bytes `parse_token` treats as tokens of their own by default: `;`, `=`, `(` and `)`.
+// The bytes [parse_token] treats as tokens of their own by default: `;`, `=`, `(` and `)`.
 DEFAULT_DELIMITERS :: ";=()";
 
 // The part of `s` that starts at `index` and holds at most `count` bytes; empty when `index` is
@@ -50,7 +50,7 @@ compare :: (a: string, b: string) -> int {
     return 0;
 } @UseResult
 
-// Like `compare`, but ASCII letters match in either case. Bytes outside `A-Z` and `a-z` compare as they are,
+// Like [compare], but ASCII letters match in either case. Bytes outside `A-Z` and `a-z` compare as they are,
 // so this does not fold other scripts.
 //
 // ```jai
@@ -80,7 +80,7 @@ equal :: (a: string, b: string) -> bool {
     return a == b;
 } @UseResult
 
-// Whether the two strings are equal when ASCII letters are matched in either case.
+// Whether the two strings are equal when ASCII letters are matched in either case. See [compare_nocase].
 //
 // ```jai
 // assert(equal_nocase("MiXeD", "mixed"));
@@ -110,7 +110,7 @@ ends_with :: (s: string, suffix: string) -> bool {
     return s.count >= suffix.count && slice(s, s.count - suffix.count, suffix.count) == suffix;
 } @UseResult
 
-// Like `begins_with`, with ASCII letters matched in either case.
+// Like [begins_with], with ASCII letters matched in either case.
 //
 // ```jai
 // assert(begins_with_nocase("Content-Length: 5", "content-length"));
@@ -119,7 +119,7 @@ begins_with_nocase :: (s: string, prefix: string) -> bool {
     return s.count >= prefix.count && equal_nocase(slice(s, 0, prefix.count), prefix);
 }
 
-// Like `ends_with`, with ASCII letters matched in either case.
+// Like [ends_with], with ASCII letters matched in either case.
 //
 // ```jai
 // assert(ends_with_nocase("PHOTO.JPG", ".jpg"));
@@ -147,7 +147,8 @@ VECTOR_MIN :: 64;
 
 // The index of the first `byte` in `s` at or after `start_index`, or -1 when there is none.
 //
-// A negative `start_index` starts at the beginning.
+// A negative `start_index` starts at the beginning. Takes `O(n)` time; long strings are searched
+// with vector instructions. The last one is [find_index_from_right].
 //
 // ```jai
 // assert(find_index_from_left("a/b/c", #char "/") == 1);
@@ -305,7 +306,7 @@ contains :: (s: string, substring: string) -> (found: bool, remainder: string) {
     return true, slice(s, i + substring.count, s.count);
 } @UseResult
 
-// Like `contains`, with ASCII letters matched in either case.
+// Like [contains], with ASCII letters matched in either case.
 //
 // ```jai
 // found, rest := contains_nocase("abcDEFghi", "def");
@@ -370,7 +371,8 @@ replace_chars :: (s: string, chars: string, replacement: u8) {
 }
 
 // Turns the ASCII capitals of `s` into lower case, in place. Other bytes are left as they are, so UTF-8
-// text is not folded. `s` must be writable, not a string literal.
+// text is not folded. `s` must be writable, not a string literal. The copying form is
+// [to_lower_copy].
 //
 // ```jai
 // text := copy_string("MiXeD");
@@ -382,7 +384,8 @@ to_lower_in_place :: ($$s: string) {
     for i: 0..s.count - 1 s.data[i] = to_lower(s[i]);
 }
 
-// Turns the ASCII lower case letters of `s` into capitals, in place. See `to_lower_in_place`.
+// Turns the ASCII lower case letters of `s` into capitals, in place. See [to_lower_in_place]; the
+// copying form is [to_upper_copy].
 //
 // ```jai
 // text := copy_string("MiXeD");
@@ -422,7 +425,7 @@ to_upper_copy :: (s: string) -> string {
     return result;
 } @UseResult
 
-// `s` without the `chars` at its start; the result points into `s`.
+// `s` without the `chars` at its start; the result points into `s`. See [trim].
 //
 // ```jai
 // assert(trim_left("  hi ") == "hi ");
@@ -433,7 +436,7 @@ trim_left :: (s: string, chars := DEFAULT_SPACES) -> string {
     return slice(s, i, s.count - i);
 } @UseResult
 
-// `s` without the `chars` at its end; the result points into `s`.
+// `s` without the `chars` at its end; the result points into `s`. See [trim].
 //
 // ```jai
 // assert(trim_right("  hi ") == "  hi");
@@ -456,7 +459,7 @@ trim :: (s: string, chars := DEFAULT_SPACES) -> string {
     return trim_right(trim_left(s, chars), chars);
 } @UseResult
 
-// `_s` without the spaces, tabs and line breaks at its end. The same as `trim_right`.
+// `_s` without the spaces, tabs and line breaks at its end. The same as [trim_right].
 //
 // ```jai
 // assert(eat_trailing_spaces("word \t\n") == "word");
@@ -542,7 +545,7 @@ split_from_left :: (s: string, byte: u8) -> (found: bool, left: string, right: s
 // Splits `s` at the last `byte`. Returns whether it was found, the part before it and the part after it.
 //
 // When the byte is not found the result is `false`, all of `s` and an empty string, as for
-// `split_from_left` and the string overload. Both parts point into `s`.
+// [split_from_left] and the string overload. Both parts point into `s`.
 //
 // ```jai
 // found, left, right := split_from_right("a.b.c", #char ".");
@@ -611,7 +614,10 @@ split_from_right_by_any :: (s: string, bytes: string) -> (found: bool, left: str
     return true, slice(s, 0, i), slice(s, i + 1, s.count);
 }
 
-// The pieces of `s` between each `separator`, as views into `s`, in a new array that the caller frees. A separator at either end, or two in a row, gives an empty piece.
+// The pieces of `s` between each `separator`, as views into `s`, in a new array that the caller frees.
+//
+// A separator at either end, or two in a row, gives an empty piece, so `n` separators always give
+// `n + 1` pieces. An empty string gives one empty piece. The inverse is [join].
 //
 // ```jai
 // pieces := split("a,b,,c", #char ",");
@@ -635,6 +641,7 @@ split :: (s: string, separator: $T/ .[string, u8]) -> [] string {
 } @UseResult
 
 // The strings one after another with `separator` between them, in a new string that the caller frees.
+// No strings give an empty string. The inverse is [split].
 //
 // ```jai
 // joined := join("a", "b", "c", separator = ", ");
@@ -664,7 +671,8 @@ join :: (inputs: ..string, separator := "", before_first := false, after_last :=
 
 // A copy of `s` with every non-overlapping `old` replaced by `new`, and how many were replaced.
 //
-// An empty `old` replaces nothing. The copy is allocated with the context allocator and the caller
+// An empty `old` replaces nothing. Matches are found left to right, so `aa` in `aaaaa` matches
+// twice. The copy is allocated with the context allocator and the caller
 // frees it.
 //
 // ```jai

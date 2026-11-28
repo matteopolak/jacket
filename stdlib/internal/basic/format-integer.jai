@@ -1,3 +1,5 @@
+// Print settings for one integer: base, minimum digits, padding and digit separators. Build one
+// with `formatInt`.
 FormatInt :: Shared_Print.FormatInt;
 
 // Wraps an integer for `print` so it comes out in another base, padded, or grouped.
@@ -26,6 +28,15 @@ formatInt :: (value: Any, base := 10, minimum_digits := 1, padding: u8 = #char "
     return result;
 }
 
+// Appends the integer in `format` to `builder`, as `print` does with a [FormatInt]. A null `Any`
+// prints `(null Any)`.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// print_integer(*builder, formatInt(255, base = 16));
+// assert(builder_to_string(*builder,, temp) == "ff");
+// ```
 print_integer :: (builder: *String_Builder, format: FormatInt) #no_aoc {
     info := format.value.type;
     if !info || !format.value.value_pointer {
@@ -61,6 +72,15 @@ print_integer :: (builder: *String_Builder, format: FormatInt) #no_aoc {
     print_u64_base_n(builder, value, format);
 }
 
+// Appends `v` in `format.base` (2 to 64), padded to `format.minimum_digits` (at most 64) and with
+// the format's digit separators; `format.value` is not read. A base outside 2 to 64 fails an assert.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// print_u64_base_n(*builder, 5, formatInt(0, base = 2, minimum_digits = 4));
+// assert(builder_to_string(*builder,, temp) == "0101");
+// ```
 print_u64_base_n :: (builder: *String_Builder, v: u64, format: FormatInt) #no_abc {
     assert(format.base >= 2 && format.base <= 64);
     assert(format.minimum_digits >= 0);

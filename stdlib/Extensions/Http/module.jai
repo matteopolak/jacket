@@ -1,13 +1,40 @@
-// HTTP/1.0 and HTTP/1.1 message codecs, plus a server, a client and test tools on top of them for fibers.
+// HTTP for fibers: a server, a client, in-memory test tools, and the message codecs under them.
 // @experimental
 //
-// The codec has no IO of its own. A `Parser` reads requests or responses from byte buffers the caller fills, in pieces of
-// any size, and reports the head, the body in pieces and the end of each message with strict RFC 9112 framing; the writers
-// build heads and chunked bodies. Nothing in it touches a socket, so it runs on every target, wasm included. The server
-// (`App`, `serve`) and the client (`Client`, `get`, `send`) need fibers and `Extensions/Io`, and are not built for wasm.
-// Failures are values: the parser's `.ERROR` event and `Parser.error`, an `Http_Error` returned by a handler, a
-// `Client_Error` returned by a client call. Memory the parser or a response owns is released with `parser_free` and
-// `close`; everything else is borrowed or in the temporary allocator, as each procedure says.
+// - Server: register handlers on an [App] with [get] and the other method procedures, then [serve]
+//   it. Handlers return a string, a value encoded as JSON, a [Response] or an [Http_Error].
+// - Client: [get] and [send] on a [Client]; free each response with [close].
+// - Tests: [test_client] sends requests to an [App] in memory, without a socket.
+// - Codecs: a [Parser] reads HTTP/1.x requests or responses from buffers the caller fills, in pieces
+//   of any size, with strict RFC 9112 framing; the writers build heads and chunked bodies.
+//
+// HTTP/2 is used when TLS negotiates `h2`; handlers and client calls do not change. The codecs
+// touch no socket and build for every target, wasm included; the server, client and test tools
+// need `Extensions/Io` and are left out on wasm. Failures are values: the parser's `.ERROR` event
+// and `Parser.error`, an [Http_Error] from a handler, a [Client_Error] from a client call. Memory
+// a parser or response owns is released with [parser_free] and [close]; everything else is
+// borrowed or in temporary storage, as each procedure says.
+//
+// ```jai,skip_on(wasm)
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//     get(*app, "/hello", hello);
+//
+//     api := test_client(*app);
+//     defer free_test_client(api);
+//     response, error := get(api, "/hello");
+//     assert(error.kind == .NONE);
+//     defer close(*response);
+//     assert(response.status == 200);
+// }
+// ```
+//
+// The parser on its own:
 //
 // ```jai
 // parser: Parser;

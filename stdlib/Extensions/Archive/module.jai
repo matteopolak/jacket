@@ -1,5 +1,13 @@
-// Reads and writes ZIP and TAR archives within explicit size limits. Entry metadata is owned by the
-// [Archive]; payloads are read on demand. Input bytes (or a source) must outlive the archive.
+// Reads and writes ZIP and TAR archives within explicit size limits.
+//
+// - [read_archive] indexes an archive from bytes or a seekable [Archive_Source]; [read_entry] and
+//   [copy_entry] read one entry's payload on demand, checking its size and CRC.
+// - [encode_archive] writes to a new buffer and [write_archive] to any [Archive_Writer].
+// - [extract] unpacks files and directories into a folder without following or creating links.
+//
+// Every call takes [Archive_Limits], so a hostile archive fails with `.LIMIT` instead of exhausting
+// memory. Entry names are owned by the [Archive]; the input bytes or source must outlive it. Free
+// archives, owned payloads and errors with [free_archive].
 //
 // ```jai
 // #import "Extensions/Archive";
@@ -16,13 +24,35 @@
 // ```
 
 // The container format of an archive.
+//
+// ```jai
+// items := Archive_Item.[.{ name = "a.txt", data = cast([] u8) "hi" }];
+// bytes, error := encode_archive(items, .TAR_GZIP);
+// assert(error.kind == .NONE);
+// defer free(bytes.data);
+// assert(bytes[0] == 0x1f && bytes[1] == 0x8b); // the gzip magic
+// ```
 Archive_Format :: enum {
     ZIP;
     TAR;
     TAR_GZIP; // a TAR stream compressed with gzip
 }
 
-// What an entry is.
+// What an entry is. ZIP archives hold only files and directories; TAR also holds links.
+//
+// ```jai
+// items := Archive_Item.[
+//     .{ name = "docs/", kind = .DIRECTORY },
+//     .{ name = "latest", kind = .SYMLINK, link = "docs/" },
+// ];
+// bytes, error := encode_archive(items, .TAR);
+// assert(error.kind == .NONE);
+// defer free(bytes.data);
+//
+// archive, read_error := read_archive(bytes, .TAR);
+// defer free_archive(*archive);
+// assert(archive.entries[1].kind == .SYMLINK && archive.entries[1].link == "docs/");
+// ```
 Archive_Kind :: enum {
     FILE;
     DIRECTORY;
@@ -31,13 +61,31 @@ Archive_Kind :: enum {
     OTHER; // a device, FIFO or other special record; readable, never written or extracted
 }
 
-// How a ZIP entry's payload is stored.
+// How a ZIP entry's payload is stored. TAR ignores it; compress a whole TAR with `.TAR_GZIP`.
+//
+// ```jai
+// text := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+// items := Archive_Item.[.{ name = "a.txt", data = cast([] u8) text, method = .DEFLATE }];
+// bytes, error := encode_archive(items, .ZIP);
+// defer free(bytes.data);
+//
+// archive, read_error := read_archive(bytes, .ZIP);
+// defer free_archive(*archive);
+// entry := archive.entries[0];
+// assert(entry.method == .DEFLATE && entry.compressed_size < entry.size);
+// ```
 Archive_Method :: enum u16 {
     STORED = 0;
     DEFLATE = 8;
 }
 
 // Why an archive operation failed.
+//
+// ```jai
+// _, error := read_archive(cast([] u8) "not an archive", .ZIP);
+// defer free_archive(*error);
+// assert(error.kind == .INVALID);
+// ```
 Archive_Error_Kind :: enum {
     NONE;
     INVALID; // malformed or inconsistent structure
@@ -49,7 +97,15 @@ Archive_Error_Kind :: enum {
     IO; // a source, writer or file operation failed
 }
 
-// The outcome of an operation; `kind` is `.NONE` on success. Release `entry` with [free_archive].
+// The outcome of an operation; `kind` is `.NONE` on success. `entry` names the entry that failed,
+// when there is one; release it with [free_archive].
+//
+// ```jai
+// items := Archive_Item.[.{ name = "big.bin", data = cast([] u8) "12345" }];
+// _, error := encode_archive(items, .ZIP, .{ max_entry = 4 });
+// defer free_archive(*error);
+// assert(error.kind == .LIMIT && error.entry == "big.bin");
+// ```
 Archive_Error :: struct {
     kind: Archive_Error_Kind;
     message: string; // static
@@ -58,7 +114,19 @@ Archive_Error :: struct {
 }
 
 // Bounds applied while indexing, reading, writing and extracting, to contain hostile input.
-// A negative value (or a `max_ratio` of 0 or less) makes the operation fail with `.INVALID`.
+//
+// Exceeding one fails with `.LIMIT`. A negative bound, or a `max_ratio` of 0 or less, is not valid
+// and also fails with `.LIMIT`. The defaults suit archives up to 1 GiB.
+//
+// ```jai
+// items := Archive_Item.[.{ name = "a", data = cast([] u8) "x" }, .{ name = "b", data = cast([] u8) "y" }];
+// bytes, _ := encode_archive(items, .ZIP);
+// defer free(bytes.data);
+//
+// _, error := read_archive(bytes, .ZIP, .{ max_entries = 1 });
+// defer free_archive(*error);
+// assert(error.kind == .LIMIT);
+// ```
 Archive_Limits :: struct {
     max_archive: s64 = 1 << 30; // archive size in bytes
     max_metadata: s64 = 16 << 20; // total bytes of names, links and headers
@@ -68,8 +136,27 @@ Archive_Limits :: struct {
     max_ratio: s64 = 1000; // largest uncompressed-to-stored size ratio of an entry
 }
 
-// A seekable byte source for [read_archive]. A read-at callback may return short reads. Its source
-// must stay alive and unchanged.
+// A seekable byte source for [read_archive], such as a file read by offset.
+//
+// `read_at` fills `buffer` from `offset` and returns the count read and an empty string, or an error
+// message; a short read is retried for the rest. The source must stay alive and unchanged while the
+// [Archive] is used. Payloads read through a source are copied, so [read_entry] returns owned data.
+//
+// ```jai
+// items := Archive_Item.[.{ name = "a.txt", data = cast([] u8) "hi" }];
+// bytes, _ := encode_archive(items, .TAR);
+// defer free(bytes.data);
+//
+// read_at :: (data: *void, offset: s64, buffer: [] u8) -> s64, string {
+//     whole := (cast(*[] u8) data).*;
+//     memcpy(buffer.data, whole.data + offset, buffer.count);
+//     return buffer.count, "";
+// }
+//
+// archive, error := read_archive(Archive_Source.{ data = *bytes, size = bytes.count, read_at = read_at }, .TAR);
+// defer free_archive(*archive);
+// assert(error.kind == .NONE && archive.entries[0].name == "a.txt");
+// ```
 Archive_Source :: struct {
     data: *void; // passed back to `read_at`
     size: s64; // total bytes available
@@ -77,6 +164,17 @@ Archive_Source :: struct {
 }
 
 // One indexed archive entry. The strings are owned by the [Archive] that holds the entry.
+//
+// ```jai
+// items := Archive_Item.[.{ name = "a.txt", data = cast([] u8) "hello", mtime = 1700000000 }];
+// bytes, _ := encode_archive(items, .TAR);
+// defer free(bytes.data);
+//
+// archive, _ := read_archive(bytes, .TAR);
+// defer free_archive(*archive);
+// entry := archive.entries[0];
+// assert(entry.kind == .FILE && entry.size == 5 && entry.mtime == 1700000000);
+// ```
 Archive_Entry :: struct {
     name: string;
     link: string; // the target of a symlink or hardlink
@@ -92,8 +190,18 @@ Archive_Entry :: struct {
     zip: bool;
 }
 
-// An open archive: the entry index plus what is needed to read payloads. Release it with
-// [free_archive].
+// An open archive from [read_archive]: the entry index plus what is needed to read payloads. Release
+// it with [free_archive].
+//
+// ```jai
+// items := Archive_Item.[.{ name = "a.txt", data = cast([] u8) "a" }, .{ name = "b.txt", data = cast([] u8) "b" }];
+// bytes, _ := encode_archive(items, .ZIP);
+// defer free(bytes.data);
+//
+// archive, _ := read_archive(bytes, .ZIP);
+// defer free_archive(*archive);
+// for archive.entries assert(it.size == 1);
+// ```
 Archive :: struct {
     entries: [..] Archive_Entry;
     limits: Archive_Limits;
@@ -107,7 +215,19 @@ Archive :: struct {
 }
 
 // The bytes of one entry from [read_entry]. When `owned` they were allocated and [free_archive]
-// releases them; otherwise they borrow the archive's input.
+// releases them; otherwise they borrow the archive's input. Calling [free_archive] is safe either way.
+//
+// ```jai
+// items := Archive_Item.[.{ name = "a.txt", data = cast([] u8) "hi" }];
+// bytes, _ := encode_archive(items, .ZIP);
+// defer free(bytes.data);
+//
+// archive, _ := read_archive(bytes, .ZIP);
+// defer free_archive(*archive);
+// data, _ := read_entry(*archive, 0);
+// defer free_archive(*data);
+// assert(!data.owned && cast(string) data.bytes == "hi"); // stored, so borrowed
+// ```
 Archive_Data :: struct {
     bytes: [] u8;
     owned: bool;
@@ -115,6 +235,19 @@ Archive_Data :: struct {
 
 // An entry to write with [write_archive] or [encode_archive]. Nothing is copied: `name`, `data` and
 // `link` must stay valid until the call returns.
+//
+// Names are UTF-8 without NUL bytes, with `/` between folders; a directory's name ends in `/`. Only
+// a `.FILE` may have `data`.
+//
+// ```jai
+// items := Archive_Item.[
+//     .{ name = "src/", kind = .DIRECTORY },
+//     .{ name = "src/main.jai", data = cast([] u8) "main :: () {}", method = .DEFLATE },
+// ];
+// bytes, error := encode_archive(items, .ZIP);
+// defer free(bytes.data);
+// assert(error.kind == .NONE);
+// ```
 Archive_Item :: struct {
     name: string;
     data: [] u8;
@@ -124,7 +257,21 @@ Archive_Item :: struct {
     method: Archive_Method; // ZIP only
 }
 
-// Reads an index without copying stored payloads. Example: a, e := read_archive(bytes, .TAR);
+// Indexes the archive in `bytes` without copying stored payloads.
+//
+// Only the headers are read; payloads are checked when [read_entry] or [copy_entry] reads them.
+// `bytes` must outlive the archive. A `.TAR_GZIP` archive is inflated into a buffer the archive owns,
+// bounded by `limits`. On error the archive is empty and needs no freeing; free the error.
+//
+// ```jai
+// items := Archive_Item.[.{ name = "a.txt", data = cast([] u8) "hi" }];
+// bytes, _ := encode_archive(items, .TAR);
+// defer free(bytes.data);
+//
+// archive, error := read_archive(bytes, .TAR);
+// defer free_archive(*archive);
+// assert(error.kind == .NONE && archive.entries.count == 1);
+// ```
 read_archive :: (bytes: [] u8, format: Archive_Format, limits := Archive_Limits.{}) -> Archive, Archive_Error {
     a: Archive;
     a.bytes = bytes;
@@ -135,7 +282,8 @@ read_archive :: (bytes: [] u8, format: Archive_Format, limits := Archive_Limits.
     return open_index(a);
 }
 
-// Indexes a seekable source with bounded metadata reads. Example: a, e := read_archive(source, .ZIP);
+// Indexes the archive in a seekable `source`, reading only headers. See [Archive_Source] for an
+// example. A `.TAR_GZIP` source is read whole and inflated, since gzip cannot be read by offset.
 read_archive :: (source: Archive_Source, format: Archive_Format, limits := Archive_Limits.{}) -> Archive, Archive_Error {
     a: Archive;
     a.source = source;
@@ -145,8 +293,28 @@ read_archive :: (source: Archive_Source, format: Archive_Format, limits := Archi
     return open_index(a);
 }
 
-// Returns a borrowed stored payload or an owned inflated buffer, verifying ZIP CRC first.
-// Example: d, e := read_entry(*a, 0); defer free_archive(*d);
+// Returns the payload of entry `index`, checked against its size and, for ZIP, its CRC.
+//
+// A stored entry of an archive read from bytes borrows them; a deflated entry, or any entry read
+// through an [Archive_Source], is a new buffer. Free the result with [free_archive] in both cases.
+// An index out of range fails with `.INVALID`, a payload that does not match with `.CHECKSUM`. To
+// avoid holding a large entry in memory, use [copy_entry].
+//
+// ```jai
+// items := Archive_Item.[.{ name = "a.txt", data = cast([] u8) "compressed text text text", method = .DEFLATE }];
+// bytes, _ := encode_archive(items, .ZIP);
+// defer free(bytes.data);
+//
+// archive, _ := read_archive(bytes, .ZIP);
+// defer free_archive(*archive);
+// data, error := read_entry(*archive, 0);
+// defer free_archive(*data);
+// assert(error.kind == .NONE && data.owned && cast(string) data.bytes == "compressed text text text");
+//
+// _, out_of_range := read_entry(*archive, 5);
+// defer free_archive(*out_of_range);
+// assert(out_of_range.kind == .INVALID);
+// ```
 read_entry :: (a: *Archive, index: s64) -> Archive_Data, Archive_Error {
     if index < 0 || index >= a.entries.count return .{}, problem(.INVALID, "entry index out of range");
 
@@ -173,8 +341,28 @@ read_entry :: (a: *Archive, index: s64) -> Archive_Data, Archive_Error {
     return input, .{};
 }
 
-// Copies stored data in 64 KiB pieces; deflate uses one bounded entry buffer.
-// Example: error := copy_entry(*a, 0, sink);
+// Writes the payload of entry `index` to `writer`, checking its CRC as it goes.
+//
+// A stored entry is copied in 64 KiB pieces, so its size does not matter. A deflated entry is
+// inflated whole first, as [read_entry] does. A CRC mismatch is found only after the bytes were
+// written, so the writer must be ready to discard them on `.CHECKSUM`.
+//
+// ```jai
+// items := Archive_Item.[.{ name = "a.txt", data = cast([] u8) "hello" }];
+// bytes, _ := encode_archive(items, .ZIP);
+// defer free(bytes.data);
+// archive, _ := read_archive(bytes, .ZIP);
+// defer free_archive(*archive);
+//
+// count_bytes :: (data: *void, bytes: [] u8) -> bool {
+//     (cast(*int) data).* += bytes.count;
+//     return true;
+// }
+//
+// total: int;
+// error := copy_entry(*archive, 0, .{ data = *total, write_proc = count_bytes });
+// assert(error.kind == .NONE && total == 5);
+// ```
 copy_entry :: (a: *Archive, index: s64, writer: Archive_Writer) -> Archive_Error {
     if index < 0 || index >= a.entries.count return problem(.INVALID, "entry index out of range");
 
@@ -214,7 +402,14 @@ copy_entry :: (a: *Archive, index: s64, writer: Archive_Writer) -> Archive_Error
     return .{};
 }
 
-// Releases index metadata and gzip backing; never frees borrowed input. Example: free_archive(*a);
+// Frees the entry index of `a` and, for `.TAR_GZIP`, the inflated bytes, then clears it. The input
+// bytes or source passed to [read_archive] are not freed. An empty archive is fine to free.
+//
+// ```jai
+// archive: Archive;
+// free_archive(*archive);
+// assert(archive.entries.count == 0);
+// ```
 free_archive :: (a: *Archive) {
     for a.entries {
         free(it.name);
@@ -227,7 +422,7 @@ free_archive :: (a: *Archive) {
     a.* = .{};
 }
 
-// Releases an entry buffer when owned. Example: free_archive(*d);
+// Frees the bytes of `data` when it owns them, then clears it. See [Archive_Data].
 free_archive :: (data: *Archive_Data) {
     if data.owned && data.bytes.data free(data.bytes.data);
     data.* = .{};
@@ -236,25 +431,35 @@ free_archive :: (data: *Archive_Data) {
 // Receives output bytes; returns false when it cannot take them all. `data` is the sink's own state.
 Archive_Write_Proc :: #type (data: *void, bytes: [] u8) -> bool;
 
-// A byte sink for `write_archive` and `copy_entry`. It owns nothing and works on every target, wasm
-// included. To write to a file or socket, point `data` at it and forward to its own write, as
-// `forward` does for an `Extensions/Io` writer.
+// A byte sink for [write_archive] and [copy_entry]. It owns nothing and works on every target, wasm
+// included. To write to a file or socket, point `data` at it and forward to its own write.
 //
-// ```jai,ignore
-// forward :: (data: *void, bytes: [] u8) -> bool {
-//     _, error := Io.write((cast(*Io.Writer) data).*, bytes);
+// ```jai,only(linux, macos)
+// Io :: #import "Extensions/Io";
+// #import "File";
+//
+// to_file :: (data: *void, bytes: [] u8) -> bool {
+//     _, error := Io.write(cast(*Io.Io_File) data, bytes);
 //     return error == .NONE;
 // }
 //
-// io_writer := Io.writer_of(*file);
-// error := write_archive(Archive_Writer.{ data = *io_writer, write_proc = forward }, items, .ZIP);
+// Io.io_run(() {
+//     file, error := Io.open_file("/tmp/jacket-archive-writer.zip", .WRITE);
+//     assert(error == .NONE);
+//     items := Archive_Item.[.{ name = "a.txt", data = cast([] u8) "hi" }];
+//     archive_error := write_archive(.{ data = *file, write_proc = to_file }, items, .ZIP);
+//     Io.close(*file);
+//     assert(archive_error.kind == .NONE);
+// });
+// file_delete("/tmp/jacket-archive-writer.zip");
 // ```
 Archive_Writer :: struct {
     data: *void;
     write_proc: Archive_Write_Proc;
 }
 
-// Releases the error's entry name. Example: free_archive(*error);
+// Frees the entry name of `error`, then clears it. Safe on an error with no name or on success. See
+// [Archive_Error].
 free_archive :: (error: *Archive_Error) {
     if error.entry.data free(error.entry);
     error.* = .{};

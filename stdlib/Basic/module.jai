@@ -91,6 +91,8 @@ string_to_float64_new :: Impl.string_to_float64_new;
 string_to_float_new :: Impl.string_to_float_new;
 alloc :: Impl.alloc;
 get_capabilities :: Impl.get_capabilities;
+// The hooks the allocation calls go through when Basic's `MEMORY_DEBUGGER` parameter is on: Basic's
+// own, or the `REPLACEMENT_INTERFACE` passed to Basic.
 Memory_Debugger :: Impl.Memory_Debugger;
 Preamble :: Impl.Preamble;
 Procedure_To_Elide :: Impl.Procedure_To_Elide;

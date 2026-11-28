@@ -2,8 +2,21 @@
 // calling fiber. Everything here assumes the fibers share one thread (one `io_run`), which is
 // what makes plain loads and stores safe.
 
-// A bounded queue of `T` between fibers. `send` blocks while it is full, `recv` while it is empty.
-// With capacity 0 a send and a receive meet: each waits for the other.
+// A bounded queue of `T` between fibers, from [make_channel]. [send] blocks while it is full,
+// [recv] while it is empty. With capacity 0 a send and a receive meet: each waits for the other.
+// Free it with [free_channel].
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     queue := Io.make_channel(string, 2);
+//     defer Io.free_channel(queue);
+//     Io.send(queue, "first"); // fits, so it does not block
+//     value, _ := Io.recv(queue);
+//     assert(value == "first");
+// });
+// ```
 Channel :: struct(T: Type) {
     buffer: *T;
     capacity: s64;
@@ -41,7 +54,7 @@ make_channel :: ($T: Type, capacity := 0) -> *Channel(T) {
     return channel;
 }
 
-// Frees a channel from `make_channel`. No fiber may be waiting on it.
+// Frees a channel from [make_channel]. No fiber may be waiting on it. See [Channel].
 free_channel :: (channel: *Channel($T)) {
     assert(waiters_empty(*channel.senders) && waiters_empty(*channel.receivers), "Io: a channel was freed while fibers wait on it");
 
@@ -238,7 +251,7 @@ Wait_Group :: struct {
     waiters: Waiter;
 }
 
-// Adds `count` tasks to wait for.
+// Adds `count` tasks for the [Wait_Group] to wait for. Call it before starting them.
 add :: (group: *Wait_Group, count := 1) {
     group.count += count;
     assert(group.count >= 0, "Io: a Wait_Group's count went negative");
@@ -246,12 +259,13 @@ add :: (group: *Wait_Group, count := 1) {
     if group.count == 0 wake_all(*group.waiters);
 }
 
-// Marks one task finished.
+// Marks one task of the [Wait_Group] finished, waking its waiters when it was the last.
 done :: (group: *Wait_Group) {
     add(group, -1);
 }
 
-// Blocks until the count is back to zero.
+// Blocks until the [Wait_Group]'s count is back to zero. Returns `.NONE` at once when it already
+// is, `.CANCELED` when the fiber was canceled, and `.TIMED_OUT` when a deadline ends the wait.
 wait :: (group: *Wait_Group) -> Io_Error {
     fiber, scheduler := current_fiber();
     if fiber.canceled return .CANCELED;
@@ -317,7 +331,8 @@ try_lock :: (mutex: *Fiber_Mutex) -> bool {
     return true;
 }
 
-// Releases the lock, handing it to the fiber that has waited longest.
+// Releases the lock taken with [lock] or [try_lock], handing it to the fiber that has waited
+// longest. See [lock] for an example.
 unlock :: (mutex: *Fiber_Mutex) {
     assert(mutex.locked, "Io: unlock of a Fiber_Mutex that is not locked");
 
@@ -356,7 +371,7 @@ Condition :: struct {
     waiters: Waiter;
 }
 
-// Parks the fiber until a notify, its deadline, or a cancel.
+// Parks the fiber until a notify, its deadline, or a cancel. See [Condition] for an example.
 wait :: (condition: *Condition) -> Io_Error {
     fiber, scheduler := current_fiber();
     if fiber.canceled return .CANCELED;
@@ -392,7 +407,27 @@ notify_one :: (condition: *Condition) {
     wake(waiter.fiber);
 }
 
-// Wakes every fiber waiting on the condition.
+// Wakes every fiber waiting on the condition; [notify_one] wakes only the first.
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+//
+// changed: Io.Condition;
+// woken: int;
+//
+// main :: () {
+//     Io.io_run(() {
+//         for 1..2 Io.spawn(() {
+//             Io.wait(*changed);
+//             woken += 1;
+//         });
+//         Io.yield(); // both are waiting
+//         Io.notify_all(*changed);
+//         Io.yield();
+//         assert(woken == 2);
+//     });
+// }
+// ```
 notify_all :: (condition: *Condition) {
     while !waiters_empty(*condition.waiters) notify_one(condition);
 }

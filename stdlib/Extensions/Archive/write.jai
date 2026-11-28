@@ -1,4 +1,14 @@
-// Encodes entries into an owned byte buffer. Example: bytes, e := encode_archive(items, .ZIP);
+// Writes `items` as an archive into a new buffer, which the caller frees.
+//
+// Fails like [write_archive]; the buffer is then empty. The output is limited by
+// `limits.max_archive`.
+//
+// ```jai
+// items := Archive_Item.[.{ name = "notes/todo.txt", data = cast([] u8) "ship it" }];
+// bytes, error := encode_archive(items, .ZIP);
+// defer free(bytes.data);
+// assert(error.kind == .NONE && bytes[0] == #char "P" && bytes[1] == #char "K");
+// ```
 encode_archive :: (items: [] Archive_Item, format: Archive_Format, limits := Archive_Limits.{}) -> [] u8, Archive_Error {
     buffer: Archive_Buffer;
     error := write_archive(Archive_Writer.{ data = *buffer, write_proc = buffer_write }, items, format, limits);
@@ -11,8 +21,27 @@ encode_archive :: (items: [] Archive_Item, format: Archive_Format, limits := Arc
     return .{ buffer.bytes.count, buffer.bytes.data }, .{};
 }
 
-// Writes to a sink without seeking; ZIP uses data descriptors. Deflate buffers one entry.
-// Example: error := write_archive(sink, items, .ZIP);
+// Writes `items` as an archive to `writer`, in order and without seeking back.
+//
+// Every item is checked before anything is written: an invalid name (bad UTF-8 or a NUL),
+// a payload on a non-file, a link in a ZIP or a special entry fails with `.INVALID` or
+// `.UNSUPPORTED`, and sizes past `limits` with `.LIMIT`. A `.DEFLATE` item is compressed in memory
+// first; `.TAR_GZIP` builds the whole TAR in memory. A ZIP entry over 4 GiB is written as ZIP64. A
+// writer that returns `false` stops the call with `.IO`, after part of the archive was written.
+//
+// ```jai
+// collect :: (data: *void, bytes: [] u8) -> bool {
+//     builder := cast(*String_Builder) data;
+//     append(builder, bytes.data, bytes.count);
+//     return true;
+// }
+//
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// items := Archive_Item.[.{ name = "a.txt", data = cast([] u8) "hi" }];
+// error := write_archive(.{ data = *builder, write_proc = collect }, items, .TAR);
+// assert(error.kind == .NONE && builder_string_length(*builder) == 2048);
+// ```
 write_archive :: (writer: Archive_Writer, items: [] Archive_Item, format: Archive_Format, limits := Archive_Limits.{}) -> Archive_Error {
     if !valid_limits(limits) || items.count > limits.max_entries return problem(.LIMIT, "invalid limits or entry count");
 

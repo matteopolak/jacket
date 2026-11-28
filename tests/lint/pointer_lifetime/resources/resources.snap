@@ -77,9 +77,9 @@ warning[use_after_free]: this returns storage released by deferred cleanup
     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |            --------------------------- storage derived here
     |
-   ::: [repo]/stdlib/internal/basic/temporary.jai:271:12
+   ::: [repo]/stdlib/internal/basic/temporary.jai:298:12
     |
-271 |     `defer set_temporary_storage_mark(mark, loc);
+298 |     `defer set_temporary_storage_mark(mark, loc);
     |            ------------------------------------- storage invalidated here
     |
     = help: transfer ownership to the caller, or return a copy made outside the released storage

@@ -21,15 +21,32 @@ Builder_Types :: #import "internal/basic-builder-types"(ENABLE_ASSERT = ENABLE_A
 String_Builder :: Builder_Types.String_Builder;
 STRING_BUILDER_BUFFER_SIZE :: Builder_Types.STRING_BUILDER_BUFFER_SIZE;
 
+// The first buffer of `builder`, the one stored inside it. Later buffers follow its `next` chain.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// append(*builder, "abc");
+// assert(get_base_buffer(*builder).count == 3);
+// ```
 get_base_buffer :: inline (using builder: *String_Builder) -> *String_Builder.Buffer {
     return cast(*String_Builder.Buffer) initial_bytes.data;
 }
 
+// The buffer `builder` appends to now, the last of its chain. Prepares the builder first if needed.
 get_current_buffer :: inline (using builder: *String_Builder) -> *String_Builder.Buffer {
     if !initialized init_string_builder(builder);
     return current_buffer;
 }
 
+// The first byte of `buffer`'s text, which follows its header. `buffer.count` bytes are in use.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// append(*builder, "hi");
+// assert(get_buffer_data(get_base_buffer(*builder))[1] == #char "i");
+// ```
 get_buffer_data :: inline (using buffer: *String_Builder.Buffer) -> *u8 {
     return cast(*u8) buffer + size_of(String_Builder.Buffer);
 }
@@ -102,6 +119,9 @@ ensure_contiguous_space_and_return_available_range :: (using builder: *String_Bu
     return .{ available, cast(*u8) memory };
 }
 
+// Adds a new buffer to the end of `builder`, of its buffer size, and makes it current. Returns
+// `false`, and marks the builder failed, when the allocator returns null. `append` calls this
+// itself; call it only when writing into buffers by hand.
 expand :: (using builder: *String_Builder) -> bool {
     if !initialized init_string_builder(builder);
     return grow_builder(builder, 1);
@@ -249,6 +269,14 @@ append_by_pointer :: inline (builder: *String_Builder, pointer: *$T) {
     append(builder, cast(*u8) pointer, size_of(T));
 }
 
+// Appends the bytes of `x`, by value. The same as [append_by_pointer] with `*x`.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// simple_memcpy(*builder, cast(u16) 7);
+// assert(builder_string_length(*builder) == 2);
+// ```
 simple_memcpy :: inline (using builder: *String_Builder, x: $T) {
     append_by_pointer(builder, *x);
 }

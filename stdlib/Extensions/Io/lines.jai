@@ -5,8 +5,25 @@
 // The default for `make_line_reader`'s `limit`: the longest line it accepts, in bytes.
 DEFAULT_LINE_LIMIT :: 64 * 1024;
 
-// Reads lines from `source`. Make one with `make_line_reader`, read with `read_line` and give its
-// buffer back with `free_line_reader`. It does not close `source`.
+// Reads lines from `source`. Make one with [make_line_reader], read with [read_line] and give its
+// buffer back with [free_line_reader]. It does not close `source`.
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     near, far := Io.make_pipe();
+//     defer Io.close(near);
+//     Io.write(far, "a\nb\n");
+//     Io.close(far);
+//
+//     lines := Io.make_line_reader(Io.reader_of(near));
+//     defer Io.free_line_reader(*lines);
+//     first, _ := Io.read_line(*lines);
+//     second, _ := Io.read_line(*lines);
+//     assert(first == "a" && second == "b");
+// });
+// ```
 Line_Reader :: struct {
     source: Reader;
     limit: s64;

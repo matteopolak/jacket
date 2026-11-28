@@ -80,7 +80,8 @@ path_decomp :: (name: string) -> (path: string, basename: string, extension: str
     return directory, base, ext, file;
 }
 
-// The last component of `s` without its extension.
+// The last component of `s` without its extension; the result points into `s`. [path_decomp]
+// gives every part at once.
 //
 // ```jai
 // assert(basename("src/main.jai") == "main");

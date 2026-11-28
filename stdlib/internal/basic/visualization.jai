@@ -1,3 +1,5 @@
+// Connects to the memory viewer. Does nothing unless `MEMORY_DEBUGGER` and
+// `VISUALIZE_MEMORY_DEBUGGER` are both on, and logs once when the target has no way to connect.
 vis_init :: () {
     #if VISUALIZATION_ENABLED {
         if !visualization_try_lock() return;
@@ -9,6 +11,7 @@ vis_init :: () {
     }
 }
 
+// Sends `s` to the memory viewer's table of names, if it is not there yet.
 maybe_add_string :: (s: string) {
     #if VISUALIZATION_ENABLED {
         while !visualization_try_lock() {}
@@ -17,6 +20,7 @@ maybe_add_string :: (s: string) {
     }
 }
 
+// Sends the memory viewer a snapshot of live allocations now.
 vis_update :: () {
     #if VISUALIZATION_ENABLED {
         if !visualization_try_lock() return;
@@ -36,6 +40,8 @@ vis_update :: () {
     }
 }
 
+// Sends the memory viewer a snapshot when the update interval has passed since the last one.
+// Allocator calls do this; once [memory_visualizer_per_frame_update] has been called they stop.
 vis_update_if_it_has_been_long_enough :: () {
     #if VISUALIZATION_ENABLED {
         if atomic_load(*visualization_explicit_frames) != 0 || !visualization_try_lock() return;
@@ -56,6 +62,7 @@ vis_update_if_it_has_been_long_enough :: () {
     }
 }
 
+// Disconnects from the memory viewer.
 vis_fini :: () {
     #if VISUALIZATION_ENABLED {
         while !visualization_try_lock() {}

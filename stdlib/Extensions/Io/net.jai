@@ -33,7 +33,15 @@ Address_Family :: enum u8 {
     IPV6;
 }
 
-// An IP address and port. `bytes` is in network order; an IPv4 address uses the first four.
+// An IP address and port. `bytes` is in network order; an IPv4 address uses the first four. Build
+// one with [address_v4] or [parse_address].
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+//
+// address := Io.address_v4(10, 0, 0, 1, 8080);
+// assert(address.port == 8080 && address.bytes[0] == 10 && address.bytes[3] == 1);
+// ```
 Address :: struct {
     family: Address_Family;
     // In host order.
@@ -43,12 +51,39 @@ Address :: struct {
     scope: u32;
 }
 
-// A listening socket.
+// A listening socket from [tcp_listen]. Take connections with [accept] and close it with [close].
+// See [tcp_listen] for an example.
 Tcp_Listener :: struct {
     handle: Handle;
 }
 
-// A connected socket, from `accept` or `connect`.
+// A connected socket, from [accept] or [connect]. Close it with [close].
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+//
+// main :: () {
+//     Io.io_run(() {
+//         listener, _ := Io.tcp_listen("127.0.0.1:0");
+//         defer Io.close(listener);
+//         address, _ := Io.local_address(listener);
+//
+//         Io.spawn((address: Io.Address) {
+//             client, error := Io.connect(address);
+//             assert(error == .NONE);
+//             Io.write(client, "hi");
+//             Io.close(client);
+//         }, address);
+//
+//         server, error := Io.accept(listener);
+//         assert(error == .NONE);
+//         defer Io.close(server);
+//         buffer: [2] u8;
+//         count, _ := Io.read_full(server, buffer);
+//         assert(count == 2 && cast(string) buffer == "hi");
+//     });
+// }
+// ```
 Tcp_Stream :: struct {
     handle: Handle;
 }
@@ -223,7 +258,17 @@ address_to_string :: (address: Address) -> string {
     return builder_to_string(*builder, do_reset = true,, temp);
 }
 
-// The system's error number behind the last failed IO call of the running fiber.
+// The system's error number behind the last failed IO call of the running fiber, such as
+// `ENOENT`, for when an [Io_Error] of `.OTHER` needs a closer look.
+//
+// ```jai,only(linux, macos)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     _, error := Io.open_file("/tmp/jacket-io-missing/none.txt");
+//     assert(error == .NOT_FOUND && Io.last_platform_code() != 0);
+// });
+// ```
 last_platform_code :: () -> s32 {
     fiber := current_fiber();
 
@@ -260,10 +305,26 @@ tcp_listen :: (text: string, backlog := 1024, reuse_port := false) -> Tcp_Listen
     return tcp_listen(address, backlog, reuse_port);
 }
 
-// The `tcp_listen` for an `Address` already built (`address_v4`, `parse_address`, `resolve`). It returns `.INVALID` for an address
-// with no family, and the system's error (`.ADDRESS_IN_USE`, `.PERMISSION_DENIED`, ...) when the bind or listen fails. The
-// listener is owned by the caller, who closes it with `close`. Its sockets are non-blocking and belong to the scheduler that
-// made them.
+// [tcp_listen] for an [Address] already built ([address_v4], [parse_address], `resolve`). It
+// returns `.INVALID` for an address with no family, and the system's error (`.ADDRESS_IN_USE`,
+// `.PERMISSION_DENIED`, ...) when the bind or listen fails. The listener is owned by the caller,
+// who closes it with [close]. Its sockets are non-blocking and belong to the scheduler that made
+// them.
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+//
+// main :: () {
+//     Io.io_run(() {
+//         listener, error := Io.tcp_listen(Io.address_v4(127, 0, 0, 1, 0));
+//         assert(error == .NONE);
+//         Io.close(listener);
+//
+//         _, invalid := Io.tcp_listen(Io.Address.{});
+//         assert(invalid == .INVALID);
+//     });
+// }
+// ```
 tcp_listen :: (address: Address, backlog := 1024, reuse_port := false) -> Tcp_Listener, Io_Error {
     current_fiber();
 

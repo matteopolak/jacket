@@ -20,9 +20,11 @@
 // "Strict" is the standard's definition: overlong forms, the surrogates U+D800 to U+DFFF, values
 // past U+10FFFF and truncated sequences are all invalid.
 
-// The character that starts at byte `at` of `text`, and its length in bytes. An invalid or cut-off
-// sequence gives `0, 0`, so a caller decides whether to stop, replace or skip one byte. `at` must
-// be inside `text`.
+// Decodes the character that starts at byte `at` of `text` and returns it with its length in bytes.
+//
+// An invalid or cut-off sequence gives `0, 0`, so the caller decides whether to stop, replace or
+// skip one byte. `at` must be inside `text`; the bounds check fails otherwise. The inverse is
+// [encode].
 //
 // - text: the bytes to read.
 // - at: the index of the first byte of the character.
@@ -77,7 +79,7 @@ decode :: (text: string, at: s64) -> code: u32, size: s64 {
 // Writes `code` as UTF-8 at `out` and returns the number of bytes, 1 to 4. The four bytes at
 // `out` are the most it touches. `code` is not checked: a surrogate is written as the three bytes
 // strict decoding rejects, and a value past U+10FFFF as four bytes that decode as nothing, so check
-// with `is_scalar` first when the source is not trusted.
+// with [is_scalar] first when the source is not trusted. The inverse is [decode].
 //
 // - code: the character to write.
 // - out: where to write; room for 4 bytes.
@@ -129,8 +131,8 @@ is_scalar :: inline (code: u32) -> bool {
     return code <= 0x10FFFF && (code < 0xD800 || code > 0xDFFF);
 }
 
-// Whether every byte of `bytes` belongs to a strictly valid UTF-8 sequence. ASCII runs are
-// skipped eight bytes at a time.
+// Whether every byte of `bytes` belongs to a strictly valid UTF-8 sequence. An empty slice is
+// valid. Takes `O(n)` time, with ASCII runs checked eight bytes at a time.
 //
 // - bytes: the text to check.
 //
@@ -188,7 +190,14 @@ is_valid :: (bytes: [] u8) -> bool {
     return true;
 }
 
-// `is_valid` for a string.
+// [is_valid] for a string.
+//
+// ```jai
+// Utf8 :: #import "Extensions/Utf8";
+//
+// assert(Utf8.is_valid(""));
+// assert(!Utf8.is_valid("\xc3")); // cut short
+// ```
 is_valid :: inline (text: string) -> bool {
     return is_valid(cast([] u8) text);
 }

@@ -13,8 +13,17 @@
 
 #scope_export
 
-// Makes SIGINT and SIGTERM set the flag `interrupted` reads, instead of ending the process. The
-// handler is installed once for the whole program; calling this again does nothing.
+// Makes SIGINT and SIGTERM set the flag [interrupted] reads, instead of ending the process. The
+// handler is installed once for the whole program; calling this again does nothing. Does nothing
+// on Windows.
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+//
+// Io.catch_interrupts();
+// Io.catch_interrupts(); // a second call changes nothing
+// assert(!Io.interrupted());
+// ```
 catch_interrupts :: () {
     #if OS != .WINDOWS {
         if compare_and_swap(*interrupt_installed, 0, 1) {
@@ -29,7 +38,7 @@ catch_interrupts :: () {
     }
 }
 
-// True once SIGINT or SIGTERM arrived after `catch_interrupts`, or `request_interrupt` ran.
+// True once SIGINT or SIGTERM arrived after [catch_interrupts], or [request_interrupt] ran.
 //
 // ```jai
 // Io :: #import "Extensions/Io";
@@ -44,12 +53,13 @@ interrupted :: () -> bool {
     return atomic_load(*interrupt_flag) != 0;
 }
 
-// Sets the flag by hand, as a signal would (tests and programs that stop themselves).
+// Sets the flag by hand, as a signal would (tests and programs that stop themselves). See
+// [interrupted] for an example.
 request_interrupt :: () {
     atomic_store(*interrupt_flag, 1);
 }
 
-// Clears the flag (tests that run several servers in one process).
+// Clears the flag (tests that run several servers in one process). See [interrupted].
 clear_interrupt :: () {
     atomic_store(*interrupt_flag, 0);
 }

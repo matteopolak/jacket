@@ -1,7 +1,16 @@
+// Appends the float in `format` to `builder`, as `print` does with a [FormatFloat].
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// print_float(*builder, formatFloat(3.14159, trailing_width = 2));
+// assert(builder_to_string(*builder,, temp) == "3.14");
+// ```
 print_float :: (builder: *String_Builder, format: FormatFloat) {
     emit_float(builder, format);
 }
 
+// [print_float], returning the number of bytes it appended.
 stb_print_float :: (builder: *String_Builder, format: FormatFloat) -> int {
     before := builder_string_length(builder);
     emit_float(builder, format);

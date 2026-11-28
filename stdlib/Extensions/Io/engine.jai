@@ -17,6 +17,7 @@
 
 NANOSECONDS_PER_MILLISECOND :: 1_000_000;
 
+// What a [Handle] refers to, which decides how the engine waits on it.
 Handle_Kind :: enum u8 {
     NONE;
     SOCKET;
@@ -33,6 +34,7 @@ Handle :: struct {
     kind: Handle_Kind;
 }
 
+// What an [Op] asks the engine to do.
 Op_Kind :: enum u8 {
     ACCEPT;
     CONNECT;
@@ -47,6 +49,7 @@ Op_Kind :: enum u8 {
     WAIT_READABLE;
 }
 
+// Where an [Op] is: on the free list, submitted, or finished.
 Op_State :: enum u8 {
     FREE;
     // Described but not yet submitted to the kernel (io_uring), or waiting for readiness (epoll,
@@ -120,6 +123,8 @@ Internal_Tag :: enum u8 {
     POOL_WAKE;
 }
 
+// One scheduler's link to the system's IO facility: the chosen [Backend], its state, and a free
+// list of operations.
 Engine :: struct {
     allocator: Allocator;
     backend: Backend;
@@ -167,6 +172,8 @@ Fd_State :: struct {
 
 // Starting and stopping
 
+// Picks the backend for `scheduler` (the one `JAI_IO_BACKEND` names, else the best available),
+// starts it and stores the engine on the scheduler.
 engine_start :: (scheduler: *Scheduler) {
     engine := New(Engine);
     engine.allocator = context.allocator;
@@ -204,6 +211,7 @@ engine_start :: (scheduler: *Scheduler) {
     }
 }
 
+// Stops the engine of `scheduler` and frees it, after pending lookups finish.
 engine_stop :: (scheduler: *Scheduler) {
     engine := scheduler.engine;
     if !engine return;
@@ -264,6 +272,7 @@ requested_backend :: () -> Backend {
 
 // Operations
 
+// An [Op] of `kind` on `handle`, taken from the engine's free list or allocated, in state `.PENDING`.
 new_op :: (engine: *Engine, kind: Op_Kind, handle: Handle) -> *Op {
     op := engine.free_ops;
     if op engine.free_ops = op.next;
@@ -278,6 +287,7 @@ new_op :: (engine: *Engine, kind: Op_Kind, handle: Handle) -> *Op {
     return op;
 }
 
+// Puts `op` back on the engine's free list.
 free_op :: (engine: *Engine, op: *Op) {
     op.state = .FREE;
     op.next = engine.free_ops;
@@ -390,6 +400,7 @@ begin_op :: (kind: Op_Kind, handle: Handle) -> *Op {
     return new_op(scheduler.engine, kind, handle);
 }
 
+// Returns an operation from [begin_op] to the running scheduler's free list.
 end_op :: (op: *Op) {
     scheduler := current_scheduler();
 

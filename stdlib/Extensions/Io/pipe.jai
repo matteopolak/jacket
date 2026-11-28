@@ -17,7 +17,7 @@
 // once the other end has closed (or shut down its writing side) and everything sent was read.
 // Both ends must be used by fibers of the same scheduler.
 
-// One direction of a pipe.
+// One direction of a pipe: the bytes written and not yet read. [Pipe_Stream] holds two.
 Pipe_Half :: struct {
     data: [..] u8;
     // Bytes of `data` already read.
@@ -30,7 +30,9 @@ Pipe_Half :: struct {
     readers: Waiter;
 }
 
-// One end of a pipe made by `make_pipe`.
+// One end of a pipe made by [make_pipe]: what one end writes, the other reads. Use it with [read],
+// [write] and [close], or as a [Reader] or [Writer] through [reader_of] and [writer_of]. See
+// [make_pipe] for an example.
 Pipe_Stream :: struct {
     inbound: *Pipe_Half;
     outbound: *Pipe_Half;

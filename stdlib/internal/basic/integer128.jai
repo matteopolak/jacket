@@ -10,7 +10,9 @@ U128 :: struct {
     high: u64;
 }
 
+// What a failed [U128] operation returns: every bit set.
 U128_ERROR :: U128.{ 0xffffffffffffffff, 0xffffffffffffffff };
+// What a failed [S128] operation returns, such as a division by zero: every bit set, which is -1.
 S128_ERROR :: S128.{ 0xffffffffffffffff, -1 };
 
 operator == :: inline (a: S128, b: S128) -> bool {
@@ -99,6 +101,14 @@ to_s128 :: (a: $T) -> S128 #modify {
     return .{ cast,no_check(u64) a, (cast,no_check(s64) a) >> 63 };
 }
 
+// Shifts the bits of `a` right by `x`, filling with zeros rather than the sign bit. A shift of 128
+// or more gives zero.
+//
+// ```jai
+// minus_one := S128.{ 0xffffffffffffffff, -1 };
+// shifted := logical_shift_right(minus_one, 64);
+// assert(shifted.low == 0xffffffffffffffff && shifted.high == 0);
+// ```
 logical_shift_right :: (a: S128, $$x: u8) -> S128 {
     if x == 0 return a;
     if x >= 128 return .{};
@@ -165,6 +175,8 @@ signed_divide_with_remainder :: inline (dividend: S128, divisor: S128) -> quotie
 }
 
 #if CPU == .X64 {
+    // Checks 128-bit unsigned division against known cases and, with `random_iterations`, against
+    // random ones from `random_get`. A wrong result fails an assert. X64 only.
     test_unsigned_division :: (random_iterations := 0, random_get: () -> u64 = null) {
         exercise_unsigned_division(0, 0, 1);
         exercise_unsigned_division(0xffffffffffffffff, 0, 1);

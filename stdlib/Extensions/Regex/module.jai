@@ -12,9 +12,12 @@
 //
 // // Compiled at run time, for a pattern only known then.
 // user_pattern := "[a-z]+";
-// text := "one two";
 // re, compiled, error := Regex.compile(user_pattern);
-// for Regex.find_all(*re, text) print("% ", it.text);
+// assert(compiled);
+// defer Regex.free_regex(*re);
+// words := Regex.find_all(*re, "one two");
+// defer array_free(words);
+// assert(words.count == 2 && words[1].text == "two");
 // ```
 //
 // Matching takes time linear in the text for every pattern: there are no backreferences and no
@@ -41,8 +44,18 @@ Options :: struct {
     unicode := true; // u: classes and \b are Unicode-aware; off, they are ASCII and match bytes
 }
 
-// A compiled pattern from [compile]. Plain copies of the struct share the compiled program and the search cache, which is not
-// safe to use from two threads at once: give each thread its own [clone].
+// A compiled pattern from [compile]. Free it with [free_regex].
+//
+// Plain copies of the struct share the compiled program and the search cache, which is not safe to
+// use from two threads at once: give each thread its own [clone].
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+//
+// re, _ := Regex.compile("(?<word>[a-z]+)-([0-9]+)");
+// defer Regex.free_regex(*re);
+// assert(re.group_count == 2 && re.names[1] == "word" && re.names[2] == "");
+// ```
 Regex :: struct {
     pattern: string;
     group_count: int; // capture groups, not counting group 0 (the whole match)
@@ -50,21 +63,50 @@ Regex :: struct {
     engine: *Engine;
 }
 
-// Why a pattern did not compile.
+// Why a pattern did not compile, from [compile].
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+//
+// _, ok, error := Regex.compile("ab(c");
+// assert(!ok && error.offset == 2);
+// ```
 Error :: struct {
     message: string; // `unclosed group: expected `)``, in temporary storage
     offset: int; // byte offset in the pattern where the problem is
 }
 
-// One match: its byte range and a view of the matched text.
+// One match: its byte range and a view of the matched text, from [find] or [find_all].
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+//
+// re, _ := Regex.compile("o+");
+// defer Regex.free_regex(*re);
+// match, _ := Regex.find(*re, "foo");
+// assert(match.start == 1 && match.end == 3 && match.text == "oo");
+// ```
 Match :: struct {
     start: int;
     end: int;
     text: string; // the matched text, a view into the searched string
 }
 
-// Where each group matched. Group 0 is the whole match; a group that did not take part has
-// start -1. Read it with [group] and [span].
+// Where each group matched, from [captures] or [captures_all]. Group 0 is the whole match; a group
+// that did not take part has start -1. Read it with [group] and [span].
+//
+// `slots` is allocated with the context allocator: free it with `array_free(caps.slots)`. The
+// strings point into the searched text and the regex.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+//
+// re, _ := Regex.compile("(a)|(b)");
+// defer Regex.free_regex(*re);
+// caps, _ := Regex.captures(*re, "b");
+// defer array_free(caps.slots);
+// assert(caps.slots.count == 6 && caps.slots[2] == -1); // group 1 did not take part
+// ```
 Captures :: struct {
     text: string; // the whole searched string
     slots: [] int; // start and end of each group, in pairs
@@ -262,13 +304,14 @@ find_all :: (re: *Regex, text: string) -> [..] Match {
 }
 
 // The leftmost match at or after `start`, with where each group matched. Read the groups with
-// [group] and [span].
+// [group] and [span], and free the result's `slots` with `array_free`.
 //
 // ```jai
 // Regex :: #import "Extensions/Regex";
 //
 // re, _ := Regex.compile("(?<key>[a-z]+)=(?<value>[0-9]+)");
 // caps, found := Regex.captures(*re, "retries=3");
+// defer array_free(caps.slots);
 // assert(found);
 // key, _ := Regex.group(caps, "key");
 // assert(key == "retries");
@@ -280,7 +323,8 @@ captures :: (re: *Regex, text: string, start := 0) -> Captures, bool {
     return captures_of(re.engine, text, s, e), true;
 }
 
-// [captures] for every match, as [find_all] finds them.
+// [captures] for every match, as [find_all] finds them. Free each element's `slots` and then the
+// array.
 //
 // ```jai
 // Regex :: #import "Extensions/Regex";
@@ -290,6 +334,8 @@ captures :: (re: *Regex, text: string, start := 0) -> Captures, bool {
 // assert(all.count == 2);
 // value, _ := Regex.group(all[1], 2);
 // assert(value == "2");
+// for all array_free(it.slots);
+// array_free(all);
 // Regex.free_regex(*re);
 // ```
 captures_all :: (re: *Regex, text: string) -> [..] Captures {
@@ -305,6 +351,7 @@ captures_all :: (re: *Regex, text: string) -> [..] Captures {
 //
 // re, _ := Regex.compile("(a)(x)?");
 // caps, _ := Regex.captures(*re, "ab");
+// defer array_free(caps.slots);
 // first, took_part := Regex.group(caps, 1);
 // assert(took_part && first == "a");
 // _, took_part = Regex.group(caps, 2);
@@ -322,7 +369,21 @@ group :: (caps: Captures, index: int) -> string, bool {
     return slice(caps.text, s, e - s), true;
 }
 
-// The text of the group called `name`, and whether it took part in the match.
+// The text of the group called `name`, and whether it took part in the match. A name the pattern
+// does not have gives `"", false`.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+//
+// re, _ := Regex.compile("(?<user>[a-z]+)@");
+// defer Regex.free_regex(*re);
+// caps, _ := Regex.captures(*re, "ada@example");
+// defer array_free(caps.slots);
+// user, found := Regex.group(caps, "user");
+// assert(found && user == "ada");
+// _, found = Regex.group(caps, "host");
+// assert(!found);
+// ```
 group :: (caps: Captures, name: string) -> string, bool {
     for caps.names if it.count && it == name return group(caps, it_index);
     return "", false;
@@ -335,6 +396,7 @@ group :: (caps: Captures, name: string) -> string, bool {
 //
 // re, _ := Regex.compile("b+");
 // caps, _ := Regex.captures(*re, "abbc");
+// defer array_free(caps.slots);
 // start, end := Regex.span(caps, 0);
 // assert(start == 1 && end == 3);
 // Regex.free_regex(*re);
@@ -344,7 +406,8 @@ span :: (caps: Captures, index: int) -> start: int, end: int {
     return caps.slots[2 * index], caps.slots[2 * index + 1];
 }
 
-// Replaces the first match. In `replacement`, `$1` / `${1}` is a group's text, `$name` /
+// Returns a copy of `text` with the first match replaced, allocated with the context allocator for
+// the caller to free. Text with no match is copied unchanged. In `replacement`, `$1` / `${1}` is a group's text, `$name` /
 // `${name}` a named group's, and `$$` a dollar sign; a group that did not match (or does not
 // exist) gives "". `$name` takes the longest run of letters, digits and `_`, so write
 // `${1}st` rather than `$1st`.
@@ -360,7 +423,8 @@ replace :: (re: *Regex, text: string, replacement: string) -> string {
     return replace_n(re, text, replacement, 1);
 }
 
-// Replaces every match; `replacement` works as in [replace].
+// Returns a copy of `text` with every match replaced; `replacement` and the result work as in
+// [replace].
 //
 // ```jai
 // Regex :: #import "Extensions/Regex";
@@ -373,7 +437,8 @@ replace_all :: (re: *Regex, text: string, replacement: string) -> string {
     return replace_n(re, text, replacement, -1);
 }
 
-// Replaces the first `limit` matches (all of them when limit < 0).
+// Returns a copy of `text` with the first `limit` matches replaced (all of them when limit < 0), as
+// [replace] does.
 //
 // - replacement: the new text; `$1` or `${1}` stands for a group and `$name` or `${name}` for a named
 //   one.
@@ -412,7 +477,8 @@ replace_n :: (re: *Regex, text: string, replacement: string, limit: int) -> stri
     return builder_to_string(*builder);
 }
 
-// The pieces of `text` between matches.
+// The pieces of `text` between matches, as views into `text`, in a new array the caller frees. A
+// match at either end gives an empty piece, so `n` matches give `n + 1` pieces.
 //
 // ```jai
 // Regex :: #import "Extensions/Regex";
@@ -436,7 +502,8 @@ split :: (re: *Regex, text: string) -> [..] string {
     return out;
 }
 
-// `text` with every regex metacharacter escaped, so it matches literally.
+// `text` with every regex metacharacter escaped, so it matches literally. The result is allocated
+// with the context allocator; the caller frees it.
 //
 // ```jai
 // Regex :: #import "Extensions/Regex";

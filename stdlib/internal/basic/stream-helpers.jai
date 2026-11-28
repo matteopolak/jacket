@@ -21,6 +21,15 @@ print_bytes :: (a: *void, length: int, format_string := "% ") {
     print("\n");
 }
 
+// Copies the first `length` bytes of `input` to `s` and removes them from `input`. Returns `false`,
+// changing nothing, when `input` has fewer than `length` bytes or `length` is negative.
+//
+// ```jai
+// input := "abcdef";
+// bytes: [3] u8;
+// assert(consume_u8_and_length(*input, bytes.data, 3) && input == "def" && bytes[2] == #char "c");
+// assert(!consume_u8_and_length(*input, bytes.data, 4));
+// ```
 consume_u8_and_length :: (input: *string, s: *u8, length: s64) -> bool {
     assert(input != null);
     if length < 0 || length > input.count return false;

@@ -34,6 +34,8 @@ array_reserve :: inline (array: *Resizable_Array, desired_items: s64, element_si
     array.allocated = desired_items;
 } @GrowsArray
 
+// Makes room for one more element in `array` when it is full, doubling its capacity (at least 8).
+// A failed allocation fails an assert.
 maybe_grow :: inline (array: *Resizable_Array, element_size: s64) {
     if array.count < array.allocated return;
     capacity := max(cast(s64) 8, array.allocated * 2);
@@ -508,10 +510,24 @@ array_resize :: (array: *[] $T, new_count: s64, $initialize := true) {
     array.count = new_count;
 }
 
+// Sets `data.allocator` to the context allocator, or the default allocator when the context has
+// none, so later growth and frees use it.
 remember_allocators :: (data: *$T) {
     data.allocator = ifx context.allocator.proc then context.allocator else context.default_allocator;
 }
 
+// A dynamic array that takes over the memory of `a`: same data, count and capacity, no copy.
+//
+// The array frees or grows that memory with the context allocator, so `a` must have been allocated
+// with it. With `set_allocators = false` the allocator is left unset for the caller to fill in.
+//
+// ```jai
+// fixed := NewArray(3, int);
+// grown := resizable(fixed);
+// defer array_free(grown);
+// array_add(*grown, 4);
+// assert(grown.count == 4);
+// ```
 resizable :: (a: [] $T, set_allocators := true) -> [..] T {
     result: [..] T = ---;
     result.data = a.data;

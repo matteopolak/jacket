@@ -30,7 +30,7 @@ parse_token :: (line: *string, delimiters := DEFAULT_DELIMITERS, spaces := DEFAU
     return slice(rest, 0, count), true;
 }
 
-// Reads the next token as `parse_token` does and returns it with whether it is equal to `match`.
+// Reads the next token as [parse_token] does and returns it with whether it is equal to `match`.
 // The token is removed from `line` whether or not it matches.
 //
 // ```jai
@@ -43,7 +43,7 @@ match_token :: (line: *string, match: string, delimiters := DEFAULT_DELIMITERS, 
     return token, ok && token == match;
 }
 
-// Like `match_token`, with ASCII letters matched in either case.
+// Like [match_token], with ASCII letters matched in either case.
 //
 // ```jai
 // line := "IF x";

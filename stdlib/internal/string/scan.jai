@@ -59,7 +59,7 @@ scan :: (format: string, text: string) -> bool, [] Any {
 // Reads values from `text` as `format` describes, storing them through the pointers in `args`.
 // Returns whether the whole text matched.
 //
-// The directives are those of `scan`. Each
+// The directives are those of [scan]. Each
 // directive stores into the next argument, which must be a pointer to a number, a `bool` or a string.
 // A number that does not fit the target (a `256` into a `u8`) makes the call fail, as does a missing
 // or null argument. On failure the targets read before the mismatch keep their new values and the

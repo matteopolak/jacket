@@ -1,3 +1,7 @@
+// The layout of `context.temporary_storage` as Basic uses it: the first page is the storage the
+// context starts with, and requests that do not fit go to overflow pages taken from
+// `overflow_allocator` (the context allocator by default). Resetting frees the overflow pages and
+// keeps the first page.
 Temporary_Storage_Paged_Alloc :: struct {
     #as using base: Temporary_Storage;
     #overlay (implementation_data) using derived: struct {
@@ -9,21 +13,30 @@ Temporary_Storage_Paged_Alloc :: struct {
     }
 }
 
+// A position in temporary storage, from [get_temporary_storage_mark]. Pass it to
+// [set_temporary_storage_mark] to free what was allocated after it.
 Temporary_Storage_State :: struct {
     top_overflow_page: *Overflow_Page;
     current_page_bytes_occupied: s64;
     total_bytes_occupied: s64;
 }
 
+// The header of an overflow page of temporary storage. The page's bytes follow it, after the header
+// rounded up to [ALIGNED_OVERFLOW_PAGE_ALLOCATION] bytes.
 Overflow_Page :: struct {
     next: *Overflow_Page;
     allocator: Allocator;
     size: s64;
 }
 
+// The alignment of the first byte after an [Overflow_Page] header.
 ALIGNED_OVERFLOW_PAGE_ALLOCATION :: 32;
+// The byte freed temporary storage is filled with by [set_temporary_storage_mark] when Basic's
+// `TEMP_ALLOCATOR_OVERWRITE_MEMORY` parameter is on, so a stale pointer reads garbage.
 SET_STORAGE_MARK_STAMP :: 0xda;
+// The byte [reset_temporary_storage] fills the first page with when `TEMP_ALLOCATOR_OVERWRITE_MEMORY` is on.
 RESET_STORAGE_STAMP :: 0xdb;
+// The byte an overflow page is filled with before it is freed, when `TEMP_ALLOCATOR_OVERWRITE_MEMORY` is on.
 FREE_PAGE_STAMP :: 0xdc;
 // The temporary allocator: a scratch heap that is never freed piece by piece. Everything in it goes away together when
 // `reset_temporary_storage` runs, which a program typically does once per frame or request. Use it for short-lived results
@@ -36,7 +49,7 @@ FREE_PAGE_STAMP :: 0xdc;
 // reset_temporary_storage();
 // ```
 temp :: Allocator.{ temporary_allocator_proc, null };
-// Another name for `temp`.
+// Another name for [temp].
 temporary_allocator :: temp;
 
 // Allocates `size` bytes in temporary storage. They are not cleared, must not be freed, and last until the temporary
@@ -51,7 +64,7 @@ talloc :: inline (size: s64) -> *void {
     return temporary_allocator_proc(.ALLOCATE, size, 0, null, null);
 }
 
-// Another name for `talloc`.
+// Another name for [talloc].
 temporary_alloc :: inline (size: s64) -> *void {
     return talloc(size);
 }
@@ -103,6 +116,15 @@ temp_c_string :: (s: string) -> *u8 {
     return result;
 }
 
+// The allocator procedure behind [temp]. It allocates from `context.temporary_storage`, ignores
+// `.FREE`, and grows the newest allocation in place on `.RESIZE` when there is room. With no
+// temporary storage in the context it passes the request to the context allocator.
+//
+// ```jai
+// bytes := cast(*u8) temporary_allocator_proc(.ALLOCATE, 16, 0, null, null);
+// assert(bytes != null);
+// reset_temporary_storage();
+// ```
 temporary_allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
     if mode == .CAPS {
         if old_memory {
@@ -165,10 +187,13 @@ temporary_allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_size
     return result;
 }
 
+// The bytes to allocate for an overflow page that holds `data_size` bytes.
 get_size_including_overflow_page_header :: (data_size: s64) -> s64 {
     return align_forward(size_of(Overflow_Page), 32) + data_size;
 }
 
+// Adds an overflow page of at least `minimum_size` bytes to `ts` and makes it current. Returns
+// `false` when the overflow allocator fails.
 add_new_page :: (ts: *Temporary_Storage_Paged_Alloc, minimum_size: s64) -> bool {
     allocator := ts.overflow_allocator;
     if !allocator.proc || allocator.proc == temporary_allocator_proc {
@@ -191,6 +216,8 @@ add_new_page :: (ts: *Temporary_Storage_Paged_Alloc, minimum_size: s64) -> bool 
     return true;
 }
 
+// Frees the overflow pages of `ts` newer than `page`, or all of them when `page` is null, and makes
+// `page` (or the first page) current again.
 free_pages_down_to :: (ts: *Temporary_Storage_Paged_Alloc, page: *Overflow_Page) {
     if !ts.original_data && !ts.overflow_pages {
         ts.original_data = ts.data;
@@ -271,6 +298,9 @@ auto_release_temp :: (loc := #caller_location) #expand {
     `defer set_temporary_storage_mark(mark, loc);
 }
 
+// Frees everything in the temporary storage `_ts`: its overflow pages are released and its first
+// page is empty again. A null `_ts` does nothing. [reset_temporary_storage] with no argument does
+// this to `context.temporary_storage`.
 reset_temporary_storage :: (_ts: *Temporary_Storage) {
     if !_ts return;
 
@@ -289,7 +319,8 @@ reset_temporary_storage :: (_ts: *Temporary_Storage) {
     ts.total_bytes_occupied = 0;
 }
 
-// Frees everything in temporary storage at once. Any pointer or string taken from it is invalid afterwards.
+// Frees everything in temporary storage at once. Any pointer or string taken from it is invalid
+// afterwards. To free only part of it, use [get_temporary_storage_mark] and [set_temporary_storage_mark].
 //
 // ```jai
 // a := tprint("one");

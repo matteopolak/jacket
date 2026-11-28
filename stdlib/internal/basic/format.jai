@@ -281,10 +281,19 @@ print_to_builder :: (builder: *String_Builder, format_string: string, args: ..An
     return !builder.failed;
 } @PrintLike @Opens
 
+// Whether `c` is an ASCII digit, `0` to `9`.
 my_is_digit :: (c: s64) -> bool {
     return c >= #char "0" && c <= #char "9";
 }
 
+// Reads the decimal digits of `s` from `cursor` and returns the index after them and their value.
+// A value too large for `s64` saturates at its maximum. With no digit at `cursor` the result is
+// `cursor, 0`.
+//
+// ```jai
+// end, value := parse_number("x=42;", 2);
+// assert(end == 4 && value == 42);
+// ```
 parse_number :: (s: string, cursor: s64) -> (end_cursor: s64, sum: s64) {
     assert(cursor >= 0 && cursor <= s.count);
     index := cursor;

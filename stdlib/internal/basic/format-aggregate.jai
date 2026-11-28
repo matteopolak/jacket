@@ -1,3 +1,5 @@
+// The member of the struct `info` that is a [Formatter] included with `#as using`, or null. Such a
+// struct is printed by that formatter's settings.
 isFormatter :: (info: *Type_Info_Struct) -> *Type_Info_Struct_Member {
     for *member: info.members {
         if member.type == type_info(Formatter) && (member.flags & .AS) != 0 return member;
@@ -6,11 +8,27 @@ isFormatter :: (info: *Type_Info_Struct) -> *Type_Info_Struct_Member {
     return null;
 }
 
+// Appends the spaces for the current nesting depth of a struct printed with `format`.
 append_indentation :: (builder: *String_Builder, format: *FormatStruct) {
     style := formatter_style();
     formatter_repeat(builder, 32, cast(s64) style.indentation_depth * cast(s64) format.indentation_width);
 }
 
+// Prints the struct at `base_pointer`, of type `info`, to `builder` as `print` does. With no
+// `format` it uses the context's default struct format.
+//
+// ```jai
+// Point :: struct {
+//     x: int;
+//     y: int;
+// }
+// p := Point.{ 1, 2 };
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// append_struct_info(*builder, type_info(Point), *p);
+// text := builder_to_string(*builder,, temp);
+// assert(text == tprint("%", p));
+// ```
 append_struct_info :: (builder: *String_Builder, info: *Type_Info_Struct, base_pointer: *void, format: *FormatStruct = null) {
     style := formatter_style();
     selected := style.default_format_struct;
@@ -20,6 +38,9 @@ append_struct_info :: (builder: *String_Builder, info: *Type_Info_Struct, base_p
     render_struct(builder, info, base_pointer, selected, style);
 }
 
+// Prints the array in `any`, of type `info_array`, to `builder` with `format`, as `print` does.
+//
+// - may_be_uninitialized: print an array whose data pointer may be garbage as its count alone.
 print_array :: (builder: *String_Builder, any: Any, info_array: *Type_Info_Array, format: FormatArray, may_be_uninitialized := false) {
     render_array(builder, any, info_array, format, may_be_uninitialized, formatter_style());
 }

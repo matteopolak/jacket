@@ -1,3 +1,7 @@
+// The start of an allocator call when Basic's `MEMORY_DEBUGGER` parameter is on: it starts the
+// memory debugger unless the call is from the debugger itself, for temporary storage, or in
+// compile-time code for another target. Expects a variable `allocator` in the calling scope, and
+// returns from the caller in those cases.
 Preamble :: () #expand {
     #if OS != BUILD_OS || CPU != BUILD_CPU `return;
     if context.inside_memory_debugger `return;

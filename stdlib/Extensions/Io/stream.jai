@@ -90,8 +90,25 @@ Reader :: struct {
     wait_proc: Wait_Proc;
 }
 
-// A sink for bytes, the counterpart of `Reader`: a pointer to its data, a `write_proc` and an optional `close_proc`. `writer_of`
-// makes one for a file, a TCP stream or a pipe end. It is a handle that owns nothing; `close` on it closes the sink.
+// A sink for bytes, the counterpart of [Reader]: a pointer to its data, a `write_proc` and an
+// optional `close_proc`. [writer_of] makes one for a file, a TCP stream or a pipe end. It is a
+// handle that owns nothing; [close] on it closes the sink.
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     near, far := Io.make_pipe();
+//     defer Io.close(near);
+//     out := Io.writer_of(far);
+//     Io.write(out, "via a writer");
+//     Io.close(out); // closes `far`
+//
+//     buffer: [12] u8;
+//     count, _ := Io.read_full(near, buffer);
+//     assert(count == 12);
+// });
+// ```
 Writer :: struct {
     data: *void;
     write_proc: Write_Proc;
@@ -369,7 +386,8 @@ reader_of :: (stream: Tcp_Stream) -> Reader {
     return .{ cast(*void) stream.handle.fd, tcp_read_proc, tcp_close_proc, tcp_wait_proc };
 }
 
-// One end of a pipe from `make_pipe` as a `Reader`. The reader points at the pipe end, which must outlive it.
+// One end of a pipe from [make_pipe] as a [Reader]. The reader points at the pipe end, which must
+// outlive it. See [Line_Reader] for an example.
 reader_of :: (stream: *Pipe_Stream) -> Reader {
     return .{ stream, pipe_read_proc, pipe_close_proc, null };
 }

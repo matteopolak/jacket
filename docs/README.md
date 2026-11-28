@@ -54,6 +54,7 @@ One page per topic in [language/](language/), describing what jaic does: [module
 
 ## Standard library
 
+- [Writing stdlib doc comments](stdlib/doc-comments.md): what each module and item comment says, and how examples are checked.
 - [Extensions](extensions/README.md): one page per module that only Jacket has (Http, Json, Toml, Time, Postgres, UI and the rest).
 - Postgres: [overview](postgres/design.md), [typed queries](postgres/typed-queries.md), [ORM and COPY](postgres/orm.md), [schema and diff](postgres/schema.md), [migrations](postgres/migrations.md), [managed server](postgres/managed.md), [conformance and load test](postgres/conformance.md).
 - Internals: [default allocator](stdlib/default-allocator.md), [memory debugger](stdlib/memory-debugger.md), [native layout](stdlib/native-layout.md), [float conversion](stdlib/float-conversion.md), [crypto helpers](stdlib/crypto.md), [MeowHash input safety](stdlib/meow-hash-safety.md), [ICO files](stdlib/ico-files.md), [GetRect default font](stdlib/getrect-default-font.md).

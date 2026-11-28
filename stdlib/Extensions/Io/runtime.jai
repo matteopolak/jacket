@@ -104,7 +104,8 @@ name_of_backend :: (backend: Backend) -> string {
     return "none";
 }
 
-// What the engine found it could use. Backends fill in what applies.
+// What the engine found it could use, from [capabilities]. Backends fill in what applies; every
+// field is zero on the others.
 Capabilities :: struct {
     // io_uring: the setup flags the kernel accepted.
     single_issuer: bool;
@@ -136,7 +137,8 @@ backend :: () -> Backend {
     return scheduler.engine.backend;
 }
 
-// `backend()` as text: "io_uring", "epoll", "kqueue", "iocp", "ioring" or "none".
+// [backend] as text: "io_uring", "epoll", "kqueue", "iocp", "ioring" or "none", the names
+// `JAI_IO_BACKEND` takes. See [backend] for an example.
 backend_name :: () -> string {
     return name_of_backend(backend());
 }
@@ -144,13 +146,30 @@ backend_name :: () -> string {
 // Why the running scheduler does not use the first choice on this system (for example "io_uring is
 // disabled here" when it fell back to epoll). Empty when it does, and always empty when a backend
 // was named in `JAI_IO_BACKEND`: a named backend that cannot be had stops the program instead.
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     if Io.backend_reason().count print("using %: %\n", Io.backend_name(), Io.backend_reason());
+// });
+// ```
 backend_reason :: () -> string {
     scheduler := current_scheduler();
 
     return scheduler.engine.fallback_reason;
 }
 
-// What the engine found it could use.
+// What the running scheduler's engine found it could use. See [Capabilities].
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     caps := Io.capabilities();
+//     if Io.backend() != .IO_URING assert(caps.kernel_ops == 0);
+// });
+// ```
 capabilities :: () -> Capabilities {
     scheduler := current_scheduler();
 
@@ -206,8 +225,21 @@ io_run_threads :: (count: s64, proc: $P) {
     run_threads(count, entry, *block);
 }
 
-// The `io_run_threads` for a procedure that takes one argument: `data` is copied for the first
-// fiber of every scheduler.
+// [io_run_threads] for a procedure that takes one argument: `data` is copied for the first fiber
+// of every scheduler.
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+// Atomics :: #import "Atomics";
+//
+// main :: () {
+//     total: s32;
+//     Io.io_run_threads(2, (total: *s32) {
+//         Atomics.atomic_add(total, 1);
+//     }, *total);
+//     assert(total == 2);
+// }
+// ```
 io_run_threads :: (count: s64, proc: $P, data: $T) {
     Block :: struct {
         proc: P;
@@ -356,7 +388,8 @@ scheduler_local :: (key: *void) -> *void {
 }
 
 // Stores `value` for `key` on the running scheduler; `drop` (if not null) gets it when the
-// scheduler ends. Replaces an earlier value for the key without dropping it.
+// scheduler ends. Replaces an earlier value for the key without dropping it. Read it back with
+// [scheduler_local], which has an example.
 set_scheduler_local :: (key: *void, value: *void, drop: Local_Drop) {
     scheduler := current_scheduler();
 

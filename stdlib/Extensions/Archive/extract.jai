@@ -1,6 +1,25 @@
-// Extracts regular files/directories under an existing destination, rejecting all archive links.
-// Existing files are never overwritten. On error, earlier outputs remain; discard the destination.
-// Example: error := extract(*archive, "unpack", Archive_Limits.{});
+// Writes the files and directories of `a` under the existing folder `dest_dir`.
+//
+// Every entry is checked before anything is written: a link or special entry, a name that is
+// absolute, climbs out with `..` or holds `\`, `:` or NUL, two entries with the same path, or a file used as a folder fails
+// with `.PATH` or `.DUPLICATE`, and sizes past `limits` with `.LIMIT`. Folders are opened without
+// following symlinks and files are created new, so an existing file is never overwritten (`.IO`).
+// On an error part way through, the files written so far remain; discard the destination. macOS
+// and Linux only; elsewhere it fails with `.UNSUPPORTED`.
+//
+// ```jai,no_run
+// #import "File";
+//
+// items := Archive_Item.[.{ name = "docs/", kind = .DIRECTORY }, .{ name = "docs/a.txt", data = cast([] u8) "hi" }];
+// bytes, _ := encode_archive(items, .ZIP);
+// defer free(bytes.data);
+// archive, _ := read_archive(bytes, .ZIP);
+// defer free_archive(*archive);
+//
+// make_directory_if_it_does_not_exist("unpacked");
+// error := extract(*archive, "unpacked");
+// assert(error.kind == .NONE);
+// ```
 extract :: (a: *Archive, dest_dir: string, limits := Archive_Limits.{}) -> Archive_Error {
     if !valid_limits(limits) || a.entries.count > limits.max_entries return problem(.LIMIT, "extraction entry limit");
 
